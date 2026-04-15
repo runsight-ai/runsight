@@ -2,7 +2,6 @@
 Tests for WorkflowState data model.
 """
 
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 
 
@@ -11,19 +10,10 @@ def test_workflow_state_initialization():
     state = WorkflowState()
     assert state.execution_log == []
     assert state.shared_memory == {}
-    assert state.current_task is None
     assert state.results == {}
     assert state.metadata == {}
     assert state.total_cost_usd == 0.0
     assert state.total_tokens == 0
-
-
-def test_workflow_state_with_task():
-    """Verify WorkflowState accepts Task objects."""
-    task = Task(id="t1", instruction="Do work")
-    state = WorkflowState(current_task=task)
-    assert state.current_task.id == "t1"
-    assert state.current_task.instruction == "Do work"
 
 
 def test_workflow_state_immutability():
@@ -43,7 +33,6 @@ def test_workflow_state_model_fields():
     required = {
         "execution_log",
         "shared_memory",
-        "current_task",
         "results",
         "metadata",
         "total_cost_usd",
@@ -54,11 +43,9 @@ def test_workflow_state_model_fields():
 
 def test_workflow_state_with_all_fields():
     """Verify WorkflowState can be initialized with all fields."""
-    task = Task(id="t1", instruction="Test task")
     state = WorkflowState(
         execution_log=[{"role": "system", "content": "Hello"}],
         shared_memory={"key": "value"},
-        current_task=task,
         results={"block1": BlockResult(output="output1")},
         metadata={"blueprint_name": "test_blueprint"},
         total_cost_usd=0.05,
@@ -68,7 +55,6 @@ def test_workflow_state_with_all_fields():
     assert len(state.execution_log) == 1
     assert state.execution_log[0]["role"] == "system"
     assert state.shared_memory["key"] == "value"
-    assert state.current_task.id == "t1"
     assert state.results["block1"].output == "output1"
     assert state.metadata["blueprint_name"] == "test_blueprint"
     assert state.total_cost_usd == 0.05

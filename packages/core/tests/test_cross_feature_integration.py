@@ -16,7 +16,7 @@ from runsight_core import LinearBlock, LoopBlock
 from runsight_core.artifacts import InMemoryArtifactStore
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -28,7 +28,7 @@ from runsight_core.state import BlockResult, WorkflowState
 def _make_mock_runner(prompt_fn=None):
     """Create a mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
     runner._build_prompt = MagicMock(
         side_effect=prompt_fn
@@ -84,8 +84,8 @@ class StatefulArtifactBlock(BaseBlock):
         history_key = f"{self.block_id}_{self.soul.id}"
         history = list(state.conversation_histories.get(history_key, []))
 
-        result = await self.runner.execute_task(state.current_task, self.soul, messages=history)
-        prompt = self.runner._build_prompt(state.current_task)
+        result = await self.runner.execute("", None, self.soul, messages=history)
+        prompt = ""
         updated_history = history + [
             {"role": "user", "content": prompt},
             {"role": "assistant", "content": result.output},
@@ -154,8 +154,8 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
         history_key = f"{self.block_id}_{self.soul.id}"
         history = list(state.conversation_histories.get(history_key, []))
 
-        result = await self.runner.execute_task(state.current_task, self.soul, messages=history)
-        prompt = self.runner._build_prompt(state.current_task)
+        result = await self.runner.execute("", None, self.soul, messages=history)
+        prompt = ""
         updated_history = history + [
             {"role": "user", "content": prompt},
             {"role": "assistant", "content": result.output},
@@ -223,17 +223,16 @@ class TestStatefulLoopWithArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
         store = InMemoryArtifactStore(run_id="test-run-1")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Analysis round {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlock("analyze", soul, runner)
         loop = LoopBlock(
@@ -243,7 +242,7 @@ class TestStatefulLoopWithArtifacts:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
         result_state = await loop.execute(state, blocks=blocks)
 
         # -- Conversation history: 3 rounds * 2 messages = 6 --
@@ -282,17 +281,16 @@ class TestStatefulLoopWithArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
         store = InMemoryArtifactStore(run_id="test-run-refs")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Round {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlock("analyze", soul, runner)
         loop = LoopBlock(
@@ -302,7 +300,7 @@ class TestStatefulLoopWithArtifacts:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
         result_state = await loop.execute(state, blocks=blocks)
 
         # The final BlockResult should have artifact_ref from the last round
@@ -330,17 +328,16 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        task = Task(id="t1", instruction="Write report")
         store = InMemoryArtifactStore(run_id="test-carry")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "writer", f"draft_v{call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlock("write", soul, runner)
         config = CarryContextConfig(mode="last", inject_as="prev_draft")
@@ -352,7 +349,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         )
         blocks = {"write": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
         result_state = await loop.execute(state, blocks=blocks)
 
         # carry_context should inject string values, not BlockResult objects
@@ -377,17 +374,16 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        task = Task(id="t1", instruction="Write report")
         store = InMemoryArtifactStore(run_id="test-carry-all")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "writer", f"iteration_{call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlock("write", soul, runner)
         config = CarryContextConfig(mode="all", inject_as="all_drafts")
@@ -399,7 +395,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         )
         blocks = {"write": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
         result_state = await loop.execute(state, blocks=blocks)
 
         # mode="all" injects a list of dicts (one per round)
@@ -426,17 +422,16 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        task = Task(id="t1", instruction="Write report")
         store = InMemoryArtifactStore(run_id="test-ref-access")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "writer", f"output_{call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlock("write", soul, runner)
         config = CarryContextConfig(mode="last", inject_as="ctx")
@@ -448,7 +443,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         )
         blocks = {"write": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
         result_state = await loop.execute(state, blocks=blocks)
 
         # BlockResult in state.results retains full artifact_ref
@@ -482,17 +477,16 @@ class TestStatefulWithWindowingAndArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
         store = InMemoryArtifactStore(run_id="test-windowing")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Response {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlockWithWindowing("analyze", soul, runner)
         loop = LoopBlock(
@@ -508,7 +502,7 @@ class TestStatefulWithWindowingAndArtifacts:
                 return msgs[-4:]
             return msgs
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
 
         with patch(
             "runsight_core.memory.windowing.prune_messages",
@@ -546,17 +540,16 @@ class TestStatefulWithWindowingAndArtifacts:
         """Windowing + carry_context + artifacts all working together."""
         runner = _make_mock_runner()
         soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
-        task = Task(id="t1", instruction="Write story")
         store = InMemoryArtifactStore(run_id="test-all-features")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "writer", f"Draft {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = StatefulArtifactBlockWithWindowing("write", soul, runner)
         config = CarryContextConfig(mode="all", inject_as="all_rounds")
@@ -574,7 +567,7 @@ class TestStatefulWithWindowingAndArtifacts:
                 return msgs[-2:]
             return msgs
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
 
         with patch(
             "runsight_core.memory.windowing.prune_messages",
@@ -614,17 +607,16 @@ class TestStatefulWithWindowingAndArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        task = Task(id="t1", instruction="Analyze")
         store = InMemoryArtifactStore(run_id="test-llm-history")
 
         messages_received_per_call = []
 
-        async def _capture_side_effect(t, s, **kwargs):
+        async def _capture_side_effect(instruction, context, soul, **kwargs):
             msgs = kwargs.get("messages", [])
             messages_received_per_call.append(list(msgs))
             return _make_result("t1", "analyst", f"Output {len(messages_received_per_call)}")
 
-        runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
+        runner.execute = AsyncMock(side_effect=_capture_side_effect)
 
         inner = StatefulArtifactBlockWithWindowing("analyze", soul, runner)
         loop = LoopBlock(
@@ -640,7 +632,7 @@ class TestStatefulWithWindowingAndArtifacts:
                 return msgs[-2:]
             return msgs
 
-        state = WorkflowState(current_task=task, artifact_store=store)
+        state = WorkflowState(artifact_store=store)
 
         with patch(
             "runsight_core.memory.windowing.prune_messages",

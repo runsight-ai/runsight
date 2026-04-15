@@ -7,7 +7,6 @@ from typing import Annotated, Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from runsight_core.artifacts import ArtifactStore
-from runsight_core.primitives import Task
 
 
 class BlockResult(BaseModel):
@@ -47,10 +46,6 @@ class WorkflowState(BaseModel):
     shared_memory: Dict[str, Any] = Field(
         default_factory=dict,
         description="Cross-block shared data. Keys: arbitrary strings. Values: JSON-serializable.",
-    )
-    current_task: Optional[Task] = Field(
-        default=None,
-        description="Active task being processed. Blocks read this to determine their work.",
     )
     results: Dict[str, BlockResult] = Field(
         default_factory=dict,

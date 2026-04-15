@@ -35,7 +35,7 @@ workflow:
     expect(research.id).toBe("research");
     expect(research.type).toBe("start");
     expect(review.id).toBe("review");
-    expect(review.type).toBe("task");
+    expect(review.type).toBe("soul");
     expect(review.position.x).toBeGreaterThan(research.position.x);
   });
 

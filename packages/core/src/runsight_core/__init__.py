@@ -12,7 +12,7 @@ from .blocks.registry import BlockFactory, BlockRegistry
 from .blocks.synthesize import SynthesizeBlock
 from .blocks.workflow_block import WorkflowBlock
 from .identity import ENTITY_ID_PATTERN, RESERVED_IDS, EntityKind, EntityRef, validate_entity_id
-from .primitives import Soul, Step, Task
+from .primitives import Soul, Step
 from .runner import ExecutionResult, RunsightTeamRunner
 from .state import BlockResult, WorkflowState
 from .workflow import Workflow
@@ -21,7 +21,6 @@ from .yaml.schema import RetryConfig
 
 __all__ = [
     "Soul",
-    "Task",
     "Step",
     "EntityKind",
     "EntityRef",

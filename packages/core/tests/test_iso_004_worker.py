@@ -30,9 +30,9 @@ import pytest
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 
@@ -56,7 +56,7 @@ def _make_context_envelope(**overrides) -> ContextEnvelope:
             max_tool_iterations=5,
         ),
         tools=[],
-        task=TaskEnvelope(
+        prompt=PromptEnvelope(
             id="task_1",
             instruction="Say hello",
             context={},
@@ -1569,5 +1569,6 @@ class TestWorkerScopedState:
 
         assert isinstance(state, WorkflowState)
         assert "key" in state.shared_memory
-        assert state.current_task is not None
-        assert state.current_task.instruction == "Say hello"
+        # build_scoped_state constructs state from scoped_results and shared_memory;
+        # the instruction is passed separately to the block via the worker harness
+        assert "prev_block" in state.results

@@ -15,7 +15,7 @@ from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -56,28 +56,24 @@ class GateBlock(BaseBlock):
             else str(state.results[self.eval_key])
         )
 
-        gate_task = Task(
-            id=f"{self.block_id}_eval",
-            instruction=(
-                "Evaluate the following content and decide if it meets quality standards.\n"
-                "Respond with EXACTLY one of:\n"
-                "PASS - if the content meets quality standards\n"
-                "FAIL: <detailed reason> - if the content needs improvement"
-            ),
-            context=content,
+        instruction = (
+            "Evaluate the following content and decide if it meets quality standards.\n"
+            "Respond with EXACTLY one of:\n"
+            "PASS - if the content meets quality standards\n"
+            "FAIL: <detailed reason> - if the content needs improvement"
         )
         model = self.gate_soul.model_name or self.runner.model_name
         budgeted = fit_to_budget(
             ContextBudgetRequest(
                 model=model,
                 system_prompt=self.gate_soul.system_prompt or "",
-                instruction=gate_task.instruction,
-                context=gate_task.context or "",
+                instruction=instruction,
+                context=content,
                 conversation_history=[],
             ),
             counter=litellm_token_counter,
         )
-        result = await self.runner.execute_task(budgeted.task, self.gate_soul)
+        result = await self.runner.execute(budgeted.instruction, budgeted.context, self.gate_soul)
         decision_line = result.output.strip().split("\n")[0]
         is_pass = decision_line.upper().startswith("PASS")
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -61,7 +60,7 @@ class RunService:
     def create_run(
         self,
         workflow_id: str,
-        task_data: Dict[str, Any],
+        inputs: Dict[str, Any],
         *,
         source: str = "manual",
         branch: str = "main",
@@ -81,7 +80,7 @@ class RunService:
             workflow_id=workflow_id,
             workflow_name=workflow.name if isinstance(workflow.name, str) else workflow.id,
             status=RunStatus.pending,
-            task_json=json.dumps(task_data),
+            task_json="{}",
             branch=branch,
             source=source,
             warnings_json=warnings_json,

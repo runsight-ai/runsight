@@ -27,26 +27,5 @@ class RegistryService:
 
         return steps
 
-    def discover_tasks(self) -> List[Dict[str, Any]]:
-        tasks = []
-        tasks_dir = self.custom_dir / "tasks"
-        if not tasks_dir.exists():
-            return tasks
-
-        for file in tasks_dir.glob("**/*.py"):
-            if file.name == "__init__.py" or file.name.startswith("."):
-                continue
-
-            tasks.append(
-                {
-                    "id": file.stem,
-                    "path": str(file),
-                    "type": "task",
-                    "name": file.stem.replace("_", " ").title(),
-                }
-            )
-
-        return tasks
-
     def get_all(self) -> Dict[str, List[Dict[str, Any]]]:
-        return {"steps": self.discover_steps(), "tasks": self.discover_tasks()}
+        return {"steps": self.discover_steps()}

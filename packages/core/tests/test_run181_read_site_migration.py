@@ -32,7 +32,7 @@ from runsight_core.conditions.engine import (
     Condition,
     ConditionGroup,
 )
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -47,7 +47,6 @@ PATCHED_STR = "PATCHED_STR"
 def _make_state(**overrides) -> WorkflowState:
     """Create a minimal WorkflowState with sensible defaults."""
     defaults: Dict[str, Any] = {
-        "current_task": Task(id="t1", instruction="do something"),
         "results": {},
         "execution_log": [],
         "shared_memory": {},
@@ -68,7 +67,7 @@ def _make_soul(name: str = "test_soul") -> Soul:
 def _make_runner(output: str = "PASS") -> MagicMock:
     runner = MagicMock()
     runner.model_name = "gpt-4o"
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="test_task",
             soul_id="test_soul",
@@ -246,16 +245,16 @@ class TestSynthesizeBlockReadSite:
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
             await synth.execute(state)
 
-        # Check what prompt was sent to the runner
-        call_args = runner.execute_task.call_args
-        task_sent: Task = call_args[0][0]
+        # Check what context was sent to the runner (SynthesizeBlock puts content in context)
+        call_args = runner.execute.call_args
+        context_sent: str = call_args[0][1]
 
-        # The context should contain the actual .output value (variable data is in context)
-        assert REAL_OUTPUT in task_sent.context, (
+        # The context should contain the actual .output value
+        assert REAL_OUTPUT in context_sent, (
             f"SynthesizeBlock prompt used __str__() ({PATCHED_STR!r}) "
             f"instead of .output ({REAL_OUTPUT!r})"
         )
-        assert PATCHED_STR not in task_sent.context, (
+        assert PATCHED_STR not in context_sent, (
             "SynthesizeBlock prompt contains patched __str__ value, "
             "proving it uses implicit string conversion instead of .output"
         )
@@ -297,16 +296,16 @@ class TestGateBlockReadSite:
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
             await gate.execute(state)
 
-        # Check the task context sent to the runner (variable data is in context)
-        call_args = runner.execute_task.call_args
-        task_sent: Task = call_args[0][0]
+        # Check the context sent to the runner (GateBlock passes content as context arg)
+        call_args = runner.execute.call_args
+        context_sent: str = call_args[0][1]
 
         # The context should contain .output value, not __str__ value
-        assert REAL_OUTPUT in task_sent.context, (
+        assert REAL_OUTPUT in context_sent, (
             f"GateBlock prompt used str(BlockResult) ({PATCHED_STR!r}) "
             f"instead of .output ({REAL_OUTPUT!r})"
         )
-        assert PATCHED_STR not in task_sent.context, (
+        assert PATCHED_STR not in context_sent, (
             "GateBlock prompt contains patched __str__ value, "
             "proving it uses str() instead of .output"
         )

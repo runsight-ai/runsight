@@ -99,7 +99,7 @@ class TestFitToBudgetReturnsCorrectTask:
         ):
             result = fit_to_budget(request, _len_counter)
 
-        assert result.task.instruction == "Do something specific."
+        assert result.instruction == "Do something specific."
 
     def test_task_has_context_from_request(self):
         """The task in BudgetedContext carries the original context."""
@@ -112,7 +112,7 @@ class TestFitToBudgetReturnsCorrectTask:
         ):
             result = fit_to_budget(request, _len_counter)
 
-        assert result.task.context == "Important context here."
+        assert result.context == "Important context here."
 
 
 # ===========================================================================
@@ -191,7 +191,7 @@ class TestFitToBudgetPassthrough:
         ):
             result = fit_to_budget(request, _len_counter)
 
-        assert result.task.context == original_context
+        assert result.context == original_context
 
     def test_p3_history_passes_through_unchanged(self):
         """The conversation_history is passed through as messages without modification."""
@@ -224,7 +224,7 @@ class TestFitToBudgetPassthrough:
         ):
             result = fit_to_budget(request, _len_counter)
 
-        assert result.task.context == ""
+        assert result.context == ""
 
     def test_empty_history_passes_through(self):
         """Empty conversation history passes through as empty list."""

@@ -821,7 +821,7 @@ class TestSSEEndpointHTTPChunks:
                     "/api/runs",
                     json={
                         "workflow_id": "single-block",
-                        "task_data": {"instruction": "Analyze"},
+                        "inputs": {"instruction": "Analyze"},
                     },
                 )
                 assert post_resp.status_code == 200
@@ -888,7 +888,7 @@ class TestSSEEndpointHTTPChunks:
                     "/api/runs",
                     json={
                         "workflow_id": "single-block",
-                        "task_data": {"instruction": "Analyze"},
+                        "inputs": {"instruction": "Analyze"},
                     },
                 )
                 run_id = post_resp.json()["id"]

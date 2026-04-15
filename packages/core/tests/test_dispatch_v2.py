@@ -9,7 +9,7 @@ Tests cover ALL acceptance criteria:
 - Per-exit result keying (state.results["{block_id}.{exit_id}"])
 - Combined result at state.results["{block_id}"]
 - exit_handle set to exit_id on per-exit results
-- Context inherited from state.current_task.context
+- Context inherited from state.current_context
 - current_task=None doesn't crash (context defaults)
 - Stateful mode: per-exit conversation histories keyed by exit_id
 - Cost/token aggregation
@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import DispatchExitDef
@@ -73,15 +73,8 @@ def soul_editor():
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: (
-            task.instruction
-            if not task.context
-            else f"{task.instruction}\n\nContext:\n{task.context}"
-        )
-    )
     return runner
 
 
@@ -220,26 +213,26 @@ class TestPerExitTaskDifferentiation:
 
         captured_tasks = {}
 
-        async def _capture(task, soul, **kwargs):
-            captured_tasks[soul.id] = task
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_tasks[soul.id] = {"instruction": instruction, "context": context}
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
+        state = WorkflowState()
         await block.execute(state)
 
         # Analyst branch must have received "Analyze the proposal"
-        assert captured_tasks["analyst"].instruction == "Analyze the proposal"
+        assert captured_tasks["analyst"]["instruction"] == "Analyze the proposal"
         # Reviewer branch must have received "Review the proposal"
-        assert captured_tasks["reviewer"].instruction == "Review the proposal"
+        assert captured_tasks["reviewer"]["instruction"] == "Review the proposal"
 
     @pytest.mark.asyncio
     async def test_each_branch_task_has_correct_id_format(
         self, soul_analyst, soul_reviewer, mock_runner
     ):
-        """Per-branch Task.id follows format '{block_id}_{exit_id}'."""
+        """Each branch's instruction must reach the runner correctly."""
         from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
@@ -259,18 +252,18 @@ class TestPerExitTaskDifferentiation:
 
         captured_tasks = {}
 
-        async def _capture(task, soul, **kwargs):
-            captured_tasks[soul.id] = task
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_tasks[soul.id] = {"instruction": instruction, "context": context}
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("my_dispatch", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
+        state = WorkflowState()
         await block.execute(state)
 
-        assert captured_tasks["analyst"].id == "my_dispatch_exit_a"
-        assert captured_tasks["reviewer"].id == "my_dispatch_exit_b"
+        assert captured_tasks["analyst"]["instruction"] == "Analyze"
+        assert captured_tasks["reviewer"]["instruction"] == "Review"
 
 
 # ===========================================================================
@@ -301,13 +294,13 @@ class TestPerExitResultKeying:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert "fan.exit_a" in new_state.results
@@ -335,13 +328,13 @@ class TestPerExitResultKeying:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert new_state.results["fan.exit_a"].output == "Output from analyst"
@@ -367,13 +360,13 @@ class TestPerExitResultKeying:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert new_state.results["fan.exit_a"].exit_handle == "exit_a"
@@ -408,13 +401,13 @@ class TestCombinedResult:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert "fan" in new_state.results
@@ -440,13 +433,13 @@ class TestCombinedResult:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         parsed = json.loads(new_state.results["fan"].output)
@@ -455,16 +448,16 @@ class TestCombinedResult:
 
 
 # ===========================================================================
-# 6. Context inherited from state.current_task.context
+# 6. Context inherited from state.current_context
 # ===========================================================================
 
 
 class TestContextInheritance:
-    """Branch tasks inherit context from state.current_task.context."""
+    """Branch tasks inherit context from state.current_context."""
 
     @pytest.mark.asyncio
     async def test_context_passed_to_branch_task(self, soul_analyst, mock_runner):
-        """When current_task has context, each branch's Task.context is set to it."""
+        """When context is passed via resolved_inputs, each branch receives it."""
         from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 
         branches = [
@@ -478,23 +471,19 @@ class TestContextInheritance:
 
         captured_tasks = {}
 
-        async def _capture(task, soul, **kwargs):
-            captured_tasks[soul.id] = task
-            return _make_exec_result(task.id, soul.id, "Output")
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_tasks[soul.id] = {"instruction": instruction, "context": context}
+            return _make_exec_result("execute", soul.id, "Output")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(
-            current_task=Task(
-                id="parent",
-                instruction="Parent instruction",
-                context="Budget is $10k",
-            )
+            shared_memory={"_resolved_inputs": {"context": "Budget is $10k"}},
         )
         await block.execute(state)
 
-        assert captured_tasks["analyst"].context == "Budget is $10k"
+        assert captured_tasks["analyst"]["context"] == "Budget is $10k"
 
     @pytest.mark.asyncio
     async def test_current_task_none_does_not_crash(self, soul_analyst, mock_runner):
@@ -512,20 +501,20 @@ class TestContextInheritance:
 
         captured_tasks = {}
 
-        async def _capture(task, soul, **kwargs):
-            captured_tasks[soul.id] = task
-            return _make_exec_result(task.id, soul.id, "Output")
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_tasks[soul.id] = {"instruction": instruction, "context": context}
+            return _make_exec_result("execute", soul.id, "Output")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=None)
+        state = WorkflowState()
 
         # Must not raise
         await block.execute(state)
 
         # Context defaults to None
-        assert captured_tasks["analyst"].context is None
+        assert captured_tasks["analyst"]["context"] is None
 
     @pytest.mark.asyncio
     async def test_current_task_without_context_passes_none(self, soul_analyst, mock_runner):
@@ -543,17 +532,17 @@ class TestContextInheritance:
 
         captured_tasks = {}
 
-        async def _capture(task, soul, **kwargs):
-            captured_tasks[soul.id] = task
-            return _make_exec_result(task.id, soul.id, "Output")
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_tasks[soul.id] = {"instruction": instruction, "context": context}
+            return _make_exec_result("execute", soul.id, "Output")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Parent instruction"))
+        state = WorkflowState()
         await block.execute(state)
 
-        assert captured_tasks["analyst"].context is None
+        assert captured_tasks["analyst"]["context"] is None
 
 
 # ===========================================================================
@@ -584,16 +573,15 @@ class TestCostTokenAggregation:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             if soul.id == "analyst":
-                return _make_exec_result(task.id, soul.id, "Out A", cost=0.05, tokens=200)
-            return _make_exec_result(task.id, soul.id, "Out B", cost=0.03, tokens=150)
+                return _make_exec_result("execute", soul.id, "Out A", cost=0.05, tokens=200)
+            return _make_exec_result("execute", soul.id, "Out B", cost=0.03, tokens=150)
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState(
-            current_task=Task(id="parent", instruction="Go"),
             total_cost_usd=0.10,
             total_tokens=50,
         )
@@ -746,15 +734,15 @@ class TestStatefulPerExitHistories:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         # Keys use exit_id, not soul_id
@@ -796,18 +784,19 @@ class TestStatefulPerExitHistories:
         ]
 
         captured_messages = {}
+        _instr_to_key = {"Analyze": "fan_analysis", "Review": "fan_review"}
 
-        async def _capture(task, soul, **kwargs):
-            captured_messages[task.id] = kwargs.get("messages")
-            return _make_exec_result(task.id, soul.id, f"{soul.id} round 2")
+        async def _capture(instruction, context, soul, **kwargs):
+            key = _instr_to_key.get(instruction, instruction)
+            captured_messages[key] = kwargs.get("messages")
+            return _make_exec_result("execute", soul.id, f"{soul.id} round 2")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(
-            current_task=Task(id="parent", instruction="Round 2"),
             conversation_histories={
                 "fan_analysis": prior_analysis,
                 "fan_review": prior_review,
@@ -842,15 +831,15 @@ class TestStatefulPerExitHistories:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
 
         models_seen = []
 
@@ -874,9 +863,8 @@ class TestStatefulPerExitHistories:
                 warnings=[],
             )
             return BudgetedContext(
-                task=Task(
-                    id="budget_task", instruction=request.instruction, context=request.context
-                ),
+                instruction=request.instruction,
+                context=request.context,
                 messages=list(request.conversation_history),
                 report=report,
             )
@@ -920,17 +908,17 @@ class TestSameSoulMultipleExits:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            if "costs" in task.instruction:
-                return _make_exec_result(task.id, soul.id, "COST_OUTPUT")
-            return _make_exec_result(task.id, soul.id, "RISK_OUTPUT")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            if "costs" in instruction:
+                return _make_exec_result("execute", soul.id, "COST_OUTPUT")
+            return _make_exec_result("execute", soul.id, "RISK_OUTPUT")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         # Each exit has its own history
@@ -982,18 +970,19 @@ class TestSameSoulMultipleExits:
         ]
 
         captured_messages = {}
+        _instruction_to_key = {"Analyze costs": "fan_exit_cost", "Analyze risks": "fan_exit_risk"}
 
-        async def _capture(task, soul, **kwargs):
-            captured_messages[task.id] = kwargs.get("messages")
-            return _make_exec_result(task.id, soul.id, f"{soul.id} round 2")
+        async def _capture(instruction, context, soul, **kwargs):
+            key = _instruction_to_key.get(instruction, instruction)
+            captured_messages[key] = kwargs.get("messages")
+            return _make_exec_result("execute", soul.id, f"{soul.id} round 2")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_capture)
+        mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
         block.stateful = True
 
         state = WorkflowState(
-            current_task=Task(id="parent", instruction="Round 2"),
             conversation_histories={
                 "fan_exit_cost": prior_cost,
                 "fan_exit_risk": prior_risk,
@@ -1037,15 +1026,15 @@ class TestNonStatefulPath:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
         assert block.stateful is False
 
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert new_state.conversation_histories == {}
@@ -1072,13 +1061,13 @@ class TestNonStatefulPath:
             ),
         ]
 
-        async def _side_effect(task, soul, **kwargs):
-            return _make_exec_result(task.id, soul.id, f"Output from {soul.id}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_exec_result("execute", soul.id, f"Output from {soul.id}")
 
-        mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+        mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
         block = DispatchBlock("fan", branches, mock_runner)
-        state = WorkflowState(current_task=Task(id="parent", instruction="Go"))
+        state = WorkflowState()
         new_state = await block.execute(state)
 
         assert "fan.exit_a" in new_state.results

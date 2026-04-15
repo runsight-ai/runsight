@@ -26,7 +26,6 @@ from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -297,13 +296,7 @@ class TestFullDispatchRoutingE2E:
             _text_response("Port A completed the task."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="e2e_task",
-                instruction="Route this task to the correct agent.",
-                context="Test context for routing.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
@@ -345,13 +338,7 @@ class TestFullDispatchRoutingE2E:
             _text_response("Port B completed the task."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="e2e_task_b",
-                instruction="Route this task.",
-                context="Route to B.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
@@ -398,12 +385,7 @@ class TestMultiExitDispatchRouting:
             _text_response("Downstream processed B's result."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="multi_exit_task",
-                instruction="Process this through the correct pipeline.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
@@ -440,12 +422,7 @@ class TestMultiExitDispatchRouting:
             _text_response("Exit block C output."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="multi_exit_task_c",
-                instruction="Process through pipeline C.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
@@ -494,12 +471,7 @@ class TestDispatchExitFeedsDownstream:
             _text_response("Final processing of B's output."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="downstream_task",
-                instruction="Summarize and process.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
@@ -535,17 +507,16 @@ class TestDispatchExitFeedsDownstream:
             _text_response("Downstream result."),
         ]
 
-        state = WorkflowState(
-            current_task=Task(
-                id="chain_task",
-                instruction="Chain test.",
-            ),
-        )
+        state = WorkflowState()
 
         final = await workflow.run(state)
 
         executed_blocks = set(final.results.keys())
         expected_blocks = {"router", "exit_block_b", "downstream_block"}
-        assert executed_blocks == expected_blocks, (
-            f"Expected exactly {expected_blocks} to execute, but got {executed_blocks}"
+        assert expected_blocks <= executed_blocks, (
+            f"Expected {expected_blocks} to execute, but got {executed_blocks}"
+        )
+        # Only the workflow sentinel plus the three expected blocks should be present
+        assert executed_blocks - {"workflow"} == expected_blocks, (
+            f"Unexpected extra blocks executed: {executed_blocks - expected_blocks - {'workflow'}}"
         )

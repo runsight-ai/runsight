@@ -218,7 +218,7 @@ async function runWorkflowFromEditor(page: Page, workflowId: string) {
   );
   const run = await apiPost<RunSummary>("/runs", {
     workflow_id: workflowId,
-    task_data: { instruction: "Run the workflow" },
+    inputs: {},
     source: "simulation",
     branch: simulation.branch,
   });

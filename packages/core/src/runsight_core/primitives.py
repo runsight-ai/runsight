@@ -63,18 +63,6 @@ class Soul(BaseModel):
         return value
 
 
-class Task(BaseModel):
-    """
-    Represents an isolated instruction for an agent to execute.
-    """
-
-    id: str = Field(..., description="Unique identifier for the task")
-    instruction: str = Field(..., description="The main instruction or prompt for the task")
-    context: Optional[str] = Field(
-        default=None, description="Additional context or background information for the task"
-    )
-
-
 class Step:
     """
     Wrapper for BaseBlock with pre/post hook execution and declared input resolution.
@@ -152,6 +140,11 @@ class Step:
                     "shared_memory": {**state.shared_memory, "_resolved_inputs": resolved_inputs}
                 }
             )
+        else:
+            # Clear stale resolved inputs from previous step
+            if "_resolved_inputs" in state.shared_memory:
+                new_sm = {k: v for k, v in state.shared_memory.items() if k != "_resolved_inputs"}
+                state = state.model_copy(update={"shared_memory": new_sm})
 
         # Phase 3: Block execution (required)
         state = await self.block.execute(state, **kwargs)
@@ -201,6 +194,8 @@ class Step:
 
         value = resolve_dotted_path(parsed, field_path)
         if value is None and not (isinstance(parsed, dict) and field_path in parsed):
+            if source_id == "workflow":
+                return None
             raise ValueError(
                 f"Input resolution failed: field path '{field_path}' not found in output of '{source_id}'"
             )

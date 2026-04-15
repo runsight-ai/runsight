@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from runsight_core import DispatchBlock
 from runsight_core.blocks.dispatch import DispatchBranch
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -30,15 +30,8 @@ from runsight_core.state import WorkflowState
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: (
-            task.instruction
-            if not task.context
-            else f"{task.instruction}\n\nContext:\n{task.context}"
-        )
-    )
     return runner
 
 
@@ -79,16 +72,6 @@ def soul_gamma_with_model():
     )
 
 
-@pytest.fixture
-def sample_task():
-    return Task(id="t1", instruction="Review the proposal")
-
-
-@pytest.fixture
-def sample_task_with_context():
-    return Task(id="t2", instruction="Review the proposal", context="Budget is $10k")
-
-
 def _make_result(soul_id, output, cost=0.0, tokens=0):
     """Helper to create an ExecutionResult."""
     return ExecutionResult(
@@ -116,15 +99,15 @@ def _make_stateful_dispatch(block_id, souls, runner):
 
 
 def _setup_runner_side_effect(mock_runner, soul_output_map):
-    """Configure runner.execute_task to return different outputs per soul.
+    """Configure runner.execute to return different outputs per soul.
 
     soul_output_map: dict mapping soul_id -> ExecutionResult
     """
 
-    async def _side_effect(task, soul, **kwargs):
+    async def _side_effect(instruction, context, soul, **kwargs):
         return soul_output_map[soul.id]
 
-    mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+    mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +117,7 @@ def _setup_runner_side_effect(mock_runner, soul_output_map):
 
 @pytest.mark.asyncio
 async def test_stateful_first_invocation_creates_per_soul_histories(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
+    mock_runner, soul_alpha, soul_beta
 ):
     """First call on a stateful DispatchBlock with no prior history should
     create one history entry per soul, each keyed {block_id}_{soul_id}."""
@@ -150,7 +130,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
@@ -167,10 +147,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
 
 @pytest.mark.asyncio
 async def test_stateful_first_invocation_stores_correct_user_and_assistant(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
+    mock_runner, soul_alpha, soul_beta
 ):
     """Each soul's history must contain the correct user prompt and that
     soul's specific assistant output."""
@@ -183,10 +160,9 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
     # With per-exit branches, prompt is built from the branch's task instruction
-    branch_task = Task(id="t", instruction="Execute task")
-    expected_prompt = mock_runner._build_prompt(branch_task)
+    expected_prompt = "Execute task"
 
     new_state = await block.execute(state)
 
@@ -204,13 +180,10 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
 
 
 @pytest.mark.asyncio
-async def test_stateful_first_invocation_user_message_includes_context(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task_with_context,
+async def test_stateful_first_invocation_user_message_uses_branch_instruction(
+    mock_runner, soul_alpha, soul_beta
 ):
-    """When the task has context, the stored user message includes it."""
+    """The stored user message is the branch task_instruction (no context by default)."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -220,17 +193,14 @@ async def test_stateful_first_invocation_user_message_includes_context(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task_with_context)
-    # Prompt is built from branch task instruction + context from current_task
-    branch_task = Task(id="t", instruction="Execute task", context="Budget is $10k")
-    expected_prompt = mock_runner._build_prompt(branch_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
     for key in ["review_soul_alpha", "review_soul_beta"]:
         history = new_state.conversation_histories[key]
-        assert history[0]["content"] == expected_prompt
-        assert "Budget is $10k" in history[0]["content"]
+        # The user message content is built from instruction (+ context if any)
+        assert "Execute task" in history[0]["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -240,10 +210,7 @@ async def test_stateful_first_invocation_user_message_includes_context(
 
 @pytest.mark.asyncio
 async def test_stateful_continuation_passes_per_soul_history_to_runner(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
+    mock_runner, soul_alpha, soul_beta
 ):
     """When conversation_histories already has entries for each soul,
     runner.execute_task must receive the correct soul's history as messages=."""
@@ -258,15 +225,14 @@ async def test_stateful_continuation_passes_per_soul_history_to_runner(
 
     captured_messages = {}
 
-    async def _capture_side_effect(task, soul, **kwargs):
+    async def _capture_side_effect(instruction, context, soul, **kwargs):
         captured_messages[soul.id] = kwargs.get("messages")
         return _make_result(soul.id, f"{soul.id} round 2")
 
-    mock_runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
+    mock_runner.execute = AsyncMock(side_effect=_capture_side_effect)
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={
             "review_soul_alpha": prior_alpha,
             "review_soul_beta": prior_beta,
@@ -277,24 +243,19 @@ async def test_stateful_continuation_passes_per_soul_history_to_runner(
 
     # Alpha must receive only alpha's history
     assert captured_messages["soul_alpha"] is not None, (
-        "execute_task was not called with messages= for soul_alpha"
+        "execute was not called with messages= for soul_alpha"
     )
     assert captured_messages["soul_alpha"] == prior_alpha
 
     # Beta must receive only beta's history
     assert captured_messages["soul_beta"] is not None, (
-        "execute_task was not called with messages= for soul_beta"
+        "execute was not called with messages= for soul_beta"
     )
     assert captured_messages["soul_beta"] == prior_beta
 
 
 @pytest.mark.asyncio
-async def test_stateful_continuation_appends_new_pair_per_soul(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_continuation_appends_new_pair_per_soul(mock_runner, soul_alpha, soul_beta):
     """After round 2, each soul's history should contain round 1 + round 2 pairs."""
     prior_alpha = [
         {"role": "user", "content": "Round 1 prompt"},
@@ -315,15 +276,13 @@ async def test_stateful_continuation_appends_new_pair_per_soul(
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={
             "review_soul_alpha": prior_alpha,
             "review_soul_beta": prior_beta,
         },
     )
     # Prompt is built from branch's task instruction (not the original sample_task)
-    branch_task = Task(id="t", instruction="Execute task")
-    expected_prompt = mock_runner._build_prompt(branch_task)
+    expected_prompt = "Execute task"
 
     new_state = await block.execute(state)
 
@@ -350,12 +309,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(
 
 
 @pytest.mark.asyncio
-async def test_stateful_parallel_history_independence(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_parallel_history_independence(mock_runner, soul_alpha, soul_beta):
     """Each soul's stored history must contain only that soul's outputs,
     not the other soul's. This verifies true independence under parallel execution."""
     _setup_runner_side_effect(
@@ -367,7 +321,7 @@ async def test_stateful_parallel_history_independence(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
@@ -387,11 +341,7 @@ async def test_stateful_parallel_history_independence(
 
 @pytest.mark.asyncio
 async def test_stateful_three_souls_independent_histories(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    soul_gamma_with_model,
-    sample_task,
+    mock_runner, soul_alpha, soul_beta, soul_gamma_with_model
 ):
     """Integration test: 3 souls, each gets independent history after 2 rounds."""
     souls = [soul_alpha, soul_beta, soul_gamma_with_model]
@@ -407,7 +357,7 @@ async def test_stateful_three_souls_independent_histories(
     )
 
     block = _make_stateful_dispatch("dispatch", souls, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
     state_r1 = await block.execute(state)
 
     # Round 2 — use the state from round 1
@@ -446,12 +396,7 @@ async def test_stateful_three_souls_independent_histories(
 
 
 @pytest.mark.asyncio
-async def test_stateful_single_model_copy_update(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_single_model_copy_update(mock_runner, soul_alpha, soul_beta):
     """All N per-soul histories must appear in a single model_copy(update=...) call,
     not through sequential mutations. We verify by checking the returned state
     has all histories present simultaneously."""
@@ -464,7 +409,7 @@ async def test_stateful_single_model_copy_update(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
@@ -476,12 +421,7 @@ async def test_stateful_single_model_copy_update(
 
 
 @pytest.mark.asyncio
-async def test_stateful_preserves_other_block_histories(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_preserves_other_block_histories(mock_runner, soul_alpha, soul_beta):
     """When other blocks already have histories, DispatchBlock must preserve them
     in the merged update."""
     other_history = [
@@ -499,7 +439,6 @@ async def test_stateful_preserves_other_block_histories(
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={"other_block_other_soul": other_history},
     )
 
@@ -519,12 +458,7 @@ async def test_stateful_preserves_other_block_histories(
 
 
 @pytest.mark.asyncio
-async def test_stateful_history_key_format(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_history_key_format(mock_runner, soul_alpha, soul_beta):
     """History keys must follow the '{block_id}_{soul_id}' convention."""
     _setup_runner_side_effect(
         mock_runner,
@@ -535,7 +469,7 @@ async def test_stateful_history_key_format(
     )
 
     block = _make_stateful_dispatch("my_dispatch", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
@@ -550,12 +484,7 @@ async def test_stateful_history_key_format(
 
 
 @pytest.mark.asyncio
-async def test_stateful_windowing_called_per_soul(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_windowing_called_per_soul(mock_runner, soul_alpha, soul_beta):
     """fit_to_budget must be invoked once per soul during stateful execution."""
     _setup_runner_side_effect(
         mock_runner,
@@ -566,7 +495,7 @@ async def test_stateful_windowing_called_per_soul(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     from runsight_core.memory.budget import BudgetedContext, BudgetReport
 
@@ -586,10 +515,9 @@ async def test_stateful_windowing_called_per_soul(
             headroom=100000,
             warnings=[],
         )
-        from runsight_core.primitives import Task as _Task
-
         return BudgetedContext(
-            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            instruction=request.instruction,
+            context=request.context or "",
             messages=list(request.conversation_history),
             report=report,
         )
@@ -607,12 +535,7 @@ async def test_stateful_windowing_called_per_soul(
 
 
 @pytest.mark.asyncio
-async def test_stateful_windowing_prunes_large_history(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, soul_beta):
     """When a soul's history exceeds the token budget, older pairs must be dropped.
     Simulated via a prune_messages mock that truncates to last 4 messages."""
     # Build a large prior history for alpha (10 pairs = 20 messages)
@@ -631,7 +554,6 @@ async def test_stateful_windowing_prunes_large_history(
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={
             "review_soul_alpha": large_history,
             "review_soul_beta": [],  # Beta has no prior history
@@ -655,10 +577,7 @@ async def test_stateful_windowing_prunes_large_history(
 
 @pytest.mark.asyncio
 async def test_stateful_windowing_uses_soul_specific_model(
-    mock_runner,
-    soul_alpha,
-    soul_gamma_with_model,
-    sample_task,
+    mock_runner, soul_alpha, soul_gamma_with_model
 ):
     """When souls have different models, fit_to_budget must use each soul's
     correct model. soul_alpha uses runner default (gpt-4o),
@@ -672,7 +591,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_gamma_with_model], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     models_seen = []
 
@@ -695,10 +614,9 @@ async def test_stateful_windowing_uses_soul_specific_model(
             headroom=100000,
             warnings=[],
         )
-        from runsight_core.primitives import Task as _Task
-
         return BudgetedContext(
-            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            instruction=request.instruction,
+            context=request.context or "",
             messages=list(request.conversation_history),
             report=report,
         )
@@ -719,11 +637,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
 
 
 @pytest.mark.asyncio
-async def test_stateful_windowing_falls_back_to_runner_model(
-    mock_runner,
-    soul_alpha,
-    sample_task,
-):
+async def test_stateful_windowing_falls_back_to_runner_model(mock_runner, soul_alpha):
     """When a soul has no model_name, fit_to_budget must use runner.model_name."""
     assert soul_alpha.model_name is None  # precondition
 
@@ -735,7 +649,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     from runsight_core.memory.budget import BudgetedContext, BudgetReport
 
@@ -755,10 +669,9 @@ async def test_stateful_windowing_falls_back_to_runner_model(
             headroom=100000,
             warnings=[],
         )
-        from runsight_core.primitives import Task as _Task
-
         return BudgetedContext(
-            task=_Task(id="budget_task", instruction=request.instruction, context=request.context),
+            instruction=request.instruction,
+            context=request.context or "",
             messages=list(request.conversation_history),
             report=report,
         )
@@ -781,12 +694,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 
 
 @pytest.mark.asyncio
-async def test_stateful_no_system_messages_stored(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_no_system_messages_stored(mock_runner, soul_alpha, soul_beta):
     """conversation_histories must only contain user and assistant roles,
     never system messages."""
     _setup_runner_side_effect(
@@ -798,7 +706,7 @@ async def test_stateful_no_system_messages_stored(
     )
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     new_state = await block.execute(state)
 
@@ -819,12 +727,7 @@ async def test_stateful_no_system_messages_stored(
 
 
 @pytest.mark.asyncio
-async def test_non_stateful_no_history_entries(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_non_stateful_no_history_entries(mock_runner, soul_alpha, soul_beta):
     """A non-stateful DispatchBlock must not add any conversation_histories entries."""
     _setup_runner_side_effect(
         mock_runner,
@@ -837,19 +740,14 @@ async def test_non_stateful_no_history_entries(
     block = DispatchBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False  # default
 
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
     new_state = await block.execute(state)
 
     assert new_state.conversation_histories == {}
 
 
 @pytest.mark.asyncio
-async def test_non_stateful_preserves_other_histories(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_non_stateful_preserves_other_histories(mock_runner, soul_alpha, soul_beta):
     """A non-stateful DispatchBlock must not modify existing conversation_histories."""
     other_history = [
         {"role": "user", "content": "hello"},
@@ -868,7 +766,6 @@ async def test_non_stateful_preserves_other_histories(
     assert block.stateful is False
 
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={"other_block_other_soul": other_history},
     )
     new_state = await block.execute(state)
@@ -878,13 +775,8 @@ async def test_non_stateful_preserves_other_histories(
 
 
 @pytest.mark.asyncio
-async def test_non_stateful_does_not_pass_messages_to_runner(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
-    """Non-stateful DispatchBlock calls runner.execute_task without messages param."""
+async def test_non_stateful_does_not_pass_messages_to_runner(mock_runner, soul_alpha, soul_beta):
+    """Non-stateful DispatchBlock calls runner.execute without messages param."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -896,19 +788,17 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
     block = DispatchBlock("review", _souls_to_branches([soul_alpha, soul_beta]), mock_runner)
     assert block.stateful is False
 
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     # Replace side_effect so we can inspect exact call args
-    mock_runner.execute_task = AsyncMock(
-        side_effect=lambda task, soul: _make_result(soul.id, "Out")
+    mock_runner.execute = AsyncMock(
+        side_effect=lambda instruction, context, soul: _make_result(soul.id, "Out")
     )
     await block.execute(state)
 
-    # Each call should have exactly 2 positional args (task, soul), no messages kwarg
-    for c in mock_runner.execute_task.call_args_list:
-        assert "messages" not in c.kwargs, (
-            f"Non-stateful execute_task was called with messages= for {c}"
-        )
+    # Non-stateful path should not pass messages kwarg
+    for c in mock_runner.execute.call_args_list:
+        assert "messages" not in c.kwargs, f"Non-stateful execute was called with messages= for {c}"
 
 
 # ---------------------------------------------------------------------------
@@ -917,12 +807,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(
 
 
 @pytest.mark.asyncio
-async def test_stateful_still_stores_result_and_log(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_still_stores_result_and_log(mock_runner, soul_alpha, soul_beta):
     """Stateful DispatchBlock must still produce results, execution_log, cost, and tokens
     exactly like the non-stateful path (regression guard)."""
     _setup_runner_side_effect(
@@ -935,7 +820,6 @@ async def test_stateful_still_stores_result_and_log(
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         total_cost_usd=0.10,
         total_tokens=50,
     )
@@ -958,12 +842,7 @@ async def test_stateful_still_stores_result_and_log(
 
 
 @pytest.mark.asyncio
-async def test_stateful_does_not_mutate_original_state(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_does_not_mutate_original_state(mock_runner, soul_alpha, soul_beta):
     """model_copy semantics: the original state's conversation_histories
     must not be mutated by a stateful DispatchBlock execution."""
     _setup_runner_side_effect(
@@ -978,7 +857,6 @@ async def test_stateful_does_not_mutate_original_state(
 
     original_histories = {}
     state = WorkflowState(
-        current_task=sample_task,
         conversation_histories=original_histories,
     )
 
@@ -997,24 +875,19 @@ async def test_stateful_does_not_mutate_original_state(
 
 
 @pytest.mark.asyncio
-async def test_stateful_gather_failure_writes_no_history(
-    mock_runner,
-    soul_alpha,
-    soul_beta,
-    sample_task,
-):
+async def test_stateful_gather_failure_writes_no_history(mock_runner, soul_alpha, soul_beta):
     """If one soul fails during asyncio.gather, the entire block fails and
     no partial histories are written. The caller retries with clean state."""
 
-    async def _failing_side_effect(task, soul, **kwargs):
+    async def _failing_side_effect(instruction, context, soul, **kwargs):
         if soul.id == "soul_beta":
             raise RuntimeError("Soul beta LLM failure")
         return _make_result(soul.id, "Out A")
 
-    mock_runner.execute_task = AsyncMock(side_effect=_failing_side_effect)
+    mock_runner.execute = AsyncMock(side_effect=_failing_side_effect)
 
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     with pytest.raises(RuntimeError, match="Soul beta LLM failure"):
         await block.execute(state)

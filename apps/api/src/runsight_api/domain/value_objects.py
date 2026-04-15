@@ -65,15 +65,6 @@ class SoulEntity(BaseModel):
         return value
 
 
-class TaskEntity(BaseModel):
-    id: str
-    name: Optional[str] = None
-    type: str = "task"
-    path: Optional[str] = None
-    description: Optional[str] = None
-    model_config = ConfigDict(extra="forbid")
-
-
 class StepEntity(BaseModel):
     id: str
     name: Optional[str] = None

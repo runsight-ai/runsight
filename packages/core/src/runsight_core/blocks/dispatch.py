@@ -17,7 +17,7 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -83,7 +83,8 @@ class DispatchBlock(BaseBlock):
         return results
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        context = state.current_task.context if state.current_task is not None else None
+        resolved = state.shared_memory.get("_resolved_inputs", {})
+        context = resolved.get("context") if resolved else None
 
         if self.stateful:
             histories = {
@@ -110,16 +111,12 @@ class DispatchBlock(BaseBlock):
             gather_coros = []
             for branch in self.branches:
                 budgeted = budgeted_per_branch[branch.exit_id]
-                task = Task(
-                    id=f"{self.block_id}_{branch.exit_id}",
-                    instruction=budgeted.task.instruction,
-                    context=budgeted.task.context,
-                )
                 gather_coros.append(
                     (
                         branch.exit_id,
-                        self.runner.execute_task(
-                            task,
+                        self.runner.execute(
+                            budgeted.instruction,
+                            budgeted.context,
                             branch.soul,
                             messages=budgeted.messages,
                         ),
@@ -131,7 +128,9 @@ class DispatchBlock(BaseBlock):
             for branch, result in zip(self.branches, results):
                 history_key = f"{self.block_id}_{branch.exit_id}"
                 budgeted = budgeted_per_branch[branch.exit_id]
-                prompt = self.runner._build_prompt(budgeted.task)
+                prompt = budgeted.instruction
+                if budgeted.context:
+                    prompt += f"\n\nContext:\n{budgeted.context}"
                 updated_histories[history_key] = budgeted.messages + [
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": result.output},
@@ -142,12 +141,9 @@ class DispatchBlock(BaseBlock):
             gather_coros = [
                 (
                     branch.exit_id,
-                    self.runner.execute_task(
-                        Task(
-                            id=f"{self.block_id}_{branch.exit_id}",
-                            instruction=branch.task_instruction,
-                            context=context,
-                        ),
+                    self.runner.execute(
+                        branch.task_instruction,
+                        context,
                         branch.soul,
                     ),
                 )

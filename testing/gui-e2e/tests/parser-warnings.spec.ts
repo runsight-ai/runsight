@@ -136,7 +136,7 @@ test.describe("RUN-845 parser warnings browser flows", () => {
     );
     const createdRun = await apiPost<{ id: string; warnings: WarningItem[] }>("/runs", {
       workflow_id: warningWorkflowId,
-      task_data: { instruction: "Exercise parser warnings" },
+      inputs: {},
       source: "simulation",
       branch: simulation.branch,
     });

@@ -118,7 +118,7 @@ workflow:
 
 ### Input mapping
 
-Input keys are **interface names** (plain strings like `topic`), not child state paths. The engine resolves the interface name to the child's `target` path. The values are parent state paths using dot-notation: `results.gather`, `shared_memory.topic`, `current_task`.
+Input keys are **interface names** (plain strings like `topic`), not child state paths. The engine resolves the interface name to the child's `target` path. The values are parent state paths using dot-notation: `results.gather`, `shared_memory.topic`.
 
 ### Output mapping
 

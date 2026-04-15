@@ -39,7 +39,7 @@ import yaml
 from runsight_core.isolation.envelope import ResultEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import WorkflowState
 from runsight_core.tools import ToolInstance
@@ -271,8 +271,7 @@ class TestFullPipeline:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t1", instruction="Echo hello.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert isinstance(result, ExecutionResult)
         assert (
@@ -316,8 +315,7 @@ class TestFullPipeline:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t2", instruction="Ping.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         # Tool result message should be present in second call
         second_call_messages = mock_achat.call_args_list[1].kwargs.get("messages", [])
@@ -355,8 +353,7 @@ class TestFullPipeline:
         mock_achat.side_effect = [_text_response("Direct answer.")]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t3", instruction="Do something.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         first_call_kwargs = mock_achat.call_args_list[0].kwargs
         assert "tools" in first_call_kwargs
@@ -416,8 +413,7 @@ class TestSoulIsolation:
         mock_achat.return_value = _text_response("HTTP done.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="ta", instruction="Make a request.")
-        await runner.execute_task(task, soul_a)
+        await runner.execute("test instruction", None, soul_a)
 
         call_kwargs = mock_achat.call_args.kwargs
         tools_sent = call_kwargs.get("tools", [])
@@ -467,8 +463,7 @@ class TestSoulIsolation:
         mock_achat.return_value = _text_response("File done.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="tb", instruction="Read a file.")
-        await runner.execute_task(task, soul_b)
+        await runner.execute("test instruction", None, soul_b)
 
         call_kwargs = mock_achat.call_args.kwargs
         tools_sent = call_kwargs.get("tools", [])
@@ -569,8 +564,7 @@ class TestMaxIterationsIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_max", instruction="Keep calling echo.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Max iterations reached."
         assert result.tool_iterations == 2
@@ -609,8 +603,7 @@ class TestMaxIterationsIntegration:
         mock_achat.side_effect = [_text_response("Forced.")]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_strip", instruction="Do it.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         call_kwargs = mock_achat.call_args_list[0].kwargs
         assert call_kwargs.get("tools") == []
@@ -651,8 +644,7 @@ class TestMaxIterationsIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_calls", instruction="Call echo twice.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.tool_calls_made.count("echo") == 2
 
@@ -705,8 +697,7 @@ class TestToolErrorFeedback:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_err", instruction="Call the failing tool.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         # Loop must not crash; final output returned
         assert result.output == "Recovered after error."
@@ -757,8 +748,7 @@ class TestToolErrorFeedback:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_ve", instruction="Trigger error.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Survived ValueError."
 
@@ -794,9 +784,8 @@ class TestRequiredToolCalls:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_required_missing", instruction="Call every required tool.")
         with pytest.raises(ValueError, match=r"required tool calls completed: slack_webhook"):
-            await runner.execute_task(task, soul)
+            await runner.execute("test instruction", None, soul)
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
@@ -826,8 +815,7 @@ class TestRequiredToolCalls:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_required_choice", instruction="Call the required tool.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Done."
         assert mock_achat.call_args_list[0].kwargs["tool_choice"] == "required"
@@ -1128,8 +1116,7 @@ class TestDelegateTool:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_del", instruction="Evaluate and delegate.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Approved."
 
@@ -1220,8 +1207,7 @@ class TestCostAccumulationIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_cost", instruction="Echo three times.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(0.006)
         assert result.total_tokens == 60
@@ -1278,8 +1264,7 @@ class TestCostAccumulationIntegration:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_cost2", instruction="Echo twice then done.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(sum(costs))
         assert result.total_tokens == sum(tokens)
@@ -1318,8 +1303,7 @@ class TestNoToolsPath:
         mock_achat.return_value = _text_response("Plain answer.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_plain", instruction="Tell me something.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.output == "Plain answer."
         assert mock_achat.call_count == 1
@@ -1349,8 +1333,7 @@ class TestNoToolsPath:
         mock_achat.return_value = _text_response("OK.")
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_notools", instruction="Do.")
-        await runner.execute_task(task, soul)
+        await runner.execute("test instruction", None, soul)
 
         call_kwargs = mock_achat.call_args.kwargs
         assert "tools" not in call_kwargs or call_kwargs.get("tools") is None
@@ -1393,8 +1376,7 @@ class TestNoToolsPath:
         )
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        task = Task(id="t_costs", instruction="Cost test.")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("test instruction", None, soul)
 
         assert result.cost_usd == pytest.approx(0.0042)
         assert result.total_tokens == 88
@@ -1525,9 +1507,7 @@ workflow:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        result = await runner.execute_task(
-            Task(id="run-532-custom", instruction="Add numbers"), soul
-        )
+        result = await runner.execute("Add numbers", None, soul)
 
         assert result.output == "Custom tool complete."
         assert result.tool_calls_made == ["adder"]
@@ -1655,10 +1635,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-532-request", instruction="Fetch answer"),
-                soul,
-            )
+            result = await runner.execute("Fetch answer", None, soul)
 
         assert result.output == "Request tool complete."
         assert result.tool_calls_made == ["fetch_answer"]
@@ -1737,10 +1714,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-582-builtin-http", instruction="Fetch data"),
-                soul,
-            )
+            result = await runner.execute("Fetch data", None, soul)
 
         assert result.output == "Builtin http complete."
         assert result.tool_calls_made == ["http_request"]
@@ -1815,10 +1789,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-597-builtin-http", instruction="Fetch nested data"),
-                soul,
-            )
+            result = await runner.execute("Fetch nested data", None, soul)
 
         assert result.output == "Builtin http response_path complete."
         assert result.tool_calls_made == ["http_request"]
@@ -1921,10 +1892,7 @@ workflow:
 
         with patch("httpx.AsyncClient", _FakeAsyncClient):
             runner = RunsightTeamRunner(model_name="gpt-4o")
-            result = await runner.execute_task(
-                Task(id="run-489-builtin-http-html", instruction="Fetch two HTML pages"),
-                soul,
-            )
+            result = await runner.execute("Fetch two HTML pages", None, soul)
 
         assert result.output == "Builtin http HTML complete."
         assert result.tool_calls_made == ["http_request", "http_request"]
@@ -2276,7 +2244,7 @@ workflow:
 
         workflow = parse_workflow_yaml(str(workflow_path))
         block = workflow.blocks["step"]
-        state = WorkflowState(current_task=Task(id="run-532-envelope", instruction="Do work"))
+        state = WorkflowState()
         captured: dict[str, Any] = {}
 
         async def _capture(envelope: Any) -> ResultEnvelope:

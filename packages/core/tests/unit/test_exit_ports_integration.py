@@ -24,7 +24,7 @@ import yaml
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.loop import LoopBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -45,7 +45,7 @@ CUSTOM_WORKFLOWS_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "custo
 def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> RunsightTeamRunner:
     runner = MagicMock(spec=RunsightTeamRunner)
     runner.model_name = "gpt-4o"
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens
         )
@@ -192,9 +192,7 @@ class TestGateStandaloneRoutingE2E:
         wf.add_transition("on_pass", None)
         wf.add_transition("on_fail", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="test", context="test"),
-        )
+        state = _fresh_state()
         # Pre-seed draft result since gate reads eval_key from results
         state = state.model_copy(update={"results": {"draft": BlockResult(output="Some content")}})
 
@@ -232,9 +230,7 @@ class TestGateStandaloneRoutingE2E:
         wf.add_transition("on_pass", None)
         wf.add_transition("on_fail", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="test", context="test"),
-        )
+        state = _fresh_state()
         state = state.model_copy(update={"results": {"draft": BlockResult(output="Bad content")}})
 
         final = await wf.run(state)
@@ -302,9 +298,7 @@ class TestGateInLoopRoutingE2E:
         wf.add_transition("review_loop", "done")
         wf.add_transition("done", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="Write and review", context="test"),
-        )
+        state = _fresh_state()
 
         final = await wf.run(state)
 
@@ -348,9 +342,7 @@ class TestGateInLoopRoutingE2E:
         wf.add_transition("review_loop", "done")
         wf.add_transition("done", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="Write and review", context="test"),
-        )
+        state = _fresh_state()
 
         final = await wf.run(state)
 
@@ -371,7 +363,7 @@ class TestGateInLoopRoutingE2E:
         """
         call_count = {"n": 0}
 
-        async def _side_effect(task, soul):
+        async def _side_effect(instruction, context, soul, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return ExecutionResult(
@@ -391,7 +383,7 @@ class TestGateInLoopRoutingE2E:
 
         runner = MagicMock(spec=RunsightTeamRunner)
         runner.model_name = "gpt-4o"
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         gate = GateBlock(
             block_id="gate",
@@ -418,9 +410,7 @@ class TestGateInLoopRoutingE2E:
         wf.add_transition("review_loop", "done")
         wf.add_transition("done", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="Write and review", context="test"),
-        )
+        state = _fresh_state()
 
         final = await wf.run(state)
 
@@ -460,9 +450,7 @@ class TestGateInLoopRoutingE2E:
         wf.set_entry("review_loop")
         wf.add_transition("review_loop", None)
 
-        state = _fresh_state(
-            current_task=Task(id="t1", instruction="Write and review", context="test"),
-        )
+        state = _fresh_state()
 
         final = await wf.run(state)
 
@@ -938,13 +926,7 @@ blocks:
 
             mock_achat.side_effect = _side_effect
 
-            state = WorkflowState(
-                current_task=Task(
-                    id="test_task",
-                    instruction="Write and publish an article",
-                    context="About AI agents",
-                ),
-            )
+            state = WorkflowState()
 
             final = await wf.run(state)
 
@@ -1047,13 +1029,7 @@ blocks:
 
             mock_achat.side_effect = _side_effect
 
-            state = WorkflowState(
-                current_task=Task(
-                    id="test_task",
-                    instruction="Write article",
-                    context="About AI",
-                ),
-            )
+            state = WorkflowState()
 
             final = await wf.run(state)
 

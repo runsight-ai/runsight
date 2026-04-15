@@ -21,7 +21,7 @@ from runsight_core import (
 )
 from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.conditions.engine import Condition
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
@@ -31,21 +31,11 @@ from runsight_core.workflow import Workflow
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_runner(prompt_fn=None):
+def _make_mock_runner():
     """Create a mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
-    runner._build_prompt = MagicMock(
-        side_effect=prompt_fn
-        or (
-            lambda task: (
-                task.instruction
-                if not task.context
-                else f"{task.instruction}\n\nContext:\n{task.context}"
-            )
-        )
-    )
     return runner
 
 
@@ -98,17 +88,16 @@ class TestStatefulLinearBlockInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         # Runner returns different output each call to verify round ordering
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Analysis round {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -118,7 +107,7 @@ class TestStatefulLinearBlockInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         history_key = "analyze_analyst"
@@ -134,16 +123,15 @@ class TestStatefulLinearBlockInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Round {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -153,7 +141,7 @@ class TestStatefulLinearBlockInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
@@ -170,16 +158,15 @@ class TestStatefulLinearBlockInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         messages_received_per_call = []
 
-        async def _capture_side_effect(t, s, **kwargs):
+        async def _capture_side_effect(instruction, context, soul, **kwargs):
             msgs = kwargs.get("messages", [])
             messages_received_per_call.append(list(msgs))
             return _make_result("t1", "analyst", f"Output {len(messages_received_per_call)}")
 
-        runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
+        runner.execute = AsyncMock(side_effect=_capture_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -189,7 +176,7 @@ class TestStatefulLinearBlockInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         await loop.execute(state, blocks=blocks)
 
         assert len(messages_received_per_call) == 3
@@ -210,16 +197,15 @@ class TestStatefulLinearBlockInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Response_{call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -229,7 +215,7 @@ class TestStatefulLinearBlockInsideLoop:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
@@ -243,16 +229,15 @@ class TestStatefulLinearBlockInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Round {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -267,7 +252,7 @@ class TestStatefulLinearBlockInsideLoop:
         wf.add_transition("loop", None)
         wf.set_entry("loop")
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await wf.run(state)
 
         history = result_state.conversation_histories["analyze_analyst"]
@@ -308,15 +293,14 @@ class TestStatefulDispatchBlockInsideLoop:
             role="Reviewer C",
             system_prompt="You review.",
         )
-        task = Task(id="t1", instruction="Review the code")
 
         call_counts = {"soul_a": 0, "soul_b": 0, "soul_c": 0}
 
-        async def _side_effect(t, s, **kwargs):
-            call_counts[s.id] += 1
-            return _make_result("t1", s.id, f"{s.id}_round_{call_counts[s.id]}")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            call_counts[soul.id] += 1
+            return _make_result("t1", soul.id, f"{soul.id}_round_{call_counts[soul.id]}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_dispatch("review", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
@@ -326,7 +310,7 @@ class TestStatefulDispatchBlockInsideLoop:
         )
         blocks = {"review": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         for soul_id in ["soul_a", "soul_b", "soul_c"]:
@@ -364,12 +348,11 @@ class TestStatefulDispatchBlockInsideLoop:
             role="Reviewer C",
             system_prompt="Review C.",
         )
-        task = Task(id="t1", instruction="Review the code")
 
-        async def _side_effect(t, s, **kwargs):
-            return _make_result("t1", s.id, f"UNIQUE_{s.id}_OUTPUT")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_result("t1", soul.id, f"UNIQUE_{soul.id}_OUTPUT")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_dispatch("review", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
@@ -379,7 +362,7 @@ class TestStatefulDispatchBlockInsideLoop:
         )
         blocks = {"review": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         # Verify each soul's history contains only its own output
@@ -399,19 +382,18 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_each_soul_receives_own_growing_history(self):
         """In round 2, each soul's LLM call must include only that soul's round 1 messages."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", kind="soul", name="A", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", kind="soul", name="B", role="B", system_prompt="B.")
-        soul_c = Soul(id="soul_c", kind="soul", name="C", role="C", system_prompt="C.")
-        task = Task(id="t1", instruction="Work")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
+        soul_c = Soul(id="soul_c", kind="soul", name="Soul C", role="C", system_prompt="C.")
 
         messages_per_soul_per_round = {"soul_a": [], "soul_b": [], "soul_c": []}
 
-        async def _capture_side_effect(t, s, **kwargs):
+        async def _capture_side_effect(instruction, context, soul, **kwargs):
             msgs = kwargs.get("messages", [])
-            messages_per_soul_per_round[s.id].append(list(msgs))
-            return _make_result("t1", s.id, f"{s.id}_output")
+            messages_per_soul_per_round[soul.id].append(list(msgs))
+            return _make_result("t1", soul.id, f"{soul.id}_output")
 
-        runner.execute_task = AsyncMock(side_effect=_capture_side_effect)
+        runner.execute = AsyncMock(side_effect=_capture_side_effect)
 
         inner = _make_stateful_dispatch("fan", [soul_a, soul_b, soul_c], runner)
         loop = LoopBlock(
@@ -421,7 +403,7 @@ class TestStatefulDispatchBlockInsideLoop:
         )
         blocks = {"fan": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         await loop.execute(state, blocks=blocks)
 
         for soul_id in ["soul_a", "soul_b", "soul_c"]:
@@ -440,14 +422,13 @@ class TestStatefulDispatchBlockInsideLoop:
     async def test_dispatch_inside_loop_via_workflow_run(self):
         """Integration through Workflow.run()."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", kind="soul", name="A", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", kind="soul", name="B", role="B", system_prompt="B.")
-        task = Task(id="t1", instruction="Work")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
-        async def _side_effect(t, s, **kwargs):
-            return _make_result("t1", s.id, f"{s.id}_out")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_result("t1", soul.id, f"{soul.id}_out")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
         loop = LoopBlock(
@@ -462,7 +443,7 @@ class TestStatefulDispatchBlockInsideLoop:
         wf.add_transition("loop", None)
         wf.set_entry("loop")
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await wf.run(state)
 
         for soul_id in ["soul_a", "soul_b"]:
@@ -485,16 +466,15 @@ class TestWindowingActivatesInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        task = Task(id="t1", instruction="Analyze data")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result("t1", "analyst", f"Response {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -528,14 +508,13 @@ class TestWindowingActivatesInsideLoop:
                 warnings=[],
             )
             return BudgetedContext(
-                task=Task(
-                    id="budget_task", instruction=request.instruction, context=request.context
-                ),
+                instruction=request.instruction,
+                context=request.context,
                 messages=msgs,
                 report=report,
             )
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         with patch(
             "runsight_core.blocks.linear.fit_to_budget",
@@ -556,14 +535,13 @@ class TestWindowingActivatesInsideLoop:
     async def test_windowing_prunes_dispatch_per_soul_inside_loop(self):
         """Budget fitting should prune per-soul histories independently inside a loop."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", kind="soul", name="A", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", kind="soul", name="B", role="B", system_prompt="B.")
-        task = Task(id="t1", instruction="Work")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
-        async def _side_effect(t, s, **kwargs):
-            return _make_result("t1", s.id, f"{s.id}_out")
+        async def _side_effect(instruction, context, soul, **kwargs):
+            return _make_result("t1", soul.id, f"{soul.id}_out")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
         loop = LoopBlock(
@@ -595,14 +573,13 @@ class TestWindowingActivatesInsideLoop:
                 warnings=[],
             )
             return BudgetedContext(
-                task=Task(
-                    id="budget_task", instruction=request.instruction, context=request.context
-                ),
+                instruction=request.instruction,
+                context=request.context,
                 messages=msgs,
                 report=report,
             )
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         with patch(
             "runsight_core.blocks.dispatch.fit_to_budget",
@@ -625,16 +602,15 @@ class TestWindowingActivatesInsideLoop:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        task = Task(id="t1", instruction="Analyze")
 
         messages_received = []
 
-        async def _capture(t, s, **kwargs):
+        async def _capture(instruction, context, soul, **kwargs):
             msgs = kwargs.get("messages", [])
             messages_received.append(list(msgs))
             return _make_result("t1", "analyst", f"Out {len(messages_received)}")
 
-        runner.execute_task = AsyncMock(side_effect=_capture)
+        runner.execute = AsyncMock(side_effect=_capture)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         loop = LoopBlock(
@@ -667,14 +643,13 @@ class TestWindowingActivatesInsideLoop:
                 warnings=[],
             )
             return BudgetedContext(
-                task=Task(
-                    id="budget_task", instruction=request.instruction, context=request.context
-                ),
+                instruction=request.instruction,
+                context=request.context,
                 messages=msgs,
                 report=report,
             )
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         with patch(
             "runsight_core.blocks.linear.fit_to_budget",
@@ -711,18 +686,17 @@ class TestBreakConditionWithBlockResult:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        task = Task(id="t1", instruction="Analyze")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             # On round 2, output contains "DONE"
             output = "DONE: analysis complete" if call_count >= 2 else "Still working..."
             return _make_result("t1", "analyst", output)
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         # Break when output contains "DONE"
@@ -735,7 +709,7 @@ class TestBreakConditionWithBlockResult:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         # Should have broken after round 2, not run all 5
@@ -753,17 +727,16 @@ class TestBreakConditionWithBlockResult:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        task = Task(id="t1", instruction="Analyze")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             # Exact match — "DONE" as the entire output
             return _make_result("t1", "analyst", "DONE" if call_count >= 2 else "working")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         # 'equals' operator: must match exactly "DONE", not "BlockResult(output='DONE')"
@@ -776,7 +749,7 @@ class TestBreakConditionWithBlockResult:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         meta = result_state.shared_memory["__loop__loop"]
@@ -788,18 +761,17 @@ class TestBreakConditionWithBlockResult:
         """Break condition works when inner block is a stateful DispatchBlock
         that stores BlockResult with JSON output."""
         runner = _make_mock_runner()
-        soul_a = Soul(id="soul_a", kind="soul", name="A", role="A", system_prompt="A.")
-        soul_b = Soul(id="soul_b", kind="soul", name="B", role="B", system_prompt="B.")
-        task = Task(id="t1", instruction="Work")
+        soul_a = Soul(id="soul_a", kind="soul", name="Soul A", role="A", system_prompt="A.")
+        soul_b = Soul(id="soul_b", kind="soul", name="Soul B", role="B", system_prompt="B.")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", s.id, f"{s.id}_out")
+            return _make_result("t1", soul.id, f"{soul.id}_out")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_dispatch("fan", [soul_a, soul_b], runner)
         # DispatchBlock output is JSON containing "soul_a_out" — use 'contains'
@@ -812,7 +784,7 @@ class TestBreakConditionWithBlockResult:
         )
         blocks = {"fan": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         # Should break on round 1 since the output always contains "soul_a_out"
@@ -828,18 +800,17 @@ class TestBreakConditionWithBlockResult:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        task = Task(id="t1", instruction="Analyze")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             return _make_result(
                 "t1", "analyst", "DONE" if call_count >= 3 else f"Progress {call_count}"
             )
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("analyze", soul, runner)
         break_cond = Condition(eval_key="analyze", operator="equals", value="DONE")
@@ -851,7 +822,7 @@ class TestBreakConditionWithBlockResult:
         )
         blocks = {"analyze": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         # Broke on round 3 — history should have 3 rounds = 6 messages
@@ -874,18 +845,17 @@ class TestCombinedStatefulWindowingBreak:
         """Stateful LinearBlock with windowing, breaking early at round 3 of 10."""
         runner = _make_mock_runner()
         soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
-        task = Task(id="t1", instruction="Write a story")
 
         call_count = 0
 
-        async def _side_effect(t, s, **kwargs):
+        async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count >= 3:
                 return _make_result("t1", "writer", "FINAL: story complete")
             return _make_result("t1", "writer", f"Draft {call_count}")
 
-        runner.execute_task = AsyncMock(side_effect=_side_effect)
+        runner.execute = AsyncMock(side_effect=_side_effect)
 
         inner = _make_stateful_linear("write", soul, runner)
         break_cond = Condition(eval_key="write", operator="starts_with", value="FINAL")
@@ -897,7 +867,7 @@ class TestCombinedStatefulWindowingBreak:
         )
         blocks = {"write": inner, "loop": loop}
 
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
         result_state = await loop.execute(state, blocks=blocks)
 
         # Verify break

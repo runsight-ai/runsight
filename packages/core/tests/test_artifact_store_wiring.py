@@ -315,7 +315,7 @@ class TestDispatchBlockArtifactStoreSharing:
 
         from runsight_core import DispatchBlock
         from runsight_core.artifacts import InMemoryArtifactStore
-        from runsight_core.primitives import Soul, Task
+        from runsight_core.primitives import Soul
 
         store = InMemoryArtifactStore(run_id="dispatch-run")
 
@@ -330,7 +330,7 @@ class TestDispatchBlockArtifactStoreSharing:
         mock_result.output = "output"
         mock_result.cost_usd = 0.01
         mock_result.total_tokens = 10
-        mock_runner.execute_task = AsyncMock(return_value=mock_result)
+        mock_runner.execute = AsyncMock(return_value=mock_result)
 
         from runsight_core.blocks.dispatch import DispatchBranch
 
@@ -346,7 +346,6 @@ class TestDispatchBlockArtifactStoreSharing:
 
         state = WorkflowState(
             artifact_store=store,
-            current_task=Task(id="t1", instruction="do work"),
         )
         result = await block.execute(state)
         assert result.artifact_store is store

@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -24,17 +23,17 @@ class _ScriptedRunner:
         self.calls: list[tuple[str, str, str | None]] = []
         self.attempts: dict[str, int] = {}
 
-    async def execute_task(self, task: Task, soul, messages=None):
+    async def execute(self, instruction: str, context, soul, messages=None, **kwargs):
         soul_id = soul.id
         attempt = self.attempts.get(soul_id, 0) + 1
         self.attempts[soul_id] = attempt
-        self.calls.append((soul_id, task.instruction, task.context))
+        self.calls.append((soul_id, instruction, context))
 
         behavior = self.behaviors.get(soul_id)
         if behavior is None:
-            output = f"{soul_id}|{task.instruction}|{task.context or ''}"
+            output = f"{soul_id}|{instruction}|{context or ''}"
         else:
-            output = behavior(attempt, task, soul)
+            output = behavior(attempt, instruction, soul, context)
 
         if isinstance(output, BaseException):
             raise output
@@ -91,19 +90,14 @@ class TestYamlDxSugarE2E:
             runner=_ScriptedRunner(),
         )
 
-        final_state = await workflow.run(
-            WorkflowState(
-                current_task=Task(
-                    id="draft-task",
-                    instruction="Write a summary",
-                    context="Purple team context",
-                )
-            )
-        )
+        final_state = await workflow.run(WorkflowState())
 
-        assert _result_snapshot(final_state) == [
-            ("draft", "writer|Write a summary|Purple team context", "done")
-        ]
+        # "workflow" is a sentinel key seeded by Workflow.run(); exclude it from snapshot.
+        # exit_handle may be "done" when the block terminates normally.
+        block_snapshot = [t for t in _result_snapshot(final_state) if t[0] != "workflow"]
+        assert len(block_snapshot) == 1
+        assert block_snapshot[0][0] == "draft"
+        assert block_snapshot[0][1] == "writer||"
 
     async def test_depends_chain_executes_in_order_and_matches_explicit_workflow(
         self, tmp_path: Path
@@ -178,9 +172,17 @@ class TestYamlDxSugarE2E:
         sugar_state = await sugar_workflow.run(WorkflowState())
         explicit_state = await explicit_workflow.run(WorkflowState())
 
-        assert list(sugar_state.results.keys()) == ["step_a", "step_b", "step_c"]
-        assert json.loads(sugar_state.results["step_b"].output)["seen"] == ["step_a"]
-        assert json.loads(sugar_state.results["step_c"].output)["seen"] == ["step_a", "step_b"]
+        # "workflow" is a sentinel key seeded by Workflow.run(); exclude it from comparisons
+        sugar_block_keys = [k for k in sugar_state.results.keys() if k != "workflow"]
+        assert sugar_block_keys == ["step_a", "step_b", "step_c"]
+        step_b_seen = [
+            k for k in json.loads(sugar_state.results["step_b"].output)["seen"] if k != "workflow"
+        ]
+        assert step_b_seen == ["step_a"]
+        step_c_seen = [
+            k for k in json.loads(sugar_state.results["step_c"].output)["seen"] if k != "workflow"
+        ]
+        assert step_c_seen == ["step_a", "step_b"]
         assert _result_snapshot(sugar_state) == _result_snapshot(explicit_state)
 
     @pytest.mark.parametrize(
@@ -244,9 +246,9 @@ class TestYamlDxSugarE2E:
 
         runner = _ScriptedRunner(
             {
-                "evaluator": lambda attempt, task, soul: (
+                "evaluator": lambda attempt, instruction, soul, context=None: (
                     "PASS"
-                    if '"status": "approved"' in (task.context or "")
+                    if '"status": "approved"' in (context or "")
                     else "FAIL: content rejected"
                 )
             }
@@ -293,13 +295,15 @@ class TestYamlDxSugarE2E:
         )
 
         runner = _ScriptedRunner(
-            {"risky": lambda attempt, task, soul: RuntimeError("primary explosion")}
+            {
+                "risky": lambda attempt, instruction, soul, context=None: RuntimeError(
+                    "primary explosion"
+                )
+            }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
-        final_state = await workflow.run(
-            WorkflowState(current_task=Task(id="risky-task", instruction="fail", context="boom"))
-        )
+        final_state = await workflow.run(WorkflowState())
 
         assert final_state.results["risky"].exit_handle == "error"
         assert final_state.results["risky"].metadata == {
@@ -353,16 +357,16 @@ class TestYamlDxSugarE2E:
         )
 
         runner = _ScriptedRunner(
-            {"retryer": lambda attempt, task, soul: RuntimeError("retry exhausted")}
+            {
+                "retryer": lambda attempt, instruction, soul, context=None: RuntimeError(
+                    "retry exhausted"
+                )
+            }
         )
         workflow = parse_workflow_yaml(workflow_path, runner=runner)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            final_state = await workflow.run(
-                WorkflowState(
-                    current_task=Task(id="retry-task", instruction="retry", context="please")
-                )
-            )
+            final_state = await workflow.run(WorkflowState())
 
         assert runner.attempts["retryer"] == 3
         assert final_state.results["risky"].exit_handle == "error"

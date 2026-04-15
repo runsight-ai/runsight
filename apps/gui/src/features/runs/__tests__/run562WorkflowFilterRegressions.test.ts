@@ -566,7 +566,7 @@ describe("RUN-562 Warnings column regression display", () => {
     });
 
     // Research & Review has regression_count: 3
-    expect(within(researchRow).getByText(/3/)).toBeTruthy();
+    expect(within(researchRow).getByText("3", { exact: true })).toBeTruthy();
     expect(researchRow.querySelector("svg")).toBeTruthy();
   });
 

@@ -106,16 +106,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             return await self.harness.run(envelope)
 
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
-        from runsight_core.state import BlockResult, Task, WorkflowState
-
-        ctx = envelope.task.context
-        task_context = ctx.get("text") if ctx.keys() == {"text"} else None
-
-        task = Task(
-            id=envelope.task.id,
-            instruction=envelope.task.instruction,
-            context=task_context,
-        )
+        from runsight_core.state import BlockResult, WorkflowState
 
         results: dict[str, BlockResult] = {}
         for key, val in envelope.scoped_results.items():
@@ -128,7 +119,6 @@ def _bypass_subprocess_isolation(request, monkeypatch):
                 results[key] = BlockResult(output=str(val))
 
         state = WorkflowState(
-            current_task=task,
             results=results,
             shared_memory=dict(envelope.scoped_shared_memory),
         )
@@ -158,7 +148,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             if key.startswith(port_prefix):
                 port = key[len(port_prefix) :]
                 output_text = val.output if isinstance(val, BlockResult) else str(val)
-                delegate_artifacts[port] = DelegateArtifact(task=output_text)
+                delegate_artifacts[port] = DelegateArtifact(prompt=output_text)
 
         # Mirror the real worker: successful isolated blocks default to "done"
         # when the inner block does not emit an explicit exit handle.

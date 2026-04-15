@@ -6,7 +6,6 @@ Tests the renamed Workflow class and its cross-feature interactions.
 
 import pytest
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
@@ -64,7 +63,7 @@ async def test_workflow_execution_renamed_class():
 
     wf.add_block(block_a).add_block(block_b).set_entry("a").add_transition("a", "b")
 
-    state = WorkflowState(current_task=Task(id="task1", instruction="test"))
+    state = WorkflowState()
     final_state = await wf.run(state)
 
     # Verify both blocks executed

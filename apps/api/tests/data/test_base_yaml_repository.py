@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 
 from runsight_api.data.filesystem._base_yaml_repo import BaseYamlRepository
 from runsight_api.data.filesystem.step_repo import StepRepository
-from runsight_api.data.filesystem.task_repo import TaskRepository
 from runsight_api.domain.errors import RunsightError
 
 # -- Fixtures: a minimal entity and concrete repo for testing ----------------
@@ -195,59 +194,6 @@ class TestStrictEntityWriteValidation:
 
 
 class TestTaskAndStepRepoStrictness:
-    def test_task_repo_create_rejects_unknown_fields_and_does_not_persist(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            file_path = repo.entity_dir / "task-1.yaml"
-            with pytest.raises(ValidationError):
-                repo.create({"id": "task-1", "name": "Task", "unsupported": "x"})
-            assert not file_path.exists()
-
-    def test_task_repo_update_rejects_unknown_fields_and_keeps_original_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            repo.create({"id": "task-1", "name": "Task"})
-            with pytest.raises(ValidationError):
-                repo.update("task-1", {"id": "task-1", "name": "Updated", "unsupported": "x"})
-            with open(repo.entity_dir / "task-1.yaml", "r") as f:
-                on_disk = yaml.safe_load(f)
-            assert on_disk == {"id": "task-1", "name": "Task"}
-
-    def test_task_repo_get_by_id_rejects_unknown_fields_in_authored_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            task_path = repo.entity_dir / "task-1.yaml"
-            task_path.write_text(
-                yaml.safe_dump(
-                    {
-                        "id": "task-1",
-                        "name": "Task",
-                        "custom_notes": "unsupported",
-                    },
-                    sort_keys=False,
-                )
-            )
-
-            assert repo.get_by_id("task-1") is None
-
-    def test_task_repo_list_all_rejects_unknown_fields_in_authored_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            task_path = repo.entity_dir / "task-1.yaml"
-            task_path.write_text(
-                yaml.safe_dump(
-                    {
-                        "id": "task-1",
-                        "name": "Task",
-                        "unsupported": True,
-                    },
-                    sort_keys=False,
-                )
-            )
-
-            with pytest.raises(ValidationError):
-                repo.list_all()
-
     def test_step_repo_create_rejects_unknown_fields_and_does_not_persist(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = StepRepository(base_path=tmpdir)

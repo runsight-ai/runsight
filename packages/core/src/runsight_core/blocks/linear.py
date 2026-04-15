@@ -6,6 +6,7 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Literal
 
 from runsight_core.blocks._helpers import resolve_soul
@@ -19,7 +20,7 @@ from runsight_core.state import BlockResult, WorkflowState
 
 class LinearBlock(BaseBlock):
     """
-    Executes the current task with a single agent.
+    Executes a single agent using resolved inputs from upstream blocks.
 
     Typical Use: Sequential processing where one agent completes a task.
     Example: Research block -> writes research report to results.
@@ -31,10 +32,14 @@ class LinearBlock(BaseBlock):
         self.runner = runner
 
     async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        if state.current_task is None:
-            raise ValueError(f"LinearBlock {self.block_id}: state.current_task is None")
+        _resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
 
-        task = state.current_task
+        if _resolved_inputs:
+            instruction = json.dumps(_resolved_inputs)
+        else:
+            instruction = ""
+
+        context = None
 
         if self.stateful:
             model = self.soul.model_name or self.runner.model_name
@@ -44,23 +49,22 @@ class LinearBlock(BaseBlock):
                 ContextBudgetRequest(
                     model=model,
                     system_prompt=self.soul.system_prompt or "",
-                    instruction=task.instruction or "",
-                    context=task.context or "",
+                    instruction=instruction,
+                    context=context or "",
                     conversation_history=history,
                 ),
                 counter=litellm_token_counter,
             )
-            result = await self.runner.execute_task(
-                budgeted.task, self.soul, messages=budgeted.messages
+            result = await self.runner.execute(
+                budgeted.instruction, budgeted.context, self.soul, messages=budgeted.messages
             )
-            prompt = self.runner._build_prompt(budgeted.task)
             updated_history = budgeted.messages + [
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": budgeted.instruction},
                 {"role": "assistant", "content": result.output},
             ]
             conversation_update = {**state.conversation_histories, history_key: updated_history}
         else:
-            result = await self.runner.execute_task(task, self.soul)
+            result = await self.runner.execute(instruction, context, self.soul)
             conversation_update = state.conversation_histories
 
         # Truncate output for message log (prevent state size explosion)

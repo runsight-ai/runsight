@@ -209,7 +209,6 @@ const CANVAS_FEATURES = [
   "features/surface/SurfaceCanvas.tsx",
   "features/surface/nodes/SoulNode.tsx",
   "features/surface/nodes/StartNode.tsx",
-  "features/surface/nodes/TaskNode.tsx",
 ];
 
 const RUNS_FEATURES = [

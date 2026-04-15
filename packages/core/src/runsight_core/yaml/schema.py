@@ -19,7 +19,7 @@ from pydantic import (
 
 from runsight_core.identity import EntityKind, validate_entity_id
 
-# -- Soul / Task / Task-file (unchanged) ------------------------------------
+# -- Soul / Tool definitions ------------------------------------------------
 
 
 class BaseToolDef(BaseModel):
@@ -97,24 +97,6 @@ class SoulDef(BaseModel):
     def _validate_identity(cls, value: str) -> str:
         validate_entity_id(value, EntityKind.SOUL)
         return value
-
-
-class TaskDef(BaseModel):
-    """Task definition as expressed in the YAML tasks: section."""
-
-    id: str
-    instruction: str
-    context: Optional[str] = None
-
-
-class RunsightTaskFile(BaseModel):
-    """
-    Root model for a Runsight task YAML file.
-    Uses wrapper format: version + task.
-    """
-
-    version: str = "1.0"
-    task: TaskDef  # required — no default; Pydantic raises ValidationError if absent
 
 
 # -- Supporting models for output conditions / inputs -----------------------

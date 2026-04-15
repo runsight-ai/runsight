@@ -504,45 +504,6 @@ config: {}
         updated = run_repo.update_run.call_args[0][0]
         assert updated.status == RunStatus.failed
 
-    @pytest.mark.asyncio
-    async def test_missing_instruction_in_task_data(self):
-        """task_data missing 'instruction' key raises validation error / sets failed."""
-        ExecutionService = _import_execution_service()
-        from runsight_api.domain.entities.run import Run, RunStatus
-
-        run = Run(
-            id="run_noinstr",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
-            status=RunStatus.pending,
-            task_json="{}",
-        )
-        run_repo = Mock()
-        run_repo.get_run.return_value = run
-        workflow_repo = Mock()
-        provider_repo = Mock()
-
-        mock_entity = Mock()
-        mock_entity.yaml = VALID_RUNTIME_YAML
-        workflow_repo.get_by_id.return_value = mock_entity
-        provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
-        provider_repo.list_all.return_value = [provider]
-        provider_repo.get_by_type.return_value = None
-
-        svc = ExecutionService(
-            run_repo=run_repo,
-            workflow_repo=workflow_repo,
-            provider_repo=provider_repo,
-        )
-
-        # task_data has no "instruction" key
-        await svc.launch_execution("run_noinstr", "wf_1", {})
-        await asyncio.sleep(0.1)
-
-        run_repo.update_run.assert_called()
-        updated = run_repo.update_run.call_args[0][0]
-        assert updated.status == RunStatus.failed
-
 
 # ---------------------------------------------------------------------------
 # 5. Run status transitions
@@ -658,7 +619,7 @@ class TestRunStatusTransitions:
             result_state = WorkflowState()
 
             # Mock wf.run to behave like real Workflow.run(): call observer callbacks
-            async def _mock_run(state, observer=None):
+            async def _mock_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_complete("test", state, 0.1)
                 return result_state
@@ -718,7 +679,7 @@ class TestRunStatusTransitions:
             error = RuntimeError("LLM exploded")
 
             # Mock wf.run to behave like real Workflow.run(): call observer on error, then raise
-            async def _mock_run(state, observer=None):
+            async def _mock_run(state, observer=None, **kwargs):
                 if observer:
                     observer.on_workflow_error("test", error, 0.1)
                 raise error

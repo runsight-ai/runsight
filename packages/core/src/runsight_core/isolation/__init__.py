@@ -4,9 +4,9 @@ from runsight_core.isolation.envelope import (
     ContextEnvelope,
     DelegateArtifact,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 from runsight_core.isolation.harness import SubprocessHarness
@@ -31,9 +31,9 @@ __all__ = [
     "IPCServer",
     "InterceptorRegistry",
     "IsolatedBlockWrapper",
+    "PromptEnvelope",
     "ResultEnvelope",
     "SoulEnvelope",
     "SubprocessHarness",
-    "TaskEnvelope",
     "ToolDefEnvelope",
 ]

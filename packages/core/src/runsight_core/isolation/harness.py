@@ -28,9 +28,9 @@ from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
 )
 from runsight_core.isolation.interceptors import (
     BudgetInterceptor,
@@ -223,7 +223,7 @@ class SubprocessHarness:
                 max_tool_iterations=3,
             ),
             tools=[],
-            task=TaskEnvelope(id="task-0", instruction="", context={}),
+            prompt=PromptEnvelope(id="task-0", instruction="", context={}),
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             conversation_history=[],

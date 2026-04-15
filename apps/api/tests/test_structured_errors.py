@@ -179,7 +179,6 @@ SUBCLASS_EXPECTATIONS = [
     ("RunFailed", "RUN_FAILED", 500),
     ("ProviderNotConfigured", "PROVIDER_NOT_CONFIGURED", 400),
     ("SoulNotFound", "SOUL_NOT_FOUND", 404),
-    ("TaskNotFound", "TASK_NOT_FOUND", 404),
     ("StepNotFound", "STEP_NOT_FOUND", 404),
     ("ProviderNotFound", "PROVIDER_NOT_FOUND", 404),
 ]

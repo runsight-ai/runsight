@@ -21,7 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core.budget_enforcement import _active_budget
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
 
@@ -203,9 +202,7 @@ class TestCombinedBranchCostsWithinFlowCap:
         mock_cost.side_effect = [0.50, 0.60, 0.40]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -231,9 +228,7 @@ class TestCombinedBranchCostsWithinFlowCap:
         mock_cost.side_effect = [0.50, 0.60, 0.40]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -267,9 +262,7 @@ class TestCombinedBranchCostsWithinFlowCap:
         mock_cost.return_value = 0.30
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
         assert result is not None
@@ -287,9 +280,7 @@ class TestCombinedBranchCostsWithinFlowCap:
         mock_cost.return_value = 0.30
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
         assert _active_budget.get(None) is None
@@ -320,9 +311,7 @@ class TestCombinedBranchCostsExceedFlowCap:
         mock_cost.side_effect = [0.80, 0.90, 0.70]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -347,9 +336,7 @@ class TestCombinedBranchCostsExceedFlowCap:
         mock_cost.side_effect = [0.80, 0.90, 0.70]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -370,9 +357,7 @@ class TestCombinedBranchCostsExceedFlowCap:
         mock_cost.side_effect = [0.80, 0.90, 0.70]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -396,9 +381,7 @@ class TestCombinedBranchCostsExceedFlowCap:
         mock_cost.return_value = 0.80
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_WITH_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -429,9 +412,7 @@ class TestNoBudgetBranchesRunUnchanged:
         mock_cost.side_effect = [0.50, 0.60, 0.40]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -456,9 +437,7 @@ class TestNoBudgetBranchesRunUnchanged:
         mock_cost.return_value = 0.10
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -479,9 +458,7 @@ class TestNoBudgetBranchesRunUnchanged:
         mock_cost.side_effect = [0.50, 0.60, 0.40]
 
         wf = parse_workflow_yaml(_YAML_DISPATCH_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Run dispatch"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
