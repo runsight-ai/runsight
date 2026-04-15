@@ -59,7 +59,7 @@ class TestStreamingObserverCreatedAndRegistered:
 
         captured_observer = None
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal captured_observer
             # At this point the StreamingObserver should be registered
             captured_observer = svc.get_observer("run_reg")
@@ -89,7 +89,7 @@ class TestStreamingObserverCreatedAndRegistered:
 
         captured_observer = None
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal captured_observer
             captured_observer = svc.get_observer(run_id)
             return state
@@ -129,7 +129,7 @@ class TestStreamingObserverInCompositeChain:
 
         composite_observers = None
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal composite_observers
             # Inspect the CompositeObserver's internal list
             if hasattr(observer, "observers"):
@@ -163,7 +163,7 @@ class TestStreamingObserverInCompositeChain:
         """
         svc = _make_service()
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("test_wf", state)
                 observer.on_workflow_complete("test_wf", state, 1.0)
@@ -179,7 +179,7 @@ class TestStreamingObserverInCompositeChain:
         svc2 = _make_service()
         events = []
 
-        async def fake_wf_run_capture(state, observer=None):
+        async def fake_wf_run_capture(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("test_wf", state)
             # Now check the registered StreamingObserver's queue
@@ -226,7 +226,7 @@ class TestStreamingObserverCleanupOnSuccess:
 
         was_registered = False
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal was_registered
             # Verify it IS registered during execution
             was_registered = svc.get_observer("run_clean_ok") is not None
@@ -267,7 +267,7 @@ class TestStreamingObserverCleanupOnFailure:
 
         was_registered = False
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal was_registered
             was_registered = svc.get_observer("run_clean_fail") is not None
             raise RuntimeError("LLM exploded")
@@ -308,7 +308,7 @@ class TestSubscribeStreamYieldsEvents:
         run_id = "run_sub"
         collected_events = []
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             # Give consumer a moment to start reading
             await asyncio.sleep(0.01)
             if observer:
@@ -402,7 +402,7 @@ class TestSubscribeStreamYieldsEvents:
         run_id2 = "run_sub_empty2"
         obs_during_run = None
 
-        async def capture_run(state, observer=None):
+        async def capture_run(state, observer=None, **kwargs):
             nonlocal obs_during_run
             obs_during_run = svc2.get_observer(run_id2)
             return state
@@ -439,7 +439,7 @@ class TestEndToEndEventPipeline:
         run_id = "run_e2e_ok"
         collected = []
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             await asyncio.sleep(0.01)  # Let consumer attach
             if observer:
                 observer.on_workflow_start("test_wf", state)
@@ -489,7 +489,7 @@ class TestEndToEndEventPipeline:
         collected = []
         error = RuntimeError("LLM quota exceeded")
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             await asyncio.sleep(0.01)
             if observer:
                 observer.on_workflow_start("test_wf", state)
@@ -536,7 +536,7 @@ class TestEndToEndEventPipeline:
 
         events_before_cleanup = []
 
-        async def fake_wf_run(state, observer=None):
+        async def fake_wf_run(state, observer=None, **kwargs):
             if observer:
                 observer.on_workflow_start("test_wf", state)
                 observer.on_workflow_complete("test_wf", state, 0.5)

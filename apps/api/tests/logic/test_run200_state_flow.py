@@ -1,15 +1,13 @@
-"""Red tests for RUN-200: Fix execution_service state flow — pass WorkflowState to Workflow.run().
+"""Tests for RUN-200: execution_service state flow — pass WorkflowState to Workflow.run().
 
-Bug: execution_service.py:134 passes a raw string to wf.run() instead of a WorkflowState.
-These tests verify that _run_workflow constructs a proper WorkflowState with current_task
-and passes it to Workflow.run().
+Updated for RUN-866: Task/current_task removed. Workflow.run() now receives
+inputs as a keyword argument, which seeds state.results["workflow"].
 """
 
 import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 
 from runsight_api.logic.services.execution_service import ExecutionService
@@ -45,9 +43,9 @@ class TestRunReceivesWorkflowState:
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        task_data = {"instruction": "Summarize the document"}
+        inputs = {"topic": "Summarize the document"}
 
-        await svc._run_workflow("run_1", mock_wf, task_data)
+        await svc._run_workflow("run_1", mock_wf, inputs)
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -63,9 +61,9 @@ class TestRunReceivesWorkflowState:
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        task_data = {"instruction": "Analyze this data"}
+        inputs = {"topic": "Analyze this data"}
 
-        await svc._run_workflow("run_2", mock_wf, task_data)
+        await svc._run_workflow("run_2", mock_wf, inputs)
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -73,126 +71,61 @@ class TestRunReceivesWorkflowState:
 
 
 # ---------------------------------------------------------------------------
-# 2. WorkflowState has current_task set from task_data
+# 2. inputs passed to wf.run() as keyword argument
 # ---------------------------------------------------------------------------
 
 
-class TestCurrentTaskFromTaskData:
-    """Verify that the WorkflowState passed to wf.run() has current_task populated."""
+class TestInputsPassedToWorkflowRun:
+    """Verify that inputs dict is forwarded to wf.run(inputs=...)."""
 
     @pytest.mark.asyncio
-    async def test_state_has_current_task_set(self):
-        """The WorkflowState passed to wf.run() must have current_task != None."""
+    async def test_inputs_passed_as_keyword(self):
+        """wf.run() must receive inputs as a keyword argument."""
         svc = _make_service()
 
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        task_data = {"instruction": "Write a report"}
+        inputs = {"customer_id": "123", "reason": "defective"}
 
-        await svc._run_workflow("run_3", mock_wf, task_data)
+        await svc._run_workflow("run_3", mock_wf, inputs)
 
-        first_arg = mock_wf.run.call_args[0][0]
-        assert first_arg.current_task is not None, (
-            "WorkflowState.current_task must be set, got None"
-        )
+        mock_wf.run.assert_called_once()
+        call_kwargs = mock_wf.run.call_args[1]
+        assert "inputs" in call_kwargs, "wf.run() must receive inputs= keyword arg"
+        assert call_kwargs["inputs"] == inputs
 
     @pytest.mark.asyncio
-    async def test_current_task_is_task_instance(self):
-        """current_task must be a Task primitive instance."""
+    async def test_empty_inputs_forwarded(self):
+        """Empty inputs dict is still forwarded to wf.run()."""
         svc = _make_service()
 
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        task_data = {"instruction": "Do something"}
+        await svc._run_workflow("run_4", mock_wf, {})
 
-        await svc._run_workflow("run_4", mock_wf, task_data)
-
-        first_arg = mock_wf.run.call_args[0][0]
-        assert isinstance(first_arg.current_task, Task), (
-            f"Expected Task, got {type(first_arg.current_task).__name__}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_current_task_has_id(self):
-        """current_task.id must be set (non-empty string)."""
-        svc = _make_service()
-
-        mock_wf = Mock()
-        mock_wf.run = AsyncMock(return_value=WorkflowState())
-
-        task_data = {"instruction": "Test instruction"}
-
-        await svc._run_workflow("run_5", mock_wf, task_data)
-
-        first_arg = mock_wf.run.call_args[0][0]
-        assert first_arg.current_task.id, "current_task.id must be a non-empty string"
+        call_kwargs = mock_wf.run.call_args[1]
+        assert call_kwargs["inputs"] == {}
 
 
 # ---------------------------------------------------------------------------
-# 3. current_task.instruction matches task_data["instruction"]
-# ---------------------------------------------------------------------------
-
-
-class TestInstructionMatches:
-    """Verify that the instruction flows through correctly."""
-
-    @pytest.mark.asyncio
-    async def test_instruction_matches_task_data(self):
-        """current_task.instruction must equal task_data['instruction']."""
-        svc = _make_service()
-
-        mock_wf = Mock()
-        mock_wf.run = AsyncMock(return_value=WorkflowState())
-
-        instruction = "Analyze the quarterly earnings report"
-        task_data = {"instruction": instruction}
-
-        await svc._run_workflow("run_6", mock_wf, task_data)
-
-        first_arg = mock_wf.run.call_args[0][0]
-        assert first_arg.current_task.instruction == instruction
-
-    @pytest.mark.asyncio
-    async def test_instruction_preserved_with_special_characters(self):
-        """Instructions with special characters are passed through unchanged."""
-        svc = _make_service()
-
-        mock_wf = Mock()
-        mock_wf.run = AsyncMock(return_value=WorkflowState())
-
-        instruction = "What's the cost? $100 for <item> & 'stuff'\nnew line"
-        task_data = {"instruction": instruction}
-
-        await svc._run_workflow("run_7", mock_wf, task_data)
-
-        first_arg = mock_wf.run.call_args[0][0]
-        assert first_arg.current_task.instruction == instruction
-
-
-# ---------------------------------------------------------------------------
-# 4. observer.on_workflow_start receives real initial state
+# 3. observer passed to wf.run()
 # ---------------------------------------------------------------------------
 
 
 class TestObserverReceivesRealState:
-    """Verify that wf.run() receives the state with current_task and the observer.
-
-    Note: After RUN-208, _run_workflow no longer calls observer methods directly.
-    Workflow.run() is the single source of observer events. We verify the observer
-    is passed to wf.run() so Workflow.run() can call on_workflow_start internally.
-    """
+    """Verify that wf.run() receives the observer."""
 
     @pytest.mark.asyncio
-    async def test_observer_passed_to_wf_run_with_correct_state(self):
-        """wf.run() must receive the state with current_task and the observer."""
+    async def test_observer_passed_to_wf_run(self):
+        """wf.run() must receive the observer keyword arg."""
         svc = _make_service()
 
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        task_data = {"instruction": "Process data"}
+        inputs = {"data": "Process data"}
 
         with patch(
             "runsight_api.logic.services.execution_service.CompositeObserver"
@@ -200,25 +133,19 @@ class TestObserverReceivesRealState:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_8", mock_wf, task_data)
+            await svc._run_workflow("run_5", mock_wf, inputs)
 
-        # Verify wf.run() was called with the correct state
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
         assert isinstance(first_arg, WorkflowState)
-        assert first_arg.current_task is not None, (
-            "wf.run() received a state with current_task=None"
-        )
-        assert first_arg.current_task.instruction == "Process data"
 
-        # Verify observer was passed to wf.run()
         assert mock_wf.run.call_args[1].get("observer") is mock_observer, (
             "observer must be passed to wf.run() so Workflow.run() can fire events"
         )
 
 
 # ---------------------------------------------------------------------------
-# 5. Integration: full launch_execution path passes WorkflowState
+# 4. Integration: full launch_execution path passes WorkflowState + inputs
 # ---------------------------------------------------------------------------
 
 
@@ -226,8 +153,8 @@ class TestLaunchExecutionStateFlow:
     """End-to-end test through launch_execution to verify the state flow."""
 
     @pytest.mark.asyncio
-    async def test_launch_execution_passes_workflow_state_to_run(self):
-        """Full path: launch_execution -> _run_workflow -> wf.run(WorkflowState)."""
+    async def test_launch_execution_passes_workflow_state_and_inputs(self):
+        """Full path: launch_execution -> _run_workflow -> wf.run(WorkflowState, inputs=...)."""
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -245,18 +172,16 @@ class TestLaunchExecutionStateFlow:
             provider_repo=provider_repo,
         )
 
-        instruction = "Run the full workflow"
+        inputs = {"topic": "Run the full workflow"}
 
-        with (
-            patch(
-                "runsight_api.logic.services.execution_service.parse_workflow_yaml"
-            ) as mock_parse,
-        ):
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
             mock_wf = Mock()
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_e2e", "wf_1", {"instruction": instruction})
+            await svc.launch_execution("run_e2e", "wf_1", inputs)
 
             # Wait for background task to complete
             await asyncio.sleep(0.1)
@@ -266,5 +191,5 @@ class TestLaunchExecutionStateFlow:
             assert isinstance(first_arg, WorkflowState), (
                 f"Expected WorkflowState, got {type(first_arg).__name__}"
             )
-            assert first_arg.current_task is not None
-            assert first_arg.current_task.instruction == instruction
+            call_kwargs = mock_wf.run.call_args[1]
+            assert call_kwargs["inputs"] == inputs
