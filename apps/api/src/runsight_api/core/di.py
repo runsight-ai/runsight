@@ -18,8 +18,5 @@ class Container:
     def __init__(self):
         self.engine = engine
 
-    def setup_app_state(self, app):
-        pass
-
 
 container = Container()
