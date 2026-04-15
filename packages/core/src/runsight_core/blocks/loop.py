@@ -198,13 +198,9 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                # Use module-level execute_block so tests can patch it.
-                # Pass parent_inputs as extra_inputs only when there's no
-                # BlockExecutionContext — in that case workflow.execute_block handles
-                # the full dispatch and extra_inputs is not needed.
-                from runsight_core.workflow import BlockExecutionContext as _BEC
-
-                if not isinstance(ctx, _BEC) and parent_inputs:
+                # Use module-level execute_block so tests can patch it, and keep
+                # outer loop inputs visible to inner blocks on every dispatch path.
+                if parent_inputs:
                     state = await execute_block(inner_block, state, ctx, extra_inputs=parent_inputs)
                 else:
                     state = await execute_block(inner_block, state, ctx)
@@ -312,7 +308,7 @@ async def execute_block(
     from runsight_core.workflow import execute_block as workflow_execute_block
 
     if isinstance(ctx, BlockExecutionContext):
-        return await workflow_execute_block(block, state, ctx)
+        return await workflow_execute_block(block, state, ctx, extra_inputs=extra_inputs)
 
     # ctx is None: build a BlockContext and dispatch directly
     block_ctx = build_block_context(block, state)

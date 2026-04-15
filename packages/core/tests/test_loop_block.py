@@ -763,7 +763,23 @@ class TestLoopBlockWorkflowIntegration:
                 self.received_inputs = dict(ctx.inputs)
                 return await super().execute(ctx)
 
-        inner = TrackingBlock("inner_block")
+        class CapturingInnerBlock(BaseBlock):
+            def __init__(self):
+                super().__init__(block_id="inner_block")
+                self.received_inputs = None
+
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                self.received_inputs = dict(ctx.inputs)
+                calls = list(ctx.state_snapshot.shared_memory.get("inner_block_calls", []))
+                calls.append(len(calls) + 1)
+                return BlockOutput(
+                    output="inner",
+                    shared_memory_updates={"inner_block_calls": calls},
+                )
+
+        inner = CapturingInnerBlock()
         loop = CapturingLoopBlock()
         step = Step(block=loop, declared_inputs={"data": "source"})
 
@@ -780,6 +796,8 @@ class TestLoopBlockWorkflowIntegration:
         assert loop.received_inputs["data"] == "declared value"
         assert "blocks" in loop.received_inputs
         assert "ctx" in loop.received_inputs
+        assert inner.received_inputs is not None
+        assert inner.received_inputs["data"] == "declared value"
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 1
 
