@@ -11,6 +11,7 @@ from runsight_core import (
     LinearBlock,
     SynthesizeBlock,
 )
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
@@ -43,7 +44,9 @@ async def test_linear_block_execution(mock_runner, sample_soul):
     block = LinearBlock("linear1", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Test task"}})
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     assert result_state.results["linear1"].output == "Test output"
     assert len(result_state.execution_log) == 1
@@ -61,7 +64,9 @@ async def test_linear_block_none_task(mock_runner, sample_soul):
     block = LinearBlock("linear1", sample_soul, mock_runner)
     state = WorkflowState()
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
     assert "linear1" in result_state.results
 
 
@@ -78,7 +83,9 @@ async def test_linear_block_message_truncation(mock_runner, sample_soul):
     block = LinearBlock("linear1", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Test task"}})
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     # Full output stored in results
     assert result_state.results["linear1"].output == long_output
@@ -104,7 +111,9 @@ async def test_linear_block_preserves_existing_results(mock_runner, sample_soul)
         results={"previous_block": BlockResult(output="Previous output")},
     )
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     # Both old and new results should be present
     assert result_state.results["previous_block"].output == "Previous output"
@@ -125,7 +134,9 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
         execution_log=existing_messages,
     )
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     # Should have 2 messages: existing + new
     assert len(result_state.execution_log) == 2
@@ -158,7 +169,9 @@ async def test_dispatch_block_parallel(mock_runner):
     block = DispatchBlock("dispatch1", branches, mock_runner)
     state = WorkflowState()
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    block_output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, block_output)
 
     # Verify JSON output format (now uses exit_id instead of soul_id)
     outputs = json.loads(result_state.results["dispatch1"].output)
@@ -194,7 +207,9 @@ async def test_synthesize_block_combination(mock_runner, sample_soul):
         }
     )
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     assert result_state.results["synth1"].output == "Synthesized result combining both inputs"
 
@@ -212,7 +227,7 @@ async def test_synthesize_block_missing_input(mock_runner, sample_soul):
     state = WorkflowState(results={"block_a": BlockResult(output="Output A")})  # Missing block_b
 
     with pytest.raises(ValueError, match="missing inputs: \\['block_b'\\]"):
-        await block.execute(state)
+        build_block_context(block, state)
 
 
 @pytest.mark.asyncio
@@ -236,7 +251,9 @@ async def test_linear_block_aggregates_cost_and_tokens(mock_runner, sample_soul)
         total_tokens=100,
     )
 
-    result_state = await block.execute(state)
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    result_state = apply_block_output(state, block.block_id, output)
 
     # Verify cost and token aggregation
     assert result_state.total_cost_usd == 0.35  # 0.1 + 0.25
