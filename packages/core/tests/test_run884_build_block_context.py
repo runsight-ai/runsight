@@ -193,12 +193,15 @@ class TestInputResolution:
 # ==============================================================================
 
 
-class TestParityWithStepResolveFromRef:
-    """build_block_context input resolution matches Step._resolve_from_ref exactly."""
+class TestParityWithResolveRef:
+    """build_block_context input resolution uses _resolve_ref (canonical resolver).
+    Step._resolve_from_ref was removed in RUN-892; these tests verify the
+    canonical _resolve_ref in block_io produces correct results."""
 
-    def test_parity_single_plain_output(self):
-        """For the same from_ref and state, build_block_context and Step._resolve_from_ref
-        return the same value."""
+    def test_resolve_ref_single_plain_output(self):
+        """For a plain output ref, build_block_context resolves correctly."""
+        from runsight_core.block_io import _resolve_ref
+
         block = make_linear_block()
         state = make_state(
             current_task=make_task(),
@@ -206,7 +209,7 @@ class TestParityWithStepResolveFromRef:
         )
         step = Step(block, declared_inputs={"result": "src"})
 
-        expected = step._resolve_from_ref("src", state)
+        expected = _resolve_ref("src", state)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -214,8 +217,10 @@ class TestParityWithStepResolveFromRef:
 
         assert ctx.inputs["result"] == expected
 
-    def test_parity_json_dot_path(self):
-        """JSON auto-parse dot-path resolution matches Step._resolve_from_ref."""
+    def test_resolve_ref_json_dot_path(self):
+        """JSON auto-parse dot-path resolution works correctly."""
+        from runsight_core.block_io import _resolve_ref
+
         block = make_linear_block()
         state = make_state(
             current_task=make_task(),
@@ -223,7 +228,7 @@ class TestParityWithStepResolveFromRef:
         )
         step = Step(block, declared_inputs={"num": "src.nested.value"})
 
-        expected = step._resolve_from_ref("src.nested.value", state)
+        expected = _resolve_ref("src.nested.value", state)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -231,14 +236,16 @@ class TestParityWithStepResolveFromRef:
 
         assert ctx.inputs["num"] == expected
 
-    def test_parity_missing_source_raises_same_error_type(self):
-        """Both Step._resolve_from_ref and build_block_context raise ValueError for missing src."""
+    def test_resolve_ref_missing_source_raises_value_error(self):
+        """Both _resolve_ref and build_block_context raise ValueError for missing src."""
+        from runsight_core.block_io import _resolve_ref
+
         block = make_linear_block()
         state = make_state(current_task=make_task(), results={})
         step = Step(block, declared_inputs={"x": "missing_block"})
 
         with pytest.raises(ValueError):
-            step._resolve_from_ref("missing_block", state)
+            _resolve_ref("missing_block", state)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
