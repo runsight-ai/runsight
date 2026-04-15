@@ -176,20 +176,7 @@ class TestAC1AcceptsBlockContextReturnsBlockOutput:
             f"Expected total_tokens=400 (2 rounds x 200), got {result.total_tokens}"
         )
 
-    @pytest.mark.asyncio
-    async def test_execute_with_workflow_state_still_returns_workflow_state(self):
-        """The legacy path (WorkflowState input) must still return WorkflowState."""
-        runner = _make_mock_runner(output="legacy result")
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
-
-        state = _make_base_state()
-        result = await loop.execute(state, blocks=blocks)
-
-        assert isinstance(result, WorkflowState), (
-            f"Legacy path must return WorkflowState, got {type(result).__name__}"
-        )
+    # Legacy WorkflowState path removed — shim deleted in RUN-906
 
 
 # ---------------------------------------------------------------------------

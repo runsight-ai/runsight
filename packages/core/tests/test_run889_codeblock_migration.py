@@ -196,17 +196,7 @@ class TestAC1AcceptsBlockContextReturnsBlockOutput:
             "CodeBlock.execute(BlockContext) must return BlockOutput, not WorkflowState"
         )
 
-    @pytest.mark.asyncio
-    async def test_execute_still_accepts_workflow_state_legacy_path(self):
-        """Legacy path: CodeBlock.execute(WorkflowState) must still work for backward compat."""
-        block = CodeBlock("cb_legacy", SIMPLE_CODE)
-        state = _make_state()
-
-        result = await block.execute(state)
-
-        # Legacy path returns WorkflowState
-        assert isinstance(result, WorkflowState)
-        assert "cb_legacy" in result.results
+    # Legacy WorkflowState path removed — shim deleted in RUN-906
 
 
 # ===========================================================================
