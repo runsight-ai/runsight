@@ -4,11 +4,12 @@ import ast
 import logging
 import subprocess
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, field_validator
 
+from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.tools.contract import TOOL_FUNCTION_NAME, TOOL_FUNCTION_PARAMS
 from runsight_core.yaml.discovery._base import BaseScanner, ScanIndex, ScanResult
 
@@ -34,8 +35,10 @@ class ToolManifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    id: NonEmptyString
+    kind: NonEmptyString
     version: NonEmptyString
-    type: Literal["custom"]
+    type: NonEmptyString
     executor: NonEmptyString
     name: NonEmptyString
     description: NonEmptyString
@@ -44,6 +47,26 @@ class ToolManifest(BaseModel):
     code_file: str | None = None
     request: RequestConfig | None = None
     timeout_seconds: int | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, value: str) -> str:
+        if value != "tool":
+            raise ValueError("kind must be 'tool'")
+        return value
+
+    @field_validator("type")
+    @classmethod
+    def _validate_type(cls, value: str) -> str:
+        if value != "custom":
+            raise ValueError("type must be 'custom'")
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.TOOL)
+        return value
 
 
 class ToolMeta(BaseModel):
@@ -99,7 +122,21 @@ def _validate_tool_main_contract(code: str) -> None:
 
 
 def _read_tool_code_file(yaml_file: Path, code_file: str) -> str:
-    code_path = yaml_file.parent / code_file
+    raw_code_path = Path(code_file)
+    if raw_code_path.is_absolute():
+        raise _fail_tool_file(
+            yaml_file, f"referenced code_file escapes tool directory: {code_file}"
+        )
+
+    tool_dir = yaml_file.parent.resolve()
+    code_path = (yaml_file.parent / raw_code_path).resolve()
+    try:
+        code_path.relative_to(tool_dir)
+    except ValueError as exc:
+        raise _fail_tool_file(
+            yaml_file, f"referenced code_file escapes tool directory: {code_file}"
+        ) from exc
+
     if not code_path.exists():
         raise _fail_tool_file(yaml_file, f"referenced code_file does not exist: {code_file}")
     if not code_path.is_file():
@@ -149,21 +186,15 @@ class ToolScanner(BaseScanner[ToolMeta]):
             raise _fail_tool_file(path, "invalid tool metadata")
 
         item = self._parse_tool_mapping(path, parsed)
-        aliases = self._compute_aliases(path, item)
         resolved = path.resolve()
-        try:
-            relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
-        except ValueError:
-            relative_path = path.as_posix()
-        aliases.add(resolved.as_posix())
-        aliases.add(path.stem)
-        aliases.add(relative_path)
+        relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
         return ScanResult(
             path=resolved,
-            stem=path.stem,
+            stem=item.tool_id,
             relative_path=relative_path,
             item=item,
-            aliases=frozenset(aliases),
+            aliases=frozenset({item.tool_id}),
+            entity_id=item.tool_id,
         )
 
     def _scan_filesystem(self) -> ScanIndex[ToolMeta]:
@@ -172,16 +203,16 @@ class ToolScanner(BaseScanner[ToolMeta]):
             return ScanIndex()
 
         results: list[ScanResult[ToolMeta]] = []
-        seen_stems: set[str] = set()
+        seen_ids: set[str] = set()
         for yaml_file in self._glob_yaml_files(asset_dir):
-            if yaml_file.stem in seen_stems:
-                raise _fail_tool_file(
-                    yaml_file,
-                    f"duplicate custom tool id collision for {yaml_file.stem!r}",
-                )
-            seen_stems.add(yaml_file.stem)
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
+                if result.entity_id in seen_ids:
+                    raise _fail_tool_file(
+                        yaml_file,
+                        f"duplicate custom tool id collision for {result.entity_id!r}",
+                    )
+                seen_ids.add(result.entity_id)
                 results.append(result)
         return ScanIndex(results)
 
@@ -206,30 +237,31 @@ class ToolScanner(BaseScanner[ToolMeta]):
             return ScanIndex()
 
         results: list[ScanResult[ToolMeta]] = []
-        seen_stems: set[str] = set()
+        seen_ids: set[str] = set()
         for line in result.stdout.splitlines():
             candidate = line.strip()
             if not candidate or not candidate.endswith(".yaml"):
                 continue
             candidate_path = Path(candidate)
-            if candidate_path.stem in seen_stems:
-                raise _fail_tool_file(
-                    candidate_path,
-                    f"duplicate custom tool id collision for {candidate_path.stem!r}",
-                )
-            seen_stems.add(candidate_path.stem)
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
             result_item = self._scan_yaml_content(candidate_path, raw_yaml)
             if result_item is not None:
+                if result_item.entity_id in seen_ids:
+                    raise _fail_tool_file(
+                        candidate_path,
+                        f"duplicate custom tool id collision for {result_item.entity_id!r}",
+                    )
+                seen_ids.add(result_item.entity_id)
                 results.append(result_item)
         return ScanIndex(results)
 
     def _parse_tool_mapping(self, yaml_file: Path, raw: dict[str, Any]) -> ToolMeta:
-        tool_id = yaml_file.stem
-        if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+        raw_tool_id = raw.get("id")
+        if isinstance(raw_tool_id, str) and raw_tool_id in RESERVED_BUILTIN_TOOL_IDS:
+            tool_ref = str(EntityRef(EntityKind.TOOL, raw_tool_id))
             collision_path: Path | str = yaml_file
             try:
                 collision_path = yaml_file.relative_to(self.base_dir)
@@ -240,7 +272,7 @@ class ToolScanner(BaseScanner[ToolMeta]):
                     pass
             raise _fail_tool_file(
                 yaml_file,
-                f"reserved builtin tool id {tool_id!r} collides with custom tool metadata at "
+                f"reserved builtin {tool_ref} collides with custom tool metadata at "
                 f"{collision_path}",
             )
 
@@ -248,6 +280,12 @@ class ToolScanner(BaseScanner[ToolMeta]):
             manifest = ToolManifest.model_validate(raw)
         except ValidationError as exc:
             raise _fail_tool_file(yaml_file, str(exc)) from exc
+
+        if manifest.id != yaml_file.stem:
+            raise _fail_tool_file(
+                yaml_file,
+                f"embedded tool id {manifest.id!r} does not match filename stem {yaml_file.stem!r}",
+            )
 
         if manifest.executor not in ("python", "request"):
             raise _fail_tool_file(yaml_file, f"unknown executor {manifest.executor!r}")
@@ -281,7 +319,7 @@ class ToolScanner(BaseScanner[ToolMeta]):
                 normalized_request["headers"] = {}
 
         return ToolMeta(
-            tool_id=tool_id,
+            tool_id=manifest.id,
             file_path=yaml_file,
             version=manifest.version,
             type=manifest.type,

@@ -1,4 +1,6 @@
 version: "1.0"
+id: mockup_pipeline
+kind: workflow
 
 config:
   model_name: claude-haiku-4-5-20251001
@@ -6,9 +8,9 @@ config:
 blocks:
   inner_workflow:
     type: workflow
-    workflow_ref: custom/workflows/mockup_generate_review.yaml
+    workflow_ref: mockup_generate_review
     inputs:
-      current_task: current_task
+      shared_memory.task_input: shared_memory.task
     outputs:
       results.mockup_html: gate
     max_depth: 5

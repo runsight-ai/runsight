@@ -11,6 +11,7 @@ Tests cover:
 - generate_schema.py --check: schema file is in sync with models
 """
 
+import os
 import sys
 from unittest.mock import MagicMock
 
@@ -354,7 +355,9 @@ class TestHelpers:
         from runsight_core.blocks._helpers import resolve_soul
         from runsight_core.primitives import Soul
 
-        soul = Soul(id="s1", role="Tester", system_prompt="Test prompt")
+        soul = Soul(
+            id="soul-s1", kind="soul", name="Tester", role="Tester", system_prompt="Test prompt"
+        )
         souls_map = {"test_soul": soul}
 
         result = resolve_soul("test_soul", souls_map)
@@ -405,7 +408,7 @@ class TestHelpers:
         from runsight_core.blocks._helpers import resolve_soul
         from runsight_core.primitives import Soul
 
-        soul = Soul(id="s1", role="R", system_prompt="P")
+        soul = Soul(id="soul-s1", kind="soul", name="Test Role", role="R", system_prompt="P")
         souls_map = {"ref": soul}
 
         # Should behave identically to the original
@@ -471,7 +474,9 @@ class TestParserFallback:
             fake_block_def.output_conditions = []
 
             fake_soul_def = Mock()
-            fake_soul_def.id = "s1"
+            fake_soul_def.id = "soul-s1"
+            fake_soul_def.kind = "soul"
+            fake_soul_def.name = "Test Role"
             fake_soul_def.role = "R"
             fake_soul_def.system_prompt = "P"
             fake_soul_def.tools = None
@@ -490,7 +495,7 @@ class TestParserFallback:
 
             fake_file_def = Mock()
             fake_file_def.version = "1.0"
-            fake_file_def.souls = {"s1": fake_soul_def}
+            fake_file_def.souls = {"soul-s1": fake_soul_def}
             fake_file_def.blocks = {"b1": fake_block_def}
             fake_file_def.workflow = fake_workflow_def
             fake_file_def.config = {}
@@ -553,10 +558,14 @@ class TestEdgeCases:
 
         # A valid workflow file should still parse correctly
         valid_data = {
+            "id": "test-workflow",
+            "kind": "workflow",
             "version": "1.0",
             "souls": {
-                "s1": {
-                    "id": "s1",
+                "soul-s1": {
+                    "id": "soul-s1",
+                    "kind": "soul",
+                    "name": "Test Role",
                     "role": "R",
                     "system_prompt": "P",
                 }
@@ -564,7 +573,7 @@ class TestEdgeCases:
             "blocks": {
                 "b1": {
                     "type": "linear",
-                    "soul_ref": "s1",
+                    "soul_ref": "soul-s1",
                 }
             },
             "workflow": {
@@ -600,11 +609,23 @@ class TestGenerateSchemaCheck:
         from pathlib import Path
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "generate_schema.py"
+        # Build an absolute PYTHONPATH so the subprocess resolves the same
+        # source tree even when CWD differs from the test-runner root.
+        repo_root = script.resolve().parent.parent.parent.parent
+        env = {**os.environ}
+        env["PYTHONPATH"] = os.pathsep.join(
+            [
+                str(repo_root / "packages" / "core" / "src"),
+                str(repo_root / "apps" / "api" / "src"),
+            ]
+            + (env.get("PYTHONPATH", "").split(os.pathsep) if env.get("PYTHONPATH") else [])
+        )
         result = subprocess.run(
             [sys.executable, str(script), "--check"],
             capture_output=True,
             text=True,
             cwd=str(script.parent.parent),  # packages/core/
+            env=env,
         )
         assert result.returncode == 0, (
             f"generate_schema.py --check failed (exit {result.returncode}).\n"

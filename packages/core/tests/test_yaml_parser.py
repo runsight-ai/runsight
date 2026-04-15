@@ -13,10 +13,9 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import (
-    parse_task_yaml,
     parse_workflow_yaml,
 )
 
@@ -47,18 +46,19 @@ class TestBlockTypeRegistry:
 class TestLinearBlock:
     """Tests for LinearBlock (block type: linear)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_valid_yaml(self):
         """AC-1: Parse valid linear block with soul_ref."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   my_soul:
-    id: my_soul_1
+    id: my_soul
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Do research
 blocks:
@@ -66,6 +66,8 @@ blocks:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -80,6 +82,8 @@ workflow:
         """RUN-585: parser must not source runtime model resolution from workflow config."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o-mini
 blocks:
@@ -87,6 +91,8 @@ blocks:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -95,7 +101,9 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
+                kind="soul",
+                name="Custom Researcher",
                 role="Custom Researcher",
                 system_prompt="Do research",
                 provider="anthropic",
@@ -107,7 +115,7 @@ workflow:
             patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
-            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
+            mock_scanner.return_value.scan.return_value.ids.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
@@ -118,11 +126,15 @@ workflow:
         yaml_content = """
 version: "1.0"
 config: {}
+id: test_linear
+kind: workflow
 blocks:
   linear_block:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -131,7 +143,9 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
+                kind="soul",
+                name="Custom Researcher",
                 role="Custom Researcher",
                 system_prompt="Do research",
                 provider="anthropic",
@@ -143,7 +157,7 @@ workflow:
             patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
-            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
+            mock_scanner.return_value.scan.return_value.ids.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
@@ -156,23 +170,28 @@ version: "1.0"
 blocks:
   linear_block:
     type: linear
+id: test_linear
+kind: workflow
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
 """
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_with_defined_soul(self):
         """AC-3: LinearBlock can use explicitly defined souls."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 blocks:
@@ -180,6 +199,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -193,20 +214,23 @@ workflow:
 class TestDispatchBlock:
     """Tests for DispatchBlock (block type: dispatch)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_dispatch_block_valid_yaml(self):
         """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
+id: test_dispatch
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
 blocks:
@@ -222,6 +246,8 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
   transitions:
@@ -239,7 +265,11 @@ version: "1.0"
 blocks:
   dispatch_block:
     type: dispatch
+id: test_dispatch
+kind: workflow
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
 """
@@ -254,7 +284,11 @@ blocks:
   dispatch_block:
     type: dispatch
     exits: []
+id: test_dispatch
+kind: workflow
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
 """
@@ -265,24 +299,29 @@ workflow:
 class TestSynthesizeBlock:
     """Tests for SynthesizeBlock (block type: synthesize)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_synthesize_block_valid_yaml(self):
         """AC-7: Parse valid synthesize block with dependencies."""
         yaml_content = """
 version: "1.0"
+id: test_synthesize
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
 blocks:
@@ -299,6 +338,8 @@ blocks:
       - block_a
       - block_b
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: block_a
   transitions:
@@ -322,6 +363,8 @@ blocks:
     input_block_ids:
       - block_a
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: synthesize_block
 """
@@ -334,7 +377,9 @@ workflow:
 version: "1.0"
 souls:
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
 blocks:
@@ -342,6 +387,8 @@ blocks:
     type: synthesize
     soul_ref: synthesizer
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: synthesize_block
 """
@@ -360,23 +407,28 @@ blocks:
   linear_block:
     type: linear
     soul_ref: nonexistent_soul
+id: test_souls
+kind: workflow
 workflow:
+  id: test_souls
+  kind: workflow
   name: test_souls
   entry: linear_block
 """
-        with pytest.raises(ValueError, match="Soul reference 'nonexistent_soul' not found"):
+        with pytest.raises(ValueError, match="Soul reference 'soul:nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_custom_soul_definition_works(self):
         """AC-29: Custom soul definition in YAML works correctly."""
         yaml_content = """
 version: "1.0"
+id: test_override
+kind: workflow
 souls:
   researcher:
-    id: custom_researcher
+    id: researcher
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Custom research prompt
 blocks:
@@ -384,6 +436,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_override
+  kind: workflow
   name: test_override
   entry: linear_block
   transitions:
@@ -426,7 +480,11 @@ version: "1.0"
 blocks:
   unknown_block:
     type: unknown_type
+id: test_unknown
+kind: workflow
 workflow:
+  id: test_unknown
+  kind: workflow
   name: test_unknown
   entry: unknown_block
 """
@@ -437,16 +495,17 @@ workflow:
 class TestParseFromDict:
     """Tests for parsing from dict input."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_from_dict_valid(self):
         """AC-33: parse_workflow_yaml accepts dict input."""
         workflow_dict = {
             "version": "1.0",
+            "id": "test_dict",
+            "kind": "workflow",
             "souls": {
                 "researcher": {
-                    "id": "researcher_1",
+                    "id": "researcher",
+                    "kind": "soul",
+                    "name": "Senior Researcher",
                     "role": "Senior Researcher",
                     "system_prompt": "You research topics.",
                 }
@@ -458,6 +517,8 @@ class TestParseFromDict:
                 }
             },
             "workflow": {
+                "id": "test_dict",
+                "kind": "workflow",
                 "name": "test_dict",
                 "entry": "linear_block",
                 "transitions": [{"from": "linear_block", "to": None}],
@@ -471,34 +532,43 @@ class TestParseFromDict:
 class TestComplexWorkflow:
     """Tests for complex multi-block workflows."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_complex_workflow_all_block_types(self):
         """AC-34: Parse workflow using multiple block types together."""
         yaml_content = """
 version: "1.0"
+id: complex_workflow
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
   coder:
-    id: coder_1
+    id: coder
+    kind: soul
+    name: Software Engineer
     role: Software Engineer
     system_prompt: You write code.
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
   generalist:
-    id: generalist_1
+    id: generalist
+    kind: soul
+    name: General-purpose Assistant
     role: General-purpose Assistant
     system_prompt: You handle diverse tasks.
 blocks:
@@ -526,6 +596,8 @@ blocks:
     type: linear
     soul_ref: generalist
 workflow:
+  id: complex_workflow
+  kind: workflow
   name: complex_workflow
   entry: research_block
   transitions:
@@ -543,200 +615,19 @@ workflow:
         assert workflow.name == "complex_workflow"
 
 
-class TestParseTaskYAML:
-    """Tests for parse_task_yaml function."""
-
-    def test_parse_task_yaml_from_yaml_string_with_all_fields(self):
-        """AC-1: parse_task_yaml accepts YAML string with id, instruction, context."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_1
-  instruction: "Review this code for bugs"
-  context: "This is a Python function with a potential off-by-one error"
-"""
-        task = parse_task_yaml(yaml_content)
-        assert isinstance(task, Task)
-        assert task.id == "task_1"
-        assert task.instruction == "Review this code for bugs"
-        assert task.context == "This is a Python function with a potential off-by-one error"
-
-    def test_parse_task_yaml_from_yaml_string_without_context(self):
-        """AC-2: parse_task_yaml handles optional context field."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_2
-  instruction: "Summarize the main points"
-"""
-        task = parse_task_yaml(yaml_content)
-        assert isinstance(task, Task)
-        assert task.id == "task_2"
-        assert task.instruction == "Summarize the main points"
-        assert task.context is None
-
-    def test_parse_task_yaml_from_dict_with_all_fields(self):
-        """AC-3: parse_task_yaml accepts dict with id, instruction, context."""
-        task_dict = {
-            "version": "1.0",
-            "task": {
-                "id": "task_3",
-                "instruction": "Write unit tests",
-                "context": "Test coverage should be at least 80%",
-            },
-        }
-        task = parse_task_yaml(task_dict)
-        assert isinstance(task, Task)
-        assert task.id == "task_3"
-        assert task.instruction == "Write unit tests"
-        assert task.context == "Test coverage should be at least 80%"
-
-    def test_parse_task_yaml_from_dict_without_context(self):
-        """AC-4: parse_task_yaml handles optional context in dict."""
-        task_dict = {
-            "version": "1.0",
-            "task": {
-                "id": "task_4",
-                "instruction": "Generate API documentation",
-            },
-        }
-        task = parse_task_yaml(task_dict)
-        assert isinstance(task, Task)
-        assert task.id == "task_4"
-        assert task.instruction == "Generate API documentation"
-        assert task.context is None
-
-    def test_parse_task_yaml_missing_id_raises_validation_error(self):
-        """AC-5: parse_task_yaml raises ValidationError when id is missing."""
-        yaml_content = """
-version: "1.0"
-task:
-  instruction: "Do something"
-  context: "Some context"
-"""
-        with pytest.raises(ValidationError):
-            parse_task_yaml(yaml_content)
-
-    def test_parse_task_yaml_missing_instruction_raises_validation_error(self):
-        """AC-6: parse_task_yaml raises ValidationError when instruction is missing."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_5
-  context: "Some context"
-"""
-        with pytest.raises(ValidationError):
-            parse_task_yaml(yaml_content)
-
-    def test_parse_task_yaml_missing_both_required_fields_raises_validation_error(self):
-        """AC-7: parse_task_yaml raises ValidationError when both required fields missing."""
-        yaml_content = """
-version: "1.0"
-task:
-  context: "Some context"
-"""
-        with pytest.raises(ValidationError):
-            parse_task_yaml(yaml_content)
-
-    def test_parse_task_yaml_empty_dict_raises_validation_error(self):
-        """AC-8: parse_task_yaml raises ValidationError for empty dict."""
-        with pytest.raises(ValidationError):
-            parse_task_yaml({})
-
-    def test_parse_task_yaml_invalid_yaml_raises_error(self):
-        """AC-9: parse_task_yaml raises error for syntactically invalid YAML."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task
-  instruction: [invalid yaml structure
-"""
-        with pytest.raises(Exception):  # yaml.YAMLError
-            parse_task_yaml(yaml_content)
-
-    def test_parse_task_yaml_wrong_type_for_id_raises_validation_error(self):
-        """AC-10: parse_task_yaml raises ValidationError when id is wrong type."""
-        task_dict = {
-            "version": "1.0",
-            "task": {
-                "id": 123,  # should be string
-                "instruction": "Do something",
-            },
-        }
-        with pytest.raises(ValidationError):
-            parse_task_yaml(task_dict)
-
-    def test_parse_task_yaml_wrong_type_for_instruction_raises_validation_error(self):
-        """AC-11: parse_task_yaml raises ValidationError when instruction is wrong type."""
-        task_dict = {
-            "version": "1.0",
-            "task": {
-                "id": "task_6",
-                "instruction": ["list", "instead", "of", "string"],  # should be string
-            },
-        }
-        with pytest.raises(ValidationError):
-            parse_task_yaml(task_dict)
-
-    def test_parse_task_yaml_returns_task_primitive(self):
-        """AC-12: parse_task_yaml returns Task primitive instance."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_7
-  instruction: "Test instruction"
-"""
-        result = parse_task_yaml(yaml_content)
-        assert isinstance(result, Task)
-        assert hasattr(result, "id")
-        assert hasattr(result, "instruction")
-        assert hasattr(result, "context")
-
-    def test_parse_task_yaml_with_multiline_instruction(self):
-        """AC-13: parse_task_yaml handles multiline instruction text."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_8
-  instruction: |
-    This is a multiline instruction.
-    It spans multiple lines.
-    Each line provides more detail.
-  context: "Some context"
-"""
-        task = parse_task_yaml(yaml_content)
-        assert task.id == "task_8"
-        assert "multiline instruction" in task.instruction
-        assert "spans multiple lines" in task.instruction
-        assert task.context == "Some context"
-
-    def test_parse_task_yaml_with_multiline_context(self):
-        """AC-14: parse_task_yaml handles multiline context text."""
-        yaml_content = """
-version: "1.0"
-task:
-  id: task_9
-  instruction: "Simple instruction"
-  context: |
-    This is multiline context.
-    With multiple paragraphs.
-    Providing rich background.
-"""
-        task = parse_task_yaml(yaml_content)
-        assert task.id == "task_9"
-        assert "multiline context" in task.context
-        assert "multiple paragraphs" in task.context
-
-
 class TestVersionValidation:
     """Tests for YAML schema version validation (RUN-323)."""
 
     # -- Minimal valid workflow YAML used as a base for version tests --------
     _BASE_YAML_TEMPLATE = """
 version: "{version}"
+id: version_test
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 blocks:
@@ -744,6 +635,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: version_test
+  kind: workflow
   name: version_test
   entry: b
   transitions:
@@ -752,24 +645,27 @@ workflow:
 """
 
     _BASE_DICT_NO_VERSION = {
+        "id": "version_test",
+        "kind": "workflow",
         "souls": {
             "researcher": {
-                "id": "researcher_1",
+                "id": "researcher",
+                "kind": "soul",
+                "name": "Senior Researcher",
                 "role": "Senior Researcher",
                 "system_prompt": "You research topics.",
             }
         },
         "blocks": {"b": {"type": "linear", "soul_ref": "researcher"}},
         "workflow": {
+            "id": "version_test",
+            "kind": "workflow",
             "name": "version_test",
             "entry": "b",
             "transitions": [{"from": "b", "to": None}],
         },
     }
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_version_1_0_accepted_without_warning(self):
         """AC-1: version '1.0' is the current version and parses without error."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="1.0")
@@ -789,18 +685,12 @@ workflow:
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_missing_version_defaults_to_1_0(self):
         """AC-3: Missing version field works (defaults to '1.0')."""
         workflow = parse_workflow_yaml(dict(self._BASE_DICT_NO_VERSION))
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_unknown_version_error_message_includes_supported_versions(self):
         """AC-2c: Error message for unknown version includes list of supported versions."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="3.0")

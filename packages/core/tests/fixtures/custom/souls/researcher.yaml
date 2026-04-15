@@ -1,3 +1,5 @@
 id: researcher
+kind: soul
+name: Research Analyst
 role: Research Analyst
 system_prompt: Conduct research on the given topic.

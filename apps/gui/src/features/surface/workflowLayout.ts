@@ -9,7 +9,7 @@ const HORIZONTAL_SPACING = 320;
 const VERTICAL_SPACING = 180;
 const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
-type SurfaceNodeType = "start" | "task";
+type SurfaceNodeType = "start" | "step";
 
 function getPersistedPositions(
   canvasState: PersistedCanvasState | null | undefined,
@@ -127,7 +127,7 @@ function layoutNodes(
 
     return {
       ...node,
-      type: node.id === entryNodeId ? "start" : "task",
+      type: node.id === entryNodeId ? "start" : "step",
       position: persistedPosition ?? {
         x: depth * HORIZONTAL_SPACING,
         y: row * VERTICAL_SPACING,

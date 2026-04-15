@@ -27,12 +27,16 @@ from runsight_api.domain.entities.run import Run, RunStatus
 # ---------------------------------------------------------------------------
 
 YAML_CONTAINS_ASSERTION = """\
+id: contains-assertion-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -53,12 +57,16 @@ workflow:
 """
 
 YAML_COST_ASSERTION = """\
+id: cost-assertion-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -253,7 +261,7 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -297,7 +305,7 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -353,7 +361,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -394,7 +402,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -437,7 +445,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -493,7 +501,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -538,7 +546,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -583,7 +591,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -638,7 +646,7 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Go"},
+                        "inputs": {"instruction": "Go"},
                     },
                 )
                 assert response.status_code == 200
@@ -701,7 +709,7 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "task_data": {"instruction": "Analyze"},
+                        "inputs": {"instruction": "Analyze"},
                     },
                 )
                 assert response.status_code == 200

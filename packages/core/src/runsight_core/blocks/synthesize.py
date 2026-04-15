@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Literal
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 
 
@@ -40,12 +40,7 @@ class SynthesizeBlock(BaseBlock):
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute block with BlockContext, return BlockOutput."""
         soul = ctx.soul or self.synthesizer_soul
-        task = Task(
-            id=f"{self.block_id}_synthesis",
-            instruction=ctx.instruction,
-            context=ctx.context or "",
-        )
-        result = await self.runner.execute_task(task, soul)
+        result = await self.runner.execute(ctx.instruction, ctx.context, soul)
         return BlockOutput(
             output=result.output,
             cost_usd=result.cost_usd,

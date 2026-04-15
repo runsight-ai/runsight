@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from textwrap import dedent
-
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
 
@@ -14,21 +13,26 @@ def _write_child_workflow(base_path, *, filename: str, yaml_text: str) -> str:
 
 
 def test_create_rejects_callable_subworkflow_without_public_interface(tmp_path) -> None:
-    child_ref = _write_child_workflow(
+    _write_child_workflow(
         tmp_path,
         filename="child-no-interface.yaml",
         yaml_text="""
         version: "1.0"
+        id: child-no-interface
+        kind: workflow
         workflow:
           name: child-no-interface
           entry: start
           transitions: []
         """,
     )
+    child_ref = "child-no-interface"
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     parent_yaml = f"""
     version: "1.0"
+    id: parent
+    kind: workflow
     blocks:
       call_child:
         type: workflow
@@ -53,11 +57,13 @@ def test_create_rejects_callable_subworkflow_without_public_interface(tmp_path) 
 
 
 def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> None:
-    child_ref = _write_child_workflow(
+    _write_child_workflow(
         tmp_path,
         filename="child-contract.yaml",
         yaml_text="""
         version: "1.0"
+        id: child-contract
+        kind: workflow
         interface:
           inputs:
             - name: topic
@@ -72,10 +78,13 @@ def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> No
           transitions: []
         """,
     )
+    child_ref = "child-contract"
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     parent_yaml = f"""
     version: "1.0"
+    id: parent
+    kind: workflow
     blocks:
       call_child:
         type: workflow
@@ -100,11 +109,13 @@ def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> No
 
 
 def test_create_rejects_undeclared_child_output_binding(tmp_path) -> None:
-    child_ref = _write_child_workflow(
+    _write_child_workflow(
         tmp_path,
         filename="child-contract.yaml",
         yaml_text="""
         version: "1.0"
+        id: child-contract
+        kind: workflow
         interface:
           inputs:
             - name: topic
@@ -119,10 +130,13 @@ def test_create_rejects_undeclared_child_output_binding(tmp_path) -> None:
           transitions: []
         """,
     )
+    child_ref = "child-contract"
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     parent_yaml = f"""
     version: "1.0"
+    id: parent
+    kind: workflow
     blocks:
       call_child:
         type: workflow
@@ -162,11 +176,13 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
     Pydantic model in isolation.  This test confirms the rejection also
     fires through the complete API save flow (create → _validate_yaml_content).
     """
-    child_ref = _write_child_workflow(
+    _write_child_workflow(
         tmp_path,
         filename="child-contract.yaml",
         yaml_text="""
         version: "1.0"
+        id: child-contract
+        kind: workflow
         interface:
           inputs:
             - name: topic
@@ -179,12 +195,15 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
           name: child-contract
           entry: start
           transitions: []
-        """,
+    """,
     )
+    child_ref = "child-contract"
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     parent_yaml = f"""
     version: "1.0"
+    id: parent
+    kind: workflow
     blocks:
       call_child:
         type: workflow

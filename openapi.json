@@ -1501,244 +1501,6 @@
         }
       }
     },
-    "/api/tasks": {
-      "get": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "List Tasks",
-        "operationId": "list_tasks_api_tasks_get",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Create Task",
-        "operationId": "create_task_api_tasks_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tasks/{id}": {
-      "get": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Get Task",
-        "operationId": "get_task_api_tasks__id__get",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Update Task",
-        "operationId": "update_task_api_tasks__id__put",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Delete Task",
-        "operationId": "delete_task_api_tasks__id__delete",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/settings/providers": {
       "get": {
         "tags": [
@@ -2644,59 +2406,6 @@
           }
         }
       }
-    },
-    "/runsight.svg": {
-      "get": {
-        "summary": " Favicon",
-        "operationId": "_favicon_runsight_svg_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/{full_path}": {
-      "get": {
-        "summary": " Spa Catch All",
-        "operationId": "_spa_catch_all__full_path__get",
-        "parameters": [
-          {
-            "name": "full_path",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Full Path"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -3327,6 +3036,15 @@
       },
       "ProviderCreate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -3357,6 +3075,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
           "name"
         ],
         "title": "ProviderCreate"
@@ -3488,6 +3208,15 @@
       },
       "ProviderUpdate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "anyOf": [
               {
@@ -3535,6 +3264,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
         "title": "ProviderUpdate"
       },
       "RunCreate": {
@@ -3543,10 +3276,10 @@
             "type": "string",
             "title": "Workflow Id"
           },
-          "task_data": {
+          "inputs": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Task Data"
+            "title": "Inputs"
           },
           "source": {
             "anyOf": [
@@ -3567,6 +3300,7 @@
           }
         },
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "workflow_id"
         ],
@@ -4195,6 +3929,11 @@
             "type": "string",
             "title": "Id"
           },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -4291,6 +4030,7 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
           "name",
           "status"
         ],
@@ -4335,15 +4075,17 @@
       "SoulCreate": {
         "properties": {
           "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
           },
           "role": {
             "type": "string",
@@ -4431,6 +4173,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
+          "name",
           "role",
           "system_prompt"
         ],
@@ -4480,6 +4225,15 @@
       },
       "SoulResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -4599,6 +4353,8 @@
         },
         "type": "object",
         "required": [
+          "kind",
+          "name",
           "id"
         ],
         "title": "SoulResponse"
@@ -4986,147 +4742,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "StepUpdate"
-      },
-      "TaskCreate": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type",
-            "default": "task"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "TaskCreate"
-      },
-      "TaskListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/TaskResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "TaskListResponse"
-      },
-      "TaskResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "type",
-          "path"
-        ],
-        "title": "TaskResponse"
-      },
-      "TaskUpdate": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "TaskUpdate"
       },
       "ToolListItemResponse": {
         "properties": {
@@ -5535,6 +5150,11 @@
       },
       "WorkflowResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "workflow",
+            "title": "Kind"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -5644,6 +5264,7 @@
         },
         "type": "object",
         "required": [
+          "kind",
           "id"
         ],
         "title": "WorkflowResponse"

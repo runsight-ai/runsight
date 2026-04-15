@@ -165,11 +165,17 @@ export function ProviderModal({
       if (isEditMode && editing) {
         const updated = await updateProvider.mutateAsync({
           id: editing.id,
-          data: payload,
+          data: {
+            id: editing.id,
+            kind: "provider",
+            ...payload,
+          },
         });
         savedProviderId = updated.id;
       } else {
         const created = await createProvider.mutateAsync({
+          id: provider.id,
+          kind: "provider",
           name: provider.name,
           api_key_env: payload.api_key_env,
           base_url: payload.base_url,

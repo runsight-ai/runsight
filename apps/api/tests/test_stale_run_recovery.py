@@ -122,8 +122,8 @@ class TestStaleRunRecovery:
 
     # -- Terminal statuses must be untouched -------------------------------
 
-    def test_pending_run_is_marked_failed(self, db_engine, seed_runs):
-        """Pending runs are stale after process restart and must fail closed."""
+    def test_pending_run_is_failed_on_startup(self, db_engine, seed_runs):
+        """Pending runs must be marked failed — they were never launched."""
         runs = seed_runs([_make_run(status=RunStatus.pending)])
 
         _recover_stale_runs(db_engine)
@@ -210,8 +210,8 @@ class TestStaleRunRecovery:
         """An empty database must not cause errors."""
         _recover_stale_runs(db_engine)  # should not raise
 
-    def test_mixed_statuses_only_running_affected(self, db_engine, seed_runs):
-        """In a mixed set, only pending/running runs are modified; terminal runs stay intact."""
+    def test_mixed_statuses_pending_and_running_affected(self, db_engine, seed_runs):
+        """In a mixed set, pending and running are failed; completed/failed stay intact."""
         pending = _make_run(status=RunStatus.pending)
         running = _make_run(status=RunStatus.running)
         completed = _make_run(status=RunStatus.completed, completed_at=time.time())

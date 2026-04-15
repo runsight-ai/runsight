@@ -13,6 +13,26 @@ interface UseForkWorkflowOptions {
   onTransition?: (id: string) => void;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function rewriteForkWorkflowYaml(
+  content: string,
+  forkWorkflowId: string,
+  forkWorkflowName: string,
+): string {
+  const doc = parse(content);
+  const modified = isPlainObject(doc) ? { ...doc } : {};
+  modified.id = forkWorkflowId;
+  modified.kind = "workflow";
+  modified.enabled = false;
+  modified.workflow = isPlainObject(modified.workflow)
+    ? { ...modified.workflow, name: forkWorkflowName }
+    : { name: forkWorkflowName };
+  return stringify(modified);
+}
+
 export function useForkWorkflow({
   commitSha,
   workflowPath,
@@ -26,18 +46,13 @@ export function useForkWorkflow({
 
   const executeFork = useCallback(async () => {
     const name = generateForkName(workflowName);
+    const forkWorkflowId = name;
 
     try {
       // Read YAML at the commit snapshot
       const { content } = await gitApi.getGitFile(commitSha, workflowPath);
 
-      // Parse YAML and set enabled: false
-      const doc = parse(content);
-      const modified =
-        doc && typeof doc === "object" && !Array.isArray(doc)
-          ? { ...doc, enabled: false }
-          : { enabled: false };
-      const yaml = stringify(modified);
+      const yaml = rewriteForkWorkflowYaml(content, forkWorkflowId, name);
 
       // Create the new draft workflow (no auto-commit — shows as uncommitted)
       const result = await workflowsApi.createWorkflow({

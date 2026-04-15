@@ -18,6 +18,18 @@ expect.extend({
           : `expected attribute "${name}" ${pass ? "not " : ""}to be "${expected}", received "${actual}"`,
     };
   },
+  toHaveValue(
+    received: Element & { value?: unknown },
+    expected: string,
+  ) {
+    const actual = typeof received.value === "string" ? received.value : "";
+    const pass = actual === expected;
+    return {
+      pass,
+      message: () =>
+        `expected element ${pass ? "not " : ""}to have value "${expected}", received "${actual}"`,
+    };
+  },
   toHaveTextContent(received: Element, expected: string | RegExp) {
     const textContent = received.textContent ?? "";
     const pass = expected instanceof RegExp

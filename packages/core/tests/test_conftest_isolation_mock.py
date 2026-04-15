@@ -43,7 +43,7 @@ def _real_wrapper_execute_source() -> str:
 def _make_mock_runner() -> MagicMock:
     """Return a minimal mock RunsightTeamRunner sufficient for LinearBlock construction."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o-mini"
     return runner
 
@@ -167,7 +167,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
     async def test_harness_run_receives_context_envelope(self, test_souls_map):
         """harness.run must be called with a ContextEnvelope instance."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import Task, WorkflowState
+        from runsight_core.state import WorkflowState
 
         soul = test_souls_map["test"]
 
@@ -192,8 +192,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
             harness=harness_mock,
         )
 
-        task = Task(id="t-1", instruction="Do something.")
-        state = WorkflowState(current_task=task)
+        state = WorkflowState()
 
         await wrapper.execute(state)
 
@@ -211,7 +210,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
     async def test_context_envelope_contains_block_id(self, test_souls_map):
         """The ContextEnvelope passed to harness.run must have the correct block_id."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import Task, WorkflowState
+        from runsight_core.state import WorkflowState
 
         soul = test_souls_map["test"]
         inner_block = LinearBlock(block_id="my-block", soul=soul, runner=_make_mock_runner())
@@ -231,7 +230,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
             harness=harness_mock,
         )
 
-        state = WorkflowState(current_task=Task(id="t-2", instruction="Check envelope."))
+        state = WorkflowState()
         await wrapper.execute(state)
 
         assert received[0].block_id == "my-block", (
@@ -253,7 +252,7 @@ class TestMockReturnsValidResultEnvelope:
     async def test_result_envelope_is_mapped_to_workflow_state(self, test_souls_map):
         """IsolatedBlockWrapper.execute must map ResultEnvelope back to WorkflowState."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import BlockResult, Task, WorkflowState
+        from runsight_core.state import BlockResult, WorkflowState
 
         soul = test_souls_map["test"]
         inner_block = LinearBlock(block_id="block-out", soul=soul, runner=_make_mock_runner())
@@ -283,7 +282,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(current_task=Task(id="t-3", instruction="Map result."))
+        state = WorkflowState()
         result_state = await wrapper.execute(state)
 
         assert "block-out" in result_state.results, (
@@ -303,7 +302,7 @@ class TestMockReturnsValidResultEnvelope:
     async def test_cost_and_tokens_accumulated_from_result_envelope(self, test_souls_map):
         """cost_usd and total_tokens from ResultEnvelope must be added to WorkflowState."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import Task, WorkflowState
+        from runsight_core.state import WorkflowState
 
         soul = test_souls_map["test"]
         inner_block = LinearBlock(block_id="block-cost", soul=soul, runner=_make_mock_runner())
@@ -331,7 +330,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(current_task=Task(id="t-4", instruction="Check cost."))
+        state = WorkflowState()
         result_state = await wrapper.execute(state)
 
         assert result_state.total_cost_usd == pytest.approx(0.012), (
@@ -346,7 +345,7 @@ class TestMockReturnsValidResultEnvelope:
     async def test_result_envelope_exit_handle_preserved(self, test_souls_map):
         """exit_handle from ResultEnvelope must be set on the BlockResult."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import Task, WorkflowState
+        from runsight_core.state import WorkflowState
 
         soul = test_souls_map["test"]
         inner_block = LinearBlock(block_id="block-exit", soul=soul, runner=_make_mock_runner())
@@ -374,7 +373,7 @@ class TestMockReturnsValidResultEnvelope:
             harness=harness_mock,
         )
 
-        state = WorkflowState(current_task=Task(id="t-5", instruction="Check exit."))
+        state = WorkflowState()
         result_state = await wrapper.execute(state)
 
         block_result = result_state.results["block-exit"]

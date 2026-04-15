@@ -30,12 +30,16 @@ from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 # ---------------------------------------------------------------------------
 
 SIMPLE_WORKFLOW_YAML = """\
+id: simple-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -54,12 +58,16 @@ workflow:
 
 # A workflow with a block that will fail when the LLM raises an exception
 FAILING_WORKFLOW_YAML = """\
+id: failing-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -100,6 +108,8 @@ def _write_provider_file(base_dir: Path) -> None:
     provider_dir = base_dir / "custom" / "providers"
     provider_dir.mkdir(parents=True, exist_ok=True)
     provider_content = (
+        "id: openai\n"
+        "kind: provider\n"
         "name: openai\n"
         "type: openai\n"
         "api_key: ${OPENAI_API_KEY}\n"
@@ -174,7 +184,7 @@ def base_dir():
     """Temporary directory for workflow/soul/provider YAML files and secrets.env."""
     with tempfile.TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
-        _write_workflow_file(base, "test-workflow", SIMPLE_WORKFLOW_YAML)
+        _write_workflow_file(base, "simple-workflow", SIMPLE_WORKFLOW_YAML)
         _write_workflow_file(base, "failing-workflow", FAILING_WORKFLOW_YAML)
         _write_provider_file(base)
         _write_secrets_file(base)
@@ -276,8 +286,8 @@ class TestSuccessfulRunE2E:
                 response = await client.post(
                     "/api/runs",
                     json={
-                        "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "workflow_id": "simple-workflow",
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -286,7 +296,7 @@ class TestSuccessfulRunE2E:
             )
             data = response.json()
             assert "id" in data, "Response must contain a run id"
-            assert data["workflow_id"] == "test-workflow"
+            assert data["workflow_id"] == "simple-workflow"
 
     @pytest.mark.asyncio
     async def test_run_reaches_completed_status_in_db(self, app_with_real_services, db_engine):
@@ -305,8 +315,8 @@ class TestSuccessfulRunE2E:
                 response = await client.post(
                     "/api/runs",
                     json={
-                        "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "workflow_id": "simple-workflow",
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -337,8 +347,8 @@ class TestSuccessfulRunE2E:
                 response = await client.post(
                     "/api/runs",
                     json={
-                        "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "workflow_id": "simple-workflow",
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -369,8 +379,8 @@ class TestSuccessfulRunE2E:
                 response = await client.post(
                     "/api/runs",
                     json={
-                        "workflow_id": "test-workflow",
-                        "task_data": {"instruction": "Analyze this data"},
+                        "workflow_id": "simple-workflow",
+                        "inputs": {"instruction": "Analyze this data"},
                     },
                 )
 
@@ -412,8 +422,8 @@ class TestSuccessfulRunE2E:
                     response = await client.post(
                         "/api/runs",
                         json={
-                            "workflow_id": "test-workflow",
-                            "task_data": {"instruction": "Test without keys"},
+                            "workflow_id": "simple-workflow",
+                            "inputs": {"instruction": "Test without keys"},
                         },
                     )
 
@@ -458,7 +468,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 
@@ -492,7 +502,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 
@@ -520,7 +530,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
-                        "task_data": {"instruction": "This will fail"},
+                        "inputs": {"instruction": "This will fail"},
                     },
                 )
 

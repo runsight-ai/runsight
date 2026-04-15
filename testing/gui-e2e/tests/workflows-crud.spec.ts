@@ -4,6 +4,7 @@ import {
   apiDelete,
   apiGet,
   apiPost,
+  buildBlankWorkflowYaml,
   gotoShellRoute,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
@@ -27,8 +28,10 @@ test.describe("Flows CRUD", () => {
   const createdWorkflowIds = new Set<string>();
 
   test.beforeAll(async () => {
+    const workflowId = `e2e-flows-crud-${Date.now()}`;
     const workflow = await apiPost<WorkflowSummary>("/workflows", {
-      yaml: "",
+      name: "Flows CRUD",
+      yaml: buildBlankWorkflowYaml(workflowId, "Flows CRUD"),
       canvas_state: {
         nodes: [],
         edges: [],

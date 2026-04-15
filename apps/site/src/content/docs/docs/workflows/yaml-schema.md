@@ -9,10 +9,14 @@ A Runsight workflow is a YAML file with a defined schema. The engine validates e
 
 ```yaml
 version: "1.0"
+id: example-workflow
+kind: workflow
 
 souls:                    # optional — inline soul definitions
   my_soul:
     id: my_soul
+    kind: soul
+    name: My Soul
     role: Analyst
     system_prompt: "..."
     model_name: gpt-4.1-mini

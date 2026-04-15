@@ -16,10 +16,13 @@ from pathlib import Path
 
 # Resolve output path relative to this script's parent (packages/core/)
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema.json"
+SRC_PATH = Path(__file__).resolve().parent.parent / "src"
 
 
 def generate_schema() -> str:
     """Return the JSON Schema string for RunsightWorkflowFile."""
+    if str(SRC_PATH) not in sys.path:
+        sys.path.insert(0, str(SRC_PATH))
     import runsight_core.blocks  # noqa: F401 — trigger auto-discovery
     from runsight_core.yaml.schema import RunsightWorkflowFile
 

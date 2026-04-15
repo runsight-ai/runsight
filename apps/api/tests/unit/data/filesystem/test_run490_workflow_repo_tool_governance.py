@@ -6,6 +6,8 @@ from runsight_core.yaml.validation import ValidationResult
 
 UNDECLARED_LIBRARY_SOUL_TOOL_YAML = """\
 version: "1.0"
+id: governance_failure
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -22,6 +24,8 @@ workflow:
 
 VALID_DECLARED_TOOL_YAML = """\
 version: "1.0"
+id: governance_success
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -31,6 +35,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: governance_success
+  kind: workflow
   name: Governance Success
   entry: my_block
   transitions:
@@ -40,6 +46,8 @@ workflow:
 
 MISSING_CUSTOM_TOOL_YAML = """\
 version: "1.0"
+id: missing_custom_tool
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -49,6 +57,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: missing_custom_tool
+  kind: workflow
   name: Missing Custom Tool
   entry: my_block
   transitions:
@@ -58,6 +68,8 @@ workflow:
 
 LEGACY_TYPED_TOOL_YAML = """\
 version: "1.0"
+id: legacy_typed_tool
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -66,7 +78,9 @@ tools:
     source: runsight/http
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Researcher
     role: Researcher
     system_prompt: Search the web.
     tools:
@@ -76,6 +90,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: legacy_typed_tool
+  kind: workflow
   name: Legacy Typed Tool
   entry: my_block
   transitions:
@@ -92,7 +108,9 @@ def _write_soul_file(tmp_path, soul_name: str, tools: list[str] | None = None) -
         tool_lines = "\ntools:\n" + "\n".join(f"  - {tool}" for tool in tools)
     (souls_dir / f"{soul_name}.yaml").write_text(
         f"""\
-id: {soul_name}_1
+id: {soul_name}
+kind: soul
+name: {soul_name.title()}
 role: {soul_name.title()}
 system_prompt: Search the web.{tool_lines}
 """,
@@ -111,8 +129,8 @@ def test_create_stores_tool_governance_warning_on_entity(tmp_path):
     assert entity.warnings == [
         {
             "message": (
-                "Soul 'researcher' (custom/souls/researcher.yaml) references undeclared "
-                "tool 'http'. Declared tools: []"
+                "soul:researcher (custom/souls/researcher.yaml) references undeclared "
+                "tool:http. Declared tools: []"
             ),
             "source": "tool_governance",
             "context": "researcher",
@@ -124,16 +142,20 @@ def test_update_recomputes_tool_governance_warning_from_raw_yaml(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     created = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
     _write_soul_file(tmp_path, "researcher", ["http"])
+    updated_yaml = UNDECLARED_LIBRARY_SOUL_TOOL_YAML.replace(
+        "id: governance_failure",
+        f"id: {created.id}",
+    )
 
-    updated = repo.update(created.id, {"yaml": UNDECLARED_LIBRARY_SOUL_TOOL_YAML})
+    updated = repo.update(created.id, {"yaml": updated_yaml})
 
     assert updated.valid is True
     assert updated.validation_error is None
     assert updated.warnings == [
         {
             "message": (
-                "Soul 'researcher' (custom/souls/researcher.yaml) references undeclared "
-                "tool 'http'. Declared tools: []"
+                "soul:researcher (custom/souls/researcher.yaml) references undeclared "
+                "tool:http. Declared tools: []"
             ),
             "source": "tool_governance",
             "context": "researcher",
@@ -288,8 +310,12 @@ def test_build_entity_attaches_warnings_from_validation_result(tmp_path, monkeyp
     )
 
     entity = repo._build_entity(
-        {"workflow": {"name": "Governance Success"}},
-        "governance-warning",
+        {
+            "id": "governance_success",
+            "kind": "workflow",
+            "workflow": {"name": "Governance Success"},
+        },
+        "governance_success",
         raw_yaml=VALID_DECLARED_TOOL_YAML,
     )
 

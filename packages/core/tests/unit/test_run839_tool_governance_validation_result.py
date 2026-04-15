@@ -23,6 +23,8 @@ def _make_yaml(
 ) -> str:
     return f"""\
 version: "1.0"
+id: run-839-tool-governance-test
+kind: workflow
 config:
   model_name: gpt-4o
 {tools}
@@ -58,6 +60,8 @@ tools:
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Fetcher
     system_prompt: Fetch data.
     tools:
@@ -104,6 +108,8 @@ tools:
 souls:
   builder:
     id: builder
+    kind: soul
+    name: Builder
     role: Builder
     system_prompt: Build things.
     tools:
@@ -137,12 +143,16 @@ tools:
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Fetcher
     system_prompt: Fetch data.
     tools:
       - scraper
   archiver:
     id: archiver
+    kind: soul
+    name: Archiver
     role: Archiver
     system_prompt: Archive data.
     tools:
@@ -186,6 +196,8 @@ tools:
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Fetcher
     system_prompt: Fetch data.
     tools:
@@ -218,6 +230,8 @@ tools: []""",
 souls:
   fetcher:
     id: fetcher
+    kind: soul
+    name: Fetcher
     role: Fetcher
     system_prompt: Fetch data.
     tools:
@@ -250,6 +264,8 @@ tools:
 souls:
   router:
     id: router
+    kind: soul
+    name: Router
     role: Router
     system_prompt: Route requests.
     tools:

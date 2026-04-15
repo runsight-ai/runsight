@@ -209,7 +209,8 @@ class TestBudgetedContext:
         from runsight_core.memory.budget import BudgetedContext
 
         field_names = {f.name for f in dataclass_fields(BudgetedContext)}
-        assert "task" in field_names
+        assert "instruction" in field_names
+        assert "context" in field_names
         assert "messages" in field_names
         assert "report" in field_names
 

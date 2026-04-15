@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
 from runsight_api.domain.entities.settings import AppSettingsConfig
 from runsight_api.main import app
+from runsight_api.transport.routers.settings import ProviderCreate, ProviderUpdate
 from runsight_api.transport.deps import (
     get_provider_service,
     get_settings_repo,
@@ -18,6 +19,7 @@ client = TestClient(app)
 def _mock_provider(*, provider_id: str, name: str, models: list[str]):
     provider = Mock()
     provider.id = provider_id
+    provider.kind = "provider"
     provider.name = name
     provider.type = "custom"
     provider.status = "active"
@@ -94,13 +96,51 @@ def test_settings_providers_post():
 
     response = client.post(
         "/api/settings/providers",
-        json={"name": "OpenAI", "api_key_env": "sk-xxx"},
+        json={"id": "openai", "kind": "provider", "name": "OpenAI", "api_key_env": "sk-xxx"},
     )
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "openai"
     assert data["model_count"] == 0
     app.dependency_overrides.clear()
+
+
+def test_settings_provider_create_request_requires_embedded_identity_fields():
+    assert ProviderCreate.model_fields["id"].is_required()
+    assert ProviderCreate.model_fields["kind"].is_required()
+
+
+def test_settings_provider_update_request_requires_embedded_identity_fields():
+    assert ProviderUpdate.model_fields["id"].is_required()
+    assert ProviderUpdate.model_fields["kind"].is_required()
+
+
+def test_settings_providers_post_passes_embedded_identity_to_service():
+    mock_service = Mock()
+    mock_provider = _mock_provider(provider_id="openai", name="OpenAI", models=[])
+    mock_service.create_provider.return_value = mock_provider
+    app.dependency_overrides[get_provider_service] = lambda: mock_service
+
+    try:
+        response = client.post(
+            "/api/settings/providers",
+            json={
+                "id": "openai",
+                "kind": "provider",
+                "name": "OpenAI",
+                "api_key_env": "sk-xxx",
+            },
+        )
+        assert response.status_code == 200
+        mock_service.create_provider.assert_called_once_with(
+            id="openai",
+            kind="provider",
+            name="OpenAI",
+            api_key="sk-xxx",
+            base_url=None,
+        )
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_settings_providers_post_422():
@@ -138,7 +178,10 @@ def test_settings_providers_put_404():
     mock_service.update_provider.return_value = None
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
-    response = client.put("/api/settings/providers/missing", json={"name": "Updated"})
+    response = client.put(
+        "/api/settings/providers/missing",
+        json={"id": "missing", "kind": "provider", "name": "Updated"},
+    )
     assert response.status_code == 404
     app.dependency_overrides.clear()
 

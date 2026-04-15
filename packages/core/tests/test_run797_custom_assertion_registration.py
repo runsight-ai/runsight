@@ -56,6 +56,8 @@ def _write_assertion_fixture(
     source_path = assertions_dir / source_name
     manifest = {
         "version": "1.0",
+        "id": stem,
+        "kind": "assertion",
         "name": name,
         "description": "Checks the output tone.",
         "returns": returns,
@@ -76,6 +78,8 @@ def _write_workflow_file(base_dir: Path, data: dict[str, Any]) -> Path:
 def _workflow_with_block_assertion(assertion_type: str) -> dict[str, Any]:
     return {
         "version": "1.0",
+        "id": "custom_assertion_parse_flow",
+        "kind": "workflow",
         "config": {"model_name": "gpt-4o"},
         "blocks": {
             "analyze": {
@@ -95,6 +99,8 @@ def _workflow_with_block_assertion(assertion_type: str) -> dict[str, Any]:
 def _workflow_with_eval_assertion(assertion_type: str) -> dict[str, Any]:
     return {
         "version": "1.0",
+        "id": "custom_assertion_eval_flow",
+        "kind": "workflow",
         "config": {"model_name": "gpt-4o"},
         "blocks": {
             "analyze": {
@@ -178,7 +184,7 @@ class TestRegisterCustomAssertions:
         assert captured_build == [
             {
                 "plugin_name": "tone_check",
-                "code": index.stems()["tone_check"].code,
+                "code": index.ids()["tone_check"].code,
                 "returns": "bool",
             }
         ]
@@ -352,7 +358,7 @@ class TestParseWorkflowYamlCustomAssertionIntegration:
         assert scanner_bases == [tmp_path.resolve()]
         assert len(registered_indexes) == 1
         assert isinstance(registered_indexes[0], discovery_module.ScanIndex)
-        assert registered_indexes[0].stems() == {}
+        assert registered_indexes[0].ids() == {}
 
     def test_parse_workflow_yaml_surfaces_duplicate_custom_assertion_stem_errors(
         self, tmp_path: Path, monkeypatch

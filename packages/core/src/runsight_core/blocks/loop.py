@@ -6,7 +6,6 @@ Co-located: runtime class + BlockDef schema + CarryContextConfig + build() funct
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -149,15 +148,6 @@ class LoopBlock(BaseBlock):
             }
         ]
 
-        # Propagate current_task.context changes (e.g. carry_context updates).
-        current_task_context: Optional[str] = None
-        if (
-            final_state.current_task is not None
-            and initial_state.current_task is not None
-            and final_state.current_task.context != initial_state.current_task.context
-        ):
-            current_task_context = final_state.current_task.context
-
         return BlockOutput(
             output=f"completed_{rounds_completed}_rounds",
             cost_usd=cost_usd,
@@ -166,7 +156,6 @@ class LoopBlock(BaseBlock):
             extra_results=extra_results if extra_results else None,
             conversation_updates=conversation_updates,
             log_entries=log_entries,
-            current_task_context=current_task_context,
         )
 
     async def _run_loop_returning_state(
@@ -254,61 +243,6 @@ class LoopBlock(BaseBlock):
                         },
                     }
                 )
-
-                if state.current_task is not None:
-                    if isinstance(inject_value, list):
-                        parts = []
-                        for idx, entry in enumerate(inject_value):
-                            parts.append(f"=== round_{idx + 1} ===")
-                            parts.append(json.dumps(entry, default=str))
-                        carry_context_str = "\n".join(parts)
-                    else:
-                        carry_context_str = json.dumps(inject_value, default=str)
-
-                    from runsight_core.memory.budget import (  # noqa: PLC0415
-                        ContextBudgetRequest,
-                    )
-                    from runsight_core.memory.budget import (
-                        fit_to_budget as _fit,
-                    )
-                    from runsight_core.memory.token_counting import (
-                        litellm_token_counter,  # noqa: PLC0415
-                    )
-
-                    _inner_model = "gpt-4o-mini"
-                    for ref in self.inner_block_refs:
-                        _ib = blocks.get(ref)
-                        if _ib:
-                            _soul = getattr(_ib, "soul", None)
-                            if _soul is not None:
-                                _inner_model = _soul.model_name or (
-                                    _ib.runner.model_name
-                                    if hasattr(_ib, "runner")
-                                    else _inner_model
-                                )
-                                break
-
-                    _budgeted = _fit(
-                        ContextBudgetRequest(
-                            model=_inner_model,
-                            system_prompt="",
-                            instruction="",
-                            context=carry_context_str,
-                            conversation_history=[],
-                            budget_ratio=0.03,
-                            output_token_reserve=0,
-                        ),
-                        counter=litellm_token_counter,
-                    )
-                    task_context = _budgeted.task.context or carry_context_str
-
-                    state = state.model_copy(
-                        update={
-                            "current_task": state.current_task.model_copy(
-                                update={"context": task_context}
-                            ),
-                        }
-                    )
 
             if broke_early:
                 break

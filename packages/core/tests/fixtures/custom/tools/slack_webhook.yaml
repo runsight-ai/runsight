@@ -1,4 +1,6 @@
 version: "1.0"
+id: slack_webhook
+kind: tool
 type: custom
 executor: python
 name: slack_webhook

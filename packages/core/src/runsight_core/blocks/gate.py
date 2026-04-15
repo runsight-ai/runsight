@@ -14,7 +14,7 @@ from pydantic import ConfigDict, Field, model_validator
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 
 _GATE_INSTRUCTION = (
@@ -53,12 +53,7 @@ class GateBlock(BaseBlock):
         soul = ctx.soul or self.gate_soul
         content = ctx.context or ""
 
-        task = Task(
-            id=f"{self.block_id}_eval",
-            instruction=ctx.instruction,
-            context=content,
-        )
-        result = await self.runner.execute_task(task, soul)
+        result = await self.runner.execute(ctx.instruction, content, soul)
         decision_line = result.output.strip().split("\n")[0]
         is_pass = decision_line.upper().startswith("PASS")
 

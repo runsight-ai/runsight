@@ -16,10 +16,9 @@ Tests verify:
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
-
-import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
@@ -226,11 +225,23 @@ class TestGenerateSchemaCheck:
         import subprocess
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "generate_schema.py"
+        # Build an absolute PYTHONPATH so the subprocess resolves the same
+        # source tree even when CWD differs from the test-runner root.
+        repo_root = script.resolve().parent.parent.parent.parent
+        env = {**os.environ}
+        env["PYTHONPATH"] = os.pathsep.join(
+            [
+                str(repo_root / "packages" / "core" / "src"),
+                str(repo_root / "apps" / "api" / "src"),
+            ]
+            + (env.get("PYTHONPATH", "").split(os.pathsep) if env.get("PYTHONPATH") else [])
+        )
         result = subprocess.run(
             [sys.executable, str(script), "--check"],
             capture_output=True,
             text=True,
             cwd=str(script.parent.parent),  # packages/core/
+            env=env,
         )
         assert result.returncode == 0, (
             f"generate_schema.py --check failed (exit {result.returncode}).\n"
@@ -245,11 +256,15 @@ class TestGenerateSchemaCheck:
 
 VALID_LINEAR_YAML = """\
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You are a writer."
 blocks:
@@ -257,6 +272,8 @@ blocks:
     type: linear
     soul_ref: writer
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: write_step
   transitions:
@@ -266,11 +283,15 @@ workflow:
 
 VALID_LOOP_YAML = """\
 version: "1.0"
+id: test_loop
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   worker:
-    id: worker_1
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: "You are a worker."
 blocks:
@@ -283,6 +304,8 @@ blocks:
       - task_step
     max_rounds: 3
 workflow:
+  id: test_loop
+  kind: workflow
   name: test_loop
   entry: loop_step
   transitions:
@@ -292,6 +315,8 @@ workflow:
 
 VALID_CODE_YAML = """\
 version: "1.0"
+id: test_code
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -302,6 +327,8 @@ blocks:
           return {"result": input_data.get("value", 0) * 2}
     timeout_seconds: 10
 workflow:
+  id: test_code
+  kind: workflow
   name: test_code
   entry: transform
   transitions:
@@ -313,12 +340,10 @@ workflow:
 class TestEndToEndRoundTrip:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_linear_block(self):
         """parse_workflow_yaml must still work with linear blocks after migration."""
         from runsight_core import LinearBlock
+        from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -327,11 +352,9 @@ class TestEndToEndRoundTrip:
         assert wf.name == "test_linear"
         block = wf.blocks.get("write_step")
         assert block is not None
-        assert isinstance(block, LinearBlock)
+        assert isinstance(block, IsolatedBlockWrapper)
+        assert isinstance(block.inner_block, LinearBlock)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_loop_block(self):
         """parse_workflow_yaml must still work with loop blocks after migration."""
         from runsight_core import LoopBlock

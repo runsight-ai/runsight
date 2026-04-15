@@ -24,11 +24,13 @@ Runsight supports three kinds of tools:
 Every tool has a **canonical ID** -- a plain string used everywhere: workflow YAML, soul definitions, resolution, and runtime. The canonical ID is:
 
 - For **builtin tools**: the reserved string itself -- `delegate`, `http`, or `file_io`
-- For **custom tools**: the YAML filename stem -- a file at `custom/tools/sentiment.yaml` has canonical ID `sentiment`
+- For **custom tools**: the embedded `id`; a file at `custom/tools/sentiment.yaml` must contain `id: sentiment`
 
 IDs are plain strings with no prefix. You write `delegate` in your YAML, not `builtin/delegate`.
 
 ```yaml title="custom/workflows/example.yaml"
+id: example
+kind: workflow
 tools:
   - delegate
   - http
@@ -46,11 +48,12 @@ The three reserved builtin tool IDs are: `http`, `file_io`, and `delegate`.
 Custom tools are discovered automatically from `custom/tools/*.yaml` at parse time. The discovery engine:
 
 1. Scans `custom/tools/` for `.yaml` files
-2. Derives the canonical ID from each filename stem
+2. Reads the canonical ID from each file's embedded `id`
 3. Validates that no custom ID collides with reserved builtin IDs
-4. Validates all required fields (`version`, `type`, `executor`, `name`, `description`, `parameters`)
-5. For Python executors, validates that the code defines `def main(args)`
-6. For request executors, validates the `request` mapping (method, url, etc.)
+4. Validates that each embedded `id` matches its filename stem
+5. Validates all required fields (`id`, `kind`, `version`, `type`, `executor`, `name`, `description`, `parameters`)
+6. For Python executors, validates that the code defines `def main(args)`
+7. For request executors, validates the `request` mapping (method, url, etc.)
 
 No registration step is needed. Drop a valid YAML file into `custom/tools/` and it is available to any workflow that declares it.
 
@@ -64,6 +67,8 @@ Each soul lists the tools it wants to use in its `tools` field:
 
 ```yaml title="custom/souls/router.yaml"
 id: router
+kind: soul
+name: Router
 role: Router Agent
 system_prompt: Route the task to the correct team.
 tools:
@@ -78,6 +83,8 @@ The workflow file has a top-level `tools` list that acts as a whitelist:
 
 ```yaml title="custom/workflows/triage.yaml"
 version: "1.0"
+id: triage
+kind: workflow
 tools:
   - delegate
   - http

@@ -1,13 +1,15 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .workflows import WarningItem
 
 
 class RunCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     workflow_id: str
-    task_data: Dict[str, Any] = Field(default_factory=dict)
+    inputs: Dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = "manual"
     branch: str = "main"
 

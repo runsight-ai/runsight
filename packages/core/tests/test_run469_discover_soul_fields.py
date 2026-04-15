@@ -14,7 +14,9 @@ class TestDiscoverSoulFieldPreservation:
 
             (souls_dir / "extended_soul.yaml").write_text(
                 dedent("""
-                id: extended_soul_1
+                id: extended_soul
+                kind: soul
+                name: Extended Soul
                 role: Extended Soul
                 system_prompt: Preserve every field.
                 tools:
@@ -30,9 +32,11 @@ class TestDiscoverSoulFieldPreservation:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
             soul = souls["extended_soul"]
 
+            assert soul.kind == "soul"
+            assert soul.name == "Extended Soul"
             assert soul.tools == ["web_search"]
             assert soul.max_tool_iterations == 9
             assert soul.model_name == "gpt-4o"
@@ -49,7 +53,9 @@ class TestDiscoverSoulFieldPreservation:
 
             (souls_dir / "minimal_soul.yaml").write_text(
                 dedent("""
-                id: minimal_soul_1
+                id: minimal_soul
+                kind: soul
+                name: Minimal Soul
                 role: Minimal Soul
                 system_prompt: Keep defaults.
                 """)
@@ -57,9 +63,11 @@ class TestDiscoverSoulFieldPreservation:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
             soul = souls["minimal_soul"]
 
+            assert soul.kind == "soul"
+            assert soul.name == "Minimal Soul"
             assert soul.max_tool_iterations == 5
             assert soul.model_name is None
             assert soul.provider is None
@@ -75,7 +83,9 @@ class TestDiscoverSoulFieldPreservation:
 
             (souls_dir / "valid_soul.yaml").write_text(
                 dedent("""
-                id: valid_soul_1
+                id: valid_soul
+                kind: soul
+                name: Valid Soul
                 role: Valid Soul
                 system_prompt: Keep loading valid souls.
                 """)
@@ -83,7 +93,9 @@ class TestDiscoverSoulFieldPreservation:
 
             (souls_dir / "invalid_soul.yaml").write_text(
                 dedent("""
-                id: invalid_soul_1
+                id: invalid_soul
+                kind: soul
+                name: Invalid Soul
                 system_prompt: Missing a role.
                 """)
             )
@@ -107,7 +119,9 @@ class TestDiscoverSoulFieldPreservation:
 
             (souls_dir / "future_soul.yaml").write_text(
                 dedent("""
-                id: future_soul_1
+                id: future_soul
+                kind: soul
+                name: Future Soul
                 role: Future Soul
                 system_prompt: Ignore unknown keys.
                 provider: anthropic
@@ -117,9 +131,11 @@ class TestDiscoverSoulFieldPreservation:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
             soul = souls["future_soul"]
 
+            assert soul.kind == "soul"
+            assert soul.name == "Future Soul"
             assert soul.provider == "anthropic"
 
     def test_discover_empty_soul_yaml_is_skipped(self):
@@ -131,7 +147,9 @@ class TestDiscoverSoulFieldPreservation:
             (souls_dir / "empty_soul.yaml").write_text("", encoding="utf-8")
             (souls_dir / "loaded_soul.yaml").write_text(
                 dedent("""
-                id: loaded_1
+                id: loaded_soul
+                kind: soul
+                name: Loaded Soul
                 role: Loaded Soul
                 system_prompt: Still loads.
                 """),
@@ -140,7 +158,7 @@ class TestDiscoverSoulFieldPreservation:
 
             from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().stems()
+            souls = SoulScanner(base_dir).scan().ids()
 
             assert "empty_soul" not in souls
             assert "loaded_soul" in souls

@@ -20,6 +20,8 @@ def _write_provider(
     provider_path.write_text(
         yaml.safe_dump(
             {
+                "id": provider_id,
+                "kind": "provider",
                 "name": provider_id.capitalize(),
                 "type": provider_type,
                 "api_key": "${%s_API_KEY}" % provider_type.upper(),
@@ -42,6 +44,8 @@ def test_post_soul_rejects_disabled_provider_with_validation_error(tmp_path, mon
             "/api/souls",
             json={
                 "id": "soul_disabled_provider",
+                "kind": "soul",
+                "name": "Analyst",
                 "role": "Analyst",
                 "system_prompt": "You analyze inputs.",
                 "provider": "anthropic",
@@ -65,6 +69,8 @@ def test_put_soul_rejects_switching_to_disabled_provider_with_validation_error(
     SoulRepository(str(tmp_path)).create(
         {
             "id": "soul_existing",
+            "kind": "soul",
+            "name": "Existing Soul",
             "role": "Existing Soul",
             "system_prompt": "Keep working.",
             "provider": None,
@@ -95,6 +101,8 @@ def test_get_soul_keeps_existing_disabled_provider_readable(tmp_path, monkeypatc
     SoulRepository(str(tmp_path)).create(
         {
             "id": "soul_disabled_existing",
+            "kind": "soul",
+            "name": "Existing Soul",
             "role": "Existing Soul",
             "system_prompt": "Keep working.",
             "provider": "anthropic",

@@ -9,9 +9,9 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
+    PromptEnvelope,
     ResultEnvelope,
     SoulEnvelope,
-    TaskEnvelope,
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
@@ -222,6 +222,7 @@ class IsolatedBlockWrapper(BaseBlock):
         soul_envelope = SoulEnvelope(
             id=soul.id if soul else "",
             role=soul.role if soul else "",
+            name=soul.name if soul else None,
             system_prompt=soul.system_prompt if soul else "",
             model_name=soul.model_name or "" if soul else "",
             provider=soul.provider or "" if soul else "",
@@ -233,17 +234,13 @@ class IsolatedBlockWrapper(BaseBlock):
             else 5,
         )
 
-        # Extract task info from BlockContext
-        task_context: dict
+        # Build prompt envelope from BlockContext
         raw_context = ctx.context
-        if isinstance(raw_context, str):
-            task_context = {"text": raw_context}
-        else:
-            task_context = {}
-        task_envelope = TaskEnvelope(
+        prompt_context: dict = {"text": raw_context} if isinstance(raw_context, str) else {}
+        task_envelope = PromptEnvelope(
             id=f"{self.block_id}_task",
             instruction=ctx.instruction or "",
-            context=task_context,
+            context=prompt_context,
         )
 
         # Gather conversation history for stateful blocks
@@ -276,7 +273,7 @@ class IsolatedBlockWrapper(BaseBlock):
             block_config=block_config,
             soul=soul_envelope,
             tools=_build_tool_envelopes_from_tools(resolved_tools),
-            task=task_envelope,
+            prompt=task_envelope,
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             conversation_history=conversation_history,
@@ -304,7 +301,7 @@ class IsolatedBlockWrapper(BaseBlock):
         if result.delegate_artifacts:
             extra_results = {
                 f"{self.block_id}.{port}": BlockResult(
-                    output=artifact.task,
+                    output=artifact.prompt,
                     exit_handle=port,
                 )
                 for port, artifact in result.delegate_artifacts.items()

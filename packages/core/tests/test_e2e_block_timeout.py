@@ -21,7 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core.budget_enforcement import BudgetKilledException
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
 
@@ -71,9 +70,13 @@ def _make_litellm_response(
 
 _YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -81,12 +84,12 @@ souls:
 blocks:
   slow_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 1
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: timeout_no_error_route
   entry: slow_block
@@ -99,9 +102,13 @@ workflow:
 
 _YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -109,13 +116,13 @@ souls:
 blocks:
   slow_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 1
     error_route: fallback
   fallback:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: timeout_with_fallback
   entry: slow_block
@@ -128,9 +135,13 @@ workflow:
 
 _YAML_FAST_BLOCK_WITH_TIMEOUT = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -138,12 +149,12 @@ souls:
 blocks:
   fast_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 60
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: fast_with_timeout
   entry: fast_block
@@ -178,9 +189,7 @@ class TestBlockTimeoutNoErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -205,9 +214,7 @@ class TestBlockTimeoutNoErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         t0 = time.monotonic()
         with pytest.raises(BudgetKilledException):
@@ -235,9 +242,7 @@ class TestBlockTimeoutNoErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -260,9 +265,7 @@ class TestBlockTimeoutNoErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -303,9 +306,7 @@ class TestBlockTimeoutWithErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -336,9 +337,7 @@ class TestBlockTimeoutWithErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -370,9 +369,7 @@ class TestBlockTimeoutWithErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         # Should NOT raise — error_route catches the exception
         result = await wf.run(state)
@@ -399,9 +396,7 @@ class TestBlockTimeoutWithErrorRoute:
         mock_cost.return_value = 0.001
 
         wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -432,9 +427,7 @@ class TestBlockCompletesBeforeTimeout:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -455,9 +448,7 @@ class TestBlockCompletesBeforeTimeout:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         # Should not raise any exception
         result = await wf.run(state)
@@ -475,9 +466,7 @@ class TestBlockCompletesBeforeTimeout:
         mock_cost.side_effect = [0.01, 0.02]
 
         wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 

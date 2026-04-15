@@ -27,8 +27,20 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     """Write workflow YAML to a file so parse_workflow_yaml infers workflow_base_dir."""
     workflow_file = base_dir / "workflow.yaml"
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    content = dedent(yaml_content)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = "id: test-workflow\nkind: workflow\n" + content
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
+
+
+def _expand_soul_id(soul_id: str) -> str:
+    """Expand short soul IDs (< 3 chars) to be valid by prefixing 'soul-'."""
+    if len(soul_id) < 3:
+        return f"soul-{soul_id}"
+    return soul_id
 
 
 def _write_soul_file(
@@ -44,7 +56,9 @@ def _write_soul_file(
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"id: {soul_id}",
+        f"id: {name}",
+        "kind: soul",
+        f"name: {role}",
         f"role: {role}",
         f"system_prompt: {prompt}",
     ]

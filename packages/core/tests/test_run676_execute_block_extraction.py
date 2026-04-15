@@ -53,7 +53,13 @@ def _require_execute_block():
 
 
 def _make_linear_block(block_id: str = "linear_block") -> LinearBlock:
-    soul = Soul(id="soul_1", role="Analyst", system_prompt="Analyze the task.")
+    soul = Soul(
+        id="soul_1",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Analyze the task.",
+    )
     runner = MagicMock()
     runner.model_name = "gpt-4o-mini"
     return LinearBlock(block_id, soul, runner)
@@ -106,7 +112,7 @@ class TestExecuteBlockDispatch:
     async def test_workflow_block_path_receives_call_stack_registry_and_observer(self):
         execute_block = _require_execute_block()
         observer = RecordingObserver()
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         child_workflow = Workflow("child_workflow")
         block = WorkflowBlock(
             block_id="workflow_block",
@@ -145,7 +151,7 @@ class TestExecuteBlockDispatch:
     async def test_loop_block_path_receives_blocks_call_stack_registry_observer_and_ctx(self):
         execute_block = _require_execute_block()
         observer = RecordingObserver()
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         block = LoopBlock(
             block_id="loop_block",
             inner_block_refs=["leaf_block"],

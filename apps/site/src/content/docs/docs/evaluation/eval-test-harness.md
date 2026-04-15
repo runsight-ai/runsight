@@ -11,6 +11,8 @@ Add an `eval:` section at the top level of your workflow file, alongside `blocks
 
 ```yaml title="custom/workflows/research.yaml"
 version: "1.0"
+id: research
+kind: workflow
 blocks:
   analyze:
     type: code

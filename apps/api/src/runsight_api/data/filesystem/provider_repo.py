@@ -2,18 +2,18 @@
 
 Persists providers as YAML files in custom/providers/ with atomic writes.
 
-ADR D3: The id field is NOT stored inside the YAML file — it is inferred
-from the filename stem (e.g., openai.yaml -> id = "openai").
-Provider ID = slugify(name) — provider names are unique by business rule.
+The provider id is embedded in the YAML file and must match the filename
+stem exactly.
 """
 
 import logging
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import unquote
 
 import yaml
+
+from pydantic import ValidationError
+from runsight_core.identity import EntityKind, EntityRef
 
 from ...domain.errors import ProviderNotFound
 from ...domain.value_objects import ProviderEntity
@@ -21,15 +21,15 @@ from ._utils import atomic_write
 
 logger = logging.getLogger(__name__)
 
-# Fields that are API-only metadata, not part of the YAML file content
-_META_FIELDS = {"id"}
+
+def _provider_ref(provider_id: str) -> str:
+    return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
 class FileSystemProviderRepo:
     """Persists providers as YAML files in custom/providers/.
 
-    Filename convention: {slugified_name}.yaml
-    The provider id is the filename stem (ADR D3).
+    Filename convention: {provider_id}.yaml
     """
 
     def __init__(self, base_path: str = "."):
@@ -41,28 +41,10 @@ class FileSystemProviderRepo:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _slugify(name: str) -> str:
-        """Convert a provider name to a URL-safe slug.
-
-        - Lowercase
-        - Replace non-alphanumeric characters with hyphens
-        - Collapse consecutive hyphens
-        - Strip leading/trailing hyphens
-        - Fall back to 'untitled' for empty input
-        """
-        if not name:
-            return "untitled"
-        slug = name.lower()
-        slug = re.sub(r"[^a-z0-9]+", "-", slug)
-        slug = re.sub(r"-{2,}", "-", slug)
-        slug = slug.strip("-")
-        if not slug:
-            return "untitled"
-        return slug
-
     def _validate_id(self, provider_id: str) -> None:
         """Validate a provider ID against path traversal attacks."""
+        from urllib.parse import unquote
+
         decoded = unquote(provider_id)
         if ".." in decoded or "/" in decoded or "\\" in decoded:
             raise ValueError(f"Invalid path traversal in id: {provider_id!r}")
@@ -85,12 +67,16 @@ class FileSystemProviderRepo:
             return None
 
     def _build_entity(self, data: Dict[str, Any], stem: str) -> ProviderEntity:
-        """Build a ProviderEntity from YAML data.
+        """Build a ProviderEntity from YAML data and validate its identity."""
+        entity_id = data.get("id")
+        if not isinstance(entity_id, str) or not entity_id:
+            raise ValueError(f"{stem}.yaml: missing required id")
+        if entity_id != stem:
+            raise ValueError(
+                f"{stem}.yaml: embedded id {entity_id!r} does not match filename stem {stem!r}"
+            )
 
-        The id comes from the filename stem, not from inside the YAML.
-        """
-        entity_data = {k: v for k, v in data.items() if k not in _META_FIELDS}
-        entity_data["id"] = stem
+        entity_data = dict(data)
         return ProviderEntity(**entity_data)
 
     def _validate_entity_data(self, data: Dict[str, Any], stem: str) -> None:
@@ -114,7 +100,12 @@ class FileSystemProviderRepo:
             except yaml.YAMLError as e:
                 logger.warning("Failed to load provider file %s: %s", file, e)
                 continue
-            providers.append(self._build_entity(data, file.stem))
+            try:
+                providers.append(self._build_entity(data, file.stem))
+            except ValidationError:
+                raise
+            except Exception as e:
+                logger.warning("Failed to load provider file %s: %s", file, e)
         return providers
 
     def get_by_id(self, provider_id: str) -> Optional[ProviderEntity]:
@@ -125,7 +116,11 @@ class FileSystemProviderRepo:
         data = self._read_yaml(yaml_path)
         if data is None:
             return None
-        return self._build_entity(data, provider_id)
+        try:
+            return self._build_entity(data, provider_id)
+        except Exception as e:
+            logger.warning("Failed to load provider file %s: %s", yaml_path, e)
+            return None
 
     def get_by_type(self, provider_type: str) -> List[ProviderEntity]:
         """Retrieve all providers matching the given type."""
@@ -134,20 +129,24 @@ class FileSystemProviderRepo:
     def create(self, data: Dict[str, Any]) -> ProviderEntity:
         """Create a new provider file.
 
-        The provider id is the slugified name. Raises ValueError if a
-        provider with the same slug already exists.
+        The provider id must be embedded in the YAML payload.
+        Raises ValueError if a provider with the same id already exists.
         """
-        name = data.get("name", "")
-        slug = self._slugify(name)
+        provider_id = data.get("id")
+        if not isinstance(provider_id, str) or not provider_id:
+            raise ValueError("Provider must have an id")
+        self._validate_id(provider_id)
 
-        yaml_path = self.providers_dir / f"{slug}.yaml"
+        yaml_path = self._get_path(provider_id)
         if yaml_path.exists():
-            raise ValueError(f"Provider with id '{slug}' already exists")
+            raise ValueError(
+                f"Provider {_provider_ref(provider_id)} already exists. "
+                "Use update() to modify an existing provider."
+            )
 
-        # Build YAML data — exclude 'id' (ADR D3)
-        yaml_data = {k: v for k, v in data.items() if k not in _META_FIELDS}
-        entity = self._build_entity(yaml_data, slug)
+        yaml_data = dict(data)
         yaml_content = yaml.dump(yaml_data, sort_keys=False, default_flow_style=False)
+        entity = self._build_entity(yaml_data, provider_id)
 
         atomic_write(yaml_path, yaml_content)
 
@@ -156,19 +155,28 @@ class FileSystemProviderRepo:
     def update(self, provider_id: str, data: Dict[str, Any]) -> ProviderEntity:
         """Update an existing provider file.
 
-        Reads the existing file, merges with new data, and writes back atomically.
+        Reads the existing file, validates the embedded id, merges with new data,
+        and writes back atomically.
         Raises ProviderNotFound if the provider does not exist.
         """
         yaml_path = self._get_path(provider_id)
         if not yaml_path.exists():
-            raise ProviderNotFound(f"Provider {provider_id} not found")
+            raise ProviderNotFound(f"Provider {_provider_ref(provider_id)} not found")
 
         existing = self._read_yaml(yaml_path) or {}
-        self._validate_entity_data(existing, provider_id)
+        self._build_entity(existing, provider_id)
 
-        # Merge: new data overwrites existing fields (exclude meta fields)
-        update_fields = {k: v for k, v in data.items() if k not in _META_FIELDS}
-        merged = {**existing, **update_fields}
+        update_id = data.get("id")
+        if not isinstance(update_id, str) or not update_id:
+            raise ValueError("Provider must have an id")
+        if update_id != provider_id:
+            raise ValueError(
+                f"Provider id {_provider_ref(update_id)!r} "
+                f"does not match requested id {_provider_ref(provider_id)!r}"
+            )
+
+        merged = {**existing, **{k: v for k, v in data.items() if k != "id"}}
+        merged["id"] = provider_id
         entity = self._build_entity(merged, provider_id)
 
         yaml_content = yaml.dump(merged, sort_keys=False, default_flow_style=False)

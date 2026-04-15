@@ -23,7 +23,6 @@ from runsight_core.budget_enforcement import (
     BudgetKilledException,
     _active_budget,
 )
-from runsight_core.primitives import Task
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
 
@@ -73,9 +72,13 @@ def _make_litellm_response(
 
 _YAML_WORKFLOW_COST_CAP = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -83,10 +86,10 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: cost_cap_test
   entry: block1
@@ -102,9 +105,13 @@ limits:
 
 _YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -112,14 +119,14 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       cost_cap_usd: 0.001
       on_exceed: fail
     error_route: fallback
   fallback:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: block_cap_fallback
   entry: block1
@@ -132,9 +139,13 @@ workflow:
 
 _YAML_NO_LIMITS = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -142,10 +153,10 @@ souls:
 blocks:
   block1:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: no_limits_test
   entry: block1
@@ -178,9 +189,7 @@ class TestWorkflowCostCapMidBlockKill:
         mock_cost.return_value = 0.002  # exceeds cap of 0.001
 
         wf = parse_workflow_yaml(_YAML_WORKFLOW_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -202,9 +211,7 @@ class TestWorkflowCostCapMidBlockKill:
         mock_cost.return_value = 0.002
 
         wf = parse_workflow_yaml(_YAML_WORKFLOW_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -222,9 +229,7 @@ class TestWorkflowCostCapMidBlockKill:
         mock_cost.return_value = 0.002
 
         wf = parse_workflow_yaml(_YAML_WORKFLOW_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
             await wf.run(state)
@@ -241,9 +246,7 @@ class TestWorkflowCostCapMidBlockKill:
         mock_cost.return_value = 0.002
 
         wf = parse_workflow_yaml(_YAML_WORKFLOW_COST_CAP)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
             await wf.run(state)
@@ -256,10 +259,6 @@ class TestWorkflowCostCapMidBlockKill:
 # ===========================================================================
 
 
-@pytest.mark.xfail(
-    reason="Requires real subprocess isolation — paid-result preservation is an IPC interceptor behavior",
-    strict=False,
-)
 class TestBlockCostCapWithErrorRoute:
     """Block-1 has limits: {cost_cap_usd: 0.001} and error_route: fallback.
     The over-cap paid response is preserved; budget killing gates the next IPC
@@ -279,9 +278,7 @@ class TestBlockCostCapWithErrorRoute:
         mock_cost.side_effect = [0.002, 0.0001]  # block1 exceeds, fallback is cheap
 
         wf = parse_workflow_yaml(_YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -302,9 +299,7 @@ class TestBlockCostCapWithErrorRoute:
         mock_cost.side_effect = [0.002, 0.0001]
 
         wf = parse_workflow_yaml(_YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -326,9 +321,7 @@ class TestBlockCostCapWithErrorRoute:
         mock_cost.side_effect = [0.002, 0.0001]
 
         wf = parse_workflow_yaml(_YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         # Should NOT raise — there is no next IPC request to gate in this workflow
         result = await wf.run(state)
@@ -350,9 +343,7 @@ class TestBlockCostCapWithErrorRoute:
         mock_cost.side_effect = [0.002, 0.0001]
 
         wf = parse_workflow_yaml(_YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -382,9 +373,7 @@ class TestNoLimitsZeroOverhead:
         mock_cost.side_effect = [0.05, 0.06]
 
         wf = parse_workflow_yaml(_YAML_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 
@@ -410,9 +399,7 @@ class TestNoLimitsZeroOverhead:
         mock_cost.return_value = 0.01
 
         wf = parse_workflow_yaml(_YAML_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         await wf.run(state)
 
@@ -442,9 +429,7 @@ class TestNoLimitsZeroOverhead:
         mock_cost.side_effect = [0.05, 0.06]
 
         wf = parse_workflow_yaml(_YAML_NO_LIMITS)
-        state = WorkflowState(
-            current_task=Task(id="t1", instruction="Do something"),
-        )
+        state = WorkflowState()
 
         result = await wf.run(state)
 

@@ -1,3 +1,5 @@
 id: release_slack_reporter_openai
+kind: soul
+name: Release Slack Reporter
 role: release_slack_reporter_openai
 system_prompt: Fixture soul for testing.

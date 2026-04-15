@@ -155,7 +155,7 @@ function ProviderRow({
   const handleToggle = (enabled: boolean) => {
     updateProvider.mutate({
       id: provider.id,
-      data: { name: provider.name, is_active: enabled },
+      data: { id: provider.id, kind: "provider", is_active: enabled },
     });
   };
 

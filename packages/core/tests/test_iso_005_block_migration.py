@@ -29,7 +29,7 @@ from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 
@@ -39,6 +39,8 @@ from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test soul.",
         model_name="gpt-4o-mini",
@@ -46,9 +48,7 @@ def _make_soul(soul_id: str = "test_soul") -> Soul:
 
 
 def _make_state(task_instruction: str = "Do something") -> WorkflowState:
-    return WorkflowState(
-        current_task=Task(id="t1", instruction=task_instruction),
-    )
+    return WorkflowState()
 
 
 # ==============================================================================
@@ -191,6 +191,8 @@ class TestWrapperExposesSoul:
 
         soul = Soul(
             id="tool_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Use tools carefully.",
             model_name="gpt-4o-mini",
@@ -891,18 +893,19 @@ class TestBaseBlockDefSchemaAdditions:
         )
         assert block_def.stall_thresholds == {"parsing": 10, "executing": 60}
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_timeout_seconds_roundtrip_yaml(self):
         """timeout_seconds survives YAML parse round-trip."""
         import yaml
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -911,6 +914,8 @@ blocks:
     soul_ref: test
     timeout_seconds: 120
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: blk1
   transitions:
@@ -984,9 +989,6 @@ class TestNoDispatchInWorkflow:
     """LLM blocks are wrapped at build time by the parser/builder, not by
     runtime dispatch in workflow.py."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_linear(self):
         """parse_workflow_yaml wraps linear blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -996,9 +998,13 @@ class TestNoDispatchInWorkflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1006,6 +1012,8 @@ blocks:
     type: linear
     soul_ref: test
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: blk1
   transitions:
@@ -1017,9 +1025,6 @@ workflow:
         block = wf._blocks["blk1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_gate(self):
         """parse_workflow_yaml wraps gate blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1029,9 +1034,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1043,6 +1052,8 @@ blocks:
     soul_ref: test
     eval_key: producer
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: producer
   transitions:
@@ -1056,9 +1067,6 @@ workflow:
         block = wf._blocks["gate1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_synthesize(self):
         """parse_workflow_yaml wraps synthesize blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1068,9 +1076,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1087,6 +1099,8 @@ blocks:
       - a
       - b
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: a
   transitions:
@@ -1102,9 +1116,6 @@ workflow:
         block = wf._blocks["synth"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_dispatch(self):
         """parse_workflow_yaml wraps dispatch blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1114,9 +1125,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1132,6 +1147,8 @@ blocks:
         soul_ref: test
         task: Do B
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: fan
   transitions:
@@ -1294,6 +1311,8 @@ class TestRUN815WrapperHarnessWiringContract:
             "\n".join(
                 [
                     "id: writer",
+                    "kind: soul",
+                    "name: Writer",
                     "role: Writer",
                     "system_prompt: Write clearly.",
                     "model_name: gpt-4o-mini",
@@ -1308,6 +1327,8 @@ class TestRUN815WrapperHarnessWiringContract:
         workflow_path.write_text(
             "\n".join(
                 [
+                    "id: run815-wrapper-wiring",
+                    "kind: workflow",
                     'version: "1.0"',
                     "config:",
                     "  model_name: gpt-4o-mini",
@@ -1362,11 +1383,19 @@ class TestRUN815WrapperHarnessWiringContract:
         harness = _FakeHarness(result)
         wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner, harness=harness)
 
-        next_state = await wrapper.execute(_make_state(task_instruction="Summarize this"))
+        state = _make_state()
+        state = state.model_copy(
+            update={"shared_memory": {"_resolved_inputs": {"instruction": "Summarize this"}}}
+        )
+        next_state = await wrapper.execute(state)
 
         assert len(harness.calls) == 1
         assert harness.calls[0].block_id == "blk1"
-        assert harness.calls[0].task.instruction == "Summarize this"
+        # The instruction is conveyed via scoped_shared_memory["_resolved_inputs"]
+        assert (
+            harness.calls[0].scoped_shared_memory.get("_resolved_inputs", {}).get("instruction")
+            == "Summarize this"
+        )
         inner.execute.assert_not_called()
         assert next_state.results["blk1"].output == "subprocess output"
         assert next_state.total_cost_usd == pytest.approx(0.25)
@@ -1398,7 +1427,7 @@ class TestRUN815WrapperHarnessWiringContract:
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
-        from runsight_core.isolation.envelope import SoulEnvelope, TaskEnvelope
+        from runsight_core.isolation.envelope import PromptEnvelope, SoulEnvelope
 
         expected = ResultEnvelope(
             block_id="blk1",
@@ -1441,7 +1470,7 @@ class TestRUN815WrapperHarnessWiringContract:
                 max_tokens=256,
             ),
             tools=[],
-            task=TaskEnvelope(id="task-1", instruction="Do the thing", context={}),
+            prompt=PromptEnvelope(id="task-1", instruction="Do the thing", context={}),
             scoped_results={},
             scoped_shared_memory={},
             conversation_history=[],

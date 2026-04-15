@@ -261,6 +261,8 @@ class TestParserOnErrorWiring:
         # Build a minimal child workflow definition using a code block
         # (no soul_ref needed, avoids inline-soul validation)
         child_yaml = {
+            "id": "child_wf",
+            "kind": "workflow",
             "version": "1.0",
             "interface": {
                 "inputs": [],
@@ -280,12 +282,14 @@ class TestParserOnErrorWiring:
         }
 
         # Register child in a registry
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         child_file = RunsightWorkflowFile.model_validate(child_yaml)
         registry.register("child_wf", child_file)
 
         # Parent workflow that calls child with on_error: catch
         parent_yaml = {
+            "id": "parent_wf",
+            "kind": "workflow",
             "version": "1.0",
             "blocks": {
                 "invoke_child": {

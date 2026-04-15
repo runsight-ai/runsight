@@ -14,7 +14,7 @@ from runsight_core import (
     WorkflowBlock,
 )
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
@@ -46,10 +46,11 @@ class MockRunner:
 
     def __init__(self):
         self.executions = []
+        self.model_name = "gpt-4o"
 
-    async def execute_task(self, task: Task, soul: Soul):
+    async def execute(self, instruction: str, context, soul: Soul, messages=None, **kwargs):
         """Mock task execution."""
-        self.executions.append((task.id, soul.id))
+        self.executions.append((instruction, soul.id))
 
         class MockResult:
             def __init__(self):
@@ -96,7 +97,13 @@ async def test_workflow_block_followed_by_linear_block():
     mock_runner_parent = MockRunner()
     final_step = LinearBlock(
         block_id="parent_linear",
-        soul=Soul(id="parent_soul", role="Manager", system_prompt="Manage"),
+        soul=Soul(
+            id="parent_soul",
+            kind="soul",
+            name="Parent Soul",
+            role="Manager",
+            system_prompt="Manage",
+        ),
         runner=mock_runner_parent,
     )
     parent_wf.add_block(final_step)
@@ -107,7 +114,6 @@ async def test_workflow_block_followed_by_linear_block():
 
     # Create initial state with current_task for LinearBlock
     initial_state = WorkflowState(
-        current_task=Task(id="task1", instruction="Do something"),
         results={},
         shared_memory={},
     )

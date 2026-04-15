@@ -17,7 +17,7 @@ All tests mock LiteLLMClient.achat() to avoid real API calls.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 
 # ---------------------------------------------------------------------------
@@ -33,6 +33,8 @@ def _make_soul(
     """Build a Soul with optional resolved_tools."""
     defaults = {
         "id": "test_soul",
+        "kind": "soul",
+        "name": "Test Agent",
         "role": "Test Agent",
         "system_prompt": "You are a test agent.",
         "provider": "openai",
@@ -42,12 +44,6 @@ def _make_soul(
     soul = Soul(**defaults, max_tool_iterations=max_tool_iterations)
     soul.resolved_tools = resolved_tools
     return soul
-
-
-def _make_task(**kwargs) -> Task:
-    defaults = {"id": "test_task", "instruction": "Do something."}
-    defaults.update(kwargs)
-    return Task(**defaults)
 
 
 def _make_tool_instance(name: str = "get_weather", execute_fn=None):
@@ -140,10 +136,9 @@ class TestSingleShotNoTools:
         """Soul without resolved_tools: achat called once, returns text."""
         mock_achat.return_value = _achat_text_response(content="Hello!")
         soul = _make_soul(resolved_tools=None)
-        task = _make_task()
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert isinstance(result, ExecutionResult)
         assert result.output == "Hello!"
@@ -155,10 +150,9 @@ class TestSingleShotNoTools:
         """Soul with empty resolved_tools list: same as no tools."""
         mock_achat.return_value = _achat_text_response(content="Hello!")
         soul = _make_soul(resolved_tools=[])
-        task = _make_task()
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert isinstance(result, ExecutionResult)
         assert result.output == "Hello!"
@@ -170,10 +164,9 @@ class TestSingleShotNoTools:
         """Without resolved_tools, achat must NOT receive tools kwarg."""
         mock_achat.return_value = _achat_text_response()
         soul = _make_soul(resolved_tools=None)
-        task = _make_task()
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         call_kwargs = mock_achat.call_args.kwargs
         assert "tools" not in call_kwargs or call_kwargs.get("tools") is None
@@ -194,7 +187,6 @@ class TestToolLoopBasic:
         """LLM calls tool once, then responds with text. Two achat calls total."""
         tool = _make_tool_instance("get_weather")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         # First call: LLM requests tool; second call: LLM returns text
         mock_achat.side_effect = [
@@ -203,7 +195,7 @@ class TestToolLoopBasic:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.output == "The weather is sunny."
         assert mock_achat.call_count == 2
@@ -214,7 +206,6 @@ class TestToolLoopBasic:
         """Tool's execute() must be called with parsed arguments from function.arguments."""
         tool = _make_tool_instance("get_weather")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(
@@ -225,7 +216,7 @@ class TestToolLoopBasic:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         tool.execute.assert_called_once()
         call_args = tool.execute.call_args
@@ -240,7 +231,6 @@ class TestToolLoopBasic:
         tool = _make_tool_instance("get_weather")
         tool.execute = AsyncMock(return_value="Sunny, 25C")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="get_weather", call_id="call_abc"),
@@ -248,7 +238,7 @@ class TestToolLoopBasic:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         # Second achat call should include the tool result message
         second_call_messages = mock_achat.call_args_list[1].kwargs.get(
@@ -270,13 +260,12 @@ class TestToolLoopBasic:
         before the tool result message."""
         tool = _make_tool_instance("get_weather")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         tool_response = _achat_tool_response(tool_name="get_weather", call_id="call_x")
         mock_achat.side_effect = [tool_response, _achat_text_response()]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         # Second call messages should include the raw_message from first response
         second_call_messages = mock_achat.call_args_list[1].kwargs.get(
@@ -294,14 +283,13 @@ class TestToolLoopBasic:
         """When tools are available, achat must receive the tool schemas."""
         tool = _make_tool_instance("get_weather")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_text_response(content="No tools needed."),
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         call_kwargs = mock_achat.call_args.kwargs
         assert "tools" in call_kwargs
@@ -322,7 +310,6 @@ class TestToolLoopMultiIteration:
         """LLM calls tools twice before final text. Three achat calls total."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="search", call_id="call_1"),
@@ -331,7 +318,7 @@ class TestToolLoopMultiIteration:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.output == "Found it."
         assert mock_achat.call_count == 3
@@ -353,7 +340,6 @@ class TestMaxIterations:
         final forced text call."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool], max_tool_iterations=2)
-        task = _make_task()
 
         # Two tool iterations, then the forced-text final call
         mock_achat.side_effect = [
@@ -363,7 +349,7 @@ class TestMaxIterations:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.output == "Gave up, here is what I have."
 
@@ -374,7 +360,6 @@ class TestMaxIterations:
         as empty list to force a text response."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool], max_tool_iterations=1)
-        task = _make_task()
 
         # First call: iteration 0 (last iteration since max=1), tools stripped
         mock_achat.side_effect = [
@@ -382,7 +367,7 @@ class TestMaxIterations:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         # The call on the last iteration should have tools=[]
         call_kwargs = mock_achat.call_args_list[0].kwargs
@@ -394,7 +379,6 @@ class TestMaxIterations:
         """Before the last iteration, tools must be provided normally."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool], max_tool_iterations=3)
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="search", call_id="call_1"),
@@ -402,7 +386,7 @@ class TestMaxIterations:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        await runner.execute_task(task, soul)
+        await runner.execute("Do something.", None, soul)
 
         # First call (iteration 0, not last) should have real tools
         first_call_kwargs = mock_achat.call_args_list[0].kwargs
@@ -423,7 +407,6 @@ class TestCostAccumulation:
         """Two iterations: costs must sum."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="search", cost_usd=0.003, total_tokens=30),
@@ -431,7 +414,7 @@ class TestCostAccumulation:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.cost_usd == pytest.approx(0.005)
         assert result.total_tokens == 50
@@ -442,7 +425,6 @@ class TestCostAccumulation:
         """Three iterations: costs must sum from all calls."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="search", cost_usd=0.001, total_tokens=10),
@@ -451,7 +433,7 @@ class TestCostAccumulation:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.cost_usd == pytest.approx(0.006)
         assert result.total_tokens == 60
@@ -462,10 +444,9 @@ class TestCostAccumulation:
         """Single-shot (no tools) cost must still work correctly."""
         mock_achat.return_value = _achat_text_response(cost_usd=0.005, total_tokens=100)
         soul = _make_soul(resolved_tools=None)
-        task = _make_task()
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.cost_usd == pytest.approx(0.005)
         assert result.total_tokens == 100
@@ -487,7 +468,6 @@ class TestToolErrorHandling:
         tool = _make_tool_instance("failing_tool")
         tool.execute = AsyncMock(side_effect=RuntimeError("Connection timeout"))
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="failing_tool", call_id="call_err"),
@@ -495,7 +475,7 @@ class TestToolErrorHandling:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         # Loop should continue and return final text
         assert result.output == "I encountered an error."
@@ -521,7 +501,6 @@ class TestToolErrorHandling:
         good_tool.execute = AsyncMock(return_value="Success!")
 
         soul = _make_soul(resolved_tools=[error_tool, good_tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="bad_tool", call_id="call_1"),
@@ -530,7 +509,7 @@ class TestToolErrorHandling:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.output == "Recovered."
         assert mock_achat.call_count == 3
@@ -551,7 +530,6 @@ class TestUnknownTool:
         """LLM calls 'nonexistent_tool' not in resolved_tools -> error message."""
         tool = _make_tool_instance("get_weather")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="nonexistent_tool", call_id="call_unknown"),
@@ -559,7 +537,7 @@ class TestUnknownTool:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.output == "Sorry, I tried a wrong tool."
         assert mock_achat.call_count == 2
@@ -583,7 +561,6 @@ class TestUnknownTool:
         """Unknown tool must not raise an exception — loop continues."""
         tool = _make_tool_instance("real_tool")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="fake_tool", call_id="call_1"),
@@ -592,7 +569,7 @@ class TestUnknownTool:
 
         runner = RunsightTeamRunner(model_name="test-model")
         # Must not raise
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
         assert result.output == "Corrected."
 
 
@@ -641,7 +618,6 @@ class TestExecutionResultToolFields:
         """After tool loop, tool_iterations must reflect actual iteration count."""
         tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="search", call_id="call_1"),
@@ -650,7 +626,7 @@ class TestExecutionResultToolFields:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.tool_iterations == 2
 
@@ -661,7 +637,6 @@ class TestExecutionResultToolFields:
         weather_tool = _make_tool_instance("get_weather")
         search_tool = _make_tool_instance("search")
         soul = _make_soul(resolved_tools=[weather_tool, search_tool])
-        task = _make_task()
 
         mock_achat.side_effect = [
             _achat_tool_response(tool_name="get_weather", call_id="call_1"),
@@ -670,7 +645,7 @@ class TestExecutionResultToolFields:
         ]
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert "get_weather" in result.tool_calls_made
         assert "search" in result.tool_calls_made
@@ -682,10 +657,9 @@ class TestExecutionResultToolFields:
         """Single-shot (no tools) must have tool_iterations=0 and empty tool_calls_made."""
         mock_achat.return_value = _achat_text_response()
         soul = _make_soul(resolved_tools=None)
-        task = _make_task()
 
         runner = RunsightTeamRunner(model_name="test-model")
-        result = await runner.execute_task(task, soul)
+        result = await runner.execute("Do something.", None, soul)
 
         assert result.tool_iterations == 0
         assert result.tool_calls_made == []

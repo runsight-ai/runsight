@@ -29,6 +29,8 @@ def _write_assertion(
     assertions_dir = base_dir / "custom" / "assertions"
     assertions_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
+        "id": stem,
+        "kind": "assertion",
         "version": "1.0",
         "name": stem.replace("_", " ").title(),
         "description": f"Custom assertion {stem}",
@@ -48,6 +50,8 @@ def _write_eval_workflow(
     fixture_output: str = "calm response",
 ) -> Path:
     workflow = {
+        "id": "run800-eval-flow",
+        "kind": "workflow",
         "version": "1.0",
         "config": {"model_name": "gpt-4o"},
         "blocks": {

@@ -26,7 +26,6 @@ from runsight_api.transport.deps import (
     get_registry_service,
     get_run_service,
     get_step_repo,
-    get_task_repo,
 )
 
 client = TestClient(app)
@@ -138,40 +137,6 @@ class TestStepsErrorShape:
 
 
 # ===========================================================================
-# 3. Tasks router — error response shape
-# ===========================================================================
-
-
-class TestTasksErrorShape:
-    """Tasks router errors must use RunsightError shape."""
-
-    def test_get_task_404_has_runsight_shape(self):
-        mock_registry = Mock()
-        mock_registry.discover_tasks.return_value = []
-        mock_repo = Mock()
-        mock_repo.get_by_id.return_value = None
-        app.dependency_overrides[get_registry_service] = lambda: mock_registry
-        app.dependency_overrides[get_task_repo] = lambda: mock_repo
-        try:
-            response = client.get("/api/tasks/nonexistent")
-            body = assert_runsight_error_shape(response, 404)
-            assert body["error_code"] == "TASK_NOT_FOUND"
-        finally:
-            app.dependency_overrides.clear()
-
-    def test_update_task_404_has_runsight_shape(self):
-        mock_repo = Mock()
-        mock_repo.get_by_id.return_value = None
-        app.dependency_overrides[get_task_repo] = lambda: mock_repo
-        try:
-            response = client.put("/api/tasks/missing", json={"name": "Updated"})
-            body = assert_runsight_error_shape(response, 404)
-            assert body["error_code"] == "TASK_NOT_FOUND"
-        finally:
-            app.dependency_overrides.clear()
-
-
-# ===========================================================================
 # 4. Settings router — error response shape
 # ===========================================================================
 
@@ -197,7 +162,7 @@ class TestSettingsErrorShape:
         try:
             response = client.put(
                 "/api/settings/providers/missing",
-                json={"name": "Updated"},
+                json={"id": "missing", "kind": "provider", "name": "Updated"},
             )
             body = assert_runsight_error_shape(response, 404)
             assert body["error_code"] == "PROVIDER_NOT_FOUND"
@@ -381,7 +346,6 @@ class TestNoHTTPExceptionInRouters:
 
     ROUTER_FILES = [
         "steps.py",
-        "tasks.py",
         "settings.py",
         "git.py",
         "sse_stream.py",

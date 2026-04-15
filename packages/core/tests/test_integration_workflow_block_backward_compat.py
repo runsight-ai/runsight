@@ -14,7 +14,7 @@ from runsight_core import (
     WorkflowBlock,
 )
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 
@@ -299,7 +299,9 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     """
 
     class MockRunner:
-        async def execute_task(self, task, soul):
+        model_name = "gpt-4o"
+
+        async def execute(self, instruction, context, soul, messages=None, **kwargs):
             class Result:
                 def __init__(self):
                     self.output = "mocked output"
@@ -314,7 +316,7 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     wf = Workflow(name="complex_old_workflow")
 
     runner = MockRunner()
-    soul = Soul(id="test_soul", role="Tester", system_prompt="Test")
+    soul = Soul(id="test_soul", kind="soul", name="Test Soul", role="Tester", system_prompt="Test")
 
     # Add LinearBlock
     linear_block = LinearBlock(
@@ -332,7 +334,7 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     wf.add_transition("echo_step", None)
 
     # Execute without any WorkflowRegistry or special parameters
-    initial_state = WorkflowState(current_task=Task(id="t1", instruction="Do something"))
+    initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify: Execution successful

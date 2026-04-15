@@ -36,6 +36,7 @@ def _provider(
 ) -> ProviderEntity:
     return ProviderEntity(
         id=provider_id,
+        kind="provider",
         type=provider_type,
         name=name,
         status=status,
@@ -371,7 +372,7 @@ class TestSettingsServiceUpdateFallbackTargets:
 
         service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
 
-        with pytest.raises(InputValidationError, match="disabled"):
+        with pytest.raises(InputValidationError, match=r"provider:anthropic"):
             service.update_fallback_target(
                 provider_id="openai",
                 fallback_provider_id="anthropic",
@@ -381,7 +382,7 @@ class TestSettingsServiceUpdateFallbackTargets:
         provider_repo.get_by_id.side_effect = lambda provider_id: {"openai": source_provider}.get(
             provider_id
         )
-        with pytest.raises(ProviderNotFound, match="anthropic"):
+        with pytest.raises(ProviderNotFound, match=r"provider:anthropic"):
             service.update_fallback_target(
                 provider_id="openai",
                 fallback_provider_id="anthropic",
@@ -410,7 +411,7 @@ class TestSettingsServiceUpdateFallbackTargets:
             "anthropic": target_provider,
         }.get(provider_id)
 
-        with pytest.raises(InputValidationError, match="does not belong"):
+        with pytest.raises(InputValidationError, match=r"provider:anthropic"):
             _service(
                 settings_repo=settings_repo, provider_repo=provider_repo
             ).update_fallback_target(

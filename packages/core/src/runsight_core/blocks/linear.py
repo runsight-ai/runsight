@@ -6,18 +6,19 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Literal, Optional
 
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 
 
 class LinearBlock(BaseBlock):
     """
-    Executes the current task with a single agent.
+    Executes a single agent using resolved inputs from upstream blocks.
 
     Typical Use: Sequential processing where one agent completes a task.
     Example: Research block -> writes research report to results.
@@ -32,18 +33,21 @@ class LinearBlock(BaseBlock):
         """Execute block with BlockContext, return BlockOutput."""
         soul = ctx.soul or self.soul
 
+        # Use _resolved_inputs from shared_memory if available (RUN-866 data source),
+        # falling back to ctx.instruction for backward compat.
+        _resolved_inputs = (
+            ctx.state_snapshot.shared_memory.get("_resolved_inputs", {})
+            if ctx.state_snapshot is not None
+            else {}
+        )
+        instruction = json.dumps(_resolved_inputs) if _resolved_inputs else ctx.instruction
+
         if self.stateful:
             history_key = f"{self.block_id}_{soul.id}"
             messages = list(ctx.conversation_history)
-            task = Task(
-                id=f"{self.block_id}_task",
-                instruction=ctx.instruction,
-                context=ctx.context or "",
-            )
-            result = await self.runner.execute_task(task, soul, messages=messages)
-            prompt = self.runner._build_prompt(task)
+            result = await self.runner.execute(instruction, ctx.context, soul, messages=messages)
             new_messages = [
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": instruction},
                 {"role": "assistant", "content": result.output},
             ]
             # Use conversation_replacements to store the FULL history as seen by the
@@ -55,12 +59,7 @@ class LinearBlock(BaseBlock):
                 history_key: messages + new_messages
             }
         else:
-            task = Task(
-                id=f"{self.block_id}_task",
-                instruction=ctx.instruction,
-                context=ctx.context or "",
-            )
-            result = await self.runner.execute_task(task, soul)
+            result = await self.runner.execute(instruction, ctx.context, soul)
             conversation_updates = None
             conversation_replacements = None
 

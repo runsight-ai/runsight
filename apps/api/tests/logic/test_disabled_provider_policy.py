@@ -22,6 +22,7 @@ def _provider(
 ) -> ProviderEntity:
     return ProviderEntity(
         id=provider_id,
+        kind="provider",
         type=provider_type,
         name=name,
         status="connected",

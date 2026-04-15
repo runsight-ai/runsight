@@ -2,20 +2,20 @@ services:
   init-permissions:
     image: busybox
     user: "0"
+    command: ["chown", "-R", "1000:1000", "/workspace"]
+    volumes:
+      - workspace_data:/workspace
     cap_drop:
       - ALL
     cap_add:
       - CHOWN
-    volumes:
-      - ./:/workspace
-    entrypoint: ["sh", "-c", "chown 1000:1000 /workspace && if [ -d /workspace/.runsight ]; then chown -R 1000:1000 /workspace/.runsight; fi"]
 
   runsight:
     build: .
     ports:
       - "8000:8000"
     volumes:
-      - ./:/workspace
+      - workspace_data:/workspace
     environment:
       - RUNSIGHT_BASE_PATH=/workspace
       - RUNSIGHT_LOG_FORMAT=text
@@ -37,3 +37,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+
+volumes:
+  workspace_data:

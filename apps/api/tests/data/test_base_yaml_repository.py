@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 
 from runsight_api.data.filesystem._base_yaml_repo import BaseYamlRepository
 from runsight_api.data.filesystem.step_repo import StepRepository
-from runsight_api.data.filesystem.task_repo import TaskRepository
 from runsight_api.domain.errors import RunsightError
 
 # -- Fixtures: a minimal entity and concrete repo for testing ----------------
@@ -81,8 +80,8 @@ class TestListAll:
             ids = {e.id for e in results}
             assert ids == {"d1", "d2"}
 
-    def test_list_all_injects_id_from_filename(self):
-        """If the YAML file lacks an 'id' field, list_all uses the filename stem."""
+    def test_list_all_skips_files_without_embedded_id(self):
+        """YAML files without an 'id' field are skipped in list_all."""
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -92,8 +91,7 @@ class TestListAll:
             with open(file_path, "w") as f:
                 yaml.safe_dump({"name": "No ID"}, f)
             results = repo.list_all()
-            assert len(results) == 1
-            assert results[0].id == "auto-id"
+            assert len(results) == 0
 
 
 class TestGetById:
@@ -114,8 +112,8 @@ class TestGetById:
             repo = DummyRepository(base_path=tmpdir)
             assert repo.get_by_id("nonexistent") is None
 
-    def test_get_by_id_injects_id_from_filename(self):
-        """If YAML lacks 'id', get_by_id uses the requested id."""
+    def test_get_by_id_returns_none_for_file_without_embedded_id(self):
+        """If YAML lacks 'id', get_by_id returns None."""
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -124,7 +122,7 @@ class TestGetById:
             with open(file_path, "w") as f:
                 yaml.safe_dump({"name": "No ID"}, f)
             entity = repo.get_by_id("auto-id")
-            assert entity.id == "auto-id"
+            assert entity is None
 
 
 class TestCreate:
@@ -162,7 +160,7 @@ class TestUpdate:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = DummyRepository(base_path=tmpdir)
             repo.create({"id": "d1", "name": "Original"})
-            updated = repo.update("d1", {"name": "Updated"})
+            updated = repo.update("d1", {"id": "d1", "name": "Updated"})
             assert updated.name == "Updated"
             assert updated.id == "d1"
 
@@ -188,7 +186,7 @@ class TestStrictEntityWriteValidation:
             repo.create({"id": "d1", "name": "Original"})
 
             with pytest.raises(ValidationError):
-                repo.update("d1", {"name": "Updated", "unsupported": "x"})
+                repo.update("d1", {"id": "d1", "name": "Updated", "unsupported": "x"})
 
             with open(repo.entity_dir / "d1.yaml", "r") as f:
                 on_disk = yaml.safe_load(f)
@@ -196,60 +194,6 @@ class TestStrictEntityWriteValidation:
 
 
 class TestTaskAndStepRepoStrictness:
-    def test_task_repo_create_rejects_unknown_fields_and_does_not_persist(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            file_path = repo.entity_dir / "task-1.yaml"
-            with pytest.raises(ValidationError):
-                repo.create({"id": "task-1", "name": "Task", "unsupported": "x"})
-            assert not file_path.exists()
-
-    def test_task_repo_update_rejects_unknown_fields_and_keeps_original_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            repo.create({"id": "task-1", "name": "Task"})
-            with pytest.raises(ValidationError):
-                repo.update("task-1", {"name": "Updated", "unsupported": "x"})
-            with open(repo.entity_dir / "task-1.yaml", "r") as f:
-                on_disk = yaml.safe_load(f)
-            assert on_disk == {"id": "task-1", "name": "Task"}
-
-    def test_task_repo_get_by_id_rejects_unknown_fields_in_authored_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            task_path = repo.entity_dir / "task-1.yaml"
-            task_path.write_text(
-                yaml.safe_dump(
-                    {
-                        "id": "task-1",
-                        "name": "Task",
-                        "custom_notes": "unsupported",
-                    },
-                    sort_keys=False,
-                )
-            )
-
-            with pytest.raises(ValidationError):
-                repo.get_by_id("task-1")
-
-    def test_task_repo_list_all_rejects_unknown_fields_in_authored_yaml(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo = TaskRepository(base_path=tmpdir)
-            task_path = repo.entity_dir / "task-1.yaml"
-            task_path.write_text(
-                yaml.safe_dump(
-                    {
-                        "id": "task-1",
-                        "name": "Task",
-                        "unsupported": True,
-                    },
-                    sort_keys=False,
-                )
-            )
-
-            with pytest.raises(ValidationError):
-                repo.list_all()
-
     def test_step_repo_create_rejects_unknown_fields_and_does_not_persist(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = StepRepository(base_path=tmpdir)
@@ -263,7 +207,7 @@ class TestTaskAndStepRepoStrictness:
             repo = StepRepository(base_path=tmpdir)
             repo.create({"id": "step-1", "name": "Step"})
             with pytest.raises(ValidationError):
-                repo.update("step-1", {"name": "Updated", "unsupported": "x"})
+                repo.update("step-1", {"id": "step-1", "name": "Updated", "unsupported": "x"})
             with open(repo.entity_dir / "step-1.yaml", "r") as f:
                 on_disk = yaml.safe_load(f)
             assert on_disk == {"id": "step-1", "name": "Step"}
@@ -283,8 +227,7 @@ class TestTaskAndStepRepoStrictness:
                 )
             )
 
-            with pytest.raises(ValidationError):
-                repo.get_by_id("step-1")
+            assert repo.get_by_id("step-1") is None
 
     def test_step_repo_list_all_rejects_unknown_fields_in_authored_yaml(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -372,14 +315,12 @@ class TestMalformedYaml:
             assert len(results) == 1
             assert results[0].id == "good"
 
-    def test_empty_yaml_file_skipped_or_handled(self):
+    def test_empty_yaml_file_skipped(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = DummyRepository(base_path=tmpdir)
             # Write an empty file (yaml.safe_load returns None)
             empty_file = repo.entity_dir / "empty.yaml"
             empty_file.write_text("")
-            # Should not crash — either skip or handle gracefully
+            # Empty YAML -> not a mapping -> skipped
             results = repo.list_all()
-            # Empty YAML -> {} after `or {}` -> entity with id from stem
-            assert len(results) == 1
-            assert results[0].id == "empty"
+            assert len(results) == 0

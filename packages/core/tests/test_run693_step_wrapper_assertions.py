@@ -16,6 +16,7 @@ from pathlib import Path
 from textwrap import dedent
 from types import SimpleNamespace
 
+import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
@@ -101,6 +102,8 @@ class TestStepDelegatesAssertions:
 
 
 YAML_INPUTS_AND_ASSERTIONS = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -131,6 +134,8 @@ workflow:
 
 
 YAML_INPUTS_NO_ASSERTIONS = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -164,6 +169,8 @@ def _parse_with_souls(yaml_content: str) -> object:
             "researcher",
             """\
             id: researcher
+            kind: soul
+            name: Researcher
             role: Researcher
             system_prompt: You research topics.
             """,
@@ -173,6 +180,8 @@ def _parse_with_souls(yaml_content: str) -> object:
             "analyst",
             """\
             id: analyst
+            kind: soul
+            name: Analyst
             role: Analyst
             system_prompt: You analyze data.
             """,
@@ -233,7 +242,9 @@ class TestBuildAssertionConfigsWithStepWrappedBlocks:
     def test_build_assertion_configs_sees_assertions_through_step_wrapper(self):
         """When _blocks contains a Step-wrapped block with assertions,
         _build_assertion_configs must include them in the config dict."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         inner_block = SimpleNamespace(assertions=[{"type": "contains", "value": "analysis"}])
         step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
@@ -248,7 +259,9 @@ class TestBuildAssertionConfigsWithStepWrappedBlocks:
 
     def test_build_assertion_configs_returns_none_for_step_without_assertions(self):
         """When all Step-wrapped blocks have no assertions, return None."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         inner_block = SimpleNamespace(assertions=None)
         step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
@@ -261,7 +274,9 @@ class TestBuildAssertionConfigsWithStepWrappedBlocks:
 
     def test_build_assertion_configs_full_pipeline_parse_then_build(self):
         """End-to-end: parse YAML with inputs+assertions, then build configs."""
-        from runsight_api.logic.services.execution_service import ExecutionService
+        ExecutionService = pytest.importorskip(
+            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
+        ).ExecutionService
 
         wf = _parse_with_souls(YAML_INPUTS_AND_ASSERTIONS)
 

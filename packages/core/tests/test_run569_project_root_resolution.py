@@ -35,7 +35,9 @@ def _setup_project(tmp_path: Path) -> Path:
     _write_file(
         root / "custom" / "souls" / "researcher.yaml",
         """\
-        id: researcher_1
+        id: researcher
+        kind: soul
+        name: Senior Researcher
         role: Senior Researcher
         system_prompt: You are an expert researcher.
         """,
@@ -95,11 +97,15 @@ class TestP1FilePathSoulDiscovery:
             root / "custom" / "workflows" / "my_workflow.yaml",
             """\
             version: "1.0"
+            id: test_p1
+            kind: workflow
             blocks:
               research:
                 type: linear
                 soul_ref: researcher
             workflow:
+              id: test_p1
+              kind: workflow
               name: test_p1
               entry: research
               transitions:
@@ -123,11 +129,15 @@ class TestP1FilePathSoulDiscovery:
             root / "root_workflow.yaml",
             """\
             version: "1.0"
+            id: test_root
+            kind: workflow
             blocks:
               research:
                 type: linear
                 soul_ref: researcher
             workflow:
+              id: test_root
+              kind: workflow
               name: test_root
               entry: research
               transitions:
@@ -146,11 +156,15 @@ class TestP1FilePathSoulDiscovery:
             root / "custom" / "workflows" / "bad.yaml",
             """\
             version: "1.0"
+            id: test_missing
+            kind: workflow
             blocks:
               step1:
                 type: linear
                 soul_ref: nonexistent
             workflow:
+              id: test_missing
+              kind: workflow
               name: test_missing
               entry: step1
               transitions:
@@ -182,7 +196,9 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
         _write_file(
             root / "custom" / "souls" / "writer.yaml",
             """\
-            id: writer_1
+            id: writer
+            kind: soul
+            name: Summary Writer
             role: Summary Writer
             system_prompt: You are a writer.
             """,
@@ -191,6 +207,8 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
         # Child workflow (registered by name, not file path)
         child_yaml = {
             "version": "1.0",
+            "id": "child_wf",
+            "kind": "workflow",
             "interface": {
                 "inputs": [],
                 "outputs": [],
@@ -217,6 +235,8 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
             root / "custom" / "workflows" / "parent.yaml",
             """\
             version: "1.0"
+            id: parent_wf
+            kind: workflow
             blocks:
               research:
                 type: linear
@@ -225,6 +245,8 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
                 type: workflow
                 workflow_ref: child_pipeline
             workflow:
+              id: parent_wf
+              kind: workflow
               name: parent_wf
               entry: research
               transitions:

@@ -2,7 +2,7 @@
 Failing tests for RUN-571: Wire ``soul_ref`` to library discovery.
 
 After implementation:
-1. ``parse_workflow_yaml()`` calls ``SoulScanner(custom).scan().stems()`` to build souls_map
+1. ``parse_workflow_yaml()`` calls ``SoulScanner(custom).scan().ids()`` to build souls_map
 2. ``soul_ref`` in linear, gate, synthesize, and dispatch blocks resolves against library souls
 3. Missing soul produces error with available souls listed and guidance to create the file
 4. Discovery is called once per parse (not per block)
@@ -30,17 +30,32 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     """Write workflow YAML to a file so parse_workflow_yaml infers workflow_base_dir."""
     workflow_file = base_dir / "workflow.yaml"
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    content = dedent(yaml_content)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = "id: test-workflow\nkind: workflow\n" + content
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
+
+
+def _expand_soul_id(soul_id: str) -> str:
+    """Expand short soul IDs (< 3 chars) to be valid by prefixing 'soul-'."""
+    if len(soul_id) < 3:
+        return f"soul-{soul_id}"
+    return soul_id
 
 
 def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prompt: str) -> None:
     """Create a soul YAML file at custom/souls/<name>.yaml."""
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
+    # id must match the filename stem (name)
     (souls_dir / f"{name}.yaml").write_text(
         dedent(f"""\
-        id: {soul_id}
+        id: {name}
+        kind: soul
+        name: {role}
         role: {role}
         system_prompt: {prompt}
         """),
@@ -50,8 +65,8 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
 
 def _souls_map() -> dict[str, Soul]:
     return {
-        "soul_a": Soul(id="a1", role="A", system_prompt="A."),
-        "soul_b": Soul(id="b1", role="B", system_prompt="B."),
+        "soul_a": Soul(id="soul-a1", kind="soul", name="Agent A", role="A", system_prompt="A."),
+        "soul_b": Soul(id="soul-b1", kind="soul", name="Agent B", role="B", system_prompt="B."),
     }
 
 
@@ -75,6 +90,8 @@ class TestSoulRefResolvesFromLibrary:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -95,7 +112,7 @@ class TestSoulRefResolvesFromLibrary:
             # Unwrap IsolatedBlockWrapper if present
             inner = getattr(block, "inner_block", block)
             assert inner.soul.role == "Researcher"
-            assert inner.soul.id == "r1"
+            assert inner.soul.id == "researcher"
 
     def test_gate_block_resolves_soul_ref_from_library(self):
         """A gate block's soul_ref should resolve to a soul in custom/souls/."""
@@ -108,6 +125,8 @@ class TestSoulRefResolvesFromLibrary:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -127,7 +146,7 @@ class TestSoulRefResolvesFromLibrary:
             block = wf.blocks["check"]
             inner = getattr(block, "inner_block", block)
             assert inner.soul.role == "Evaluator"
-            assert inner.soul.id == "e1"
+            assert inner.soul.id == "evaluator"
 
     def test_synthesize_block_resolves_soul_ref_from_library(self):
         """A synthesize block's soul_ref should resolve to a soul in custom/souls/."""
@@ -141,6 +160,8 @@ class TestSoulRefResolvesFromLibrary:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -168,7 +189,7 @@ class TestSoulRefResolvesFromLibrary:
             inner = getattr(block, "inner_block", block)
             inner = getattr(inner, "block", inner)  # Step wraps .block
             assert inner.soul.role == "Summarizer"
-            assert inner.soul.id == "s1"
+            assert inner.soul.id == "summarizer"
 
     def test_dispatch_exit_soul_ref_resolves_from_library(self):
         """A dispatch block's per-exit soul_ref should resolve to souls in custom/souls/."""
@@ -180,6 +201,8 @@ class TestSoulRefResolvesFromLibrary:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -223,10 +246,12 @@ class TestResolutionByFilenameStem:
             base = Path(tmpdir)
             souls_dir = base / "custom" / "souls"
             souls_dir.mkdir(parents=True, exist_ok=True)
-            # Filename stem is "web_researcher" but internal id is "wr_v2"
+            # Filename stem is "web_researcher" and internal id must match
             (souls_dir / "web_researcher.yaml").write_text(
                 dedent("""\
-                id: wr_v2
+                id: web_researcher
+                kind: soul
+                name: Web Researcher
                 role: Web Researcher
                 system_prompt: You research the web.
                 """),
@@ -236,6 +261,8 @@ class TestResolutionByFilenameStem:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -253,7 +280,7 @@ class TestResolutionByFilenameStem:
             wf = parse_workflow_yaml(path)
             block = wf.blocks["step"]
             inner = getattr(block, "inner_block", block)
-            assert inner.soul.id == "wr_v2"
+            assert inner.soul.id == "web_researcher"
             assert inner.soul.role == "Web Researcher"
 
     def test_yml_extension_not_discovered(self):
@@ -267,7 +294,9 @@ class TestResolutionByFilenameStem:
             # Write with .yml extension — should NOT be discovered
             (souls_dir / "hidden_soul.yml").write_text(
                 dedent("""\
-                id: hidden_1
+                id: hidden-1
+                kind: soul
+                name: Hidden
                 role: Hidden
                 system_prompt: You are hidden.
                 """),
@@ -277,6 +306,8 @@ class TestResolutionByFilenameStem:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -316,6 +347,8 @@ class TestMissingSoulErrorMessage:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -344,6 +377,8 @@ class TestMissingSoulErrorMessage:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -369,6 +404,8 @@ class TestMissingSoulErrorMessage:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -396,6 +433,8 @@ class TestMissingSoulErrorMessage:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -432,6 +471,8 @@ class TestDiscoveryCalledOnce:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -452,11 +493,11 @@ class TestDiscoveryCalledOnce:
                 """,
             )
             with patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner:
-                mock_scanner.return_value.scan.return_value.stems.return_value = _souls_map()
+                mock_scanner.return_value.scan.return_value.ids.return_value = _souls_map()
                 parse_workflow_yaml(path)
                 mock_scanner.assert_called_once()
                 mock_scanner.return_value.scan.assert_called_once()
-                mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+                mock_scanner.return_value.scan.return_value.ids.assert_called_once()
 
 
 # ===========================================================================
@@ -473,10 +514,12 @@ class TestBlockBuilderSignaturesUnchanged:
         from runsight_core.primitives import Soul
 
         souls_map = {
-            "test_soul": Soul(id="t1", role="Tester", system_prompt="You test."),
+            "test_soul": Soul(
+                id="soul-t1", kind="soul", name="Tester", role="Tester", system_prompt="You test."
+            ),
         }
         soul = resolve_soul("test_soul", souls_map)
-        assert soul.id == "t1"
+        assert soul.id == "soul-t1"
 
     def test_resolve_soul_raises_on_missing_ref(self):
         """_resolve_soul must still raise ValueError for missing ref."""
@@ -510,7 +553,9 @@ class TestEdgeCases:
             # Missing required field 'role'
             (souls_dir / "bad_soul.yaml").write_text(
                 dedent("""\
-                id: bad_1
+                id: bad_soul
+                kind: soul
+                name: Bad Soul
                 system_prompt: Missing role field.
                 """),
                 encoding="utf-8",
@@ -519,6 +564,8 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -550,6 +597,8 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -585,7 +634,9 @@ class TestEdgeCases:
             souls_dir.mkdir(parents=True, exist_ok=True)
             (souls_dir / "flexible.yaml").write_text(
                 dedent("""\
-                id: flex_1
+                id: flexible
+                kind: soul
+                name: Flexible Soul
                 role: Flexible Soul
                 system_prompt: I am flexible.
                 unknown_future_field: true
@@ -596,6 +647,8 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:
@@ -623,7 +676,9 @@ class TestEdgeCases:
             souls_dir.mkdir(parents=True, exist_ok=True)
             (souls_dir / "custom_model.yaml").write_text(
                 dedent("""\
-                id: cm_1
+                id: custom_model
+                kind: soul
+                name: Custom Model Soul
                 role: Custom Model Soul
                 system_prompt: I use a custom model.
                 model_name: claude-3-opus
@@ -636,6 +691,8 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
+                id: inline_test_workflow
+                kind: workflow
                 config:
                   model_name: gpt-4o
                 blocks:

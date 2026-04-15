@@ -41,6 +41,7 @@ def _make_workflow(
     enabled: bool = True,
 ) -> WorkflowEntity:
     return WorkflowEntity(
+        kind="workflow",
         id=workflow_id,
         name=name,
         yaml=yaml,
@@ -297,9 +298,14 @@ class TestPatchYamlFieldPreservesComments:
 
         yaml_with_comments = (
             "# Top-level comment\n"
+            "id: test-wf-abc12\n"
+            "kind: workflow\n"
             "workflow:\n"
             "  name: My Workflow  # inline comment\n"
+            "  entry: start\n"
+            "  transitions: []\n"
             "  # description comment\n"
+            "blocks: {}\n"
             "enabled: false\n"
         )
 
@@ -333,7 +339,16 @@ class TestPatchYamlFieldAtomicWrite:
 
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
-        yaml_content = "workflow:\n  name: Test\nenabled: false\n"
+        yaml_content = (
+            "id: test-wf-abc12\n"
+            "kind: workflow\n"
+            "workflow:\n"
+            "  name: Test\n"
+            "  entry: start\n"
+            "  transitions: []\n"
+            "blocks: {}\n"
+            "enabled: false\n"
+        )
 
         wf_dir = tmp_path / "custom" / "workflows"
         wf_dir.mkdir(parents=True)

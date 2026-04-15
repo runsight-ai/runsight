@@ -695,7 +695,7 @@ workflow:
         "finish_here",
       ]);
       expect(useCanvasStore.getState().nodes[0]?.type).toBe("start");
-      expect(useCanvasStore.getState().nodes[1]?.type).toBe("task");
+      expect(useCanvasStore.getState().nodes[1]?.type).toBe("step");
     });
   });
 });

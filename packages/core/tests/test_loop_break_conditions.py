@@ -237,16 +237,17 @@ class TestLoopBlockDefBreakConditionSchema:
         assert isinstance(block, LoopBlockDef)
         assert block.break_condition is None
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_break_condition_in_yaml_workflow_file(self):
         """break_condition should parse correctly inside a full RunsightWorkflowFile."""
         raw = {
             "version": "1.0",
+            "id": "break_cond_test",
+            "kind": "workflow",
             "souls": {
                 "writer": {
-                    "id": "writer_1",
+                    "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "You write.",
                 }
@@ -265,6 +266,8 @@ class TestLoopBlockDefBreakConditionSchema:
                 },
             },
             "workflow": {
+                "id": "break_cond_test",
+                "kind": "workflow",
                 "name": "break_cond_test",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],

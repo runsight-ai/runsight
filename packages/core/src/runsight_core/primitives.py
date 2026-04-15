@@ -2,9 +2,11 @@
 Core primitives for Runsight Agent OS.
 """
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from runsight_core.identity import EntityKind, validate_entity_id
 
 if TYPE_CHECKING:
     from runsight_core.blocks.base import BaseBlock
@@ -17,6 +19,8 @@ class Soul(BaseModel):
     """
 
     id: str = Field(..., description="Unique identifier for the soul (e.g., 'researcher_v1')")
+    kind: Literal["soul"] = Field(..., description="Entity kind for a soul primitive")
+    name: str = Field(..., description="Display name for the soul")
     role: str = Field(..., description="The role of the agent (e.g., 'Senior Researcher')")
     system_prompt: str = Field(
         ..., description="The system instructions defining the agent's behavior and constraints"
@@ -52,17 +56,11 @@ class Soul(BaseModel):
         description="Resolved tool objects (excluded from serialization)",
     )
 
-
-class Task(BaseModel):
-    """
-    Represents an isolated instruction for an agent to execute.
-    """
-
-    id: str = Field(..., description="Unique identifier for the task")
-    instruction: str = Field(..., description="The main instruction or prompt for the task")
-    context: Optional[str] = Field(
-        default=None, description="Additional context or background information for the task"
-    )
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.SOUL)
+        return value
 
 
 class Step:
@@ -136,8 +134,23 @@ class Step:
         if self.pre_hook is not None:
             state = self.pre_hook(state)
 
-        # Phase 2: Block execution (required) — new path via BlockContext
+        # Phase 2: Resolve declared inputs (if any) — inject into shared_memory for block access
         from runsight_core.state import WorkflowState as _WorkflowState  # for isinstance check
+
+        if self.declared_inputs:
+            resolved_inputs: Dict[str, Any] = {}
+            for name, from_ref in self.declared_inputs.items():
+                resolved_inputs[name] = self._resolve_from_ref(from_ref, state)
+            state = state.model_copy(
+                update={
+                    "shared_memory": {**state.shared_memory, "_resolved_inputs": resolved_inputs}
+                }
+            )
+        else:
+            # Clear stale resolved inputs from previous step
+            if "_resolved_inputs" in state.shared_memory:
+                new_sm = {k: v for k, v in state.shared_memory.items() if k != "_resolved_inputs"}
+                state = state.model_copy(update={"shared_memory": new_sm})
 
         ctx = build_block_context(self.block, state, step=self)
         try:
@@ -159,3 +172,49 @@ class Step:
             state = self.post_hook(state)
 
         return state
+
+    def _resolve_from_ref(self, from_ref: str, state: "WorkflowState") -> Any:
+        """Resolve 'step_id.field.path' against state.results."""
+        import json
+
+        parts = from_ref.split(".", 1)
+        source_id = parts[0]
+        if source_id not in state.results:
+            raise ValueError(
+                f"Input resolution failed: source block '{source_id}' not found in state.results. "
+                f"Available: {sorted(state.results.keys())}"
+            )
+        raw = state.results[source_id]
+        # Unwrap BlockResult to its output string for resolution
+        from runsight_core.state import BlockResult
+
+        if isinstance(raw, BlockResult):
+            raw = raw.output
+        if len(parts) == 1:
+            return raw
+
+        # JSON auto-parse
+        parsed = raw
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                # Raw string that isn't JSON — return as-is (field path is informational)
+                return raw
+
+        # If parsed is still a plain string (JSON string literal), return as-is
+        if isinstance(parsed, str):
+            return parsed
+
+        # Dot-path resolution for dict/list structures
+        field_path = parts[1]
+        from runsight_core.conditions.engine import resolve_dotted_path
+
+        value = resolve_dotted_path(parsed, field_path)
+        if value is None and not (isinstance(parsed, dict) and field_path in parsed):
+            if source_id == "workflow":
+                return None
+            raise ValueError(
+                f"Input resolution failed: field path '{field_path}' not found in output of '{source_id}'"
+            )
+        return value

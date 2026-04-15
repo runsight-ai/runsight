@@ -7,7 +7,7 @@ export interface RunWorkflowOptions {
   navigate?: (path: string) => void;
   onError?: (error: Error) => void;
   isRunning?: boolean;
-  taskData?: Record<string, unknown>;
+  inputs?: Record<string, unknown>;
 }
 
 export interface RunWorkflowResult {
@@ -17,7 +17,7 @@ export interface RunWorkflowResult {
 export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult | null> {
-  const { workflowId, save, createRun, navigate, onError, isRunning, taskData } = options;
+  const { workflowId, save, createRun, navigate, onError, isRunning, inputs } = options;
 
   if (isRunning) {
     return null;
@@ -36,7 +36,7 @@ export async function runWorkflow(
   try {
     result = await createRun({
       workflow_id: workflowId,
-      task_data: taskData ?? {},
+      inputs: inputs ?? {},
     });
   } catch (error) {
     if (onError && error instanceof Error) {

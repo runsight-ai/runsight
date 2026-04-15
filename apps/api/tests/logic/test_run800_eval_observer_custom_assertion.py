@@ -37,12 +37,16 @@ def _isolate_custom_assertion_registry():
 
 
 _PROMPTFOO_WORKFLOW_YAML = """\
+id: run800-promptfoo
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -66,12 +70,16 @@ workflow:
 """
 
 _NEGATED_CUSTOM_WORKFLOW_YAML = """\
+id: run800-negated-custom
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -95,12 +103,16 @@ workflow:
 """
 
 _INVALID_CONFIG_WORKFLOW_YAML = """\
+id: run800-invalid-config
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
 souls:
   analyst:
     id: analyst
+    kind: soul
+    name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
     provider: openai
@@ -143,6 +155,8 @@ def _write_custom_assertion(
     assertions_dir = base_dir / "custom" / "assertions"
     assertions_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
+        "id": stem,
+        "kind": "assertion",
         "version": "1.0",
         "name": stem.replace("_", " ").title(),
         "description": f"Custom assertion {stem}",
@@ -350,7 +364,7 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-promptfoo",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -403,7 +417,7 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-negated-custom",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200
@@ -455,7 +469,7 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-invalid-config",
-                        "task_data": {"instruction": "Analyze this"},
+                        "inputs": {"instruction": "Analyze this"},
                     },
                 )
                 assert response.status_code == 200

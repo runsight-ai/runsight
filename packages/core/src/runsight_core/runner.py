@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from runsight_core.llm.client import LiteLLMClient
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 
 
 class ExecutionResult(BaseModel):
@@ -239,23 +239,40 @@ class RunsightTeamRunner:
             )
             return response, fallback_soul, False
 
-    async def execute_task(
-        self, task: Task, soul: Soul, messages: list[dict] | None = None
+    async def execute(
+        self,
+        instruction: str,
+        context: str | None,
+        soul: Soul,
+        messages: list[dict] | None = None,
+        *,
+        task_id: str = "execute",
     ) -> ExecutionResult:
         """
-        Executes a task synchronously (waits for full completion).
+        Executes an instruction using the given soul, returning an ExecutionResult.
 
-        When the soul has resolved_tools, enters an agentic tool-use loop:
-        sends tool schemas to the LLM, executes tool calls, feeds results back,
-        and repeats until the LLM responds with text or max iterations is reached.
+        Handles both single-shot and agentic tool-loop paths. When the soul has
+        resolved_tools, enters a tool-use loop until the LLM responds with text
+        or max_tool_iterations is reached.
+
+        Args:
+            instruction: The user instruction to execute.
+            context: Optional context appended to the prompt.
+            soul: The Soul defining the agent identity, model, and tools.
+            messages: Optional prior conversation history prepended before the new user message.
+            task_id: Identifier placed in ExecutionResult.task_id (default: "execute").
         """
-        all_messages = (messages or []) + [{"role": "user", "content": self._build_prompt(task)}]
+        prompt = instruction
+        if context:
+            prompt += f"\n\nContext:\n{context}"
+
+        all_messages = (messages or []) + [{"role": "user", "content": prompt}]
         active_soul = soul
         allow_failover = True
 
         # Single-shot path: no tools
         if not active_soul.resolved_tools:
-            response, active_soul, allow_failover = await self._achat_with_failover(
+            response, active_soul, _ = await self._achat_with_failover(
                 active_soul,
                 messages=all_messages,
                 system_prompt=active_soul.system_prompt,
@@ -264,7 +281,7 @@ class RunsightTeamRunner:
                 allow_failover=allow_failover,
             )
             return ExecutionResult(
-                task_id=task.id,
+                task_id=task_id,
                 soul_id=active_soul.id,
                 output=response["content"],
                 cost_usd=response["cost_usd"],
@@ -318,7 +335,7 @@ class RunsightTeamRunner:
                     )
                 # LLM responded with text -- done
                 return ExecutionResult(
-                    task_id=task.id,
+                    task_id=task_id,
                     soul_id=active_soul.id,
                     output=response["content"],
                     cost_usd=accumulated_cost,
@@ -388,7 +405,7 @@ class RunsightTeamRunner:
         accumulated_tokens += response["total_tokens"]
 
         return ExecutionResult(
-            task_id=task.id,
+            task_id=task_id,
             soul_id=active_soul.id,
             output=response.get("content", ""),
             cost_usd=accumulated_cost,
@@ -397,12 +414,3 @@ class RunsightTeamRunner:
             tool_calls_made=tool_calls_made,
             exit_handle=delegate_exit_handle,
         )
-
-    def _build_prompt(self, task: Task) -> str:
-        """
-        Constructs the final prompt string from the task definition.
-        """
-        prompt = task.instruction
-        if task.context:
-            prompt += f"\n\nContext:\n{task.context}"
-        return prompt

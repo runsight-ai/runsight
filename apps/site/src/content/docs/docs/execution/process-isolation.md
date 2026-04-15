@@ -107,7 +107,7 @@ Process isolation is a credential boundary, not a full execution sandbox.
 | Observability | **Protected** | Every IPC action creates a trace span |
 | Network access | Not restricted | Subprocess can use Python `socket` directly (but has nothing to exfiltrate) |
 | Filesystem access | Partially restricted | IPC file handler is sandboxed; direct `open()` calls are not |
-| CPU / memory limits | Container-level | mem_limit, memswap_limit, and cpus enforced via Docker cgroups |
+| CPU / memory limits | **Container-level** | mem_limit, memswap_limit, and cpus enforced via Docker cgroups |
 | Python imports | Not restricted | Subprocess can import any installed package |
 
 The isolation boundary works because the subprocess has **nothing valuable** — no API keys, no credentials, no engine state. Even if the subprocess makes direct network calls, it has nothing sensitive to send.

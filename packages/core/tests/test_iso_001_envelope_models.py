@@ -9,7 +9,7 @@ Tests cover:
 - ContextEnvelope has ALL required fields (AC5)
 - ResultEnvelope has ALL required fields (AC6)
 - HeartbeatMessage has ALL required fields (AC7)
-- Sub-models: SoulEnvelope, ToolDefEnvelope, TaskEnvelope, DelegateArtifact
+- Sub-models: SoulEnvelope, ToolDefEnvelope, PromptEnvelope, DelegateArtifact
 """
 
 import json
@@ -77,8 +77,8 @@ class TestContextEnvelopeFields:
         """Build a minimal ContextEnvelope with all required fields populated."""
         from runsight_core.isolation import (
             ContextEnvelope,
+            PromptEnvelope,
             SoulEnvelope,
-            TaskEnvelope,
             ToolDefEnvelope,
         )
 
@@ -98,7 +98,7 @@ class TestContextEnvelopeFields:
             parameters={"type": "object", "properties": {"path": {"type": "string"}}},
             tool_type="builtin",
         )
-        task = TaskEnvelope(
+        prompt = PromptEnvelope(
             id="task-1",
             instruction="Do the thing.",
             context={"input": "data"},
@@ -109,7 +109,7 @@ class TestContextEnvelopeFields:
             block_config={"temperature": 0.7},
             soul=soul,
             tools=[tool],
-            task=task,
+            prompt=prompt,
             scoped_results={"prev_block": {"output": "hello"}},
             scoped_shared_memory={"key1": "value1"},
             conversation_history=[{"role": "user", "content": "hi"}],
@@ -164,14 +164,14 @@ class TestContextEnvelopeFields:
         assert env.tools[0].tool_type == "builtin"
 
     def test_context_envelope_has_task_envelope(self):
-        """ContextEnvelope has a TaskEnvelope."""
-        from runsight_core.isolation import TaskEnvelope
+        """ContextEnvelope has a PromptEnvelope."""
+        from runsight_core.isolation import PromptEnvelope
 
         env = self._make_minimal_context_envelope()
-        assert isinstance(env.task, TaskEnvelope)
-        assert env.task.id == "task-1"
-        assert env.task.instruction == "Do the thing."
-        assert env.task.context == {"input": "data"}
+        assert isinstance(env.prompt, PromptEnvelope)
+        assert env.prompt.id == "task-1"
+        assert env.prompt.instruction == "Do the thing."
+        assert env.prompt.context == {"input": "data"}
 
     def test_context_envelope_has_scoped_results(self):
         """ContextEnvelope has scoped_results dict."""
@@ -211,8 +211,8 @@ class TestContextEnvelopeRoundTrip:
         """ContextEnvelope -> JSON string -> ContextEnvelope preserves all data."""
         from runsight_core.isolation import (
             ContextEnvelope,
+            PromptEnvelope,
             SoulEnvelope,
-            TaskEnvelope,
             ToolDefEnvelope,
         )
 
@@ -238,7 +238,7 @@ class TestContextEnvelopeRoundTrip:
                     tool_type="http",
                 ),
             ],
-            task=TaskEnvelope(id="t1", instruction="run", context={}),
+            prompt=PromptEnvelope(id="t1", instruction="run", context={}),
             scoped_results={"x": {"out": "val"}},
             scoped_shared_memory={"mem": 42},
             conversation_history=[{"role": "assistant", "content": "hey"}],
@@ -262,7 +262,7 @@ class TestContextEnvelopeRoundTrip:
         assert restored.tools[0].description == original.tools[0].description
         assert restored.tools[0].parameters == original.tools[0].parameters
         assert restored.tools[0].tool_type == original.tools[0].tool_type
-        assert restored.task.id == original.task.id
+        assert restored.prompt.id == original.prompt.id
         assert restored.scoped_results == original.scoped_results
         assert restored.scoped_shared_memory == original.scoped_shared_memory
         assert restored.conversation_history == original.conversation_history
@@ -273,8 +273,8 @@ class TestContextEnvelopeRoundTrip:
         """ContextEnvelope.model_dump() produces a stdlib-json-serializable dict."""
         from runsight_core.isolation import (
             ContextEnvelope,
+            PromptEnvelope,
             SoulEnvelope,
-            TaskEnvelope,
         )
 
         env = ContextEnvelope(
@@ -289,7 +289,7 @@ class TestContextEnvelopeRoundTrip:
                 max_tool_iterations=1,
             ),
             tools=[],
-            task=TaskEnvelope(id="t1", instruction="exec", context={}),
+            prompt=PromptEnvelope(id="t1", instruction="exec", context={}),
             scoped_results={},
             scoped_shared_memory={},
             conversation_history=[],
@@ -322,7 +322,7 @@ class TestResultEnvelopeFields:
             total_tokens=150,
             tool_calls_made=2,
             delegate_artifacts={
-                "port_a": DelegateArtifact(task="summarize doc"),
+                "port_a": DelegateArtifact(prompt="summarize doc"),
             },
             conversation_history=[{"role": "assistant", "content": "done"}],
             error=None,
@@ -359,7 +359,7 @@ class TestResultEnvelopeFields:
         env = self._make_result_envelope()
         assert "port_a" in env.delegate_artifacts
         assert isinstance(env.delegate_artifacts["port_a"], DelegateArtifact)
-        assert env.delegate_artifacts["port_a"].task == "summarize doc"
+        assert env.delegate_artifacts["port_a"].prompt == "summarize doc"
 
     def test_result_envelope_has_conversation_history(self):
         env = self._make_result_envelope()
@@ -409,7 +409,7 @@ class TestResultEnvelopeRoundTrip:
             total_tokens=200,
             tool_calls_made=3,
             delegate_artifacts={
-                "main": DelegateArtifact(task="write report"),
+                "main": DelegateArtifact(prompt="write report"),
             },
             conversation_history=[{"role": "user", "content": "go"}],
             error=None,
@@ -425,7 +425,7 @@ class TestResultEnvelopeRoundTrip:
         assert restored.cost_usd == pytest.approx(original.cost_usd)
         assert restored.total_tokens == original.total_tokens
         assert restored.tool_calls_made == original.tool_calls_made
-        assert restored.delegate_artifacts["main"].task == "write report"
+        assert restored.delegate_artifacts["main"].prompt == "write report"
         assert restored.conversation_history == original.conversation_history
         assert restored.error is None
         assert restored.error_type is None
@@ -550,8 +550,8 @@ class TestDelegateArtifact:
     def test_delegate_artifact_has_task(self):
         from runsight_core.isolation import DelegateArtifact
 
-        da = DelegateArtifact(task="summarize the document")
-        assert da.task == "summarize the document"
+        da = DelegateArtifact(prompt="summarize the document")
+        assert da.prompt == "summarize the document"
 
     def test_delegate_artifact_is_base_model(self):
         from pydantic import BaseModel

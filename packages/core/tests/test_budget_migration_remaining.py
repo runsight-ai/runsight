@@ -1,8 +1,18 @@
 """
-RUN-263: Verify LoopBlock carry_context flows through task.context as P2 elastic data.
+RUN-263 (updated for RUN-875): LoopBlock carry_context integration tests.
 
-Integration test: 20+ loop rounds with carry_context mode="all" on a tight budget
-must complete without ContextBudgetExceeded, with BudgetReport proving truncation.
+After RUN-875, LinearBlock reads _resolved_inputs from shared_memory
+instead of state.current_task. runner.execute() is used instead of execute_task().
+
+The LoopBlock still injects carry_context into shared_memory and into
+state.current_task.context (when current_task is present). The inner
+LinearBlock uses fit_to_budget to manage its own context budget.
+
+These tests verify:
+1. LoopBlock with 22 rounds + carry_context completes successfully
+2. The LoopBlock injects carry_context into shared_memory each round
+3. fit_to_budget is called by LinearBlock in stateful mode
+4. BudgetReport shows pruning occurs with large histories
 """
 
 from __future__ import annotations
@@ -20,7 +30,7 @@ from runsight_core.memory.budget import (
     ContextBudgetRequest,
     fit_to_budget,
 )
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -40,15 +50,15 @@ def _get_class_method_source(module_path: str, class_name: str, method_name: str
 
 
 # ===========================================================================
-# LoopBlock carry_context -> task.context integration
+# LoopBlock carry_context -> shared_memory integration
 # ===========================================================================
 
 LOOP_MODULE = "runsight_core.blocks.loop"
 
 
-class TestLoopBlockCarryContextFlowsThroughTaskContext:
-    """When carry_context accumulates data, it should flow through task.context
-    as P2 elastic data so the budget manager can truncate it."""
+class TestLoopBlockCarryContextFlowsThroughSharedMemory:
+    """When carry_context accumulates data, it flows into shared_memory
+    so downstream blocks (and _resolved_inputs) can access it."""
 
 
 # ===========================================================================
@@ -61,6 +71,8 @@ class TestLoopBlockCarryContextFlowsThroughTaskContext:
 def _make_soul() -> Soul:
     return Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Soul",
         role="Test Agent",
         system_prompt="You are a test agent.",
         model_name="gpt-4o-mini",
@@ -75,39 +87,33 @@ def _make_mock_runner(round_counter: list[int]):
     """
     runner = MagicMock()
 
-    async def _execute(task, soul, **kwargs):
+    async def _execute(instruction, context, soul, **kwargs):
         round_counter[0] += 1
         n = round_counter[0]
         # ~800 chars of unique output per call
         output = f"=== Round {n} output ===\nround_{n}_data: " + "x" * 760
         return ExecutionResult(
-            task_id=task.id,
+            task_id=f"round_{n}",
             soul_id=soul.id,
             output=output,
             cost_usd=0.001,
             total_tokens=200,
         )
 
-    runner.execute_task = AsyncMock(side_effect=_execute)
+    runner.execute = AsyncMock(side_effect=_execute)
     runner.model_name = "gpt-4o-mini"
-    runner._build_prompt = MagicMock(
-        side_effect=lambda task: (
-            task.instruction
-            if not task.context
-            else f"{task.instruction}\n\nContext:\n{task.context}"
-        )
-    )
     return runner
 
 
 class TestLoopCarryContextBudgetIntegration:
     """Run a LoopBlock with 22 rounds, carry_context mode='all', and a stateful
-    inner LinearBlock.  After migration, the inner block must call fit_to_budget
-    with the carry_context data in task.context.
+    inner LinearBlock.  After RUN-875, the inner block uses runner.execute()
+    and reads _resolved_inputs, not current_task.
 
-    With 22 rounds of ~200 tokens each (~4400 total) accumulated via carry_context
-    mode='all', the context would overflow a tight budget without truncation.
-    The inner block must use fit_to_budget to prune P2 carry_context entries.
+    With 22 rounds of ~200 tokens each (~4400 total) accumulated in
+    conversation history via stateful mode, the context would overflow a
+    tight budget without truncation. The inner block must use fit_to_budget
+    to prune P3 (conversation history) entries.
     """
 
     NUM_ROUNDS = 22
@@ -132,15 +138,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively and accumulate results.",
-        )
-
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         final_state = await loop_block.execute(
             initial_state,
@@ -149,10 +147,10 @@ class TestLoopCarryContextBudgetIntegration:
         return final_state
 
     @pytest.mark.asyncio
-    async def test_twenty_two_rounds_complete_with_carry_context_in_task(self):
-        """LoopBlock with 22 rounds + carry_context mode='all' must inject
-        carry_context data into state.current_task.context (not just shared_memory).
-        The final state's current_task.context must contain carry_context data."""
+    async def test_twenty_two_rounds_complete_successfully(self):
+        """LoopBlock with 22 rounds + carry_context mode='all' must complete
+        all rounds without error. The inner LinearBlock uses fit_to_budget
+        to manage growing conversation history."""
         final_state = await self._run_loop()
 
         # Verify all 22 rounds completed
@@ -161,26 +159,16 @@ class TestLoopCarryContextBudgetIntegration:
             f"Expected {self.NUM_ROUNDS} rounds completed, got {loop_meta.get('rounds_completed')}"
         )
 
-        # Verify carry_context data was injected into the task's context field
-        # (not just shared_memory). After 22 rounds, the task.context should
-        # contain accumulated round data.
-        task_context = (
-            final_state.current_task.context
-            if final_state.current_task and final_state.current_task.context
-            else ""
-        )
-        assert "round_" in task_context, (
-            "After 22 rounds with carry_context mode='all', "
-            "state.current_task.context should contain accumulated round data. "
-            f"Got: {repr(task_context[:100]) if task_context else 'EMPTY'}. "
-            "LoopBlock must inject carry_context into state.current_task.context "
-            "so inner blocks can pass it through fit_to_budget as P2 elastic data."
+        # Verify carry_context data was injected into shared_memory
+        carry_data = final_state.shared_memory.get("previous_round_context")
+        assert carry_data is not None, (
+            "LoopBlock must inject carry_context data into shared_memory['previous_round_context']"
         )
 
     @pytest.mark.asyncio
-    async def test_carry_context_is_set_on_task_context(self):
-        """The inner block must receive carry_context data via state.current_task.context
-        (P2 elastic field), not just via shared_memory."""
+    async def test_carry_context_is_set_in_shared_memory(self):
+        """The LoopBlock must inject carry_context data into shared_memory
+        each round under the inject_as key."""
         soul = _make_soul()
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
@@ -199,49 +187,29 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
-        await loop_block.execute(
+        final_state = await loop_block.execute(
             initial_state,
             blocks={"inner_writer": inner_block},
         )
 
-        # After the loop, the runner should have been called with tasks
-        # whose context field contains carry_context data (from round 2 onward).
-        # Round 1 has no carry_context; round 2+ should have accumulated data.
-        assert runner.execute_task.call_count == self.NUM_ROUNDS
+        # After the loop, runner.execute should have been called NUM_ROUNDS times
+        assert runner.execute.call_count == self.NUM_ROUNDS
 
-        # Check that later rounds received carry_context via task.context
-        # The task.context field must contain carry_context round data,
-        # not be empty or None.
-        later_calls = runner.execute_task.call_args_list[1:]  # skip round 1
-        tasks_with_carry_data = [
-            call.args[0]
-            for call in later_calls
-            if hasattr(call.args[0], "context")
-            and call.args[0].context
-            and "round_" in call.args[0].context
-        ]
-
-        assert len(tasks_with_carry_data) > 0, (
-            "No tasks received carry_context round data via task.context field. "
-            "LoopBlock must inject accumulated carry_context into "
-            "state.current_task.context so inner blocks pass it through "
-            "fit_to_budget as P2 elastic data. Currently carry_context only "
-            "goes to shared_memory, but it must also flow through task.context."
+        # Verify carry_context data is in shared_memory after the loop
+        carry_data = final_state.shared_memory.get("previous_round_context")
+        assert carry_data is not None, (
+            "LoopBlock must store carry_context in shared_memory['previous_round_context']"
+        )
+        # mode='all' means it's a list of round outputs
+        assert isinstance(carry_data, list), (
+            "With mode='all', carry_context must be a list of round outputs"
         )
 
     @pytest.mark.asyncio
-    async def test_fit_to_budget_receives_carry_context_as_p2(self):
-        """fit_to_budget must receive carry_context data in the context field
-        (P2 elastic) of the ContextBudgetRequest, not empty string."""
+    async def test_fit_to_budget_is_called_in_stateful_mode(self):
+        """fit_to_budget must be called by LinearBlock in stateful mode."""
         soul = _make_soul()
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
@@ -260,14 +228,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         budget_requests: list[ContextBudgetRequest] = []
 
@@ -277,7 +238,8 @@ class TestLoopCarryContextBudgetIntegration:
             def _tracking_fit(req, counter):
                 budget_requests.append(req)
                 return BudgetedContext(
-                    task=Task(id="budget_task", instruction=req.instruction, context=req.context),
+                    instruction=req.instruction,
+                    context=req.context,
                     messages=req.conversation_history,
                     report=BudgetReport(
                         model=req.model,
@@ -303,25 +265,23 @@ class TestLoopCarryContextBudgetIntegration:
                 blocks={"inner_writer": inner_block},
             )
 
-        # From round 2 onward, fit_to_budget must receive carry_context data
-        # in the context field (P2 elastic), not empty string
-        later_requests = budget_requests[1:]  # skip round 1
-        requests_with_carry_data = [
-            req for req in later_requests if req.context and "round_" in req.context
-        ]
-
-        assert len(requests_with_carry_data) > 0, (
-            f"No fit_to_budget call received carry_context data in the context field. "
-            f"Collected {len(budget_requests)} requests; later rounds had contexts: "
-            f"{[repr(r.context[:50]) if r.context else 'EMPTY' for r in later_requests[:3]]}. "
-            f"LoopBlock must inject carry_context into state.current_task.context "
-            f"so fit_to_budget can manage it as P2 elastic content."
+        # fit_to_budget must have been called at least once per round (stateful path).
+        # Note: LoopBlock also calls fit_to_budget internally for carry_context budgeting,
+        # so the total count may be > NUM_ROUNDS.
+        assert len(budget_requests) >= self.NUM_ROUNDS, (
+            f"Expected fit_to_budget called at least {self.NUM_ROUNDS} times, "
+            f"got {len(budget_requests)}"
         )
 
     @pytest.mark.asyncio
     async def test_budget_report_shows_pruning_in_later_rounds(self):
         """After enough rounds, the BudgetReport from fit_to_budget should show
-        p2_tokens_before > p2_tokens_after, proving carry_context was pruned."""
+        p3_pairs_dropped > 0 or p3_tokens_before > p3_tokens_after,
+        proving conversation history was pruned.
+
+        Uses a very small model context (500 tokens) to force pruning
+        with the accumulating conversation history.
+        """
         soul = _make_soul()
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
@@ -340,14 +300,7 @@ class TestLoopCarryContextBudgetIntegration:
             ),
         )
 
-        initial_task = Task(
-            id="loop_task",
-            instruction="Process iteratively.",
-        )
-        initial_state = WorkflowState(
-            workflow_id="test_wf",
-            current_task=initial_task,
-        )
+        initial_state = WorkflowState()
 
         budget_reports: list[BudgetReport] = []
 
@@ -359,20 +312,35 @@ class TestLoopCarryContextBudgetIntegration:
             budget_reports.append(result.report)
             return result
 
-        with patch(
-            "runsight_core.block_io.fit_to_budget",
-            side_effect=_tracking_fit,
+        # Patch get_model_budget to return a small budget (500 tokens) so that
+        # conversation history accumulation forces pruning after a few rounds.
+        with (
+            patch(
+                "runsight_core.block_io.fit_to_budget",
+                side_effect=_tracking_fit,
+            ),
+            patch(
+                "runsight_core.memory.budget.get_model_budget",
+                return_value=500,
+            ),
         ):
             await loop_block.execute(
                 initial_state,
                 blocks={"inner_writer": inner_block},
             )
 
-        # There must be at least one report where pruning occurred
-        pruned_reports = [r for r in budget_reports if r.p2_tokens_before > r.p2_tokens_after]
+        # Among all reports, find any where p3 (conversation history) was pruned.
+        # LinearBlock calls are the ones that have conversation history (p3_tokens_before > 0).
+        pruned_reports = [
+            r
+            for r in budget_reports
+            if r.p3_pairs_dropped > 0 or r.p3_tokens_before > r.p3_tokens_after
+        ]
         assert len(pruned_reports) > 0, (
-            f"No BudgetReport shows carry_context pruning (p2_tokens_before > p2_tokens_after). "
-            f"Collected {len(budget_reports)} reports. "
-            f"The inner block must pass carry_context as P2 context to fit_to_budget, "
-            f"and with 22 rounds of ~200 tokens each, truncation must occur."
+            f"No BudgetReport shows history pruning (p3_pairs_dropped > 0 or "
+            f"p3_tokens_before > p3_tokens_after). "
+            f"Collected {len(budget_reports)} total reports. "
+            f"p3_tokens_before values: {[r.p3_tokens_before for r in budget_reports[:5]]}. "
+            f"With {self.NUM_ROUNDS} rounds of ~200 tokens each in conversation history "
+            f"and max 500 tokens budget, truncation must occur."
         )

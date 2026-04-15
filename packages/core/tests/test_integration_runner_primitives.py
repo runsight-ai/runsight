@@ -8,7 +8,7 @@ ensuring proper data flow and transformation.
 from unittest.mock import patch
 
 import pytest
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 
 
@@ -17,6 +17,8 @@ def integration_soul():
     """Soul for integration testing with all fields populated."""
     return Soul(
         id="integration_test_soul",
+        kind="soul",
+        name="Integration Test Soul",
         role="Integration Test Agent",
         system_prompt="You are an integration test agent that validates system behavior.",
         tools=["calculator", "search"],
@@ -25,27 +27,9 @@ def integration_soul():
     )
 
 
-@pytest.fixture
-def integration_task_with_context():
-    """Task with both instruction and context for integration testing."""
-    return Task(
-        id="integration_task_001",
-        instruction="Analyze the system integration points",
-        context="This is a comprehensive integration test. Consider all subsystems and their interactions.",
-    )
-
-
-@pytest.fixture
-def integration_task_without_context():
-    """Task with only instruction (no context) for integration testing."""
-    return Task(id="integration_task_002", instruction="Perform a simple integration check")
-
-
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_task_context_integration_with_runner(
-    mock_achat, integration_soul, integration_task_with_context
-):
+async def test_task_context_integration_with_runner(mock_achat, integration_soul):
     """
     INTEGRATION: Verify Task.context properly integrates into the runner's prompt building.
 
@@ -59,7 +43,11 @@ async def test_task_context_integration_with_runner(
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    await runner.execute_task(integration_task_with_context, integration_soul)
+    await runner.execute(
+        "Analyze the system integration points",
+        "This is a comprehensive integration test. Consider all subsystems and their interactions.",
+        integration_soul,
+    )
 
     # Verify the prompt construction included context
     call_kwargs = mock_achat.call_args.kwargs
@@ -77,9 +65,7 @@ async def test_task_context_integration_with_runner(
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_task_without_context_integration(
-    mock_achat, integration_soul, integration_task_without_context
-):
+async def test_task_without_context_integration(mock_achat, integration_soul):
     """
     INTEGRATION: Verify Task without context works correctly with runner.
 
@@ -92,7 +78,7 @@ async def test_task_without_context_integration(
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    await runner.execute_task(integration_task_without_context, integration_soul)
+    await runner.execute("Perform a simple integration check", None, integration_soul)
 
     # Verify the prompt only has instruction (no context section)
     call_kwargs = mock_achat.call_args.kwargs
@@ -106,9 +92,7 @@ async def test_task_without_context_integration(
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_soul_system_prompt_integration_with_llm_client(
-    mock_achat, integration_soul, integration_task_with_context
-):
+async def test_soul_system_prompt_integration_with_llm_client(mock_achat, integration_soul):
     """
     INTEGRATION: Verify Soul.system_prompt correctly passed to LLM client.
 
@@ -121,7 +105,11 @@ async def test_soul_system_prompt_integration_with_llm_client(
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    await runner.execute_task(integration_task_with_context, integration_soul)
+    await runner.execute(
+        "Analyze the system integration points",
+        "This is a comprehensive integration test. Consider all subsystems and their interactions.",
+        integration_soul,
+    )
 
     call_kwargs = mock_achat.call_args.kwargs
     system_prompt = call_kwargs["system_prompt"]
@@ -131,9 +119,7 @@ async def test_soul_system_prompt_integration_with_llm_client(
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_execution_result_mapping_from_llm_response(
-    mock_achat, integration_soul, integration_task_with_context
-):
+async def test_execution_result_mapping_from_llm_response(mock_achat, integration_soul):
     """
     INTEGRATION: Verify LLM response correctly maps to ExecutionResult fields.
 
@@ -147,11 +133,15 @@ async def test_execution_result_mapping_from_llm_response(
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    result = await runner.execute_task(integration_task_with_context, integration_soul)
+    result = await runner.execute(
+        "Analyze the system integration points",
+        "This is a comprehensive integration test. Consider all subsystems and their interactions.",
+        integration_soul,
+    )
 
     # Verify ExecutionResult correctly populated
     assert isinstance(result, ExecutionResult)
-    assert result.task_id == "integration_task_001"
+    assert result.task_id == "execute"
     assert result.soul_id == "integration_test_soul"
     assert result.output == llm_response
     assert result.metadata == {}
@@ -165,9 +155,6 @@ async def test_multiple_tasks_with_same_soul(mock_achat, integration_soul):
 
     Tests that a Soul instance can be reused across multiple task executions.
     """
-    task1 = Task(id="task1", instruction="First task")
-    task2 = Task(id="task2", instruction="Second task", context="With context")
-    task3 = Task(id="task3", instruction="Third task")
 
     mock_achat.side_effect = [
         {"content": "Result 1", "cost_usd": 0.1, "total_tokens": 100},
@@ -177,9 +164,9 @@ async def test_multiple_tasks_with_same_soul(mock_achat, integration_soul):
 
     runner = RunsightTeamRunner(model_name="test-model")
 
-    result1 = await runner.execute_task(task1, integration_soul)
-    result2 = await runner.execute_task(task2, integration_soul)
-    result3 = await runner.execute_task(task3, integration_soul)
+    result1 = await runner.execute("First task", None, integration_soul)
+    result2 = await runner.execute("Second task", "With context", integration_soul)
+    result3 = await runner.execute("Third task", None, integration_soul)
 
     # Verify all executions used the same soul
     assert result1.soul_id == "integration_test_soul"
@@ -187,9 +174,9 @@ async def test_multiple_tasks_with_same_soul(mock_achat, integration_soul):
     assert result3.soul_id == "integration_test_soul"
 
     # Verify different tasks produced different results
-    assert result1.task_id == "task1"
-    assert result2.task_id == "task2"
-    assert result3.task_id == "task3"
+    assert result1.task_id == "execute"
+    assert result2.task_id == "execute"
+    assert result3.task_id == "execute"
 
     assert result1.output == "Result 1"
     assert result2.output == "Result 2"
@@ -198,9 +185,7 @@ async def test_multiple_tasks_with_same_soul(mock_achat, integration_soul):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_soul_tools_field_preserved_through_execution(
-    mock_achat, integration_task_with_context
-):
+async def test_soul_tools_field_preserved_through_execution(mock_achat):
     """
     INTEGRATION: Verify Soul.tools field is preserved throughout execution.
 
@@ -208,6 +193,8 @@ async def test_soul_tools_field_preserved_through_execution(
     """
     soul_with_tools = Soul(
         id="tooled_soul",
+        kind="soul",
+        name="Tooled Soul",
         role="Tool User",
         system_prompt="You can use tools.",
         tools=["file_reader", "web_search"],
@@ -222,7 +209,11 @@ async def test_soul_tools_field_preserved_through_execution(
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    await runner.execute_task(integration_task_with_context, soul_with_tools)
+    await runner.execute(
+        "Analyze the system integration points",
+        "This is a comprehensive integration test. Consider all subsystems and their interactions.",
+        soul_with_tools,
+    )
 
     # Verify soul tools are still accessible after execution
     assert soul_with_tools.tools is not None
@@ -232,9 +223,7 @@ async def test_soul_tools_field_preserved_through_execution(
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_runner_model_name_integration(
-    mock_achat, integration_soul, integration_task_with_context
-):
+async def test_runner_model_name_integration(mock_achat, integration_soul):
     """
     INTEGRATION: Verify runner's model_name properly initializes LiteLLMClient.
 
@@ -248,7 +237,11 @@ async def test_runner_model_name_integration(
 
     # Test with custom model
     runner = RunsightTeamRunner(model_name="gpt-4-turbo")
-    await runner.execute_task(integration_task_with_context, integration_soul)
+    await runner.execute(
+        "Analyze the system integration points",
+        "This is a comprehensive integration test. Consider all subsystems and their interactions.",
+        integration_soul,
+    )
 
     # Verify LiteLLMClient was initialized
     assert runner.llm_client is not None
@@ -263,12 +256,6 @@ async def test_empty_task_context_edge_case(mock_achat, integration_soul):
 
     Edge case: Task.context = "" (empty string, not None)
     """
-    task_with_empty_context = Task(
-        id="edge_task",
-        instruction="Test instruction",
-        context="",  # Empty string
-    )
-
     mock_achat.return_value = {
         "content": "Handled",
         "cost_usd": 0.1,
@@ -276,7 +263,7 @@ async def test_empty_task_context_edge_case(mock_achat, integration_soul):
     }
 
     runner = RunsightTeamRunner(model_name="test-model")
-    result = await runner.execute_task(task_with_empty_context, integration_soul)
+    result = await runner.execute("Test instruction", "", integration_soul)
 
     # Should execute successfully
     assert result.output == "Handled"

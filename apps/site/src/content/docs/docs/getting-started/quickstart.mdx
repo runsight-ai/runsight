@@ -31,6 +31,8 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 
    ```yaml title="custom/workflows/my-first-flow.yaml"
    version: "1.0"
+   id: my-first-flow
+   kind: workflow
    blocks:
      research:
        type: linear
@@ -61,9 +63,13 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 
    ```yaml title="custom/workflows/my-first-flow.yaml"
    version: "1.0"
+   id: my-first-flow
+   kind: workflow
    souls:
      researcher:
        id: researcher
+       kind: soul
+       name: Researcher
        role: Senior Researcher
        system_prompt: >
          You are an expert researcher. Given a topic, provide a concise,
@@ -81,10 +87,12 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 
    #### Soul file (reusable across workflows)
 
-   Extract the soul to its own file in `custom/souls/`. Any workflow can reference it by filename stem (`soul_ref: researcher`):
+   Extract the soul to its own file in `custom/souls/`. Any workflow can reference it by embedded id (`soul_ref: researcher`), and the file stem must match that id:
 
    ```yaml title="custom/souls/researcher.yaml"
    id: researcher
+   kind: soul
+   name: Researcher
    role: Senior Researcher
    system_prompt: >
      You are an expert researcher. Given a topic, provide a concise,

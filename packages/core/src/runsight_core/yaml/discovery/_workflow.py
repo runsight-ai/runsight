@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from runsight_core.yaml.discovery._base import BaseScanner
+from runsight_core.yaml.discovery._base import BaseScanner, ScanResult
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
@@ -29,6 +29,10 @@ class WorkflowScanner(BaseScanner[RunsightWorkflowFile]):
     def asset_subdir(self) -> str:
         return self._workflows_subdir
 
+    @property
+    def reject_duplicate_entity_ids(self) -> bool:
+        return True
+
     def _parse_file(self, path: Path, raw_yaml: str) -> RunsightWorkflowFile:
         try:
             workflow_data = yaml.safe_load(raw_yaml)
@@ -36,16 +40,55 @@ class WorkflowScanner(BaseScanner[RunsightWorkflowFile]):
             raise _fail_workflow_file(path, "malformed YAML") from exc
 
         try:
-            return RunsightWorkflowFile.model_validate(workflow_data)
+            workflow_file = RunsightWorkflowFile.model_validate(workflow_data)
         except ValidationError as exc:
             raise _fail_workflow_file(path, str(exc)) from exc
 
-    def _compute_aliases(self, path: Path, item: RunsightWorkflowFile) -> set[str]:
-        aliases = super()._compute_aliases(path, item)
-        workflow_name = getattr(item.workflow, "name", None)
-        if isinstance(workflow_name, str) and workflow_name.strip():
-            aliases.add(workflow_name)
-        return aliases
+        if workflow_file.id != path.stem:
+            raise _fail_workflow_file(
+                path,
+                f"embedded workflow id '{workflow_file.id}' does not match filename stem '{path.stem}'",
+            )
+
+        return workflow_file
+
+    def _scan_yaml_content(
+        self, path: Path, raw_yaml: str
+    ) -> ScanResult[RunsightWorkflowFile] | None:
+        try:
+            workflow_data = yaml.safe_load(raw_yaml)
+        except yaml.YAMLError as exc:
+            raise _fail_workflow_file(path, "malformed YAML") from exc
+
+        if workflow_data is None:
+            return None
+        if not isinstance(workflow_data, dict):
+            raise _fail_workflow_file(path, "YAML content is not a mapping")
+
+        workflow_file = self._parse_file(path, raw_yaml)
+        resolved = path.resolve()
+        try:
+            relative_path = resolved.relative_to(self.base_dir.resolve()).as_posix()
+        except ValueError:
+            relative_path = path.as_posix()
+        return ScanResult(
+            path=resolved,
+            stem=path.stem,
+            relative_path=relative_path,
+            item=workflow_file,
+            aliases=frozenset({workflow_file.id}),
+            entity_id=workflow_file.id,
+        )
+
+    def resolve_ref(
+        self,
+        ref: str,
+        *,
+        index=None,
+    ):
+        if index is None:
+            return None
+        return index.get(ref)
 
     def _glob_yaml_files(self, directory: Path) -> list[Path]:
         candidates = list(directory.rglob("*.yaml")) + list(directory.rglob("*.yml"))

@@ -235,12 +235,11 @@ class WorkflowBlock(BaseBlock):
         field = parts[0]
 
         if field == "current_task":
-            if len(parts) > 1:
-                raise ValueError(
-                    f"WorkflowBlock '{self.block_id}': invalid path '{path}'. "
-                    f"current_task does not support nested access."
-                )
-            return state.current_task
+            raise ValueError(
+                f"WorkflowBlock '{self.block_id}': path '{path}' is deprecated. "
+                f"current_task is no longer supported in dotted path resolution. "
+                f"Use results.* or shared_memory.* instead."
+            )
 
         elif field in ("results", "shared_memory", "metadata"):
             if len(parts) != 2:
@@ -261,7 +260,7 @@ class WorkflowBlock(BaseBlock):
         else:
             raise ValueError(
                 f"WorkflowBlock '{self.block_id}': invalid path prefix '{field}'. "
-                f"Supported prefixes: current_task, results, shared_memory, metadata."
+                f"Supported prefixes: results, shared_memory, metadata."
             )
 
     def _write_dotted(self, state: WorkflowState, path: str, value: Any) -> WorkflowState:
@@ -269,12 +268,11 @@ class WorkflowBlock(BaseBlock):
         field = parts[0]
 
         if field == "current_task":
-            if len(parts) > 1:
-                raise ValueError(
-                    f"WorkflowBlock '{self.block_id}': invalid path '{path}'. "
-                    f"current_task does not support nested access."
-                )
-            return state.model_copy(update={"current_task": value})
+            raise ValueError(
+                f"WorkflowBlock '{self.block_id}': path '{path}' is deprecated. "
+                f"current_task is no longer supported in dotted path resolution. "
+                f"Use results.* or shared_memory.* instead."
+            )
 
         elif field in ("results", "shared_memory", "metadata"):
             if len(parts) != 2:
@@ -290,7 +288,7 @@ class WorkflowBlock(BaseBlock):
         else:
             raise ValueError(
                 f"WorkflowBlock '{self.block_id}': invalid path prefix '{field}'. "
-                f"Supported prefixes: current_task, results, shared_memory, metadata."
+                f"Supported prefixes: results, shared_memory, metadata."
             )
 
     def _map_inputs(

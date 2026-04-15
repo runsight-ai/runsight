@@ -26,6 +26,8 @@ def _valid_tool_dict() -> dict:
     """Minimal valid tool YAML dict (python executor)."""
     return {
         "version": "1.0",
+        "id": "my_tool",
+        "kind": "tool",
         "type": "custom",
         "executor": "python",
         "name": "My Tool",
@@ -368,6 +370,8 @@ class TestToolScannerUsesPydanticValidation:
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
+                id: my_tool
+                kind: tool
                 type: custom
                 executor: python
                 name: My Tool
@@ -410,6 +414,8 @@ class TestToolScannerUsesPydanticValidation:
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
+                id: bad_tool
+                kind: tool
                 type: custom
                 executor: python
                 description: Missing name field.
@@ -449,6 +455,8 @@ class TestToolScannerUsesPydanticValidation:
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
+                id: http_tool
+                kind: tool
                 type: custom
                 executor: request
                 name: HTTP Tool

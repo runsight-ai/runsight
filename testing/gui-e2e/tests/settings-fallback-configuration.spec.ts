@@ -144,6 +144,8 @@ async function seedProviders(providers: ProviderFixture[]) {
     await writeFile(
       path.join(providersDir, `${provider.id}.yaml`),
       stringify({
+        id: provider.id,
+        kind: "provider",
         name: provider.name,
         type: provider.type,
         status: provider.status,

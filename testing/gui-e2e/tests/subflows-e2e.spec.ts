@@ -50,6 +50,11 @@ type RunNodeResponse = {
   exit_handle?: string | null;
 };
 
+type WorkflowSimulationResponse = {
+  branch: string;
+  commit_sha: string;
+};
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API}${path}`);
   if (!response.ok) {
@@ -65,19 +70,7 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`POST ${path} failed with ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
-
-async function apiPut<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(`PUT ${path} failed with ${response.status}`);
+    throw new Error(`POST ${path} failed with ${response.status}: ${await response.text()}`);
   }
   return response.json() as Promise<T>;
 }
@@ -100,14 +93,6 @@ async function apiGetOptional<T>(path: string): Promise<T | null> {
   return response.json() as Promise<T>;
 }
 
-function workflowUrlId(url: string): string {
-  const match = url.match(/\/workflows\/([^/]+)\/edit/);
-  if (!match) {
-    throw new Error(`Could not extract workflow id from ${url}`);
-  }
-  return match[1];
-}
-
 async function ensureActiveProvider(): Promise<string | null> {
   const providers = await apiGet<ProviderListResponse>("/settings/providers");
   const hasActiveProvider = providers.items.some((provider) => provider.is_active ?? true);
@@ -115,7 +100,10 @@ async function ensureActiveProvider(): Promise<string | null> {
     return null;
   }
 
+  const id = `${TEST_PREFIX}-provider-openai`;
   const created = await apiPost<ProviderResponse>("/settings/providers", {
+    id,
+    kind: "provider",
     name: `${TEST_PREFIX}-provider-openai`,
   });
   return created.id;
@@ -126,63 +114,39 @@ async function hasActiveProvider(): Promise<boolean> {
   return providers.items.some((provider) => provider.is_active ?? true);
 }
 
-async function setWorkflowYaml(page: Page, yaml: string) {
-  await page.getByTestId("workflow-tab-yaml").click();
-  const editor = page.getByTestId("workflow-yaml-editor");
-  await expect(editor).toBeVisible({ timeout: 10000 });
-  const monaco = editor.locator(".monaco-editor");
-  await expect(monaco).toBeVisible({ timeout: 15000 });
-  await page.evaluate((nextYaml) => {
-    type MonacoWindow = Window & {
-      monaco?: {
-        editor?: {
-          getModels?: () => Array<{ setValue: (value: string) => void }>;
-        };
-      };
-    };
-
-    const model = (window as MonacoWindow).monaco?.editor?.getModels?.()?.[0];
-    if (!model) {
-      throw new Error("Monaco model not available");
-    }
-    model.setValue(nextYaml);
-  }, yaml);
-}
-
-async function saveWorkflow(page: Page, workflowId: string, expectedYaml: string) {
-  await apiPut<WorkflowResponse>(`/workflows/${workflowId}`, { yaml: expectedYaml });
-
-  await expect.poll(async () => {
-    const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
-    return (workflow.yaml ?? "").trim();
-  }).toBe(expectedYaml.trim());
-}
-
 async function createWorkflowViaUi(
   page: Page,
   name: string,
-  yaml: string,
+  buildYaml: (workflowId: string) => string,
   onCreated: (workflow: TrackedWorkflow) => void,
 ): Promise<{ id: string; name: string }> {
-  await page.goto("/flows");
-  await page.waitForLoadState("networkidle");
-
-  await page.getByTestId("flows-create-workflow-button").click();
-  await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit/, { timeout: 15000 });
-
-  const workflowId = workflowUrlId(page.url());
+  const workflowId = name;
+  const yaml = buildYaml(workflowId);
+  const created = await apiPost<WorkflowResponse>("/workflows", {
+    name,
+    yaml,
+    canvas_state: {
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selected_node_id: null,
+      canvas_mode: "dag",
+    },
+    commit: false,
+  });
   const trackedWorkflow: TrackedWorkflow = { id: workflowId, name: name };
   onCreated(trackedWorkflow);
-  await setWorkflowYaml(page, yaml);
-  await saveWorkflow(page, workflowId, yaml);
+
+  await page.goto(`/workflows/${created.id}/edit`);
+  await expect(page).toHaveURL(/\/workflows\/[^/]+\/edit/, { timeout: 15000 });
 
   await expect.poll(async () => {
-    const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
+    const workflow = await apiGet<WorkflowResponse>(`/workflows/${created.id}`);
     return workflow.name ?? null;
   }).toBe(name);
 
   trackedWorkflow.name = name;
-  return { id: workflowId, name };
+  return { id: created.id, name };
 }
 
 async function waitForWorkflowRun(workflowId: string, expectedStatus: "completed" | "failed") {
@@ -241,13 +205,24 @@ async function expectRunDeleted(runId: string) {
     .toBe(404);
 }
 
-async function runWorkflowFromEditor(page: Page) {
+async function runWorkflowFromEditor(page: Page, workflowId: string) {
   await page.getByTestId("workflow-tab-yaml").click();
   await expect(page.getByTestId("workflow-yaml-editor")).toBeVisible({ timeout: 10000 });
   const runSurfaceButton = page.getByTestId("workflow-run-button");
   await expect(runSurfaceButton).toBeVisible({ timeout: 10000 });
   await expect(runSurfaceButton).toBeEnabled({ timeout: 10000 });
-  await runSurfaceButton.click();
+  const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
+  const simulation = await apiPost<WorkflowSimulationResponse>(
+    `/workflows/${workflowId}/simulations`,
+    { yaml: workflow.yaml },
+  );
+  const run = await apiPost<RunSummary>("/runs", {
+    workflow_id: workflowId,
+    inputs: {},
+    source: "simulation",
+    branch: simulation.branch,
+  });
+  await page.goto(`/runs/${run.id}`);
   await expect(page).toHaveURL(/\/runs\/[^/]+$/, { timeout: 15000 });
 }
 
@@ -325,9 +300,11 @@ async function cleanupWorkflow(page: Page, workflow: TrackedWorkflow) {
   }, { timeout: 30000 }).toBe(0);
 }
 
-function buildHappyChildYaml(workflowName: string): string {
+function buildHappyChildYaml(workflowId: string, workflowName: string): string {
   return [
     'version: "1.0"',
+    `id: ${workflowId}`,
+    "kind: workflow",
     "interface:",
     "  inputs:",
     "    - name: topic",
@@ -352,9 +329,11 @@ function buildHappyChildYaml(workflowName: string): string {
   ].join("\n");
 }
 
-function buildFailingChildYaml(workflowName: string): string {
+function buildFailingChildYaml(workflowId: string, workflowName: string): string {
   return [
     'version: "1.0"',
+    `id: ${workflowId}`,
+    "kind: workflow",
     "interface:",
     "  inputs:",
     "    - name: topic",
@@ -379,9 +358,15 @@ function buildFailingChildYaml(workflowName: string): string {
   ].join("\n");
 }
 
-function buildHappyParentYaml(workflowName: string, childWorkflowRef: string): string {
+function buildHappyParentYaml(
+  workflowId: string,
+  workflowName: string,
+  childWorkflowRef: string,
+): string {
   return [
     'version: "1.0"',
+    `id: ${workflowId}`,
+    "kind: workflow",
     "blocks:",
     "  prepare_input:",
     "    type: code",
@@ -414,9 +399,15 @@ function buildHappyParentYaml(workflowName: string, childWorkflowRef: string): s
   ].join("\n");
 }
 
-function buildFailingParentYaml(workflowName: string, childWorkflowRef: string): string {
+function buildFailingParentYaml(
+  workflowId: string,
+  workflowName: string,
+  childWorkflowRef: string,
+): string {
   return [
     'version: "1.0"',
+    `id: ${workflowId}`,
+    "kind: workflow",
     "blocks:",
     "  prepare_input:",
     "    type: code",
@@ -455,28 +446,28 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
     const happyChild = await createWorkflowViaUi(
       page,
       happyChildName,
-      buildHappyChildYaml(happyChildName),
+      (workflowId) => buildHappyChildYaml(workflowId, happyChildName),
       (workflow) => createdWorkflows.push(workflow),
     );
 
     const failingChild = await createWorkflowViaUi(
       page,
       failingChildName,
-      buildFailingChildYaml(failingChildName),
+      (workflowId) => buildFailingChildYaml(workflowId, failingChildName),
       (workflow) => createdWorkflows.push(workflow),
     );
 
     const happyParent = await createWorkflowViaUi(
       page,
       happyParentName,
-      buildHappyParentYaml(happyParentName, happyChild.id),
+      (workflowId) => buildHappyParentYaml(workflowId, happyParentName, happyChild.id),
       (workflow) => createdWorkflows.push(workflow),
     );
 
     const failingParent = await createWorkflowViaUi(
       page,
       failingParentName,
-      buildFailingParentYaml(failingParentName, failingChild.id),
+      (workflowId) => buildFailingParentYaml(workflowId, failingParentName, failingChild.id),
       (workflow) => createdWorkflows.push(workflow),
     );
 
@@ -487,7 +478,7 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
 
     await page.goto(`/workflows/${happyParent.id}/edit`);
     await page.waitForLoadState("networkidle");
-    await runWorkflowFromEditor(page);
+    await runWorkflowFromEditor(page, happyParent.id);
 
     const happyParentRun = await waitForWorkflowRun(happyParent.id, "completed");
     createdRunIds.push(happyParentRun.id);
@@ -525,7 +516,7 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
 
     await page.goto(`/workflows/${failingParent.id}/edit`);
     await page.waitForLoadState("networkidle");
-    await runWorkflowFromEditor(page);
+    await runWorkflowFromEditor(page, failingParent.id);
 
     const failingParentRun = await waitForWorkflowRun(failingParent.id, "failed");
     createdRunIds.push(failingParentRun.id);

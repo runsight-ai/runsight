@@ -1,3 +1,5 @@
 id: release_quality_reviewer_anthropic
+kind: soul
+name: Release Quality Reviewer
 role: release_quality_reviewer_anthropic
 system_prompt: Fixture soul for testing.

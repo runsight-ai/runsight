@@ -24,7 +24,6 @@ def _write_soul_file(
     base_dir: Path,
     name: str,
     *,
-    soul_id: str,
     role: str,
     prompt: str,
     model_name: str | None = None,
@@ -33,7 +32,9 @@ def _write_soul_file(
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
     soul_data = {
-        "id": soul_id,
+        "id": name,
+        "kind": "soul",
+        "name": role,
         "role": role,
         "system_prompt": prompt,
     }
@@ -59,10 +60,14 @@ class TestInlineSoulParsing:
             tmp_path,
             """\
             version: "1.0"
+            id: inline_soul_parse
+            kind: workflow
             config: {}
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Inline Writer
                 role: Inline Writer
                 system_prompt: Draft carefully.
                 model_name: gpt-4.1-mini
@@ -96,6 +101,8 @@ class TestInlineSoulParsing:
             tmp_path,
             """\
             version: "1.0"
+            id: inline_soul_tools
+            kind: workflow
             config:
               model_name: gpt-4o
             tools:
@@ -103,6 +110,8 @@ class TestInlineSoulParsing:
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Tool Writer
                 role: Tool Writer
                 system_prompt: Use the workflow tool.
                 tools:
@@ -137,7 +146,6 @@ class TestInlineSoulOverrides:
         _write_soul_file(
             tmp_path,
             "writer",
-            soul_id="writer_external",
             role="External Writer",
             prompt="Use the library prompt.",
             model_name="claude-sonnet-4",
@@ -146,10 +154,14 @@ class TestInlineSoulOverrides:
             tmp_path,
             """\
             version: "1.0"
+            id: inline_override
+            kind: workflow
             config: {}
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Inline Writer
                 role: Inline Writer
                 system_prompt: Use the inline prompt.
                 model_name: gpt-4.1-mini
@@ -173,6 +185,8 @@ class TestInlineSoulOverrides:
 
         block = _unwrap_runtime_block(workflow.blocks["draft"])
         assert block.soul.id == "writer"
+        assert block.soul.kind == "soul"
+        assert block.soul.name == "Inline Writer"
         assert block.soul.role == "Inline Writer"
         assert block.soul.system_prompt == "Use the inline prompt."
         assert block.soul.model_name == "gpt-4.1-mini"
@@ -187,10 +201,14 @@ class TestInlineSoulSchemaValidation:
     def test_model_validate_rejects_key_id_mismatch(self):
         raw = {
             "version": "1.0",
+            "id": "test",
+            "kind": "workflow",
             "workflow": {"name": "test", "entry": "draft"},
             "souls": {
                 "writer": {
                     "id": "reviewer",
+                    "kind": "soul",
+                    "name": "Inline Writer",
                     "role": "Inline Writer",
                     "system_prompt": "Draft carefully.",
                 }
@@ -213,7 +231,6 @@ class TestInlineSoulBackwardsCompatibility:
         _write_soul_file(
             tmp_path,
             "writer",
-            soul_id="writer_external",
             role="External Writer",
             prompt="Use the library prompt.",
         )
@@ -221,6 +238,8 @@ class TestInlineSoulBackwardsCompatibility:
             tmp_path,
             """\
             version: "1.0"
+            id: no_inline_souls
+            kind: workflow
             config:
               model_name: gpt-4o
             blocks:
@@ -239,7 +258,9 @@ class TestInlineSoulBackwardsCompatibility:
         workflow = parse_workflow_yaml(workflow_path)
 
         block = _unwrap_runtime_block(workflow.blocks["draft"])
-        assert block.soul.id == "writer_external"
+        assert block.soul.id == "writer"
+        assert block.soul.kind == "soul"
+        assert block.soul.name == "External Writer"
         assert block.soul.role == "External Writer"
         assert block.soul.system_prompt == "Use the library prompt."
 
@@ -247,7 +268,6 @@ class TestInlineSoulBackwardsCompatibility:
         _write_soul_file(
             tmp_path,
             "writer",
-            soul_id="writer_external",
             role="External Writer",
             prompt="Use the library prompt.",
         )
@@ -255,6 +275,8 @@ class TestInlineSoulBackwardsCompatibility:
             tmp_path,
             """\
             version: "1.0"
+            id: empty_inline_souls
+            kind: workflow
             config:
               model_name: gpt-4o
             souls: {}
@@ -274,6 +296,8 @@ class TestInlineSoulBackwardsCompatibility:
         workflow = parse_workflow_yaml(workflow_path)
 
         block = _unwrap_runtime_block(workflow.blocks["draft"])
-        assert block.soul.id == "writer_external"
+        assert block.soul.id == "writer"
+        assert block.soul.kind == "soul"
+        assert block.soul.name == "External Writer"
         assert block.soul.role == "External Writer"
         assert block.soul.system_prompt == "Use the library prompt."

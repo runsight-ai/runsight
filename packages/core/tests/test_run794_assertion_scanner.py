@@ -30,6 +30,7 @@ def _write_assertion_fixture(
     base_dir: Path,
     *,
     stem: str = "budget_guard",
+    assertion_id: str | None = None,
     name: str = "Budget Guard Display",
     returns: str = "bool",
     source_name: str = "budget_guard.py",
@@ -44,6 +45,8 @@ def _write_assertion_fixture(
 
     manifest = {
         "version": "1.0",
+        "id": assertion_id or stem,
+        "kind": "assertion",
         "name": name,
         "description": "Keeps cost under budget.",
         "returns": returns,
@@ -151,7 +154,7 @@ class TestDiscoverCustomAssertions:
         result = discovery_module.AssertionScanner(tmp_path).scan()
 
         assert isinstance(result, discovery_module.ScanIndex)
-        assert result.stems() == {}
+        assert result.ids() == {}
 
     def test_valid_manifest_and_source_scan_into_nested_assertion_meta(self, tmp_path: Path):
         discovery_module = _load_discovery_module()
@@ -166,7 +169,7 @@ class TestDiscoverCustomAssertions:
         )
 
         index = discovery_module.AssertionScanner(tmp_path).scan()
-        meta = index.stems()["budget_guard"]
+        meta = index.ids()["budget_guard"]
 
         assert isinstance(meta, assertion_module.AssertionMeta)
         assert meta.assertion_id == "budget_guard"
@@ -188,7 +191,7 @@ class TestDiscoverCustomAssertions:
         discovery_module = _load_discovery_module()
         _write_assertion_fixture(tmp_path)
 
-        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
+        meta = discovery_module.AssertionScanner(tmp_path).scan().ids()["budget_guard"]
 
         assert not hasattr(meta, "name")
         assert not hasattr(meta, "description")
@@ -197,18 +200,21 @@ class TestDiscoverCustomAssertions:
         assert not hasattr(meta, "version")
         assert not hasattr(meta, "params")
 
-    def test_file_stem_slug_is_canonical_id_and_manifest_name_is_display_only(self, tmp_path: Path):
+    def test_embedded_id_is_canonical_identity_and_manifest_name_is_display_only(
+        self, tmp_path: Path
+    ):
         discovery_module = _load_discovery_module()
         _write_assertion_fixture(
             tmp_path,
-            stem="budget_guard",
+            assertion_id="budget_guard_embedded",
+            stem="budget_guard_embedded",
             name="Friendly Display Title",
             source_name="friendly_name.py",
         )
 
-        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
+        meta = discovery_module.AssertionScanner(tmp_path).scan().ids()["budget_guard_embedded"]
 
-        assert meta.assertion_id == "budget_guard"
+        assert meta.assertion_id == "budget_guard_embedded"
         assert meta.manifest.name == "Friendly Display Title"
         assert meta.assertion_id != meta.manifest.name
 
@@ -281,7 +287,7 @@ class TestDiscoverCustomAssertions:
             ),
         )
 
-        meta = discovery_module.AssertionScanner(tmp_path).scan().stems()["budget_guard"]
+        meta = discovery_module.AssertionScanner(tmp_path).scan().ids()["budget_guard"]
 
         assert meta.code is not None
 
@@ -330,11 +336,12 @@ class TestDiscoverCustomAssertions:
         assert "budget_guard.yaml" in message
         assert expected_fragment in message
 
-    def test_reserved_builtin_collision_uses_file_stem_slug(self, tmp_path: Path):
+    def test_reserved_builtin_collision_uses_embedded_id(self, tmp_path: Path):
         discovery_module = _load_discovery_module()
         _write_assertion_fixture(
             tmp_path,
-            stem="contains",
+            stem="different_slug",
+            assertion_id="contains",
             name="Totally Different Display Name",
             source_name="contains.py",
         )
@@ -343,6 +350,6 @@ class TestDiscoverCustomAssertions:
             discovery_module.AssertionScanner(tmp_path).scan()
 
         message = str(exc_info.value)
-        assert "contains.yaml" in message
+        assert "different_slug.yaml" in message
         assert "contains" in message
         assert "builtin" in message or "reserved" in message
