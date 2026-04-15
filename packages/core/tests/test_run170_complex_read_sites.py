@@ -225,55 +225,51 @@ class TestWorkflowBlockResolveDottedBlockResult:
 
 
 class TestResolveFromRefBlockResult:
-    """_resolve_from_ref already unwraps BlockResult.output (RUN-177).
-    These tests verify the fix works correctly."""
+    """Input resolution unwraps BlockResult.output (originally RUN-177).
+    Step._resolve_from_ref was removed in RUN-892; resolution now lives in
+    block_io._resolve_ref. These tests verify the canonical path."""
 
-    def _make_step(self):
-        """Create a minimal Step with _resolve_from_ref accessible."""
-        from runsight_core.primitives import Step
+    def test_resolve_ref_unwraps_block_result(self):
+        """_resolve_ref extracts .output from BlockResult."""
+        from runsight_core.block_io import _resolve_ref
 
-        block = MagicMock()
-        block.block_id = "dummy"
-        step = Step(block=block)
-        return step
-
-    def test_resolve_from_ref_unwraps_block_result(self):
-        """_resolve_from_ref extracts .output from BlockResult."""
-        step = self._make_step()
         state = WorkflowState(
             results={"source": BlockResult(output="plain text output")},
         )
-        result = step._resolve_from_ref("source", state)
+        result = _resolve_ref("source", state)
         assert result == "plain text output"
         assert isinstance(result, str)
 
-    def test_resolve_from_ref_block_result_with_json_and_path(self):
-        """_resolve_from_ref parses JSON output and resolves dotted path."""
-        step = self._make_step()
+    def test_resolve_ref_block_result_with_json_and_path(self):
+        """_resolve_ref parses JSON output and resolves dotted path."""
+        from runsight_core.block_io import _resolve_ref
+
         state = WorkflowState(
             results={
                 "api_call": BlockResult(output='{"response": {"status": "ok", "data": [1,2,3]}}')
             },
         )
-        result = step._resolve_from_ref("api_call.response.status", state)
+        result = _resolve_ref("api_call.response.status", state)
         assert result == "ok"
 
-    def test_resolve_from_ref_block_result_non_json_output(self):
+    def test_resolve_ref_block_result_non_json_output(self):
         """Non-JSON output with field path returns raw string."""
-        step = self._make_step()
+        from runsight_core.block_io import _resolve_ref
+
         state = WorkflowState(
             results={"writer": BlockResult(output="This is not JSON at all")},
         )
         # When output is not JSON and a field path is requested, returns raw string
-        result = step._resolve_from_ref("writer.some_field", state)
+        result = _resolve_ref("writer.some_field", state)
         assert result == "This is not JSON at all"
 
-    def test_resolve_from_ref_block_result_json_string_literal(self):
+    def test_resolve_ref_block_result_json_string_literal(self):
         """JSON string literal output (e.g. '"hello"') returns the string."""
-        step = self._make_step()
+        from runsight_core.block_io import _resolve_ref
+
         state = WorkflowState(
             results={"quoter": BlockResult(output='"hello world"')},
         )
-        result = step._resolve_from_ref("quoter", state)
+        result = _resolve_ref("quoter", state)
         # No field path — returns the raw output string
         assert result == '"hello world"'
