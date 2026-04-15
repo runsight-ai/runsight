@@ -20,7 +20,7 @@ from runsight_core.block_io import (
 )
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -34,7 +34,7 @@ def _make_mock_runner(output: str = "done", cost: float = 0.01, tokens: int = 10
     runner = MagicMock()
     runner.model_name = "gpt-4o-mini"
     runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction or "")
-    runner.execute_task = AsyncMock(
+    runner.execute = AsyncMock(
         return_value=ExecutionResult(
             task_id="t1",
             soul_id="soul1",
@@ -46,15 +46,17 @@ def _make_mock_runner(output: str = "done", cost: float = 0.01, tokens: int = 10
     return runner
 
 
-def _make_linear_block(block_id: str, runner=None, soul_id: str = "soul1") -> LinearBlock:
-    soul = Soul(id=soul_id, role="Agent", system_prompt="You are an agent.")
+def _make_linear_block(block_id: str, runner=None, soul_id: str = "soul_1") -> LinearBlock:
+    soul = Soul(
+        id=soul_id, kind="soul", name="Test Agent", role="Agent", system_prompt="You are an agent."
+    )
     if runner is None:
         runner = _make_mock_runner()
     return LinearBlock(block_id, soul, runner)
 
 
 def _make_base_state(instruction: str = "run loop") -> WorkflowState:
-    return WorkflowState(current_task=Task(id="t1", instruction=instruction))
+    return WorkflowState()
 
 
 def _make_loop_block_context(
@@ -70,7 +72,7 @@ def _make_loop_block_context(
     """
     return BlockContext(
         block_id=loop.block_id,
-        instruction=state.current_task.instruction if state.current_task else "loop",
+        instruction="loop",
         context=None,
         inputs={"blocks": blocks, "ctx": ctx},
         conversation_history=[],
@@ -236,7 +238,7 @@ class TestAC2UsesStateSnapshot:
                 return await super().execute(ctx)
 
         runner = _make_mock_runner()
-        soul = Soul(id="soul1", role="Agent", system_prompt="test")
+        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
         inner = CapturingBlock("inner1", soul, runner)
         loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
         blocks = {"inner1": inner, "loop1": loop}
@@ -316,7 +318,7 @@ class TestAC3InnerBlocksGetFreshContext:
         runner = MagicMock()
         runner.model_name = "gpt-4o-mini"
         runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction or "")
-        soul = Soul(id="soul1", role="Agent", system_prompt="test")
+        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
 
         async def capturing_execute_block(block, state, ctx, extra_inputs=None):
             if block.block_id == "inner1":
@@ -326,7 +328,7 @@ class TestAC3InnerBlocksGetFreshContext:
             )
             return result_state
 
-        runner.execute_task = AsyncMock(
+        runner.execute = AsyncMock(
             return_value=ExecutionResult(
                 task_id="t1", soul_id="soul1", output="done", cost_usd=0.01, total_tokens=10
             )
@@ -579,7 +581,7 @@ class TestAC5RoundTrackingMetadata:
 
         call_count = 0
 
-        async def _exit_side_effect(task, soul, **kwargs):
+        async def _exit_side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
             # On round 2, fire the break exit handle
@@ -596,9 +598,9 @@ class TestAC5RoundTrackingMetadata:
         runner = MagicMock()
         runner.model_name = "gpt-4o-mini"
         runner._build_prompt = MagicMock(side_effect=lambda t: t.instruction or "")
-        runner.execute_task = AsyncMock(side_effect=_exit_side_effect)
+        runner.execute = AsyncMock(side_effect=_exit_side_effect)
 
-        soul = Soul(id="soul1", role="Agent", system_prompt="test")
+        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
         inner = LinearBlock("inner1", soul, runner)
         loop = LoopBlock(
             block_id="loop1",

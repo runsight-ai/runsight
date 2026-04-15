@@ -30,7 +30,13 @@ from runsight_core.state import BlockResult, WorkflowState
 
 
 def make_soul() -> Soul:
-    return Soul(id="soul_1", role="Researcher", system_prompt="You are a researcher.")
+    return Soul(
+        id="soul_1",
+        kind="soul",
+        name="Test",
+        role="Researcher",
+        system_prompt="You are a researcher.",
+    )
 
 
 def make_artifact_store() -> InMemoryArtifactStore:

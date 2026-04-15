@@ -19,7 +19,7 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.gate import GateBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -33,7 +33,7 @@ from runsight_core.workflow import BlockExecutionContext, execute_block
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
     runner._build_prompt = MagicMock(
         side_effect=lambda task: (
@@ -47,7 +47,13 @@ def mock_runner():
 
 @pytest.fixture
 def gate_soul():
-    return Soul(id="gate_soul", role="Gate", system_prompt="Evaluate quality strictly.")
+    return Soul(
+        id="gate_soul",
+        kind="soul",
+        name="Test",
+        role="Gate",
+        system_prompt="Evaluate quality strictly.",
+    )
 
 
 @pytest.fixture
@@ -88,7 +94,7 @@ def _make_gate_block_context(
 @pytest.mark.asyncio
 async def test_gateblock_execute_accepts_block_context(mock_runner, gate_soul):
     """GateBlock.execute must accept a BlockContext argument and return BlockOutput."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -121,7 +127,7 @@ async def test_gateblock_execute_accepts_block_context(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_execute_populates_cost_and_tokens(mock_runner, gate_soul):
     """BlockOutput.cost_usd and total_tokens must be populated from ExecutionResult."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -142,7 +148,7 @@ async def test_gateblock_execute_populates_cost_and_tokens(mock_runner, gate_sou
 @pytest.mark.asyncio
 async def test_gateblock_execute_log_entries_contain_block_id(mock_runner, gate_soul):
     """BlockOutput.log_entries must contain at least one entry referencing the block_id."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -165,7 +171,7 @@ async def test_gateblock_execute_log_entries_contain_block_id(mock_runner, gate_
 @pytest.mark.asyncio
 async def test_gateblock_execute_returns_data_not_state(mock_runner, gate_soul):
     """BlockOutput is a pure data object — no WorkflowState fields present."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -195,7 +201,7 @@ async def test_gateblock_execute_returns_data_not_state(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_pass_sets_exit_handle_pass(mock_runner, gate_soul):
     """When LLM returns 'PASS', output.exit_handle must be 'pass'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -217,7 +223,7 @@ async def test_gateblock_pass_sets_exit_handle_pass(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_pass_output_is_pass_through_content(mock_runner, gate_soul):
     """When LLM returns 'PASS', output.output is the pass-through content (decision line)."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -239,7 +245,7 @@ async def test_gateblock_pass_output_is_pass_through_content(mock_runner, gate_s
 @pytest.mark.asyncio
 async def test_gateblock_fail_sets_exit_handle_fail(mock_runner, gate_soul):
     """When LLM returns 'FAIL: quality too low', output.exit_handle must be 'fail'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="FAIL: quality too low",
@@ -261,7 +267,7 @@ async def test_gateblock_fail_sets_exit_handle_fail(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_fail_output_is_feedback(mock_runner, gate_soul):
     """When LLM returns 'FAIL: quality too low', output.output is the feedback text."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="FAIL: quality too low",
@@ -283,7 +289,7 @@ async def test_gateblock_fail_output_is_feedback(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_only_first_line_matters_for_pass(mock_runner, gate_soul):
     """When LLM returns 'PASS\\nsome extra text', only first line matters — exit_handle='pass'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS\nsome extra text that should be ignored",
@@ -307,7 +313,7 @@ async def test_gateblock_only_first_line_matters_for_pass(mock_runner, gate_soul
 @pytest.mark.asyncio
 async def test_gateblock_lowercase_pass_is_recognized(mock_runner, gate_soul):
     """When LLM returns 'pass' (lowercase), it must still be recognized as PASS."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="pass",
@@ -332,7 +338,7 @@ async def test_gateblock_lowercase_pass_is_recognized(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_extract_field_on_pass(mock_runner, gate_soul):
     """On PASS with extract_field='score', JSON context is parsed and field extracted."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -358,7 +364,7 @@ async def test_gateblock_extract_field_on_pass(mock_runner, gate_soul):
 @pytest.mark.asyncio
 async def test_gateblock_extract_field_invalid_json_falls_back(mock_runner, gate_soul):
     """When JSON is invalid and extract_field is set, output falls back to decision line."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -385,7 +391,7 @@ async def test_gateblock_extract_field_invalid_json_falls_back(mock_runner, gate
 @pytest.mark.asyncio
 async def test_gateblock_extract_field_missing_field_falls_back(mock_runner, gate_soul):
     """When JSON is valid but field is missing, output falls back to decision line."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -412,7 +418,7 @@ async def test_gateblock_extract_field_missing_field_falls_back(mock_runner, gat
 @pytest.mark.asyncio
 async def test_gateblock_extract_field_not_applied_on_fail(mock_runner, gate_soul):
     """extract_field must NOT be applied when gate decision is FAIL."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="FAIL: insufficient quality",
@@ -446,7 +452,7 @@ async def test_execute_block_dispatches_gateblock_via_new_path(
     mock_runner, gate_soul, block_execution_ctx
 ):
     """execute_block must route GateBlock through build_block_context + apply_block_output."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -456,7 +462,6 @@ async def test_execute_block_dispatches_gateblock_via_new_path(
 
     block = GateBlock("gate1", gate_soul, "prior_block", mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="evaluate"),
         results={"prior_block": BlockResult(output="Content to evaluate")},
     )
 
@@ -480,7 +485,7 @@ async def test_execute_block_gateblock_state_has_correct_exit_handle(
     mock_runner, gate_soul, block_execution_ctx
 ):
     """After execute_block with GateBlock, state.results[gate_id].exit_handle must be 'pass'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -490,7 +495,6 @@ async def test_execute_block_gateblock_state_has_correct_exit_handle(
 
     block = GateBlock("gate1", gate_soul, "prior_block", mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="evaluate"),
         results={"prior_block": BlockResult(output="Good content")},
     )
 
@@ -506,7 +510,7 @@ async def test_execute_block_gateblock_state_has_correct_exit_handle(
 @pytest.mark.asyncio
 async def test_execute_block_gateblock_fail_routing(mock_runner, gate_soul, block_execution_ctx):
     """After execute_block with GateBlock on FAIL, state.results contains exit_handle='fail'."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="FAIL: poor structure",
@@ -516,7 +520,6 @@ async def test_execute_block_gateblock_fail_routing(mock_runner, gate_soul, bloc
 
     block = GateBlock("gate1", gate_soul, "prior_block", mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="evaluate"),
         results={"prior_block": BlockResult(output="Weak content")},
     )
 
@@ -534,7 +537,7 @@ async def test_execute_block_gateblock_accumulates_cost(
     mock_runner, gate_soul, block_execution_ctx
 ):
     """execute_block via GateBlock new path must accumulate cost_usd in state."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -544,7 +547,6 @@ async def test_execute_block_gateblock_accumulates_cost(
 
     block = GateBlock("gate1", gate_soul, "prior_block", mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="evaluate"),
         results={"prior_block": BlockResult(output="Content")},
         total_cost_usd=1.0,
         total_tokens=500,
@@ -567,16 +569,21 @@ async def test_execute_block_uses_new_path_for_synthesize_block(mock_runner, gat
     from runsight_core.block_io import build_block_context
     from runsight_core.blocks.synthesize import SynthesizeBlock
 
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth_eval",
         soul_id="gate_soul",
         output="Synthesized output",
     )
 
-    sample_soul = Soul(id="synth_soul", role="Synthesizer", system_prompt="Synthesize things.")
+    sample_soul = Soul(
+        id="synth_soul",
+        kind="soul",
+        name="Test",
+        role="Synthesizer",
+        system_prompt="Synthesize things.",
+    )
     synth_block = SynthesizeBlock("synth1", ["prior_block"], sample_soul, mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="synthesize"),
         results={"prior_block": BlockResult(output="something")},
     )
     ctx = BlockExecutionContext(
@@ -606,9 +613,11 @@ async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 
-    sample_soul = Soul(id="writer_soul", role="Writer", system_prompt="Write content.")
+    sample_soul = Soul(
+        id="writer_soul", kind="soul", name="Test", role="Writer", system_prompt="Write content."
+    )
 
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         # LinearBlock call
         ExecutionResult(
             task_id="t1",
@@ -654,8 +663,7 @@ async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_
     wf.add_transition("revise", None)
     wf.set_entry("writer")
 
-    task = Task(id="t1", instruction="Write a report")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     final_state = await wf.run(state)
 
@@ -675,9 +683,11 @@ async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, 
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 
-    sample_soul = Soul(id="writer_soul", role="Writer", system_prompt="Write content.")
+    sample_soul = Soul(
+        id="writer_soul", kind="soul", name="Test", role="Writer", system_prompt="Write content."
+    )
 
-    mock_runner.execute_task.side_effect = [
+    mock_runner.execute.side_effect = [
         # LinearBlock call
         ExecutionResult(
             task_id="t1",
@@ -723,8 +733,7 @@ async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, 
     wf.add_transition("revise", None)
     wf.set_entry("writer")
 
-    task = Task(id="t1", instruction="Write a report")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     final_state = await wf.run(state)
 
@@ -743,7 +752,7 @@ async def test_execute_block_gateblock_apply_block_output_called(
     mock_runner, gate_soul, block_execution_ctx
 ):
     """execute_block must call apply_block_output for GateBlock (new path)."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="gate_eval",
         soul_id="gate_soul",
         output="PASS",
@@ -753,7 +762,6 @@ async def test_execute_block_gateblock_apply_block_output_called(
 
     block = GateBlock("gate1", gate_soul, "prior_block", mock_runner)
     state = WorkflowState(
-        current_task=Task(id="t1", instruction="evaluate"),
         results={"prior_block": BlockResult(output="Content")},
         total_cost_usd=0.10,
         total_tokens=100,

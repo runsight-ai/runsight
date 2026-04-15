@@ -105,11 +105,12 @@ def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput)
         "conversation_histories": new_conversation_histories,
         "metadata": new_metadata,
     }
-    # Propagate carry_context or other current_task.context updates from loop blocks.
-    if output.current_task_context is not None and state.current_task is not None:
-        state_updates["current_task"] = state.current_task.model_copy(
-            update={"context": output.current_task_context}
-        )
+    # Propagate carry_context from loop blocks into shared_memory _resolved_inputs.
+    if output.current_task_context is not None:
+        existing_resolved = dict(new_shared_memory.get("_resolved_inputs", {}))
+        existing_resolved["context"] = output.current_task_context
+        new_shared_memory["_resolved_inputs"] = existing_resolved
+        state_updates["shared_memory"] = new_shared_memory
 
     return state.model_copy(update=state_updates)
 
@@ -169,19 +170,22 @@ def build_block_context(
 ) -> BlockContext:
     """Build a BlockContext for a block from the current workflow state.
 
-    Handles LinearBlock (uses current_task instruction/context) and GateBlock
-    (uses gate instruction + resolved eval_key content as context).
+    Instruction and context are sourced from:
+    - state.shared_memory["_resolved_inputs"] (populated by the Step wrapper)
+    - The block soul's system_prompt (for LinearBlock instruction)
+    - state.results["workflow"] (virtual block result seeded by the API for external input)
+    - Block-type-specific logic (GateBlock, DispatchBlock, SynthesizeBlock, etc.)
 
     Args:
         block: A block instance with .block_id, .soul, and .runner.
-        state: Current WorkflowState with current_task, results, conversation_histories.
+        state: Current WorkflowState with results, conversation_histories, shared_memory.
         step: Optional Step with declared_inputs to resolve from state.results.
 
     Returns:
         A fully populated BlockContext ready for block execution.
 
     Raises:
-        ValueError: If state.current_task is None for non-GateBlock, or eval_key missing.
+        ValueError: If a required input (eval_key for GateBlock, etc.) is missing.
     """
     from runsight_core.memory.token_counting import litellm_token_counter
 
@@ -199,9 +203,7 @@ def build_block_context(
     if child_workflow is not None:
         return BlockContext(
             block_id=block.block_id,
-            instruction=(
-                state.current_task.instruction if state.current_task is not None else "invoke child"
-            ),
+            instruction="invoke child",
             context=None,
             inputs={
                 "call_stack": [],
@@ -219,9 +221,7 @@ def build_block_context(
     if inner_block_refs is not None:
         return BlockContext(
             block_id=block.block_id,
-            instruction=(
-                state.current_task.instruction if state.current_task is not None else "loop"
-            ),
+            instruction="loop",
             context=None,
             inputs={},
             conversation_history=[],
@@ -254,17 +254,19 @@ def build_block_context(
     # DispatchBlock strategy: detect branches attribute
     branches = getattr(block, "branches", None)
     if branches is not None:
-        if state.current_task is None:
-            raise ValueError(
-                f"build_block_context: state.current_task is None for block '{block.block_id}'"
-            )
-        task = state.current_task
         first_branch = branches[0] if branches else None
         dispatch_soul: Optional[Soul] = first_branch.soul if first_branch is not None else soul
+        dispatch_instruction = (
+            first_branch.task_instruction
+            if first_branch is not None and getattr(first_branch, "task_instruction", None)
+            else "dispatch"
+        )
+        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
+        dispatch_context = resolved_inputs.get("context") if resolved_inputs else None
         return BlockContext(
             block_id=block.block_id,
-            instruction=task.instruction or "dispatch",
-            context=task.context,
+            instruction=dispatch_instruction,
+            context=dispatch_context,
             inputs={},
             conversation_history=[],
             soul=dispatch_soul,
@@ -337,31 +339,27 @@ def build_block_context(
         for name, from_ref in step.declared_inputs.items():
             inputs[name] = _resolve_ref(from_ref, state)
 
-    # LinearBlock (and others) strategy: use current_task
-    if state.current_task is None:
-        # Provide a minimal context for test helpers and generic blocks without a task.
-        # Production code should always provide current_task; this path handles
-        # simple test doubles (MockBlock, PlannerBlock, etc.) that don't need task data.
-        return BlockContext(
-            block_id=block.block_id,
-            instruction="",
-            context=None,
-            inputs=inputs,
-            conversation_history=[],
-            soul=soul,
-            model_name=model_name if isinstance(model_name, str) else None,
-            artifact_store=getattr(state, "artifact_store", None),
-            state_snapshot=state,
-        )
+    # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
+    resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
 
-    task = state.current_task
+    # Instruction: prefer soul system_prompt, fall back to _resolved_inputs["instruction"], then ""
+    system_prompt = soul.system_prompt or "" if soul is not None else ""
+    instruction = system_prompt or resolved_inputs.get("instruction", "") or ""
+
+    # Context: workflow-level external input or resolved context input
+    workflow_result = state.results.get("workflow")
+    if workflow_result is not None:
+        raw_context = (
+            workflow_result.output
+            if isinstance(workflow_result, BlockResult)
+            else str(workflow_result)
+        )
+    else:
+        raw_context = resolved_inputs.get("context", "") or ""
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
     history = list(state.conversation_histories.get(history_key, []))
-
-    # Build system_prompt from soul
-    system_prompt = soul.system_prompt or "" if soul is not None else ""
 
     # Call fit_to_budget — use a safe default model when none is configured.
     # Guard against non-string model_name (e.g. MagicMock in tests).
@@ -370,8 +368,8 @@ def build_block_context(
         ContextBudgetRequest(
             model=_model,
             system_prompt=system_prompt,
-            instruction=task.instruction or "",
-            context=task.context or "",
+            instruction=instruction,
+            context=raw_context,
             conversation_history=history,
         ),
         counter=litellm_token_counter,
@@ -379,8 +377,8 @@ def build_block_context(
 
     return BlockContext(
         block_id=block.block_id,
-        instruction=budgeted.task.instruction,
-        context=budgeted.task.context,
+        instruction=budgeted.instruction,
+        context=budgeted.context,
         inputs=inputs,
         conversation_history=budgeted.messages,
         soul=soul,

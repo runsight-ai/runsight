@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 import pytest
 from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.primitives import Step, Task
+from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
 # ===========================================================================
@@ -35,7 +35,6 @@ def make_state(results=None, shared_memory=None, current_task=None) -> WorkflowS
     return WorkflowState(
         results=results or {},
         shared_memory=shared_memory or {},
-        current_task=current_task,
     )
 
 
@@ -113,7 +112,6 @@ class TestAC2StepExecuteSimplified:
         )
         state = make_state(
             results={"source_block": BlockResult(output="hello")},
-            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)
@@ -128,7 +126,7 @@ class TestAC2StepExecuteSimplified:
         """Step.execute must still call the wrapped block and return its state."""
         block = CapturingBlock("inner")
         step = Step(block=block)
-        state = make_state(current_task=Task(id="t1", instruction="go"))
+        state = make_state()
 
         result_state = await step.execute(state)
 
@@ -143,7 +141,6 @@ class TestAC2StepExecuteSimplified:
         initial_sm = {"existing_key": "existing_value"}
         state = make_state(
             shared_memory=dict(initial_sm),
-            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)
@@ -161,7 +158,6 @@ class TestAC2StepExecuteSimplified:
         )
         state = make_state(
             results={"prev": BlockResult(output='{"field": "value"}')},
-            current_task=Task(id="t1", instruction="go"),
         )
         keys_before = set(state.shared_memory.keys())
 
@@ -193,6 +189,8 @@ class TestAC3BuildBlockContextWithStep:
 
         soul = Soul(
             id="analyst",
+            kind="soul",
+            name="Analyst Soul",
             role="Analyst",
             system_prompt="You analyze.",
             model_name="gpt-4o",
@@ -208,7 +206,6 @@ class TestAC3BuildBlockContextWithStep:
 
         state = make_state(
             results={"fetch": BlockResult(output="fetched content")},
-            current_task=Task(id="t1", instruction="analyze it"),
         )
 
         ctx = build_block_context(block, state, step=step)
@@ -228,7 +225,6 @@ class TestAC3BuildBlockContextWithStep:
                     output=json.dumps({"response": {"status": "ok", "code": 200}})
                 )
             },
-            current_task=Task(id="t1", instruction="summarize"),
         )
 
         ctx = build_block_context(block, state, step=step)
@@ -242,7 +238,6 @@ class TestAC3BuildBlockContextWithStep:
 
         state = make_state(
             results={"fetch": BlockResult(output="data")},
-            current_task=Task(id="t1", instruction="go"),
         )
 
         ctx = build_block_context(block, state, step=step)
@@ -256,7 +251,6 @@ class TestAC3BuildBlockContextWithStep:
 
         state = make_state(
             results={},
-            current_task=Task(id="t1", instruction="do it"),
         )
 
         with pytest.raises(ValueError, match="missing_block"):
@@ -288,7 +282,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, pre_hook=pre_hook)
 
-        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
+        await step.execute(make_state())
 
         assert call_order == ["pre", "block"]
 
@@ -309,7 +303,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, post_hook=post_hook)
 
-        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
+        await step.execute(make_state())
 
         assert call_order == ["block", "post"]
 
@@ -334,7 +328,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = OrderBlock("order_block")
         step = Step(block=block, pre_hook=pre_hook, post_hook=post_hook)
 
-        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
+        await step.execute(make_state())
 
         assert call_order == ["pre", "block", "post"]
 
@@ -358,7 +352,7 @@ class TestAC4HooksFireInCorrectOrder:
 
         step = Step(block=block, pre_hook=pre_hook)
 
-        result = await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
+        result = await step.execute(make_state())
 
         # pre_hook ran and inspect block ran (call_order shows pre happened)
         assert "pre" in call_order
@@ -384,7 +378,7 @@ class TestAC4HooksFireInCorrectOrder:
         block = WritingBlock("writer")
         step = Step(block=block, post_hook=post_hook)
 
-        await step.execute(make_state(current_task=Task(id="t1", instruction="go")))
+        await step.execute(make_state())
 
         assert len(captured_state) == 1
         assert captured_state[0].shared_memory.get("block_wrote") == "yes"
@@ -419,7 +413,6 @@ class TestAC4HooksFireInCorrectOrder:
         )
         state = make_state(
             results={"src": BlockResult(output="value")},
-            current_task=Task(id="t1", instruction="go"),
         )
 
         result = await step.execute(state)
@@ -453,7 +446,6 @@ class TestAC5NoResolvedInputsInSharedMemory:
 
         state = make_state(
             results={"upstream": BlockResult(output="upstream_value")},
-            current_task=Task(id="t1", instruction="go"),
         )
         ctx = BlockExecutionContext(
             workflow_name="test_wf",
@@ -489,7 +481,6 @@ class TestAC5NoResolvedInputsInSharedMemory:
                 "block_b": BlockResult(output="beta"),
             },
             shared_memory=dict(initial_sm),
-            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)
@@ -514,7 +505,6 @@ class TestAC5NoResolvedInputsInSharedMemory:
         )
         state = make_state(
             results={"api": BlockResult(output=json.dumps({"response": {"status": "ok"}}))},
-            current_task=Task(id="t1", instruction="go"),
         )
 
         result_state = await step.execute(state)

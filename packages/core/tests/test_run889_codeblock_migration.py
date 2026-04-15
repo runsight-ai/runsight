@@ -23,7 +23,6 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.code import CodeBlock
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
@@ -83,7 +82,6 @@ def _make_state(**overrides) -> WorkflowState:
         "metadata": {},
         "shared_memory": {},
         "execution_log": [],
-        "current_task": Task(id="t1", instruction="run code"),
     }
     defaults.update(overrides)
     return WorkflowState(**defaults)

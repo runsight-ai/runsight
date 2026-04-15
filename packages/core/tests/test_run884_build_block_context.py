@@ -24,7 +24,7 @@ from runsight_core.block_io import (  # noqa: F401
 )
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.memory.budget import BudgetedContext, BudgetReport
-from runsight_core.primitives import Soul, Step, Task
+from runsight_core.primitives import Soul, Step
 from runsight_core.state import BlockResult, WorkflowState
 
 # ==============================================================================
@@ -37,6 +37,8 @@ _MODEL = "gpt-4o"
 def make_soul(soul_id: str = "soul_1", model_name: str = _MODEL) -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Researcher Soul",
         role="Researcher",
         system_prompt="You are a researcher.",
         model_name=model_name,
@@ -55,10 +57,6 @@ def make_linear_block(block_id: str = "block_a", soul: Soul | None = None) -> Li
     return LinearBlock(block_id=block_id, soul=soul, runner=make_runner())
 
 
-def make_task(instruction: str = "Do the thing", context: str | None = None) -> Task:
-    return Task(id="task_1", instruction=instruction, context=context)
-
-
 def make_state(**kwargs) -> WorkflowState:
     return WorkflowState(**kwargs)
 
@@ -73,7 +71,6 @@ def _make_budgeted_context(
     messages: list | None = None,
 ) -> BudgetedContext:
     """Construct a fake BudgetedContext returned by mocked fit_to_budget."""
-    task = Task(id="budget_task", instruction=instruction, context=context)
     report = BudgetReport(
         model=_MODEL,
         max_input_tokens=128000,
@@ -89,7 +86,9 @@ def _make_budgeted_context(
         headroom=99985,
         warnings=[],
     )
-    return BudgetedContext(task=task, messages=messages or [], report=report)
+    return BudgetedContext(
+        instruction=instruction, context=context, messages=messages or [], report=report
+    )
 
 
 # ==============================================================================
@@ -103,7 +102,7 @@ class TestInputResolution:
     def test_empty_declared_inputs_produces_empty_ctx_inputs(self):
         """When step.declared_inputs is empty, ctx.inputs is an empty dict."""
         block = make_linear_block()
-        state = make_state(current_task=make_task())
+        state = make_state()
         step = Step(block, declared_inputs={})
 
         budgeted = _make_budgeted_context()
@@ -116,7 +115,6 @@ class TestInputResolution:
         """Single declared input resolves to the matching BlockResult.output."""
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={"block_upstream": BlockResult(output="defective")},
         )
         step = Step(block, declared_inputs={"reason": "block_upstream"})
@@ -131,7 +129,6 @@ class TestInputResolution:
         """Multiple declared inputs each resolve to their respective BlockResult.output."""
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={
                 "src_a": BlockResult(output="alpha"),
                 "src_b": BlockResult(output="beta"),
@@ -149,7 +146,7 @@ class TestInputResolution:
     def test_missing_source_raises_value_error(self):
         """Referencing a non-existent block_id in declared_inputs raises ValueError."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(), results={})
+        state = make_state(results={})
         step = Step(block, declared_inputs={"x": "nonexistent"})
 
         budgeted = _make_budgeted_context()
@@ -161,7 +158,6 @@ class TestInputResolution:
         """JSON output is parsed and dot-path resolution extracts the correct field."""
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={"block_a": BlockResult(output='{"key": "val"}')},
         )
         step = Step(block, declared_inputs={"extracted": "block_a.key"})
@@ -176,7 +172,6 @@ class TestInputResolution:
         """Non-JSON output with dot-path ref returns the raw string (no crash)."""
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={"block_a": BlockResult(output="plain text")},
         )
         step = Step(block, declared_inputs={"data": "block_a.subfield"})
@@ -204,7 +199,6 @@ class TestParityWithResolveRef:
 
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={"src": BlockResult(output="the output")},
         )
         step = Step(block, declared_inputs={"result": "src"})
@@ -223,7 +217,6 @@ class TestParityWithResolveRef:
 
         block = make_linear_block()
         state = make_state(
-            current_task=make_task(),
             results={"src": BlockResult(output='{"nested": {"value": 42}}')},
         )
         step = Step(block, declared_inputs={"num": "src.nested.value"})
@@ -241,7 +234,7 @@ class TestParityWithResolveRef:
         from runsight_core.block_io import _resolve_ref
 
         block = make_linear_block()
-        state = make_state(current_task=make_task(), results={})
+        state = make_state(results={})
         step = Step(block, declared_inputs={"x": "missing_block"})
 
         with pytest.raises(ValueError):
@@ -264,7 +257,7 @@ class TestLinearBlockContextPopulation:
     def test_block_id_matches_block(self):
         """ctx.block_id equals block.block_id."""
         block = make_linear_block(block_id="my_block")
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -275,7 +268,7 @@ class TestLinearBlockContextPopulation:
     def test_instruction_comes_from_budgeted_task(self):
         """ctx.instruction is taken from the BudgetedContext.task.instruction."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(instruction="original instruction"))
+        state = make_state()
 
         budgeted = _make_budgeted_context(instruction="budgeted instruction")
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -286,7 +279,7 @@ class TestLinearBlockContextPopulation:
     def test_context_comes_from_budgeted_task(self):
         """ctx.context is taken from the BudgetedContext.task.context."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(instruction="instr", context="original context"))
+        state = make_state()
 
         budgeted = _make_budgeted_context(instruction="instr", context="budgeted context")
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -298,7 +291,7 @@ class TestLinearBlockContextPopulation:
         """ctx.soul matches block.soul."""
         soul = make_soul(soul_id="soul_unique")
         block = make_linear_block(soul=soul)
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -311,7 +304,7 @@ class TestLinearBlockContextPopulation:
         """ctx.model_name is resolved from soul.model_name when set."""
         soul = make_soul(model_name="claude-3-opus")
         block = make_linear_block(soul=soul)
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -321,10 +314,12 @@ class TestLinearBlockContextPopulation:
 
     def test_model_name_falls_back_to_runner_model_name(self):
         """ctx.model_name falls back to runner.model_name when soul.model_name is None."""
-        soul = Soul(id="s1", role="R", system_prompt="p", model_name=None)
+        soul = Soul(
+            id="soul_1", kind="soul", name="Test", role="R", system_prompt="p", model_name=None
+        )
         runner = make_runner(model_name="gpt-4-turbo")
         block = LinearBlock(block_id="block_a", soul=soul, runner=runner)
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -342,7 +337,6 @@ class TestLinearBlockContextPopulation:
             {"role": "assistant", "content": "Hi"},
         ]
         state = make_state(
-            current_task=make_task(),
             conversation_histories={history_key: existing_history},
         )
 
@@ -356,7 +350,7 @@ class TestLinearBlockContextPopulation:
         """ctx.conversation_history is empty when state has no history for this block-soul."""
         soul = make_soul(soul_id="soul_1")
         block = make_linear_block(block_id="block_a", soul=soul)
-        state = make_state(current_task=make_task(), conversation_histories={})
+        state = make_state(conversation_histories={})
 
         budgeted = _make_budgeted_context(messages=[])
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -380,7 +374,6 @@ class TestConversationHistoryShallowCopy:
         history_key = "block_a_soul_1"
         original_history = [{"role": "user", "content": "Question"}]
         state = make_state(
-            current_task=make_task(),
             conversation_histories={history_key: original_history},
         )
 
@@ -397,7 +390,6 @@ class TestConversationHistoryShallowCopy:
         history_key = "block_a_soul_1"
         original_history = [{"role": "user", "content": "Question"}]
         state = make_state(
-            current_task=make_task(),
             conversation_histories={history_key: original_history},
         )
         original_len = len(original_history)
@@ -422,7 +414,7 @@ class TestFitToBudgetIntegration:
     def test_fit_to_budget_is_called(self):
         """fit_to_budget is invoked when building context for a LinearBlock."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(instruction="Test instr"))
+        state = make_state()
 
         budgeted = _make_budgeted_context(instruction="Test instr")
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:
@@ -434,7 +426,7 @@ class TestFitToBudgetIntegration:
         """fit_to_budget is called with the resolved model name."""
         soul = make_soul(soul_id="soul_1", model_name="gpt-4o-mini")
         block = make_linear_block(soul=soul)
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:
@@ -445,30 +437,32 @@ class TestFitToBudgetIntegration:
         assert request.model == "gpt-4o-mini"
 
     def test_fit_to_budget_receives_correct_instruction(self):
-        """fit_to_budget is called with instruction from state.current_task."""
-        block = make_linear_block()
-        state = make_state(current_task=make_task(instruction="specific instruction"))
+        """fit_to_budget is called with soul.system_prompt as instruction for LinearBlock."""
+        soul = make_soul(soul_id="soul_1")
+        block = make_linear_block(soul=soul)
+        state = make_state()
 
-        budgeted = _make_budgeted_context(instruction="specific instruction")
+        budgeted = _make_budgeted_context(instruction=soul.system_prompt)
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:
             build_block_context(block, state)
 
         call_args = mock_fit.call_args
         request = call_args[0][0]
-        assert request.instruction == "specific instruction"
+        assert request.instruction == soul.system_prompt
 
     def test_fit_to_budget_receives_correct_context(self):
-        """fit_to_budget is called with context from state.current_task."""
+        """fit_to_budget is called with context from state.results['workflow'] or empty string."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(context="some background"))
+        state = make_state()
 
-        budgeted = _make_budgeted_context(context="some background")
+        budgeted = _make_budgeted_context(context="")
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:
             build_block_context(block, state)
 
         call_args = mock_fit.call_args
         request = call_args[0][0]
-        assert request.context == "some background"
+        # No workflow result in state, so context defaults to ""
+        assert request.context == "" or request.context is None
 
     def test_fit_to_budget_receives_conversation_history(self):
         """fit_to_budget is called with conversation history keyed by block_id_soul_id."""
@@ -477,7 +471,6 @@ class TestFitToBudgetIntegration:
         history = [{"role": "user", "content": "prior turn"}]
         # Key is "{block_id}_{soul_id}"
         state = make_state(
-            current_task=make_task(),
             conversation_histories={"block_a_soul_1": history},
         )
 
@@ -493,12 +486,14 @@ class TestFitToBudgetIntegration:
         """fit_to_budget is called with system_prompt from block.soul.system_prompt."""
         soul = Soul(
             id="soul_1",
+            kind="soul",
+            name="Specialized Soul",
             role="R",
             system_prompt="You are a specialized assistant.",
             model_name=_MODEL,
         )
         block = make_linear_block(soul=soul)
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:
@@ -511,7 +506,7 @@ class TestFitToBudgetIntegration:
     def test_budgeted_messages_populate_conversation_history(self):
         """ctx.conversation_history is populated from BudgetedContext.messages."""
         block = make_linear_block()
-        state = make_state(current_task=make_task())
+        state = make_state()
         pruned_messages = [{"role": "user", "content": "kept message"}]
 
         budgeted = _make_budgeted_context(messages=pruned_messages)
@@ -533,7 +528,7 @@ class TestArtifactStorePassthrough:
         """ctx.artifact_store is the same object as state.artifact_store."""
         store = make_artifact_store()
         block = make_linear_block()
-        state = make_state(current_task=make_task(), artifact_store=store)
+        state = make_state(artifact_store=store)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -544,7 +539,7 @@ class TestArtifactStorePassthrough:
     def test_artifact_store_none_when_state_has_none(self):
         """ctx.artifact_store is None when state.artifact_store is None."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(), artifact_store=None)
+        state = make_state(artifact_store=None)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -564,7 +559,7 @@ class TestEdgeCases:
     def test_no_step_provided_inputs_is_empty(self):
         """When step=None, no input resolution occurs and ctx.inputs is empty."""
         block = make_linear_block()
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -573,24 +568,24 @@ class TestEdgeCases:
         assert ctx.inputs == {}
 
     def test_current_task_none_returns_minimal_context(self):
-        """When state.current_task is None, build_block_context returns a minimal context.
+        """build_block_context returns a valid context even when no workflow result exists.
 
-        Since RUN-893 the function returns a minimal BlockContext with empty instruction
-        instead of raising, to support generic test helpers and blocks that don't need
-        a task. fit_to_budget is NOT called in this path.
+        Since RUN-893 the function no longer requires a task. For LinearBlock, the
+        instruction comes from soul.system_prompt and context defaults to empty string.
         """
         block = make_linear_block()
-        state = make_state(current_task=None)
+        state = make_state()
 
-        ctx = build_block_context(block, state)
-        assert ctx.instruction == ""
-        assert ctx.context is None
+        budgeted = _make_budgeted_context(instruction=block.soul.system_prompt, context=None)
+        with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
+            ctx = build_block_context(block, state)
+        assert ctx.instruction == block.soul.system_prompt
         assert ctx.state_snapshot is state
 
     def test_step_with_empty_declared_inputs_no_step_produces_same_result(self):
         """Passing step with no declared_inputs is equivalent to passing step=None for inputs."""
         block = make_linear_block()
-        state = make_state(current_task=make_task())
+        state = make_state()
         step = Step(block, declared_inputs={})
 
         budgeted = _make_budgeted_context()
@@ -605,7 +600,7 @@ class TestEdgeCases:
     def test_returns_block_context_instance(self):
         """build_block_context returns a BlockContext instance."""
         block = make_linear_block()
-        state = make_state(current_task=make_task())
+        state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -616,7 +611,7 @@ class TestEdgeCases:
     def test_task_context_none_passes_empty_string_to_budget(self):
         """When task.context is None, fit_to_budget receives an empty string (not None)."""
         block = make_linear_block()
-        state = make_state(current_task=make_task(context=None))
+        state = make_state()
 
         budgeted = _make_budgeted_context(context=None)
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted) as mock_fit:

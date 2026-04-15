@@ -23,7 +23,7 @@ from runsight_core.block_io import (
 )
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -37,7 +37,7 @@ from runsight_core.workflow import BlockExecutionContext, execute_block
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
     runner._build_prompt = MagicMock(
         side_effect=lambda task: (
@@ -51,17 +51,29 @@ def mock_runner():
 
 @pytest.fixture
 def soul_alpha():
-    return Soul(id="soul_alpha", role="Reviewer A", system_prompt="You are reviewer A.")
+    return Soul(
+        id="soul_alpha",
+        kind="soul",
+        name="Test",
+        role="Reviewer A",
+        system_prompt="You are reviewer A.",
+    )
 
 
 @pytest.fixture
 def soul_beta():
-    return Soul(id="soul_beta", role="Reviewer B", system_prompt="You are reviewer B.")
+    return Soul(
+        id="soul_beta",
+        kind="soul",
+        name="Test",
+        role="Reviewer B",
+        system_prompt="You are reviewer B.",
+    )
 
 
 @pytest.fixture
 def sample_task():
-    return Task(id="t1", instruction="dispatch")
+    return {"instruction": "dispatch"}
 
 
 @pytest.fixture
@@ -93,12 +105,13 @@ def _make_result(soul_id: str, output: str, cost: float = 0.0, tokens: int = 0) 
     )
 
 
-def _make_dispatch_ctx(block_id: str, task: Task) -> BlockContext:
+def _make_dispatch_ctx(block_id: str, task: dict | None = None) -> BlockContext:
     """Build a minimal BlockContext for a DispatchBlock (branches info in inputs)."""
+    instruction = (task or {}).get("instruction", "dispatch")
     return BlockContext(
         block_id=block_id,
-        instruction=task.instruction or "dispatch",
-        context=task.context,
+        instruction=instruction,
+        context=None,
         inputs={},
         conversation_history=[],
         soul=None,
@@ -107,12 +120,12 @@ def _make_dispatch_ctx(block_id: str, task: Task) -> BlockContext:
 
 
 def _setup_runner_side_effect(mock_runner, soul_output_map: dict):
-    """Configure runner.execute_task to return different outputs per soul."""
+    """Configure runner.execute to return different outputs per soul."""
 
-    async def _side_effect(task, soul, **kwargs):
+    async def _side_effect(instruction, context, soul, **kwargs):
         return soul_output_map[soul.id]
 
-    mock_runner.execute_task = AsyncMock(side_effect=_side_effect)
+    mock_runner.execute = AsyncMock(side_effect=_side_effect)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +320,7 @@ def test_build_block_context_for_dispatchblock_returns_block_context(
     """build_block_context for DispatchBlock must return a BlockContext instance."""
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     ctx = build_block_context(block, state)
 
@@ -322,26 +335,26 @@ def test_build_block_context_for_dispatchblock_sets_correct_block_id(
     """build_block_context must set ctx.block_id to the DispatchBlock's block_id."""
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     ctx = build_block_context(block, state)
 
     assert ctx.block_id == "dispatch1", f"Expected block_id='dispatch1', got {ctx.block_id!r}"
 
 
-def test_build_block_context_for_dispatchblock_sets_instruction_from_task(
+def test_build_block_context_for_dispatchblock_sets_instruction_from_branches(
     mock_runner, soul_alpha, soul_beta
 ):
-    """build_block_context must set ctx.instruction from state.current_task.instruction."""
+    """build_block_context must set ctx.instruction from first branch task_instruction."""
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    task = Task(id="t1", instruction="Classify this document")
-    state = WorkflowState(current_task=task)
+    state = WorkflowState()
 
     ctx = build_block_context(block, state)
 
-    assert ctx.instruction == "Classify this document", (
-        f"Expected instruction from current_task, got {ctx.instruction!r}"
+    # After migration, instruction comes from first branch's task_instruction
+    assert ctx.instruction == "Do task A", (
+        f"Expected instruction from first branch task_instruction, got {ctx.instruction!r}"
     )
 
 
@@ -356,7 +369,7 @@ def test_build_block_context_for_dispatchblock_branches_accessible_via_inputs(
     """
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     ctx = build_block_context(block, state)
 
@@ -370,20 +383,24 @@ def test_build_block_context_for_dispatchblock_branches_accessible_via_inputs(
     assert ctx.block_id == "dispatch1"
 
 
-def test_build_block_context_for_dispatchblock_raises_if_no_current_task(
+def test_build_block_context_for_dispatchblock_returns_block_context_without_task(
     mock_runner, soul_alpha, soul_beta
 ):
-    """build_block_context must raise ValueError if state.current_task is None for DispatchBlock."""
+    """build_block_context for DispatchBlock returns valid BlockContext even without task.
+
+    After RUN-866 removal of Task/current_task, DispatchBlock context is built
+    from branch task_instruction — no current_task required.
+    """
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=None)
+    state = WorkflowState()
 
-    with pytest.raises(ValueError) as exc_info:
-        build_block_context(block, state)
+    ctx = build_block_context(block, state)
 
-    assert "current_task" in str(exc_info.value).lower(), (
-        f"ValueError must mention current_task. Got: {str(exc_info.value)!r}"
+    assert isinstance(ctx, BlockContext), (
+        f"Expected BlockContext from build_block_context, got {type(ctx).__name__}"
     )
+    assert ctx.block_id == "dispatch1"
 
 
 # ---------------------------------------------------------------------------
@@ -402,14 +419,14 @@ async def test_budget_isolation_one_branch_exceeding_cap_does_not_bleed_to_sibli
     """
     captured_sessions: dict[str, object] = {}
 
-    async def _side_effect_with_capture(task, soul, **kwargs):
+    async def _side_effect_with_capture(instruction, context, soul, **kwargs):
         # Capture the active budget session at call time for each branch
         captured_sessions[soul.id] = _active_budget.get(None)
         cost = 0.001 if soul.id == "soul_alpha" else 0.001
         tokens = 10
         return _make_result(soul.id, f"{soul.id} output", cost=cost, tokens=tokens)
 
-    mock_runner.execute_task = AsyncMock(side_effect=_side_effect_with_capture)
+    mock_runner.execute = AsyncMock(side_effect=_side_effect_with_capture)
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
@@ -483,14 +500,14 @@ async def test_budget_isolation_parent_costs_reconciled_after_gather(
         "soul_beta": _make_result("soul_beta", "Beta.", cost=0.03, tokens=300),
     }
 
-    async def _accruing_side_effect(task, soul, **kwargs):
+    async def _accruing_side_effect(instruction, context, soul, **kwargs):
         result = results_by_soul[soul.id]
         session = _active_budget.get(None)
         if session is not None:
             session.accrue(cost_usd=result.cost_usd, tokens=result.total_tokens)
         return result
 
-    mock_runner.execute_task = AsyncMock(side_effect=_accruing_side_effect)
+    mock_runner.execute = AsyncMock(side_effect=_accruing_side_effect)
 
     parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=10.0)
     initial_cost = parent.cost_usd
@@ -637,7 +654,7 @@ async def test_apply_block_output_merges_extra_results_into_state(
     output = await block.execute(ctx)
     assert isinstance(output, BlockOutput)
 
-    initial_state = WorkflowState(current_task=sample_task)
+    initial_state = WorkflowState()
     new_state = apply_block_output(initial_state, "dispatch1", output)
 
     # Combined result at block_id key
@@ -823,7 +840,6 @@ async def test_stateful_dispatchblock_apply_block_output_extends_conversation_hi
     # Provide prior history via state_snapshot so the block reads it correctly.
     # In real execution, build_block_context populates state_snapshot from WorkflowState.
     initial_state = WorkflowState(
-        current_task=sample_task,
         conversation_histories={
             "dispatch1_exit_a": prior_alpha,
             "dispatch1_exit_b": prior_beta,
@@ -903,7 +919,7 @@ async def test_execute_block_dispatches_dispatchblock_via_new_path(
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     with patch(
         "runsight_core.workflow.build_block_context",
@@ -933,7 +949,7 @@ async def test_execute_block_dispatchblock_state_has_combined_output(
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     result_state = await execute_block(block, state, block_execution_ctx)
 
@@ -962,7 +978,7 @@ async def test_execute_block_dispatchblock_per_exit_results_in_state(
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     result_state = await execute_block(block, state, block_execution_ctx)
 
@@ -991,7 +1007,7 @@ async def test_execute_block_dispatchblock_accumulates_cost(
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task, total_cost_usd=0.10, total_tokens=100)
+    state = WorkflowState(total_cost_usd=0.10, total_tokens=100)
 
     result_state = await execute_block(block, state, block_execution_ctx)
 
@@ -1019,7 +1035,7 @@ async def test_execute_block_dispatchblock_apply_block_output_called(
 
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
-    state = WorkflowState(current_task=sample_task)
+    state = WorkflowState()
 
     apply_calls = []
     original_apply = apply_block_output
@@ -1053,7 +1069,6 @@ async def test_execute_block_dispatchblock_preserves_prior_results(
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
     state = WorkflowState(
-        current_task=sample_task,
         results={"prior_block": BlockResult(output="Prior output")},
     )
 

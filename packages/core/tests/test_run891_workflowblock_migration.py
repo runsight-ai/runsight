@@ -20,7 +20,6 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.workflow_block import WorkflowBlock
-from runsight_core.primitives import Task
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
@@ -81,9 +80,7 @@ def _make_block_context(
     """
     return BlockContext(
         block_id=block_id,
-        instruction=(
-            state.current_task.instruction if state.current_task is not None else "invoke child"
-        ),
+        instruction="invoke child",
         context=None,
         inputs={
             "call_stack": call_stack or [],
@@ -102,7 +99,6 @@ def _make_base_state(
     instruction: str = "run child",
 ) -> WorkflowState:
     return WorkflowState(
-        current_task=Task(id="t1", instruction=instruction),
         shared_memory=shared_memory or {},
         results=results or {},
     )

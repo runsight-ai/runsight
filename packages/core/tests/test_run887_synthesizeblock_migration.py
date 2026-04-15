@@ -18,7 +18,7 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.synthesize import SynthesizeBlock
-from runsight_core.primitives import Soul, Task
+from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
@@ -32,7 +32,7 @@ from runsight_core.workflow import BlockExecutionContext, execute_block
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.execute_task = AsyncMock()
+    runner.execute = AsyncMock()
     runner.model_name = "gpt-4o"
     runner._build_prompt = MagicMock(
         side_effect=lambda task: (
@@ -46,7 +46,13 @@ def mock_runner():
 
 @pytest.fixture
 def synth_soul():
-    return Soul(id="synth_soul", role="Synthesizer", system_prompt="Synthesize everything.")
+    return Soul(
+        id="synth_soul",
+        kind="soul",
+        name="Test",
+        role="Synthesizer",
+        system_prompt="Synthesize everything.",
+    )
 
 
 @pytest.fixture
@@ -89,7 +95,7 @@ def _make_synth_block_context(
 @pytest.mark.asyncio
 async def test_synthesizeblock_execute_accepts_block_context(mock_runner, synth_soul):
     """SynthesizeBlock.execute must accept a BlockContext argument and return BlockOutput."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesized result.",
@@ -113,7 +119,7 @@ async def test_synthesizeblock_execute_accepts_block_context(mock_runner, synth_
 @pytest.mark.asyncio
 async def test_synthesizeblock_execute_output_contains_llm_response(mock_runner, synth_soul):
     """BlockOutput.output must contain the LLM response string."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="The unified synthesis.",
@@ -132,7 +138,7 @@ async def test_synthesizeblock_execute_output_contains_llm_response(mock_runner,
 @pytest.mark.asyncio
 async def test_synthesizeblock_execute_populates_cost_and_tokens(mock_runner, synth_soul):
     """BlockOutput.cost_usd and total_tokens must be populated from ExecutionResult."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Done.",
@@ -154,7 +160,7 @@ async def test_synthesizeblock_execute_populates_cost_and_tokens(mock_runner, sy
 @pytest.mark.asyncio
 async def test_synthesizeblock_execute_log_entries_contain_block_id(mock_runner, synth_soul):
     """BlockOutput.log_entries must contain at least one entry referencing the block_id."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesis done.",
@@ -178,7 +184,7 @@ async def test_synthesizeblock_execute_log_entries_contain_block_id(mock_runner,
 @pytest.mark.asyncio
 async def test_synthesizeblock_execute_returns_data_not_state(mock_runner, synth_soul):
     """BlockOutput is a pure data object — no WorkflowState fields present."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Output.",
@@ -314,7 +320,6 @@ def test_build_block_context_synthesize_missing_one_input_raises(mock_runner, sy
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
     state = WorkflowState(
         results={"block_a": BlockResult(output="Output A")},
-        current_task=Task(id="t1", instruction="synthesize"),
         # block_b deliberately missing
     )
 
@@ -330,7 +335,9 @@ def test_build_block_context_synthesize_missing_one_input_raises(mock_runner, sy
 def test_build_block_context_synthesize_missing_all_inputs_raises(mock_runner, synth_soul):
     """build_block_context must raise ValueError when all input_block_ids are absent."""
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
-    state = WorkflowState(results={}, current_task=Task(id="t1", instruction="synthesize"))
+    state = WorkflowState(
+        results={},
+    )
 
     with pytest.raises(ValueError) as exc_info:
         build_block_context(block, state)
@@ -345,7 +352,6 @@ def test_build_block_context_synthesize_error_message_lists_available(mock_runne
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], synth_soul, mock_runner)
     state = WorkflowState(
         results={"block_a": BlockResult(output="Output A"), "other_block": BlockResult(output="X")},
-        current_task=Task(id="t1", instruction="synthesize"),
         # block_b missing; other_block is present
     )
 
@@ -371,7 +377,7 @@ async def test_execute_block_dispatches_synthesizeblock_via_new_path(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """execute_block must route SynthesizeBlock through build_block_context + apply_block_output."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesized result.",
@@ -406,7 +412,7 @@ async def test_execute_block_synthesizeblock_state_has_output(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """After execute_block with SynthesizeBlock, state.results[synth_id].output is the LLM output."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Cohesive final synthesis.",
@@ -435,7 +441,7 @@ async def test_execute_block_synthesizeblock_accumulates_cost(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """execute_block via SynthesizeBlock new path must accumulate cost_usd in state."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesis.",
@@ -466,7 +472,7 @@ async def test_execute_block_synthesizeblock_apply_block_output_called(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """execute_block must call apply_block_output for SynthesizeBlock (new path)."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesis.",
@@ -507,7 +513,7 @@ async def test_execute_block_synthesizeblock_combined_context_passed_to_llm(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """The combined outputs must be passed as context to execute_task (identical to old path)."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesized.",
@@ -523,14 +529,15 @@ async def test_execute_block_synthesizeblock_combined_context_passed_to_llm(
 
     await execute_block(block, state, block_execution_ctx)
 
-    # Verify runner.execute_task was called and the task contains combined outputs
-    assert mock_runner.execute_task.called
-    call_args = mock_runner.execute_task.call_args
-    task_arg = call_args[0][0]  # First positional arg is Task
-    assert "Output A" in task_arg.context, "Task context must include 'Output A' from block_a"
-    assert "Output B" in task_arg.context, "Task context must include 'Output B' from block_b"
-    assert "=== Output from block_a ===" in task_arg.context
-    assert "=== Output from block_b ===" in task_arg.context
+    # Verify runner.execute was called and the context contains combined outputs
+    assert mock_runner.execute.called
+    call_args = mock_runner.execute.call_args
+    # runner.execute is called as (instruction, context, soul) after migration
+    context_arg = call_args[0][1]  # Second positional arg is context string
+    assert "Output A" in context_arg, "Context must include 'Output A' from block_a"
+    assert "Output B" in context_arg, "Context must include 'Output B' from block_b"
+    assert "=== Output from block_a ===" in context_arg
+    assert "=== Output from block_b ===" in context_arg
 
 
 @pytest.mark.asyncio
@@ -538,7 +545,7 @@ async def test_execute_block_synthesizeblock_execution_log_extended(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """execute_block via SynthesizeBlock must extend state.execution_log."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesis.",
@@ -578,7 +585,7 @@ async def test_execute_block_synthesizeblock_missing_input_raises_before_llm_cal
 
     assert "block_b" in str(exc_info.value)
     # LLM must NOT have been called
-    mock_runner.execute_task.assert_not_called()
+    mock_runner.execute.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -586,7 +593,7 @@ async def test_execute_block_preserves_prior_results_after_synthesize(
     mock_runner, synth_soul, block_execution_ctx
 ):
     """execute_block via SynthesizeBlock must preserve all prior state.results entries."""
-    mock_runner.execute_task.return_value = ExecutionResult(
+    mock_runner.execute.return_value = ExecutionResult(
         task_id="synth1_synthesis",
         soul_id="synth_soul",
         output="Synthesized.",
