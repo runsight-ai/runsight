@@ -300,10 +300,6 @@ class TestCombinedBranchCostsWithinFlowCap:
 # ===========================================================================
 
 
-@pytest.mark.xfail(
-    reason="Requires real subprocess isolation — paid-result preservation is an IPC interceptor behavior",
-    strict=False,
-)
 class TestCombinedBranchCostsExceedFlowCap:
     """Flow limits: {cost_cap_usd: 2.00}, dispatch with 3 branches.
     Branches cost $0.80, $0.90, $0.70 (total $2.40 > $2.00).

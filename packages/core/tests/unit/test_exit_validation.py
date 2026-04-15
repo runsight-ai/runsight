@@ -8,7 +8,6 @@ These tests cover the current behavior:
 - parser stores _declared_exits on runtime blocks after building
 """
 
-import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
@@ -242,14 +241,15 @@ class TestConditionalWorkflowsWithoutExits:
 class TestParserStoresDeclaredExits:
     """Parser stores declared exits on runtime blocks for validation."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parsed_block_has_declared_exits_attribute(self):
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test_exits_stored
+kind: workflow
 workflow:
+  id: test_exits_stored
+  kind: workflow
   name: test_exits_stored
   entry: decision
   transitions: []
@@ -261,7 +261,9 @@ workflow:
 
 souls:
   test_soul:
-    id: test_soul_1
+    id: test_soul
+    kind: soul
+    name: Test
     role: Test
     system_prompt: "test"
 

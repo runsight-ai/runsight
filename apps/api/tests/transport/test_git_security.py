@@ -172,11 +172,9 @@ class TestSymlinkEscape:
 
     def test_symlink_outside_base_path_rejected(self, git_repo):
         """A symlinked file pointing outside base_path must not be staged."""
-        # Create a symlink inside the repo pointing to /etc/hosts
+        # Create a symlink inside the repo pointing to a file outside the repo root.
         link_path = git_repo / "custom" / "workflows" / "evil_link.yaml"
-        target = Path("/etc/hosts")
-        if not target.exists():
-            pytest.skip("/etc/hosts not available on this system")
+        target = Path(__file__).resolve()
         link_path.symlink_to(target)
 
         resp = client.post(

@@ -27,19 +27,33 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 DISPATCH_SYNTHESIZE_YAML = """\
 version: "1.0"
+id: dispatch_v2_test
+kind: workflow
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: "You research topics."
+    provider: openai
+    model_name: gpt-4o
   coder:
     id: coder
+    kind: soul
+    name: Software Engineer
     role: Software Engineer
     system_prompt: "You write code."
+    provider: openai
+    model_name: gpt-4o
   synthesizer:
     id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: "You synthesize inputs."
+    provider: openai
+    model_name: gpt-4o
 
 blocks:
   dispatch_work:
@@ -60,6 +74,8 @@ blocks:
     input_block_ids: [dispatch_work]
 
 workflow:
+  id: dispatch_v2_test
+  kind: workflow
   name: dispatch_v2_test
   entry: dispatch_work
   transitions:
@@ -71,19 +87,33 @@ workflow:
 
 PER_EXIT_REF_YAML = """\
 version: "1.0"
+id: dispatch_v2_per_exit_test
+kind: workflow
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: "You research topics."
+    provider: openai
+    model_name: gpt-4o
   coder:
     id: coder
+    kind: soul
+    name: Software Engineer
     role: Software Engineer
     system_prompt: "You write code."
+    provider: openai
+    model_name: gpt-4o
   synthesizer:
     id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: "You synthesize inputs."
+    provider: openai
+    model_name: gpt-4o
 
 blocks:
   dispatch_work:
@@ -104,6 +134,8 @@ blocks:
     input_block_ids: ["dispatch_work.researcher", "dispatch_work.coder"]
 
 workflow:
+  id: dispatch_v2_per_exit_test
+  kind: workflow
   name: dispatch_v2_per_exit_test
   entry: dispatch_work
   transitions:
@@ -156,9 +188,6 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_full_pipeline_parse_and_run(self, mock_acompletion):
         """Full YAML -> parse -> run workflow -> verify Dispatch per-exit + Synthesize."""
         call_count = 0
@@ -231,9 +260,6 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_dispatch_branches_receive_different_tasks(self, mock_acompletion):
         """Verify each Dispatch branch receives its own task instruction, not a shared one."""
         captured_prompts = []
@@ -274,9 +300,6 @@ class TestFullPipeline:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_synthesize_receives_combined_dispatch_output(self, mock_acompletion):
         """SynthesizeBlock with input_block_ids: [dispatch_work] reads the combined JSON output."""
         captured_synth_context = []
@@ -392,9 +415,6 @@ class TestPerExitReferences:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_per_exit_ref_yaml_parses(self, mock_acompletion):
         """YAML with input_block_ids referencing per-exit keys parses without error."""
 
@@ -860,9 +880,6 @@ class TestContextInheritance:
 
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion")
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_context_inheritance_through_full_yaml_pipeline(self, mock_acompletion):
         """Full YAML pipeline: context set on WorkflowState.current_task flows to Dispatch branches."""
         captured_messages = []

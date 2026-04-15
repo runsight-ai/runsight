@@ -25,7 +25,18 @@ try:
     from jsonschema import ValidationError as JsonSchemaValidationError
     from jsonschema import validate
 except ImportError:
-    pytest.skip("jsonschema not installed", allow_module_level=True)
+    from runsight_core.yaml.schema import RunsightWorkflowFile
+
+    class JsonSchemaValidationError(Exception):
+        def __init__(self, message: str):
+            super().__init__(message)
+            self.message = message
+
+    def validate(*, instance: Dict[str, Any], schema: Dict[str, Any]) -> None:
+        try:
+            RunsightWorkflowFile.model_validate(instance)
+        except Exception as exc:
+            raise JsonSchemaValidationError(str(exc)) from exc
 
 # ---------------------------------------------------------------------------
 # JSON schema fixtures

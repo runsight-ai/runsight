@@ -352,6 +352,7 @@ PARTIALLY_CLEANED_FILES = [
     CORE_TESTS / "test_retryblock_migration.py",
     CORE_TESTS / "test_integration_merge_validation.py",
 ]
+PARTIALLY_CLEANED_FILES = tuple(path for path in PARTIALLY_CLEANED_FILES if path.exists())
 
 
 class TestNoNewXfailMarkers:
@@ -364,9 +365,6 @@ class TestNoNewXfailMarkers:
     )
     def test_no_xfail_in_cleaned_file(self, filepath: Path) -> None:
         """Touched files must not contain any xfail markers after cleanup."""
-        if not filepath.exists():
-            pytest.skip(f"{filepath.name} does not exist (may have been fully deleted)")
-
         source = filepath.read_text()
         tree = ast.parse(source)
 
