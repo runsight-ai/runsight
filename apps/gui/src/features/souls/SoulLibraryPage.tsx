@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@runsight/ui/table";
 import type { SoulListResponse, SoulResponse } from "@runsight/shared/zod";
+import { getTimeAgo } from "@/utils/formatting";
 
 function normalizeSoulData(data: SoulListResponse | SoulResponse[] | undefined): SoulResponse[] {
   if (!data) {
@@ -78,31 +79,6 @@ function formatMetadataLabel(value: string, kind: "origin" | "executor"): string
 
 function formatWorkflowCount(count: number) {
   return `${count} workflow${count === 1 ? "" : "s"}`;
-}
-
-function formatRelativeTime(timestamp: number | null | undefined) {
-  if (!timestamp) {
-    return "—";
-  }
-
-  const secondsAgo = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
-
-  if (secondsAgo < 60) {
-    return "just now";
-  }
-
-  const minutesAgo = Math.floor(secondsAgo / 60);
-  if (minutesAgo < 60) {
-    return `${minutesAgo}m ago`;
-  }
-
-  const hoursAgo = Math.floor(minutesAgo / 60);
-  if (hoursAgo < 24) {
-    return `${hoursAgo}h ago`;
-  }
-
-  const daysAgo = Math.floor(hoursAgo / 24);
-  return `${daysAgo}d ago`;
 }
 
 function buildColumns(
@@ -263,7 +239,7 @@ function buildColumns(
       sortValue: (row) => Number(row.modified_at ?? 0),
       render: (row) => (
         <span className="text-muted">
-          {formatRelativeTime(row.modified_at as number | null | undefined)}
+          {(row.modified_at as number | null | undefined) ? getTimeAgo(new Date((row.modified_at as number) * 1000).toISOString()) : "—"}
         </span>
       ),
     },
