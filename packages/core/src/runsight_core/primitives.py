@@ -130,6 +130,11 @@ class Step:
                     "shared_memory": {**state.shared_memory, "_resolved_inputs": resolved_inputs}
                 }
             )
+        else:
+            # Clear stale resolved inputs from previous step
+            if "_resolved_inputs" in state.shared_memory:
+                new_sm = {k: v for k, v in state.shared_memory.items() if k != "_resolved_inputs"}
+                state = state.model_copy(update={"shared_memory": new_sm})
 
         # Phase 3: Block execution (required)
         state = await self.block.execute(state, **kwargs)

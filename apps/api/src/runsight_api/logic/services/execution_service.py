@@ -161,10 +161,6 @@ class ExecutionService:
         then schedules the actual run as a background asyncio task.
         """
         try:
-            # Validate instruction
-            if "instruction" not in inputs:
-                raise ValueError("inputs missing required 'instruction' key")
-
             # Load workflow entity
             wf_entity = self.workflow_repo.get_by_id(workflow_id)
             if wf_entity is None:
@@ -226,7 +222,6 @@ class ExecutionService:
         'running'. Terminal status (completed/failed) is written exclusively
         by ExecutionObserver via Workflow.run()'s observer callbacks.
         """
-        from runsight_core.primitives import Task
         from runsight_core.state import WorkflowState
 
         async with self._semaphore:
@@ -255,13 +250,10 @@ class ExecutionService:
             from runsight_core.artifacts import InMemoryArtifactStore
 
             artifact_store = InMemoryArtifactStore(run_id=run_id)
-            state = WorkflowState(
-                current_task=Task(id=run_id, instruction=inputs["instruction"]),
-                artifact_store=artifact_store,
-            )
+            state = WorkflowState(artifact_store=artifact_store)
 
             try:
-                state = await wf.run(state, observer=observer)
+                state = await wf.run(state, observer=observer, inputs=inputs)
             except Exception:
                 logger.exception("Workflow execution failed for run %s", run_id)
             finally:
