@@ -28,7 +28,7 @@ describe("RUN-862 packages/ui dependency manifest", () => {
     expect(allDeps).not.toHaveProperty("sonner");
   });
 
-  it("test_no_cmdk_in_ui_deps — cmdk must not appear in package.json", () => {
-    expect(allDeps).not.toHaveProperty("cmdk");
+  it("test_cmdk_in_ui_deps — cmdk must be present (used by command.tsx)", () => {
+    expect(allDeps).toHaveProperty("cmdk");
   });
 });
