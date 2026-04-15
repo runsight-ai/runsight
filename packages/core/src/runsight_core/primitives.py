@@ -67,14 +67,14 @@ class Task(BaseModel):
 
 class Step:
     """
-    Wrapper for BaseBlock with pre/post hook execution and declared input resolution.
+    Wrapper for BaseBlock with pre/post hook execution.
 
     Use Case: Add logging, validation, or state transformation around blocks.
     Example: pre_hook = log start time, post_hook = log end time + duration.
 
     declared_inputs: Maps local names to 'source_block.field.path' references.
-    Before block execution, these are resolved against state.results and injected
-    into state.shared_memory["_resolved_inputs"] for the block to consume.
+    Resolution happens in build_block_context (block_io.py) when the step is
+    passed as the step parameter. Step.execute does not resolve or inject inputs.
 
     Note: Hooks must be synchronous. For async operations, use a block instead.
     """
@@ -96,7 +96,7 @@ class Step:
                       Receives state (output from block), returns modified state.
                       MUST be synchronous (not async).
             declared_inputs: Optional mapping of {local_name: "source_block_id.field.path"}.
-                            Resolved against state.results before block execution.
+                            Passed to build_block_context for resolution; not resolved here.
         """
         self.block = block
         self.pre_hook = pre_hook
@@ -115,7 +115,11 @@ class Step:
 
     async def execute(self, state: "WorkflowState", **kwargs: Any) -> "WorkflowState":
         """
-        Execute pre_hook → resolve inputs → block → post_hook in sequence.
+        Execute pre_hook → block → post_hook in sequence.
+
+        Input resolution is not performed here. Callers that need declared_inputs
+        resolved should use build_block_context(block, state, step=self) before
+        dispatching.
 
         Args:
             state: Initial workflow state.
@@ -124,74 +128,17 @@ class Step:
             Final state after all phases.
 
         Raises:
-            ValueError: If declared input source block not found in state.results.
             Exception: Propagates any exception from hooks or block.
         """
         # Phase 1: Pre-hook (optional)
         if self.pre_hook is not None:
             state = self.pre_hook(state)
 
-        # Phase 2: Resolve declared inputs (if any)
-        if self.declared_inputs:
-            resolved_inputs: Dict[str, Any] = {}
-            for name, from_ref in self.declared_inputs.items():
-                resolved_inputs[name] = self._resolve_from_ref(from_ref, state)
-            # Inject into shared_memory for block access
-            state = state.model_copy(
-                update={
-                    "shared_memory": {**state.shared_memory, "_resolved_inputs": resolved_inputs}
-                }
-            )
-
-        # Phase 3: Block execution (required)
+        # Phase 2: Block execution (required)
         state = await self.block.execute(state, **kwargs)
 
-        # Phase 4: Post-hook (optional)
+        # Phase 3: Post-hook (optional)
         if self.post_hook is not None:
             state = self.post_hook(state)
 
         return state
-
-    def _resolve_from_ref(self, from_ref: str, state: "WorkflowState") -> Any:
-        """Resolve 'step_id.field.path' against state.results."""
-        import json
-
-        parts = from_ref.split(".", 1)
-        source_id = parts[0]
-        if source_id not in state.results:
-            raise ValueError(
-                f"Input resolution failed: source block '{source_id}' not found in state.results. "
-                f"Available: {sorted(state.results.keys())}"
-            )
-        raw = state.results[source_id]
-        # Unwrap BlockResult to its output string for resolution
-        from runsight_core.state import BlockResult
-
-        if isinstance(raw, BlockResult):
-            raw = raw.output
-        if len(parts) == 1:
-            return raw
-
-        # JSON auto-parse
-        parsed = raw
-        if isinstance(raw, str):
-            try:
-                parsed = json.loads(raw)
-            except (json.JSONDecodeError, TypeError):
-                # Raw string that isn't JSON — return as-is (field path is informational)
-                return raw
-
-        # If parsed is still a plain string (JSON string literal), return as-is
-        if isinstance(parsed, str):
-            return parsed
-
-        # Dot-path resolution for dict/list structures
-        field_path = parts[1]
-        from runsight_core.conditions.engine import resolve_dotted_path
-
-        value = resolve_dotted_path(parsed, field_path)
-        if value is None and not (isinstance(parsed, dict) and field_path in parsed):
-            raise ValueError(
-                f"Input resolution failed: field path '{field_path}' not found in output of '{source_id}'"
-            )
-        return value
