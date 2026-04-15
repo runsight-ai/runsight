@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import json
 import logging
 import re
 import time
@@ -766,6 +767,17 @@ class Workflow:
                 actual_value=flow_timeout,
             )
 
+    def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
+        """Return a copy of state with inputs serialised into results['workflow']."""
+        return state.model_copy(
+            update={
+                "results": {
+                    **state.results,
+                    "workflow": BlockResult(output=json.dumps(inputs or {})),
+                }
+            }
+        )
+
     async def run(
         self,
         initial_state: WorkflowState,
@@ -777,230 +789,53 @@ class Workflow:
         observer: Optional["WorkflowObserver"] = None,
     ) -> WorkflowState:
         """Validate, initialise budget/observer lifecycle, then delegate to _run_main_loop."""
-        from runsight_core.budget_enforcement import (
-            BudgetKilledException,
-            BudgetSession,
-            _active_budget,
-        )
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
 
         if call_stack is None:
             call_stack = []
         if errors := self.validate():
             raise ValueError(f"Cannot run invalid workflow '{self.name}': {errors}")
 
-        # Step 2: Initialise execution queue with a per-run block registry and
-        # (block_id, block_instance) pairs for the active dispatch order.
-        QueueEntry = Tuple[str, BaseBlock]
-        queue: Deque[QueueEntry] = deque()
         runtime_blocks: Dict[str, BaseBlock] = dict(self._blocks)
-
-        # Seed queue with entry block
         assert self._entry_block_id is not None  # guaranteed by validate()
-        queue.append((self._entry_block_id, runtime_blocks[self._entry_block_id]))
-
-        import json as _json
-
-        state = initial_state.model_copy(
-            update={
-                "results": {
-                    **initial_state.results,
-                    "workflow": BlockResult(output=_json.dumps(inputs or {})),
-                }
-            }
+        queue: Deque[Tuple[str, BaseBlock]] = deque(
+            [(self._entry_block_id, runtime_blocks[self._entry_block_id])]
         )
+        state = self._seed_inputs(initial_state, inputs)
 
-        # Step 2.5: Create flow-level BudgetSession if workflow has limits
         flow_limits = getattr(self, "limits", None)
         budget_token = (
             _active_budget.set(BudgetSession.from_workflow_limits(flow_limits, self.name))
             if flow_limits is not None
             else None
         )
-        flow_timeout = (
-            flow_limits.max_duration_seconds
-            if flow_limits is not None and flow_limits.max_duration_seconds is not None
-            else None
-        )
+        flow_timeout = getattr(flow_limits, "max_duration_seconds", None)
         wf_start_time = time.time()
         observer_workflow_name = self.identity or self.name
-        if observer:
-            try:
-                observer.on_workflow_start(observer_workflow_name, state)
-            except Exception:
-                logger.warning("Observer.on_workflow_start failed", exc_info=True)
+        self._notify_observers(observer, "on_workflow_start", observer_workflow_name, state)
 
+        ctx = BlockExecutionContext(
+            workflow_name=observer_workflow_name,
+            blocks=runtime_blocks,
+            call_stack=call_stack,
+            workflow_registry=workflow_registry,
+            observer=observer,
+        )
         try:
-
-            async def _run_main_loop() -> WorkflowState:
-                nonlocal state, queue
-                while queue:
-                    current_block_id, block = queue.popleft()
-                    try:
-                        state = await execute_block(
-                            block,
-                            state,
-                            BlockExecutionContext(
-                                workflow_name=observer_workflow_name,
-                                blocks=runtime_blocks,
-                                call_stack=call_stack,
-                                workflow_registry=workflow_registry,
-                                observer=observer,
-                            ),
-                        )
-                    except Exception as e:
-                        error_target_id = self._error_routes.get(current_block_id)
-                        if error_target_id is None:
-                            raise
-                        if error_target_id not in self._blocks:
-                            raise ValueError(
-                                f"error_route from '{current_block_id}' to unknown block "
-                                f"'{error_target_id}'"
-                            ) from e
-
-                        error_type = type(e).__name__
-                        error_message = str(e)
-                        error_info = {
-                            "type": error_type,
-                            "message": error_message,
-                        }
-                        state = state.model_copy(
-                            update={
-                                "results": {
-                                    **state.results,
-                                    current_block_id: BlockResult(
-                                        output=error_message,
-                                        exit_handle="error",
-                                        metadata={
-                                            "error_type": error_type,
-                                            "error_message": error_message,
-                                            "block_id": current_block_id,
-                                        },
-                                    ),
-                                },
-                                "shared_memory": {
-                                    **state.shared_memory,
-                                    f"__error__{current_block_id}": error_info,
-                                },
-                            }
-                        )
-                        queue.clear()
-                        queue.append((error_target_id, self._blocks[error_target_id]))
-                        continue
-
-                    # Step 3b: Soft-error routing — block completed normally but
-                    # exit_handle == "error" (e.g. WorkflowBlock on_error="catch").
-                    # If an error_route is configured, route there instead of the
-                    # normal transition.
-                    block_result = state.results.get(current_block_id)
-                    if (
-                        block_result is not None
-                        and getattr(block_result, "exit_handle", None) == "error"
-                        and current_block_id in self._error_routes
-                    ):
-                        error_target_id = self._error_routes[current_block_id]
-                        queue.clear()
-                        queue.append((error_target_id, self._blocks[error_target_id]))
-                        continue
-
-                    # Step 4: Resolve successor BEFORE checking injection
-                    next_block_id = self._resolve_next(current_block_id, state)
-
-                    # Step 5: Check for dynamic step injection
-                    injected_raw = state.metadata.get(f"{current_block_id}_new_steps")
-                    if injected_raw and isinstance(injected_raw, list) and len(injected_raw) > 0:
-                        # Build injected block list (validates each item)
-                        injected_blocks: List[QueueEntry] = []
-                        for item in injected_raw:
-                            if not isinstance(item, dict):
-                                raise ValueError(
-                                    f"Injected step item must be a dict, got {type(item).__name__!r}: {item!r}"
-                                )
-                            if "step_id" not in item or "description" not in item:
-                                raise ValueError(
-                                    f"Injected step item missing 'step_id' or 'description': {item!r}"
-                                )
-                            step_id: str = item["step_id"]
-                            description: str = item["description"]
-
-                            # Resolve factory from registry, raise if not found
-                            injected_block: BaseBlock
-                            if registry is not None:
-                                factory = registry.get(step_id)
-                                if factory is not None:
-                                    injected_block = factory(step_id, description)
-                                else:
-                                    raise ValueError(
-                                        f"No factory registered for injected step '{step_id}'"
-                                    )
-                            else:
-                                raise ValueError(
-                                    f"No factory registered for injected step '{step_id}'"
-                                )
-
-                            runtime_blocks[step_id] = injected_block
-                            injected_blocks.append((step_id, injected_block))
-
-                        # Splice injected blocks at front of queue
-                        # Original next_block_id becomes successor of last injected block
-                        # Queue state after splice: [inj_0, inj_1, ..., inj_n, original_next, ...]
-
-                        # Save remaining queue (everything after current position)
-                        remaining = list(queue)
-                        queue.clear()
-
-                        # Add injected blocks first
-                        for entry in injected_blocks:
-                            queue.append(entry)
-
-                        # Add original next (if any)
-                        if next_block_id is not None:
-                            queue.append((next_block_id, runtime_blocks[next_block_id]))
-
-                        # Re-add remaining (blocks already queued before this point)
-                        for entry in remaining:
-                            queue.append(entry)
-
-                    else:
-                        # No injection: simply queue the resolved next block
-                        if next_block_id is not None:
-                            queue.append((next_block_id, runtime_blocks[next_block_id]))
-
-                return state
-
-            flow_timeout = (
-                flow_limits.max_duration_seconds
-                if flow_limits is not None and flow_limits.max_duration_seconds is not None
-                else None
+            state = await self._run_with_timeout(
+                self._run_main_loop(queue, ctx, state, registry),
+                flow_timeout,
             )
-            try:
-                if flow_timeout is not None:
-                    state = await asyncio.wait_for(_run_main_loop(), timeout=flow_timeout)
-                else:
-                    state = await _run_main_loop()
-            except asyncio.TimeoutError:
-                raise BudgetKilledException(
-                    scope="workflow",
-                    block_id=None,
-                    limit_kind="timeout",
-                    limit_value=flow_timeout,
-                    actual_value=flow_timeout,
-                )
-
             wf_duration = time.time() - wf_start_time
-            if observer:
-                try:
-                    observer.on_workflow_complete(observer_workflow_name, state, wf_duration)
-                except Exception:
-                    logger.warning("Observer.on_workflow_complete failed", exc_info=True)
-
+            self._notify_observers(
+                observer, "on_workflow_complete", observer_workflow_name, state, wf_duration
+            )
             return state
         except Exception as e:
             wf_duration = time.time() - wf_start_time
-            if observer:
-                try:
-                    observer.on_workflow_error(observer_workflow_name, e, wf_duration)
-                except Exception:
-                    logger.warning("Observer.on_workflow_error failed", exc_info=True)
+            self._notify_observers(
+                observer, "on_workflow_error", observer_workflow_name, e, wf_duration
+            )
             raise
         finally:
             if budget_token is not None:

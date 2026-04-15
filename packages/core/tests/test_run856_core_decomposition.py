@@ -1,9 +1,9 @@
 """
-RUN-856: Failing tests for Workflow.run and execute_task decomposition.
+RUN-856: Failing tests for Workflow.run and execute decomposition.
 
 AC:
 1. Workflow.run decomposed into sub-methods (main loop, error routing, observer lifecycle)
-2. execute_task decomposed (single-shot path, agentic loop, tool dispatch as separate methods)
+2. execute decomposed (single-shot path, agentic loop, tool dispatch as separate methods)
 3. Nesting ≤3 levels in all resulting functions
 4. All existing tests still pass
 
@@ -125,14 +125,14 @@ class TestLineCounts:
             f"expected ≤60 after sub-method extraction"
         )
 
-    def test_execute_task_under_60_lines(self):
-        """execute_task must be ≤60 non-blank/non-comment lines after extraction."""
+    def test_execute_under_60_lines(self):
+        """execute must be ≤60 non-blank/non-comment lines after extraction."""
         from runsight_core.runner import RunsightTeamRunner
 
-        source = inspect.getsource(RunsightTeamRunner.execute_task)
+        source = inspect.getsource(RunsightTeamRunner.execute)
         line_count = _count_non_blank_non_comment_lines(source)
         assert line_count <= 60, (
-            f"execute_task is {line_count} non-blank/non-comment lines; "
+            f"execute is {line_count} non-blank/non-comment lines; "
             f"expected ≤60 after sub-method extraction"
         )
 
@@ -155,12 +155,12 @@ class TestAsyncPreservation:
             "Workflow.run must remain an async method after decomposition"
         )
 
-    def test_execute_task_still_async(self):
-        """RunsightTeamRunner.execute_task must still be a coroutine function."""
+    def test_execute_still_async(self):
+        """RunsightTeamRunner.execute must still be a coroutine function."""
         from runsight_core.runner import RunsightTeamRunner
 
-        assert inspect.iscoroutinefunction(RunsightTeamRunner.execute_task), (
-            "execute_task must remain an async method after decomposition"
+        assert inspect.iscoroutinefunction(RunsightTeamRunner.execute), (
+            "execute must remain an async method after decomposition"
         )
 
     def test_workflow_run_main_loop_is_async(self):
