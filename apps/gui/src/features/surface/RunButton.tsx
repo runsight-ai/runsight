@@ -48,7 +48,6 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
   const isEmpty = !hasYamlContent && !nodes.length && !blockCount;
   const isPending = createRun.isPending || cancelRun.isPending;
   const shouldRunOnSimulation = isDirty || !isCommitted;
-  const taskData = { instruction: "Execute workflow" };
 
   async function handleClick() {
     if (isRunning) {
@@ -58,7 +57,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
       createRun.mutate(
         {
           workflow_id: workflowId,
-          task_data: taskData,
+          inputs: {},
           source: "simulation",
           branch: simResult.branch,
         },
@@ -71,7 +70,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
       );
     } else {
       createRun.mutate(
-        { workflow_id: workflowId, task_data: taskData, source: "manual", branch: "main" },
+        { workflow_id: workflowId, inputs: {}, source: "manual", branch: "main" },
         {
           onSuccess: (result) => {
             setActiveRunId(result.id);

@@ -354,43 +354,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Tasks */
-        get: operations["list_tasks_api_tasks_get"];
-        put?: never;
-        /** Create Task */
-        post: operations["create_task_api_tasks_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tasks/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Task */
-        get: operations["get_task_api_tasks__id__get"];
-        /** Update Task */
-        put: operations["update_task_api_tasks__id__put"];
-        post?: never;
-        /** Delete Task */
-        delete: operations["delete_task_api_tasks__id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/settings/providers": {
         parameters: {
             query?: never;
@@ -1092,8 +1055,8 @@ export interface components {
         RunCreate: {
             /** Workflow Id */
             workflow_id: string;
-            /** Task Data */
-            task_data?: {
+            /** Inputs */
+            inputs?: {
                 [key: string]: unknown;
             };
             /**
@@ -1513,49 +1476,6 @@ export interface components {
         };
         /** StepUpdate */
         StepUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Type */
-            type?: string | null;
-            /** Description */
-            description?: string | null;
-        };
-        /** TaskCreate */
-        TaskCreate: {
-            /** Id */
-            id?: string | null;
-            /** Name */
-            name: string;
-            /**
-             * Type
-             * @default task
-             */
-            type: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** TaskListResponse */
-        TaskListResponse: {
-            /** Items */
-            items: components["schemas"]["TaskResponse"][];
-            /** Total */
-            total: number;
-        };
-        /** TaskResponse */
-        TaskResponse: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Type */
-            type: string;
-            /** Path */
-            path: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** TaskUpdate */
-        TaskUpdate: {
             /** Name */
             name?: string | null;
             /** Type */
@@ -2748,169 +2668,6 @@ export interface operations {
         };
     };
     delete_step_api_steps__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_tasks_api_tasks_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_task_api_tasks_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_task_api_tasks__id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_task_api_tasks__id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_task_api_tasks__id__delete: {
         parameters: {
             query?: never;
             header?: never;

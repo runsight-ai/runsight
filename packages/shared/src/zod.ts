@@ -206,7 +206,7 @@ export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
 export const RunCreateSchema = z.object({
   workflow_id: z.string(),
-  task_data: z.record(z.string(), z.unknown()).optional(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
   source: z.string().nullable().optional().default("manual"),
   branch: z.string().optional().default("main"),
 });
@@ -472,36 +472,6 @@ export const StepUpdateSchema = z.object({
   description: z.string().nullable().optional(),
 }).strict();
 export type StepUpdate = z.infer<typeof StepUpdateSchema>;
-
-export const TaskCreateSchema = z.object({
-  id: z.string().nullable().optional(),
-  name: z.string(),
-  type: z.string().optional().default("task"),
-  description: z.string().nullable().optional(),
-}).strict();
-export type TaskCreate = z.infer<typeof TaskCreateSchema>;
-
-export const TaskResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  path: z.string(),
-  description: z.string().nullable().optional(),
-});
-export type TaskResponse = z.infer<typeof TaskResponseSchema>;
-
-export const TaskListResponseSchema = z.object({
-  items: z.array(TaskResponseSchema),
-  total: z.number(),
-});
-export type TaskListResponse = z.infer<typeof TaskListResponseSchema>;
-
-export const TaskUpdateSchema = z.object({
-  name: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-}).strict();
-export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;
 
 export const ToolListItemResponseSchema = z.object({
   id: z.string(),

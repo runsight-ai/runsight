@@ -129,7 +129,7 @@ export type WorkflowMeta = {
   isDirty: boolean;
 };
 
-export type LeftSidebarTab = "souls" | "tasks" | "tools";
+export type LeftSidebarTab = "souls" | "tools";
 export type RightPanelTab = "properties" | "prompt" | "yaml";
 export type CanvasMode = "dag" | "state-machine";
 
