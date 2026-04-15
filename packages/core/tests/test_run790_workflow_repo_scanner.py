@@ -19,6 +19,8 @@ def _workflow_file(name: str, *, child_ref: str | None = None) -> RunsightWorkfl
     return RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
+            "id": name,
+            "kind": "workflow",
             "interface": {"inputs": [], "outputs": []},
             "blocks": blocks,
             "workflow": {"name": name, "entry": entry, "transitions": transitions},
@@ -36,13 +38,14 @@ def test_workflow_repository_uses_workflow_scanner_for_registry_build(
         stem="child",
         relative_path="custom/workflows/child.yaml",
         item=child_file,
-        aliases=frozenset(
-            {str(child_path), "child", "custom/workflows/child.yaml", "child_workflow"}
-        ),
+        aliases=frozenset({"child"}),
+        entity_id="child",
     )
     raw_yaml = dedent(
         """\
         version: "1.0"
+        id: parent
+        kind: workflow
         interface:
           inputs: []
           outputs: []
@@ -65,14 +68,15 @@ def test_workflow_repository_uses_workflow_scanner_for_registry_build(
             patch.object(workflow_repo, "WorkflowScanner") as mock_scanner,
             patch.object(workflow_repo, "validate_workflow_call_contracts"),
         ):
-            mock_scanner.return_value.scan.return_value = SimpleNamespace()
-            mock_scanner.return_value.resolve_ref.return_value = child_result
+            mock_scanner.return_value.scan.return_value = SimpleNamespace(
+                get_all=lambda: [child_result]
+            )
 
             repo.build_runnable_workflow_registry("parent", raw_yaml)
 
     mock_scanner.assert_called_once_with(repo.base_path)
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.resolve_ref.assert_called_once()
+    mock_scanner.return_value.resolve_ref.assert_not_called()
 
 
 def test_workflow_repository_legacy_scan_helpers_are_removed(workflow_repo_module):

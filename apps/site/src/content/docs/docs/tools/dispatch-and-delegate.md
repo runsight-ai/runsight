@@ -28,11 +28,15 @@ The delegate pattern puts the branching decision in the hands of the LLM. A bloc
 
 ```yaml title="custom/workflows/code-review.yaml"
 version: "1.0"
+id: code-review
+kind: workflow
 tools:
   - delegate
 souls:
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Code Reviewer
     system_prompt: >
       Review the code change. If it passes quality checks, delegate to
@@ -42,14 +46,20 @@ souls:
       - delegate
   merger:
     id: merger
+    kind: soul
+    name: Merger
     role: Merge Handler
     system_prompt: Merge the approved change.
   feedback_writer:
     id: feedback_writer
+    kind: soul
+    name: Feedback Writer
     role: Feedback Writer
     system_prompt: Write specific feedback for the requested changes.
   escalation_handler:
     id: escalation_handler
+    kind: soul
+    name: Escalation Handler
     role: Escalation Handler
     system_prompt: Escalate the critical issue to the team lead.
 blocks:
@@ -126,17 +136,25 @@ The dispatch block runs multiple branches in parallel, each with its own soul an
 
 ```yaml title="custom/workflows/research-analysis.yaml"
 version: "1.0"
+id: research-analysis
+kind: workflow
 souls:
   web_analyst:
     id: web_analyst
+    kind: soul
+    name: Web Analyst
     role: Web Research Analyst
     system_prompt: Research the topic from web sources and provide key findings.
   risk_reviewer:
     id: risk_reviewer
+    kind: soul
+    name: Risk Reviewer
     role: Risk Analyst
     system_prompt: Identify risks, caveats, and concerns about the topic.
   synthesizer:
     id: synthesizer
+    kind: soul
+    name: Synthesizer
     role: Report Synthesizer
     system_prompt: Combine the research findings into a coherent summary.
 blocks:

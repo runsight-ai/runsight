@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from runsight_api.data.filesystem.soul_repo import SoulRepository
+from runsight_api.domain.errors import SoulNotFound
 from runsight_api.domain.value_objects import SoulEntity
 from runsight_api.logic.services.soul_service import SoulService
 
@@ -12,6 +13,8 @@ from runsight_api.logic.services.soul_service import SoulService
 def test_soul_entity_accepts_new_api_fields():
     soul = SoulEntity(
         id="researcher",
+        kind="soul",
+        name="Researcher",
         role="Researcher",
         system_prompt="Research the topic",
         provider="openai",
@@ -30,6 +33,8 @@ def test_soul_entity_rejects_unknown_fields():
     with pytest.raises(ValidationError, match="custom_notes"):
         SoulEntity(
             id="legacy",
+            kind="soul",
+            name="Legacy Soul",
             role="Legacy Soul",
             system_prompt="Reject unknown fields.",
             custom_notes="test value",
@@ -40,12 +45,14 @@ def test_soul_entity_rejects_unknown_fields():
 def test_update_soul_rejects_unknown_yaml_fields_without_rewriting(tmp_path: Path):
     repo = SoulRepository(base_path=str(tmp_path))
     service = SoulService(repo)
-    soul_path = tmp_path / "custom" / "souls" / "preserve_me.yaml"
+    soul_path = tmp_path / "custom" / "souls" / "preserve-me.yaml"
     soul_path.parent.mkdir(parents=True, exist_ok=True)
     soul_path.write_text(
         yaml.safe_dump(
             {
-                "id": "preserve_me",
+                "id": "preserve-me",
+                "kind": "soul",
+                "name": "Original",
                 "role": "Original",
                 "system_prompt": "Original prompt",
                 "custom_notes": "test value",
@@ -56,9 +63,9 @@ def test_update_soul_rejects_unknown_yaml_fields_without_rewriting(tmp_path: Pat
     )
     before = soul_path.read_text()
 
-    with pytest.raises(ValidationError, match="custom_notes"):
+    with pytest.raises(SoulNotFound, match="soul:preserve-me"):
         service.update_soul(
-            "preserve_me",
+            "preserve-me",
             {
                 "role": "Updated",
                 "provider": "anthropic",
@@ -71,12 +78,14 @@ def test_update_soul_rejects_unknown_yaml_fields_without_rewriting(tmp_path: Pat
 def test_update_soul_normalizes_null_max_tool_iterations_to_default(tmp_path: Path):
     repo = SoulRepository(base_path=str(tmp_path))
     service = SoulService(repo)
-    soul_path = tmp_path / "custom" / "souls" / "normalize_me.yaml"
+    soul_path = tmp_path / "custom" / "souls" / "normalize-me.yaml"
     soul_path.parent.mkdir(parents=True, exist_ok=True)
     soul_path.write_text(
         yaml.safe_dump(
             {
-                "id": "normalize_me",
+                "id": "normalize-me",
+                "kind": "soul",
+                "name": "Original",
                 "role": "Original",
                 "system_prompt": "Original prompt",
                 "max_tool_iterations": 5,
@@ -86,7 +95,7 @@ def test_update_soul_normalizes_null_max_tool_iterations_to_default(tmp_path: Pa
     )
 
     updated = service.update_soul(
-        "normalize_me",
+        "normalize-me",
         {
             "role": "Updated",
             "max_tool_iterations": None,

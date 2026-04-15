@@ -16,6 +16,8 @@ from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 
 YAML_BLOCK_WITH_ASSERTIONS = """\
+id: block-assertion-test
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -36,6 +38,8 @@ workflow:
 
 
 YAML_INVALID_SOUL_ASSERTIONS = """\
+id: soul-only-assertion-test
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -56,6 +60,8 @@ workflow:
 
 
 YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS = """\
+id: soul-and-block-assertion-test
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -94,6 +100,8 @@ def _parse_block_assertion_workflow() -> object:
             "analyst",
             """\
             id: analyst
+            kind: soul
+            name: Analyst
             role: Analyst
             system_prompt: You are a careful analyst.
             """,

@@ -319,12 +319,14 @@ class TestDispatchBlockArtifactStoreSharing:
 
         store = InMemoryArtifactStore(run_id="dispatch-run")
 
-        soul1 = Soul(id="s1", role="Writer", system_prompt="Write.")
-        soul2 = Soul(id="s2", role="Critic", system_prompt="Critique.")
+        soul1 = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
+        soul2 = Soul(
+            id="critic", kind="soul", name="Critic", role="Critic", system_prompt="Critique."
+        )
 
         mock_runner = AsyncMock()
         mock_result = Mock()
-        mock_result.soul_id = "s1"
+        mock_result.soul_id = "writer"
         mock_result.output = "output"
         mock_result.cost_usd = 0.01
         mock_result.total_tokens = 10
@@ -333,8 +335,12 @@ class TestDispatchBlockArtifactStoreSharing:
         from runsight_core.blocks.dispatch import DispatchBranch
 
         branches = [
-            DispatchBranch(exit_id="s1", label="S1", soul=soul1, task_instruction="Do work"),
-            DispatchBranch(exit_id="s2", label="S2", soul=soul2, task_instruction="Do work"),
+            DispatchBranch(
+                exit_id="writer", label="Writer", soul=soul1, task_instruction="Do work"
+            ),
+            DispatchBranch(
+                exit_id="critic", label="Critic", soul=soul2, task_instruction="Do work"
+            ),
         ]
         block = DispatchBlock(block_id="dispatch", branches=branches, runner=mock_runner)
 

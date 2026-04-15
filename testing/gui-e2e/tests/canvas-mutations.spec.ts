@@ -3,6 +3,7 @@ import {
   apiDelete,
   apiGet,
   apiPost,
+  buildBlankWorkflowYaml,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import { gotoWorkflowEditor, readWorkflowYaml } from "./helpers/workflowEditor";
@@ -17,12 +18,13 @@ type WorkflowRecord = {
 
 test.describe("Workflow name mutations", () => {
   const testWorkflowName = `e2e-mutations-${Date.now()}`;
+  const testWorkflowId = testWorkflowName;
   let createdWorkflowId: string;
 
   test.beforeAll(async () => {
     const created = await apiPost<WorkflowRecord>("/workflows", {
       name: testWorkflowName,
-      yaml: "",
+      yaml: buildBlankWorkflowYaml(testWorkflowId, testWorkflowName),
       canvas_state: {
         nodes: [],
         edges: [],
@@ -96,7 +98,10 @@ test.describe("Workflow name mutations", () => {
 
     await page.getByTestId("workflow-name-display").click();
     const input = page.getByTestId("workflow-name-input");
-    await input.fill("Saved Into YAML");
+    await expect(input).toBeVisible();
+    await input.clear();
+    await input.pressSequentially("Saved Into YAML");
+    await expect(input).toHaveValue("Saved Into YAML");
     await input.press("Enter");
 
     await expect(page.getByTestId("workflow-name-display")).toHaveText("Saved Into YAML");

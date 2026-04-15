@@ -207,6 +207,7 @@ class IsolatedBlockWrapper(BaseBlock):
         soul_envelope = SoulEnvelope(
             id=soul.id if soul else "",
             role=soul.role if soul else "",
+            name=soul.name if soul else None,
             system_prompt=soul.system_prompt if soul else "",
             model_name=soul.model_name or "" if soul else "",
             provider=soul.provider or "" if soul else "",

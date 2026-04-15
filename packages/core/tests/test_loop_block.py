@@ -473,18 +473,19 @@ class TestLoopBlockErrorHandling:
 class TestLoopBlockYamlParsing:
     """YAML parsing: type=loop parses correctly, type=retry raises error."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_loop_type_parses_to_loop_block_def(self):
         """type: loop with inner_block_refs should parse to LoopBlockDef in a workflow file."""
         from runsight_core.blocks.loop import LoopBlockDef
 
         raw = {
             "version": "1.0",
+            "id": "loop_test",
+            "kind": "workflow",
             "souls": {
                 "writer": {
-                    "id": "writer_1",
+                    "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "You write.",
                 }
@@ -498,6 +499,8 @@ class TestLoopBlockYamlParsing:
                 },
             },
             "workflow": {
+                "id": "loop_test",
+                "kind": "workflow",
                 "name": "loop_test",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],
@@ -513,6 +516,8 @@ class TestLoopBlockYamlParsing:
         """type: retry in YAML should raise a clear error (clean break, no backward compat)."""
         raw = {
             "version": "1.0",
+            "id": "retry_test",
+            "kind": "workflow",
             "blocks": {
                 "retry_block": {
                     "type": "retry",
@@ -521,6 +526,8 @@ class TestLoopBlockYamlParsing:
                 },
             },
             "workflow": {
+                "id": "retry_test",
+                "kind": "workflow",
                 "name": "retry_test",
                 "entry": "retry_block",
                 "transitions": [],
@@ -536,9 +543,13 @@ class TestLoopBlockYamlParsing:
 
         yaml_str = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You write."
 blocks:
@@ -550,6 +561,8 @@ blocks:
     inner_block_ref: write_block
     max_retries: 3
 workflow:
+  id: retry_test
+  kind: workflow
   name: retry_test
   entry: retry_block
   transitions:
@@ -559,9 +572,6 @@ workflow:
         with pytest.raises((ValidationError, ValueError), match="retry"):
             parse_workflow_yaml(yaml_str)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_produces_loop_block_instance(self):
         """parse_workflow_yaml with type: loop should produce a LoopBlock instance."""
         from runsight_core import LoopBlock
@@ -569,9 +579,13 @@ workflow:
 
         yaml_str = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You write."
 blocks:
@@ -584,6 +598,8 @@ blocks:
       - write_block
     max_rounds: 3
 workflow:
+  id: loop_parse_test
+  kind: workflow
   name: loop_parse_test
   entry: loop_block
   transitions:
@@ -602,9 +618,6 @@ workflow:
         assert "loop" in BLOCK_TYPE_REGISTRY, "'loop' should be in BLOCK_TYPE_REGISTRY"
         assert "retry" not in BLOCK_TYPE_REGISTRY, "'retry' should NOT be in BLOCK_TYPE_REGISTRY"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_loop_block_stores_refs_as_strings(self):
         """LoopBlock built by parser should store inner_block_refs as strings, not resolved blocks."""
         from runsight_core import LoopBlock
@@ -612,13 +625,19 @@ workflow:
 
         yaml_str = """
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   writer:
-    id: writer_1
+    id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "You write."
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "You review."
 blocks:
@@ -635,6 +654,8 @@ blocks:
       - review_block
     max_rounds: 2
 workflow:
+  id: loop_refs_test
+  kind: workflow
   name: loop_refs_test
   entry: loop_block
   transitions:

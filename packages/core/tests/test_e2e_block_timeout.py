@@ -70,9 +70,13 @@ def _make_litellm_response(
 
 _YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -80,12 +84,12 @@ souls:
 blocks:
   slow_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 1
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: timeout_no_error_route
   entry: slow_block
@@ -98,9 +102,13 @@ workflow:
 
 _YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -108,13 +116,13 @@ souls:
 blocks:
   slow_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 1
     error_route: fallback
   fallback:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: timeout_with_fallback
   entry: slow_block
@@ -127,9 +135,13 @@ workflow:
 
 _YAML_FAST_BLOCK_WITH_TIMEOUT = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
     role: Worker
     system_prompt: Do work.
     provider: openai
@@ -137,12 +149,12 @@ souls:
 blocks:
   fast_block:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
     limits:
       max_duration_seconds: 60
   block2:
     type: linear
-    soul_ref: s1
+    soul_ref: worker
 workflow:
   name: fast_with_timeout
   entry: fast_block

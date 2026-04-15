@@ -316,7 +316,7 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     wf = Workflow(name="complex_old_workflow")
 
     runner = MockRunner()
-    soul = Soul(id="test_soul", role="Tester", system_prompt="Test")
+    soul = Soul(id="test_soul", kind="soul", name="Test Soul", role="Tester", system_prompt="Test")
 
     # Add LinearBlock
     linear_block = LinearBlock(

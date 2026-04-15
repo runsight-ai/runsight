@@ -88,7 +88,13 @@ def mock_runner():
 @pytest.fixture
 def sample_soul():
     """Sample soul for testing."""
-    return Soul(id="test_soul", role="Tester", system_prompt="You test things.")
+    return Soul(
+        id="test_soul",
+        kind="soul",
+        name="Test Soul",
+        role="Tester",
+        system_prompt="You test things.",
+    )
 
 
 def _make_state(**kwargs) -> NoCoercionWorkflowState:
@@ -156,8 +162,12 @@ class TestDispatchBlockEmitsBlockResult:
         """DispatchBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
         from runsight_core import DispatchBlock
 
-        soul_a = Soul(id="soul_a", role="Agent A", system_prompt="Do A.")
-        soul_b = Soul(id="soul_b", role="Agent B", system_prompt="Do B.")
+        soul_a = Soul(
+            id="soul_a", kind="soul", name="Agent A", role="Agent A", system_prompt="Do A."
+        )
+        soul_b = Soul(
+            id="soul_b", kind="soul", name="Agent B", role="Agent B", system_prompt="Do B."
+        )
 
         mock_runner.execute.side_effect = [
             _mock_execution_result(soul_id="soul_a", output="output A"),
@@ -463,8 +473,8 @@ class TestNoRawStringsInResultsAfterExecution:
         from runsight_core.blocks.dispatch import DispatchBranch as _FB
 
         _souls = [
-            Soul(id="soul_a", role="A", system_prompt="A"),
-            Soul(id="soul_b", role="B", system_prompt="B"),
+            Soul(id="soul_a", kind="soul", name="Agent A", role="A", system_prompt="A"),
+            Soul(id="soul_b", kind="soul", name="Agent B", role="B", system_prompt="B"),
         ]
         dispatch = DispatchBlock(
             "step2",

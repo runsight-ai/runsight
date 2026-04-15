@@ -46,18 +46,19 @@ class TestBlockTypeRegistry:
 class TestLinearBlock:
     """Tests for LinearBlock (block type: linear)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_valid_yaml(self):
         """AC-1: Parse valid linear block with soul_ref."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   my_soul:
-    id: my_soul_1
+    id: my_soul
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Do research
 blocks:
@@ -65,6 +66,8 @@ blocks:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -79,6 +82,8 @@ workflow:
         """RUN-585: parser must not source runtime model resolution from workflow config."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 config:
   model_name: gpt-4o-mini
 blocks:
@@ -86,6 +91,8 @@ blocks:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -94,7 +101,9 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
+                kind="soul",
+                name="Custom Researcher",
                 role="Custom Researcher",
                 system_prompt="Do research",
                 provider="anthropic",
@@ -106,7 +115,7 @@ workflow:
             patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
-            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
+            mock_scanner.return_value.scan.return_value.ids.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
@@ -117,11 +126,15 @@ workflow:
         yaml_content = """
 version: "1.0"
 config: {}
+id: test_linear
+kind: workflow
 blocks:
   linear_block:
     type: linear
     soul_ref: my_soul
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -130,7 +143,9 @@ workflow:
 """
         souls_map = {
             "my_soul": Soul(
-                id="my_soul_1",
+                id="my_soul",
+                kind="soul",
+                name="Custom Researcher",
                 role="Custom Researcher",
                 system_prompt="Do research",
                 provider="anthropic",
@@ -142,7 +157,7 @@ workflow:
             patch("runsight_core.yaml.parser.SoulScanner") as mock_scanner,
         ):
             mock_runner.return_value = Mock()
-            mock_scanner.return_value.scan.return_value.stems.return_value = souls_map
+            mock_scanner.return_value.scan.return_value.ids.return_value = souls_map
             parse_workflow_yaml(yaml_content)
 
         assert mock_runner.call_args is not None
@@ -155,23 +170,28 @@ version: "1.0"
 blocks:
   linear_block:
     type: linear
+id: test_linear
+kind: workflow
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
 """
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_linear_block_with_defined_soul(self):
         """AC-3: LinearBlock can use explicitly defined souls."""
         yaml_content = """
 version: "1.0"
+id: test_linear
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 blocks:
@@ -179,6 +199,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_linear
+  kind: workflow
   name: test_linear
   entry: linear_block
   transitions:
@@ -192,20 +214,23 @@ workflow:
 class TestDispatchBlock:
     """Tests for DispatchBlock (block type: dispatch)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_dispatch_block_valid_yaml(self):
         """AC-4: Parse valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
+id: test_dispatch
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
 blocks:
@@ -221,6 +246,8 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
   transitions:
@@ -238,7 +265,11 @@ version: "1.0"
 blocks:
   dispatch_block:
     type: dispatch
+id: test_dispatch
+kind: workflow
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
 """
@@ -253,7 +284,11 @@ blocks:
   dispatch_block:
     type: dispatch
     exits: []
+id: test_dispatch
+kind: workflow
 workflow:
+  id: test_dispatch
+  kind: workflow
   name: test_dispatch
   entry: dispatch_block
 """
@@ -264,24 +299,29 @@ workflow:
 class TestSynthesizeBlock:
     """Tests for SynthesizeBlock (block type: synthesize)."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_synthesize_block_valid_yaml(self):
         """AC-7: Parse valid synthesize block with dependencies."""
         yaml_content = """
 version: "1.0"
+id: test_synthesize
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
 blocks:
@@ -298,6 +338,8 @@ blocks:
       - block_a
       - block_b
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: block_a
   transitions:
@@ -321,6 +363,8 @@ blocks:
     input_block_ids:
       - block_a
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: synthesize_block
 """
@@ -333,7 +377,9 @@ workflow:
 version: "1.0"
 souls:
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
 blocks:
@@ -341,6 +387,8 @@ blocks:
     type: synthesize
     soul_ref: synthesizer
 workflow:
+  id: test_synthesize
+  kind: workflow
   name: test_synthesize
   entry: synthesize_block
 """
@@ -359,23 +407,28 @@ blocks:
   linear_block:
     type: linear
     soul_ref: nonexistent_soul
+id: test_souls
+kind: workflow
 workflow:
+  id: test_souls
+  kind: workflow
   name: test_souls
   entry: linear_block
 """
-        with pytest.raises(ValueError, match="Soul reference 'nonexistent_soul' not found"):
+        with pytest.raises(ValueError, match="Soul reference 'soul:nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_custom_soul_definition_works(self):
         """AC-29: Custom soul definition in YAML works correctly."""
         yaml_content = """
 version: "1.0"
+id: test_override
+kind: workflow
 souls:
   researcher:
-    id: custom_researcher
+    id: researcher
+    kind: soul
+    name: Custom Researcher
     role: Custom Researcher
     system_prompt: Custom research prompt
 blocks:
@@ -383,6 +436,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: test_override
+  kind: workflow
   name: test_override
   entry: linear_block
   transitions:
@@ -425,7 +480,11 @@ version: "1.0"
 blocks:
   unknown_block:
     type: unknown_type
+id: test_unknown
+kind: workflow
 workflow:
+  id: test_unknown
+  kind: workflow
   name: test_unknown
   entry: unknown_block
 """
@@ -436,16 +495,17 @@ workflow:
 class TestParseFromDict:
     """Tests for parsing from dict input."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_from_dict_valid(self):
         """AC-33: parse_workflow_yaml accepts dict input."""
         workflow_dict = {
             "version": "1.0",
+            "id": "test_dict",
+            "kind": "workflow",
             "souls": {
                 "researcher": {
-                    "id": "researcher_1",
+                    "id": "researcher",
+                    "kind": "soul",
+                    "name": "Senior Researcher",
                     "role": "Senior Researcher",
                     "system_prompt": "You research topics.",
                 }
@@ -457,6 +517,8 @@ class TestParseFromDict:
                 }
             },
             "workflow": {
+                "id": "test_dict",
+                "kind": "workflow",
                 "name": "test_dict",
                 "entry": "linear_block",
                 "transitions": [{"from": "linear_block", "to": None}],
@@ -470,34 +532,43 @@ class TestParseFromDict:
 class TestComplexWorkflow:
     """Tests for complex multi-block workflows."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_complex_workflow_all_block_types(self):
         """AC-34: Parse workflow using multiple block types together."""
         yaml_content = """
 version: "1.0"
+id: complex_workflow
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
   reviewer:
-    id: reviewer_1
+    id: reviewer
+    kind: soul
+    name: Peer Reviewer
     role: Peer Reviewer
     system_prompt: You review topics.
   coder:
-    id: coder_1
+    id: coder
+    kind: soul
+    name: Software Engineer
     role: Software Engineer
     system_prompt: You write code.
   synthesizer:
-    id: synthesizer_1
+    id: synthesizer
+    kind: soul
+    name: Synthesis Agent
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
   generalist:
-    id: generalist_1
+    id: generalist
+    kind: soul
+    name: General-purpose Assistant
     role: General-purpose Assistant
     system_prompt: You handle diverse tasks.
 blocks:
@@ -525,6 +596,8 @@ blocks:
     type: linear
     soul_ref: generalist
 workflow:
+  id: complex_workflow
+  kind: workflow
   name: complex_workflow
   entry: research_block
   transitions:
@@ -548,9 +621,13 @@ class TestVersionValidation:
     # -- Minimal valid workflow YAML used as a base for version tests --------
     _BASE_YAML_TEMPLATE = """
 version: "{version}"
+id: version_test
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 blocks:
@@ -558,6 +635,8 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
+  id: version_test
+  kind: workflow
   name: version_test
   entry: b
   transitions:
@@ -566,24 +645,27 @@ workflow:
 """
 
     _BASE_DICT_NO_VERSION = {
+        "id": "version_test",
+        "kind": "workflow",
         "souls": {
             "researcher": {
-                "id": "researcher_1",
+                "id": "researcher",
+                "kind": "soul",
+                "name": "Senior Researcher",
                 "role": "Senior Researcher",
                 "system_prompt": "You research topics.",
             }
         },
         "blocks": {"b": {"type": "linear", "soul_ref": "researcher"}},
         "workflow": {
+            "id": "version_test",
+            "kind": "workflow",
             "name": "version_test",
             "entry": "b",
             "transitions": [{"from": "b", "to": None}],
         },
     }
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_version_1_0_accepted_without_warning(self):
         """AC-1: version '1.0' is the current version and parses without error."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="1.0")
@@ -603,18 +685,12 @@ workflow:
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_missing_version_defaults_to_1_0(self):
         """AC-3: Missing version field works (defaults to '1.0')."""
         workflow = parse_workflow_yaml(dict(self._BASE_DICT_NO_VERSION))
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_unknown_version_error_message_includes_supported_versions(self):
         """AC-2c: Error message for unknown version includes list of supported versions."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="3.0")

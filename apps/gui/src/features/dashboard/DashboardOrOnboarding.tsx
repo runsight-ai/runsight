@@ -20,6 +20,11 @@ import {
 import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
 import { useDashboardKPIs, useAttentionItems, useRecentRuns } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
+import {
+  DEFAULT_WORKFLOW_NAME,
+  buildBlankWorkflowYaml,
+  deriveWorkflowId,
+} from "@/features/setup/workflowDraft";
 
 const DASHBOARD_SUBTITLE = "Here's what's happening with your workflows today.";
 const EVAL_KPI_WARNING_THRESHOLD = 0.1;
@@ -186,7 +191,21 @@ export function Component() {
   }, [activeRuns, subscribeToRunStream]);
 
   async function handleNewWorkflow() {
-    const result = await createWorkflow.mutateAsync({ yaml: "", commit: false });
+    const baseId = deriveWorkflowId(DEFAULT_WORKFLOW_NAME);
+    const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const workflowId = `${baseId}-${uniqueSuffix}`;
+    const result = await createWorkflow.mutateAsync({
+      name: DEFAULT_WORKFLOW_NAME,
+      yaml: buildBlankWorkflowYaml(workflowId, DEFAULT_WORKFLOW_NAME),
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
+    });
     navigate(`/workflows/${result.id}/edit`);
   }
 

@@ -27,7 +27,13 @@ async function createSoulViaApi(role: string) {
   const res = await fetch(`${API}/souls`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role, system_prompt: "E2E test soul prompt" }),
+    body: JSON.stringify({
+      id: role,
+      kind: "soul",
+      name: role,
+      role,
+      system_prompt: "E2E test soul prompt",
+    }),
   });
   return res.json();
 }

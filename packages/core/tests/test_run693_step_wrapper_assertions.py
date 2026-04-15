@@ -102,6 +102,8 @@ class TestStepDelegatesAssertions:
 
 
 YAML_INPUTS_AND_ASSERTIONS = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -132,6 +134,8 @@ workflow:
 
 
 YAML_INPUTS_NO_ASSERTIONS = """\
+id: test-workflow
+kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
@@ -165,6 +169,8 @@ def _parse_with_souls(yaml_content: str) -> object:
             "researcher",
             """\
             id: researcher
+            kind: soul
+            name: Researcher
             role: Researcher
             system_prompt: You research topics.
             """,
@@ -174,6 +180,8 @@ def _parse_with_souls(yaml_content: str) -> object:
             "analyst",
             """\
             id: analyst
+            kind: soul
+            name: Analyst
             role: Analyst
             system_prompt: You analyze data.
             """,

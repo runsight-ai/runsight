@@ -22,6 +22,7 @@ from runsight_core.conditions.engine import (
     Condition,
     ConditionGroup,
 )
+from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.primitives import Soul, Step
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
@@ -104,7 +105,7 @@ def _discover_external_souls(
 ) -> Dict[str, Soul]:
     """Discover external soul files through the shared discovery seam."""
     base_dir = souls_dir.parent.parent
-    return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys).stems()
+    return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys).ids()
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
@@ -297,9 +298,11 @@ def validate_tool_governance(
 
         for tool_name in soul.tools:
             if _resolve_soul_tool_definition(tool_name, declared_tools) is None:
+                soul_ref = str(EntityRef(EntityKind.SOUL, soul_key))
+                tool_ref = str(EntityRef(EntityKind.TOOL, tool_name))
                 message = (
-                    f"Soul '{soul_key}' (custom/souls/{soul_key}.yaml) references "
-                    f"undeclared tool '{tool_name}'. Declared tools: {sorted(file_def.tools)}"
+                    f"{soul_ref} (custom/souls/{soul_key}.yaml) references undeclared "
+                    f"{tool_ref}. Declared tools: {sorted(file_def.tools)}"
                 )
                 if "/" in tool_name:
                     result.add_error(message, source="tool_governance", context=soul_key)
@@ -336,7 +339,7 @@ def _validate_declared_tool_definitions(
         return result
 
     try:
-        discovered_tools = ToolScanner(base_dir).scan().stems()
+        discovered_tools = ToolScanner(base_dir).scan().ids()
     except ValueError as exc:
         scanner_message = str(exc)
         for tool_id in file_def.tools:
@@ -395,10 +398,11 @@ def _validate_declared_tool_definitions(
 
         tool_meta = discovered_tools.get(tool_id)
         if tool_meta is None:
+            tool_ref = str(EntityRef(EntityKind.TOOL, tool_id))
             if require_custom_metadata:
                 result.add_warning(
                     (
-                        f"Tool '{tool_id}' references missing custom tool metadata. "
+                        f"{tool_ref} references missing custom tool metadata. "
                         f"Expected metadata at {expected_file}"
                     ),
                     source="tool_definitions",
@@ -407,7 +411,7 @@ def _validate_declared_tool_definitions(
             else:
                 result.add_warning(
                     (
-                        f"Workflow declares unknown tool id '{tool_id}'. "
+                        f"Workflow declares unknown {tool_ref}. "
                         f"Available builtin IDs: {available_builtin_ids}. "
                         f"Discovered custom IDs: {available_custom_ids}"
                     ),
@@ -450,7 +454,7 @@ def _attach_tool_runtime_metadata(tool: object, tool_id: str, *, base_dir: str) 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         setattr(tool, "tool_type", "builtin")
     else:
-        tool_meta = ToolScanner(base_dir).scan().stems().get(tool_id)
+        tool_meta = ToolScanner(base_dir).scan().ids().get(tool_id)
         setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
     setattr(tool, "config", {"id": tool_id})
     return tool
@@ -492,18 +496,14 @@ def validate_workflow_call_contracts(
     current_workflow_ref: str | None = None,
     ancestry: tuple[str, ...] | None = None,
     current_call_stack_depth: int = 1,
-    allow_filesystem_fallback: bool = True,
     _depth_uses_strict_comparison: bool = False,
 ) -> None:
-    workflow_scanner: WorkflowScanner | None = None
-    workflow_scan_index = None
     if validation_index is None:
-        workflow_scanner = WorkflowScanner(base_dir)
-        workflow_scan_index = workflow_scanner.scan()
+        workflow_scan_index = WorkflowScanner(base_dir).scan()
         validation_index = {
-            alias: (result.path, result.item)
+            result.entity_id: (result.path, result.item)
             for result in workflow_scan_index.get_all()
-            for alias in result.aliases
+            if result.entity_id is not None
         }
     workflow_label = getattr(file_def.workflow, "name", None) or current_workflow_ref or "<root>"
     _validate_workflow_block_runtime_placement(file_def, workflow_label=workflow_label)
@@ -515,30 +515,13 @@ def validate_workflow_call_contracts(
         if block_def.type != "workflow":
             continue
 
-        resolved_child = None
-        if workflow_scanner is not None:
-            resolved_child = workflow_scanner.resolve_ref(
-                block_def.workflow_ref,
-                index=workflow_scan_index,
-                allow_candidate_fallback=allow_filesystem_fallback,
+        indexed = validation_index.get(block_def.workflow_ref)
+        if indexed is None:
+            raise ValueError(
+                f"WorkflowRegistry: cannot resolve ref '{block_def.workflow_ref}'. "
+                "Not found among registered workflow ids."
             )
-        elif allow_filesystem_fallback:
-            workflow_scanner = WorkflowScanner(base_dir)
-            resolved_child = workflow_scanner.resolve_ref(
-                block_def.workflow_ref,
-                allow_candidate_fallback=True,
-            )
-        if resolved_child is None:
-            indexed = validation_index.get(block_def.workflow_ref)
-            if indexed is None:
-                raise ValueError(
-                    f"WorkflowRegistry: cannot resolve ref '{block_def.workflow_ref}'. "
-                    "Not found as named workflow or filesystem path."
-                )
-            child_path, child_file = indexed
-        else:
-            child_path = resolved_child.path
-            child_file = resolved_child.item
+        child_path, child_file = indexed
         child_ref = str(child_path)
         if child_ref in ancestry:
             cycle_path = " -> ".join([*ancestry, child_ref])
@@ -579,7 +562,6 @@ def validate_workflow_call_contracts(
             current_workflow_ref=child_ref,
             ancestry=(*ancestry, child_ref),
             current_call_stack_depth=next_depth,
-            allow_filesystem_fallback=allow_filesystem_fallback,
             _depth_uses_strict_comparison=next_strict,
         )
 
@@ -931,6 +913,7 @@ def parse_workflow_yaml(
 
     # Step 7: Assemble Workflow object
     wf = Workflow(name=file_def.workflow.name)
+    wf.identity = file_def.id
     for block in built_blocks.values():
         wf.add_block(block)
 

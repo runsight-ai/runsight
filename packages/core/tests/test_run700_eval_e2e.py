@@ -117,10 +117,14 @@ eval:
 # (valid block types like "code", SoulDef with "role" not "model").
 
 _FLOW_3_YAML = """\
+id: flow3-workflow
+kind: workflow
 version: "1.0"
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Research Assistant
     role: research_assistant
     system_prompt: "You are a research assistant."
 blocks:
@@ -146,10 +150,14 @@ eval:
 """
 
 _MINIMAL_WORKFLOW_NO_EVAL = """\
+id: minimal-workflow
+kind: workflow
 version: "1.0"
 souls:
   default:
     id: default
+    kind: soul
+    name: Assistant
     role: assistant
     system_prompt: "Assistant."
 blocks:

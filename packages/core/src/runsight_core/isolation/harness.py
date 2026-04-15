@@ -217,6 +217,7 @@ class SubprocessHarness:
             soul=SoulEnvelope(
                 id="default",
                 role="worker",
+                name="worker",
                 system_prompt="",
                 model_name="gpt-4o-mini",
                 max_tool_iterations=3,

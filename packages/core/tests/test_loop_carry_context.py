@@ -332,21 +332,24 @@ class TestLoopBlockDefCarryContextSchema:
         assert isinstance(block, LoopBlockDef)
         assert block.carry_context.mode == "all"
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_carry_context_in_full_workflow_file(self):
         """carry_context should parse correctly inside a full RunsightWorkflowFile."""
         raw = {
             "version": "1.0",
+            "id": "carry_context_test",
+            "kind": "workflow",
             "souls": {
                 "writer": {
-                    "id": "writer_1",
+                    "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "You write.",
                 },
                 "critic": {
-                    "id": "critic_1",
+                    "id": "critic",
+                    "kind": "soul",
+                    "name": "Critic",
                     "role": "Critic",
                     "system_prompt": "You critique.",
                 },
@@ -366,6 +369,8 @@ class TestLoopBlockDefCarryContextSchema:
                 },
             },
             "workflow": {
+                "id": "carry_context_test",
+                "kind": "workflow",
                 "name": "carry_context_test",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],

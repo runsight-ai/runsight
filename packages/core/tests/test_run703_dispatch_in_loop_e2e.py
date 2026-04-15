@@ -109,6 +109,8 @@ class RecordingObserver:
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test agent.",
         model_name="gpt-4o-mini",
@@ -346,14 +348,20 @@ class TestAC1DispatchInsideLoop:
         composition and the runtime executes both rounds.
         """
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               analyst_a:
                 id: analyst_a
+                kind: soul
+                name: Analyst A
                 role: Analyst A
                 system_prompt: Analyze from perspective A.
               analyst_b:
                 id: analyst_b
+                kind: soul
+                name: Analyst B
                 role: Analyst B
                 system_prompt: Analyze from perspective B.
             blocks:
@@ -432,10 +440,14 @@ class TestAC2AssertionsInsideLoop:
         """When a block definition has assertions: config in YAML, the parser
         bridges those configs onto the runtime block as block.assertions."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               writer:
                 id: writer
+                kind: soul
+                name: Writer
                 role: Writer
                 system_prompt: Write carefully.
             blocks:
@@ -507,6 +519,8 @@ class TestAC2AssertionsInsideLoop:
 
         soul = Soul(
             id="writer",
+            kind="soul",
+            name="Writer",
             role="Writer",
             system_prompt="Write carefully.",
             model_name="gpt-4o-mini",
@@ -586,6 +600,8 @@ class TestAC2AssertionsInsideLoop:
 
         soul = Soul(
             id="critic",
+            kind="soul",
+            name="Critic",
             role="Critic",
             system_prompt="Evaluate quality.",
             model_name="gpt-4o-mini",
@@ -632,10 +648,14 @@ class TestAC2AssertionsInsideLoop:
         assertions config is accessible and the workflow executes correctly
         with the observer receiving per-round events."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               critic:
                 id: critic
+                kind: soul
+                name: Quality Critic
                 role: Quality Critic
                 system_prompt: Evaluate quality.
             blocks:
@@ -706,10 +726,14 @@ class TestAC2AssertionsInsideLoop:
         Verifies both AC1 (dispatch routing per round) and AC2 (assertions
         config accessible + observer fires per round) together."""
         yaml_content = dedent("""\
+            id: test-workflow
+            kind: workflow
             version: "1.0"
             souls:
               reviewer:
                 id: reviewer
+                kind: soul
+                name: Reviewer
                 role: Reviewer
                 system_prompt: Review the content.
             blocks:

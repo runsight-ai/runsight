@@ -40,6 +40,7 @@ def _make_provider(
 ) -> ProviderEntity:
     return ProviderEntity(
         id=provider_id,
+        kind="provider",
         name=name,
         type=provider_type,
         api_key=api_key,

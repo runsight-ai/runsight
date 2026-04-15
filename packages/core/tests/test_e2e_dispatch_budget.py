@@ -70,21 +70,29 @@ def _make_litellm_response(
 
 _YAML_DISPATCH_WITH_COST_CAP = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker-a:
+    id: worker-a
+    kind: soul
+    name: Worker A
     role: Worker A
     system_prompt: Do work A.
     provider: openai
     model_name: gpt-4o
-  s2:
-    id: s2
+  worker-b:
+    id: worker-b
+    kind: soul
+    name: Worker B
     role: Worker B
     system_prompt: Do work B.
     provider: openai
     model_name: gpt-4o
-  s3:
-    id: s3
+  worker-c:
+    id: worker-c
+    kind: soul
+    name: Worker C
     role: Worker C
     system_prompt: Do work C.
     provider: openai
@@ -95,15 +103,15 @@ blocks:
     exits:
       - id: branch_a
         label: Branch A
-        soul_ref: s1
+        soul_ref: worker-a
         task: Do task A
       - id: branch_b
         label: Branch B
-        soul_ref: s2
+        soul_ref: worker-b
         task: Do task B
       - id: branch_c
         label: Branch C
-        soul_ref: s3
+        soul_ref: worker-c
         task: Do task C
 workflow:
   name: dispatch_budget_test
@@ -118,21 +126,29 @@ limits:
 
 _YAML_DISPATCH_NO_LIMITS = """\
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
-  s1:
-    id: s1
+  worker-a:
+    id: worker-a
+    kind: soul
+    name: Worker A
     role: Worker A
     system_prompt: Do work A.
     provider: openai
     model_name: gpt-4o
-  s2:
-    id: s2
+  worker-b:
+    id: worker-b
+    kind: soul
+    name: Worker B
     role: Worker B
     system_prompt: Do work B.
     provider: openai
     model_name: gpt-4o
-  s3:
-    id: s3
+  worker-c:
+    id: worker-c
+    kind: soul
+    name: Worker C
     role: Worker C
     system_prompt: Do work C.
     provider: openai
@@ -143,15 +159,15 @@ blocks:
     exits:
       - id: branch_a
         label: Branch A
-        soul_ref: s1
+        soul_ref: worker-a
         task: Do task A
       - id: branch_b
         label: Branch B
-        soul_ref: s2
+        soul_ref: worker-b
         task: Do task B
       - id: branch_c
         label: Branch C
-        soul_ref: s3
+        soul_ref: worker-c
         task: Do task C
 workflow:
   name: dispatch_no_limits_test
@@ -275,10 +291,6 @@ class TestCombinedBranchCostsWithinFlowCap:
 # ===========================================================================
 
 
-@pytest.mark.xfail(
-    reason="Requires real subprocess isolation — paid-result preservation is an IPC interceptor behavior",
-    strict=False,
-)
 class TestCombinedBranchCostsExceedFlowCap:
     """Flow limits: {cost_cap_usd: 2.00}, dispatch with 3 branches.
     Branches cost $0.80, $0.90, $0.70 (total $2.40 > $2.00).

@@ -30,19 +30,22 @@ class TestParserIntegration:
         assert "linear" in BLOCK_TYPE_REGISTRY
         assert "dispatch" in BLOCK_TYPE_REGISTRY
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parse_simple_workflow_without_workflow_blocks(self):
         """Ensure existing workflow parsing still works without workflow blocks."""
         yaml_def = """
 version: "1.0"
+id: simple_wf
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Senior Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 workflow:
+  id: simple_wf
+  kind: workflow
   name: simple_wf
   entry: research
 blocks:
@@ -83,7 +86,11 @@ class TestWorkflowRunKwargsHandling:
         """Test that Workflow.run() accepts registry kwarg (existing feature)."""
         yaml_def = """
 version: "1.0"
+id: test_wf
+kind: workflow
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: step1
 blocks:
@@ -107,7 +114,11 @@ transitions:
         """Test that Workflow.run() can handle various kwarg configurations."""
         yaml_def = """
 version: "1.0"
+id: test_wf
+kind: workflow
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: step1
 blocks:
@@ -137,6 +148,8 @@ class TestBlockKwargsCompatibility:
         """Test LinearBlock.execute() basic functionality."""
         soul = Soul(
             id="test_soul",
+            kind="soul",
+            name="Test",
             role="Test",
             system_prompt="Test prompt",
         )
@@ -188,7 +201,11 @@ class TestWorkflowBlockIntegration:
         # Create a simple child workflow
         child_yaml_def = """
 version: "1.0"
+id: child_workflow
+kind: workflow
 workflow:
+  id: child_workflow
+  kind: workflow
   name: child_workflow
   entry: child_task
 blocks:
@@ -204,7 +221,11 @@ transitions:
         # Create parent workflow that references child
         parent_yaml_def = """
 version: "1.0"
+id: parent_workflow
+kind: workflow
 workflow:
+  id: parent_workflow
+  kind: workflow
   name: parent_workflow
   entry: main_task
 blocks:
@@ -402,9 +423,6 @@ class TestCrossFeatureInteraction:
     """Test interactions between multiple merged features."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     async def test_parser_produces_valid_workflow_blocks(self):
         """
         Test that if parser supported workflow blocks, it would produce
@@ -416,12 +434,18 @@ class TestCrossFeatureInteraction:
         # Mock what the parser would do
         child_wf_def = """
 version: "1.0"
+id: child
+kind: workflow
 souls:
   researcher:
-    id: researcher_1
+    id: researcher
+    kind: soul
+    name: Researcher
     role: Researcher
     system_prompt: You research things.
 workflow:
+  id: child
+  kind: workflow
   name: child
   entry: step1
 blocks:
@@ -521,7 +545,14 @@ transitions:
         # Create workflows
         child_wf_dict = {
             "version": "1.0",
-            "workflow": {"name": "child_analysis", "entry": "analyze"},
+            "id": "child_analysis",
+            "kind": "workflow",
+            "workflow": {
+                "id": "child_analysis",
+                "kind": "workflow",
+                "name": "child_analysis",
+                "entry": "analyze",
+            },
             "blocks": {"analyze": {"type": "linear", "soul_ref": "researcher"}},
             "transitions": [{"from": "analyze", "to": None}],
         }

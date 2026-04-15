@@ -35,6 +35,8 @@ async def test_e2e_single_block_workflow(mock_achat):
 
     soul = Soul(
         id="researcher",
+        kind="soul",
+        name="Researcher",
         role="Research Analyst",
         system_prompt="You are a research analyst who finds and summarizes academic papers.",
         provider="openai",
@@ -91,6 +93,8 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     # Setup multiple souls and tasks
     researcher_soul = Soul(
         id="researcher",
+        kind="soul",
+        name="Researcher",
         role="Researcher",
         system_prompt="Research topics.",
         provider="openai",
@@ -98,6 +102,8 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     )
     analyst_soul = Soul(
         id="analyst",
+        kind="soul",
+        name="Analyst",
         role="Analyst",
         system_prompt="Analyze data.",
         provider="openai",
@@ -105,6 +111,8 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     )
     writer_soul = Soul(
         id="writer",
+        kind="soul",
+        name="Writer",
         role="Writer",
         system_prompt="Write reports.",
         provider="openai",
@@ -198,6 +206,8 @@ async def test_e2e_shared_memory_across_blocks(mock_achat):
 
     soul = Soul(
         id="worker",
+        kind="soul",
+        name="Worker",
         role="Worker",
         system_prompt="Process tasks.",
         provider="openai",
@@ -240,6 +250,8 @@ async def test_e2e_error_propagation_through_workflow(mock_achat):
 
     soul = Soul(
         id="faulty",
+        kind="soul",
+        name="Faulty",
         role="Faulty Agent",
         system_prompt="Might fail.",
         provider="openai",
@@ -269,7 +281,13 @@ async def test_e2e_state_isolation_between_workflows(mock_achat):
     ]
 
     soul = Soul(
-        id="worker", role="Worker", system_prompt="Work.", provider="openai", model_name="gpt-4o"
+        id="worker",
+        kind="soul",
+        name="Worker",
+        role="Worker",
+        system_prompt="Work.",
+        provider="openai",
+        model_name="gpt-4o",
     )
     runner = RunsightTeamRunner(model_name="gpt-4o")
     block = LinearBlock("block", soul, runner)
@@ -311,6 +329,8 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
 
     soul = Soul(
         id="verbose",
+        kind="soul",
+        name="Verbose",
         role="Verbose Agent",
         system_prompt="Generate long outputs.",
         provider="openai",
@@ -355,6 +375,8 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
 
     soul = Soul(
         id="processor",
+        kind="soul",
+        name="Processor",
         role="Data Processor",
         system_prompt="Process data using provided context.",
         provider="openai",
@@ -387,7 +409,13 @@ async def test_e2e_baseblock_empty_id_validation():
     by concrete implementations.
     """
     soul = Soul(
-        id="test", role="Tester", system_prompt="Test.", provider="openai", model_name="gpt-4o"
+        id="test",
+        kind="soul",
+        name="Test",
+        role="Tester",
+        system_prompt="Test.",
+        provider="openai",
+        model_name="gpt-4o",
     )
     runner = RunsightTeamRunner(model_name="gpt-4o")
 

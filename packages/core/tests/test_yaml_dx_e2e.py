@@ -66,9 +66,13 @@ class TestYamlDxSugarE2E:
             dedent(
                 """\
                 version: "1.0"
+                id: inline-soul-e2e
+                kind: workflow
                 souls:
                   writer:
                     id: writer
+                    kind: soul
+                    name: Inline Writer
                     role: Inline Writer
                     system_prompt: Draft carefully.
                 blocks:
@@ -98,6 +102,8 @@ class TestYamlDxSugarE2E:
             "depends_sugar.yaml",
             """\
             version: "1.0"
+            id: depends-sugar
+            kind: workflow
             blocks:
               step_a:
                 type: code
@@ -126,6 +132,8 @@ class TestYamlDxSugarE2E:
             "depends_explicit.yaml",
             """\
             version: "1.0"
+            id: depends-explicit
+            kind: workflow
             blocks:
               step_a:
                 type: code
@@ -183,9 +191,13 @@ class TestYamlDxSugarE2E:
             f"gate_{status}.yaml",
             """\
             version: "1.0"
+            id: gate-shorthand
+            kind: workflow
             souls:
               evaluator:
                 id: evaluator
+                kind: soul
+                name: Evaluator
                 role: Evaluator
                 system_prompt: Evaluate carefully.
             blocks:
@@ -243,9 +255,13 @@ class TestYamlDxSugarE2E:
             "error_route.yaml",
             """\
             version: "1.0"
+            id: error-route
+            kind: workflow
             souls:
               risky:
                 id: risky
+                kind: soul
+                name: Risky Writer
                 role: Risky Writer
                 system_prompt: This will fail.
             blocks:
@@ -297,9 +313,13 @@ class TestYamlDxSugarE2E:
             "retry_error_route.yaml",
             """\
             version: "1.0"
+            id: retry-error-route
+            kind: workflow
             souls:
               retryer:
                 id: retryer
+                kind: soul
+                name: Retryer
                 role: Retryer
                 system_prompt: This will exhaust retries.
             blocks:
@@ -355,6 +375,8 @@ class TestYamlDxSugarE2E:
             f"routes_sugar_{status}.yaml",
             """\
             version: "1.0"
+            id: routes-sugar
+            kind: workflow
             blocks:
               review:
                 type: code
@@ -392,6 +414,8 @@ class TestYamlDxSugarE2E:
             f"routes_explicit_{status}.yaml",
             """\
             version: "1.0"
+            id: routes-explicit
+            kind: workflow
             blocks:
               review:
                 type: code

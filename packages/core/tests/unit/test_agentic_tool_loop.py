@@ -33,6 +33,8 @@ def _make_soul(
     """Build a Soul with optional resolved_tools."""
     defaults = {
         "id": "test_soul",
+        "kind": "soul",
+        "name": "Test Agent",
         "role": "Test Agent",
         "system_prompt": "You are a test agent.",
         "provider": "openai",

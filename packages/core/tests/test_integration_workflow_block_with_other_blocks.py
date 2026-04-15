@@ -97,7 +97,13 @@ async def test_workflow_block_followed_by_linear_block():
     mock_runner_parent = MockRunner()
     final_step = LinearBlock(
         block_id="parent_linear",
-        soul=Soul(id="parent_soul", role="Manager", system_prompt="Manage"),
+        soul=Soul(
+            id="parent_soul",
+            kind="soul",
+            name="Parent Soul",
+            role="Manager",
+            system_prompt="Manage",
+        ),
         runner=mock_runner_parent,
     )
     parent_wf.add_block(final_step)

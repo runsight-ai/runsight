@@ -54,7 +54,7 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
 
 
 def _make_soul(soul_id: str = "test_soul") -> Soul:
-    return Soul(id=soul_id, role="Test", system_prompt="Test prompt")
+    return Soul(id=soul_id, kind="soul", name="Test", role="Test", system_prompt="Test prompt")
 
 
 class StubBlock(BaseBlock):
@@ -686,6 +686,8 @@ class TestValidationCatchesInvalidConfigs:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: test_bad_key
   entry: gate
@@ -698,6 +700,8 @@ workflow:
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test
     role: Test
     system_prompt: "test"
 
@@ -727,6 +731,8 @@ blocks:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: test_valid_exits
   entry: gate
@@ -740,6 +746,8 @@ workflow:
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test
     role: Test
     system_prompt: "test"
 
@@ -770,6 +778,8 @@ blocks:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: test_gate_auto_exits
   entry: gate
@@ -783,6 +793,8 @@ workflow:
 souls:
   test_soul:
     id: test_soul
+    kind: soul
+    name: Test
     role: Test
     system_prompt: "test"
 
@@ -830,6 +842,8 @@ class TestFullWorkflowBranchingFromYAML:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: test_gate_e2e
   entry: content_block
@@ -845,12 +859,16 @@ workflow:
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "Write content"
     provider: openai
     model_name: gpt-4o
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "Evaluate quality. Respond PASS or FAIL: reason"
     provider: openai
@@ -929,6 +947,8 @@ blocks:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: test_gate_fail_e2e
   entry: content_block
@@ -944,12 +964,16 @@ workflow:
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "Write content"
     provider: openai
     model_name: gpt-4o
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "Evaluate quality. Respond PASS or FAIL: reason"
     provider: openai
@@ -1031,6 +1055,8 @@ class TestYamlExitPortRoundTrip:
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 version: "1.0"
 
 config:
@@ -1039,6 +1065,8 @@ config:
 souls:
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 
@@ -1082,6 +1110,8 @@ workflow:
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 version: "1.0"
 
 config:
@@ -1090,10 +1120,14 @@ config:
 souls:
   writer:
     id: writer
+    kind: soul
+    name: Writer
     role: Writer
     system_prompt: "Write content"
   reviewer:
     id: reviewer
+    kind: soul
+    name: Reviewer
     role: Reviewer
     system_prompt: "Evaluate quality"
 
@@ -1156,11 +1190,13 @@ class TestExternalSoulFileResolution:
         souls_dir.mkdir(parents=True)
 
         (souls_dir / "narrator.yaml").write_text(
-            "id: narrator\nrole: Narrator\nsystem_prompt: Tell the story.\n"
+            "id: narrator\nkind: soul\nname: Narrator\nrole: Narrator\nsystem_prompt: Tell the story.\n"
             "provider: openai\nmodel_name: gpt-4o\n"
         )
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: external_soul_linear
   entry: story_block
@@ -1186,15 +1222,17 @@ blocks:
         souls_dir.mkdir(parents=True)
 
         (souls_dir / "author.yaml").write_text(
-            "id: author\nrole: Author\nsystem_prompt: Write content.\n"
+            "id: author\nkind: soul\nname: Author\nrole: Author\nsystem_prompt: Write content.\n"
             "provider: openai\nmodel_name: gpt-4o\n"
         )
         (souls_dir / "judge.yaml").write_text(
-            "id: judge\nrole: Judge\nsystem_prompt: Evaluate content. Respond PASS or FAIL.\n"
+            "id: judge\nkind: soul\nname: Judge\nrole: Judge\nsystem_prompt: Evaluate content. Respond PASS or FAIL.\n"
             "provider: openai\nmodel_name: gpt-4o\n"
         )
 
         yaml_content = """
+id: test-workflow
+kind: workflow
 workflow:
   name: external_soul_gate
   entry: draft

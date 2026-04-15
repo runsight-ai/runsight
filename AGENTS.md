@@ -286,3 +286,13 @@ Do NOT create git tags manually. Do NOT modify version fields in `apps/api/pypro
 - Never run full test suites (pytest or vitest) — they consume ~4GB each and hang the machine. Target specific files only.
 - Styling: CVA + Tailwind + @theme tokens. No BEM, no mixing approaches.
 - Main branch = production. Simulation branches for testing uncommitted changes.
+
+## Codebones
+
+This project is indexed by codebones. Prefer codebones tools over file crawling:
+
+- `codebones search <name>` — find functions/classes by name
+- `codebones get <symbol> --filter <keyword>` — read matching lines only (cheap)
+- `codebones get <symbol>` — read full source (when you need the complete implementation)
+- `codebones outline <file>` — see file structure (signatures, bodies elided)
+- `codebones graph <file>` — blast radius: what depends on this file and what they import

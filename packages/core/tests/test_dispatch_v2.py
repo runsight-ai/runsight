@@ -37,18 +37,32 @@ from runsight_core.yaml.schema import DispatchExitDef
 
 @pytest.fixture
 def soul_analyst():
-    return Soul(id="analyst", role="Analyst", system_prompt="You are an analyst.")
+    return Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="You are an analyst.",
+    )
 
 
 @pytest.fixture
 def soul_reviewer():
-    return Soul(id="reviewer", role="Reviewer", system_prompt="You are a reviewer.")
+    return Soul(
+        id="reviewer",
+        kind="soul",
+        name="Reviewer",
+        role="Reviewer",
+        system_prompt="You are a reviewer.",
+    )
 
 
 @pytest.fixture
 def soul_editor():
     return Soul(
         id="editor",
+        kind="soul",
+        name="Editor",
         role="Editor",
         system_prompt="You are an editor.",
         model_name="claude-3-opus-20240229",

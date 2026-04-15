@@ -141,7 +141,7 @@ Executes a child workflow as a sub-step (Hierarchical State Machine pattern).
 | Field | Type | Default | Required | Description |
 |-------|------|---------|----------|-------------|
 | `type` | `Literal["workflow"]` | `"workflow"` | **yes** | Type discriminator |
-| `workflow_ref` | `str` | -- | **yes** | ID of the child workflow file to execute |
+| `workflow_ref` | `str` | -- | **yes** | Embedded workflow id of the child workflow to execute |
 | `inputs` | `Dict[str, str]` | none | no | Interface name to parent state path mapping. Keys must not contain dots. |
 | `outputs` | `Dict[str, str]` | none | no | Parent path to interface name mapping. Values must not contain dots. |
 | `max_depth` | `int` | none | no | Maximum nesting depth limit (default engine limit is 10) |

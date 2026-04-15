@@ -51,7 +51,13 @@ class TestGetClientResolvesProviderKey:
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
         soul = Soul(
-            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+            id="soul-s1",
+            kind="soul",
+            name="test",
+            role="test",
+            system_prompt="test",
+            provider="openai",
+            model_name="gpt-4o",
         )
         # Default model is gpt-4o (OpenAI), so default client should have openai key
         client = runner._get_client(soul)
@@ -64,7 +70,9 @@ class TestGetClientResolvesProviderKey:
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="anthropic",
@@ -80,10 +88,18 @@ class TestGetClientResolvesProviderKey:
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
         openai_soul = Soul(
-            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+            id="soul-s1",
+            kind="soul",
+            name="test",
+            role="test",
+            system_prompt="test",
+            provider="openai",
+            model_name="gpt-4o",
         )
         anthropic_soul = Soul(
-            id="s2",
+            id="soul-s2",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="anthropic",
@@ -110,7 +126,9 @@ class TestMissingProviderKey:
             api_keys={"openai": "sk-openai-key"},  # no anthropic key
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="anthropic",
@@ -128,7 +146,9 @@ class TestMissingProviderKey:
             api_keys={"openai": "sk-openai-key"},
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="anthropic",
@@ -142,7 +162,13 @@ class TestMissingProviderKey:
         """If api_keys is an empty dict, any model lookup should fail descriptively."""
         runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={})
         soul = Soul(
-            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+            id="soul-s1",
+            kind="soul",
+            name="test",
+            role="test",
+            system_prompt="test",
+            provider="openai",
+            model_name="gpt-4o",
         )
         with pytest.raises((KeyError, ValueError)):
             runner._get_client(soul)
@@ -173,7 +199,9 @@ class TestUnknownModelProvider:
             api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="unknown_provider",

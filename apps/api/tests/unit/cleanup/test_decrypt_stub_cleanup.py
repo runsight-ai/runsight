@@ -14,7 +14,6 @@ _SERVICE_FILES = [
 ]
 
 _LEGACY_TEST_FILES = [
-    _ROOT / "tests" / "logic" / "test_google_api_key_header.py",
     _ROOT / "tests" / "unit" / "logic" / "test_provider_service_wiring.py",
     _ROOT / "tests" / "logic" / "test_execution_service_concurrency.py",
 ]

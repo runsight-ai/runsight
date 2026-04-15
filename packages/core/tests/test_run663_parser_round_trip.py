@@ -38,6 +38,8 @@ class TestParserRoundTripOnErrorCatch:
         # Child workflow: a code block that always raises
         child_yaml = {
             "version": "1.0",
+            "id": "child_wf",
+            "kind": "workflow",
             "interface": {
                 "inputs": [],
                 "outputs": [],
@@ -56,13 +58,15 @@ class TestParserRoundTripOnErrorCatch:
         }
 
         # Register child workflow
-        registry = WorkflowRegistry(allow_filesystem_fallback=False)
+        registry = WorkflowRegistry()
         child_file = RunsightWorkflowFile.model_validate(child_yaml)
         registry.register("child_wf", child_file)
 
         # Parent workflow: calls child with on_error: catch
         parent_yaml = {
             "version": "1.0",
+            "id": "parent_wf",
+            "kind": "workflow",
             "blocks": {
                 "invoke_child": {
                     "type": "workflow",

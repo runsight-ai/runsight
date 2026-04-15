@@ -1,4 +1,6 @@
 version: "1.0"
+id: reusable-release-trace-subflow
+kind: workflow
 tools:
   - http
   - file_io

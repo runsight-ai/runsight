@@ -71,7 +71,7 @@ def _make_temp_workspace_with_souls(
     """Create a temp workspace with library soul files.
 
     Args:
-        soul_specs: Mapping of soul_name -> {id, role, system_prompt}.
+        soul_specs: Mapping of soul_name -> {id, kind, name, role, system_prompt}.
     """
     tmpdir = tempfile.TemporaryDirectory()
     base = Path(tmpdir.name)
@@ -81,6 +81,8 @@ def _make_temp_workspace_with_souls(
             soul_name,
             f"""\
             id: {fields["id"]}
+            kind: {fields["kind"]}
+            name: {fields["name"]}
             role: {fields["role"]}
             system_prompt: {fields["system_prompt"]}
             """,
@@ -94,6 +96,8 @@ def _make_temp_workspace_with_souls(
 
 YAML_TWO_BLOCKS_WITH_INPUT_AND_ASSERTIONS = """\
 version: "1.0"
+id: input_assertion_flow
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -123,6 +127,8 @@ workflow:
 
 YAML_MULTI_BLOCK_ASSERTIONS = """\
 version: "1.0"
+id: multi_block_assertions
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -166,6 +172,8 @@ workflow:
 
 YAML_SOUL_REF_WITH_ASSERTIONS = """\
 version: "1.0"
+id: soul_ref_assertions
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -184,9 +192,27 @@ workflow:
 """
 
 STANDARD_SOUL_SPECS = {
-    "researcher": {"id": "researcher_1", "role": "Researcher", "system_prompt": "You research."},
-    "analyst": {"id": "analyst_1", "role": "Analyst", "system_prompt": "You analyze."},
-    "reviewer": {"id": "reviewer_1", "role": "Reviewer", "system_prompt": "You review."},
+    "researcher": {
+        "id": "researcher",
+        "kind": "soul",
+        "name": "Researcher",
+        "role": "Researcher",
+        "system_prompt": "You research.",
+    },
+    "analyst": {
+        "id": "analyst",
+        "kind": "soul",
+        "name": "Analyst",
+        "role": "Analyst",
+        "system_prompt": "You analyze.",
+    },
+    "reviewer": {
+        "id": "reviewer",
+        "kind": "soul",
+        "name": "Reviewer",
+        "role": "Reviewer",
+        "system_prompt": "You review.",
+    },
 }
 
 
@@ -346,6 +372,8 @@ class TestUF2SoulYamlRoundTrip:
 
         soul_data = {
             "id": "test_soul",
+            "kind": "soul",
+            "name": "Test",
             "role": "Test",
             "system_prompt": "Test prompt.",
             "assertions": [{"type": "contains", "value": "test"}],

@@ -84,6 +84,8 @@ def _tool_call_response(
 
 _ROUTER_SOUL = {
     "id": "router",
+    "kind": "soul",
+    "name": "Router Agent",
     "role": "Router Agent",
     "provider": "openai",
     "model_name": "gpt-4o",
@@ -93,6 +95,8 @@ _ROUTER_SOUL = {
 
 _WORKER_SOUL_A = {
     "id": "worker_a",
+    "kind": "soul",
+    "name": "Worker A",
     "role": "Worker A",
     "provider": "openai",
     "model_name": "gpt-4o",
@@ -101,6 +105,8 @@ _WORKER_SOUL_A = {
 
 _WORKER_SOUL_B = {
     "id": "worker_b",
+    "kind": "soul",
+    "name": "Worker B",
     "role": "Worker B",
     "provider": "openai",
     "model_name": "gpt-4o",
@@ -109,6 +115,8 @@ _WORKER_SOUL_B = {
 
 _DOWNSTREAM_SOUL = {
     "id": "downstream",
+    "kind": "soul",
+    "name": "Downstream Worker",
     "role": "Downstream Worker",
     "provider": "openai",
     "model_name": "gpt-4o",
@@ -126,6 +134,8 @@ def _two_exit_workflow() -> Dict[str, Any]:
         -> port_b: block_b (linear)
     """
     return {
+        "id": "test-workflow",
+        "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
         "souls": {
@@ -180,11 +190,15 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
     This tests AC3: result from dispatch exit feeds a subsequent linear block.
     """
     return {
+        "id": "test-workflow",
+        "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
         "souls": {
             "router": {
                 "id": "router",
+                "kind": "soul",
+                "name": "Router Agent",
                 "role": "Router Agent",
                 "provider": "openai",
                 "model_name": "gpt-4o",
@@ -195,6 +209,8 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
             "worker_b": _WORKER_SOUL_B,
             "worker_c": {
                 "id": "worker_c",
+                "kind": "soul",
+                "name": "Worker C",
                 "role": "Worker C",
                 "provider": "openai",
                 "model_name": "gpt-4o",

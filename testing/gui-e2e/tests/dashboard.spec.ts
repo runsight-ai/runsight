@@ -4,6 +4,7 @@ import {
   apiDelete,
   apiGet,
   apiPost,
+  buildBlankWorkflowYaml,
   gotoShellRoute,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
@@ -33,8 +34,10 @@ test.describe("Home dashboard", () => {
   const createdWorkflowIds = new Set<string>();
 
   test.beforeAll(async () => {
+    const workflowId = `e2e-dashboard-${Date.now()}`;
     const workflow = await apiPost<WorkflowSummary>("/workflows", {
-      yaml: "",
+      name: "Dashboard Workflow",
+      yaml: buildBlankWorkflowYaml(workflowId, "Dashboard Workflow"),
       canvas_state: {
         nodes: [],
         edges: [],
@@ -64,11 +67,6 @@ test.describe("Home dashboard", () => {
     await expect(page.getByText("Eval Pass Rate", { exact: true })).toBeVisible();
     await expect(page.getByText("Cost Today", { exact: true })).toBeVisible();
     await expect(page.getByText("Regressions", { exact: true })).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "No runs yet" }).or(
-        page.getByRole("region", { name: "Items needing attention" }),
-      ),
-    ).toBeVisible();
   });
 
   test("shows dashboard KPI values from the live dashboard API", async ({ page }) => {

@@ -55,15 +55,13 @@ def test_validate_declared_tool_definitions_uses_tool_scanner(tmp_path):
         patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
         patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
     ):
-        mock_scanner.return_value.scan.return_value.stems.return_value = {
-            "lookup_profile": tool_meta
-        }
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"lookup_profile": tool_meta}
 
         result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
 
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
     mock_resolve.assert_called_once_with("lookup_profile", base_dir=str(tmp_path))
     assert isinstance(result, ValidationResult)
     assert result.has_errors is False
@@ -78,7 +76,7 @@ def test_validate_declared_tool_definitions_warns_for_unknown_tool_id(tmp_path):
         patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
         patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
     ):
-        mock_scanner.return_value.scan.return_value.stems.return_value = {}
+        mock_scanner.return_value.scan.return_value.ids.return_value = {}
 
         result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
 
@@ -104,7 +102,7 @@ def test_validate_declared_tool_definitions_warns_for_missing_custom_metadata_wh
         patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
         patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
     ):
-        mock_scanner.return_value.scan.return_value.stems.return_value = {}
+        mock_scanner.return_value.scan.return_value.ids.return_value = {}
 
         result = _validate_declared_tool_definitions(
             file_def,
@@ -135,7 +133,7 @@ def test_validate_declared_tool_definitions_records_builtin_collision_as_error_w
         patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner,
         patch("runsight_core.yaml.parser._resolve_tool_for_parser") as mock_resolve,
     ):
-        mock_scanner.return_value.scan.return_value.stems.return_value = {"http": tool_meta}
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"http": tool_meta}
 
         result = _validate_declared_tool_definitions(file_def, base_dir=str(tmp_path))
 
@@ -222,9 +220,7 @@ def test_attach_tool_runtime_metadata_uses_tool_scanner(tmp_path):
     tool_meta = _make_request_tool_meta("fetch_profile")
 
     with patch("runsight_core.yaml.parser.ToolScanner") as mock_scanner:
-        mock_scanner.return_value.scan.return_value.stems.return_value = {
-            "fetch_profile": tool_meta
-        }
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"fetch_profile": tool_meta}
 
         result = _attach_tool_runtime_metadata(tool, "fetch_profile", base_dir=str(tmp_path))
 
@@ -232,7 +228,7 @@ def test_attach_tool_runtime_metadata_uses_tool_scanner(tmp_path):
     assert tool.tool_type == "custom"
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
 
 
 def test_resolve_custom_tool_id_uses_tool_scanner(tmp_path):
@@ -241,9 +237,7 @@ def test_resolve_custom_tool_id_uses_tool_scanner(tmp_path):
     tool_meta = _make_python_tool_meta()
 
     with patch("runsight_core.tools._catalog.ToolScanner") as mock_scanner:
-        mock_scanner.return_value.scan.return_value.stems.return_value = {
-            "lookup_profile": tool_meta
-        }
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"lookup_profile": tool_meta}
 
         result = _resolve_custom_tool_id("lookup_profile", base_dir=str(tmp_path))
 
@@ -251,7 +245,7 @@ def test_resolve_custom_tool_id_uses_tool_scanner(tmp_path):
     assert result.name == "lookup_profile"
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
 
 
 def test_resolve_http_tool_id_uses_tool_scanner(tmp_path):
@@ -260,9 +254,7 @@ def test_resolve_http_tool_id_uses_tool_scanner(tmp_path):
     tool_meta = _make_request_tool_meta()
 
     with patch("runsight_core.tools._catalog.ToolScanner") as mock_scanner:
-        mock_scanner.return_value.scan.return_value.stems.return_value = {
-            "fetch_profile": tool_meta
-        }
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"fetch_profile": tool_meta}
 
         result = _resolve_http_tool_id("fetch_profile", base_dir=str(tmp_path))
 
@@ -270,7 +262,7 @@ def test_resolve_http_tool_id_uses_tool_scanner(tmp_path):
     assert result.name == "fetch_profile"
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
 
 
 def test_resolve_tool_id_uses_tool_scanner_for_custom_lookup(tmp_path):
@@ -286,16 +278,14 @@ def test_resolve_tool_id_uses_tool_scanner_for_custom_lookup(tmp_path):
             return_value=resolved_tool,
         ) as mock_resolve_custom,
     ):
-        mock_scanner.return_value.scan.return_value.stems.return_value = {
-            "lookup_profile": tool_meta
-        }
+        mock_scanner.return_value.scan.return_value.ids.return_value = {"lookup_profile": tool_meta}
 
         result = resolve_tool_id("lookup_profile", base_dir=str(tmp_path))
 
     assert result is resolved_tool
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
-    mock_scanner.return_value.scan.return_value.stems.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
     mock_resolve_custom.assert_called_once_with(
         "lookup_profile",
         tool_meta=tool_meta,

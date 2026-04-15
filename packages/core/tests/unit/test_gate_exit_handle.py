@@ -39,7 +39,7 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
 
 
 def _make_soul(soul_id: str = "gate_soul") -> Soul:
-    return Soul(id=soul_id, role="Gate", system_prompt="Evaluate quality")
+    return Soul(id=soul_id, kind="soul", name="Gate", role="Gate", system_prompt="Evaluate quality")
 
 
 def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):

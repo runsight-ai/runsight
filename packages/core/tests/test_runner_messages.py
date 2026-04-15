@@ -15,7 +15,9 @@ from runsight_core.runner import RunsightTeamRunner
 @pytest.fixture
 def soul():
     return Soul(
-        id="s1",
+        id="soul-agent",
+        kind="soul",
+        name="Agent",
         role="Agent",
         system_prompt="You are helpful.",
         provider="openai",

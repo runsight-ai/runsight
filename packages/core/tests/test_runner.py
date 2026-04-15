@@ -7,6 +7,8 @@ from runsight_core.runner import RunsightTeamRunner
 def sample_soul():
     return Soul(
         id="test_soul",
+        kind="soul",
+        name="Test Agent",
         role="Test Agent",
         system_prompt="You are a helpful test agent.",
         provider="openai",

@@ -99,6 +99,9 @@ export interface StepNodeData extends Record<string, unknown> {
   status: RunStatus;
   cost?: number;
   executionCost?: number;
+  duration?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
 }
 
 export type WorkflowNode = Node<StepNodeData>;

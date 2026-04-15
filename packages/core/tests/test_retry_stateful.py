@@ -39,7 +39,9 @@ def mock_runner():
 
 @pytest.fixture
 def soul():
-    return Soul(id="agent_1", role="Analyst", system_prompt="Analyze things.")
+    return Soul(
+        id="agent_1", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze things."
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────

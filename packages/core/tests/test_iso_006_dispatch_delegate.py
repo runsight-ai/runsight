@@ -25,7 +25,9 @@ from runsight_core.state import BlockResult, WorkflowState
 
 def _make_soul(soul_id: str = "coordinator") -> Soul:
     return Soul(
-        id=soul_id,
+        id=soul_id if len(soul_id) >= 3 else f"soul-{soul_id}",
+        kind="soul",
+        name="Coordinator",
         role="Coordinator",
         system_prompt="You coordinate parallel dispatch tasks.",
         model_name="gpt-4o-mini",

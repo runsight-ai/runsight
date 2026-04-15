@@ -14,7 +14,13 @@ class TestGetClientResolvesApiKeys:
 
         runner = RunsightTeamRunner(model_name="gpt-4o", api_keys={"openai": "sk-test-key"})
         soul = Soul(
-            id="s1", role="test", system_prompt="test", provider="openai", model_name="gpt-4o"
+            id="soul-s1",
+            kind="soul",
+            name="test",
+            role="test",
+            system_prompt="test",
+            provider="openai",
+            model_name="gpt-4o",
         )
         client = runner._get_client(soul)
         assert client.api_key == "sk-test-key"
@@ -28,7 +34,9 @@ class TestGetClientResolvesApiKeys:
             api_keys={"openai": "sk-openai", "anthropic": "sk-override-test"},
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="anthropic",
@@ -46,7 +54,9 @@ class TestGetClientResolvesApiKeys:
             api_keys={"openai": "sk-openai", "openai/text": "sk-cached"},
         )
         soul = Soul(
-            id="s1",
+            id="soul-s1",
+            kind="soul",
+            name="test",
             role="test",
             system_prompt="test",
             provider="openai",

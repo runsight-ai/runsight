@@ -55,6 +55,7 @@ describe("RUN-840/842 warning contracts", () => {
 
     const parsed = workflowSchema.parse({
       id: "wf_1",
+      kind: "workflow",
       warnings: [warningPayload],
     });
 
@@ -66,6 +67,7 @@ describe("RUN-840/842 warning contracts", () => {
 
     const nullContextResult = workflowSchema.safeParse({
       id: "wf_1",
+      kind: "workflow",
       warnings: [
         {
           message: "Tool definition warning",
@@ -79,6 +81,7 @@ describe("RUN-840/842 warning contracts", () => {
     expect(
       workflowSchema.safeParse({
         id: "wf_1",
+        kind: "workflow",
         warnings: [
           {
             message: "Tool definition warning",

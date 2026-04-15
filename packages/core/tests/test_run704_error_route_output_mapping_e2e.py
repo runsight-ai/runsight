@@ -127,8 +127,13 @@ class _ScriptedRunner:
 
 
 def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
+    content = dedent(yaml_content)
+    lines = content.lstrip().splitlines()
+    first_key = lines[0].split(":")[0].strip() if lines else ""
+    if first_key != "id":
+        content = "id: test-workflow\nkind: workflow\n" + content
     workflow_file = base_dir / name
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
+    workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
 
@@ -668,6 +673,8 @@ class TestDependsPredecessorFailsErrorRouteRuns:
             souls:
               fetcher:
                 id: fetcher
+                kind: soul
+                name: Fetcher
                 role: Fetcher
                 system_prompt: Fetch data.
             blocks:

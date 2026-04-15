@@ -3,13 +3,13 @@ title: Custom Assertions
 description: Create project-local Python assertions under custom/assertions and use them in offline evals and live workflow runs.
 ---
 
-Custom assertions let you add workspace-local checks alongside Runsight's 15 built-in assertions. Add a YAML manifest, drop your Python file next to it, and reference it as `custom:<name>` in your workflow.
+Custom assertions let you add workspace-local checks alongside Runsight's 15 built-in assertions. Add a YAML manifest, drop your Python file next to it, and reference it as `custom:<id>` in your workflow.
 
 :::tip[Promptfoo compatible]
 The Python contract is the same as promptfoo's `get_assert(output, context)`. If you already have promptfoo assertion functions, they work in Runsight with minimal changes — see [Migrating from Promptfoo](#migrating-from-promptfoo).
 :::
 
-Runsight discovers custom assertions from `custom/assertions/*.yaml`, registers each one under `custom:{file_stem}`, and runs them in both offline evals and live API workflow runs.
+Runsight discovers custom assertions from `custom/assertions/*.yaml`, registers each one under `custom:{id}`, and runs them in both offline evals and live API workflow runs. The embedded `id` must match the YAML filename stem.
 
 For built-in assertion types and shared assertion config fields, see [Assertions](/docs/evaluation/assertions).
 
@@ -19,6 +19,8 @@ This example creates a custom assertion named `tone_check`, then uses it in an o
 
 ```yaml title="custom/assertions/tone_check.yaml"
 version: "1.0"
+id: tone_check
+kind: assertion
 name: "Tone Check"
 description: "Passes when output starts with a configured prefix."
 returns: "grading_result"
@@ -43,6 +45,8 @@ def get_assert(output, context):
 
 ```yaml title="custom/workflows/custom-assertions-demo.yaml"
 version: "1.0"
+id: custom-assertions-demo
+kind: workflow
 config:
   model_name: gpt-4o
 blocks:
@@ -89,6 +93,8 @@ Each custom assertion is defined by a YAML manifest in `custom/assertions/<id>.y
 
 ```yaml title="custom/assertions/example.yaml"
 version: "1.0"
+id: example
+kind: assertion
 name: "Example Assertion"
 description: "Checks something about the block output."
 returns: "bool"
@@ -103,6 +109,8 @@ params:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `version` | `string` | yes | Manifest version string |
+| `id` | `string` | yes | Embedded assertion id. Must match the filename stem |
+| `kind` | `"assertion"` | yes | Entity kind |
 | `name` | `string` | yes | Display name for humans. This is not the runtime ID |
 | `description` | `string` | yes | Short description of the assertion |
 | `returns` | `"bool"` or `"grading_result"` | yes | Declares the plugin return contract |
@@ -111,7 +119,7 @@ params:
 
 Important details:
 
-- The canonical runtime ID is the file stem, not `name`.
+- The canonical runtime ID is the embedded `id`, not `name`.
 - `custom/assertions/tone_check.yaml` always registers as `custom:tone_check`.
 - Extra top-level manifest fields are rejected.
 - Built-in assertion name collisions are rejected at scan time.
@@ -210,6 +218,8 @@ Custom plugins receive their per-assertion input through `config`. The generic `
 
 ```yaml title="custom/assertions/budget_guard.yaml"
 version: "1.0"
+id: budget_guard
+kind: assertion
 name: "Budget Guard"
 description: "Requires a numeric budget."
 returns: "bool"

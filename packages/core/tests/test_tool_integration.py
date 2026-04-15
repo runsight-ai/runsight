@@ -109,6 +109,8 @@ def _workflow_dict(
     """Build a minimal workflow raw-dict for parse_workflow_yaml()."""
     d: Dict[str, Any] = {
         "version": "1.0",
+        "id": "integration_test_workflow",
+        "kind": "workflow",
         "config": {"model_name": model_name},
         "workflow": {
             "name": "integration_test_workflow",
@@ -119,7 +121,16 @@ def _workflow_dict(
     if tools:
         d["tools"] = tools
     if souls:
-        d["souls"] = souls
+        # Inject identity fields into each soul dict if missing
+        patched_souls: Dict[str, Any] = {}
+        for key, soul_data in souls.items():
+            soul_copy = dict(soul_data)
+            if "kind" not in soul_copy:
+                soul_copy["kind"] = "soul"
+            if "name" not in soul_copy:
+                soul_copy["name"] = soul_copy.get("role", key)
+            patched_souls[key] = soul_copy
+        d["souls"] = patched_souls
     if blocks:
         d["blocks"] = blocks
     return d
@@ -159,8 +170,10 @@ def _write_echo_tool_yaml(tmp_path: Path, slug: str = _ECHO_TOOL_ID) -> str:
     _write_custom_tool_yaml(
         tmp_path,
         slug,
-        """\
+        f"""\
 version: "1.0"
+id: {slug}
+kind: tool
 type: custom
 executor: python
 name: Echo Tool
@@ -174,7 +187,7 @@ parameters:
     - message
 code: |
   def main(args):
-      return {"echo": args}
+      return {{"echo": args}}
 """,
     )
     return slug
@@ -192,6 +205,8 @@ def _write_raising_tool_yaml(
         slug,
         f"""\
 version: "1.0"
+id: {slug}
+kind: tool
 type: custom
 executor: python
 name: {slug.replace("_", " ").title()}
@@ -751,6 +766,8 @@ class TestRequiredToolCalls:
         echo_tool_id = _write_echo_tool_yaml(tmp_path)
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="Test Agent",
             role="Test Agent",
             system_prompt="Use the echo tool.",
             tools=[echo_tool_id],
@@ -780,6 +797,8 @@ class TestRequiredToolCalls:
         echo_tool_id = _write_echo_tool_yaml(tmp_path)
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="Test Agent",
             role="Test Agent",
             system_prompt="Use the echo tool.",
             tools=[echo_tool_id],
@@ -933,6 +952,8 @@ class TestCanonicalWorkflowToolIdIntegration:
             "http",
             """\
 version: "1.0"
+id: http
+kind: tool
 type: custom
 executor: python
 name: Shadow HTTP
@@ -948,6 +969,8 @@ code: |
             tmp_path,
             """\
 version: "1.0"
+id: canonical_tool_ids
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -955,6 +978,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Agent
     role: Agent
     provider: openai
     model_name: gpt-4o
@@ -1342,6 +1367,8 @@ class TestNoToolsPath:
 
         soul = Soul(
             id="plain_soul",
+            kind="soul",
+            name="Plain",
             role="Plain",
             system_prompt="Just answer.",
             provider="openai",
@@ -1413,6 +1440,8 @@ class TestRun532ToolPipelineIntegration:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -1436,6 +1465,8 @@ code: |
             tmp_path,
             """\
 version: "1.0"
+id: run_532_custom_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1443,6 +1474,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Custom Agent
     role: Custom Agent
     provider: openai
     model_name: gpt-4o
@@ -1499,6 +1532,8 @@ workflow:
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -1526,6 +1561,8 @@ timeout_seconds: 9
             tmp_path,
             """\
 version: "1.0"
+id: run_532_http_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1533,6 +1570,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: HTTP Agent
     role: HTTP Agent
     provider: openai
     model_name: gpt-4o
@@ -1698,6 +1737,8 @@ workflow:
 
         soul = Soul(
             id="agent_1",
+            kind="soul",
+            name="HTTP Agent",
             role="HTTP Agent",
             system_prompt="Use the builtin http tool.",
             tools=["http"],
@@ -1888,6 +1929,8 @@ workflow:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -1912,6 +1955,8 @@ code: |
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -1932,6 +1977,8 @@ request:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_mixed_pipeline
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -1941,6 +1988,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Mixed Agent
     role: Mixed Agent
     provider: openai
     model_name: gpt-4o
@@ -1978,11 +2027,15 @@ workflow:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_governance_error
+kind: workflow
 config:
   model_name: gpt-4o
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Agent
     role: Agent
     provider: openai
     model_name: gpt-4o
@@ -2107,6 +2160,8 @@ workflow:
             "adder",
             """\
 version: "1.0"
+id: adder
+kind: tool
 type: custom
 executor: python
 name: Adder
@@ -2131,6 +2186,8 @@ code: |
             "fetch_answer",
             """\
 version: "1.0"
+id: fetch_answer
+kind: tool
 type: custom
 executor: request
 name: Fetch Answer
@@ -2151,6 +2208,8 @@ request:
             tmp_path,
             """\
 version: "1.0"
+id: run_532_isolated_envelope
+kind: workflow
 config:
   model_name: gpt-4o
 tools:
@@ -2160,6 +2219,8 @@ tools:
 souls:
   agent:
     id: agent
+    kind: soul
+    name: Mixed Agent
     role: Mixed Agent
     provider: openai
     model_name: gpt-4o

@@ -47,7 +47,9 @@ async def test_launch_execution_reads_main_yaml_from_git_not_working_tree(tmp_pa
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    main_yaml = """
+    main_yaml = """id: wf_1
+kind: workflow
+version: '1.0'
 workflow:
   name: Main Workflow
   entry: b1
@@ -59,7 +61,9 @@ blocks:
 souls: {}
 config: {}
 """
-    dirty_yaml = """
+    dirty_yaml = """id: wf_1
+kind: workflow
+version: '1.0'
 workflow:
   name: Dirty Workflow
   entry: b1

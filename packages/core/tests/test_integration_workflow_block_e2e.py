@@ -25,6 +25,8 @@ from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 _RESEARCHER_SOUL = {
     "researcher": {
         "id": "researcher",
+        "kind": "soul",
+        "name": "Researcher",
         "role": "Senior Researcher",
         "system_prompt": "You research topics.",
     }
@@ -104,6 +106,8 @@ class TestParserRegistryIntegration:
         """
         yaml_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "child_ref": {
                     "type": "workflow",
@@ -131,6 +135,8 @@ class TestParserRegistryIntegration:
         # Create child workflow (interface required by _validate_workflow_block_contract)
         child_dict = {
             "version": "1.0",
+            "id": "analysis-child",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
@@ -149,6 +155,8 @@ class TestParserRegistryIntegration:
         # Parse parent with workflow block
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke_analysis": {
                     "type": "workflow",
@@ -179,6 +187,8 @@ class TestParserMaxDepthResolution:
         """Block-level max_depth should override global config."""
         child_dict = {
             "version": "1.0",
+            "id": "child-c",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
@@ -191,6 +201,8 @@ class TestParserMaxDepthResolution:
 
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "config": {"max_workflow_depth": 12},
             "blocks": {
                 "invoke": {
@@ -214,6 +226,8 @@ class TestParserMaxDepthResolution:
         """Global config should be used when block has no max_depth."""
         child_dict = {
             "version": "1.0",
+            "id": "child-c",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
@@ -226,6 +240,8 @@ class TestParserMaxDepthResolution:
 
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "config": {"max_workflow_depth": 7},
             "blocks": {
                 "invoke": {
@@ -249,6 +265,8 @@ class TestParserMaxDepthResolution:
         """Default 10 should be used when neither block nor config set."""
         child_dict = {
             "version": "1.0",
+            "id": "child-c",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"s": {"type": "linear", "soul_ref": "researcher"}},
@@ -261,6 +279,8 @@ class TestParserMaxDepthResolution:
 
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke": {
                     "type": "workflow",
@@ -290,6 +310,8 @@ class TestParserNestedWorkflowRecursion:
         # Grandchild (deepest level) — interface required at every level
         grandchild_dict = {
             "version": "1.0",
+            "id": "grandchild",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"step": {"type": "linear", "soul_ref": "researcher"}},
@@ -304,6 +326,8 @@ class TestParserNestedWorkflowRecursion:
         # Child contains workflow block pointing to grandchild
         child_dict = {
             "version": "1.0",
+            "id": "child",
+            "kind": "workflow",
             "interface": _EMPTY_INTERFACE,
             "blocks": {
                 "invoke_grandchild": {
@@ -327,6 +351,8 @@ class TestParserNestedWorkflowRecursion:
         # Parent invokes child
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke_child": {
                     "type": "workflow",
@@ -373,6 +399,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Create child workflow (interface required by _validate_workflow_block_contract)
         child_dict = {
             "version": "1.0",
+            "id": "research-child",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": _EMPTY_INTERFACE,
             "blocks": {"research": {"type": "linear", "soul_ref": "researcher"}},
@@ -390,6 +418,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Create parent with workflow block
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "setup": {"type": "linear", "soul_ref": "researcher"},
@@ -426,6 +456,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Child workflow with interface declaring its public contract
         child_dict = {
             "version": "1.0",
+            "id": "child",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": {
                 "inputs": [{"name": "data", "target": "shared_memory.data"}],
@@ -446,6 +478,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Parent with input/output mapping using interface names
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "setup": {"type": "linear", "soul_ref": "researcher"},
@@ -482,6 +516,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Child with interface declaring all inputs and outputs
         child_dict = {
             "version": "1.0",
+            "id": "child-c",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": {
                 "inputs": [
@@ -505,6 +541,8 @@ class TestWorkflowBlockExecutionIntegration:
         # Parent with multiple mappings using interface names
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke": {
                     "type": "workflow",
@@ -545,6 +583,8 @@ class TestWorkflowBlockErrorHandling:
         """Parser should raise when workflow_ref cannot be resolved."""
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke": {
                     "type": "workflow",
@@ -569,6 +609,8 @@ class TestWorkflowBlockErrorHandling:
         # Child that expects input — must declare interface so the parent can bind to it
         child_dict = {
             "version": "1.0",
+            "id": "child-c",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "interface": {
                 "inputs": [{"name": "input", "target": "shared_memory.input"}],
@@ -584,6 +626,8 @@ class TestWorkflowBlockErrorHandling:
 
         parent_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "invoke": {
                     "type": "workflow",
@@ -638,6 +682,8 @@ class TestBackwardCompatibility:
         """Workflows without workflow blocks should parse normally."""
         yaml_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
                 "step1": {"type": "linear", "soul_ref": "researcher"},
@@ -658,6 +704,8 @@ class TestBackwardCompatibility:
         """Simple workflows should execute without registry parameter."""
         yaml_dict = {
             "version": "1.0",
+            "id": "test-workflow",
+            "kind": "workflow",
             "blocks": {
                 "step1": {"type": "code", "code": "def main(data):\n    return {'step1': 'done'}"},
             },
@@ -679,9 +727,13 @@ class TestBackwardCompatibility:
         """All original block types should still parse."""
         yaml_str = """
 version: "1.0"
+id: test-workflow
+kind: workflow
 souls:
   researcher:
     id: researcher
+    kind: soul
+    name: Researcher
     role: Senior Researcher
     system_prompt: You research topics.
 workflow:
@@ -724,6 +776,8 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
     (souls_dir / f"{name}.yaml").write_text(
         dedent(f"""\
         id: {soul_id}
+        kind: soul
+        name: {soul_id.capitalize()}
         role: {role}
         system_prompt: {prompt}
         """),
@@ -754,6 +808,8 @@ class TestExternalSoulFileResolution:
                 base,
                 """\
                 version: "1.0"
+                id: test-workflow
+                kind: workflow
                 blocks:
                   step1:
                     type: linear
@@ -786,6 +842,8 @@ class TestExternalSoulFileResolution:
             # Register child workflow in-memory (interface required + matched to parent bindings)
             child_dict = {
                 "version": "1.0",
+                "id": "analysis-child",
+                "kind": "workflow",
                 "souls": _RESEARCHER_SOUL,
                 "interface": {
                     "inputs": [{"name": "topic", "target": "shared_memory.topic"}],
@@ -806,6 +864,8 @@ class TestExternalSoulFileResolution:
                 base,
                 """\
                 version: "1.0"
+                id: test-workflow
+                kind: workflow
                 blocks:
                   invoke_analysis:
                     type: workflow
@@ -846,6 +906,8 @@ class TestExternalSoulFileResolution:
                 base,
                 """\
                 version: "1.0"
+                id: test-workflow
+                kind: workflow
                 blocks:
                   linear_step:
                     type: linear

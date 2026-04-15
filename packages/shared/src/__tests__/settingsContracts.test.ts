@@ -39,6 +39,7 @@ describe("canonical settings transport contracts", () => {
   it("exports canonical provider item and list schemas on @runsight/shared/zod", () => {
     const providerSample = {
       id: "openai",
+      kind: "provider",
       name: "OpenAI",
       type: "openai",
       status: "connected",
@@ -57,6 +58,7 @@ describe("canonical settings transport contracts", () => {
 
     expect(providerItemSchema.parse(providerSample)).toEqual(
       expect.objectContaining({
+        kind: providerSample.kind,
         api_key_preview: providerSample.api_key_preview,
         created_at: providerSample.created_at,
         updated_at: providerSample.updated_at,
@@ -66,6 +68,7 @@ describe("canonical settings transport contracts", () => {
       expect.objectContaining({
         items: [
           expect.objectContaining({
+            kind: providerSample.kind,
             api_key_preview: providerSample.api_key_preview,
             created_at: providerSample.created_at,
             updated_at: providerSample.updated_at,

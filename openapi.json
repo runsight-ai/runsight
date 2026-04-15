@@ -2644,59 +2644,6 @@
           }
         }
       }
-    },
-    "/runsight.svg": {
-      "get": {
-        "summary": " Favicon",
-        "operationId": "_favicon_runsight_svg_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/{full_path}": {
-      "get": {
-        "summary": " Spa Catch All",
-        "operationId": "_spa_catch_all__full_path__get",
-        "parameters": [
-          {
-            "name": "full_path",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Full Path"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -3327,6 +3274,15 @@
       },
       "ProviderCreate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -3357,6 +3313,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
           "name"
         ],
         "title": "ProviderCreate"
@@ -3488,6 +3446,15 @@
       },
       "ProviderUpdate": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "anyOf": [
               {
@@ -3535,6 +3502,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
         "title": "ProviderUpdate"
       },
       "RunCreate": {
@@ -4195,6 +4166,11 @@
             "type": "string",
             "title": "Id"
           },
+          "kind": {
+            "type": "string",
+            "const": "provider",
+            "title": "Kind"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -4291,6 +4267,7 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
           "name",
           "status"
         ],
@@ -4335,15 +4312,17 @@
       "SoulCreate": {
         "properties": {
           "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
           },
           "role": {
             "type": "string",
@@ -4431,6 +4410,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "kind",
+          "name",
           "role",
           "system_prompt"
         ],
@@ -4480,6 +4462,15 @@
       },
       "SoulResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "soul",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -4599,6 +4590,8 @@
         },
         "type": "object",
         "required": [
+          "kind",
+          "name",
           "id"
         ],
         "title": "SoulResponse"
@@ -5535,6 +5528,11 @@
       },
       "WorkflowResponse": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "const": "workflow",
+            "title": "Kind"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -5644,6 +5642,7 @@
         },
         "type": "object",
         "required": [
+          "kind",
           "id"
         ],
         "title": "WorkflowResponse"

@@ -1,3 +1,4 @@
+import pytest
 from pydantic import ValidationError
 
 from runsight_api.transport.schemas.souls import (
@@ -11,6 +12,9 @@ from runsight_api.transport.schemas.souls import (
 
 def test_soul_create_accepts_new_transport_fields():
     soul = SoulCreate(
+        id="soul_1",
+        kind="soul",
+        name="Researcher",
         role="Researcher",
         system_prompt="Study the issue.",
         provider="openai",
@@ -19,16 +23,68 @@ def test_soul_create_accepts_new_transport_fields():
         avatar_color="#44aa88",
     )
 
-    assert soul.id is None
+    assert soul.id == "soul_1"
     assert soul.provider == "openai"
     assert soul.temperature == 0.7
     assert soul.max_tokens == 4096
     assert soul.avatar_color == "#44aa88"
 
 
+def test_soul_create_rejects_missing_id():
+    with pytest.raises(ValidationError):
+        SoulCreate.model_validate(
+            {
+                "kind": "soul",
+                "name": "Researcher",
+                "role": "Researcher",
+                "system_prompt": "Study the issue.",
+            }
+        )
+
+
+def test_soul_create_rejects_missing_kind():
+    with pytest.raises(ValidationError):
+        SoulCreate.model_validate(
+            {
+                "id": "soul_1",
+                "name": "Researcher",
+                "role": "Researcher",
+                "system_prompt": "Study the issue.",
+            }
+        )
+
+
+def test_soul_create_rejects_missing_name():
+    with pytest.raises(ValidationError):
+        SoulCreate.model_validate(
+            {
+                "id": "soul_1",
+                "kind": "soul",
+                "role": "Researcher",
+                "system_prompt": "Study the issue.",
+            }
+        )
+
+
+@pytest.mark.parametrize("soul_id", ["AI-review", "99-review", "ab", "tool/evil"])
+def test_soul_create_rejects_invalid_id(soul_id):
+    with pytest.raises(ValidationError):
+        SoulCreate.model_validate(
+            {
+                "id": soul_id,
+                "kind": "soul",
+                "name": "Researcher",
+                "role": "Researcher",
+                "system_prompt": "Study the issue.",
+            }
+        )
+
+
 def test_soul_create_rejects_assertions_field():
     try:
         SoulCreate(
+            kind="soul",
+            name="Researcher",
             role="Researcher",
             system_prompt="Study the issue.",
             assertions=[{"type": "contains", "value": "result"}],
@@ -56,6 +112,8 @@ def test_soul_update_accepts_new_transport_fields():
 def test_soul_response_exposes_new_transport_fields():
     soul = SoulResponse(
         id="soul_1",
+        kind="soul",
+        name="Reviewer",
         role="Reviewer",
         system_prompt="Review carefully.",
         provider="openai",

@@ -258,6 +258,7 @@ class Workflow:
         if not name:
             raise ValueError("Workflow name cannot be empty")
         self.name = name
+        self.identity: Optional[str] = None
         self._blocks: Dict[str, BaseBlock] = {}
         self._transitions: Dict[str, str] = {}  # from_block_id -> to_block_id
         self._entry_block_id: Optional[str] = None
@@ -694,9 +695,10 @@ class Workflow:
             budget_token = _active_budget.set(flow_session)
 
         wf_start_time = time.time()
+        observer_workflow_name = self.identity or self.name
         if observer:
             try:
-                observer.on_workflow_start(self.name, state)
+                observer.on_workflow_start(observer_workflow_name, state)
             except Exception:
                 logger.warning("Observer.on_workflow_start failed", exc_info=True)
 
@@ -711,7 +713,7 @@ class Workflow:
                             block,
                             state,
                             BlockExecutionContext(
-                                workflow_name=self.name,
+                                workflow_name=observer_workflow_name,
                                 blocks=runtime_blocks,
                                 call_stack=call_stack,
                                 workflow_registry=workflow_registry,
@@ -860,7 +862,7 @@ class Workflow:
             wf_duration = time.time() - wf_start_time
             if observer:
                 try:
-                    observer.on_workflow_complete(self.name, state, wf_duration)
+                    observer.on_workflow_complete(observer_workflow_name, state, wf_duration)
                 except Exception:
                     logger.warning("Observer.on_workflow_complete failed", exc_info=True)
 
@@ -870,7 +872,7 @@ class Workflow:
             wf_duration = time.time() - wf_start_time
             if observer:
                 try:
-                    observer.on_workflow_error(self.name, e, wf_duration)
+                    observer.on_workflow_error(observer_workflow_name, e, wf_duration)
                 except Exception:
                     logger.warning("Observer.on_workflow_error failed", exc_info=True)
             raise

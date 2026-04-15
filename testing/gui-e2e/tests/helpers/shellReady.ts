@@ -41,6 +41,21 @@ const READY_PROVIDER: ProviderFixture = {
   api_key: null,
 };
 
+export function buildBlankWorkflowYaml(id: string, name = "Untitled Workflow") {
+  return stringify({
+    version: "1.0",
+    id,
+    kind: "workflow",
+    enabled: false,
+    blocks: {},
+    workflow: {
+      name,
+      entry: "start",
+      transitions: [],
+    },
+  });
+}
+
 function detectApiProjectRoot() {
   if (process.env.RUNSIGHT_E2E_PROJECT_ROOT) {
     return process.env.RUNSIGHT_E2E_PROJECT_ROOT;
@@ -167,6 +182,8 @@ export async function seedProviders(providers: ProviderFixture[]) {
     await writeFile(
       path.join(providersDir, `${provider.id}.yaml`),
       stringify({
+        id: provider.id,
+        kind: "provider",
         name: provider.name,
         type: provider.type,
         status: provider.status,

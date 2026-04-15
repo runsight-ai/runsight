@@ -14,7 +14,7 @@ function getRunsPageTitle({
   activeOnly,
 }: {
   workflowFilter: string | null;
-  workflowName?: string;
+  workflowName?: string | null;
   attentionOnly: boolean;
   activeOnly: boolean;
 }) {

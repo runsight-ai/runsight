@@ -105,6 +105,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
             return await self.harness.run(envelope)
 
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
         from runsight_core.state import BlockResult, WorkflowState
 
         results: dict[str, BlockResult] = {}
@@ -122,7 +123,21 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             shared_memory=dict(envelope.scoped_shared_memory),
         )
 
-        result_state = await self.inner_block.execute(state)
+        active_budget = _active_budget.get(None)
+        if isinstance(active_budget, BudgetSession):
+            active_budget.check_or_raise(block_id=envelope.block_id)
+
+        budget_token = _active_budget.set(None)
+        try:
+            result_state = await self.inner_block.execute(state)
+        finally:
+            _active_budget.reset(budget_token)
+
+        if isinstance(active_budget, BudgetSession):
+            active_budget.accrue(
+                cost_usd=result_state.total_cost_usd,
+                tokens=result_state.total_tokens,
+            )
 
         block_result = result_state.results.get(self.inner_block.block_id, BlockResult(output=""))
 
@@ -135,12 +150,12 @@ def _bypass_subprocess_isolation(request, monkeypatch):
                 output_text = val.output if isinstance(val, BlockResult) else str(val)
                 delegate_artifacts[port] = DelegateArtifact(prompt=output_text)
 
-        # Use SimpleNamespace so exit_handle can remain None (ResultEnvelope
-        # requires str).  The wrapper only uses attribute access on the result.
+        # Mirror the real worker: successful isolated blocks default to "done"
+        # when the inner block does not emit an explicit exit handle.
         return SimpleNamespace(
             block_id=envelope.block_id,
             output=block_result.output,
-            exit_handle=block_result.exit_handle,
+            exit_handle=block_result.exit_handle or "done",
             cost_usd=result_state.total_cost_usd,
             total_tokens=result_state.total_tokens,
             tool_calls_made=0,
@@ -180,9 +195,13 @@ def make_test_yaml(steps_yaml: str) -> str:
 
     return f"""\
 version: "1.0"
+id: inline_test_workflow
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -206,7 +225,9 @@ def test_souls_map():
     """Provide a souls map with a 'test' Soul for tests that construct blocks directly."""
     return {
         "test": Soul(
-            id="test_1",
+            id="test",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="You test things.",
         )

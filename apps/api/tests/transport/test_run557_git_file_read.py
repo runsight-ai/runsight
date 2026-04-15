@@ -1,8 +1,6 @@
-"""Red-phase tests for RUN-557: Git file read endpoint.
+"""Tests for RUN-557: Git file read endpoint.
 
 Fork Recovery needs to read workflow YAML from a historical commit SHA.
-``GitService.read_file`` already supports this, but there is no API
-endpoint exposing it.
 
 Tests verify:
 
@@ -12,10 +10,6 @@ Tests verify:
 3. Path validation prevents directory traversal.
 4. 404 if ref or path doesn't exist.
 5. ``GitService.read_file`` param renamed from ``branch`` to ``ref``.
-
-All tests are expected to FAIL against the current codebase because:
-  - The git router has no ``/api/git/file`` endpoint.
-  - ``GitService.read_file`` still uses the ``branch`` parameter name.
 """
 
 import inspect
@@ -37,7 +31,7 @@ from runsight_api.main import app
 def _init_git_repo(tmp: Path) -> Path:
     """Initialise a throwaway git repo with custom/workflows/ directory."""
     (tmp / "custom" / "workflows").mkdir(parents=True)
-    subprocess.run(["git", "init"], cwd=tmp, check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp, check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@runsight.dev"],
         cwd=tmp,
@@ -84,9 +78,6 @@ def git_repo(tmp_path):
 
 
 client = TestClient(app)
-
-# All tests below are RED-phase: the /api/git/file endpoint is not yet implemented.
-pytestmark = pytest.mark.xfail(reason="RUN-557: /api/git/file endpoint not implemented yet")
 
 
 # ===================================================================

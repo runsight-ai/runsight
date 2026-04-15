@@ -73,6 +73,8 @@ def _make_ctx(
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test agent.",
     )

@@ -39,6 +39,8 @@ from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(
         id=soul_id,
+        kind="soul",
+        name="Tester",
         role="Tester",
         system_prompt="You are a test soul.",
         model_name="gpt-4o-mini",
@@ -189,6 +191,8 @@ class TestWrapperExposesSoul:
 
         soul = Soul(
             id="tool_soul",
+            kind="soul",
+            name="Tester",
             role="Tester",
             system_prompt="Use tools carefully.",
             model_name="gpt-4o-mini",
@@ -889,18 +893,19 @@ class TestBaseBlockDefSchemaAdditions:
         )
         assert block_def.stall_thresholds == {"parsing": 10, "executing": 60}
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_timeout_seconds_roundtrip_yaml(self):
         """timeout_seconds survives YAML parse round-trip."""
         import yaml
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -909,6 +914,8 @@ blocks:
     soul_ref: test
     timeout_seconds: 120
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: blk1
   transitions:
@@ -982,9 +989,6 @@ class TestNoDispatchInWorkflow:
     """LLM blocks are wrapped at build time by the parser/builder, not by
     runtime dispatch in workflow.py."""
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_linear(self):
         """parse_workflow_yaml wraps linear blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -994,9 +998,13 @@ class TestNoDispatchInWorkflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1004,6 +1012,8 @@ blocks:
     type: linear
     soul_ref: test
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: blk1
   transitions:
@@ -1015,9 +1025,6 @@ workflow:
         block = wf._blocks["blk1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_gate(self):
         """parse_workflow_yaml wraps gate blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1027,9 +1034,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1041,6 +1052,8 @@ blocks:
     soul_ref: test
     eval_key: producer
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: producer
   transitions:
@@ -1054,9 +1067,6 @@ workflow:
         block = wf._blocks["gate1"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_synthesize(self):
         """parse_workflow_yaml wraps synthesize blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1066,9 +1076,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1085,6 +1099,8 @@ blocks:
       - a
       - b
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: a
   transitions:
@@ -1100,9 +1116,6 @@ workflow:
         block = wf._blocks["synth"]
         assert isinstance(block, IsolatedBlockWrapper)
 
-    @pytest.mark.xfail(
-        reason="RUN-570 removed inline souls; RUN-571 will wire library discovery", strict=True
-    )
     def test_parser_returns_wrapped_blocks_for_dispatch(self):
         """parse_workflow_yaml wraps dispatch blocks with IsolatedBlockWrapper."""
         from unittest.mock import MagicMock
@@ -1112,9 +1125,13 @@ workflow:
 
         yaml_str = """\
 version: "1.0"
+id: test_wf
+kind: workflow
 souls:
   test:
-    id: test_1
+    id: test
+    kind: soul
+    name: Tester
     role: Tester
     system_prompt: You test things.
 blocks:
@@ -1130,6 +1147,8 @@ blocks:
         soul_ref: test
         task: Do B
 workflow:
+  id: test_wf
+  kind: workflow
   name: test_wf
   entry: fan
   transitions:
@@ -1292,6 +1311,8 @@ class TestRUN815WrapperHarnessWiringContract:
             "\n".join(
                 [
                     "id: writer",
+                    "kind: soul",
+                    "name: Writer",
                     "role: Writer",
                     "system_prompt: Write clearly.",
                     "model_name: gpt-4o-mini",
@@ -1306,6 +1327,8 @@ class TestRUN815WrapperHarnessWiringContract:
         workflow_path.write_text(
             "\n".join(
                 [
+                    "id: run815-wrapper-wiring",
+                    "kind: workflow",
                     'version: "1.0"',
                     "config:",
                     "  model_name: gpt-4o-mini",

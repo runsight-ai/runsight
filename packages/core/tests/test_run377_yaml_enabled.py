@@ -13,6 +13,8 @@ from __future__ import annotations
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 MINIMAL_WORKFLOW = {
+    "id": "test-wf",
+    "kind": "workflow",
     "workflow": {
         "name": "test-wf",
         "entry": "start",

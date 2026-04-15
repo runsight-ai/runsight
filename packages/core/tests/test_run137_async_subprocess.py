@@ -10,7 +10,6 @@ that uses subprocess.run().
 
 import asyncio
 import json
-import sys
 import textwrap
 import time
 from unittest.mock import AsyncMock, patch
@@ -254,9 +253,6 @@ class TestMacOSEnvVars:
         We intercept asyncio.create_subprocess_exec to inspect the env argument.
         After the fix, env should contain minimal required vars.
         """
-        if sys.platform != "darwin":
-            pytest.skip("macOS-specific env var test")
-
         block = CodeBlock("cb_env", SIMPLE_CODE)
         state = _make_state()
 

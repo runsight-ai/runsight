@@ -9,26 +9,44 @@ from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.domain.errors import InputValidationError
 
 
+def _workflow_yaml(wf_id: str, name: str) -> str:
+    return (
+        f"id: {wf_id}\n"
+        "kind: workflow\n"
+        "version: '1.0'\n"
+        "blocks: {}\n"
+        "workflow:\n"
+        f"  name: {name}\n"
+        "  entry: start\n"
+        "  transitions: []\n"
+    )
+
+
 def test_workflow_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        # Test Create — id is derived from filename stem (slug-shortid)
-        workflow_data = {"name": "Test Workflow", "yaml": "workflow:\n  name: Test Workflow\n"}
+        # Test Create — id is embedded in the YAML (RUN-822)
+        wf_id = "test-workflow"
+        workflow_data = {
+            "name": "Test Workflow",
+            "yaml": _workflow_yaml(wf_id, "Test Workflow"),
+        }
         entity = repo.create(workflow_data)
-        assert entity.id  # id is auto-generated slug-shortid
+        assert entity.id == wf_id
         assert entity.name == "Test Workflow"
-        assert entity.id.startswith("test-workflow-")
-        wf_id = entity.id
 
-        # Test Get — look up by slug-shortid
+        # Test Get — look up by embedded id
         fetched = repo.get_by_id(wf_id)
         assert fetched is not None
         assert fetched.id == wf_id
         assert fetched.name == "Test Workflow"
 
         # Test Update
-        updated_data = {"name": "Updated Workflow", "yaml": "workflow:\n  name: Updated Workflow\n"}
+        updated_data = {
+            "name": "Updated Workflow",
+            "yaml": _workflow_yaml(wf_id, "Updated Workflow"),
+        }
         repo.update(wf_id, updated_data)
         fetched_updated = repo.get_by_id(wf_id)
         assert fetched_updated.name == "Updated Workflow"
@@ -39,7 +57,7 @@ def test_workflow_repository():
             wf_id,
             {
                 "description": "Keeps existing name",
-                "yaml": "workflow:\n  name: Updated Workflow\n",
+                "yaml": _workflow_yaml(wf_id, "Updated Workflow"),
             },
         )
         fetched_partial = repo.get_by_id(wf_id)
@@ -63,31 +81,88 @@ def test_workflow_repository_rejects_create_without_yaml():
             repo.create({"name": "No YAML"})
 
 
+def test_workflow_repository_rejects_create_without_kind():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+
+        with pytest.raises(InputValidationError, match="kind"):
+            repo.create(
+                {
+                    "name": "Missing Kind",
+                    "yaml": (
+                        "id: missing-kind\n"
+                        "version: '1.0'\n"
+                        "blocks: {}\n"
+                        "workflow:\n"
+                        "  name: Missing Kind\n"
+                        "  entry: start\n"
+                        "  transitions: []\n"
+                    ),
+                }
+            )
+
+        assert not (repo.workflows_dir / "missing-kind.yaml").exists()
+
+
 def test_workflow_repository_rejects_update_without_yaml():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
         entity = repo.create(
-            {"name": "Test Workflow", "yaml": "workflow:\n  name: Test Workflow\n"}
+            {
+                "name": "Test Workflow",
+                "yaml": _workflow_yaml("test-workflow", "Test Workflow"),
+            }
         )
 
         with pytest.raises(InputValidationError, match="yaml is required"):
             repo.update(entity.id, {"name": "Updated Workflow"})
 
 
-def test_workflow_repository_persists_name_updates_into_blank_yaml():
+def test_workflow_repository_rejects_update_without_kind():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
-        entity = repo.create({"yaml": ""})
+        entity = repo.create(
+            {
+                "name": "Test Workflow",
+                "yaml": _workflow_yaml("test-workflow", "Test Workflow"),
+            }
+        )
+        original_yaml = repo._get_path(entity.id).read_text()
 
-        updated = repo.update(entity.id, {"name": "Renamed Workflow", "yaml": ""})
+        with pytest.raises(InputValidationError, match="kind"):
+            repo.update(
+                entity.id,
+                {
+                    "yaml": (
+                        "id: test-workflow\n"
+                        "version: '1.0'\n"
+                        "blocks: {}\n"
+                        "workflow:\n"
+                        "  name: Missing Kind\n"
+                        "  entry: start\n"
+                        "  transitions: []\n"
+                    )
+                },
+            )
+
+        assert repo._get_path(entity.id).read_text() == original_yaml
+
+
+def test_workflow_repository_persists_name_updates_into_valid_yaml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = WorkflowRepository(base_path=tmpdir)
+        entity = repo.create({"yaml": _workflow_yaml("rename-me", "Original")})
+
+        updated = repo.update(
+            entity.id,
+            {"name": "Renamed Workflow", "yaml": _workflow_yaml("rename-me", "Original")},
+        )
 
         assert updated.name == "Renamed Workflow"
-        assert updated.yaml == "workflow:\n  name: Renamed Workflow\n"
 
         fetched = repo.get_by_id(entity.id)
         assert fetched is not None
         assert fetched.name == "Renamed Workflow"
-        assert fetched.yaml == "workflow:\n  name: Renamed Workflow\n"
 
 
 def test_workflow_create_does_not_mutate_input():
@@ -97,7 +172,7 @@ def test_workflow_create_does_not_mutate_input():
 
         data = {
             "name": "Immutable",
-            "yaml": "workflow:\n  name: Immutable\n",
+            "yaml": _workflow_yaml("immutable-wf", "Immutable"),
             "canvas_state": {"nodes": []},
         }
         original_keys = set(data.keys())
@@ -105,39 +180,59 @@ def test_workflow_create_does_not_mutate_input():
         assert set(data.keys()) == original_keys, "create() mutated the input dict"
 
 
-def test_workflow_id_not_in_yaml_file():
-    """ADR D3: id must NOT be stored inside the YAML file content."""
+def test_workflow_id_stored_in_yaml_file():
+    """RUN-822: id IS stored inside the YAML file content as canonical identity."""
     import yaml
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
-        entity = repo.create({"name": "No ID Inside", "yaml": "workflow:\n  name: No ID Inside\n"})
+        entity = repo.create(
+            {
+                "name": "With ID Inside",
+                "yaml": _workflow_yaml("with-id-inside", "With ID Inside"),
+            }
+        )
 
         yaml_path = repo._get_path(entity.id)
         with open(yaml_path) as f:
             on_disk = yaml.safe_load(f)
 
-        assert "id" not in on_disk, "id field must not be stored in YAML file"
+        assert "id" in on_disk, "id field must be stored in YAML file"
+        assert on_disk["id"] == "with-id-inside"
 
 
 def test_workflow_list_includes_hand_authored_files():
-    """Files without an 'id' field inside must still be listed (Fix 4)."""
+    """Files with a matching embedded id are listed (RUN-822)."""
     import yaml
 
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        # Write a hand-authored YAML file directly (no 'id' inside)
+        # Write a hand-authored YAML file with embedded id matching the filename stem
         hand_file = repo.workflows_dir / "my-hand-authored.yaml"
-        hand_file.write_text(yaml.dump({"name": "Hand Authored"}))
+        hand_file.write_text(
+            yaml.dump(
+                {
+                    "id": "my-hand-authored",
+                    "kind": "workflow",
+                    "version": "1.0",
+                    "blocks": {},
+                    "workflow": {
+                        "name": "Hand Authored",
+                        "entry": "start",
+                        "transitions": [],
+                    },
+                }
+            )
+        )
 
         all_wfs = repo.list_all()
         assert len(all_wfs) == 1
         assert all_wfs[0].id == "my-hand-authored"
-        assert all_wfs[0].name == "Hand Authored"
 
 
-def test_workflow_get_returns_invalid_entity_for_malformed_yaml():
+def test_workflow_get_returns_none_for_malformed_yaml():
+    """Malformed YAML cannot be parsed, so get_by_id returns None (RUN-822)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
         yaml_path = repo.workflows_dir / "broken-workflow.yaml"
@@ -145,24 +240,18 @@ def test_workflow_get_returns_invalid_entity_for_malformed_yaml():
 
         entity = repo.get_by_id("broken-workflow")
 
-        assert entity is not None
-        assert entity.id == "broken-workflow"
-        assert entity.yaml == "not: valid: yaml: {{{}}"
-        assert entity.valid is False
-        assert entity.validation_error
+        assert entity is None
 
 
-def test_workflow_list_keeps_malformed_yaml_recoverable():
+def test_workflow_list_skips_malformed_yaml():
+    """Malformed YAML files are silently skipped in list_all (RUN-822)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
         (repo.workflows_dir / "legacy-broken.yaml").write_text("not: valid: yaml: {{{}}")
 
         workflows = repo.list_all()
 
-        assert len(workflows) == 1
-        assert workflows[0].id == "legacy-broken"
-        assert workflows[0].valid is False
-        assert workflows[0].validation_error
+        assert len(workflows) == 0
 
 
 def test_workflow_list_does_not_materialize_orphan_canvas_sidecar():
@@ -218,21 +307,26 @@ def test_soul_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
 
-        soul_data = {"id": "sl-1", "role": "Test Soul"}
+        soul_data = {"id": "sl-one", "kind": "soul", "name": "Test Soul", "role": "Test Soul"}
         entity = repo.create(soul_data)
-        assert entity.id == "sl-1"
+        assert entity.id == "sl-one"
         assert entity.role == "Test Soul"
 
-        fetched = repo.get_by_id("sl-1")
+        fetched = repo.get_by_id("sl-one")
         assert fetched is not None
         assert fetched.role == "Test Soul"
 
-        updated_data = {"id": "sl-1", "role": "Updated Soul"}
-        repo.update("sl-1", updated_data)
-        assert repo.get_by_id("sl-1").role == "Updated Soul"
+        updated_data = {
+            "id": "sl-one",
+            "kind": "soul",
+            "name": "Updated Soul",
+            "role": "Updated Soul",
+        }
+        repo.update("sl-one", updated_data)
+        assert repo.get_by_id("sl-one").role == "Updated Soul"
 
         assert len(repo.list_all()) == 1
-        assert repo.delete("sl-1") is True
+        assert repo.delete("sl-one") is True
 
 
 def test_step_repository():

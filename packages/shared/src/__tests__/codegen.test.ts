@@ -75,6 +75,8 @@ function readCommittedOpenApiSnapshot(): Record<string, unknown> {
 }
 
 function buildFreshSchemaSnapshot(): {
+  providerCreate: SchemaFieldSnapshot;
+  workflowResponse: SchemaFieldSnapshot;
   runCreate: SchemaFieldSnapshot;
   runResponse: SchemaFieldSnapshot;
   soulCreate: SchemaFieldSnapshot;
@@ -116,6 +118,14 @@ function buildFreshSchemaSnapshot(): {
     const committedZod = readFileSync(COMMITTED_ZOD_PATH, "utf8");
 
     return {
+      providerCreate: {
+        fresh: extractSchemaFieldNames(freshZod, "ProviderCreate"),
+        committed: extractSchemaFieldNames(committedZod, "ProviderCreate"),
+      },
+      workflowResponse: {
+        fresh: extractSchemaFieldNames(freshZod, "WorkflowResponse"),
+        committed: extractSchemaFieldNames(committedZod, "WorkflowResponse"),
+      },
       runCreate: {
         fresh: extractSchemaFieldNames(freshZod, "RunCreate"),
         committed: extractSchemaFieldNames(committedZod, "RunCreate"),
@@ -135,10 +145,6 @@ function buildFreshSchemaSnapshot(): {
       soulUpdate: {
         fresh: extractSchemaFieldNames(freshZod, "SoulUpdate"),
         committed: extractSchemaFieldNames(committedZod, "SoulUpdate"),
-      },
-      workflowResponse: {
-        fresh: extractSchemaFieldNames(freshZod, "WorkflowResponse"),
-        committed: extractSchemaFieldNames(committedZod, "WorkflowResponse"),
       },
     };
   } finally {
@@ -186,7 +192,7 @@ describe("RUN-134: Generated types export expected interfaces", () => {
   it("declares WorkflowResponse in the generated API component namespace", () => {
     const fields = extractApiComponentFieldNames(apiSource, "WorkflowResponse");
     expect(fields).toEqual(
-      expect.arrayContaining(["id", "name", "yaml", "valid"]),
+      expect.arrayContaining(["id", "kind", "name", "yaml", "valid"]),
     );
   });
 
@@ -298,6 +304,7 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
     const mod = await import("../zod");
     const result = mod.WorkflowResponseSchema.safeParse({
       id: "test-id",
+      kind: "workflow",
       name: "Test Workflow",
       yaml: "steps: []",
       valid: true,
@@ -347,10 +354,13 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
 
 describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () => {
   let snapshot: {
+    providerCreate: SchemaFieldSnapshot;
+    workflowResponse: SchemaFieldSnapshot;
     runCreate: SchemaFieldSnapshot;
     runResponse: SchemaFieldSnapshot;
     soulCreate: SchemaFieldSnapshot;
     soulResponse: SchemaFieldSnapshot;
+    soulUpdate: SchemaFieldSnapshot;
   };
 
   beforeAll(() => {
@@ -360,6 +370,21 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
   it("RunCreateSchema includes source in the generated output", () => {
     expect(snapshot.runCreate.fresh).toContain("source");
     expect(snapshot.runCreate.committed).toEqual(snapshot.runCreate.fresh);
+  });
+
+  it("WorkflowResponseSchema includes embedded workflow identity", () => {
+    expect(snapshot.workflowResponse.fresh).toEqual(
+      expect.arrayContaining(["id", "kind", "name"]),
+    );
+    expect(snapshot.workflowResponse.committed).toEqual(snapshot.workflowResponse.fresh);
+  });
+
+  it("ProviderCreateSchema includes embedded provider identity", () => {
+    expect(snapshot.providerCreate.fresh).toEqual(
+      expect.arrayContaining(["id", "kind", "name"]),
+    );
+    expect(snapshot.providerCreate.fresh).not.toContain("type");
+    expect(snapshot.providerCreate.committed).toEqual(snapshot.providerCreate.fresh);
   });
 
   it("RunResponseSchema includes branch, source, commit_sha, and RUN-479 run metrics", () => {
@@ -375,11 +400,10 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
     expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
   });
 
-  it("SoulCreateSchema includes role and model_name, not legacy name/models", () => {
+  it("SoulCreateSchema includes embedded soul identity plus role and model_name", () => {
     expect(snapshot.soulCreate.fresh).toEqual(
-      expect.arrayContaining(["id", "role", "system_prompt", "model_name"]),
+      expect.arrayContaining(["id", "kind", "name", "role", "system_prompt", "model_name"]),
     );
-    expect(snapshot.soulCreate.fresh).not.toContain("name");
     expect(snapshot.soulCreate.fresh).not.toContain("models");
     expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
   });
@@ -392,11 +416,18 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
     expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
   });
 
-  it("SoulResponseSchema includes role, model_name, and workflow_count", () => {
+  it("SoulResponseSchema includes embedded soul identity, role, model_name, and workflow_count", () => {
     expect(snapshot.soulResponse.fresh).toEqual(
-      expect.arrayContaining(["id", "role", "system_prompt", "model_name", "workflow_count"]),
+      expect.arrayContaining([
+        "id",
+        "kind",
+        "name",
+        "role",
+        "system_prompt",
+        "model_name",
+        "workflow_count",
+      ]),
     );
-    expect(snapshot.soulResponse.fresh).not.toContain("name");
     expect(snapshot.soulResponse.fresh).not.toContain("models");
     expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
   });
@@ -421,10 +452,25 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
 describe("RUN-477: generated API types stay aligned for soul contracts", () => {
   const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
 
+  it("ProviderCreate component includes embedded provider identity", () => {
+    const fields = extractApiComponentFieldNames(apiSource, "ProviderCreate");
+    expect(fields).toEqual(expect.arrayContaining(["id", "kind", "name"]));
+  });
+
   it("SoulCreate component includes provider, temperature, and max_tokens but not assertions", () => {
     const fields = extractApiComponentFieldNames(apiSource, "SoulCreate");
     expect(fields).toEqual(
-      expect.arrayContaining(["role", "system_prompt", "provider", "temperature", "max_tokens", "avatar_color"]),
+      expect.arrayContaining([
+        "id",
+        "kind",
+        "name",
+        "role",
+        "system_prompt",
+        "provider",
+        "temperature",
+        "max_tokens",
+        "avatar_color",
+      ]),
     );
     expect(fields).not.toContain("assertions");
   });
@@ -434,6 +480,8 @@ describe("RUN-477: generated API types stay aligned for soul contracts", () => {
     expect(fields).toEqual(
       expect.arrayContaining([
         "id",
+        "kind",
+        "name",
         "role",
         "system_prompt",
         "provider",

@@ -17,6 +17,8 @@ def integration_soul():
     """Soul for integration testing with all fields populated."""
     return Soul(
         id="integration_test_soul",
+        kind="soul",
+        name="Integration Test Soul",
         role="Integration Test Agent",
         system_prompt="You are an integration test agent that validates system behavior.",
         tools=["calculator", "search"],
@@ -191,6 +193,8 @@ async def test_soul_tools_field_preserved_through_execution(mock_achat):
     """
     soul_with_tools = Soul(
         id="tooled_soul",
+        kind="soul",
+        name="Tooled Soul",
         role="Tool User",
         system_prompt="You can use tools.",
         tools=["file_reader", "web_search"],

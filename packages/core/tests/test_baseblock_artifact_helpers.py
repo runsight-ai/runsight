@@ -343,7 +343,7 @@ class TestInheritance:
         from runsight_core import LinearBlock
         from runsight_core.primitives import Soul
 
-        soul = Soul(id="s1", role="Writer", system_prompt="Write.")
+        soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
         runner = MagicMock()
         block = LinearBlock("lb1", soul, runner)
 
