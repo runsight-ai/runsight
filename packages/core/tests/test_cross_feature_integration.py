@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from runsight_core import LinearBlock, LoopBlock
 from runsight_core.artifacts import InMemoryArtifactStore
+from runsight_core.block_io import BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig
 from runsight_core.primitives import Soul
@@ -93,7 +94,7 @@ class StatefulArtifactBlock(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, ctx) -> WorkflowState:
+    async def execute(self, ctx) -> BlockOutput:
         state = ctx.state_snapshot
         # Track round number via shared_memory
         call_key = f"__{self.block_id}_call_count"
@@ -119,35 +120,21 @@ class StatefulArtifactBlock(BaseBlock):
             metadata={"round": call_count},
         )
 
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=result.output,
-                        artifact_ref=ref,
-                        artifact_type="text",
-                        metadata={"round": call_count},
-                    ),
-                },
-                "execution_log": state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
-                    }
-                ],
-                "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                "total_tokens": state.total_tokens + result.total_tokens,
-                "conversation_histories": {
-                    **state.conversation_histories,
-                    history_key: updated_history,
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    call_key: call_count,
-                },
-            }
+        return BlockOutput(
+            output=result.output,
+            artifact_ref=ref,
+            artifact_type="text",
+            metadata={"round": call_count},
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
+                }
+            ],
+            conversation_replacements={history_key: updated_history},
+            shared_memory_updates={call_key: call_count},
         )
 
 
@@ -164,7 +151,7 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, ctx) -> WorkflowState:
+    async def execute(self, ctx) -> BlockOutput:
         from runsight_core.memory.windowing import get_max_tokens, prune_messages
 
         state = ctx.state_snapshot
@@ -194,35 +181,21 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
             metadata={"round": call_count},
         )
 
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=result.output,
-                        artifact_ref=ref,
-                        artifact_type="text",
-                        metadata={"round": call_count},
-                    ),
-                },
-                "execution_log": state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
-                    }
-                ],
-                "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                "total_tokens": state.total_tokens + result.total_tokens,
-                "conversation_histories": {
-                    **state.conversation_histories,
-                    history_key: updated_history,
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    call_key: call_count,
-                },
-            }
+        return BlockOutput(
+            output=result.output,
+            artifact_ref=ref,
+            artifact_type="text",
+            metadata={"round": call_count},
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
+                }
+            ],
+            conversation_replacements={history_key: updated_history},
+            shared_memory_updates={call_key: call_count},
         )
 
 
