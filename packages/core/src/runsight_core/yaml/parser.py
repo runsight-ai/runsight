@@ -719,9 +719,11 @@ def _validate_inputs_and_detect_cycles(
                 from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
                 source_id = from_ref.split(".")[0]
                 if source_id not in file_def.blocks:
-                    raise ValueError(
-                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
-                    )
+                    if source_id != "workflow":  # "workflow" is reserved for input seeding
+                        raise ValueError(
+                            f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
+                        )
+                    continue
                 if source_id == block_id:
                     raise ValueError(
                         f"Block '{block_id}': input '{input_name}' references itself (circular)"
@@ -801,6 +803,7 @@ def _assemble_workflow(
 ) -> Workflow:
     """Assemble, wire, and validate the final Workflow object."""
     wf = Workflow(name=file_def.workflow.name)
+    wf.identity = file_def.id
     for block in built_blocks.values():
         wf.add_block(block)
     if file_def.limits:
@@ -898,195 +901,6 @@ def parse_workflow_yaml(
     if validation_result.has_errors:
         raise ValueError(validation_result.error_summary or "Tool governance validation failed")
 
-    # 6.6c: Resolve ToolInstance objects per soul
-    referenced_souls = _collect_referenced_soul_keys(file_def)
-    for soul_key in referenced_souls:
-        soul = souls_map.get(soul_key)
-        if soul is None or not soul.tools:
-            continue
-
-        resolved_tools = []
-        for tool_name in soul.tools:
-            tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
-            if tool_id is None:
-                continue
-
-            if tool_id == "delegate":
-                # Find the block that references this soul via soul_ref
-                block_id_for_soul = None
-                block_def_for_soul = None
-                for bid, bdef in file_def.blocks.items():
-                    if getattr(bdef, "soul_ref", None) == soul_key:
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
-                    exits = getattr(bdef, "exits", None) or []
-                    if any(getattr(exit_def, "soul_ref", None) == soul_key for exit_def in exits):
-                        block_id_for_soul = bid
-                        block_def_for_soul = bdef
-                        break
-
-                exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
-                if not exits:
-                    raise ValueError(
-                        f"Soul '{soul_key}' uses delegate tool but block "
-                        f"'{block_id_for_soul}' has no exits defined"
-                    )
-                try:
-                    resolved_tool = _resolve_tool_for_parser(
-                        tool_id,
-                        exits=exits,
-                        base_dir=workflow_base_dir,
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s",
-                        tool_id,
-                        soul_key,
-                        exc,
-                    )
-                    continue
-                resolved_tools.append(
-                    _attach_tool_runtime_metadata(
-                        resolved_tool,
-                        tool_id,
-                        base_dir=workflow_base_dir,
-                    )
-                )
-            else:
-                try:
-                    resolved_tool = _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir)
-                except Exception as exc:
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s",
-                        tool_id,
-                        soul_key,
-                        exc,
-                    )
-                    continue
-                resolved_tools.append(
-                    _attach_tool_runtime_metadata(
-                        resolved_tool,
-                        tool_id,
-                        base_dir=workflow_base_dir,
-                    )
-                )
-
-        soul.resolved_tools = resolved_tools
-
-    # Step 6.5: Validate input references and detect circular dependencies
-    # Build input dependency graph for cycle detection
-    input_deps: Dict[str, list] = {}  # block_id -> [source_block_ids]
-    for block_id, block_def in file_def.blocks.items():
-        if block_def.inputs is not None and block_def.type != "workflow":
-            deps = []
-            for input_name, input_ref in block_def.inputs.items():
-                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                source_id = from_ref.split(".")[0]
-                if source_id != "workflow" and source_id not in file_def.blocks:
-                    raise ValueError(
-                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
-                    )
-                if source_id == block_id:
-                    raise ValueError(
-                        f"Block '{block_id}': input '{input_name}' references itself (circular)"
-                    )
-                if source_id != "workflow":
-                    deps.append(source_id)
-            input_deps[block_id] = deps
-
-    # Detect circular input dependencies (topological sort / DFS)
-    def _detect_input_cycle(
-        node: str,
-        visiting: set,
-        visited: set,
-        deps: Dict[str, list],
-    ) -> bool:
-        if node in visiting:
-            return True  # cycle found
-        if node in visited:
-            return False
-        visiting.add(node)
-        for dep in deps.get(node, []):
-            if _detect_input_cycle(dep, visiting, visited, deps):
-                return True
-        visiting.remove(node)
-        visited.add(node)
-        return False
-
-    visiting_set: set = set()
-    visited_set: set = set()
-    for block_id in input_deps:
-        if _detect_input_cycle(block_id, visiting_set, visited_set, input_deps):
-            raise ValueError(
-                f"Circular input dependency cycle detected involving block '{block_id}'"
-            )
-
-    # Step 6.6: Wrap blocks with declared_inputs in Step objects
-    for block_id, block_def in file_def.blocks.items():
-        if (
-            block_def.inputs is not None
-            and block_def.type != "workflow"
-            and block_id in built_blocks
-        ):
-            declared_inputs: Dict[str, str] = {}
-            for input_name, input_ref in block_def.inputs.items():
-                from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                declared_inputs[input_name] = from_ref
-            # Wrap the built block in a Step with declared_inputs
-            built_blocks[block_id] = Step(
-                block=built_blocks[block_id],
-                declared_inputs=declared_inputs,
-            )
-
-    # Step 7: Assemble Workflow object
-    wf = Workflow(name=file_def.workflow.name)
-    wf.identity = file_def.id
-    for block in built_blocks.values():
-        wf.add_block(block)
-
-    # Step 7.1: Bridge workflow-level limits onto the Workflow object
-    if file_def.limits:
-        wf.limits = file_def.limits
-
-    # Step 8: Register plain transitions
-    for t in file_def.workflow.transitions:
-        wf.add_transition(t.from_, t.to)
-
-    # Step 8.5: Expand depends sugar into plain transitions
-    _expand_depends(file_def, wf)
-
-    # Step 9: Register conditional transitions
-    for ct in file_def.workflow.conditional_transitions:
-        condition_map: Dict[str, str] = {}
-        if ct.default is not None:
-            condition_map["default"] = ct.default
-        # Extra fields = decision_key -> target_block_id (model_extra excludes defined fields)
-        for decision_key, target_id in (ct.model_extra or {}).items():
-            if target_id is not None:
-                condition_map[decision_key] = str(target_id)
-            # target_id=None means terminal (no successor for this decision path)
-        wf.add_conditional_transition(ct.from_, condition_map)
-
-    # Step 9.5: Expand gate pass/fail shorthand into conditional transitions
-    _expand_gate_shortcuts(file_def, wf)
-
-    # Step 10: Set entry block
-    wf.set_entry(file_def.workflow.entry)
-
-    # Step 10.5: Wire output_conditions to Workflow
-    for block_id, block_def in file_def.blocks.items():
-        _wire_output_conditions(wf, block_id, block_def.output_conditions)
-
-    # Step 10.6: Expand routes shorthand into output_conditions and conditional transitions
-    _expand_routes(file_def, wf)
-
-    # Step 10.75: Bridge error_route declarations onto the workflow
-    _bridge_error_routes(file_def, wf)
-
-    # Step 11: Validate (raises ValueError if topology is invalid)
-    errors = wf.validate()
-    if errors:
-        raise ValueError(f"Workflow '{file_def.workflow.name}' failed validation: {errors}")
-
-    return wf
+    _resolve_tools_for_souls(file_def, souls_map, workflow_base_dir)
+    _validate_inputs_and_detect_cycles(file_def, built_blocks)
+    return _assemble_workflow(file_def, built_blocks)

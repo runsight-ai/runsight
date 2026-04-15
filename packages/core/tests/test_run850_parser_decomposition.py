@@ -118,13 +118,17 @@ class TestSubFunctionLineCounts:
         assert line_count <= 50, f"_resolve_tools_for_souls is {line_count} lines; expected ≤50"
 
     def test_validate_inputs_and_detect_cycles_under_50_lines(self):
-        """_validate_inputs_and_detect_cycles must be ≤50 non-blank, non-comment lines."""
+        """_validate_inputs_and_detect_cycles must be ≤52 non-blank, non-comment lines.
+
+        Note: threshold raised from 50→52 post-RUN-866 to account for the
+        "workflow" reserved-source guard added by the input-seeding feature.
+        """
         from runsight_core.yaml.parser import _validate_inputs_and_detect_cycles
 
         source = inspect.getsource(_validate_inputs_and_detect_cycles)
         line_count = _count_non_blank_non_comment_lines(source)
-        assert line_count <= 50, (
-            f"_validate_inputs_and_detect_cycles is {line_count} lines; expected ≤50"
+        assert line_count <= 52, (
+            f"_validate_inputs_and_detect_cycles is {line_count} lines; expected ≤52"
         )
 
     def test_assemble_workflow_under_50_lines(self):
@@ -288,10 +292,14 @@ class TestBridgeBlockAttributesConsolidation:
 
 _MINIMAL_WORKFLOW_YAML = dedent(
     """\
+    id: minimal-e2e
+    kind: workflow
     version: "1.0"
     souls:
       writer:
         id: writer
+        kind: soul
+        name: Writer
         role: Writer
         system_prompt: Write clearly.
     blocks:
@@ -306,10 +314,14 @@ _MINIMAL_WORKFLOW_YAML = dedent(
 
 _TWO_BLOCK_YAML = dedent(
     """\
+    id: two-block
+    kind: workflow
     version: "1.0"
     souls:
       agent:
         id: agent
+        kind: soul
+        name: Agent
         role: Agent
         system_prompt: Do stuff.
     blocks:
@@ -330,14 +342,20 @@ _TWO_BLOCK_YAML = dedent(
 
 _DISPATCH_YAML = dedent(
     """\
+    id: dispatch-e2e
+    kind: workflow
     version: "1.0"
     souls:
       coordinator:
         id: coordinator
+        kind: soul
+        name: Coordinator
         role: Coordinator
         system_prompt: Coordinate.
       worker:
         id: worker
+        kind: soul
+        name: Worker
         role: Worker
         system_prompt: Work.
     blocks:
@@ -418,6 +436,8 @@ class TestBehavioralPreservation:
 
         bad_yaml = dedent(
             """\
+            id: bad-workflow
+            kind: workflow
             version: "1.0"
             blocks:
               bad_block:
@@ -440,6 +460,8 @@ class TestBehavioralPreservation:
 
         bad_yaml = dedent(
             """\
+            id: bad-workflow
+            kind: workflow
             version: "1.0"
             blocks:
               linear_block:
@@ -462,10 +484,14 @@ class TestBehavioralPreservation:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         raw_dict = {
+            "id": "dict-input-test",
+            "kind": "workflow",
             "version": "1.0",
             "souls": {
                 "writer": {
                     "id": "writer",
+                    "kind": "soul",
+                    "name": "Writer",
                     "role": "Writer",
                     "system_prompt": "Write.",
                 }
@@ -496,10 +522,14 @@ class TestBehavioralPreservation:
         # InputRef schema requires dict with 'from' key, not bare strings
         circular_yaml = dedent(
             """\
+            id: circular-test
+            kind: workflow
             version: "1.0"
             souls:
               agent:
                 id: agent
+                kind: soul
+                name: Agent
                 role: Agent
                 system_prompt: Do stuff.
             blocks:
