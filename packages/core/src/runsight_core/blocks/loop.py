@@ -191,8 +191,13 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                # Use module-level execute_block so tests can patch it
-                state = await execute_block(inner_block, state, ctx)
+                # Use module-level execute_block so tests can patch it.
+                # When ctx is None (legacy/direct call), pass blocks kwarg so
+                # inner blocks can access sibling block instances.
+                if ctx is None:
+                    state = await inner_block.execute(state, blocks=blocks)
+                else:
+                    state = await execute_block(inner_block, state, ctx)
 
                 # Check exit_handle after each inner block
                 result = state.results.get(ref)
@@ -349,32 +354,22 @@ class LoopBlock(BaseBlock):
 async def execute_block(block: BaseBlock, state: WorkflowState, ctx: Any) -> WorkflowState:
     """Inner-block dispatcher used by LoopBlock._run_loop_returning_state.
 
-    For regular blocks (LinearBlock, etc.), calls block.execute(state) with WorkflowState
-    directly so that custom subclasses receive the mutable state object.
+    When ctx is a BlockExecutionContext, delegates to workflow.execute_block for all
+    block types so that observer events, retry config, block-level budget session,
+    timeout, and exit condition evaluation are all applied.
 
-    For LoopBlock inner blocks, builds a BlockContext and applies the returned BlockOutput
-    so that nested loops use the new BlockContext path.
+    When ctx is None, the caller is responsible for dispatching directly (legacy path).
+    This branch is not reached when ctx is None — see _run_loop_returning_state.
 
     This function is intentionally module-level so that tests can patch it via
     ``patch("runsight_core.blocks.loop.execute_block", ...)``.
     """
-    if isinstance(block, LoopBlock):
-        from runsight_core.block_io import BlockContext, apply_block_output
+    from runsight_core.workflow import BlockExecutionContext
+    from runsight_core.workflow import execute_block as workflow_execute_block
 
-        blocks_dict = getattr(ctx, "blocks", {}) if ctx is not None else {}
-        instruction = state.current_task.instruction if state.current_task is not None else "loop"
-        inner_ctx = BlockContext(
-            block_id=block.block_id,
-            instruction=instruction,
-            context=None,
-            inputs={"blocks": blocks_dict, "ctx": ctx},
-            conversation_history=[],
-            soul=None,
-            model_name=None,
-            state_snapshot=state,
-        )
-        output = await block.execute(inner_ctx)
-        return apply_block_output(state, block.block_id, output)
+    if isinstance(ctx, BlockExecutionContext):
+        return await workflow_execute_block(block, state, ctx)
+
     return await block.execute(state)
 
 
