@@ -179,6 +179,8 @@ class Step:
 
         value = resolve_dotted_path(parsed, field_path)
         if value is None and not (isinstance(parsed, dict) and field_path in parsed):
+            if source_id == "workflow":
+                return None
             raise ValueError(
                 f"Input resolution failed: field path '{field_path}' not found in output of '{source_id}'"
             )

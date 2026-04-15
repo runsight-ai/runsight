@@ -679,6 +679,12 @@ def parse_workflow_yaml(
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
     # Step 5: Build all blocks (single pass)
+    # Reject any block using the reserved ID "workflow" (collides with input seeding)
+    if "workflow" in file_def.blocks:
+        raise ValueError(
+            "Block ID 'workflow' is reserved for workflow input seeding and cannot be used as a block ID."
+        )
+
     built_blocks: Dict[str, BaseBlock] = {}
     for block_id, block_def in file_def.blocks.items():
         from runsight_core.blocks._registry import get_builder
@@ -867,7 +873,7 @@ def parse_workflow_yaml(
             for input_name, input_ref in block_def.inputs.items():
                 from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
                 source_id = from_ref.split(".")[0]
-                if source_id not in file_def.blocks:
+                if source_id != "workflow" and source_id not in file_def.blocks:
                     raise ValueError(
                         f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
                     )
@@ -875,7 +881,8 @@ def parse_workflow_yaml(
                     raise ValueError(
                         f"Block '{block_id}': input '{input_name}' references itself (circular)"
                     )
-                deps.append(source_id)
+                if source_id != "workflow":
+                    deps.append(source_id)
             input_deps[block_id] = deps
 
     # Detect circular input dependencies (topological sort / DFS)

@@ -290,6 +290,8 @@ class Workflow:
                 f"Block ID '{block.block_id}' already exists in blueprint '{self.name}'"
             )
         self._blocks[block.block_id] = block
+        if self._entry_block_id is None:
+            self._entry_block_id = block.block_id
         return self
 
     def add_transition(self, from_block_id: str, to_block_id: Optional[str]) -> "Workflow":
@@ -614,6 +616,7 @@ class Workflow:
         self,
         initial_state: WorkflowState,
         *,
+        inputs: Optional[Dict[str, Any]] = None,
         registry: Optional["BlockRegistry"] = None,
         call_stack: Optional[List[str]] = None,
         workflow_registry: Optional["WorkflowRegistry"] = None,
@@ -665,7 +668,16 @@ class Workflow:
         assert self._entry_block_id is not None  # guaranteed by validate()
         queue.append((self._entry_block_id, runtime_blocks[self._entry_block_id]))
 
-        state = initial_state
+        import json as _json
+
+        state = initial_state.model_copy(
+            update={
+                "results": {
+                    **initial_state.results,
+                    "workflow": BlockResult(output=_json.dumps(inputs or {})),
+                }
+            }
+        )
 
         # Step 2.5: Create flow-level BudgetSession if workflow has limits
         from runsight_core.budget_enforcement import (
