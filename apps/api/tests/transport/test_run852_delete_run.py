@@ -111,8 +111,8 @@ class TestDeleteRunEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    def test_delete_run_removes_from_database(self, db_engine, run_service):
-        """After DELETE /api/runs/{id}, a subsequent GET must return 404."""
+    def test_delete_run_soft_deletes_from_database(self, db_engine, run_service):
+        """After DELETE, the run is soft-deleted (deleted_at set) and not returned by get_run."""
         run_id = _create_run_via_repo(db_engine)
 
         app.dependency_overrides[get_run_service] = lambda: run_service
@@ -120,10 +120,15 @@ class TestDeleteRunEndpoint:
             delete_response = client.delete(f"/api/runs/{run_id}")
             assert delete_response.status_code == 200
 
-            # The run should no longer be retrievable
+            # The run record still exists in DB but has deleted_at set
             with Session(db_engine) as session:
-                deleted = session.get(Run, run_id)
-            assert deleted is None, "Run record must be removed from DB after DELETE"
+                row = session.get(Run, run_id)
+            assert row is not None, "Soft-deleted run must still exist in DB"
+            assert row.deleted_at is not None, "deleted_at must be set after soft delete"
+
+            # But the repository's get_run filters it out
+            result = run_service.get_run(run_id)
+            assert result is None, "get_run must not return soft-deleted runs"
         finally:
             app.dependency_overrides.clear()
 

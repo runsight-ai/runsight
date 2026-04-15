@@ -552,4 +552,3 @@ export const runsight_api__transport__schemas__git__LogResponseSchema = z.object
   commits: z.array(CommitEntrySchema),
 });
 export type runsight_api__transport__schemas__git__LogResponse = z.infer<typeof runsight_api__transport__schemas__git__LogResponseSchema>;
-

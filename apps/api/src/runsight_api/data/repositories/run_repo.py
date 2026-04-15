@@ -47,7 +47,7 @@ class RunRepository:
 
     def delete_run(self, run_id: str) -> Optional[str]:
         run = self.session.get(Run, run_id)
-        if run is None:
+        if run is None or run.deleted_at is not None:
             return None
         if run.status in [RunStatus.pending, RunStatus.running]:
             raise RunHasActiveExecution(f"Run {run_id} has active execution")
@@ -56,9 +56,10 @@ class RunRepository:
             raise RunHasChildren(
                 f"Run {run_id} has {len(children)} child run(s) and cannot be deleted"
             )
-        self.session.exec(delete(LogEntry).where(LogEntry.run_id == run_id))
-        self.session.exec(delete(RunNode).where(RunNode.run_id == run_id))
-        self.session.exec(delete(Run).where(Run.id == run_id))
+        import time as _time
+
+        run.deleted_at = _time.time()
+        self.session.add(run)
         self.session.commit()
         return run_id
 
@@ -72,7 +73,10 @@ class RunRepository:
     def get_run(self, run_id: str) -> Optional[Run]:
         # Expire the session cache so concurrent writes from other sessions are visible.
         self.session.expire_all()
-        return self.session.get(Run, run_id)
+        run = self.session.get(Run, run_id)
+        if run is not None and run.deleted_at is not None:
+            return None
+        return run
 
     def refresh_run(self, run_id: str) -> Optional[Run]:
         run = self.session.get(Run, run_id)
@@ -81,14 +85,16 @@ class RunRepository:
         return run
 
     def list_runs(self, limit: int | None = None) -> List[Run]:
-        statement = select(Run).order_by(Run.created_at.desc())
+        statement = select(Run).where(Run.deleted_at.is_(None)).order_by(Run.created_at.desc())
         if limit is not None:
             statement = statement.limit(limit)
         return list(self.session.exec(statement).all())
 
     def list_children(self, parent_run_id: str) -> List[Run]:
         statement = (
-            select(Run).where(Run.parent_run_id == parent_run_id).order_by(Run.created_at.desc())
+            select(Run)
+            .where(Run.parent_run_id == parent_run_id, Run.deleted_at.is_(None))
+            .order_by(Run.created_at.desc())
         )
         return list(self.session.exec(statement).all())
 
@@ -102,7 +108,7 @@ class RunRepository:
         branch: str | None = None,
     ) -> tuple:
         """Return a page of runs and the total count using SQL LIMIT/OFFSET."""
-        filters = []
+        filters = [Run.deleted_at.is_(None)]
         count_statement = select(func.count()).select_from(Run)
 
         if status:
