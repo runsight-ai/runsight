@@ -19,6 +19,7 @@ from runsight_core import (
     LinearBlock,
     LoopBlock,
 )
+from runsight_core.block_io import BlockContext, apply_block_output
 from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.conditions.engine import Condition
 from runsight_core.primitives import Soul
@@ -29,6 +30,18 @@ from runsight_core.workflow import Workflow
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+async def _exec_loop(loop: LoopBlock, state: WorkflowState, blocks: dict) -> WorkflowState:
+    """Build a BlockContext for a LoopBlock, execute it, and apply the output to state."""
+    ctx = BlockContext(
+        block_id=loop.block_id,
+        instruction="loop",
+        inputs={"blocks": blocks},
+        state_snapshot=state,
+    )
+    output = await loop.execute(ctx)
+    return apply_block_output(state, loop.block_id, output)
 
 
 def _make_mock_runner():
@@ -108,7 +121,7 @@ class TestStatefulLinearBlockInsideLoop:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         history_key = "analyze_analyst"
         assert history_key in result_state.conversation_histories
@@ -142,7 +155,7 @@ class TestStatefulLinearBlockInsideLoop:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
         for i, msg in enumerate(history):
@@ -177,7 +190,7 @@ class TestStatefulLinearBlockInsideLoop:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks)
+        await _exec_loop(loop, state, blocks)
 
         assert len(messages_received_per_call) == 3
 
@@ -216,7 +229,7 @@ class TestStatefulLinearBlockInsideLoop:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
         assistant_msgs = [m["content"] for m in history if m["role"] == "assistant"]
@@ -311,7 +324,7 @@ class TestStatefulDispatchBlockInsideLoop:
         blocks = {"review": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         for soul_id in ["soul_a", "soul_b", "soul_c"]:
             history_key = f"review_{soul_id}"
@@ -363,7 +376,7 @@ class TestStatefulDispatchBlockInsideLoop:
         blocks = {"review": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         # Verify each soul's history contains only its own output
         for soul_id in ["soul_a", "soul_b", "soul_c"]:
@@ -404,7 +417,7 @@ class TestStatefulDispatchBlockInsideLoop:
         blocks = {"fan": inner, "loop": loop}
 
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks)
+        await _exec_loop(loop, state, blocks)
 
         for soul_id in ["soul_a", "soul_b", "soul_c"]:
             calls = messages_per_soul_per_round[soul_id]
@@ -517,10 +530,10 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState()
 
         with patch(
-            "runsight_core.blocks.linear.fit_to_budget",
+            "runsight_core.block_io.fit_to_budget",
             side_effect=_aggressive_budget,
         ):
-            result_state = await loop.execute(state, blocks=blocks)
+            result_state = await _exec_loop(loop, state, blocks)
 
         history = result_state.conversation_histories["analyze_analyst"]
         # Pre-call pruning keeps 2 msgs + appends 2 new = 4 stored
@@ -585,7 +598,7 @@ class TestWindowingActivatesInsideLoop:
             "runsight_core.blocks.dispatch.fit_to_budget",
             side_effect=_aggressive_budget,
         ):
-            result_state = await loop.execute(state, blocks=blocks)
+            result_state = await _exec_loop(loop, state, blocks)
 
         for soul_id in ["soul_a", "soul_b"]:
             history = result_state.conversation_histories[f"fan_{soul_id}"]
@@ -652,10 +665,10 @@ class TestWindowingActivatesInsideLoop:
         state = WorkflowState()
 
         with patch(
-            "runsight_core.blocks.linear.fit_to_budget",
+            "runsight_core.block_io.fit_to_budget",
             side_effect=_budget_prune_to_2,
         ):
-            await loop.execute(state, blocks=blocks)
+            await _exec_loop(loop, state, blocks)
 
         assert len(messages_received) == 4
 
@@ -710,7 +723,7 @@ class TestBreakConditionWithBlockResult:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         # Should have broken after round 2, not run all 5
         meta = result_state.shared_memory.get("__loop__loop")
@@ -750,7 +763,7 @@ class TestBreakConditionWithBlockResult:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         meta = result_state.shared_memory["__loop__loop"]
         assert meta["rounds_completed"] == 2
@@ -785,7 +798,7 @@ class TestBreakConditionWithBlockResult:
         blocks = {"fan": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         # Should break on round 1 since the output always contains "soul_a_out"
         meta = result_state.shared_memory["__loop__loop"]
@@ -823,7 +836,7 @@ class TestBreakConditionWithBlockResult:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         # Broke on round 3 — history should have 3 rounds = 6 messages
         history = result_state.conversation_histories["analyze_analyst"]
@@ -868,7 +881,7 @@ class TestCombinedStatefulWindowingBreak:
         blocks = {"write": inner, "loop": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec_loop(loop, state, blocks)
 
         # Verify break
         meta = result_state.shared_memory["__loop__loop"]

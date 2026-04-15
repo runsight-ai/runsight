@@ -15,6 +15,7 @@ import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
 
@@ -64,7 +65,7 @@ class TestAsyncSubprocessUsed:
         with patch(
             "subprocess.run", side_effect=AssertionError("subprocess.run was called")
         ) as mock_run:
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         # If we get here without AssertionError, subprocess.run was not called.
         mock_run.assert_not_called()
@@ -87,7 +88,7 @@ class TestAsyncSubprocessUsed:
             mock_proc.returncode = 0
             mock_create.return_value = mock_proc
 
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         mock_create.assert_called_once()
 
@@ -118,7 +119,7 @@ class TestEventLoopNotBlocked:
             sentinel_ran = True
 
         # Run both concurrently
-        execute_task = asyncio.create_task(block.execute(state))
+        execute_task = asyncio.create_task(execute_block_for_test(block, state))
         sentinel_task = asyncio.create_task(sentinel())
 
         await asyncio.gather(execute_task, sentinel_task)
@@ -144,7 +145,7 @@ class TestEventLoopNotBlocked:
             timestamps.append((label, time.monotonic()))
 
         start = time.monotonic()
-        task_exec = asyncio.create_task(block.execute(state))
+        task_exec = asyncio.create_task(execute_block_for_test(block, state))
         task_fast = asyncio.create_task(record_timestamp("fast"))
 
         await asyncio.gather(task_exec, task_fast)
@@ -179,7 +180,7 @@ def main(data):
         state = _make_state()
 
         with pytest.raises(TimeoutError, match="timed out"):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio
     async def test_timeout_does_not_use_subprocess_timeout_expired(self):
@@ -203,7 +204,7 @@ def main(data):
             "subprocess.run", side_effect=AssertionError("subprocess.run should not be called")
         ):
             with pytest.raises(TimeoutError, match="timed out"):
-                await block.execute(state)
+                await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio
     async def test_timeout_does_not_block_event_loop(self):
@@ -225,7 +226,7 @@ def main(data):
 
         async def run_execute():
             with pytest.raises(TimeoutError):
-                await block.execute(state)
+                await execute_block_for_test(block, state)
 
         await asyncio.gather(run_execute(), sentinel())
 
@@ -269,7 +270,7 @@ class TestMacOSEnvVars:
             "runsight_core.blocks.code.asyncio.create_subprocess_exec",
             side_effect=spy_create,
         ):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         assert captured_env is not None, "env was not passed to subprocess"
         assert len(captured_env) > 0, (
@@ -294,7 +295,7 @@ class TestMacOSEnvVars:
             "runsight_core.blocks.code.asyncio.create_subprocess_exec",
             side_effect=spy_create,
         ):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         assert captured_env is not None, "env kwarg not passed"
         assert "PATH" in captured_env, "PATH missing from subprocess env"
@@ -308,7 +309,7 @@ class TestMacOSEnvVars:
         """
         block = CodeBlock("cb_platform", SIMPLE_CODE)
         state = _make_state()
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert "cb_platform" in result.results
         # Should NOT be an error — should be successful

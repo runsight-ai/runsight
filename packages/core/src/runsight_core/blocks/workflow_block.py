@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from pydantic import model_validator
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -65,15 +66,12 @@ class WorkflowBlock(BaseBlock):
                         f"paths (e.g. 'shared_memory.topic')."
                     )
 
-    async def execute(
-        self,
-        state: WorkflowState,
-        *,
-        call_stack: Optional[List[str]] = None,
-        workflow_registry: Optional["WorkflowRegistry"] = None,
-        **kwargs,
-    ) -> WorkflowState:
-        call_stack = call_stack or []
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute WorkflowBlock with BlockContext, return BlockOutput."""
+        state: WorkflowState = ctx.state_snapshot
+        call_stack: List[str] = ctx.inputs.get("call_stack") or []
+        workflow_registry = ctx.inputs.get("workflow_registry")
+        observer = ctx.inputs.get("observer")
 
         # Step 1: Cycle detection
         if self.child_workflow.name in call_stack:
@@ -94,101 +92,116 @@ class WorkflowBlock(BaseBlock):
         # Step 3: Map inputs (parent -> child)
         child_state = self._map_inputs(state, self.inputs)
 
-        # Step 4: Run child workflow (propagate observer for monitoring)
+        # Step 4: Run child workflow
         from runsight_core.observer import build_child_observer
 
-        parent_observer = kwargs.get("observer")
-        observer = None
+        child_observer = None
         child_run_id = None
-        if parent_observer:
-            observer, child_run_id = build_child_observer(parent_observer, block_id=self.block_id)
+        if observer:
+            child_observer, child_run_id = build_child_observer(observer, block_id=self.block_id)
+
         start_time = time.monotonic()
         try:
             child_final_state = await self.child_workflow.run(
                 child_state,
                 call_stack=call_stack + [self.child_workflow.name],
                 workflow_registry=workflow_registry,
-                observer=observer,
+                observer=child_observer,
             )
         except Exception as exc:
             duration_s = time.monotonic() - start_time
             if self.on_error != "catch":
                 raise
-            # on_error="catch": swallow exception, skip output mapping,
-            # return parent state with an error BlockResult.
-            child_metadata = {
-                "child_status": "failed",
-                "child_error": str(exc),
-                "child_cost_usd": 0,
-                "child_tokens": 0,
-                "child_duration_s": round(duration_s, 4),
-                "child_run_id": child_run_id,
-            }
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(
-                            output=f"WorkflowBlock '{self.child_workflow.name}' failed",
-                            exit_handle="error",
-                            metadata=child_metadata,
+            return BlockOutput(
+                output=f"WorkflowBlock '{self.child_workflow.name}' failed",
+                exit_handle="error",
+                cost_usd=0.0,
+                total_tokens=0,
+                metadata={
+                    "child_status": "failed",
+                    "child_error": str(exc),
+                    "child_cost_usd": 0.0,
+                    "child_tokens": 0,
+                    "child_duration_s": round(duration_s, 4),
+                    "child_run_id": child_run_id,
+                },
+                log_entries=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
+                            f"failed (on_error=catch): {exc}"
                         ),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": (
-                                f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
-                                f"failed (on_error=catch): {exc}"
-                            ),
-                        }
-                    ],
-                }
+                    }
+                ],
             )
         duration_s = time.monotonic() - start_time
 
-        # Step 4b: Detect soft failures in child results (blocks that captured
-        # errors into BlockResults with exit_handle="error" rather than raising).
+        # Step 4b: Soft failures
         if self.on_error == "catch":
             for _bid, _br in child_final_state.results.items():
                 if isinstance(_br, BlockResult) and _br.exit_handle == "error":
-                    child_metadata = {
-                        "child_status": "failed",
-                        "child_error": _br.output,
-                        "child_cost_usd": child_final_state.total_cost_usd,
-                        "child_tokens": child_final_state.total_tokens,
-                        "child_duration_s": round(duration_s, 4),
-                        "child_run_id": child_run_id,
-                    }
-                    return state.model_copy(
-                        update={
-                            "results": {
-                                **state.results,
-                                self.block_id: BlockResult(
-                                    output=f"WorkflowBlock '{self.child_workflow.name}' failed",
-                                    exit_handle="error",
-                                    metadata=child_metadata,
+                    return BlockOutput(
+                        output=f"WorkflowBlock '{self.child_workflow.name}' failed",
+                        exit_handle="error",
+                        cost_usd=0.0,
+                        total_tokens=0,
+                        metadata={
+                            "child_status": "failed",
+                            "child_error": _br.output,
+                            "child_cost_usd": child_final_state.total_cost_usd,
+                            "child_tokens": child_final_state.total_tokens,
+                            "child_duration_s": round(duration_s, 4),
+                            "child_run_id": child_run_id,
+                        },
+                        log_entries=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"[Block {self.block_id}] WorkflowBlock "
+                                    f"'{self.child_workflow.name}' "
+                                    f"failed (on_error=catch, soft error in block '{_bid}')"
                                 ),
-                            },
-                            "execution_log": state.execution_log
-                            + [
-                                {
-                                    "role": "system",
-                                    "content": (
-                                        f"[Block {self.block_id}] WorkflowBlock "
-                                        f"'{self.child_workflow.name}' "
-                                        f"failed (on_error=catch, soft error in block '{_bid}')"
-                                    ),
-                                }
-                            ],
-                        }
+                            }
+                        ],
                     )
 
-        # Step 5: Apply output mappings (only sanctioned channel from child to parent)
-        new_parent_state = self._map_outputs(state, child_final_state, self.outputs)
+        # Step 5: Collect output mappings as extra_results / shared_memory_updates
+        extra_results: Dict[str, Any] = {}
+        shared_memory_updates: Dict[str, Any] = {}
 
-        # Step 6: Propagate costs and add system message with compact metadata
+        if self.interface is not None:
+            output_lookup = {odef.name: odef.source for odef in self.interface.outputs}
+            for parent_path, interface_name in self.outputs.items():
+                source = output_lookup.get(interface_name)
+                if source is None:
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': output binding "
+                        f"'{interface_name}' does not match any interface output."
+                    )
+                value = self._resolve_dotted(child_final_state, source, context="child state")
+                parts = parent_path.split(".", 1)
+                if parts[0] == "results" and len(parts) == 2:
+                    # Unwrap BlockResult to its .output string, matching legacy _map_outputs behavior.
+                    if isinstance(value, BlockResult):
+                        value = value.output
+                    extra_results[parts[1]] = value
+                elif parts[0] == "shared_memory" and len(parts) == 2:
+                    if isinstance(value, BlockResult):
+                        value = value.output
+                    shared_memory_updates[parts[1]] = value
+        else:
+            for parent_path, child_path in self.outputs.items():
+                value = self._resolve_dotted(child_final_state, child_path, context="child state")
+                parts = parent_path.split(".", 1)
+                if parts[0] == "results" and len(parts) == 2:
+                    # No-interface path: store value as-is (BlockResult or raw), matching legacy behavior.
+                    extra_results[parts[1]] = value
+                elif parts[0] == "shared_memory" and len(parts) == 2:
+                    if isinstance(value, BlockResult):
+                        value = value.output
+                    shared_memory_updates[parts[1]] = value
+
         child_metadata = {
             "child_status": "completed",
             "child_cost_usd": child_final_state.total_cost_usd,
@@ -197,31 +210,24 @@ class WorkflowBlock(BaseBlock):
             "child_run_id": child_run_id,
         }
 
-        return new_parent_state.model_copy(
-            update={
-                "results": {
-                    **new_parent_state.results,
-                    self.block_id: BlockResult(
-                        output=f"WorkflowBlock '{self.child_workflow.name}' completed",
-                        exit_handle="completed",
-                        metadata=child_metadata,
+        return BlockOutput(
+            output=f"WorkflowBlock '{self.child_workflow.name}' completed",
+            exit_handle="completed",
+            cost_usd=child_final_state.total_cost_usd,
+            total_tokens=child_final_state.total_tokens,
+            metadata=child_metadata,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
+                        f"completed (cost: ${child_final_state.total_cost_usd:.4f}, "
+                        f"tokens: {child_final_state.total_tokens})"
                     ),
-                },
-                "execution_log": new_parent_state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": (
-                            f"[Block {self.block_id}] WorkflowBlock '{self.child_workflow.name}' "
-                            f"completed (cost: ${child_final_state.total_cost_usd:.4f}, "
-                            f"tokens: {child_final_state.total_tokens})"
-                        ),
-                    }
-                ],
-                "total_cost_usd": new_parent_state.total_cost_usd
-                + child_final_state.total_cost_usd,
-                "total_tokens": new_parent_state.total_tokens + child_final_state.total_tokens,
-            }
+                }
+            ],
+            extra_results=extra_results if extra_results else None,
+            shared_memory_updates=shared_memory_updates if shared_memory_updates else None,
         )
 
     def _resolve_dotted(self, state: WorkflowState, path: str, *, context: str = "state") -> Any:
@@ -313,36 +319,6 @@ class WorkflowBlock(BaseBlock):
                 child_state = self._write_dotted(child_state, child_key, value)
 
         return child_state
-
-    def _map_outputs(
-        self,
-        parent_state: WorkflowState,
-        child_final_state: WorkflowState,
-        outputs: Dict[str, str],
-    ) -> WorkflowState:
-        new_parent = parent_state
-
-        if self.interface is not None:
-            # Interface-mediated: values are interface names, resolve via source
-            output_lookup = {odef.name: odef.source for odef in self.interface.outputs}
-            for parent_path, interface_name in outputs.items():
-                source = output_lookup.get(interface_name)
-                if source is None:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': output binding "
-                        f"'{interface_name}' does not match any interface output."
-                    )
-                value = self._resolve_dotted(child_final_state, source, context="child state")
-                if isinstance(value, BlockResult):
-                    value = value.output
-                new_parent = self._write_dotted(new_parent, parent_path, value)
-        else:
-            # Legacy: values are child dotted paths directly
-            for parent_path, child_path in outputs.items():
-                value = self._resolve_dotted(child_final_state, child_path, context="child state")
-                new_parent = self._write_dotted(new_parent, parent_path, value)
-
-        return new_parent
 
 
 # -- Schema definition (co-located) -----------------------------------------

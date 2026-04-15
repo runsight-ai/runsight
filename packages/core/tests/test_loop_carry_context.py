@@ -19,6 +19,8 @@ Tests cover:
 - Integration: Carried context is correctly formatted and readable
 """
 
+from __future__ import annotations
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.base import BaseBlock
@@ -40,6 +42,24 @@ def _validate_block(data: dict):
     return block_adapter.validate_python(data)
 
 
+async def _run_loop(loop, state: WorkflowState, blocks: dict) -> WorkflowState:
+    """Helper: build BlockContext, run LoopBlock, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
+    ctx = BlockContext(
+        block_id=loop.block_id,
+        instruction="loop",
+        inputs={"blocks": blocks},
+        state_snapshot=state,
+    )
+    output = await loop.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, loop.block_id, output)
+    return state
+
+
 # -- Test helpers --------------------------------------------------------------
 
 
@@ -49,18 +69,16 @@ class TrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         output = f"{self.block_id}_output_round_{len(calls)}"
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -72,7 +90,10 @@ class ContextAwareWriterBlock(BaseBlock):
         super().__init__(block_id)
         self.context_key = context_key
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         round_num = len(calls)
@@ -83,15 +104,12 @@ class ContextAwareWriterBlock(BaseBlock):
         contexts_seen.append(carried)
 
         output = f"draft_round_{round_num}"
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                    f"{self.block_id}_contexts_seen": contexts_seen,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={
+                f"{self.block_id}_calls": calls,
+                f"{self.block_id}_contexts_seen": contexts_seen,
+            },
         )
 
 
@@ -101,19 +119,17 @@ class CriticBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         round_num = len(calls)
         output = f"feedback_round_{round_num}"
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -123,17 +139,15 @@ class EmptyOutputBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: ""},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output="",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -144,7 +158,10 @@ class ContextReaderBlock(BaseBlock):
         super().__init__(block_id)
         self.read_key = read_key
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         round_num = len(calls)
@@ -154,15 +171,12 @@ class ContextReaderBlock(BaseBlock):
         snapshots.append(context_value)
 
         output = f"{self.block_id}_output_round_{round_num}"
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                    f"{self.block_id}_snapshots": snapshots,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={
+                f"{self.block_id}_calls": calls,
+                f"{self.block_id}_snapshots": snapshots,
+            },
         )
 
 
@@ -173,17 +187,15 @@ class NullSoulOutputBlock(BaseBlock):
         super().__init__(block_id)
         self.soul = None
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"{self.block_id}_output"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=f"{self.block_id}_output",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -497,7 +509,7 @@ class TestCarryContextModeLast:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
         assert len(snapshots) == 3
@@ -537,7 +549,7 @@ class TestCarryContextModeLast:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -579,7 +591,7 @@ class TestCarryContextModeAll:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
         assert len(snapshots) == 4
@@ -620,7 +632,7 @@ class TestCarryContextModeAll:
         blocks_all = {"reader": reader_all, "loop_block": loop_all}
 
         state = WorkflowState()
-        result_all = await loop_all.execute(state, blocks=blocks_all)
+        result_all = await _run_loop(loop_all, state, blocks_all)
         snapshots_all = result_all.shared_memory.get("reader_snapshots", [])
 
         # Run with mode="last"
@@ -636,7 +648,7 @@ class TestCarryContextModeAll:
         blocks_last = {"reader": reader_last, "loop_block": loop_last}
 
         state2 = WorkflowState()
-        result_last = await loop_last.execute(state2, blocks=blocks_last)
+        result_last = await _run_loop(loop_last, state2, blocks_last)
         snapshots_last = result_last.shared_memory.get("reader_snapshots", [])
 
         # On round 3, mode="all" should have MORE context than mode="last"
@@ -678,7 +690,7 @@ class TestCarryContextSourceBlocks:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -715,7 +727,7 @@ class TestCarryContextSourceBlocks:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -757,7 +769,7 @@ class TestCarryContextSourceBlocks:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -797,7 +809,7 @@ class TestCarryContextInjectAs:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # After round 2, the inject_as key should be present in shared_memory
         assert "previous_round_context" in result_state.shared_memory
@@ -822,7 +834,7 @@ class TestCarryContextInjectAs:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         assert "feedback" in result_state.shared_memory
         # The default key should NOT be present since we customized it
@@ -857,7 +869,7 @@ class TestCarryContextRoundOne:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
         # First snapshot (round 1) should be None — no previous context
@@ -877,7 +889,10 @@ class TestCarryContextRoundOne:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                state = ctx.state_snapshot
                 calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
                 calls.append(len(calls) + 1)
                 round_num = len(calls)
@@ -886,15 +901,12 @@ class TestCarryContextRoundOne:
                 key_snapshots = list(state.shared_memory.get(f"{self.block_id}_key_exists", []))
                 key_snapshots.append("ctx" in state.shared_memory)
 
-                return state.model_copy(
-                    update={
-                        "results": {**state.results, self.block_id: f"round_{round_num}"},
-                        "shared_memory": {
-                            **state.shared_memory,
-                            f"{self.block_id}_calls": calls,
-                            f"{self.block_id}_key_exists": key_snapshots,
-                        },
-                    }
+                return BlockOutput(
+                    output=f"round_{round_num}",
+                    shared_memory_updates={
+                        f"{self.block_id}_calls": calls,
+                        f"{self.block_id}_key_exists": key_snapshots,
+                    },
                 )
 
         inspector = SharedMemoryInspectorBlock("inspector")
@@ -909,7 +921,7 @@ class TestCarryContextRoundOne:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         key_exists_per_round = result_state.shared_memory.get("inspector_key_exists", [])
         # Round 1: inject_as key should NOT exist
@@ -944,7 +956,7 @@ class TestCarryContextNoneBackwardCompat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # inject_as key should never appear
         assert "previous_round_context" not in result_state.shared_memory
@@ -969,7 +981,7 @@ class TestCarryContextNoneBackwardCompat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Basic behavior unchanged
         calls = result_state.shared_memory.get("inner_calls", [])
@@ -1009,7 +1021,7 @@ class TestCarryContextDisabled:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # feedback key should not appear in shared_memory
         assert "feedback" not in result_state.shared_memory
@@ -1111,7 +1123,7 @@ class TestCarryContextEmptyOutput:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -1157,7 +1169,7 @@ class TestCarryContextWriterCriticIntegration:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         contexts_seen = result_state.shared_memory.get("writer_contexts_seen", [])
 
@@ -1197,7 +1209,7 @@ class TestCarryContextWriterCriticIntegration:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         contexts_seen = result_state.shared_memory.get("writer_contexts_seen", [])
 
@@ -1286,7 +1298,7 @@ class TestCarryContextFormat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
         round_2_ctx = snapshots[1]
@@ -1320,7 +1332,7 @@ class TestCarryContextFormat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -1353,7 +1365,7 @@ class TestCarryContextFormat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
@@ -1386,7 +1398,7 @@ class TestCarryContextFormat:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         assert result_state.shared_memory.get("ctx") is not None
         assert "null_soul_output" in str(result_state.shared_memory.get("ctx"))

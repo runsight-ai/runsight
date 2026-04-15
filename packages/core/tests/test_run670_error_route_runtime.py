@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -53,9 +54,10 @@ class _WriteBlock(BaseBlock):
         self.output = output or block_id
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         self.call_count += 1
-        return state.model_copy(
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -67,6 +69,7 @@ class _WriteBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class _ErrorAwareHandlerBlock(BaseBlock):
@@ -77,10 +80,11 @@ class _ErrorAwareHandlerBlock(BaseBlock):
         self.failed_block_id = failed_block_id
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         self.call_count += 1
         error_info = state.shared_memory.get(f"__error__{self.failed_block_id}")
-        return state.model_copy(
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -95,6 +99,7 @@ class _ErrorAwareHandlerBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class _RecordingObserver:

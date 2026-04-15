@@ -18,6 +18,24 @@ def mock_child_workflow():
     return workflow
 
 
+async def _run_block_with_call_stack(block, state: WorkflowState, call_stack=None) -> WorkflowState:
+    """Helper: build BlockContext with optional call_stack, run block, apply output."""
+    from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
+    ctx = BlockContext(
+        block_id=block.block_id,
+        instruction="",
+        inputs={"call_stack": call_stack or []},
+        state_snapshot=state,
+    )
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, block.block_id, output)
+    return state
+
+
 @pytest.mark.asyncio
 async def test_cycle_detection_direct(mock_child_workflow):
     """AC-5: Direct cycle detection (A→A)."""
@@ -33,10 +51,7 @@ async def test_cycle_detection_direct(mock_child_workflow):
 
     # Act & Assert
     with pytest.raises(RecursionError) as exc_info:
-        await block.execute(
-            parent_state,
-            call_stack=["child_wf"],  # Child already in stack
-        )
+        await _run_block_with_call_stack(block, parent_state, call_stack=["child_wf"])
 
     error_msg = str(exc_info.value)
     assert "cycle detected" in error_msg.lower()
@@ -59,10 +74,7 @@ async def test_cycle_detection_indirect(mock_child_workflow):
 
     # Act & Assert
     with pytest.raises(RecursionError) as exc_info:
-        await block.execute(
-            parent_state,
-            call_stack=["root_wf", "child_wf"],  # Child already in stack
-        )
+        await _run_block_with_call_stack(block, parent_state, call_stack=["root_wf", "child_wf"])
 
     error_msg = str(exc_info.value)
     assert "cycle detected" in error_msg.lower()
@@ -84,10 +96,7 @@ async def test_depth_limit(mock_child_workflow):
 
     # Act & Assert - call_stack length equals max_depth
     with pytest.raises(RecursionError) as exc_info:
-        await block.execute(
-            parent_state,
-            call_stack=["a", "b", "c"],  # length 3 >= max_depth 3
-        )
+        await _run_block_with_call_stack(block, parent_state, call_stack=["a", "b", "c"])
 
     error_msg = str(exc_info.value)
     assert "maximum depth" in error_msg.lower() or "max_depth" in error_msg
@@ -109,10 +118,7 @@ async def test_depth_within_limit(mock_child_workflow):
     parent_state = WorkflowState()
 
     # Act - call_stack length < max_depth
-    result = await block.execute(
-        parent_state,
-        call_stack=["a", "b"],  # length 2 < max_depth 5
-    )
+    result = await _run_block_with_call_stack(block, parent_state, call_stack=["a", "b"])
 
     # Assert - should not raise RecursionError
     assert isinstance(result, WorkflowState)
@@ -134,7 +140,7 @@ async def test_empty_call_stack_executes(mock_child_workflow):
     parent_state = WorkflowState()
 
     # Act - default empty call_stack
-    result = await block.execute(parent_state)
+    result = await _run_block_with_call_stack(block, parent_state)
 
     # Assert
     assert isinstance(result, WorkflowState)

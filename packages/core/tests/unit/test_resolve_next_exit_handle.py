@@ -28,6 +28,7 @@ import inspect
 import json
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, Condition, ConditionGroup
 from runsight_core.state import BlockResult, WorkflowState
@@ -44,8 +45,12 @@ class StubBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state  # pragma: no cover
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
+            update={"results": {**state.results, self.block_id: BlockResult(output="done")}}
+        )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class ExitHandleBlock(BaseBlock):
@@ -56,8 +61,9 @@ class ExitHandleBlock(BaseBlock):
         self._exit_handle = exit_handle
         self._output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -68,6 +74,7 @@ class ExitHandleBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class JsonOutputBlock(BaseBlock):
@@ -77,8 +84,9 @@ class JsonOutputBlock(BaseBlock):
         super().__init__(block_id)
         self._data = data
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -86,6 +94,7 @@ class JsonOutputBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 # ---------------------------------------------------------------------------

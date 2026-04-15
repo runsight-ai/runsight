@@ -22,6 +22,12 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from runsight_core.block_io import (
+    BlockContext,
+    BlockOutput,
+    apply_block_output,
+    build_block_context,
+)
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.gate import GateBlock
@@ -29,8 +35,8 @@ from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
-from runsight_core.primitives import Soul
-from runsight_core.state import WorkflowState
+from runsight_core.primitives import Soul, Step
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 
 # ── Shared fixtures ─────────────────────────────────────────────────────────
@@ -49,6 +55,16 @@ def _make_soul(soul_id: str = "test_soul") -> Soul:
 
 def _make_state(task_instruction: str = "Do something") -> WorkflowState:
     return WorkflowState()
+
+
+def _make_ctx(wrapper, state: WorkflowState) -> BlockContext:
+    """Build a minimal BlockContext for wrapper execute calls in tests."""
+    return build_block_context(wrapper, state)
+
+
+def _apply_output(state: WorkflowState, block_id: str, output: BlockOutput) -> WorkflowState:
+    """Apply BlockOutput to WorkflowState, mirroring apply_block_output."""
+    return apply_block_output(state, block_id, output)
 
 
 # ==============================================================================
@@ -221,7 +237,8 @@ class TestWrapperExposesSoul:
             )
 
         wrapper._run_in_subprocess = _capture
-        await wrapper.execute(_make_state())
+        state = _make_state()
+        await wrapper.execute(_make_ctx(wrapper, state))
 
         envelope = captured["envelope"]
         assert envelope.soul.provider == "openai"
@@ -238,8 +255,8 @@ class TestWrapperExposesSoul:
 class TestExistingBlockCodeUnchanged:
     """Wrapper delegates to SubprocessHarness.run(), not direct block.execute()."""
 
-    def test_wrapper_execute_returns_workflow_state(self):
-        """Wrapper.execute() returns a WorkflowState (via subprocess)."""
+    def test_wrapper_execute_returns_block_output(self):
+        """Wrapper.execute() returns a BlockOutput (via subprocess)."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -267,9 +284,11 @@ class TestExistingBlockCodeUnchanged:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            result_state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
-        assert isinstance(result_state, WorkflowState)
-        assert "blk1" in result_state.results
+            result_output = asyncio.get_event_loop().run_until_complete(
+                wrapper.execute(_make_ctx(wrapper, state))
+            )
+        assert isinstance(result_output, BlockOutput)
+        assert result_output.output == "test output"
 
     def test_inner_block_execute_not_called_directly(self):
         """The wrapper must NOT call inner_block.execute() in the engine process."""
@@ -301,7 +320,7 @@ class TestExistingBlockCodeUnchanged:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            asyncio.get_event_loop().run_until_complete(wrapper.execute(_make_ctx(wrapper, state)))
 
         inner.execute.assert_not_called()
 
@@ -346,7 +365,7 @@ class TestExistingBlockCodeUnchanged:
             }
         )
 
-        result_state = await wrapper.execute(state)
+        result_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         envelope = captured["envelope"]
         assert envelope.scoped_results["real_block"]["output"] == "wrapped"
@@ -355,7 +374,46 @@ class TestExistingBlockCodeUnchanged:
             "phase": "primary_pass",
             "status": "ok",
         }
-        assert result_state.results["blk1"].output == "ok"
+        assert result_output.output == "ok"
+
+    @pytest.mark.asyncio
+    async def test_wrapper_envelope_preserves_step_declared_inputs(self):
+        """Step-resolved inputs must cross the isolation boundary."""
+        from unittest.mock import MagicMock
+
+        from runsight_core.isolation import IsolatedBlockWrapper
+
+        soul = _make_soul()
+        runner = MagicMock()
+        inner = LinearBlock("blk1", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        captured = {}
+
+        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+            captured["envelope"] = envelope
+            return ResultEnvelope(
+                block_id="blk1",
+                output="ok",
+                exit_handle="done",
+                cost_usd=0.0,
+                total_tokens=0,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            )
+
+        wrapper._run_in_subprocess = _capture
+        state = WorkflowState(results={"source": BlockResult(output="declared value")})
+        step = Step(block=wrapper, declared_inputs={"data": "source"})
+        ctx = build_block_context(wrapper, state, step=step)
+
+        assert ctx.inputs == {"data": "declared value"}
+
+        await wrapper.execute(ctx)
+
+        assert captured["envelope"].inputs == {"data": "declared value"}
 
 
 # ==============================================================================
@@ -399,9 +457,11 @@ class TestAgenticLoopThroughSubprocess:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            result_state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            result_output = asyncio.get_event_loop().run_until_complete(
+                wrapper.execute(_make_ctx(wrapper, state))
+            )
 
-        assert result_state.results["blk1"].output == "result with tools"
+        assert result_output.output == "result with tools"
 
 
 # ==============================================================================
@@ -442,9 +502,13 @@ class TestCostTokenPropagation:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            result_state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            result_output = asyncio.get_event_loop().run_until_complete(
+                wrapper.execute(_make_ctx(wrapper, state))
+            )
 
-        assert result_state.total_cost_usd == pytest.approx(0.01 + 0.0042)
+        # BlockOutput.cost_usd contains the subprocess cost; state accumulation is done by
+        # the workflow engine (apply_block_output) — here we verify the field is correct.
+        assert result_output.cost_usd == pytest.approx(0.0042)
 
     def test_total_tokens_applied(self):
         """ResultEnvelope.total_tokens is added to state.total_tokens."""
@@ -476,9 +540,13 @@ class TestCostTokenPropagation:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            result_state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            result_output = asyncio.get_event_loop().run_until_complete(
+                wrapper.execute(_make_ctx(wrapper, state))
+            )
 
-        assert result_state.total_tokens == 100 + 750
+        # BlockOutput.total_tokens contains the subprocess tokens; accumulation is done by
+        # the workflow engine (apply_block_output) — here we verify the field is correct.
+        assert result_output.total_tokens == 750
 
 
 # ==============================================================================
@@ -523,12 +591,15 @@ class TestConversationHistoryRoundTrip:
         with patch.object(
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
-            result_state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            result_output = asyncio.get_event_loop().run_until_complete(
+                wrapper.execute(_make_ctx(wrapper, state))
+            )
 
-        # History should be stored under the block_id + soul_id key
+        # Worker returns a full history, so wrapper must replace rather than append.
         history_key = f"blk1_{soul.id}"
-        assert history_key in result_state.conversation_histories
-        assert result_state.conversation_histories[history_key] == updated_history
+        assert result_output.conversation_replacements is not None
+        assert history_key in result_output.conversation_replacements
+        assert result_output.conversation_replacements[history_key] == updated_history
 
     def test_existing_history_sent_in_envelope(self):
         """Pre-existing conversation history is included in the ContextEnvelope."""
@@ -573,7 +644,7 @@ class TestConversationHistoryRoundTrip:
             )
 
         with patch.object(wrapper, "_run_in_subprocess", side_effect=mock_run):
-            asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+            asyncio.get_event_loop().run_until_complete(wrapper.execute(_make_ctx(wrapper, state)))
 
         assert captured_envelope["val"].conversation_history == prior_history
 
@@ -624,15 +695,24 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
         state = _make_state()
 
-        # Simulate 3 loop rounds manually
+        # Simulate 3 loop rounds manually — after each round, apply output to state so
+        # conversation history accumulates across rounds.
         with patch.object(wrapper, "_run_in_subprocess", side_effect=mock_run):
             for _ in range(3):
-                state = asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                ctx = _make_ctx(wrapper, state)
+                result_output = asyncio.get_event_loop().run_until_complete(wrapper.execute(ctx))
+                state = _apply_output(state, "inner_blk", result_output)
 
         history_key = f"inner_blk_{soul.id}"
         history = state.conversation_histories.get(history_key, [])
-        # 3 rounds x 2 messages each = 6 messages minimum
-        assert len(history) >= 6
+        assert history == [
+            {"role": "user", "content": "round 1"},
+            {"role": "assistant", "content": "response 1"},
+            {"role": "user", "content": "round 2"},
+            {"role": "assistant", "content": "response 2"},
+            {"role": "user", "content": "round 3"},
+            {"role": "assistant", "content": "response 3"},
+        ]
         assert call_count == 3
 
 
@@ -700,7 +780,9 @@ class TestRetryConfigWithWrapper:
         ):
             # Should raise a non-retryable error (not SubprocessError)
             with pytest.raises(Exception) as exc_info:
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
             # The raised error type name should be "ValueError", not "SubprocessError"
             assert "ValueError" in str(type(exc_info.value).__name__) or "ValueError" in str(
                 exc_info.value
@@ -745,7 +827,9 @@ class TestRetryMatchesOriginalErrorType:
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
             with pytest.raises(Exception) as exc_info:
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
 
         # The exception must carry the original error type for retry matching
         # It should NOT be "SubprocessError"
@@ -774,7 +858,9 @@ class TestRetryMatchesOriginalErrorType:
             side_effect=TimeoutError("timed out after 30s"),
         ):
             with pytest.raises(TimeoutError):
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
 
     def test_heartbeat_stall_raises_block_stall_error(self):
         """Heartbeat stall raises BlockStallError."""
@@ -796,7 +882,9 @@ class TestRetryMatchesOriginalErrorType:
             side_effect=BlockStallError("stalled in phase 'executing'"),
         ):
             with pytest.raises(BlockStallError):
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
 
     def test_nonzero_exit_raises_block_execution_error(self):
         """Non-zero subprocess exit raises BlockExecutionError."""
@@ -828,7 +916,9 @@ class TestRetryMatchesOriginalErrorType:
             wrapper, "_run_in_subprocess", new_callable=AsyncMock, return_value=mock_result
         ):
             with pytest.raises(BlockExecutionError):
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
 
 
 # ==============================================================================
@@ -975,7 +1065,9 @@ class TestBudgetFittingInsideSubprocess:
             with patch.object(
                 budget_module, "fit_to_budget", wraps=budget_module.fit_to_budget
             ) as spy:
-                asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+                asyncio.get_event_loop().run_until_complete(
+                    wrapper.execute(_make_ctx(wrapper, state))
+                )
                 # fit_to_budget must NOT be called on the engine side
                 spy.assert_not_called()
 
@@ -1183,7 +1275,8 @@ class TestRUN392EnvelopeBlockContracts:
             )
 
         wrapper._run_in_subprocess = _capture
-        await wrapper.execute(_make_state())
+        state = _make_state()
+        await wrapper.execute(_make_ctx(wrapper, state))
         return captured["envelope"]
 
     @pytest.mark.asyncio
@@ -1387,7 +1480,7 @@ class TestRUN815WrapperHarnessWiringContract:
         state = state.model_copy(
             update={"shared_memory": {"_resolved_inputs": {"instruction": "Summarize this"}}}
         )
-        next_state = await wrapper.execute(state)
+        block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         assert len(harness.calls) == 1
         assert harness.calls[0].block_id == "blk1"
@@ -1397,9 +1490,9 @@ class TestRUN815WrapperHarnessWiringContract:
             == "Summarize this"
         )
         inner.execute.assert_not_called()
-        assert next_state.results["blk1"].output == "subprocess output"
-        assert next_state.total_cost_usd == pytest.approx(0.25)
-        assert next_state.total_tokens == 123
+        assert block_output.output == "subprocess output"
+        assert block_output.cost_usd == pytest.approx(0.25)
+        assert block_output.total_tokens == 123
 
     @pytest.mark.asyncio
     async def test_not_implemented_from_subprocess_path_is_not_swallowed_by_direct_fallback(self):
@@ -1418,7 +1511,7 @@ class TestRUN815WrapperHarnessWiringContract:
         wrapper._run_in_subprocess = _not_implemented
 
         with pytest.raises(NotImplementedError):
-            await wrapper.execute(_make_state())
+            await wrapper.execute(_make_ctx(wrapper, _make_state()))
 
         inner.execute.assert_not_called()
 

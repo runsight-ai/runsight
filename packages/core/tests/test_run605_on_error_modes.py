@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock, WorkflowBlockDef
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -30,6 +31,16 @@ from runsight_core.yaml.schema import (
     WorkflowInterfaceInputDef,
     WorkflowInterfaceOutputDef,
 )
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,7 +133,7 @@ class TestOnErrorModes:
         )
 
         with pytest.raises(RuntimeError, match="kaboom"):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
     async def test_on_error_catch_returns_error_exit_handle(self) -> None:
         """
@@ -151,7 +162,7 @@ class TestOnErrorModes:
         )
 
         # Must NOT raise — the error is caught
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results.get("invoke_child")
         assert br is not None, "WorkflowBlock must store its own BlockResult even on catch"
@@ -185,7 +196,7 @@ class TestOnErrorModes:
             shared_memory={"parent_topic": "testing"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results["invoke_child"]
         assert br.metadata is not None, "metadata must be populated on catch"
@@ -218,7 +229,7 @@ class TestOnErrorModes:
             shared_memory={"parent_topic": "testing"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results["invoke_child"]
         assert br.metadata is not None
@@ -254,7 +265,7 @@ class TestOnErrorModes:
             shared_memory={"parent_topic": "testing"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # The child crashed, so "results.analysis" should NOT exist in parent
         assert "analysis" not in result_state.results, (
@@ -293,7 +304,7 @@ class TestOnErrorModes:
         )
 
         with pytest.raises(RuntimeError, match="default should raise"):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
 
 class TestWorkflowBlockDefOnErrorField:

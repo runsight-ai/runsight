@@ -13,6 +13,7 @@ These tests cover:
 import json
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.blocks.code import (
     _HARNESS_TEMPLATE,
     BLOCKED_MODULES,
@@ -59,7 +60,7 @@ class TestSysNotAvailableAtRuntime:
         )
         block = CodeBlock("test_sys", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_sys"]
         parsed = json.loads(result.output)
         assert parsed["sys_available"] is False
@@ -81,7 +82,7 @@ class TestSysNotAvailableAtRuntime:
         )
         block = CodeBlock("test_sys_exit", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_sys_exit"]
         parsed = json.loads(result.output)
         assert parsed["blocked"] is True
@@ -102,7 +103,7 @@ class TestDictLiteralsInUserCode:
         code = 'def main(data):\n    d = {"key": "value", "count": 42}\n    return d\n'
         block = CodeBlock("test_dict", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_dict"]
         parsed = json.loads(result.output)
         assert parsed["key"] == "value"
@@ -114,7 +115,7 @@ class TestDictLiteralsInUserCode:
         code = 'def main(data):\n    d = {"outer": {"inner": "val"}}\n    return d\n'
         block = CodeBlock("test_nested_dict", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_nested_dict"]
         parsed = json.loads(result.output)
         assert parsed["outer"]["inner"] == "val"
@@ -139,7 +140,7 @@ class TestFStringsInUserCode:
         )
         block = CodeBlock("test_fstring", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_fstring"]
         parsed = json.loads(result.output)
         assert parsed["message"] == "hello world"
@@ -163,7 +164,7 @@ class TestSetLiteralsInUserCode:
         )
         block = CodeBlock("test_set", code=code)
         state = _make_state()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         result = new_state.results["test_set"]
         parsed = json.loads(result.output)
         assert parsed["length"] == 3

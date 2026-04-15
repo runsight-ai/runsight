@@ -21,6 +21,20 @@ from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
+
+async def _run_block(block, state: WorkflowState) -> WorkflowState:
+    """Helper: build BlockContext, run block, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, block.block_id, output)
+    return state
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -132,7 +146,7 @@ async def test_stateful_first_invocation_creates_per_soul_histories(
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Both souls must have history entries
     assert "review_soul_alpha" in new_state.conversation_histories
@@ -164,7 +178,7 @@ async def test_stateful_first_invocation_stores_correct_user_and_assistant(
     # With per-exit branches, prompt is built from the branch's task instruction
     expected_prompt = "Execute task"
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     history_a = new_state.conversation_histories["review_soul_alpha"]
     assert history_a[0]["role"] == "user"
@@ -195,7 +209,7 @@ async def test_stateful_first_invocation_user_message_uses_branch_instruction(
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     for key in ["review_soul_alpha", "review_soul_beta"]:
         history = new_state.conversation_histories[key]
@@ -239,7 +253,7 @@ async def test_stateful_continuation_passes_per_soul_history_to_runner(
         },
     )
 
-    await block.execute(state)
+    await _run_block(block, state)
 
     # Alpha must receive only alpha's history
     assert captured_messages["soul_alpha"] is not None, (
@@ -284,7 +298,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(mock_runner, soul
     # Prompt is built from branch's task instruction (not the original sample_task)
     expected_prompt = "Execute task"
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Alpha: 4 messages (prior 2 + new 2)
     history_a = new_state.conversation_histories["review_soul_alpha"]
@@ -323,7 +337,7 @@ async def test_stateful_parallel_history_independence(mock_runner, soul_alpha, s
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     history_a = new_state.conversation_histories["review_soul_alpha"]
     history_b = new_state.conversation_histories["review_soul_beta"]
@@ -358,7 +372,7 @@ async def test_stateful_three_souls_independent_histories(
 
     block = _make_stateful_dispatch("dispatch", souls, mock_runner)
     state = WorkflowState()
-    state_r1 = await block.execute(state)
+    state_r1 = await _run_block(block, state)
 
     # Round 2 — use the state from round 1
     _setup_runner_side_effect(
@@ -370,7 +384,7 @@ async def test_stateful_three_souls_independent_histories(
         },
     )
 
-    state_r2 = await block.execute(state_r1)
+    state_r2 = await _run_block(block, state_r1)
 
     # Each soul must have 4 messages (2 rounds x user+assistant)
     for soul_id in ["soul_alpha", "soul_beta", "soul_gamma"]:
@@ -411,7 +425,7 @@ async def test_stateful_single_model_copy_update(mock_runner, soul_alpha, soul_b
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Both must be present in the same returned state
     assert "review_soul_alpha" in new_state.conversation_histories
@@ -442,7 +456,7 @@ async def test_stateful_preserves_other_block_histories(mock_runner, soul_alpha,
         conversation_histories={"other_block_other_soul": other_history},
     )
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Other block's history must be untouched
     assert new_state.conversation_histories["other_block_other_soul"] == other_history
@@ -471,7 +485,7 @@ async def test_stateful_history_key_format(mock_runner, soul_alpha, soul_beta):
     block = _make_stateful_dispatch("my_dispatch", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     expected_keys = {"my_dispatch_soul_alpha", "my_dispatch_soul_beta"}
     actual_keys = set(new_state.conversation_histories.keys())
@@ -526,7 +540,7 @@ async def test_stateful_windowing_called_per_soul(mock_runner, soul_alpha, soul_
         "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_passthrough_budget,
     ) as mock_budget:
-        await block.execute(state)
+        await _run_block(block, state)
 
     # Must be called once per soul (2 souls = 2 calls)
     assert mock_budget.call_count == 2, (
@@ -560,7 +574,7 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
         },
     )
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     history_a = new_state.conversation_histories["review_soul_alpha"]
     # With 10 prior pairs + 1 new pair = 22 messages, windowing should prune.
@@ -625,7 +639,7 @@ async def test_stateful_windowing_uses_soul_specific_model(
         "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_tracking_budget,
     ):
-        await block.execute(state)
+        await _run_block(block, state)
 
     # fit_to_budget must have been called with both models
     assert "gpt-4o" in models_seen, (
@@ -680,7 +694,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(mock_runner, soul_a
         "runsight_core.blocks.dispatch.fit_to_budget",
         side_effect=_tracking_budget,
     ) as mock_budget:
-        await block.execute(state)
+        await _run_block(block, state)
 
     # fit_to_budget must have been called with "gpt-4o" (runner default)
     assert mock_budget.call_count == 1
@@ -708,7 +722,7 @@ async def test_stateful_no_system_messages_stored(mock_runner, soul_alpha, soul_
     block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
     state = WorkflowState()
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     for key in ["review_soul_alpha", "review_soul_beta"]:
         assert key in new_state.conversation_histories, (
@@ -741,7 +755,7 @@ async def test_non_stateful_no_history_entries(mock_runner, soul_alpha, soul_bet
     assert block.stateful is False  # default
 
     state = WorkflowState()
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     assert new_state.conversation_histories == {}
 
@@ -768,7 +782,7 @@ async def test_non_stateful_preserves_other_histories(mock_runner, soul_alpha, s
     state = WorkflowState(
         conversation_histories={"other_block_other_soul": other_history},
     )
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     assert new_state.conversation_histories == {"other_block_other_soul": other_history}
     assert "review_soul_alpha" not in new_state.conversation_histories
@@ -794,7 +808,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(mock_runner, soul_a
     mock_runner.execute = AsyncMock(
         side_effect=lambda instruction, context, soul: _make_result(soul.id, "Out")
     )
-    await block.execute(state)
+    await _run_block(block, state)
 
     # Non-stateful path should not pass messages kwarg
     for c in mock_runner.execute.call_args_list:
@@ -824,7 +838,7 @@ async def test_stateful_still_stores_result_and_log(mock_runner, soul_alpha, sou
         total_tokens=50,
     )
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Standard result storage
     assert new_state.results["review"].output is not None
@@ -860,7 +874,7 @@ async def test_stateful_does_not_mutate_original_state(mock_runner, soul_alpha, 
         conversation_histories=original_histories,
     )
 
-    new_state = await block.execute(state)
+    new_state = await _run_block(block, state)
 
     # Original state must be unchanged
     assert state.conversation_histories == {}
@@ -890,7 +904,7 @@ async def test_stateful_gather_failure_writes_no_history(mock_runner, soul_alpha
     state = WorkflowState()
 
     with pytest.raises(RuntimeError, match="Soul beta LLM failure"):
-        await block.execute(state)
+        await _run_block(block, state)
 
     # Original state must be unchanged — no partial history
     assert state.conversation_histories == {}

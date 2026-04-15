@@ -6,13 +6,16 @@ Co-located: runtime class + BlockDef schema + CarryContextConfig + build() funct
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from runsight_core.blocks._helpers import convert_condition, convert_condition_group
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
+
+if TYPE_CHECKING:
+    from runsight_core.block_io import BlockContext, BlockOutput
 
 
 class CarryContextConfig(BaseModel):
@@ -63,16 +66,114 @@ class LoopBlock(BaseBlock):
         self.break_on_exit = break_on_exit
         self.retry_on_exit = retry_on_exit
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: "BlockContext") -> "BlockOutput":
+        """New path: run the loop using state_snapshot, return a BlockOutput with diffs."""
+        from runsight_core.block_io import BlockOutput
+
+        if ctx.state_snapshot is None:
+            raise ValueError(
+                f"LoopBlock '{self.block_id}': BlockContext.state_snapshot must not be None"
+            )
+
+        blocks: Dict[str, BaseBlock] = ctx.inputs.get("blocks", {})
+        bec = ctx.inputs.get("ctx")
+        # Capture all parent inputs to forward to inner blocks (preserves kwargs like
+        # call_stack, workflow_registry, observer, and blocks for nested LoopBlocks).
+        # Only exclude 'ctx' (BlockExecutionContext) which is loop-dispatch-internal.
+        parent_inputs: Dict[str, Any] = {k: v for k, v in ctx.inputs.items() if k != "ctx"}
+
+        initial_state = ctx.state_snapshot
+
+        (
+            final_state,
+            broke_early,
+            break_reason,
+            rounds_completed,
+            carry_history,
+        ) = await self._run_loop_returning_state(
+            initial_state, blocks, bec, parent_inputs=parent_inputs
+        )
+
+        # Compute full diff: all keys that are new or changed compared to initial state.
+        # This preserves inner block mutations (e.g. custom blocks writing arbitrary keys)
+        # while still being a diff (unchanged keys from outer scope are excluded).
+        initial_sm = initial_state.shared_memory
+        final_sm = final_state.shared_memory
+        shared_memory_updates: Dict[str, Any] = {
+            k: v for k, v in final_sm.items() if k not in initial_sm or initial_sm[k] != v
+        }
+
+        # Exclude internal round-counter keys owned by child LoopBlocks — these are
+        # loop-internal bookkeeping and should not leak to the parent scope.
+        # NOTE: __loop__{child.block_id} metadata IS included so callers can observe
+        # inner loop execution stats (broke_early, rounds_completed, etc.).
+        for ref in self.inner_block_refs:
+            child = blocks.get(ref)
+            if isinstance(child, LoopBlock):
+                shared_memory_updates.pop(f"{child.block_id}_round", None)
+                if child.carry_context is not None and child.carry_context.enabled:
+                    shared_memory_updates.pop(child.carry_context.inject_as, None)
+
+        # Extra results: inner block results that appeared/changed (excluding this loop's own key)
+        initial_results = dict(initial_state.results)
+        final_results = dict(final_state.results)
+        extra_results: Dict[str, Any] = {
+            k: v
+            for k, v in final_results.items()
+            if k != self.block_id and (k not in initial_results or initial_results[k] != v)
+        }
+
+        # Conversation history updates: diff between initial and final conversation histories
+        initial_conv = dict(initial_state.conversation_histories)
+        final_conv = dict(final_state.conversation_histories)
+        conversation_updates: Optional[Dict[str, List[Dict]]] = None
+        if final_conv != initial_conv:
+            conversation_updates = {}
+            for key, messages in final_conv.items():
+                if key not in initial_conv:
+                    conversation_updates[key] = messages
+                elif initial_conv[key] != messages:
+                    # Only the new messages appended since initial
+                    prev_len = len(initial_conv[key])
+                    if len(messages) > prev_len:
+                        conversation_updates[key] = messages[prev_len:]
+
+        cost_usd = final_state.total_cost_usd - initial_state.total_cost_usd
+        total_tokens = final_state.total_tokens - initial_state.total_tokens
+
+        log_entries = [
+            {
+                "block_id": self.block_id,
+                "event": "loop_complete",
+                "rounds_completed": str(rounds_completed),
+                "broke_early": str(broke_early),
+            }
+        ]
+
+        return BlockOutput(
+            output=f"completed_{rounds_completed}_rounds",
+            cost_usd=cost_usd,
+            total_tokens=total_tokens,
+            shared_memory_updates=shared_memory_updates,
+            extra_results=extra_results if extra_results else None,
+            conversation_updates=conversation_updates,
+            log_entries=log_entries,
+        )
+
+    async def _run_loop_returning_state(
+        self,
+        state: WorkflowState,
+        blocks: Dict[str, BaseBlock],
+        ctx: Any,
+        parent_inputs: Optional[Dict[str, Any]] = None,
+    ) -> tuple:
+        """Run the loop logic and return (final_state, broke_early, break_reason, rounds_completed, carry_history)."""
         from runsight_core.conditions.engine import (
             ConditionGroup,
             evaluate_condition,
             evaluate_condition_group,
         )
-        from runsight_core.workflow import BlockExecutionContext, execute_block
 
-        blocks: Dict[str, BaseBlock] = kwargs.get("blocks", {})
-        ctx: Optional[BlockExecutionContext] = kwargs.get("ctx")
         broke_early = False
         break_reason: Optional[str] = None
         rounds_completed = 0
@@ -97,21 +198,16 @@ class LoopBlock(BaseBlock):
                         f"not found in blocks dict. "
                         f"Available blocks: {sorted(blocks.keys())}"
                     )
-                if ctx is not None:
-                    state = await execute_block(
-                        inner_block,
-                        state,
-                        BlockExecutionContext(
-                            workflow_name=ctx.workflow_name,
-                            blocks=blocks,
-                            call_stack=ctx.call_stack,
-                            workflow_registry=ctx.workflow_registry,
-                            observer=ctx.observer,
-                            passthrough_kwargs=dict(kwargs),
-                        ),
-                    )
+                # Use module-level execute_block so tests can patch it.
+                # Pass parent_inputs as extra_inputs only when there's no
+                # BlockExecutionContext — in that case workflow.execute_block handles
+                # the full dispatch and extra_inputs is not needed.
+                from runsight_core.workflow import BlockExecutionContext as _BEC
+
+                if not isinstance(ctx, _BEC) and parent_inputs:
+                    state = await execute_block(inner_block, state, ctx, extra_inputs=parent_inputs)
                 else:
-                    state = await inner_block.execute(state, **kwargs)
+                    state = await execute_block(inner_block, state, ctx)
 
                 # Check exit_handle after each inner block
                 result = state.results.get(ref)
@@ -126,11 +222,6 @@ class LoopBlock(BaseBlock):
 
             rounds_completed = round_num
 
-            # Carry context: collect outputs and inject into shared_memory for next round
-            # and downstream blocks. This must happen even when break_on_exit or
-            # retry_on_exit fires, otherwise loops that control flow via exit
-            # handles silently skip context propagation for the round that
-            # triggered the break/retry.
             if self.carry_context is not None and self.carry_context.enabled:
                 source_ids = self.carry_context.source_blocks or self.inner_block_refs
                 round_outputs: Dict[str, Any] = {
@@ -161,7 +252,6 @@ class LoopBlock(BaseBlock):
             if should_retry:
                 continue
 
-            # Evaluate break condition against the last inner block's output
             if self.break_condition is not None:
                 last_ref = self.inner_block_refs[-1]
                 _last_result = state.results.get(last_ref)
@@ -176,7 +266,6 @@ class LoopBlock(BaseBlock):
                     broke_early = True
                     break
 
-        # Store loop metadata in shared_memory
         if broke_early and break_reason is None:
             break_reason = "condition met"
         elif not broke_early:
@@ -185,10 +274,6 @@ class LoopBlock(BaseBlock):
         meta_key = f"__loop__{self.block_id}"
         state = state.model_copy(
             update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=f"completed_{rounds_completed}_rounds"),
-                },
                 "shared_memory": {
                     **state.shared_memory,
                     meta_key: {
@@ -200,7 +285,41 @@ class LoopBlock(BaseBlock):
             }
         )
 
-        return state
+        return state, broke_early, break_reason, rounds_completed, carry_history
+
+
+async def execute_block(
+    block: BaseBlock,
+    state: WorkflowState,
+    ctx: Any,
+    extra_inputs: Optional[Dict[str, Any]] = None,
+) -> WorkflowState:
+    """Inner-block dispatcher used by LoopBlock._run_loop_returning_state.
+
+    When ctx is a BlockExecutionContext, delegates to workflow.execute_block for all
+    block types so that observer events, retry config, block-level budget session,
+    timeout, and exit condition evaluation are all applied.
+
+    When ctx is None, builds a minimal BlockContext and dispatches directly.
+    extra_inputs are merged into the BlockContext.inputs so that old-style blocks
+    receiving kwargs (e.g. blocks, call_stack, observer) continue to work.
+
+    This function is intentionally module-level so that tests can patch it via
+    ``patch("runsight_core.blocks.loop.execute_block", ...)``.
+    """
+    from runsight_core.block_io import apply_block_output, build_block_context
+    from runsight_core.workflow import BlockExecutionContext
+    from runsight_core.workflow import execute_block as workflow_execute_block
+
+    if isinstance(ctx, BlockExecutionContext):
+        return await workflow_execute_block(block, state, ctx)
+
+    # ctx is None: build a BlockContext and dispatch directly
+    block_ctx = build_block_context(block, state)
+    if extra_inputs:
+        block_ctx = block_ctx.model_copy(update={"inputs": {**block_ctx.inputs, **extra_inputs}})
+    output = await block.execute(block_ctx)
+    return apply_block_output(state, block.block_id, output)
 
 
 # -- Schema definition (co-located) -----------------------------------------

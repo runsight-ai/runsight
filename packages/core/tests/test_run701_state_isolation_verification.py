@@ -9,6 +9,7 @@ Strengthens coverage for WorkflowBlock child→parent state isolation:
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core import WorkflowBlock
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
@@ -22,8 +23,9 @@ class ChildBlock(BaseBlock):
         super().__init__(block_id)
         self.output_text = output_text
 
-    async def execute(self, state, **kwargs):
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -40,6 +42,7 @@ class ChildBlock(BaseBlock):
                 ],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 def _make_child_workflow(block_id: str = "child_step", output_text: str = "child_output"):

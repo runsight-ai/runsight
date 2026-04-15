@@ -24,6 +24,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from conftest import execute_block_for_test
 from pydantic import ValidationError
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
@@ -221,7 +222,7 @@ class TestPerExitTaskDifferentiation:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         # Analyst branch must have received "Analyze the proposal"
         assert captured_tasks["analyst"]["instruction"] == "Analyze the proposal"
@@ -260,7 +261,7 @@ class TestPerExitTaskDifferentiation:
 
         block = DispatchBlock("my_dispatch", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert captured_tasks["analyst"]["instruction"] == "Analyze"
         assert captured_tasks["reviewer"]["instruction"] == "Review"
@@ -301,7 +302,7 @@ class TestPerExitResultKeying:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert "fan.exit_a" in new_state.results
         assert "fan.exit_b" in new_state.results
@@ -335,7 +336,7 @@ class TestPerExitResultKeying:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.results["fan.exit_a"].output == "Output from analyst"
         assert new_state.results["fan.exit_b"].output == "Output from reviewer"
@@ -367,7 +368,7 @@ class TestPerExitResultKeying:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.results["fan.exit_a"].exit_handle == "exit_a"
         assert new_state.results["fan.exit_b"].exit_handle == "exit_b"
@@ -408,7 +409,7 @@ class TestCombinedResult:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert "fan" in new_state.results
         assert isinstance(new_state.results["fan"], BlockResult)
@@ -440,7 +441,7 @@ class TestCombinedResult:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         parsed = json.loads(new_state.results["fan"].output)
         assert isinstance(parsed, list)
@@ -481,7 +482,7 @@ class TestContextInheritance:
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"context": "Budget is $10k"}},
         )
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert captured_tasks["analyst"]["context"] == "Budget is $10k"
 
@@ -511,7 +512,7 @@ class TestContextInheritance:
         state = WorkflowState()
 
         # Must not raise
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         # Context defaults to None
         assert captured_tasks["analyst"]["context"] is None
@@ -540,7 +541,7 @@ class TestContextInheritance:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert captured_tasks["analyst"]["context"] is None
 
@@ -585,7 +586,7 @@ class TestCostTokenAggregation:
             total_cost_usd=0.10,
             total_tokens=50,
         )
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.total_cost_usd == pytest.approx(0.18)  # 0.10 + 0.05 + 0.03
         assert new_state.total_tokens == 400  # 50 + 200 + 150
@@ -743,7 +744,7 @@ class TestStatefulPerExitHistories:
         block.stateful = True
 
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         # Keys use exit_id, not soul_id
         assert "fan_analysis" in new_state.conversation_histories
@@ -802,7 +803,7 @@ class TestStatefulPerExitHistories:
                 "fan_review": prior_review,
             },
         )
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         # Analysis branch must have received analysis history
         assert captured_messages["fan_analysis"] is not None
@@ -873,7 +874,7 @@ class TestStatefulPerExitHistories:
             "runsight_core.blocks.dispatch.fit_to_budget",
             side_effect=_tracking_budget,
         ):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         assert "gpt-4o" in models_seen
         assert "claude-3-opus-20240229" in models_seen
@@ -919,7 +920,7 @@ class TestSameSoulMultipleExits:
         block.stateful = True
 
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         # Each exit has its own history
         assert "fan_exit_cost" in new_state.conversation_histories
@@ -988,7 +989,7 @@ class TestSameSoulMultipleExits:
                 "fan_exit_risk": prior_risk,
             },
         )
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         # Cost exit must receive cost history only
         cost_msgs = captured_messages.get("fan_exit_cost")
@@ -1035,7 +1036,7 @@ class TestNonStatefulPath:
         assert block.stateful is False
 
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.conversation_histories == {}
 
@@ -1068,7 +1069,7 @@ class TestNonStatefulPath:
 
         block = DispatchBlock("fan", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert "fan.exit_a" in new_state.results
         assert "fan.exit_b" in new_state.results

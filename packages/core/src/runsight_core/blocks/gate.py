@@ -11,21 +11,19 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import ConfigDict, Field, model_validator
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
-from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core.state import BlockResult, WorkflowState
 
 
 class GateBlock(BaseBlock):
     """
     Quality gate that evaluates content and either passes or fails the workflow.
 
-    On PASS: returns state with BlockResult(exit_handle="pass").
-    On FAIL: returns state with BlockResult(exit_handle="fail") and feedback as output.
+    On PASS: returns BlockResult(exit_handle="pass").
+    On FAIL: returns BlockResult(exit_handle="fail") and feedback as output.
     """
 
     def __init__(
@@ -43,85 +41,45 @@ class GateBlock(BaseBlock):
         self.runner = runner
         self.extract_field = extract_field
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        if self.eval_key not in state.results:
-            raise ValueError(
-                f"GateBlock '{self.block_id}': eval_key '{self.eval_key}' not found in state.results. "
-                f"Available keys: {sorted(state.results.keys())}"
-            )
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute block with BlockContext, return BlockOutput."""
+        soul = ctx.soul or self.gate_soul
+        content = ctx.context or ""
 
-        content = (
-            state.results[self.eval_key].output
-            if isinstance(state.results[self.eval_key], BlockResult)
-            else str(state.results[self.eval_key])
-        )
-
-        instruction = (
-            "Evaluate the following content and decide if it meets quality standards.\n"
-            "Respond with EXACTLY one of:\n"
-            "PASS - if the content meets quality standards\n"
-            "FAIL: <detailed reason> - if the content needs improvement"
-        )
-        model = self.gate_soul.model_name or self.runner.model_name
-        budgeted = fit_to_budget(
-            ContextBudgetRequest(
-                model=model,
-                system_prompt=self.gate_soul.system_prompt or "",
-                instruction=instruction,
-                context=content,
-                conversation_history=[],
-            ),
-            counter=litellm_token_counter,
-        )
-        result = await self.runner.execute(budgeted.instruction, budgeted.context, self.gate_soul)
+        result = await self.runner.execute(ctx.instruction, content, soul)
         decision_line = result.output.strip().split("\n")[0]
         is_pass = decision_line.upper().startswith("PASS")
 
         if is_pass:
-            pass_through = decision_line
+            output_value: Any = decision_line
             if self.extract_field:
                 try:
                     data = json.loads(content)
                     if isinstance(data, list) and data:
-                        pass_through = data[-1].get(self.extract_field, decision_line)
+                        output_value = data[-1].get(self.extract_field, decision_line)
                 except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-                    pass_through = decision_line
+                    output_value = decision_line
 
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output=pass_through, exit_handle="pass"),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": f"[Block {self.block_id}] Gate: PASS",
-                        }
-                    ],
-                    "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                    "total_tokens": state.total_tokens + result.total_tokens,
-                }
+            return BlockOutput(
+                output=str(output_value),
+                exit_handle="pass",
+                cost_usd=result.cost_usd,
+                total_tokens=result.total_tokens,
+                log_entries=[{"role": "system", "content": f"[Block {self.block_id}] Gate: PASS"}],
             )
         else:
             feedback = decision_line[5:].strip() if ":" in decision_line else decision_line
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output=feedback, exit_handle="fail"),
-                    },
-                    "execution_log": state.execution_log
-                    + [
-                        {
-                            "role": "system",
-                            "content": f"[Block {self.block_id}] Gate: FAIL — {feedback}",
-                        }
-                    ],
-                    "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                    "total_tokens": state.total_tokens + result.total_tokens,
-                }
+            return BlockOutput(
+                output=feedback,
+                exit_handle="fail",
+                cost_usd=result.cost_usd,
+                total_tokens=result.total_tokens,
+                log_entries=[
+                    {
+                        "role": "system",
+                        "content": f"[Block {self.block_id}] Gate: FAIL — {feedback}",
+                    }
+                ],
             )
 
 

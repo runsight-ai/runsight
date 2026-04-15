@@ -9,6 +9,8 @@ Tests cover:
 5. Programmatic usage (explicit construction, default None)
 """
 
+from __future__ import annotations
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -24,17 +26,15 @@ class ArtifactCapturingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         captures = dict(state.shared_memory.get("artifact_store_captures", {}))
         captures[self.block_id] = id(state.artifact_store) if state.artifact_store else None
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: "done"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    "artifact_store_captures": captures,
-                },
-            }
+        return BlockOutput(
+            output="done",
+            shared_memory_updates={"artifact_store_captures": captures},
         )
 
 
@@ -44,17 +44,15 @@ class RoundTrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         ids = list(state.shared_memory.get(f"{self.block_id}_store_ids", []))
         ids.append(id(state.artifact_store) if state.artifact_store else None)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"call_{len(ids)}"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_store_ids": ids,
-                },
-            }
+        return BlockOutput(
+            output=f"call_{len(ids)}",
+            shared_memory_updates={f"{self.block_id}_store_ids": ids},
         )
 
 
@@ -207,7 +205,10 @@ class TestWorkflowBlockArtifactStorePropagation:
             outputs={},
         )
 
-        await block.execute(parent_state)
+        from runsight_core.block_io import build_block_context
+
+        ctx = build_block_context(block, parent_state)
+        await block.execute(ctx)
 
         # Verify the child state passed to child_wf.run had the artifact_store
         call_args = mock_child_wf.run.call_args
@@ -238,7 +239,16 @@ class TestWorkflowBlockArtifactStorePropagation:
             outputs={},
         )
 
-        result_state = await block.execute(parent_state)
+        from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
+        ctx = build_block_context(block, parent_state)
+        raw = await block.execute(ctx)
+        if isinstance(raw, WorkflowState):
+            result_state = raw
+        elif isinstance(raw, BlockOutput):
+            result_state = apply_block_output(parent_state, block.block_id, raw)
+        else:
+            result_state = parent_state
         assert result_state.artifact_store is store
 
 
@@ -265,10 +275,18 @@ class TestLoopBlockArtifactStoreSharing:
             max_rounds=3,
         )
 
+        from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
         state = WorkflowState(artifact_store=store)
-        result = await loop.execute(
-            state,
-            blocks={"tracker": tracker, "my_loop": loop},
+        ctx = BlockContext(
+            block_id=loop.block_id,
+            instruction="loop",
+            inputs={"blocks": {"tracker": tracker, "my_loop": loop}},
+            state_snapshot=state,
+        )
+        raw = await loop.execute(ctx)
+        result = (
+            apply_block_output(state, loop.block_id, raw) if isinstance(raw, BlockOutput) else raw
         )
 
         store_ids = result.shared_memory["tracker_store_ids"]
@@ -291,10 +309,18 @@ class TestLoopBlockArtifactStoreSharing:
             max_rounds=2,
         )
 
+        from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
         state = WorkflowState(artifact_store=store)
-        result = await loop.execute(
-            state,
-            blocks={"tracker": tracker, "my_loop": loop},
+        ctx = BlockContext(
+            block_id=loop.block_id,
+            instruction="loop",
+            inputs={"blocks": {"tracker": tracker, "my_loop": loop}},
+            state_snapshot=state,
+        )
+        raw = await loop.execute(ctx)
+        result = (
+            apply_block_output(state, loop.block_id, raw) if isinstance(raw, BlockOutput) else raw
         )
 
         assert result.artifact_store is store
@@ -344,10 +370,16 @@ class TestDispatchBlockArtifactStoreSharing:
         ]
         block = DispatchBlock(block_id="dispatch", branches=branches, runner=mock_runner)
 
+        from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
         state = WorkflowState(
             artifact_store=store,
         )
-        result = await block.execute(state)
+        ctx = build_block_context(block, state)
+        raw = await block.execute(ctx)
+        result = (
+            apply_block_output(state, block.block_id, raw) if isinstance(raw, BlockOutput) else raw
+        )
         assert result.artifact_store is store
 
 

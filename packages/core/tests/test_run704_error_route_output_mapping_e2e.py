@@ -18,6 +18,12 @@ from textwrap import dedent
 from types import SimpleNamespace
 
 import pytest
+from runsight_core.block_io import (
+    BlockContext,
+    BlockOutput,
+    apply_block_output,
+    build_block_context,
+)
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
@@ -28,6 +34,16 @@ from runsight_core.yaml.schema import (
     WorkflowInterfaceInputDef,
     WorkflowInterfaceOutputDef,
 )
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers — block doubles (no LLM, no subprocess)
@@ -42,7 +58,7 @@ class _FailingBlock(BaseBlock):
         self._error_msg = error_msg
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.call_count += 1
         raise RuntimeError(self._error_msg)
 
@@ -55,19 +71,11 @@ class _WriteBlock(BaseBlock):
         self._output = output or block_id
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.call_count += 1
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._output),
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"visited_{self.block_id}": self.call_count,
-                },
-            }
+        return BlockOutput(
+            output=self._output,
+            shared_memory_updates={f"visited_{self.block_id}": self.call_count},
         )
 
 
@@ -79,23 +87,14 @@ class _ErrorAwareHandlerBlock(BaseBlock):
         self.failed_block_id = failed_block_id
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.call_count += 1
-        error_info = state.shared_memory.get(f"__error__{self.failed_block_id}")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output="handled",
-                        metadata={"seen_error": error_info},
-                    ),
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    "handler_ran": True,
-                },
-            }
+        state = ctx.state_snapshot
+        error_info = state.shared_memory.get(f"__error__{self.failed_block_id}") if state else None
+        return BlockOutput(
+            output="handled",
+            metadata={"seen_error": error_info},
+            shared_memory_updates={"handler_ran": True},
         )
 
 
@@ -366,7 +365,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             shared_memory={"parent_topic": "testing"},
         )
 
-        final_state = await wb.execute(parent_state)
+        final_state = await _exec(wb, parent_state)
 
         # Mapped key must exist in parent results
         mapped = final_state.results.get("mapped_summary")
@@ -408,7 +407,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             shared_memory={"parent_topic": "testing"},
         )
 
-        final_state = await wb.execute(parent_state)
+        final_state = await _exec(wb, parent_state)
 
         # Mapped key present
         assert "parent_a" in final_state.results, "Mapped child result must appear in parent"
@@ -447,7 +446,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             shared_memory={"parent_topic": "testing"},
         )
 
-        final_state = await wb.execute(parent_state)
+        final_state = await _exec(wb, parent_state)
 
         wb_result = final_state.results.get("invoke_child")
         assert wb_result is not None
@@ -481,7 +480,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             shared_memory={"parent_topic": "testing"},
         )
 
-        final_state = await wb.execute(parent_state)
+        final_state = await _exec(wb, parent_state)
 
         # The output should appear in shared_memory
         assert final_state.shared_memory.get("parent_output") == "mapped_value", (
@@ -538,7 +537,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             shared_memory={"parent_topic": "machine learning"},
         )
 
-        final_state = await wb.execute(parent_state)
+        final_state = await _exec(wb, parent_state)
 
         # The mapped output should appear in parent results
         parent_analysis = final_state.results.get("parent_analysis")

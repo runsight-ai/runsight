@@ -11,7 +11,7 @@ import asyncio
 import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import BudgetKilledException
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
 # ---------------------------------------------------------------------------
@@ -26,11 +26,11 @@ class SlowBlock(BaseBlock):
         super().__init__(block_id)
         self.sleep_seconds = sleep_seconds
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
         await asyncio.sleep(self.sleep_seconds)
-        return state.model_copy(
-            update={"results": {self.block_id: BlockResult(output="slow done")}}
-        )
+        return BlockOutput(output="slow done")
 
 
 class FastBlock(BaseBlock):
@@ -39,10 +39,10 @@ class FastBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={"results": {self.block_id: BlockResult(output="fast done")}}
-        )
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        return BlockOutput(output="fast done")
 
 
 class RecordingObserver:

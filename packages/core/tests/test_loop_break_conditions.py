@@ -16,6 +16,8 @@ Tests cover:
 - Edge: Condition evaluation throws error -> propagate, don't swallow
 """
 
+from __future__ import annotations
+
 import pytest
 from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
@@ -39,6 +41,24 @@ def _validate_block(data: dict):
     return block_adapter.validate_python(data)
 
 
+async def _run_loop(loop, state: WorkflowState, blocks: dict) -> WorkflowState:
+    """Helper: build BlockContext, run LoopBlock, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
+    ctx = BlockContext(
+        block_id=loop.block_id,
+        instruction="loop",
+        inputs={"blocks": blocks},
+        state_snapshot=state,
+    )
+    output = await loop.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, loop.block_id, output)
+    return state
+
+
 # -- Test helpers --------------------------------------------------------------
 
 
@@ -48,17 +68,15 @@ class TrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"call_{len(calls)}"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=f"call_{len(calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -73,7 +91,10 @@ class KeywordBlock(BaseBlock):
         super().__init__(block_id)
         self.keyword_on_call = keyword_on_call
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         call_num = len(calls)
@@ -81,14 +102,9 @@ class KeywordBlock(BaseBlock):
             output = "DONE: finished"
         else:
             output = "working..."
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -101,23 +117,21 @@ class JsonOutputBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        import json
+
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         call_num = len(calls)
-        import json
-
         output = json.dumps(
             {"score": call_num * 20, "status": "complete" if call_num >= 3 else "pending"}
         )
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -131,7 +145,10 @@ class GatePassBlock(BaseBlock):
         super().__init__(block_id)
         self.pass_on_round = pass_on_round
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         call_num = len(calls)
@@ -139,14 +156,9 @@ class GatePassBlock(BaseBlock):
             output = "PASS"
         else:
             output = "FAIL: not ready"
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -156,21 +168,19 @@ class BadFieldBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         import json
 
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         # Output has "name" but NOT "status" — condition referencing "status" should get None
         output = json.dumps({"name": "test", "round": len(calls)})
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: output},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=output,
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -309,7 +319,7 @@ class TestLoopBlockBreakEarly:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Should have executed only 2 rounds, not 5
         calls = result_state.shared_memory.get("inner_block_calls", [])
@@ -337,7 +347,7 @@ class TestLoopBlockBreakEarly:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Should run all 4 rounds
         calls = result_state.shared_memory.get("inner_block_calls", [])
@@ -360,7 +370,7 @@ class TestLoopBlockBreakEarly:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 3, f"Expected 3 calls (all rounds, no break), got {len(calls)}"
@@ -397,7 +407,7 @@ class TestLoopBlockConditionGroupBreak:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Round 1: score=20, status=pending -> no break
         # Round 2: score=40, status=pending -> no break
@@ -436,7 +446,7 @@ class TestLoopBlockConditionGroupBreak:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Round 1: score=20, status=pending -> no break
         # Round 2: score=40, status=pending -> no break
@@ -473,7 +483,7 @@ class TestLoopBlockBreakMetadata:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Check metadata under __loop__loop_block key
         meta_key = "__loop__loop_block"
@@ -506,7 +516,7 @@ class TestLoopBlockBreakMetadata:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         meta_key = "__loop__loop_block"
         assert meta_key in result_state.shared_memory
@@ -531,7 +541,7 @@ class TestLoopBlockBreakMetadata:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         meta_key = "__loop__loop_block"
         assert meta_key in result_state.shared_memory
@@ -563,15 +573,13 @@ class TestLoopBlockBreakMetadata:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                state = ctx.state_snapshot
                 meta = state.shared_memory.get("__loop__loop_block", {})
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: f"broke_early={meta.get('broke_early')}",
-                        },
-                    }
+                return BlockOutput(
+                    output=f"broke_early={meta.get('broke_early')}",
                 )
 
         downstream = DownstreamBlock("downstream")
@@ -588,7 +596,15 @@ class TestLoopBlockBreakMetadata:
         state = WorkflowState()
         result_state = await wf.run(state)
 
-        assert result_state.results["downstream"] == "broke_early=True"
+        from runsight_core.state import BlockResult
+
+        downstream_result = result_state.results["downstream"]
+        downstream_output = (
+            downstream_result.output
+            if isinstance(downstream_result, BlockResult)
+            else downstream_result
+        )
+        assert downstream_output == "broke_early=True"
 
 
 # ==============================================================================
@@ -620,7 +636,7 @@ class TestLoopBlockIntegrationKeywordBreak:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         calls = result_state.shared_memory.get("agent_block_calls", [])
         assert len(calls) == 3
@@ -652,7 +668,7 @@ class TestLoopBlockIntegrationGateBreak:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Round 1: gate="FAIL: not ready" -> no break
         # Round 2: gate="FAIL: not ready" -> no break
@@ -695,7 +711,7 @@ class TestLoopBlockIntegrationComplexConditionGroup:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         scorer_calls = result_state.shared_memory.get("scorer_calls", [])
         assert len(scorer_calls) == 3
@@ -733,7 +749,7 @@ class TestLoopBlockBreakEdgeCases:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Should run all 3 rounds because condition never matches
         calls = result_state.shared_memory.get("inner_block_calls", [])
@@ -761,7 +777,7 @@ class TestLoopBlockBreakEdgeCases:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 1, f"Expected 1 call (break on round 1), got {len(calls)}"
@@ -790,7 +806,7 @@ class TestLoopBlockBreakEdgeCases:
 
         state = WorkflowState()
         with pytest.raises(ValueError, match="[Rr]egex"):
-            await loop.execute(state, blocks=blocks)
+            await _run_loop(loop, state, blocks)
 
     @pytest.mark.asyncio
     async def test_break_condition_evaluates_against_last_inner_block_output(self):
@@ -815,7 +831,7 @@ class TestLoopBlockBreakEdgeCases:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Round 1: second_block="working..." -> no break
         # Round 2: second_block="DONE: finished" -> break!

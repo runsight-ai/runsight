@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     SoulEnvelope,
@@ -210,7 +211,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             def __init__(self, block_id: str) -> None:
                 self._block_id = block_id
 
-            async def execute(self, state: WorkflowState) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 async def _run_worker_llm_judge(
                     cfg: dict[str, Any],
                     assertion_output: str,
@@ -264,6 +265,16 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
                         )
                     return grading
 
+                # Use state snapshot for metadata when available
+                state = ctx.state_snapshot
+                cost_usd_base = state.total_cost_usd if state is not None else 0.0
+                total_tokens_base = state.total_tokens if state is not None else 0
+                shared_memory = dict(state.shared_memory) if state is not None else {}
+                run_id = str(state.metadata.get("run_id", "")) if state is not None else ""
+                workflow_id = (
+                    str(state.metadata.get("workflow_id", "")) if state is not None else ""
+                )
+
                 assertion_context = AssertionContext(
                     output=output_to_grade,
                     prompt=envelope.prompt.instruction,
@@ -272,12 +283,12 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
                     soul_version="",
                     block_id=self._block_id,
                     block_type="assertion",
-                    cost_usd=state.total_cost_usd,
-                    total_tokens=state.total_tokens,
+                    cost_usd=cost_usd_base,
+                    total_tokens=total_tokens_base,
                     latency_ms=0.0,
-                    variables=dict(state.shared_memory),
-                    run_id=str(state.metadata.get("run_id", "")),
-                    workflow_id=str(state.metadata.get("workflow_id", "")),
+                    variables=shared_memory,
+                    run_id=run_id,
+                    workflow_id=workflow_id,
                 )
                 assertions_result = await run_assertions(
                     [assertion_payload],
@@ -288,10 +299,12 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
                 if not assertions_result.results:
                     raise ValueError("assertion block produced no grading result")
                 serialized = json.dumps(grading_result_to_data(assertions_result.results[0]))
-                state.results[self._block_id] = BlockResult(output=serialized, exit_handle="done")
-                state.total_cost_usd += usage_totals["cost_usd"]
-                state.total_tokens += usage_totals["total_tokens"]
-                return state
+                return BlockOutput(
+                    output=serialized,
+                    exit_handle="done",
+                    cost_usd=usage_totals["cost_usd"],
+                    total_tokens=usage_totals["total_tokens"],
+                )
 
         return AssertionBlockAdapter(envelope.block_id)
 

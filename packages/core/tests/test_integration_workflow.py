@@ -18,6 +18,19 @@ from runsight_core.runner import RunsightTeamRunner
 from runsight_core.state import WorkflowState
 
 
+async def _run_block(block, state: WorkflowState) -> WorkflowState:
+    """Helper: build BlockContext, run block, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, block.block_id, output)
+    return state
+
+
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
 async def test_e2e_single_block_workflow(mock_achat):
@@ -57,7 +70,7 @@ async def test_e2e_single_block_workflow(mock_achat):
     )
 
     # Execute workflow
-    final_state = await block.execute(initial_state)
+    final_state = await _run_block(block, initial_state)
 
     # Verify end-to-end data flow
     assert (
@@ -152,19 +165,19 @@ async def test_e2e_sequential_block_workflow(mock_achat):
     )
 
     # Step 1: Research
-    state = await research_block.execute(state)
+    state = await _run_block(research_block, state)
 
     # Step 2: Analysis (update instruction in shared_memory)
     state = state.model_copy(
         update={"shared_memory": {"_resolved_inputs": {"instruction": "Analyze findings"}}}
     )
-    state = await analysis_block.execute(state)
+    state = await _run_block(analysis_block, state)
 
     # Step 3: Writing (update instruction)
     state = state.model_copy(
         update={"shared_memory": {"_resolved_inputs": {"instruction": "Write summary"}}}
     )
-    state = await writing_block.execute(state)
+    state = await _run_block(writing_block, state)
 
     # Verify complete pipeline execution
     assert len(state.results) == 3
@@ -224,14 +237,14 @@ async def test_e2e_shared_memory_across_blocks(mock_achat):
     )
 
     # Execute block 1
-    state = await block1.execute(state)
+    state = await _run_block(block1, state)
 
     # Modify shared memory between blocks
     updated_memory = {**state.shared_memory, "block1_processed": True}
     state = state.model_copy(update={"shared_memory": updated_memory})
 
     # Execute block 2
-    state = await block2.execute(state)
+    state = await _run_block(block2, state)
 
     # Verify shared memory persisted and accumulated
     assert state.shared_memory["config"]["max_items"] == 100
@@ -264,7 +277,7 @@ async def test_e2e_error_propagation_through_workflow(mock_achat):
 
     # Error should propagate from LLM client through runner and block to caller
     with pytest.raises(RuntimeError, match="LLM service unavailable"):
-        await block.execute(state)
+        await _run_block(block, state)
 
 
 @pytest.mark.asyncio
@@ -294,11 +307,11 @@ async def test_e2e_state_isolation_between_workflows(mock_achat):
 
     # Workflow 1
     state1 = WorkflowState(metadata={"workflow_id": "wf1"})
-    result1 = await block.execute(state1)
+    result1 = await _run_block(block, state1)
 
     # Workflow 2
     state2 = WorkflowState(metadata={"workflow_id": "wf2"})
-    result2 = await block.execute(state2)
+    result2 = await _run_block(block, state2)
 
     # Verify complete isolation
     assert result1.results["block"].output == "Workflow 1 result"
@@ -343,7 +356,7 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
 
     for i in range(10):
         block = LinearBlock(f"block{i}", soul, runner)
-        state = await block.execute(state)
+        state = await _run_block(block, state)
 
     # Verify all results stored in full
     assert len(state.results) == 10
@@ -394,7 +407,7 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
             }
         }
     )
-    result_state = await block.execute(state)
+    result_state = await _run_block(block, state)
 
     # Verify result was produced
     assert "Q4 metrics" in result_state.results["processor_block"].output

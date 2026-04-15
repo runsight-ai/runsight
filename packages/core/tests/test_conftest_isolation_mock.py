@@ -23,12 +23,19 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     ResultEnvelope,
 )
 from runsight_core.isolation.harness import SubprocessHarness
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
+
+
+def _make_ctx(wrapper: IsolatedBlockWrapper, state) -> BlockContext:
+    """Build a BlockContext from a wrapper and WorkflowState for test call sites."""
+    return build_block_context(wrapper, state)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,6 +51,7 @@ def _make_mock_runner() -> MagicMock:
     """Return a minimal mock RunsightTeamRunner sufficient for LinearBlock construction."""
     runner = MagicMock()
     runner.execute = AsyncMock()
+    runner.model_name = "gpt-4o-mini"
     return runner
 
 
@@ -96,13 +104,19 @@ class TestWrapperExecuteIsNotPatched:
         )
 
     def test_execute_is_defined_on_isolated_block_wrapper_class(self):
-        """execute must be defined on IsolatedBlockWrapper, not injected from outside."""
-        # inspect.getsourcefile returns the file where the function is defined.
-        # If conftest replaced it with a local function, the source file will
-        # point elsewhere (conftest.py or None for lambdas).
-        source_file = inspect.getfile(IsolatedBlockWrapper.execute)
+        """execute must be defined on IsolatedBlockWrapper, not injected from outside.
+
+        BaseBlock.__init_subclass__ installs a compatibility shim (defined in
+        base.py) that wraps the original execute with functools.wraps.  The shim
+        preserves the original via __wrapped__, so we inspect that to verify the
+        real implementation lives in wrapper.py — not in conftest.py or elsewhere.
+        """
+        execute_fn = IsolatedBlockWrapper.execute
+        # The shim preserves the original via functools.wraps.__wrapped__
+        original_fn = getattr(execute_fn, "__wrapped__", execute_fn)
+        source_file = inspect.getfile(original_fn)
         assert source_file.endswith("wrapper.py"), (
-            f"IsolatedBlockWrapper.execute is defined in '{source_file}', "
+            f"IsolatedBlockWrapper.execute (original) is defined in '{source_file}', "
             "expected 'wrapper.py'. The conftest has replaced it."
         )
 
@@ -187,7 +201,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
 
         state = WorkflowState()
 
-        await wrapper.execute(state)
+        await wrapper.execute(_make_ctx(wrapper, state))
 
         assert len(received_envelopes) == 1, (
             "harness.run was not called exactly once. "
@@ -224,7 +238,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         )
 
         state = WorkflowState()
-        await wrapper.execute(state)
+        await wrapper.execute(_make_ctx(wrapper, state))
 
         assert received[0].block_id == "my-block", (
             "ContextEnvelope.block_id is '%s', expected 'my-block'. "
@@ -243,9 +257,9 @@ class TestMockReturnsValidResultEnvelope:
 
     @pytest.mark.asyncio
     async def test_result_envelope_is_mapped_to_workflow_state(self, test_souls_map):
-        """IsolatedBlockWrapper.execute must map ResultEnvelope back to WorkflowState."""
+        """IsolatedBlockWrapper.execute must map ResultEnvelope back to BlockOutput."""
         from runsight_core.blocks.linear import LinearBlock
-        from runsight_core.state import BlockResult, WorkflowState
+        from runsight_core.state import WorkflowState
 
         soul = test_souls_map["test"]
         inner_block = LinearBlock(block_id="block-out", soul=soul, runner=_make_mock_runner())
@@ -276,19 +290,15 @@ class TestMockReturnsValidResultEnvelope:
         )
 
         state = WorkflowState()
-        result_state = await wrapper.execute(state)
+        block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
-        assert "block-out" in result_state.results, (
-            "block-out not found in results after execute. "
-            "Wrapper may have been patched and is not mapping ResultEnvelope."
+        assert isinstance(block_output, BlockOutput), (
+            "Expected BlockOutput from wrapper.execute, got %s. "
+            "Wrapper may have been patched and is not mapping ResultEnvelope." % type(block_output)
         )
-        block_result = result_state.results["block-out"]
-        assert isinstance(block_result, BlockResult), "Expected BlockResult, got %s" % type(
-            block_result
-        )
-        assert block_result.output == expected_output, (
+        assert block_output.output == expected_output, (
             "Expected output '%s', got '%s'. "
-            "ResultEnvelope was not mapped correctly." % (expected_output, block_result.output)
+            "ResultEnvelope was not mapped correctly." % (expected_output, block_output.output)
         )
 
     @pytest.mark.asyncio
@@ -324,14 +334,13 @@ class TestMockReturnsValidResultEnvelope:
         )
 
         state = WorkflowState()
-        result_state = await wrapper.execute(state)
+        block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
-        assert result_state.total_cost_usd == pytest.approx(0.012), (
-            "total_cost_usd was not updated from ResultEnvelope. "
-            "Got: %s" % result_state.total_cost_usd
+        assert block_output.cost_usd == pytest.approx(0.012), (
+            "cost_usd was not returned from ResultEnvelope. Got: %s" % block_output.cost_usd
         )
-        assert result_state.total_tokens == 256, (
-            "total_tokens was not updated from ResultEnvelope. Got: %s" % result_state.total_tokens
+        assert block_output.total_tokens == 256, (
+            "total_tokens was not returned from ResultEnvelope. Got: %s" % block_output.total_tokens
         )
 
     @pytest.mark.asyncio
@@ -367,12 +376,11 @@ class TestMockReturnsValidResultEnvelope:
         )
 
         state = WorkflowState()
-        result_state = await wrapper.execute(state)
+        block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
-        block_result = result_state.results["block-exit"]
-        assert block_result.exit_handle == "branch_a", (
+        assert block_output.exit_handle == "branch_a", (
             "exit_handle 'branch_a' was not preserved. "
-            "Got: %s. Wrapper may be bypassed." % block_result.exit_handle
+            "Got: %s. Wrapper may be bypassed." % block_output.exit_handle
         )
 
 

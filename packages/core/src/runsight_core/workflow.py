@@ -13,6 +13,7 @@ import time
 from collections import deque
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, Optional, Tuple
 
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
 from runsight_core.state import BlockResult, WorkflowState
@@ -123,26 +124,43 @@ async def execute_block(
             logger.warning("Observer.on_block_start failed", exc_info=True)
 
     block_start_time = time.time()
-    passthrough_kwargs = dict(ctx.passthrough_kwargs)
-    kwargs_for_context = dict(passthrough_kwargs)
-    kwargs_for_context.update(
-        {
-            "call_stack": ctx.call_stack + [ctx.workflow_name],
-            "workflow_registry": ctx.workflow_registry,
-            "observer": observer,
-        }
-    )
 
     async def _dispatch(blk: BaseBlock, current_state: WorkflowState) -> WorkflowState:
+        from runsight_core.primitives import Step as StepType
+
+        # Step wrapper: delegates to Step.execute which handles hooks + block dispatch
+        if isinstance(blk, StepType):
+            return await blk.execute(current_state)
         if isinstance(blk, WorkflowBlock):
-            return await blk.execute(current_state, **kwargs_for_context)
+            wf_block_ctx = build_block_context(blk, current_state)
+            wf_block_ctx = wf_block_ctx.model_copy(
+                update={
+                    "inputs": {
+                        "call_stack": ctx.call_stack + [ctx.workflow_name],
+                        "workflow_registry": ctx.workflow_registry,
+                        "observer": observer,
+                    }
+                }
+            )
+            wf_output = await blk.execute(wf_block_ctx)
+            return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
-            loop_kwargs = dict(kwargs_for_context)
-            loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
-            return await blk.execute(current_state, **loop_kwargs)
-        if passthrough_kwargs:
-            return await blk.execute(current_state, **passthrough_kwargs)
-        return await blk.execute(current_state)
+            loop_ctx = build_block_context(blk, current_state)
+            loop_ctx = loop_ctx.model_copy(
+                update={
+                    "inputs": {
+                        "blocks": ctx.blocks,
+                        "ctx": ctx,
+                    }
+                }
+            )
+            loop_output = await blk.execute(loop_ctx)
+            return apply_block_output(current_state, blk.block_id, loop_output)
+        # All other blocks: build BlockContext and dispatch via new signature
+
+        block_ctx = build_block_context(blk, current_state, step=None)
+        output = await blk.execute(block_ctx)
+        return apply_block_output(current_state, blk.block_id, output)
 
     # Block-level budget session swap
     from runsight_core.budget_enforcement import (

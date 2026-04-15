@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
@@ -19,7 +20,7 @@ from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import BlockResult
 
 
 @dataclass
@@ -82,17 +83,31 @@ class DispatchBlock(BaseBlock):
 
         return results
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        resolved = state.shared_memory.get("_resolved_inputs", {})
-        context = resolved.get("context") if resolved else None
+    @staticmethod
+    async def _accrue_and_return(coro: Any) -> Any:
+        """Wrap a branch coroutine to accrue its cost into the active budget session."""
+        result = await coro
+        session = _active_budget.get(None)
+        if session is not None:
+            session.accrue(cost_usd=result.cost_usd, tokens=result.total_tokens)
+        return result
+
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute block with BlockContext, return BlockOutput."""
+        # Read context from ctx.inputs (unified contract via build_block_context)
+        context = ctx.inputs.get("context") if ctx.inputs else ctx.context
 
         if self.stateful:
-            histories = {
-                branch.exit_id: state.conversation_histories.get(
-                    f"{self.block_id}_{branch.exit_id}", []
-                )
-                for branch in self.branches
-            }
+            state_snap = ctx.state_snapshot
+            histories = {}
+            for branch in self.branches:
+                history_key = f"{self.block_id}_{branch.exit_id}"
+                if state_snap is not None and history_key in state_snap.conversation_histories:
+                    histories[branch.exit_id] = list(state_snap.conversation_histories[history_key])
+                elif ctx.conversation_history:
+                    histories[branch.exit_id] = list(ctx.conversation_history)
+                else:
+                    histories[branch.exit_id] = list(ctx.inputs.get(history_key, []))
 
             budgeted_per_branch = {}
             for branch in self.branches:
@@ -114,29 +129,32 @@ class DispatchBlock(BaseBlock):
                 gather_coros.append(
                     (
                         branch.exit_id,
-                        self.runner.execute(
-                            budgeted.instruction,
-                            budgeted.context,
-                            branch.soul,
-                            messages=budgeted.messages,
+                        self._accrue_and_return(
+                            self.runner.execute(
+                                budgeted.instruction,
+                                budgeted.context,
+                                branch.soul,
+                                messages=budgeted.messages,
+                            )
                         ),
                     )
                 )
             results = await self._gather_with_budget_isolation(gather_coros)
 
-            updated_histories = {**state.conversation_histories}
+            conversation_replacements: Dict[str, List[Dict]] = {}
             for branch, result in zip(self.branches, results):
                 history_key = f"{self.block_id}_{branch.exit_id}"
                 budgeted = budgeted_per_branch[branch.exit_id]
                 prompt = budgeted.instruction
                 if budgeted.context:
                     prompt += f"\n\nContext:\n{budgeted.context}"
-                updated_histories[history_key] = budgeted.messages + [
+                # Use conversation_replacements to REPLACE the stored history with the
+                # full context as seen by the LLM (pruned budgeted.messages + new
+                # messages). This ensures windowing is visible in the stored history.
+                conversation_replacements[history_key] = list(budgeted.messages) + [
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": result.output},
                 ]
-
-            conversation_update = updated_histories
         else:
             gather_coros = [
                 (
@@ -150,42 +168,35 @@ class DispatchBlock(BaseBlock):
                 for branch in self.branches
             ]
             results = await self._gather_with_budget_isolation(gather_coros)
-            conversation_update = state.conversation_histories
 
-        # Per-exit results and combined output
-        per_exit_results = {}
+        # Build per-exit results and combined output
+        extra_results: Dict[str, Any] = {}
         combined_list = []
         for branch, result in zip(self.branches, results):
-            per_exit_results[f"{self.block_id}.{branch.exit_id}"] = BlockResult(
+            extra_results[f"{self.block_id}.{branch.exit_id}"] = BlockResult(
                 output=result.output,
                 exit_handle=branch.exit_id,
             )
             combined_list.append({"exit_id": branch.exit_id, "output": result.output})
 
-        total_cost = sum(result.cost_usd for result in results)
-        total_tokens = sum(result.total_tokens for result in results)
+        total_cost = sum(r.cost_usd for r in results)
+        total_tokens = sum(r.total_tokens for r in results)
 
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    **per_exit_results,
-                    self.block_id: BlockResult(output=json.dumps(combined_list)),
-                },
-                "execution_log": state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": (
-                            f"[Block {self.block_id}] Dispatch completed"
-                            f" with {len(self.branches)} branches"
-                        ),
-                    }
-                ],
-                "total_cost_usd": state.total_cost_usd + total_cost,
-                "total_tokens": state.total_tokens + total_tokens,
-                "conversation_histories": conversation_update,
-            }
+        return BlockOutput(
+            output=json.dumps(combined_list),
+            cost_usd=total_cost,
+            total_tokens=total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"[Block {self.block_id}] Dispatch completed"
+                        f" with {len(self.branches)} branches"
+                    ),
+                }
+            ],
+            extra_results=extra_results,
+            conversation_replacements=conversation_replacements if self.stateful else None,
         )
 
 

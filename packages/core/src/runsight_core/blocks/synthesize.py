@@ -8,13 +8,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
-from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core.state import BlockResult, WorkflowState
 
 
 class SynthesizeBlock(BaseBlock):
@@ -39,54 +37,20 @@ class SynthesizeBlock(BaseBlock):
         self.soul = synthesizer_soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        missing = [bid for bid in self.input_block_ids if bid not in state.results]
-        if missing:
-            raise ValueError(
-                f"SynthesizeBlock {self.block_id}: missing inputs: {missing}. "
-                f"Available: {list(state.results.keys())}"
-            )
-
-        combined_outputs = "\n\n".join(
-            [
-                f"=== Output from {bid} ===\n{state.results[bid].output if isinstance(state.results[bid], BlockResult) else state.results[bid]}"
-                for bid in self.input_block_ids
-            ]
-        )
-
-        instruction = (
-            "Synthesize the following outputs into a cohesive, unified result. "
-            "Identify common themes, resolve conflicts, and provide a comprehensive summary."
-        )
-        model = self.synthesizer_soul.model_name or self.runner.model_name
-        budgeted = fit_to_budget(
-            ContextBudgetRequest(
-                model=model,
-                system_prompt=self.synthesizer_soul.system_prompt or "",
-                instruction=instruction,
-                context=combined_outputs,
-                conversation_history=[],
-            ),
-            counter=litellm_token_counter,
-        )
-
-        result = await self.runner.execute(
-            budgeted.instruction, budgeted.context, self.synthesizer_soul
-        )
-
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: BlockResult(output=result.output)},
-                "execution_log": state.execution_log
-                + [
-                    {
-                        "role": "system",
-                        "content": f"[Block {self.block_id}] Synthesized {len(self.input_block_ids)} inputs",
-                    }
-                ],
-                "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                "total_tokens": state.total_tokens + result.total_tokens,
-            }
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute block with BlockContext, return BlockOutput."""
+        soul = ctx.soul or self.synthesizer_soul
+        result = await self.runner.execute(ctx.instruction, ctx.context, soul)
+        return BlockOutput(
+            output=result.output,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {
+                    "role": "system",
+                    "content": f"[Block {self.block_id}] Synthesized {len(self.input_block_ids)} inputs",
+                }
+            ],
         )
 
 

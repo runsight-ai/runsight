@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
@@ -15,7 +15,10 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import BlockResult
+
+if TYPE_CHECKING:
+    from runsight_core.block_io import BlockContext, BlockOutput
 
 # Block types whose soul attribute is not named "soul"
 _SOUL_ATTR_MAP = {
@@ -196,12 +199,16 @@ class IsolatedBlockWrapper(BaseBlock):
             self.harness = self._harness_factory()
         return await self.harness.run(envelope)
 
-    async def execute(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
+    async def execute(self, ctx: "BlockContext") -> "BlockOutput":
         """Execute the inner block through the subprocess isolation boundary.
 
         Builds a ContextEnvelope, executes the subprocess path, and maps the
-        ResultEnvelope back to WorkflowState.
+        ResultEnvelope back to BlockOutput.
         """
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot  # may be None if called from workflow dispatch
+
         # Build the context envelope
         soul = self.soul
         soul_envelope = SoulEnvelope(
@@ -219,17 +226,28 @@ class IsolatedBlockWrapper(BaseBlock):
             else 5,
         )
 
+        # Build prompt envelope from BlockContext
+        raw_context = ctx.context
+        prompt_context: dict = {"text": raw_context} if isinstance(raw_context, str) else {}
         task_envelope = PromptEnvelope(
-            id="",
-            instruction="",
-            context={},
+            id=f"{self.block_id}_task",
+            instruction=ctx.instruction or "",
+            context=prompt_context,
         )
 
         # Gather conversation history for stateful blocks
         history_key = f"{self.block_id}_{soul.id}" if soul else self.block_id
-        conversation_history = (
-            state.conversation_histories.get(history_key, []) if self.inner_block.stateful else []
-        )
+        conversation_history = list(ctx.conversation_history) if self.inner_block.stateful else []
+
+        # Resolve scoped results and shared memory from state_snapshot
+        scoped_results: dict
+        scoped_shared_memory: dict
+        if state is not None:
+            scoped_results = _serialize_scoped_results(state.results)
+            scoped_shared_memory = dict(state.shared_memory)
+        else:
+            scoped_results = {}
+            scoped_shared_memory = {}
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)
@@ -248,8 +266,9 @@ class IsolatedBlockWrapper(BaseBlock):
             soul=soul_envelope,
             tools=_build_tool_envelopes_from_tools(resolved_tools),
             prompt=task_envelope,
-            scoped_results=_serialize_scoped_results(state.results),
-            scoped_shared_memory=dict(state.shared_memory),
+            inputs=dict(ctx.inputs),
+            scoped_results=scoped_results,
+            scoped_shared_memory=scoped_shared_memory,
             conversation_history=conversation_history,
             timeout_seconds=300,
             max_output_bytes=1_000_000,
@@ -270,32 +289,28 @@ class IsolatedBlockWrapper(BaseBlock):
                 raise BlockExecutionError(result.error, original_error_type=error_type)
             raise BlockExecutionError(result.error, original_error_type=error_type)
 
-        # Map ResultEnvelope back to WorkflowState
-        updated_results = {
-            **state.results,
-            self.block_id: BlockResult(
-                output=result.output or "",
-                exit_handle=result.exit_handle,
-            ),
-        }
-
-        # Route delegate artifacts to per-port state results for dispatch blocks
-        for port, artifact in result.delegate_artifacts.items():
-            updated_results[f"{self.block_id}.{port}"] = BlockResult(
-                output=artifact.prompt,
-                exit_handle=port,
-            )
-
-        # Update conversation history if stateful
-        conversation_update = dict(state.conversation_histories)
-        if self.inner_block.stateful and result.conversation_history:
-            conversation_update[history_key] = result.conversation_history
-
-        return state.model_copy(
-            update={
-                "results": updated_results,
-                "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                "total_tokens": state.total_tokens + result.total_tokens,
-                "conversation_histories": conversation_update,
+        # Build per-port extra results for dispatch blocks
+        extra_results: dict | None = None
+        if result.delegate_artifacts:
+            extra_results = {
+                f"{self.block_id}.{port}": BlockResult(
+                    output=artifact.prompt,
+                    exit_handle=port,
+                )
+                for port, artifact in result.delegate_artifacts.items()
             }
+
+        # The worker returns the full stateful history, so replace instead of
+        # appending to avoid duplicating prior turns on repeated isolated calls.
+        conversation_replacements: dict | None = None
+        if self.inner_block.stateful and result.conversation_history:
+            conversation_replacements = {history_key: result.conversation_history}
+
+        return BlockOutput(
+            output=result.output or "",
+            exit_handle=result.exit_handle,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            conversation_replacements=conversation_replacements,
+            extra_results=extra_results,
         )

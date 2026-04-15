@@ -9,13 +9,14 @@ These tests verify that:
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core import (
     LinearBlock,
     WorkflowBlock,
 )
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
 
@@ -26,10 +27,11 @@ class EchoBlock(BaseBlock):
         super().__init__(block_id)
         self.description = description
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self.description},
+                "results": {**state.results, self.block_id: BlockResult(output=self.description)},
                 "execution_log": state.execution_log
                 + [
                     {
@@ -39,35 +41,42 @@ class EchoBlock(BaseBlock):
                 ],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class BlockWithoutKwargs(BaseBlock):
     """Block that explicitly doesn't accept **kwargs (old-style block)."""
 
-    async def execute(self, state: WorkflowState) -> WorkflowState:
+    async def execute(self, ctx):
         """Execute without **kwargs signature."""
-        return state.model_copy(
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: "executed"},
+                "results": {**state.results, self.block_id: BlockResult(output="executed")},
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class BlockWithKwargs(BaseBlock):
     """Block that accepts **kwargs (new-style block)."""
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         """Execute with **kwargs signature."""
-        # Accept but ignore kwargs
-        return state.model_copy(
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: "executed_with_kwargs"},
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(output="executed_with_kwargs"),
+                },
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed with kwargs"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 @pytest.mark.asyncio
@@ -95,7 +104,7 @@ async def test_old_style_blocks_still_work_without_workflow_blocks():
 
     # Verify: Block executed successfully
     assert "old_step" in final_state.results
-    assert final_state.results["old_step"] == "executed"
+    assert final_state.results["old_step"].output == "executed"
 
 
 @pytest.mark.asyncio
@@ -123,7 +132,7 @@ async def test_new_style_blocks_with_kwargs():
 
     # Verify: Block executed successfully
     assert "new_step" in final_state.results
-    assert final_state.results["new_step"] == "executed_with_kwargs"
+    assert final_state.results["new_step"].output == "executed_with_kwargs"
 
 
 @pytest.mark.asyncio
@@ -420,17 +429,20 @@ async def test_nested_workflow_blocks_error_includes_stack():
             super().__init__(block_id)
             self.fail_at_depth = fail_at_depth
 
-        async def execute(self, state, call_stack=None, **kwargs):
+        async def execute(self, ctx):
+            state = ctx.state_snapshot
+            call_stack = ctx.inputs.get("call_stack", [])
             depth = len(call_stack) if call_stack else 0
             if depth >= self.fail_at_depth:
                 raise ValueError(f"Failed at depth {depth}: {' -> '.join(call_stack or [])}")
-            return state.model_copy(
+            next_state = state.model_copy(
                 update={
-                    "results": {**state.results, self.block_id: "ok"},
+                    "results": {**state.results, self.block_id: BlockResult(output="ok")},
                     "execution_log": state.execution_log
                     + [{"role": "system", "content": f"[{self.block_id}] OK"}],
                 }
             )
+            return block_output_from_state(self.block_id, state, next_state)
 
     # Create child workflow
     child_wf = Workflow(name="child_wf")
@@ -483,17 +495,18 @@ async def test_cost_accumulation_with_error():
             self.cost = cost
             self.fail = fail
 
-        async def execute(self, state, **kwargs):
+        async def execute(self, ctx):
+            state = ctx.state_snapshot
             new_state = state.model_copy(
                 update={
                     "total_cost_usd": state.total_cost_usd + self.cost,
                     "total_tokens": state.total_tokens + 10,
-                    "results": {**state.results, self.block_id: "completed"},
+                    "results": {**state.results, self.block_id: BlockResult(output="completed")},
                 }
             )
             if self.fail:
                 raise RuntimeError(f"Block {self.block_id} failed")
-            return new_state
+            return block_output_from_state(self.block_id, state, new_state)
 
     # Create child with two blocks: first succeeds, second fails
     child_wf = Workflow(name="partial_child")

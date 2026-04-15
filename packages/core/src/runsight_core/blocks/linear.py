@@ -7,15 +7,13 @@ Co-located: runtime class + BlockDef schema + build() function.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._helpers import resolve_soul
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
-from runsight_core.memory.token_counting import litellm_token_counter
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
-from runsight_core.state import BlockResult, WorkflowState
 
 
 class LinearBlock(BaseBlock):
@@ -31,62 +29,51 @@ class LinearBlock(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        _resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        """Execute block with BlockContext, return BlockOutput."""
+        soul = ctx.soul or self.soul
 
-        if _resolved_inputs:
-            instruction = json.dumps(_resolved_inputs)
-        else:
-            instruction = ""
-
-        context = None
+        # ctx.inputs contains declared inputs resolved by build_block_context (RUN-892).
+        # Filter out infrastructure keys (blocks, ctx, call_stack, etc.) that are
+        # loop/workflow-internal and not serializable or relevant to the LLM.
+        _INFRA_KEYS = {"blocks", "ctx", "call_stack", "workflow_registry", "observer"}
+        declared_inputs = {k: v for k, v in ctx.inputs.items() if k not in _INFRA_KEYS}
+        # When inputs are present, serialize them as the user-turn instruction.
+        # When empty, instruction is "" — the soul's system_prompt IS the instruction.
+        instruction = json.dumps(declared_inputs) if declared_inputs else ""
 
         if self.stateful:
-            model = self.soul.model_name or self.runner.model_name
-            history_key = f"{self.block_id}_{self.soul.id}"
-            history = state.conversation_histories.get(history_key, [])
-            budgeted = fit_to_budget(
-                ContextBudgetRequest(
-                    model=model,
-                    system_prompt=self.soul.system_prompt or "",
-                    instruction=instruction,
-                    context=context or "",
-                    conversation_history=history,
-                ),
-                counter=litellm_token_counter,
-            )
-            result = await self.runner.execute(
-                budgeted.instruction, budgeted.context, self.soul, messages=budgeted.messages
-            )
-            updated_history = budgeted.messages + [
-                {"role": "user", "content": budgeted.instruction},
+            history_key = f"{self.block_id}_{soul.id}"
+            messages = list(ctx.conversation_history)
+            result = await self.runner.execute(instruction, ctx.context, soul, messages=messages)
+            new_messages = [
+                {"role": "user", "content": instruction},
                 {"role": "assistant", "content": result.output},
             ]
-            conversation_update = {**state.conversation_histories, history_key: updated_history}
-        else:
-            result = await self.runner.execute(instruction, context, self.soul)
-            conversation_update = state.conversation_histories
-
-        # Truncate output for message log (prevent state size explosion)
-        truncated = result.output[:200] + "..." if len(result.output) > 200 else result.output
-
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=result.output,
-                        exit_handle=result.exit_handle,
-                    ),
-                },
-                "execution_log": state.execution_log
-                + [
-                    {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}
-                ],
-                "total_cost_usd": state.total_cost_usd + result.cost_usd,
-                "total_tokens": state.total_tokens + result.total_tokens,
-                "conversation_histories": conversation_update,
+            # Use conversation_replacements to store the FULL history as seen by the
+            # LLM (pruned ctx.conversation_history + new messages). This ensures the
+            # stored history reflects windowing/pruning applied by build_block_context,
+            # rather than accumulating unbounded via conversation_updates (append).
+            conversation_updates: Optional[Dict[str, Any]] = None
+            conversation_replacements: Optional[Dict[str, Any]] = {
+                history_key: messages + new_messages
             }
+        else:
+            result = await self.runner.execute(instruction, ctx.context, soul)
+            conversation_updates = None
+            conversation_replacements = None
+
+        truncated = result.output[:200] + "..." if len(result.output) > 200 else result.output
+        return BlockOutput(
+            output=result.output,
+            exit_handle=result.exit_handle,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+            log_entries=[
+                {"role": "system", "content": f"[Block {self.block_id}] Completed: {truncated}"}
+            ],
+            conversation_updates=conversation_updates,
+            conversation_replacements=conversation_replacements,
         )
 
 

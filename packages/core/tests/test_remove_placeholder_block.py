@@ -6,6 +6,7 @@ PlaceholderBlock, and that shared test infrastructure exists in conftest.py.
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -23,14 +24,16 @@ class MockBlock(BaseBlock):
         super().__init__(block_id)
         self.output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class PlannerBlock(BaseBlock):
@@ -39,10 +42,11 @@ class PlannerBlock(BaseBlock):
     def __init__(self) -> None:
         super().__init__("planner")
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: "plan generated"},
+                "results": {**state.results, self.block_id: BlockResult(output="plan generated")},
                 "metadata": {
                     **state.metadata,
                     "planner_new_steps": [
@@ -56,6 +60,7 @@ class PlannerBlock(BaseBlock):
                 + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 # ===========================================================================

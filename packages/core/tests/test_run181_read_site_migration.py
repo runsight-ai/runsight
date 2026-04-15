@@ -27,6 +27,12 @@ from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from runsight_core.block_io import (
+    BlockContext,
+    BlockOutput,
+    apply_block_output,
+    build_block_context,
+)
 from runsight_core.conditions.engine import (
     Case,
     Condition,
@@ -35,6 +41,16 @@ from runsight_core.conditions.engine import (
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ==============================================================================
 # Helpers
@@ -117,15 +133,8 @@ class TestEvaluateOutputConditionsReadSite:
 
         # Build a minimal block + workflow with output_conditions
         class StubBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: BlockResult(output=REAL_OUTPUT),
-                        },
-                    }
-                )
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(output=REAL_OUTPUT)
 
         wf = Workflow(name="test_wf")
         wf.add_block(StubBlock("b1"))
@@ -168,15 +177,8 @@ class TestLoopBlockBreakConditionReadSite:
         from runsight_core.blocks.base import BaseBlock
 
         class InnerBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: BlockResult(output=REAL_OUTPUT),
-                        },
-                    }
-                )
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(output=REAL_OUTPUT)
 
         inner = InnerBlock("inner1")
 
@@ -194,7 +196,7 @@ class TestLoopBlockBreakConditionReadSite:
         blocks = {"inner1": inner, "loop1": loop}
 
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
-            result_state = await loop.execute(state, blocks=blocks)
+            result_state = await _exec(loop, state, blocks=blocks)
 
         # If break condition used .output, it matches "REAL_OUTPUT" on round 1
         # and loop exits early after 1 round.
@@ -243,7 +245,7 @@ class TestSynthesizeBlockReadSite:
         )
 
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
-            await synth.execute(state)
+            await _exec(synth, state)
 
         # Check what context was sent to the runner (SynthesizeBlock puts content in context)
         call_args = runner.execute.call_args
@@ -294,7 +296,7 @@ class TestGateBlockReadSite:
         )
 
         with patch.object(BlockResult, "__str__", return_value=PATCHED_STR):
-            await gate.execute(state)
+            await _exec(gate, state)
 
         # Check the context sent to the runner (GateBlock passes content as context arg)
         call_args = runner.execute.call_args

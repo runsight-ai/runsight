@@ -11,6 +11,8 @@ Tests cover:
 - Integration: writer + critic pattern for 3 rounds inside LoopBlock
 """
 
+from __future__ import annotations
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.base import BaseBlock
@@ -24,6 +26,24 @@ from runsight_core.yaml.schema import (
 # ── Shared TypeAdapter for discriminated union ─────────────────────────────
 
 block_adapter = TypeAdapter(BlockDef)
+
+
+async def _run_loop(loop, state: WorkflowState, blocks: dict) -> WorkflowState:
+    """Helper: build BlockContext, run LoopBlock, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
+    ctx = BlockContext(
+        block_id=loop.block_id,
+        instruction="loop",
+        inputs={"blocks": blocks},
+        state_snapshot=state,
+    )
+    output = await loop.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, loop.block_id, output)
+    return state
 
 
 def _validate_block(data: dict):
@@ -40,17 +60,15 @@ class TrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"call_{len(calls)}"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=f"call_{len(calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -60,7 +78,7 @@ class FailingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         raise RuntimeError(f"Block {self.block_id} failed")
 
 
@@ -70,15 +88,16 @@ class WriterBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         drafts = list(state.shared_memory.get("drafts", []))
-        round_num = state.shared_memory.get("loop_round", 0)
+        round_num = state.shared_memory.get("loop_block_round", 0)
         drafts.append(f"draft_round_{round_num}")
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"draft_round_{round_num}"},
-                "shared_memory": {**state.shared_memory, "drafts": drafts},
-            }
+        return BlockOutput(
+            output=f"draft_round_{round_num}",
+            shared_memory_updates={"drafts": drafts},
         )
 
 
@@ -88,18 +107,16 @@ class CriticBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        state = ctx.state_snapshot
         feedback = list(state.shared_memory.get("feedback", []))
-        round_num = state.shared_memory.get("loop_round", 0)
+        round_num = state.shared_memory.get("loop_block_round", 0)
         feedback.append(f"feedback_round_{round_num}")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: f"feedback_round_{round_num}",
-                },
-                "shared_memory": {**state.shared_memory, "feedback": feedback},
-            }
+        return BlockOutput(
+            output=f"feedback_round_{round_num}",
+            shared_memory_updates={"feedback": feedback},
         )
 
 
@@ -205,7 +222,7 @@ class TestLoopBlockSingleRef:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Inner block should have been called 3 times
         calls = result_state.shared_memory.get("inner_block_calls", [])
@@ -226,7 +243,7 @@ class TestLoopBlockSingleRef:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 5
@@ -257,7 +274,7 @@ class TestLoopBlockMultiRef:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # Each block should have been called exactly 2 times (once per round)
         assert len(result_state.shared_memory.get("block_a_calls", [])) == 2
@@ -284,7 +301,7 @@ class TestLoopBlockMaxRoundsOne:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 1
@@ -309,7 +326,7 @@ class TestLoopBlockRoundCounter:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # The round counter key should reflect completed rounds
         # Exact key name: "loop_block_round" or similar — implementation decides
@@ -329,19 +346,17 @@ class TestLoopBlockRoundCounter:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                state = ctx.state_snapshot
                 # The LoopBlock should set 'loop_round' or similar before executing inner blocks
                 rounds_seen = list(state.shared_memory.get("rounds_seen", []))
                 current_round = state.shared_memory.get("loop_block_round", -1)
                 rounds_seen.append(current_round)
-                return state.model_copy(
-                    update={
-                        "results": {**state.results, self.block_id: "ok"},
-                        "shared_memory": {
-                            **state.shared_memory,
-                            "rounds_seen": rounds_seen,
-                        },
-                    }
+                return BlockOutput(
+                    output="ok",
+                    shared_memory_updates={"rounds_seen": rounds_seen},
                 )
 
         reader = RoundReaderBlock("reader_block")
@@ -355,7 +370,7 @@ class TestLoopBlockRoundCounter:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         rounds_seen = result_state.shared_memory.get("rounds_seen", [])
         assert len(rounds_seen) == 3
@@ -391,7 +406,7 @@ class TestLoopBlockErrorHandling:
         state = WorkflowState()
         # The blocks dict does NOT contain "nonexistent_block"
         with pytest.raises((ValueError, KeyError), match="nonexistent_block"):
-            await loop.execute(state, blocks={"loop_block": loop})
+            await _run_loop(loop, state, {"loop_block": loop})
 
     def test_self_reference_rejected(self):
         """LoopBlock referencing itself in inner_block_refs should be detected and rejected."""
@@ -433,7 +448,7 @@ class TestLoopBlockErrorHandling:
 
         state = WorkflowState()
         with pytest.raises(RuntimeError, match="Block bad_block failed"):
-            await loop.execute(state, blocks=blocks)
+            await _run_loop(loop, state, blocks)
 
     @pytest.mark.asyncio
     async def test_shared_block_across_multiple_loops(self):
@@ -457,8 +472,8 @@ class TestLoopBlockErrorHandling:
         blocks["loop_b"] = loop_b
 
         state = WorkflowState()
-        state = await loop_a.execute(state, blocks=blocks)
-        state = await loop_b.execute(state, blocks=blocks)
+        state = await _run_loop(loop_a, state, blocks)
+        state = await _run_loop(loop_b, state, blocks)
 
         # shared_block should have been called 2 + 3 = 5 times total
         calls = state.shared_memory.get("shared_block_calls", [])
@@ -754,7 +769,7 @@ class TestLoopBlockWriterCriticIntegration:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         drafts = result_state.shared_memory.get("drafts", [])
         feedback = result_state.shared_memory.get("feedback", [])
@@ -807,7 +822,7 @@ class TestLoopBlockWriterCriticIntegration:
         blocks["loop_block"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         assert "loop_block" in result_state.results
 

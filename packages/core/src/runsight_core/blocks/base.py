@@ -2,10 +2,15 @@
 BaseBlock abstract interface for workflow blocks.
 """
 
+from __future__ import annotations
+
 import asyncio
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from runsight_core.state import WorkflowState
+if TYPE_CHECKING:
+    from runsight_core.block_io import BlockContext, BlockOutput
+    from runsight_core.state import WorkflowState
 
 
 class NodeKilledException(Exception):
@@ -102,19 +107,18 @@ class BaseBlock(ABC):
         return await state.artifact_store.read(ref)
 
     @abstractmethod
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: "BlockContext") -> "BlockOutput":
         """
-        Execute this block's logic using the provided state.
+        Execute this block's logic.
 
         Args:
-            state: Current workflow state. MUST NOT be mutated directly.
+            ctx: BlockContext containing instruction, inputs, soul, model, etc.
 
         Returns:
-            New WorkflowState with updated results, execution_log, or shared_memory.
-            MUST include this block's output in state.results[self.block_id].
+            BlockOutput with output, exit_handle, cost, tokens, and optional updates.
 
         Raises:
-            ValueError: If required inputs are missing from state.
+            ValueError: If required inputs are missing.
             Exception: If execution fails (propagates to Workflow.run() caller).
         """
         pass

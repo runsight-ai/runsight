@@ -27,6 +27,98 @@ def _ensure_event_loop():
         asyncio.set_event_loop(asyncio.new_event_loop())
 
 
+async def execute_block_for_test(block, state, *, inputs=None, step=None):
+    """Execute a block through the BlockContext contract and return WorkflowState.
+
+    Several older unit tests exercise concrete blocks directly.  Keeping that
+    adapter in tests lets production code stay on execute(ctx) -> BlockOutput.
+    """
+    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+    from runsight_core.state import WorkflowState
+
+    ctx = build_block_context(block, state, step=step)
+    if inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **inputs}})
+
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if not isinstance(output, BlockOutput):
+        raise TypeError(
+            f"{type(block).__name__}.execute returned {type(output).__name__}; expected BlockOutput"
+        )
+    return apply_block_output(state, block.block_id, output)
+
+
+async def execute_loop_for_test(loop, state, *, blocks, ctx=None):
+    """Execute a LoopBlock through BlockContext with a minimal workflow context."""
+    from runsight_core.workflow import BlockExecutionContext
+
+    loop_ctx = ctx or BlockExecutionContext(
+        workflow_name="test_workflow",
+        blocks=blocks,
+        call_stack=[],
+        workflow_registry=None,
+        observer=None,
+    )
+    return await execute_block_for_test(
+        loop,
+        state,
+        inputs={
+            "blocks": blocks,
+            "ctx": loop_ctx,
+        },
+    )
+
+
+def block_output_from_state(block_id, before, after):
+    """Convert a test-built WorkflowState diff into a BlockOutput."""
+    from runsight_core.block_io import BlockOutput
+    from runsight_core.state import BlockResult
+
+    raw_result = after.results.get(block_id, BlockResult(output=""))
+    if isinstance(raw_result, BlockResult):
+        output = raw_result.output
+        exit_handle = raw_result.exit_handle
+        artifact_ref = raw_result.artifact_ref
+        artifact_type = raw_result.artifact_type
+        metadata = raw_result.metadata or {}
+    else:
+        output = str(raw_result)
+        exit_handle = None
+        artifact_ref = None
+        artifact_type = None
+        metadata = {}
+
+    extra_results = {
+        key: value
+        for key, value in after.results.items()
+        if key != block_id and before.results.get(key) != value
+    }
+    shared_memory_updates = {
+        key: value
+        for key, value in after.shared_memory.items()
+        if before.shared_memory.get(key) != value
+    }
+    metadata_updates = {
+        key: value for key, value in after.metadata.items() if before.metadata.get(key) != value
+    }
+
+    return BlockOutput(
+        output=output,
+        exit_handle=exit_handle,
+        artifact_ref=artifact_ref,
+        artifact_type=artifact_type,
+        metadata=metadata,
+        cost_usd=after.total_cost_usd - before.total_cost_usd,
+        total_tokens=after.total_tokens - before.total_tokens,
+        log_entries=after.execution_log[len(before.execution_log) :],
+        extra_results=extra_results or None,
+        shared_memory_updates=shared_memory_updates or None,
+        metadata_updates=metadata_updates or None,
+    )
+
+
 _ISOLATION_TEST_PREFIXES = (
     "test_iso_",
     "test_run817",
@@ -105,6 +197,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
             return await self.harness.run(envelope)
 
+        from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
         from runsight_core.state import BlockResult, WorkflowState
 
@@ -129,7 +222,17 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
         budget_token = _active_budget.set(None)
         try:
-            result_state = await self.inner_block.execute(state)
+            block_ctx = build_block_context(self.inner_block, state)
+            block_ctx = block_ctx.model_copy(
+                update={"inputs": {**block_ctx.inputs, **dict(envelope.inputs)}}
+            )
+            raw_output = await self.inner_block.execute(block_ctx)
+            if isinstance(raw_output, WorkflowState):
+                result_state = raw_output
+            elif isinstance(raw_output, BlockOutput):
+                result_state = apply_block_output(state, self.inner_block.block_id, raw_output)
+            else:
+                result_state = state
         finally:
             _active_budget.reset(budget_token)
 

@@ -3,6 +3,7 @@ Tests for Workflow state machine and validation.
 """
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -16,14 +17,11 @@ class MockBlock(BaseBlock):
         self.output = output
         self.executed = False
 
-    async def execute(self, state: WorkflowState) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.executed = True
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: BlockResult(output=self.output)},
-                "execution_log": state.execution_log
-                + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
-            }
+        return BlockOutput(
+            output=self.output,
+            log_entries=[{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
         )
 
 
@@ -302,17 +300,11 @@ async def test_dynamic_routing_global_decision():
         def __init__(self) -> None:
             super().__init__("dispatch")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Set exit_handle on BlockResult for routing decision
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="approved", exit_handle="approved"),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch] DispatchMock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="approved",
+                exit_handle="approved",
+                log_entries=[{"role": "system", "content": "[Block dispatch] DispatchMock"}],
             )
 
     wf = Workflow(name="routing_test")
@@ -347,17 +339,11 @@ async def test_dynamic_routing_block_scoped_decision():
         def __init__(self) -> None:
             super().__init__("dispatch")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Set exit_handle on BlockResult for routing decision
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="rejected", exit_handle="rejected"),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch] DispatchMock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="rejected",
+                exit_handle="rejected",
+                log_entries=[{"role": "system", "content": "[Block dispatch] DispatchMock"}],
             )
 
     wf = Workflow(name="routing_test")
@@ -392,22 +378,15 @@ async def test_dynamic_injection_with_registry():
         def __init__(self) -> None:
             super().__init__("planner")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner_new_steps": [
-                            {"step_id": "injected_step", "description": "Do injected work"}
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan generated",
+                metadata_updates={
+                    "planner_new_steps": [
+                        {"step_id": "injected_step", "description": "Do injected work"}
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner] PlannerBlock"}],
             )
 
     wf = Workflow(name="injection_test")
@@ -438,25 +417,18 @@ async def test_dynamic_injection_placeholder_fallback():
         def __init__(self) -> None:
             super().__init__("planner")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner_new_steps": [
-                            {
-                                "step_id": "injected_step",
-                                "description": "Do injected work",
-                            }
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan generated",
+                metadata_updates={
+                    "planner_new_steps": [
+                        {
+                            "step_id": "injected_step",
+                            "description": "Do injected work",
+                        }
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner] PlannerBlock"}],
             )
 
     wf = Workflow(name="injection_test")
@@ -479,22 +451,15 @@ def test_dynamic_injection_missing_step_id():
         def __init__(self) -> None:
             super().__init__("planner")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner_new_steps": [
-                            {"description": "Do injected work"}  # Missing step_id
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan generated",
+                metadata_updates={
+                    "planner_new_steps": [
+                        {"description": "Do injected work"}  # Missing step_id
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
             )
 
     wf = Workflow(name="injection_test")
@@ -518,22 +483,15 @@ def test_dynamic_injection_missing_description():
         def __init__(self) -> None:
             super().__init__("planner")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner_new_steps": [
-                            {"step_id": "injected_step"}  # Missing description
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan generated",
+                metadata_updates={
+                    "planner_new_steps": [
+                        {"step_id": "injected_step"}  # Missing description
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner] BadPlannerBlock"}],
             )
 
     wf = Workflow(name="injection_test")
@@ -585,17 +543,11 @@ async def test_dynamic_routing():
         def __init__(self) -> None:
             super().__init__("dispatch")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Set exit_handle on BlockResult for routing decision
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="approved", exit_handle="approved"),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch] DispatchMock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="approved",
+                exit_handle="approved",
+                log_entries=[{"role": "system", "content": "[Block dispatch] DispatchMock"}],
             )
 
     wf = Workflow(name="routing_test")
@@ -627,17 +579,11 @@ async def test_dynamic_routing():
         def __init__(self) -> None:
             super().__init__("dispatch2")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            # Set exit_handle on BlockResult for routing decision
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="rejected", exit_handle="rejected"),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch2] DispatchMockScoped"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="rejected",
+                exit_handle="rejected",
+                log_entries=[{"role": "system", "content": "[Block dispatch2] DispatchMockScoped"}],
             )
 
     wf2 = Workflow(name="routing_test2")
@@ -665,18 +611,13 @@ async def test_dynamic_routing():
         def __init__(self) -> None:
             super().__init__("dispatch3")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(
-                            output="unknown_decision", exit_handle="unknown_decision"
-                        ),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch3] DispatchMockUnknown"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="unknown_decision",
+                exit_handle="unknown_decision",
+                log_entries=[
+                    {"role": "system", "content": "[Block dispatch3] DispatchMockUnknown"}
+                ],
             )
 
     wf3 = Workflow(name="routing_test3")
@@ -702,16 +643,13 @@ async def test_dynamic_routing():
         def __init__(self) -> None:
             super().__init__("dispatch4")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="missing", exit_handle="missing"),
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block dispatch4] DispatchMockNoDefault"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="missing",
+                exit_handle="missing",
+                log_entries=[
+                    {"role": "system", "content": "[Block dispatch4] DispatchMockNoDefault"}
+                ],
             )
 
     fallback_block = MockBlock("fallback", "Fallback output")
@@ -743,22 +681,15 @@ async def test_dynamic_injection():
         def __init__(self) -> None:
             super().__init__("planner")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner_new_steps": [
-                            {"step_id": "injected_step", "description": "Do injected work"}
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner] PlannerBlock"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan generated",
+                metadata_updates={
+                    "planner_new_steps": [
+                        {"step_id": "injected_step", "description": "Do injected work"}
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner] PlannerBlock"}],
             )
 
     wf = Workflow(name="injection_test")
@@ -786,22 +717,15 @@ async def test_dynamic_injection():
         def __init__(self) -> None:
             super().__init__("planner2")
 
-        async def execute(self, state: WorkflowState) -> WorkflowState:
-            return state.model_copy(
-                update={
-                    "results": {
-                        **state.results,
-                        self.block_id: BlockResult(output="plan2 generated"),
-                    },
-                    "metadata": {
-                        **state.metadata,
-                        "planner2_new_steps": [
-                            {"step_id": "injected_step", "description": "Do injected work"}
-                        ],
-                    },
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": "[Block planner2] PlannerBlock2"}],
-                }
+        async def execute(self, ctx: BlockContext) -> BlockOutput:
+            return BlockOutput(
+                output="plan2 generated",
+                metadata_updates={
+                    "planner2_new_steps": [
+                        {"step_id": "injected_step", "description": "Do injected work"}
+                    ]
+                },
+                log_entries=[{"role": "system", "content": "[Block planner2] PlannerBlock2"}],
             )
 
     wf2 = Workflow(name="injection_test2")

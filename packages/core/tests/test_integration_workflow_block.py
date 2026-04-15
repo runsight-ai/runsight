@@ -6,6 +6,7 @@ WorkflowBlock, verifying call_stack and workflow_registry propagation.
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core import WorkflowBlock
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
@@ -19,15 +20,17 @@ class SimpleBlock(BaseBlock):
         super().__init__(block_id)
         self.output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         """Execute by recording output in results."""
-        return state.model_copy(
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.output)},
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 @pytest.mark.asyncio

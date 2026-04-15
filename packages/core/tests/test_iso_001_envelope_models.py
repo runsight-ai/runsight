@@ -178,6 +178,11 @@ class TestContextEnvelopeFields:
         env = self._make_minimal_context_envelope()
         assert env.scoped_results == {"prev_block": {"output": "hello"}}
 
+    def test_context_envelope_has_inputs(self):
+        """ContextEnvelope carries resolved BlockContext inputs."""
+        env = self._make_minimal_context_envelope()
+        assert env.inputs == {}
+
     def test_context_envelope_has_scoped_shared_memory(self):
         """ContextEnvelope has scoped_shared_memory dict."""
         env = self._make_minimal_context_envelope()

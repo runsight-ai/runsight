@@ -24,8 +24,19 @@ import textwrap
 
 import pytest
 from runsight_core import CodeBlock
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.state import BlockResult, WorkflowState
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,7 +70,7 @@ def main(data):
 """)
         block = CodeBlock("cb_ac1", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_ac1"]
         assert isinstance(br, BlockResult)
@@ -85,7 +96,7 @@ def main(data):
 """)
         block = CodeBlock("cb_ac2", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_ac2"]
         assert isinstance(br, BlockResult)
@@ -110,7 +121,7 @@ def main(data):
 """)
         block = CodeBlock("cb_ac3", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_ac3"]
         assert isinstance(br, BlockResult)
@@ -149,10 +160,7 @@ def main(data):
         )
 
         state = _make_state()
-        result = await loop_block.execute(
-            state,
-            blocks={"code_inner": code_block},
-        )
+        result = await _exec(loop_block, state, blocks={"code_inner": code_block})
 
         # Loop should have broken early on round 2
         loop_meta = result.shared_memory.get("__loop__loop_main")
@@ -183,7 +191,7 @@ def main(data):
 """)
         block = CodeBlock("cb_ac5", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_ac5"]
         assert isinstance(br, BlockResult)
@@ -207,7 +215,7 @@ def main(data):
 """)
         block = CodeBlock("cb_edge_int", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_edge_int"]
         assert isinstance(br, BlockResult)
@@ -227,7 +235,7 @@ def main(data):
 """)
         block = CodeBlock("cb_edge_empty", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_edge_empty"]
         assert isinstance(br, BlockResult)
@@ -247,7 +255,7 @@ def main(data):
 """)
         block = CodeBlock("cb_edge_pop", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_edge_pop"]
         assert isinstance(br, BlockResult)
@@ -266,7 +274,7 @@ def main(data):
 """)
         block = CodeBlock("cb_edge_only", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await _exec(block, state)
 
         br = result.results["cb_edge_only"]
         assert isinstance(br, BlockResult)

@@ -102,6 +102,7 @@ def _bypass_subprocess_isolation(monkeypatch):
         if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
             return await self.harness.run(envelope)
 
+        from runsight_core.block_io import apply_block_output, build_block_context
         from runsight_core.state import BlockResult, WorkflowState
 
         results: dict[str, BlockResult] = {}
@@ -119,7 +120,9 @@ def _bypass_subprocess_isolation(monkeypatch):
             shared_memory=dict(envelope.scoped_shared_memory),
         )
 
-        result_state = await self.inner_block.execute(state)
+        block_ctx = build_block_context(self.inner_block, state)
+        block_output = await self.inner_block.execute(block_ctx)
+        result_state = apply_block_output(state, self.inner_block.block_id, block_output)
 
         block_result = result_state.results.get(self.inner_block.block_id, BlockResult(output=""))
 

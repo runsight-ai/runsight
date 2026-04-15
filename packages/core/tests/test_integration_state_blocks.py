@@ -18,11 +18,25 @@ from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
 
+async def _run_block(block, state: WorkflowState) -> WorkflowState:
+    """Helper: build BlockContext, run block, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, block.block_id, output)
+    return state
+
+
 @pytest.fixture
 def mock_runner():
     """Mock RunsightTeamRunner for integration tests."""
     runner = MagicMock()
     runner.execute = AsyncMock()
+    runner.model_name = "gpt-4o-mini"
     return runner
 
 
@@ -61,7 +75,7 @@ async def test_state_immutability_across_block_execution(mock_runner, test_soul)
     )
 
     # Execute block
-    new_state = await block.execute(original_state)
+    new_state = await _run_block(block, original_state)
 
     # CRITICAL: Original state must be unchanged (immutability)
     assert original_state.results == {"previous": BlockResult(output="data")}
@@ -100,7 +114,7 @@ async def test_workflow_state_task_primitive_integration(mock_runner, test_soul)
         }
     )
 
-    await block.execute(state)
+    await _run_block(block, state)
 
     # Verify runner.execute was called with (instruction, context, soul)
     call_args = mock_runner.execute.call_args
@@ -130,7 +144,7 @@ async def test_execution_result_to_state_results_mapping(mock_runner, test_soul)
     block = LinearBlock("test_block", test_soul, mock_runner)
     state = WorkflowState()
 
-    result_state = await block.execute(state)
+    result_state = await _run_block(block, state)
 
     # Verify exact output mapping
     assert result_state.results["test_block"].output == execution_output
@@ -161,7 +175,7 @@ async def test_soul_primitive_integration_with_block(mock_runner):
     block = LinearBlock("block1", soul, mock_runner)
     state = WorkflowState()
 
-    await block.execute(state)
+    await _run_block(block, state)
 
     # Verify the exact soul was passed to runner
     call_args = mock_runner.execute.call_args
@@ -201,7 +215,7 @@ async def test_baseblock_contract_enforcement(mock_runner, test_soul):
 
     # Verify BaseBlock contract: execute returns WorkflowState with results[block_id]
     state = WorkflowState()
-    result = await block.execute(state)
+    result = await _run_block(block, state)
 
     assert isinstance(result, WorkflowState)
     assert "contract_block" in result.results
@@ -222,7 +236,7 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
     block1 = LinearBlock("block1", test_soul, mock_runner)
     state = WorkflowState()
 
-    state = await block1.execute(state)
+    state = await _run_block(block1, state)
 
     # Block 2 execution
     mock_runner.execute.return_value = ExecutionResult(
@@ -230,7 +244,7 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
     )
 
     block2 = LinearBlock("block2", test_soul, mock_runner)
-    state = await block2.execute(state)
+    state = await _run_block(block2, state)
 
     # Block 3 execution
     mock_runner.execute.return_value = ExecutionResult(
@@ -238,7 +252,7 @@ async def test_multi_block_state_accumulation(mock_runner, test_soul):
     )
 
     block3 = LinearBlock("block3", test_soul, mock_runner)
-    state = await block3.execute(state)
+    state = await _run_block(block3, state)
 
     # Verify all block outputs accumulated
     assert state.results == {
@@ -272,7 +286,7 @@ async def test_state_messages_integration_with_truncation(mock_runner, test_soul
     block = LinearBlock("block1", test_soul, mock_runner)
     state = WorkflowState()
 
-    result_state = await block.execute(state)
+    result_state = await _run_block(block, state)
 
     # Full output in results
     assert result_state.results["block1"].output == long_output

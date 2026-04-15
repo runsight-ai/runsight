@@ -17,6 +17,7 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
@@ -167,7 +168,7 @@ class TestRunnerExecuteCalled:
         block = _make_synthesize(block_id="synth_exec1", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute.assert_called_once()
 
@@ -178,7 +179,7 @@ class TestRunnerExecuteCalled:
         block = _make_synthesize(block_id="synth_exec2", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute_task.assert_not_called()
 
@@ -199,7 +200,7 @@ class TestRunnerExecuteCalled:
             }
         )
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute.assert_called_once()
         runner.execute_task.assert_not_called()
@@ -220,7 +221,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_synthesize(block_id="synth_str1", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -235,7 +236,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_synthesize(block_id="synth_str2", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -250,7 +251,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_synthesize(block_id="synth_str3", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -272,7 +273,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_synthesize(block_id="synth_ctx1", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 2, "runner.execute() must be called with at least 2 positional args"
@@ -288,7 +289,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_synthesize(block_id="synth_ctx2", runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 2, "runner.execute() must have at least 2 positional args"
@@ -305,7 +306,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_synthesize(block_id="synth_ctx3", soul=soul, runner=runner)
         state = _make_state()
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 3, "runner.execute() must be called with (instruction, context, soul)"
@@ -331,7 +332,7 @@ class TestSynthesizeResultsCorrect:
         block = _make_synthesize(block_id="synth_res1", runner=runner)
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert "synth_res1" in result_state.results
         assert result_state.results["synth_res1"].output == "Final synthesized report"
@@ -350,7 +351,7 @@ class TestSynthesizeResultsCorrect:
             total_tokens=500,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_cost_usd == pytest.approx(1.07)
         assert result_state.total_tokens == 800
@@ -369,7 +370,7 @@ class TestSynthesizeResultsCorrect:
             total_tokens=100,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_tokens == 350
 
@@ -385,7 +386,7 @@ class TestSynthesizeResultsCorrect:
         state = WorkflowState(results={"block_a": BlockResult(output="Output A")})
 
         with pytest.raises(ValueError, match="missing_block"):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio
     async def test_context_contains_all_input_outputs(self):
@@ -403,7 +404,7 @@ class TestSynthesizeResultsCorrect:
             }
         )
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         # context is second positional arg

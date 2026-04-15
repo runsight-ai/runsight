@@ -58,6 +58,7 @@ class ContextEnvelope(BaseModel):
     soul: SoulEnvelope
     tools: list[ToolDefEnvelope]
     prompt: PromptEnvelope
+    inputs: dict[str, Any] = Field(default_factory=dict)
     scoped_results: dict[str, Any]
     scoped_shared_memory: dict[str, Any]
     conversation_history: list[dict[str, Any]]

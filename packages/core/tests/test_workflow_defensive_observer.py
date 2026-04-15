@@ -11,8 +11,9 @@ All tests should FAIL until the implementation is done.
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import WorkflowState
+from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -24,8 +25,12 @@ class SuccessBlock(BaseBlock):
     def __init__(self, block_id: str = "ok_block"):
         super().__init__(block_id=block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(update={"results": {**state.results, self.block_id: "done"}})
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
+            update={"results": {**state.results, self.block_id: BlockResult(output="done")}}
+        )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class FailBlock(BaseBlock):
@@ -76,7 +81,7 @@ class TestDefensiveObserverOnWorkflowStart:
 
         state = await wf.run(WorkflowState(), observer=CrashingObserver())
         assert "b1" in state.results
-        assert state.results["b1"] == "done"
+        assert state.results["b1"].output == "done"
 
 
 # ---------------------------------------------------------------------------

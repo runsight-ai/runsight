@@ -631,6 +631,60 @@ class TestWorkerStatefulHistory:
         assert len(result_env.conversation_history) >= len(prior_history)
 
 
+class TestWorkerBlockContextInputs:
+    """Worker must preserve resolved Step inputs from ContextEnvelope."""
+
+    @pytest.mark.asyncio
+    async def test_envelope_inputs_reach_worker_block_context(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.block_io import BlockOutput
+        from runsight_core.isolation import worker
+
+        envelope = _make_context_envelope(inputs={"data": "declared value"})
+        captured: dict[str, object] = {}
+
+        class FakeIPCClient:
+            def __init__(self, *, socket_path: str) -> None:
+                self.socket_path = socket_path
+
+            async def connect(self):
+                return {
+                    "accepted": True,
+                    "error": None,
+                }
+
+            async def close(self) -> None:
+                return None
+
+        class FakeBlock:
+            def __init__(self, block_id: str, soul, runner) -> None:
+                self.block_id = block_id
+                self.soul = soul
+                self.runner = runner
+                self.stateful = False
+
+            async def execute(self, ctx):
+                captured["inputs"] = dict(ctx.inputs)
+                return BlockOutput(output="ok", exit_handle="done")
+
+        def _fake_create_block(envelope_arg, soul_arg, runner_arg):
+            return FakeBlock(envelope_arg.block_id, soul_arg, runner_arg)
+
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
+
+        result_env, exit_code = await worker._execute_envelope(
+            envelope=envelope,
+            ipc_socket="/tmp/rs-inputs.sock",
+        )
+
+        assert exit_code == 0
+        assert result_env.error is None
+        assert captured["inputs"] == {"data": "declared value"}
+
+
 # ==============================================================================
 # AC7: Zero workflow/observer/api imports
 # ==============================================================================
@@ -890,7 +944,6 @@ class TestRUN399WorkerRedesignContract:
         monkeypatch: pytest.MonkeyPatch,
     ):
         from runsight_core.isolation import worker
-        from runsight_core.state import BlockResult
         from runsight_core.tools import ToolInstance
 
         envelope = _make_context_envelope(
@@ -980,20 +1033,20 @@ class TestRUN399WorkerRedesignContract:
             )
 
         class _FakeBlock:
-            def __init__(self, soul_arg, runner_arg) -> None:
+            def __init__(self, block_id_arg: str, soul_arg, runner_arg) -> None:
+                self.block_id = block_id_arg
                 self._soul = soul_arg
                 self._runner = runner_arg
 
-            async def execute(self, state):
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
                 await self._soul.resolved_tools[0].execute({"value": "hello"})
                 await self._runner.llm_client.achat(messages=[{"role": "user", "content": "ping"}])
-                state.results[envelope.block_id] = BlockResult(output="ok", exit_handle="done")
-                state.total_cost_usd = 0.01
-                state.total_tokens = 2
-                return state
+                return BlockOutput(output="ok", exit_handle="done", cost_usd=0.01, total_tokens=2)
 
         def _fake_create_block(envelope_arg, soul_arg, runner_arg):
-            return _FakeBlock(soul_arg, runner_arg)
+            return _FakeBlock(envelope_arg.block_id, soul_arg, runner_arg)
 
         monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-399")
         monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run399.sock")
@@ -1192,9 +1245,21 @@ class TestRUN812WorkerAssertionBlockContract:
             )
             block = worker._support._create_block(envelope, soul, runner=runner)
             state = worker._support.build_scoped_state(envelope)
-            final_state = await block.execute(state)
+            from runsight_core.block_io import BlockContext
 
-        serialized = final_state.results["assertion_serialize"].output
+            ctx = BlockContext(
+                block_id=envelope.block_id,
+                instruction=envelope.prompt.instruction,
+                context=None,
+                inputs={},
+                conversation_history=[],
+                soul=soul,
+                model_name=envelope.soul.model_name,
+                state_snapshot=state,
+            )
+            block_output = await block.execute(ctx)
+
+        serialized = block_output.output
         assert isinstance(serialized, str)
         payload = json.loads(serialized)
         assert payload["passed"] is True
@@ -1277,7 +1342,6 @@ class TestRUN812WorkerAssertionBlockContract:
         monkeypatch: pytest.MonkeyPatch,
     ):
         from runsight_core.isolation import worker
-        from runsight_core.state import BlockResult
 
         envelope = _make_context_envelope(
             block_id="assertion_auth_ok",
@@ -1334,11 +1398,10 @@ class TestRUN812WorkerAssertionBlockContract:
             def __init__(self, block_id: str) -> None:
                 self._block_id = block_id
 
-            async def execute(self, state):
-                state.results[self._block_id] = BlockResult(
-                    output="assertion-ok", exit_handle="done"
-                )
-                return state
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                return BlockOutput(output="assertion-ok", exit_handle="done")
 
         def _fake_create_block(envelope_arg, soul_arg, runner_arg):
             assert envelope_arg.block_type == "assertion"

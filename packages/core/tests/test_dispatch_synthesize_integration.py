@@ -13,6 +13,7 @@ All tests mock LiteLLMClient.achat to return different outputs per branch.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from conftest import execute_block_for_test, execute_loop_for_test
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
@@ -383,9 +384,9 @@ class TestFullPipeline:
         state = WorkflowState()
 
         # Execute Dispatch
-        state = await dispatch.execute(state)
+        state = await execute_block_for_test(dispatch, state)
         # Execute Synthesize
-        state = await synthesize.execute(state)
+        state = await execute_block_for_test(synthesize, state)
 
         # Total cost = 0.05 + 0.08 + 0.10 = 0.23
         assert state.total_cost_usd == pytest.approx(0.23)
@@ -467,7 +468,7 @@ class TestPerExitReferences:
             }
         )
 
-        final_state = await synthesize.execute(state)
+        final_state = await execute_block_for_test(synthesize, state)
 
         assert "merge_results" in final_state.results
 
@@ -507,7 +508,7 @@ class TestPerExitReferences:
         )
 
         with pytest.raises(ValueError, match="missing inputs.*dispatch_work.coder"):
-            await synthesize.execute(state)
+            await execute_block_for_test(synthesize, state)
 
 
 # ===========================================================================
@@ -570,7 +571,7 @@ class TestStatefulDispatchInLoop:
         state = WorkflowState()
 
         # Execute the loop with the dispatch block in the blocks dict
-        final_state = await loop.execute(state, blocks={"dispatch_work": dispatch})
+        final_state = await execute_loop_for_test(loop, state, blocks={"dispatch_work": dispatch})
 
         # After 2 rounds, conversation histories should exist for each branch
         histories = final_state.conversation_histories
@@ -639,7 +640,7 @@ class TestStatefulDispatchInLoop:
 
         state = WorkflowState()
 
-        await loop.execute(state, blocks={"dispatch_work": dispatch})
+        await execute_loop_for_test(loop, state, blocks={"dispatch_work": dispatch})
 
         # Inspect calls to runner.execute
         all_calls = runner.execute.call_args_list
@@ -708,7 +709,7 @@ class TestStatefulDispatchInLoop:
 
         state = WorkflowState()
 
-        final_state = await loop.execute(state, blocks={"dispatch_work": dispatch})
+        final_state = await execute_loop_for_test(loop, state, blocks={"dispatch_work": dispatch})
 
         # Researcher history should contain RESEARCH_ONLY, not CODE_ONLY
         researcher_hist = final_state.conversation_histories["dispatch_work_researcher"]
@@ -769,7 +770,7 @@ class TestContextInheritance:
         shared_context = "Project: Quantum Computing Initiative, Budget: $50k, Deadline: Q2 2026"
         state = WorkflowState(shared_memory={"_resolved_inputs": {"context": shared_context}})
 
-        await dispatch.execute(state)
+        await execute_block_for_test(dispatch, state)
 
         # Both calls to runner.execute should have the context as 2nd positional arg
         assert runner.execute.call_count == 2
@@ -816,7 +817,7 @@ class TestContextInheritance:
         context = "Focus on efficiency"
         state = WorkflowState(shared_memory={"_resolved_inputs": {"context": context}})
 
-        await dispatch.execute(state)
+        await execute_block_for_test(dispatch, state)
 
         calls = runner.execute.call_args_list
         instruction_0 = calls[0].args[0]  # 1st positional arg
@@ -855,7 +856,7 @@ class TestContextInheritance:
         # No context in shared_memory
         state = WorkflowState()
 
-        final_state = await dispatch.execute(state)
+        final_state = await execute_block_for_test(dispatch, state)
 
         # Should complete without error
         assert "dispatch_work.researcher" in final_state.results

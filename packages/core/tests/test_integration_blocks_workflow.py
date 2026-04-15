@@ -10,6 +10,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core import (
     DispatchBlock,
     LinearBlock,
@@ -134,7 +135,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
 
     # Execute LinearBlock
     linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
-    state = await linear.execute(state)
+    state = await execute_block_for_test(linear, state)
     assert "research" in state.results
     assert state.results["research"].output == "Research complete"
 
@@ -145,7 +146,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
         _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
         mock_runner,
     )
-    state = await dispatch.execute(state)
+    state = await execute_block_for_test(dispatch, state)
 
     # Verify state accumulation
     assert "research" in state.results  # Previous result preserved

@@ -36,6 +36,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
+from runsight_core.block_io import build_block_context
 from runsight_core.isolation.envelope import ResultEnvelope
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
@@ -2263,7 +2264,7 @@ workflow:
             )
 
         with patch.object(block, "_run_in_subprocess", side_effect=_capture):
-            await block.execute(state)
+            await block.execute(build_block_context(block, state))
 
         envelope = captured["envelope"]
         assert [tool.name for tool in envelope.tools] == ["http_request", "adder", "fetch_answer"]
