@@ -103,7 +103,7 @@ blocks:
       backoff: fixed
       backoff_base_seconds: 1.0
     inputs:
-      shared_memory.task: shared_memory.task
+      task: shared_memory.task
       manifest_json: results.prepare_manifest
       phase_payload: results.prepare_primary_phase
     outputs:
@@ -186,7 +186,7 @@ blocks:
       backoff: fixed
       backoff_base_seconds: 1.0
     inputs:
-      shared_memory.task: shared_memory.task
+      task: shared_memory.task
       manifest_json: results.prepare_manifest
       phase_payload: results.prepare_secondary_phase
     outputs:
