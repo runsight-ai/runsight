@@ -6,6 +6,7 @@ import json
 import textwrap
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core import CodeBlock
 from runsight_core.state import WorkflowState
 
@@ -51,7 +52,7 @@ class TestCodeBlockHappyPath:
     async def test_basic_transform(self):
         block = CodeBlock("cb1", SIMPLE_CODE)
         state = _make_state(shared_memory={"name": "alice"})
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert "cb1" in result.results
         parsed = json.loads(result.results["cb1"].output)
@@ -62,7 +63,7 @@ class TestCodeBlockHappyPath:
     async def test_allowed_imports(self):
         block = CodeBlock("cb2", MATH_CODE)
         state = _make_state(shared_memory={"x": 16})
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert "cb2" in result.results
         parsed = json.loads(result.results["cb2"].output)
@@ -73,7 +74,7 @@ class TestCodeBlockHappyPath:
     async def test_state_not_mutated(self):
         block = CodeBlock("cb3", SIMPLE_CODE)
         state = _make_state(shared_memory={"name": "bob"})
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         # Original state unchanged
         assert "cb3" not in state.results
@@ -86,7 +87,7 @@ class TestCodeBlockHappyPath:
         block = CodeBlock("cb_cost", SIMPLE_CODE)
         state = _make_state(shared_memory={"name": "x"})
         state = state.model_copy(update={"total_cost_usd": 1.5, "total_tokens": 100})
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert result.total_cost_usd == 1.5
         assert result.total_tokens == 100
@@ -99,7 +100,7 @@ def main(data):
 """)
         block = CodeBlock("cb_str", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
         # String results stored directly
         assert result.results["cb_str"].output == "just a string"
 
@@ -206,7 +207,7 @@ def main(data):
         block = CodeBlock("cb_timeout", code, timeout_seconds=1)
         state = _make_state()
         with pytest.raises(TimeoutError, match="timed out"):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio
     async def test_user_exception_captured(self):
@@ -216,7 +217,7 @@ def main(data):
 """)
         block = CodeBlock("cb_err", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert "cb_err" in result.results
         assert "Error:" in result.results["cb_err"].output
@@ -230,7 +231,7 @@ def main(data):
 """)
         block = CodeBlock("cb_nonjson", code)
         state = _make_state()
-        result = await block.execute(state)
+        result = await execute_block_for_test(block, state)
 
         assert "cb_nonjson" in result.results
         assert "Error" in result.results["cb_nonjson"].output

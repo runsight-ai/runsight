@@ -6,6 +6,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core import GateBlock
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
@@ -51,7 +52,7 @@ class TestGateBlock:
             results={eval_key: BlockResult(output="Some research content to evaluate")}
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results[block_id].output == "PASS"
         assert result_state.results[block_id].exit_handle == "pass"
@@ -72,7 +73,7 @@ class TestGateBlock:
         )
         state = WorkflowState(results={eval_key: BlockResult(output="Draft content")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
         assert result_state.results[block_id].exit_handle == "fail"
         assert "bad quality" in result_state.results[block_id].output
 
@@ -93,7 +94,7 @@ class TestGateBlock:
         state = WorkflowState(results={"other_key": BlockResult(output="value")})
 
         with pytest.raises(ValueError, match=f"eval_key '{eval_key}' not found in state.results"):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio
     async def test_gate_extract_field_on_pass(self):
@@ -114,7 +115,7 @@ class TestGateBlock:
         )
         state = WorkflowState(results={eval_key: BlockResult(output=json.dumps(json_content))})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results[block_id].output == "extracted_content"
         assert result_state.results[block_id].exit_handle == "pass"
@@ -137,7 +138,7 @@ class TestGateBlock:
         )
         state = WorkflowState(results={eval_key: BlockResult(output="not valid json at all")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         # Should fall back to decision_line (PASS) when JSON parse fails
         assert result_state.results[block_id].output == "PASS"
@@ -164,7 +165,7 @@ class TestGateBlock:
             total_tokens=500,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_cost_usd == 1.0 + cost
         assert result_state.total_tokens == 500 + tokens

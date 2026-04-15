@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import (
     BudgetKilledException,
@@ -143,9 +144,13 @@ class InstantBlock(BaseBlock):
         super().__init__(block_id)
         self.captured_budget = "NOT_SET"
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         self.captured_budget = _active_budget.get(None)
-        return state.model_copy(update={"results": {self.block_id: BlockResult(output="done")}})
+        next_state = state.model_copy(
+            update={"results": {self.block_id: BlockResult(output="done")}}
+        )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class SlowBlock(BaseBlock):
@@ -155,11 +160,13 @@ class SlowBlock(BaseBlock):
         super().__init__(block_id)
         self.sleep_seconds = sleep_seconds
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         await asyncio.sleep(self.sleep_seconds)
-        return state.model_copy(
+        next_state = state.model_copy(
             update={"results": {self.block_id: BlockResult(output="slow done")}}
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 def _make_ctx(

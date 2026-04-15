@@ -21,7 +21,7 @@ implementation because:
 from __future__ import annotations
 
 import pytest
-from runsight_core.block_io import apply_block_output, build_block_context
+from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -55,18 +55,12 @@ class _EchoBlock:
         self.stateful = False
         self._copy_key = copy_key
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         output_value = ""
         if self._copy_key:
+            state = ctx.state_snapshot
             output_value = str(state.shared_memory.get(self._copy_key, ""))
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=output_value),
-                },
-            }
-        )
+        return BlockOutput(output=output_value)
 
 
 class _WriterBlock:
@@ -78,15 +72,8 @@ class _WriterBlock:
         self.stateful = False
         self._value = value
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._value),
-                },
-            }
-        )
+    async def execute(self, ctx):
+        return BlockOutput(output=self._value)
 
 
 class _EmptyBlock:
@@ -97,8 +84,8 @@ class _EmptyBlock:
         self.retry_config = None
         self.stateful = False
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state  # no results written
+    async def execute(self, ctx):
+        return BlockOutput(output="")
 
 
 def _build_child_workflow(
@@ -389,7 +376,7 @@ class TestInterfaceBoundExecution:
             outputs=[{"name": "summary", "source": "results.writer"}],
         )
 
-        child_block = _EmptyBlock("writer")  # produces nothing
+        child_block = _EmptyBlock("noop")  # produces no writer result
         child_wf = _build_child_workflow("child_wf", child_block)
 
         wb = WorkflowBlock(

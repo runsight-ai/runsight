@@ -11,10 +11,11 @@ Tests cover:
 from __future__ import annotations
 
 import pytest
+from runsight_core.block_io import BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.workflow_block import WorkflowBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 
 # ── Test helpers ──────────────────────────────────────────────────────────────
@@ -27,15 +28,8 @@ class ResultBlock(BaseBlock):
         super().__init__(block_id)
         self.output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self.output),
-                },
-            }
-        )
+    async def execute(self, ctx):
+        return BlockOutput(output=self.output)
 
 
 class CountingBlock(BaseBlock):
@@ -51,19 +45,12 @@ class CountingBlock(BaseBlock):
         self.threshold = threshold
         self._exit_handle = exit_handle
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         self.calls += 1
         handle = self._exit_handle if self.calls >= self.threshold else None
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=f"call_{self.calls}",
-                        exit_handle=handle,
-                    ),
-                },
-            }
+        return BlockOutput(
+            output=f"call_{self.calls}",
+            exit_handle=handle,
         )
 
 

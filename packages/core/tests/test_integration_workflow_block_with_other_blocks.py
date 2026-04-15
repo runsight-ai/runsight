@@ -9,6 +9,7 @@ These tests verify that:
 """
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core import (
     LinearBlock,
     WorkflowBlock,
@@ -26,8 +27,9 @@ class EchoBlock(BaseBlock):
         super().__init__(block_id)
         self.description = description
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.description)},
                 "execution_log": state.execution_log
@@ -39,6 +41,7 @@ class EchoBlock(BaseBlock):
                 ],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class MockRunner:
@@ -279,7 +282,8 @@ async def test_workflow_block_state_isolation_complex():
             super().__init__(block_id)
             self.description = description
 
-        async def execute(self, state, **kwargs):
+        async def execute(self, ctx):
+            state = ctx.state_snapshot
             # Try to modify all state fields
             new_state = state.model_copy(
                 update={
@@ -288,7 +292,7 @@ async def test_workflow_block_state_isolation_complex():
                     "metadata": {**state.metadata, "child_meta": "private"},
                 }
             )
-            return new_state.model_copy(
+            final_state = new_state.model_copy(
                 update={
                     "results": {
                         **new_state.results,
@@ -303,6 +307,7 @@ async def test_workflow_block_state_isolation_complex():
                     ],
                 }
             )
+            return block_output_from_state(self.block_id, state, final_state)
 
     child_block = ModifyingBlock("modify_step", "Modified state")
     child_wf.add_block(child_block)
@@ -365,8 +370,9 @@ async def test_workflow_block_cost_propagation_multiple_levels():
             super().__init__(block_id)
             self.cost = cost
 
-        async def execute(self, state, **kwargs):
-            return state.model_copy(
+        async def execute(self, ctx):
+            state = ctx.state_snapshot
+            next_state = state.model_copy(
                 update={
                     "results": {**state.results, self.block_id: BlockResult(output="Block")},
                     "execution_log": state.execution_log
@@ -377,6 +383,7 @@ async def test_workflow_block_cost_propagation_multiple_levels():
                     "total_tokens": state.total_tokens + 10,
                 }
             )
+            return block_output_from_state(self.block_id, state, next_state)
 
     child_wf.add_block(CostProducingBlock("child_block", 0.05))
     child_wf.set_entry("child_block")

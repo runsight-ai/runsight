@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-from runsight_core.block_io import apply_block_output, build_block_context
+from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock, WorkflowBlockDef
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import (
     WorkflowInterfaceDef,
@@ -50,16 +50,10 @@ class _EchoBlock:
         self.stateful = False
         self._copy_key = copy_key
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         value = str(state.shared_memory.get(self._copy_key, ""))
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=value),
-                },
-            }
-        )
+        return BlockOutput(output=value)
 
 
 class _WriterBlock:
@@ -71,15 +65,8 @@ class _WriterBlock:
         self.stateful = False
         self._value = value
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._value),
-                },
-            }
-        )
+    async def execute(self, ctx):
+        return BlockOutput(output=self._value)
 
 
 class _CostBlock:
@@ -92,16 +79,11 @@ class _CostBlock:
         self._cost = cost
         self._tokens = tokens
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output="done"),
-                },
-                "total_cost_usd": state.total_cost_usd + self._cost,
-                "total_tokens": state.total_tokens + self._tokens,
-            }
+    async def execute(self, ctx):
+        return BlockOutput(
+            output="done",
+            cost_usd=self._cost,
+            total_tokens=self._tokens,
         )
 
 

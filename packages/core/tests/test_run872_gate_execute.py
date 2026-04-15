@@ -18,6 +18,7 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
@@ -149,7 +150,7 @@ class TestRunnerExecuteCalled:
         block = _make_gate(block_id="gate_exec1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Good content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute.assert_called_once()
 
@@ -160,7 +161,7 @@ class TestRunnerExecuteCalled:
         block = _make_gate(block_id="gate_exec2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute.assert_called_once()
 
@@ -171,7 +172,7 @@ class TestRunnerExecuteCalled:
         block = _make_gate(block_id="gate_exec3", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute_task.assert_not_called()
 
@@ -182,7 +183,7 @@ class TestRunnerExecuteCalled:
         block = _make_gate(block_id="gate_exec4", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         runner.execute_task.assert_not_called()
 
@@ -202,7 +203,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_gate(block_id="gate_str1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -217,7 +218,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_gate(block_id="gate_str2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -232,7 +233,7 @@ class TestRunnerExecuteReceivesStringInstruction:
         block = _make_gate(block_id="gate_str3", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content to evaluate")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         instruction_arg = args[0]
@@ -255,7 +256,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_gate(block_id="gate_ctx1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="The actual content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 2, "runner.execute() must be called with at least 2 positional args"
@@ -271,7 +272,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_gate(block_id="gate_ctx2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some draft")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 2, "runner.execute() must have at least 2 positional args"
@@ -288,7 +289,7 @@ class TestRunnerExecuteReceivesStringContext:
         block = _make_gate(block_id="gate_ctx3", soul=soul, runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         args, _kwargs = runner.execute.call_args
         assert len(args) >= 3, "runner.execute() must be called with (instruction, context, soul)"
@@ -314,7 +315,7 @@ class TestGateResultsCorrect:
         block = _make_gate(block_id="gate_res1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="High quality content")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results["gate_res1"].exit_handle == "pass"
 
@@ -325,7 +326,7 @@ class TestGateResultsCorrect:
         block = _make_gate(block_id="gate_res2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft text")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results["gate_res2"].exit_handle == "fail"
 
@@ -336,7 +337,7 @@ class TestGateResultsCorrect:
         block = _make_gate(block_id="gate_res3", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert "incomplete argument" in result_state.results["gate_res3"].output
 
@@ -351,7 +352,7 @@ class TestGateResultsCorrect:
             total_tokens=500,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_cost_usd == pytest.approx(1.05)
         assert result_state.total_tokens == 700
@@ -367,7 +368,7 @@ class TestGateResultsCorrect:
             total_tokens=300,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_cost_usd == pytest.approx(2.03)
         assert result_state.total_tokens == 450
@@ -380,4 +381,4 @@ class TestGateResultsCorrect:
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
         with pytest.raises(ValueError, match="missing_key"):
-            await block.execute(state)
+            await execute_block_for_test(block, state)

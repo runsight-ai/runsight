@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.loop import LoopBlock
@@ -64,8 +65,9 @@ class StubBlock(BaseBlock):
         super().__init__(block_id)
         self._output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -73,6 +75,7 @@ class StubBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class ExitHandleBlock(BaseBlock):
@@ -83,8 +86,9 @@ class ExitHandleBlock(BaseBlock):
         self._exit_handle = exit_handle
         self._output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -95,6 +99,7 @@ class ExitHandleBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class JsonOutputBlock(BaseBlock):
@@ -104,8 +109,9 @@ class JsonOutputBlock(BaseBlock):
         super().__init__(block_id)
         self._data = data
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -113,6 +119,7 @@ class JsonOutputBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 def _fresh_state(**kwargs) -> WorkflowState:

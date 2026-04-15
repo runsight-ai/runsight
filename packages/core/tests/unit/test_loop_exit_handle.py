@@ -18,6 +18,7 @@ Tests cover:
 import inspect
 
 import pytest
+from conftest import block_output_from_state, execute_loop_for_test
 from pydantic import TypeAdapter
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock, LoopBlockDef
@@ -35,10 +36,11 @@ class TrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -50,6 +52,7 @@ class TrackingBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class ExitHandleBlock(BaseBlock):
@@ -64,7 +67,8 @@ class ExitHandleBlock(BaseBlock):
         self._exit_handle = exit_handle
         self._threshold = threshold
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         call_num = len(calls)
@@ -74,7 +78,7 @@ class ExitHandleBlock(BaseBlock):
         else:
             handle = None
 
-        return state.model_copy(
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -89,6 +93,7 @@ class ExitHandleBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 block_adapter = TypeAdapter(BlockDef)
@@ -125,7 +130,7 @@ class TestRetryOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Worker and gate should each be called 3 times (once per round)
         worker_calls = result_state.shared_memory.get("worker_calls", [])
@@ -151,7 +156,7 @@ class TestRetryOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # block_a executes each round (before gate), gate executes each round,
         # but block_c should NEVER execute (comes after gate, and gate triggers retry)
@@ -182,7 +187,7 @@ class TestRetryOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Since "pass" != "fail", retry_on_exit should NOT trigger.
         # The loop should still complete normally without retry logic interfering.
@@ -216,7 +221,7 @@ class TestBreakOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Round 1: gate returns exit_handle=None (threshold not met) -> continue
         # Round 2: gate returns exit_handle="pass" -> break!
@@ -241,7 +246,7 @@ class TestBreakOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         gate_calls = result_state.shared_memory.get("gate_calls", [])
         assert len(gate_calls) == 1, (
@@ -265,7 +270,7 @@ class TestBreakOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # All 3 rounds should complete because "fail" != "pass"
         gate_calls = result_state.shared_memory.get("gate_calls", [])
@@ -298,7 +303,7 @@ class TestMidLoopExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Round 1: block_a runs, gate returns "pass" -> break! block_c never runs
         block_a_calls = result_state.shared_memory.get("block_a_calls", [])
@@ -329,7 +334,7 @@ class TestMidLoopExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # All 3 rounds: block_a runs, gate returns "fail" -> retry, block_c skipped
         block_a_calls = result_state.shared_memory.get("block_a_calls", [])
@@ -361,7 +366,7 @@ class TestMidLoopExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Rounds 1-2: gate exit_handle=None -> block_c runs normally
         # Round 3: gate exit_handle="pass" -> break! block_c skipped this round
@@ -445,7 +450,7 @@ class TestBreakConditionStillWorks:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         calls = result_state.shared_memory.get("inner_calls", [])
         assert len(calls) == 3, f"Expected 3 calls (break on call_3), got {len(calls)}"
@@ -474,7 +479,7 @@ class TestBreakConditionStillWorks:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # break_on_exit="pass" should fire on round 2 (gate threshold=2)
         gate_calls = result_state.shared_memory.get("gate_calls", [])
@@ -508,7 +513,7 @@ class TestMaxRoundsEnforced:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         gate_calls = result_state.shared_memory.get("gate_calls", [])
         assert len(gate_calls) == 4, (
@@ -531,7 +536,7 @@ class TestMaxRoundsEnforced:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         gate_calls = result_state.shared_memory.get("gate_calls", [])
         assert len(gate_calls) == 1, f"Expected 1 gate call (max_rounds=1), got {len(gate_calls)}"
@@ -561,7 +566,7 @@ class TestLoopMetadataWithExitHandle:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         meta = result_state.shared_memory.get("__loop__loop1")
         assert meta is not None, "Loop metadata not found in shared_memory"
@@ -585,7 +590,7 @@ class TestLoopMetadataWithExitHandle:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         meta = result_state.shared_memory.get("__loop__loop1")
         assert meta is not None, "Loop metadata not found in shared_memory"
@@ -608,7 +613,7 @@ class TestLoopMetadataWithExitHandle:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         meta = result_state.shared_memory.get("__loop__loop1")
         assert meta is not None
@@ -627,11 +632,12 @@ class ContextPayloadBlock(BaseBlock):
         super().__init__(block_id)
         self._trace_path = trace_path
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
         call_num = len(calls)
-        return state.model_copy(
+        next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
@@ -645,6 +651,7 @@ class ContextPayloadBlock(BaseBlock):
                 },
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class TestCarryContextWithExitHandle:
@@ -673,7 +680,7 @@ class TestCarryContextWithExitHandle:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, list)
@@ -703,7 +710,7 @@ class TestCarryContextWithExitHandle:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         carried = result_state.shared_memory.get("ctx")
         assert isinstance(carried, dict)
@@ -964,7 +971,8 @@ class TestCombinedBreakAndRetryOnExit:
                 super().__init__(block_id)
                 self._pass_on_call = pass_on_call
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx):
+                state = ctx.state_snapshot
                 calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
                 calls.append(len(calls) + 1)
                 call_num = len(calls)
@@ -974,7 +982,7 @@ class TestCombinedBreakAndRetryOnExit:
                 else:
                     handle = "fail"
 
-                return state.model_copy(
+                next_state = state.model_copy(
                     update={
                         "results": {
                             **state.results,
@@ -989,6 +997,7 @@ class TestCombinedBreakAndRetryOnExit:
                         },
                     }
                 )
+                return block_output_from_state(self.block_id, state, next_state)
 
         worker = TrackingBlock("worker")
         gate = PhasedGate("gate", pass_on_call=3)
@@ -1004,7 +1013,7 @@ class TestCombinedBreakAndRetryOnExit:
         blocks["loop1"] = loop
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         # Round 1: gate="fail" -> retry
         # Round 2: gate="fail" -> retry

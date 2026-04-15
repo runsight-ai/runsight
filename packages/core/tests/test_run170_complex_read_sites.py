@@ -20,6 +20,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.state import BlockResult, WorkflowState
 
 # =============================================================================
@@ -68,7 +69,7 @@ class TestCodeBlockSubprocessSerialization:
             return proc
 
         with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         # The subprocess should have received valid JSON on stdin
         assert "data" in captured_stdin, "Subprocess was never called"
@@ -109,7 +110,7 @@ class TestCodeBlockSubprocessSerialization:
             return proc
 
         with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         payload = json.loads(captured_stdin["data"])
         assert payload["results"]["step_a"] == "result A"
@@ -151,7 +152,7 @@ class TestCodeBlockSubprocessSerialization:
             return proc
 
         with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
-            await block.execute(state)
+            await execute_block_for_test(block, state)
 
         payload = json.loads(captured_stdin["data"])
         # Should be the plain output string, not the full BlockResult model

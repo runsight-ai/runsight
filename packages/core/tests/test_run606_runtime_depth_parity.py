@@ -30,6 +30,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import yaml as yaml_mod
+from conftest import execute_block_for_test
 from runsight_core import WorkflowBlock
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import validate_workflow_call_contracts
@@ -76,7 +77,11 @@ class TestDepthParityMaxDepth3:
             max_depth=3,
         )
 
-        result = await block.execute(WorkflowState(), call_stack=["parent", "child"])
+        result = await execute_block_for_test(
+            block,
+            WorkflowState(),
+            inputs={"call_stack": ["parent", "child"], "workflow_registry": None, "observer": None},
+        )
         assert isinstance(result, WorkflowState)
 
     def test_parse_time_allows_grandchild_at_max_depth_3(self, tmp_path) -> None:
@@ -219,7 +224,11 @@ class TestDepthParityMaxDepth2:
             max_depth=2,
         )
 
-        result = await block.execute(WorkflowState(), call_stack=["parent"])
+        result = await execute_block_for_test(
+            block,
+            WorkflowState(),
+            inputs={"call_stack": ["parent"], "workflow_registry": None, "observer": None},
+        )
         assert isinstance(result, WorkflowState)
 
     def test_parse_time_allows_grandchild_at_max_depth_2(self, tmp_path) -> None:

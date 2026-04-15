@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import pytest
+from runsight_core.block_io import BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.state import BlockResult, WorkflowState
@@ -59,15 +60,8 @@ class OutputBlock(BaseBlock):
         super().__init__(block_id)
         self.output_text = output_text
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self.output_text),
-                }
-            }
-        )
+    async def execute(self, ctx):
+        return BlockOutput(output=self.output_text)
 
 
 class ExplicitExitBlock(BaseBlock):
@@ -78,17 +72,10 @@ class ExplicitExitBlock(BaseBlock):
         self.output_text = output_text
         self._exit_handle = exit_handle
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=self.output_text,
-                        exit_handle=self._exit_handle,
-                    ),
-                }
-            }
+    async def execute(self, ctx):
+        return BlockOutput(
+            output=self.output_text,
+            exit_handle=self._exit_handle,
         )
 
 
@@ -98,7 +85,8 @@ class RoundAwareOutputBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
         # LoopBlock stores round as "{loop_block_id}_round" in shared_memory
         round_num = 0
         for key, value in state.shared_memory.items():
@@ -110,14 +98,7 @@ class RoundAwareOutputBlock(BaseBlock):
             output = "Review result: APPROVED"
         else:
             output = "Review result: NEEDS_REVISION"
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=output),
-                }
-            }
-        )
+        return BlockOutput(output=output)
 
 
 # ---------------------------------------------------------------------------

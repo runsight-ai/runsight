@@ -16,6 +16,7 @@ The key architectural change:
 import json
 
 import pytest
+from conftest import block_output_from_state
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, Condition, ConditionGroup
 from runsight_core.state import BlockResult, WorkflowState
@@ -33,14 +34,16 @@ class MockBlock(BaseBlock):
         super().__init__(block_id)
         self._result = result
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self._result},
+                "results": {**state.results, self.block_id: BlockResult(output=self._result)},
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[Block {self.block_id}] Executed"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class MockJsonBlock(BaseBlock):
@@ -50,12 +53,14 @@ class MockJsonBlock(BaseBlock):
         super().__init__(block_id)
         self._result = json.dumps(result_dict)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: self._result},
+                "results": {**state.results, self.block_id: BlockResult(output=self._result)},
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 class MockCodeBlock(BaseBlock):
@@ -68,14 +73,19 @@ class MockCodeBlock(BaseBlock):
         super().__init__(block_id)
         self._output = output
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
+    async def execute(self, ctx):
+        state = ctx.state_snapshot
+        next_state = state.model_copy(
             update={
-                "results": {**state.results, self.block_id: json.dumps(self._output)},
+                "results": {
+                    **state.results,
+                    self.block_id: BlockResult(output=json.dumps(self._output)),
+                },
                 "execution_log": state.execution_log
                 + [{"role": "system", "content": f"[CodeBlock {self.block_id}] Executed"}],
             }
         )
+        return block_output_from_state(self.block_id, state, next_state)
 
 
 # ---------------------------------------------------------------------------
@@ -520,7 +530,7 @@ class TestFullWorkflowRunWithOutputConditions:
         assert "step_a" in final_state.results
         assert "step_approved" in final_state.results
         assert "step_rejected" not in final_state.results
-        assert final_state.results["step_approved"] == "approved_output"
+        assert final_state.results["step_approved"].output == "approved_output"
 
     @pytest.mark.asyncio
     async def test_full_workflow_run_default_route(self):
@@ -557,7 +567,7 @@ class TestFullWorkflowRunWithOutputConditions:
 
         assert "step_fallback" in final_state.results
         assert "step_ok" not in final_state.results
-        assert final_state.results["step_fallback"] == "fallback_output"
+        assert final_state.results["step_fallback"].output == "fallback_output"
 
 
 # ===== Output conditions on CodeBlock =====
@@ -609,7 +619,7 @@ class TestOutputConditionsOnCodeBlock:
 
         assert "step_success" in final_state.results
         assert "step_failure" not in final_state.results
-        assert final_state.results["step_success"] == "success_path"
+        assert final_state.results["step_success"].output == "success_path"
 
     @pytest.mark.asyncio
     async def test_output_conditions_on_code_block_failure_route(self):
@@ -653,7 +663,7 @@ class TestOutputConditionsOnCodeBlock:
 
         assert "step_failure" in final_state.results
         assert "step_success" not in final_state.results
-        assert final_state.results["step_failure"] == "failure_path"
+        assert final_state.results["step_failure"].output == "failure_path"
 
 
 # ===== Stale metadata overwrite test (MAJOR #1) =====

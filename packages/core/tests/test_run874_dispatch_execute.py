@@ -27,6 +27,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
@@ -186,7 +187,7 @@ class TestRunnerExecuteCalledNotExecuteTask:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert mock_runner.execute.called, "runner.execute() was never called"
         mock_runner.execute_task.assert_not_called()
@@ -210,7 +211,7 @@ class TestRunnerExecuteCalledNotExecuteTask:
         block = _make_dispatch_block("d1", branches, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert mock_runner.execute.called, "runner.execute() was never called in stateful path"
         mock_runner.execute_task.assert_not_called()
@@ -238,7 +239,7 @@ class TestRunnerExecuteReceivesStringArgs:
         branches = [_make_branch("exit_a", soul_alpha, "Do the thing")]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert len(captured_calls) == 1
         call = captured_calls[0]
@@ -261,7 +262,7 @@ class TestRunnerExecuteReceivesStringArgs:
         branches = [_make_branch("exit_a", soul_alpha, "Instruct")]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         context_val = captured_calls[0]["context"]
         assert context_val is None or isinstance(context_val, str), (
@@ -283,7 +284,7 @@ class TestRunnerExecuteReceivesStringArgs:
         block = _make_dispatch_block("d1", branches, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert len(captured_calls) == 1
         assert isinstance(captured_calls[0]["instruction"], str), (
@@ -316,7 +317,7 @@ class TestContextInheritanceViaSharedMemory:
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"context": "Shared context value"}}
         )
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert len(captured_calls) == 1
         assert captured_calls[0]["context"] == "Shared context value", (
@@ -337,7 +338,7 @@ class TestContextInheritanceViaSharedMemory:
         branches = [_make_branch("exit_a", soul_alpha, "Do it")]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()  # no shared_memory
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert captured_calls[0]["context"] is None, (
             f"Expected context=None when no shared_memory, got {captured_calls[0]['context']!r}"
@@ -358,7 +359,7 @@ class TestContextInheritanceViaSharedMemory:
         state = WorkflowState()
 
         # Must not raise
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
         assert "d1.exit_a" in new_state.results
 
 
@@ -389,7 +390,7 @@ class TestPerExitBranchInstructionsWork:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         assert captured["alpha"] == "Alpha instruction"
         assert captured["beta"] == "Beta instruction"
@@ -409,7 +410,7 @@ class TestPerExitBranchInstructionsWork:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert "d1.exit_a" in new_state.results
         assert "d1.exit_b" in new_state.results
@@ -433,7 +434,7 @@ class TestPerExitBranchInstructionsWork:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.results["d1.exit_a"].exit_handle == "exit_a"
         assert new_state.results["d1.exit_b"].exit_handle == "exit_b"
@@ -453,7 +454,7 @@ class TestPerExitBranchInstructionsWork:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert "d1" in new_state.results
         parsed = json.loads(new_state.results["d1"].output)
@@ -482,7 +483,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_dispatch_block("d1", branches, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         history_key = "d1_exit_a"
         assert history_key in new_state.conversation_histories, (
@@ -516,7 +517,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_dispatch_block("d1", branches, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         history = new_state.conversation_histories.get("d1_exit_a", [])
         assistant_msgs = [m for m in history if m.get("role") == "assistant"]
@@ -542,7 +543,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_dispatch_block("d1", branches, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        await block.execute(state)
+        await execute_block_for_test(block, state)
 
         # _build_prompt must not have been called at all (Task is deleted, strings are used directly)
         assert len(build_prompt_calls) == 0, (
@@ -576,7 +577,7 @@ class TestCostTokenAggregationAfterFix:
         ]
         block = _make_dispatch_block("d1", branches, mock_runner)
         state = WorkflowState(total_cost_usd=0.10, total_tokens=50)
-        new_state = await block.execute(state)
+        new_state = await execute_block_for_test(block, state)
 
         assert new_state.total_cost_usd == pytest.approx(0.18)
         assert new_state.total_tokens == 400

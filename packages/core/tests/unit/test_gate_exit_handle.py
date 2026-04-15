@@ -18,6 +18,7 @@ Tests cover:
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import execute_block_for_test
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult, RunsightTeamRunner
 from runsight_core.state import BlockResult, WorkflowState
@@ -73,7 +74,7 @@ class TestGateNeverRaisesOnFail:
         state = WorkflowState(results={"content": BlockResult(output="Draft text")})
 
         # Current code raises GateError — after RUN-268 this must return normally.
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert isinstance(result_state, WorkflowState)
 
@@ -85,7 +86,7 @@ class TestGateNeverRaisesOnFail:
         state = WorkflowState(results={"content": BlockResult(output="Some draft")})
 
         # Must not raise any exception
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
         assert result_state is not None
 
     @pytest.mark.asyncio
@@ -99,7 +100,7 @@ class TestGateNeverRaisesOnFail:
             total_tokens=500,
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.total_cost_usd == pytest.approx(1.03)
         assert result_state.total_tokens == 650
@@ -120,7 +121,7 @@ class TestGatePassExitHandle:
         block = _make_gate(block_id="gate_p1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Good content")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results["gate_p1"].exit_handle == "pass"
 
@@ -131,7 +132,7 @@ class TestGatePassExitHandle:
         block = _make_gate(block_id="gate_p2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Evaluated content")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         result = result_state.results["gate_p2"]
         assert result.output is not None
@@ -151,7 +152,7 @@ class TestGatePassExitHandle:
         )
         state = WorkflowState(results={"content": BlockResult(output=json.dumps(json_content))})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results["gate_p3"].exit_handle == "pass"
 
@@ -171,7 +172,7 @@ class TestGateFailExitHandle:
         block = _make_gate(block_id="gate_fl1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert result_state.results["gate_fl1"].exit_handle == "fail"
 
@@ -182,7 +183,7 @@ class TestGateFailExitHandle:
         block = _make_gate(block_id="gate_fl2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft text")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         result = result_state.results["gate_fl2"]
         assert "missing citations" in result.output
@@ -194,7 +195,7 @@ class TestGateFailExitHandle:
         block = _make_gate(block_id="gate_fl3", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Partial draft")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert "gate_fl3" in result_state.results
         assert isinstance(result_state.results["gate_fl3"], BlockResult)
@@ -235,7 +236,7 @@ class TestNoMetadataWrites:
         block = _make_gate(block_id="gate_m1", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Good")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert "gate_m1_decision" not in result_state.metadata
 
@@ -246,7 +247,7 @@ class TestNoMetadataWrites:
         block = _make_gate(block_id="gate_m2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         assert "gate_m2_decision" not in result_state.metadata
 
@@ -260,7 +261,7 @@ class TestNoMetadataWrites:
             metadata={"existing_key": "value"},
         )
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         # No new *_decision keys should appear
         decision_keys = [k for k in result_state.metadata if k.endswith("_decision")]
@@ -282,7 +283,7 @@ class TestGateStandaloneWithConditionalTransitions:
         block = _make_gate(block_id="standalone_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         exit_handle = result_state.results["standalone_gate"].exit_handle
         # Simulates conditional_transition lookup: {"pass": "next_block", "fail": "error_block"}
@@ -297,7 +298,7 @@ class TestGateStandaloneWithConditionalTransitions:
         block = _make_gate(block_id="standalone_gate2", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
 
         exit_handle = result_state.results["standalone_gate2"].exit_handle
         transitions = {"pass": "next_block", "fail": "error_block"}
@@ -312,7 +313,7 @@ class TestGateStandaloneWithConditionalTransitions:
         state = WorkflowState(results={"content": BlockResult(output="Some text")})
 
         # Must not raise — standalone gate returns state on both pass and fail
-        result_state = await block.execute(state)
+        result_state = await execute_block_for_test(block, state)
         assert isinstance(result_state, WorkflowState)
         assert result_state.results["solo_gate"].exit_handle in ("pass", "fail")
 

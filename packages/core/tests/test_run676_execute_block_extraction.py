@@ -6,12 +6,13 @@ import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from runsight_core.block_io import BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.primitives import Soul
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import BlockExecutionContext, Workflow
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RetryConfig
@@ -39,8 +40,8 @@ class RetryProbeBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state
+    async def execute(self, ctx):
+        return BlockOutput(output="ok")
 
 
 def _require_execute_block():
@@ -89,15 +90,12 @@ class TestExecuteBlockDispatch:
         observer = RecordingObserver()
         block = _make_linear_block()
         initial_state = WorkflowState()
-        final_state = initial_state.model_copy(
-            update={"results": {block.block_id: BlockResult(output="linear ok")}}
-        )
-        block.execute = AsyncMock(return_value=final_state)
+        block.execute = AsyncMock(return_value=BlockOutput(output="linear ok"))
         ctx = _make_ctx(observer=observer)
 
         result = await execute_block(block, initial_state, ctx)
 
-        assert result is final_state
+        assert result.results[block.block_id].output == "linear ok"
         # execute is now called with a BlockContext (new API), not raw WorkflowState.
         block.execute.assert_awaited_once()
         from runsight_core.block_io import BlockContext
@@ -121,10 +119,7 @@ class TestExecuteBlockDispatch:
             outputs={},
         )
         initial_state = WorkflowState()
-        final_state = initial_state.model_copy(
-            update={"results": {block.block_id: BlockResult(output="workflow ok")}}
-        )
-        block.execute = AsyncMock(return_value=final_state)
+        block.execute = AsyncMock(return_value=BlockOutput(output="workflow ok"))
         ctx = _make_ctx(
             workflow_name="parent_workflow",
             call_stack=["grandparent_workflow"],
@@ -134,7 +129,7 @@ class TestExecuteBlockDispatch:
 
         result = await execute_block(block, initial_state, ctx)
 
-        assert result is final_state
+        assert result.results[block.block_id].output == "workflow ok"
         block.execute.assert_awaited_once()
         # execute is now called with BlockContext (new API); workflow extras in ctx.inputs.
         from runsight_core.block_io import BlockContext
@@ -160,10 +155,7 @@ class TestExecuteBlockDispatch:
         leaf = RetryProbeBlock("leaf_block")
         blocks = {block.block_id: block, leaf.block_id: leaf}
         initial_state = WorkflowState()
-        final_state = initial_state.model_copy(
-            update={"results": {block.block_id: BlockResult(output="loop ok")}}
-        )
-        block.execute = AsyncMock(return_value=final_state)
+        block.execute = AsyncMock(return_value=BlockOutput(output="loop ok"))
         ctx = _make_ctx(
             workflow_name="parent_workflow",
             blocks=blocks,
@@ -174,7 +166,7 @@ class TestExecuteBlockDispatch:
 
         result = await execute_block(block, initial_state, ctx)
 
-        assert result is final_state
+        assert result.results[block.block_id].output == "loop ok"
         block.execute.assert_awaited_once()
         # execute is now called with BlockContext (new API); workflow extras in ctx.inputs.
         from runsight_core.block_io import BlockContext
@@ -195,14 +187,11 @@ class TestRetryHelpers:
         block = _make_linear_block("retrying_linear_block")
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
         initial_state = WorkflowState()
-        final_state = initial_state.model_copy(
-            update={"results": {block.block_id: BlockResult(output="eventual success")}}
-        )
         block.execute = AsyncMock(
             side_effect=[
                 RuntimeError("fail attempt 1"),
                 RuntimeError("fail attempt 2"),
-                final_state,
+                BlockOutput(output="eventual success"),
             ]
         )
         ctx = _make_ctx(observer=observer)
@@ -210,7 +199,7 @@ class TestRetryHelpers:
         with patch("asyncio.sleep", new_callable=AsyncMock) as sleep_mock:
             result = await execute_block(block, initial_state, ctx)
 
-        assert result is final_state
+        assert result.results[block.block_id].output == "eventual success"
         assert block.execute.await_count == 3
         assert [event[0] for event in observer.events] == ["start", "complete"]
         assert sleep_mock.await_count == 2
@@ -238,15 +227,12 @@ class TestExecuteBlockErrors:
         execute_block = _require_execute_block()
         block = _make_linear_block("headless_linear_block")
         initial_state = WorkflowState()
-        final_state = initial_state.model_copy(
-            update={"results": {block.block_id: BlockResult(output="headless success")}}
-        )
-        block.execute = AsyncMock(return_value=final_state)
+        block.execute = AsyncMock(return_value=BlockOutput(output="headless success"))
         ctx = _make_ctx(observer=None)
 
         result = await execute_block(block, initial_state, ctx)
 
-        assert result is final_state
+        assert result.results[block.block_id].output == "headless success"
         # execute is called with BlockContext (new API), not raw WorkflowState.
         block.execute.assert_awaited_once()
         from runsight_core.block_io import BlockContext

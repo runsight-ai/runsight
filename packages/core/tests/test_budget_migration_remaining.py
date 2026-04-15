@@ -22,6 +22,7 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from conftest import execute_loop_for_test
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.loop import CarryContextConfig, LoopBlock
 from runsight_core.memory.budget import (
@@ -140,7 +141,8 @@ class TestLoopCarryContextBudgetIntegration:
 
         initial_state = WorkflowState()
 
-        final_state = await loop_block.execute(
+        final_state = await execute_loop_for_test(
+            loop_block,
             initial_state,
             blocks={"inner_writer": inner_block},
         )
@@ -189,7 +191,8 @@ class TestLoopCarryContextBudgetIntegration:
 
         initial_state = WorkflowState()
 
-        final_state = await loop_block.execute(
+        final_state = await execute_loop_for_test(
+            loop_block,
             initial_state,
             blocks={"inner_writer": inner_block},
         )
@@ -260,7 +263,8 @@ class TestLoopCarryContextBudgetIntegration:
 
             mock_fit.side_effect = _tracking_fit
 
-            await loop_block.execute(
+            await execute_loop_for_test(
+                loop_block,
                 initial_state,
                 blocks={"inner_writer": inner_block},
             )
@@ -324,7 +328,8 @@ class TestLoopCarryContextBudgetIntegration:
                 return_value=500,
             ),
         ):
-            await loop_block.execute(
+            await execute_loop_for_test(
+                loop_block,
                 initial_state,
                 blocks={"inner_writer": inner_block},
             )

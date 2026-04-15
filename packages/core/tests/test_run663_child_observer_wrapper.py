@@ -20,8 +20,10 @@ These tests MUST fail against the current implementation because:
 from __future__ import annotations
 
 import pytest
+from conftest import execute_block_for_test
+from runsight_core.block_io import BlockOutput
 from runsight_core.blocks.workflow_block import WorkflowBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -72,15 +74,8 @@ class _EchoBlock:
         self.retry_config = None
         self.stateful = False
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output="echo"),
-                },
-            }
-        )
+    async def execute(self, ctx):
+        return BlockOutput(output="echo")
 
 
 class _FailingBlock:
@@ -193,7 +188,11 @@ class TestWorkflowBlockUsesChildObserver:
         )
 
         parent_state = WorkflowState()
-        await wb.execute(parent_state, observer=parent_obs)
+        await execute_block_for_test(
+            wb,
+            parent_state,
+            inputs={"call_stack": [], "workflow_registry": None, "observer": parent_obs},
+        )
 
         # The child workflow completes successfully — its observer fires
         # on_workflow_complete. But if a ChildObserverWrapper is used, the
@@ -232,7 +231,11 @@ class TestWorkflowBlockUsesChildObserver:
         )
 
         parent_state = WorkflowState()
-        await parent_wb.execute(parent_state, observer=parent_obs)
+        await execute_block_for_test(
+            parent_wb,
+            parent_state,
+            inputs={"call_stack": [], "workflow_registry": None, "observer": parent_obs},
+        )
 
         # Parent observer must NOT have received on_workflow_complete from
         # either child or grandchild.
