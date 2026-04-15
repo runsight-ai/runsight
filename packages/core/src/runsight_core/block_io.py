@@ -258,11 +258,15 @@ def build_block_context(
     # LoopBlock strategy: detect inner_block_refs attribute
     inner_block_refs = getattr(block, "inner_block_refs", None)
     if inner_block_refs is not None:
+        loop_inputs = _resolve_declared_inputs(step, state)
+        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
+        if not loop_inputs and resolved_inputs:
+            loop_inputs = dict(resolved_inputs)
         return BlockContext(
             block_id=block.block_id,
             instruction="loop",
             context=None,
-            inputs={},
+            inputs=loop_inputs,
             conversation_history=[],
             soul=None,
             model_name=None,

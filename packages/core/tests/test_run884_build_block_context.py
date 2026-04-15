@@ -462,7 +462,7 @@ class TestFitToBudgetIntegration:
         call_args = mock_fit.call_args
         request = call_args[0][0]
         # No workflow result in state, so context defaults to ""
-        assert request.context == "" or request.context is None
+        assert request.context == ""
 
     def test_fit_to_budget_receives_conversation_history(self):
         """fit_to_budget is called with conversation history keyed by block_id_soul_id."""
@@ -620,4 +620,4 @@ class TestEdgeCases:
         call_args = mock_fit.call_args
         request = call_args[0][0]
         # Should be "" not None — mirrors LinearBlock.execute behaviour
-        assert request.context == "" or request.context is None
+        assert request.context == ""

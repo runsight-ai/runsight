@@ -139,6 +139,35 @@ class Step:
         # is passed. No side-effects on shared_memory from Step.execute.
 
         ctx = build_block_context(self.block, state, step=self)
+        execution_context = kwargs.get("execution_context")
+        if execution_context is not None:
+            from runsight_core.blocks.loop import LoopBlock
+            from runsight_core.blocks.workflow_block import WorkflowBlock
+            from runsight_core.workflow import BlockExecutionContext
+
+            if isinstance(execution_context, BlockExecutionContext):
+                if isinstance(self.block, LoopBlock):
+                    ctx = ctx.model_copy(
+                        update={
+                            "inputs": {
+                                **ctx.inputs,
+                                "blocks": execution_context.blocks,
+                                "ctx": execution_context,
+                            }
+                        }
+                    )
+                elif isinstance(self.block, WorkflowBlock):
+                    ctx = ctx.model_copy(
+                        update={
+                            "inputs": {
+                                **ctx.inputs,
+                                "call_stack": execution_context.call_stack
+                                + [execution_context.workflow_name],
+                                "workflow_registry": execution_context.workflow_registry,
+                                "observer": execution_context.observer,
+                            }
+                        }
+                    )
         output = await self.block.execute(ctx)
         state = apply_block_output(state, self.block.block_id, output)
 
