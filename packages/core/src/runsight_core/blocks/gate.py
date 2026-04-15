@@ -17,13 +17,6 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.runner import RunsightTeamRunner
 
-_GATE_INSTRUCTION = (
-    "Evaluate the following content and decide if it meets quality standards.\n"
-    "Respond with EXACTLY one of:\n"
-    "PASS - if the content meets quality standards\n"
-    "FAIL: <detailed reason> - if the content needs improvement"
-)
-
 
 class GateBlock(BaseBlock):
     """

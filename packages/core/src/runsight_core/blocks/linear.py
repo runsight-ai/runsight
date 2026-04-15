@@ -33,16 +33,10 @@ class LinearBlock(BaseBlock):
         """Execute block with BlockContext, return BlockOutput."""
         soul = ctx.soul or self.soul
 
-        # Use _resolved_inputs from shared_memory if available (RUN-866 data source).
-        # When _resolved_inputs is empty, instruction is "" — not ctx.instruction (which
-        # carries system_prompt for budget-trimming purposes and must not reach the LLM
-        # as the user-turn instruction).
-        _resolved_inputs = (
-            ctx.state_snapshot.shared_memory.get("_resolved_inputs", {})
-            if ctx.state_snapshot is not None
-            else {}
-        )
-        instruction = json.dumps(_resolved_inputs) if _resolved_inputs else ""
+        # ctx.inputs contains declared inputs resolved by build_block_context (RUN-892).
+        # When inputs are present, serialize them as the user-turn instruction.
+        # When empty, instruction is "" — the soul's system_prompt IS the instruction.
+        instruction = json.dumps(ctx.inputs) if ctx.inputs else ""
 
         if self.stateful:
             history_key = f"{self.block_id}_{soul.id}"

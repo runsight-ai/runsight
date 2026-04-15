@@ -79,7 +79,11 @@ class LoopBlock(BaseBlock):
         bec = ctx.inputs.get("ctx")
         # Capture all parent inputs to forward to inner blocks (preserves kwargs like
         # call_stack, workflow_registry, observer for old-style block compatibility).
-        parent_inputs: Dict[str, Any] = dict(ctx.inputs)
+        # Exclude loop-internal keys that must not be forwarded to inner blocks.
+        _LOOP_INTERNAL_KEYS = {"blocks", "ctx"}
+        parent_inputs: Dict[str, Any] = {
+            k: v for k, v in ctx.inputs.items() if k not in _LOOP_INTERNAL_KEYS
+        }
 
         initial_state = ctx.state_snapshot
 

@@ -129,7 +129,6 @@ class Step:
             Exception: Propagates any exception from hooks or block.
         """
         from runsight_core.block_io import apply_block_output, build_block_context
-        from runsight_core.state import WorkflowState as _WorkflowState  # for isinstance check
 
         # Phase 1: Pre-hook (optional)
         if self.pre_hook is not None:
@@ -140,18 +139,7 @@ class Step:
         # is passed. No side-effects on shared_memory from Step.execute.
 
         ctx = build_block_context(self.block, state, step=self)
-        try:
-            output = await self.block.execute(ctx)
-        except AttributeError as exc:
-            # Backward compat: non-BaseBlock old-style blocks access WorkflowState
-            # attributes on the BlockContext. Fall back to direct state dispatch.
-            if "'BlockContext' object has no attribute" in str(exc):
-                output = await self.block.execute(state)
-            else:
-                raise
-        # Backward compat: old-style blocks may return WorkflowState directly.
-        if isinstance(output, _WorkflowState):
-            return output
+        output = await self.block.execute(ctx)
         state = apply_block_output(state, self.block.block_id, output)
 
         # Phase 3: Post-hook (optional)

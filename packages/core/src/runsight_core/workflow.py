@@ -142,9 +142,6 @@ async def execute_block(
                 }
             )
             wf_output = await blk.execute(wf_block_ctx)
-            # Backward compat: old-style blocks / mocks may return WorkflowState.
-            if isinstance(wf_output, WorkflowState):
-                return wf_output
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
             loop_ctx = build_block_context(blk, current_state)
@@ -157,32 +154,11 @@ async def execute_block(
                 }
             )
             loop_output = await blk.execute(loop_ctx)
-            # Backward compat: old-style blocks / mocks may return WorkflowState.
-            if isinstance(loop_output, WorkflowState):
-                return loop_output
             return apply_block_output(current_state, blk.block_id, loop_output)
         # All other blocks: build BlockContext and dispatch via new signature
-        from runsight_core.block_io import BlockContext  # avoid circular at module level
 
         block_ctx = build_block_context(blk, current_state, step=None)
-        try:
-            output = await blk.execute(block_ctx)
-        except AttributeError as exc:
-            # Backward compat: non-BaseBlock old-style blocks access WorkflowState
-            # attributes on the BlockContext. Fall back to direct state dispatch.
-            if "'BlockContext' object has no attribute" in str(exc):
-                output = await blk.execute(current_state)
-            else:
-                raise
-        # Backward compat: old-style blocks may return WorkflowState directly.
-        if isinstance(output, WorkflowState):
-            return output
-        # Backward compat: non-BaseBlock blocks (e.g. fake/test doubles) that receive
-        # a BlockContext and return it unchanged — treat as no-op, pass current_state through.
-        if isinstance(output, BlockContext):
-            output = await blk.execute(current_state)
-            if isinstance(output, WorkflowState):
-                return output
+        output = await blk.execute(block_ctx)
         return apply_block_output(current_state, blk.block_id, output)
 
     # Block-level budget session swap

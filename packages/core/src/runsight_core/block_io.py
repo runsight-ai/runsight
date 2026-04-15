@@ -52,7 +52,6 @@ class BlockOutput(BaseModel):
     shared_memory_updates: Optional[Dict[str, Any]] = None
     extra_results: Optional[Dict[str, Any]] = None
     metadata_updates: Optional[Dict[str, Any]] = None
-    current_task_context: Optional[str] = None
 
 
 def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput) -> WorkflowState:
@@ -105,13 +104,6 @@ def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput)
         "conversation_histories": new_conversation_histories,
         "metadata": new_metadata,
     }
-    # Propagate carry_context from loop blocks into shared_memory _resolved_inputs.
-    if output.current_task_context is not None:
-        existing_resolved = dict(new_shared_memory.get("_resolved_inputs", {}))
-        existing_resolved["context"] = output.current_task_context
-        new_shared_memory["_resolved_inputs"] = existing_resolved
-        state_updates["shared_memory"] = new_shared_memory
-
     return state.model_copy(update=state_updates)
 
 
@@ -326,11 +318,20 @@ def build_block_context(
             "Identify common themes, resolve conflicts, and provide a comprehensive summary."
         )
         synth_soul: Optional[Soul] = getattr(block, "synthesizer_soul", soul)
+        # Resolve each input_block_id into inputs as named entries (unified YAML inputs contract)
+        resolved_inputs = {
+            bid: (
+                state.results[bid].output
+                if isinstance(state.results[bid], BlockResult)
+                else str(state.results[bid])
+            )
+            for bid in input_block_ids
+        }
         return BlockContext(
             block_id=block.block_id,
             instruction=synthesis_instruction,
             context=combined_outputs,
-            inputs={},
+            inputs=resolved_inputs,
             conversation_history=[],
             soul=synth_soul,
             model_name=model_name,
@@ -348,11 +349,12 @@ def build_block_context(
             )
         raw = state.results[eval_key]
         content = raw.output if isinstance(raw, BlockResult) else str(raw)
+        # Resolve eval_key content into inputs as "content" (unified YAML inputs contract)
         return BlockContext(
             block_id=block.block_id,
             instruction=_GATE_INSTRUCTION,
             context=content,
-            inputs={},
+            inputs={"content": content},
             conversation_history=[],
             soul=soul,
             model_name=model_name,
@@ -376,6 +378,11 @@ def build_block_context(
 
     # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
     resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
+
+    # Merge _resolved_inputs into ctx.inputs when no Step declared_inputs were resolved.
+    # This bridges RUN-866's shared_memory["_resolved_inputs"] with RUN-867's ctx.inputs.
+    if not inputs and resolved_inputs:
+        inputs = dict(resolved_inputs)
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
     # The actual instruction to the LLM is re-derived in LinearBlock.execute from
