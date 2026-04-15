@@ -34,15 +34,12 @@ async def execute_block_for_test(block, state, *, inputs=None, step=None):
     adapter in tests lets production code stay on execute(ctx) -> BlockOutput.
     """
     from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
-    from runsight_core.state import WorkflowState
 
     ctx = build_block_context(block, state, step=step)
     if inputs:
         ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **inputs}})
 
     output = await block.execute(ctx)
-    if isinstance(output, WorkflowState):
-        return output
     if not isinstance(output, BlockOutput):
         raise TypeError(
             f"{type(block).__name__}.execute returned {type(output).__name__}; expected BlockOutput"

@@ -130,7 +130,7 @@ async def execute_block(
 
         # Step wrapper: delegates to Step.execute which handles hooks + block dispatch
         if isinstance(blk, StepType):
-            return await blk.execute(current_state)
+            return await blk.execute(current_state, execution_context=ctx)
         if isinstance(blk, WorkflowBlock):
             wf_block_ctx = build_block_context(blk, current_state)
             wf_block_ctx = wf_block_ctx.model_copy(

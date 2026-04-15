@@ -743,6 +743,46 @@ class TestLoopBlockWorkflowIntegration:
         result_state = await wf.run(state)
         assert "inner_block" in result_state.results
 
+    @pytest.mark.asyncio
+    async def test_step_wrapped_loop_receives_workflow_infra_and_declared_inputs(self):
+        """A Step-wrapped LoopBlock must keep declared inputs and workflow runtime infra."""
+        from runsight_core import LoopBlock
+        from runsight_core.primitives import Step
+        from runsight_core.state import BlockResult
+
+        class CapturingLoopBlock(LoopBlock):
+            def __init__(self):
+                super().__init__(
+                    block_id="loop_block",
+                    inner_block_refs=["inner_block"],
+                    max_rounds=1,
+                )
+                self.received_inputs = None
+
+            async def execute(self, ctx):
+                self.received_inputs = dict(ctx.inputs)
+                return await super().execute(ctx)
+
+        inner = TrackingBlock("inner_block")
+        loop = CapturingLoopBlock()
+        step = Step(block=loop, declared_inputs={"data": "source"})
+
+        wf = Workflow(name="step_wrapped_loop_wf")
+        wf.add_block(inner)
+        wf.add_block(step)
+        wf.add_transition("loop_block", None)
+        wf.set_entry("loop_block")
+
+        state = WorkflowState(results={"source": BlockResult(output="declared value")})
+        result_state = await wf.run(state)
+
+        assert loop.received_inputs is not None
+        assert loop.received_inputs["data"] == "declared value"
+        assert "blocks" in loop.received_inputs
+        assert "ctx" in loop.received_inputs
+        calls = result_state.shared_memory.get("inner_block_calls", [])
+        assert len(calls) == 1
+
 
 # ===========================================================================
 # 5. Integration tests — writer + critic pattern
