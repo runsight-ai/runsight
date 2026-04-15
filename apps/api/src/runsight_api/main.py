@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 
 from .core.config import ensure_project_dirs
 from .core.config import settings as app_settings
-from .core.di import container, engine
+from .core.di import engine
 from .core.logging import configure_logging
 from .core.secrets import SecretsEnvLoader
 from .data.filesystem.provider_repo import FileSystemProviderRepo
@@ -37,7 +37,6 @@ from .transport.routers import (
     settings,
     souls,
     sse_stream,
-    steps,
     tools,
     workflows,
 )
@@ -149,9 +148,6 @@ def create_app() -> FastAPI:
     configure_logging(app_settings.log_level, app_settings.log_format)
     app = FastAPI(title="Runsight API", lifespan=lifespan)
 
-    # DI Setup
-    container.setup_app_state(app)
-
     # CORS
     app.add_middleware(
         CORSMiddleware,
@@ -171,7 +167,6 @@ def create_app() -> FastAPI:
     app.include_router(runs.router, prefix="/api")
     app.include_router(workflows.router, prefix="/api")
     app.include_router(souls.router, prefix="/api")
-    app.include_router(steps.router, prefix="/api")
     app.include_router(settings.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(git.router, prefix="/api")

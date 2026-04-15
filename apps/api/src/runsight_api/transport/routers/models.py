@@ -3,36 +3,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
 
 from ...logic.services.model_service import ModelService
 from ..deps import get_model_service
+from ..schemas.models import ModelListResponse, ModelResponse, ProviderSummary
 
-router = APIRouter(tags=["models"])
-
-
-# ---------------------------------------------------------------------------
-# Response schemas
-# ---------------------------------------------------------------------------
-
-
-class ModelResponse(BaseModel):
-    provider: str
-    provider_name: str
-    model_id: str
-    mode: str
-    max_tokens: int | None = None
-    input_cost_per_token: float | None = None
-    output_cost_per_token: float | None = None
-    supports_vision: bool = False
-    supports_function_calling: bool = False
-
-
-class ProviderSummary(BaseModel):
-    id: str
-    name: str
-    model_count: int
-    is_configured: bool = False
+router = APIRouter(prefix="/models", tags=["Models"])
 
 
 # ---------------------------------------------------------------------------
@@ -40,15 +16,15 @@ class ProviderSummary(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/models", response_model=list[ModelResponse])
-def list_models(
+@router.get("", response_model=ModelListResponse)
+async def list_models(
     provider: str | None = Query(None),
     mode: str | None = Query(None),
     supports_vision: bool | None = Query(None),
     supports_function_calling: bool | None = Query(None),
     all: bool = Query(False),  # noqa: A002
     service: ModelService = Depends(get_model_service),
-) -> list[ModelResponse]:
+) -> ModelListResponse:
     models = service.get_available_models(
         provider=provider,
         mode=mode,
@@ -56,7 +32,7 @@ def list_models(
         supports_function_calling=supports_function_calling,
         all_providers=all,
     )
-    result = []
+    items = []
     for m in models:
         max_tokens = m.max_tokens
         if max_tokens is not None and not isinstance(max_tokens, int):
@@ -64,7 +40,7 @@ def list_models(
                 max_tokens = int(max_tokens)
             except (ValueError, TypeError):
                 max_tokens = None
-        result.append(
+        items.append(
             ModelResponse(
                 provider=m.provider,
                 provider_name=m.provider.capitalize(),
@@ -77,11 +53,11 @@ def list_models(
                 supports_function_calling=m.supports_function_calling,
             )
         )
-    return result
+    return ModelListResponse(items=items, total=len(items))
 
 
-@router.get("/models/providers", response_model=list[ProviderSummary])
-def list_providers(
+@router.get("/providers", response_model=list[ProviderSummary])
+async def list_providers(
     service: ModelService = Depends(get_model_service),
 ) -> list[ProviderSummary]:
     summaries = service.get_provider_summary()

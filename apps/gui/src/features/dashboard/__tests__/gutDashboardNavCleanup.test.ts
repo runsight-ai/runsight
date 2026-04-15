@@ -181,8 +181,10 @@ describe("New Workflow button wiring (AC6)", () => {
 
   it("imports useCreateWorkflow or calls POST /api/workflows", () => {
     source = readSource(DASHBOARD_PATH);
+    // Also check the extracted hook if the logic was decomposed
+    const hookSource = readSource("features/dashboard/useNewWorkflow.ts");
     // Should use either the mutation hook or a direct API call
-    const usesHook = /useCreateWorkflow/.test(source);
+    const usesHook = /useCreateWorkflow/.test(source) || /useCreateWorkflow/.test(hookSource);
     const usesApi = /workflowsApi\.createWorkflow|api\.post.*\/workflows/.test(source);
     expect(
       usesHook || usesApi,
@@ -197,9 +199,11 @@ describe("New Workflow button wiring (AC6)", () => {
 
   it("navigates to /workflows/:id/edit after creation", () => {
     source = readSource(DASHBOARD_PATH);
+    // Also check the extracted hook if the logic was decomposed
+    const hookSource = readSource("features/dashboard/useNewWorkflow.ts");
     // Should navigate to the edit route for the created workflow
     // Patterns like: navigate(`/workflows/${id}/edit`) or navigate(`/workflows/${result.id}/edit`)
-    expect(source).toMatch(/\/workflows\/.*\/edit/);
+    expect(source + hookSource).toMatch(/\/workflows\/.*\/edit/);
   });
 
   it("does NOT use NewWorkflowModal (button directly creates and navigates)", () => {

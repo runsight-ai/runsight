@@ -36,7 +36,8 @@ export const workflowsApi = {
   },
 
   setWorkflowEnabled: async (id: string, enabled: boolean): Promise<WorkflowResponse> => {
-    return api.patch(`/workflows/${id}/enabled`, { enabled });
+    const res = await api.patch(`/workflows/${id}/enabled`, { enabled });
+    return WorkflowResponseSchema.parse(res);
   },
 
   deleteWorkflow: async (id: string): Promise<{ id: string; deleted: boolean }> => {

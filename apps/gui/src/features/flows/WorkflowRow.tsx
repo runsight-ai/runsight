@@ -19,6 +19,7 @@ import {
   shouldShowWarningBadge,
   WARNING_BADGE_CLASSES,
 } from "../workflows/warningBadge.utils";
+import { formatCommit, getTimeAgo } from "@/utils/formatting";
 
 interface WorkflowRowProps {
   workflow: WorkflowResponse;
@@ -28,35 +29,6 @@ interface WorkflowRowProps {
 
 function formatPlural(value: number, singular: string, plural = `${singular}s`) {
   return `${value} ${value === 1 ? singular : plural}`;
-}
-
-function formatCommit(commitSha: string | null | undefined) {
-  return commitSha ? commitSha.slice(0, 7) : "uncommitted";
-}
-
-function formatRelativeTime(timestamp: number | null | undefined) {
-  if (!timestamp) {
-    return "Unknown update";
-  }
-
-  const secondsAgo = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
-
-  if (secondsAgo < 60) {
-    return "Just now";
-  }
-
-  const minutesAgo = Math.floor(secondsAgo / 60);
-  if (minutesAgo < 60) {
-    return `${minutesAgo}m ago`;
-  }
-
-  const hoursAgo = Math.floor(minutesAgo / 60);
-  if (hoursAgo < 24) {
-    return `${hoursAgo}h ago`;
-  }
-
-  const daysAgo = Math.floor(hoursAgo / 24);
-  return `${daysAgo}d ago`;
 }
 
 function getEvalLabel(workflow: WorkflowRowProps["workflow"]) {
@@ -222,7 +194,7 @@ export function Component({ workflow, onDelete, onToggleEnabled }: WorkflowRowPr
             {formatPlural(workflow.block_count ?? 0, "block")}
           </span>
           <span className="font-mono text-muted">{formatCommit(workflow.commit_sha)}</span>
-          <span className="text-muted">{formatRelativeTime(workflow.modified_at)}</span>
+          <span className="text-muted">{workflow.modified_at ? getTimeAgo(new Date(workflow.modified_at * 1000).toISOString()) : "Unknown update"}</span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary">
           <span>{formatPlural(runCount, "run")}</span>

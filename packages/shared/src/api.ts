@@ -67,7 +67,8 @@ export interface paths {
         get: operations["get_run_api_runs__run_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Run */
+        delete: operations["delete_run_api_runs__run_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -317,43 +318,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/steps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Steps */
-        get: operations["list_steps_api_steps_get"];
-        put?: never;
-        /** Create Step */
-        post: operations["create_step_api_steps_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/steps/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Step */
-        get: operations["get_step_api_steps__id__get"];
-        /** Update Step */
-        put: operations["update_step_api_steps__id__put"];
-        post?: never;
-        /** Delete Step */
-        delete: operations["delete_step_api_steps__id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/settings/providers": {
         parameters: {
             query?: never;
@@ -452,23 +416,6 @@ export interface paths {
         get?: never;
         /** Update Fallback Target */
         put: operations["update_fallback_target_api_settings_fallbacks__provider_id__put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/settings/budgets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Budgets */
-        get: operations["list_budgets_api_settings_budgets_get"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -875,6 +822,13 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ModelListResponse */
+        ModelListResponse: {
+            /** Items */
+            items: components["schemas"]["ModelResponse"][];
+            /** Total */
+            total: number;
+        };
         /** ModelResponse */
         ModelResponse: {
             /** Provider */
@@ -1182,28 +1136,6 @@ export interface components {
              */
             depth: number;
         };
-        /** SettingsBudgetListResponse */
-        SettingsBudgetListResponse: {
-            /** Items */
-            items: components["schemas"]["SettingsBudgetResponse"][];
-            /** Total */
-            total: number;
-        };
-        /** SettingsBudgetResponse */
-        SettingsBudgetResponse: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Limit Usd */
-            limit_usd: number;
-            /** Spent Usd */
-            spent_usd: number;
-            /** Period */
-            period: string;
-            /** Reset At */
-            reset_at?: string | null;
-        };
         /** SettingsFallbackListResponse */
         SettingsFallbackListResponse: {
             /** Items */
@@ -1439,49 +1371,6 @@ export interface components {
             /** Is Clean */
             is_clean: boolean;
         };
-        /** StepCreate */
-        StepCreate: {
-            /** Id */
-            id?: string | null;
-            /** Name */
-            name: string;
-            /**
-             * Type
-             * @default step
-             */
-            type: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** StepListResponse */
-        StepListResponse: {
-            /** Items */
-            items: components["schemas"]["StepResponse"][];
-            /** Total */
-            total: number;
-        };
-        /** StepResponse */
-        StepResponse: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Type */
-            type: string;
-            /** Path */
-            path: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** StepUpdate */
-        StepUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Type */
-            type?: string | null;
-            /** Description */
-            description?: string | null;
-        };
         /** ToolListItemResponse */
         ToolListItemResponse: {
             /** Id */
@@ -1694,7 +1583,7 @@ export interface components {
             canvas_state?: components["schemas"]["WorkflowCanvasState"] | null;
         };
         /** LogResponse */
-        runsight_api__transport__routers__git__LogResponse: {
+        runsight_api__transport__schemas__git__LogResponse: {
             /** Commits */
             commits: components["schemas"]["CommitEntry"][];
         };
@@ -1871,6 +1760,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_run_api_runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2539,169 +2459,6 @@ export interface operations {
             };
         };
     };
-    list_steps_api_steps_get: {
-        parameters: {
-            query?: {
-                q?: string | null;
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StepListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_step_api_steps_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StepCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StepResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_step_api_steps__id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StepResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_step_api_steps__id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StepUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StepResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_step_api_steps__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_providers_api_settings_providers_get: {
         parameters: {
             query?: never;
@@ -2971,26 +2728,6 @@ export interface operations {
             };
         };
     };
-    list_budgets_api_settings_budgets_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsBudgetListResponse"];
-                };
-            };
-        };
-    };
     get_app_settings_api_settings_app_get: {
         parameters: {
             query?: never;
@@ -3183,7 +2920,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["runsight_api__transport__routers__git__LogResponse"];
+                    "application/json": components["schemas"]["runsight_api__transport__schemas__git__LogResponse"];
                 };
             };
         };
@@ -3274,7 +3011,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ModelResponse"][];
+                    "application/json": components["schemas"]["ModelListResponse"];
                 };
             };
             /** @description Validation Error */

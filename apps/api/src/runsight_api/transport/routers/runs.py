@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import RunFailed, ServiceUnavailable
+from ...domain.errors import RunFailed, RunNotFound, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -359,6 +359,16 @@ async def cancel_run(
     return {"id": run.id, "status": run.status}
 
 
+@router.delete("/{run_id}")
+async def delete_run(run_id: str, run_service: RunService = Depends(get_run_service)):
+    from ...domain.errors import RunNotFound
+
+    deleted_id = run_service.delete_run(run_id)
+    if deleted_id is None:
+        raise RunNotFound(f"Run {run_id} not found")
+    return {"id": deleted_id, "deleted": True}
+
+
 @router.get("/{run_id}/logs", response_model=PaginatedLogsResponse)
 async def get_run_logs(
     run_id: str,
@@ -378,9 +388,7 @@ async def get_run_regressions(
 ):
     result = eval_service.get_run_regressions(run_id)
     if result is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+        raise RunNotFound(f"Run {run_id} not found")
     return result
 
 

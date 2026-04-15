@@ -65,15 +65,6 @@ class SoulEntity(BaseModel):
         return value
 
 
-class StepEntity(BaseModel):
-    id: str
-    name: Optional[str] = None
-    type: str = "step"
-    path: Optional[str] = None
-    description: Optional[str] = None
-    model_config = ConfigDict(extra="forbid")
-
-
 class ProviderEntity(BaseModel):
     kind: Literal["provider"]
     id: str

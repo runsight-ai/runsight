@@ -34,6 +34,7 @@ beforeEach(() => {
 });
 
 const workflowResponsePayload = {
+  kind: "workflow",
   id: "wf_toggle_test",
   name: "Toggle Test",
   enabled: true,
@@ -103,15 +104,16 @@ describe("RUN-566 setWorkflowEnabled uses PATCH endpoint", () => {
     ).toBe(false);
   });
 
-  it("does not reference parse() or stringify() in setWorkflowEnabled", () => {
+  it("does not reference yaml parse() or stringify() in setWorkflowEnabled", () => {
     const setWorkflowEnabledPattern =
       /setWorkflowEnabled\s*[:=]\s*async[\s\S]*?(?=\n\s{2}\w|\n\};)/;
     const match = workflowsSource.match(setWorkflowEnabledPattern);
     const methodBody = match?.[0] ?? "";
 
+    // Must not import or call yaml.parse / yaml.stringify (YAML rewrite is the old approach)
     expect(
-      /\bparse\s*\(/.test(methodBody),
-      "setWorkflowEnabled should not call parse() — YAML rewrite is the old approach",
+      /\byaml\s*\.\s*parse\s*\(/.test(methodBody),
+      "setWorkflowEnabled should not call yaml.parse() — YAML rewrite is the old approach",
     ).toBe(false);
     expect(
       /\bstringify\s*\(/.test(methodBody),

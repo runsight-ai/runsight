@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -38,8 +38,18 @@ const SKELETON_PATH = resolve(
   "skeleton.tsx",
 );
 
+const DASHBOARD_COMPONENTS_DIR = resolve(SRC_DIR, "features/dashboard/components");
+
 function readSource(relativePath: string): string {
-  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+  const main = readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
+  if (relativePath.includes("DashboardOrOnboarding")) {
+    try {
+      const subFiles = readdirSync(DASHBOARD_COMPONENTS_DIR).filter((f) => f.endsWith(".tsx"));
+      const subSource = subFiles.map((f) => readFileSync(resolve(DASHBOARD_COMPONENTS_DIR, f), "utf-8")).join("\n");
+      return main + "\n" + subSource;
+    } catch { /* components dir may not exist in older states */ }
+  }
+  return main;
 }
 
 const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
