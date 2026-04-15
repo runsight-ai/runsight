@@ -135,7 +135,18 @@ async def execute_block(
 
     async def _dispatch(blk: BaseBlock, current_state: WorkflowState) -> WorkflowState:
         if isinstance(blk, WorkflowBlock):
-            return await blk.execute(current_state, **kwargs_for_context)
+            wf_block_ctx = build_block_context(blk, current_state)
+            wf_block_ctx = wf_block_ctx.model_copy(
+                update={
+                    "inputs": {
+                        "call_stack": ctx.call_stack + [ctx.workflow_name],
+                        "workflow_registry": ctx.workflow_registry,
+                        "observer": observer,
+                    }
+                }
+            )
+            wf_output = await blk.execute(wf_block_ctx)
+            return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
             loop_kwargs = dict(kwargs_for_context)
             loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})

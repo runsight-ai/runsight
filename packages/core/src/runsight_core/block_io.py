@@ -176,6 +176,26 @@ def build_block_context(
     if not model_name and runner is not None:
         model_name = getattr(runner, "model_name", None)
 
+    # WorkflowBlock strategy: detect child_workflow attribute
+    child_workflow = getattr(block, "child_workflow", None)
+    if child_workflow is not None:
+        return BlockContext(
+            block_id=block.block_id,
+            instruction=(
+                state.current_task.instruction if state.current_task is not None else "invoke child"
+            ),
+            context=None,
+            inputs={
+                "call_stack": [],
+                "workflow_registry": None,
+                "observer": None,
+            },
+            conversation_history=[],
+            soul=None,
+            model_name=None,
+            state_snapshot=state,
+        )
+
     # LoopBlock strategy: detect inner_block_refs attribute
     inner_block_refs = getattr(block, "inner_block_refs", None)
     if inner_block_refs is not None:
