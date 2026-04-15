@@ -18,6 +18,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
+# Two YAML libraries are used intentionally:
+#   - pyyaml (yaml_mod): fast, simple, used for read-only parsing (safe_load).
+#   - ruamel.yaml (YAML): used for round-trip writes (patch_yaml_field, update)
+#     because it preserves user comments and original formatting — pyyaml strips
+#     both on serialisation.
 import yaml as yaml_mod
 from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
