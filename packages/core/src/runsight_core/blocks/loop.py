@@ -97,16 +97,24 @@ class LoopBlock(BaseBlock):
             carry_history,
         ) = await self._run_loop_returning_state(initial_state, blocks, bec)
 
-        # Build shared_memory_updates from what THIS loop explicitly wrote — not a full diff.
-        # This prevents inner loop side-effects from bleeding into outer loop's updates.
+        # Compute full diff: all keys that are new or changed compared to initial state.
+        # This preserves inner block mutations (e.g. custom blocks writing arbitrary keys)
+        # while still being a diff (unchanged keys from outer scope are excluded).
+        initial_sm = initial_state.shared_memory
+        final_sm = final_state.shared_memory
         shared_memory_updates: Dict[str, Any] = {
-            f"{self.block_id}_round": rounds_completed,
-            f"__loop__{self.block_id}": final_state.shared_memory[f"__loop__{self.block_id}"],
+            k: v for k, v in final_sm.items() if k not in initial_sm or initial_sm[k] != v
         }
-        if self.carry_context is not None and self.carry_context.enabled:
-            inject_key = self.carry_context.inject_as
-            if inject_key in final_state.shared_memory:
-                shared_memory_updates[inject_key] = final_state.shared_memory[inject_key]
+
+        # Exclude keys owned by child LoopBlocks — their round counters, meta keys, and
+        # carry_context inject_as keys belong to the child's own BlockOutput, not ours.
+        for ref in self.inner_block_refs:
+            child = blocks.get(ref)
+            if isinstance(child, LoopBlock):
+                shared_memory_updates.pop(f"{child.block_id}_round", None)
+                shared_memory_updates.pop(f"__loop__{child.block_id}", None)
+                if child.carry_context is not None and child.carry_context.enabled:
+                    shared_memory_updates.pop(child.carry_context.inject_as, None)
 
         # Extra results: inner block results that appeared/changed (excluding this loop's own key)
         initial_results = dict(initial_state.results)
