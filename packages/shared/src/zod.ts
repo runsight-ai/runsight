@@ -213,7 +213,7 @@ export const RunCreateSchema = z.object({
   inputs: z.record(z.string(), z.unknown()).optional(),
   source: z.string().nullable().optional().default("manual"),
   branch: z.string().optional().default("main"),
-});
+}).strict();
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
 export const RunEvalResponseSchema = z.object({
