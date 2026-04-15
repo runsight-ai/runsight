@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock, WorkflowBlockDef
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -24,6 +25,16 @@ from runsight_core.yaml.schema import (
     WorkflowInterfaceInputDef,
     WorkflowInterfaceOutputDef,
 )
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers — minimal fake blocks for integration testing
@@ -209,7 +220,7 @@ class TestInterfaceBoundExecutionEndToEnd:
             shared_memory={"parent_topic": "test"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # The WorkflowBlock's own result IS present
         assert "invoke_child" in result_state.results
@@ -251,7 +262,7 @@ class TestOnErrorCatchContinuesParentRouting:
         )
 
         # Execute directly — must NOT raise
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results.get("invoke_child")
         assert br is not None
@@ -283,7 +294,7 @@ class TestOnErrorCatchContinuesParentRouting:
             shared_memory={"parent_topic": "test"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # Output mapping must NOT have run — "analysis" must not exist
         assert "analysis" not in result_state.results
@@ -313,7 +324,7 @@ class TestOnErrorCatchContinuesParentRouting:
         )
 
         with pytest.raises(RuntimeError, match="propagate me"):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
 
 @pytest.mark.asyncio
@@ -344,7 +355,7 @@ class TestCostAndTokensPropagateFromChildToParent:
             total_tokens=3000,
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # Parent accumulates child costs
         assert result_state.total_cost_usd == pytest.approx(0.15, abs=1e-6)
@@ -378,7 +389,7 @@ class TestCostAndTokensPropagateFromChildToParent:
             shared_memory={"parent_topic": "test"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # Check execution log has an entry about the child
         log_contents = [entry["content"] for entry in result_state.execution_log]
@@ -456,7 +467,7 @@ class TestMissingRequiredChildInputRejected:
         parent_state = WorkflowState(shared_memory={})
 
         with pytest.raises(KeyError, match="nonexistent"):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
     async def test_unbound_interface_input_with_no_default_at_validation(self) -> None:
         """When _validate_workflow_block_contract is used (via the parser),
@@ -522,7 +533,7 @@ class TestInvalidOutputSourceRaisesAtRuntime:
         )
 
         with pytest.raises((KeyError, ValueError)):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
 
 @pytest.mark.asyncio
@@ -631,7 +642,7 @@ class TestNestedChildOfChildExecution:
             total_tokens=0,
         )
 
-        result_state = await parent_wb.execute(parent_state)
+        result_state = await _exec(parent_wb, parent_state)
 
         # Grandchild cost should propagate up to parent
         assert result_state.total_cost_usd == pytest.approx(0.02, abs=1e-6)
@@ -682,7 +693,7 @@ class TestNestedChildOfChildExecution:
         # The grandchild's max_depth=1 should be exceeded when called
         # from within child_wf (call_stack will have parent + child = len 2)
         with pytest.raises(RecursionError, match="depth"):
-            await parent_wb.execute(parent_state, call_stack=[])
+            await _exec(parent_wb, parent_state, call_stack=[])
 
 
 @pytest.mark.asyncio
@@ -732,7 +743,7 @@ class TestNestedChildFailureUnderCatch:
         )
 
         # Should NOT raise — grandchild failure is caught by child
-        result_state = await parent_wb.execute(parent_state)
+        result_state = await _exec(parent_wb, parent_state)
 
         # Parent sees child as completed (child caught the error internally)
         parent_br = result_state.results["invoke_child"]
@@ -763,10 +774,10 @@ class TestRepeatedInvocationIsolation:
         )
 
         state_a = WorkflowState(shared_memory={"parent_topic": "alpha"})
-        result_a = await wb.execute(state_a)
+        result_a = await _exec(wb, state_a)
 
         state_b = WorkflowState(shared_memory={"parent_topic": "beta"})
-        result_b = await wb.execute(state_b)
+        result_b = await _exec(wb, state_b)
 
         analysis_a = result_a.results.get("analysis")
         analysis_b = result_b.results.get("analysis")

@@ -13,12 +13,22 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import TypeAdapter
 from runsight_core import LinearBlock, WorkflowBlock
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
 
 
 class TestParserIntegration:
@@ -165,7 +175,7 @@ class TestBlockKwargsCompatibility:
         state = WorkflowState()
 
         # Execute with default signature
-        result = await block.execute(state)
+        result = await _exec(block, state)
         assert isinstance(result, WorkflowState)
 
     @pytest.mark.asyncio
@@ -187,7 +197,7 @@ class TestBlockKwargsCompatibility:
         registry = WorkflowRegistry()
 
         # Should accept call_stack and workflow_registry kwargs without error
-        result = await block.execute(state, call_stack=["parent"], workflow_registry=registry)
+        result = await _exec(block, state, call_stack=["parent"], workflow_registry=registry)
         assert isinstance(result, WorkflowState)
         assert "test_workflow" in result.results
 
@@ -272,7 +282,7 @@ transitions:
         )
 
         # Execute
-        result = await block.execute(parent_state)
+        result = await _exec(block, parent_state)
 
         # Verify child received isolated state
         call_args = child_wf.run.call_args
@@ -312,7 +322,7 @@ transitions:
             total_tokens=100,
         )
 
-        result = await block.execute(parent_state)
+        result = await _exec(block, parent_state)
 
         # Costs should be summed
         assert result.total_cost_usd == pytest.approx(0.35)  # 0.10 + 0.25
@@ -337,7 +347,7 @@ transitions:
 
         # Call with child already in stack (cycle)
         with pytest.raises(RecursionError) as exc_info:
-            await block.execute(state, call_stack=["parent", "recursive_wf"])
+            await _exec(block, state, call_stack=["parent", "recursive_wf"])
 
         error_msg = str(exc_info.value)
         assert "cycle detected" in error_msg.lower()
@@ -362,7 +372,7 @@ transitions:
 
         # Call with stack at max depth
         with pytest.raises(RecursionError) as exc_info:
-            await block.execute(state, call_stack=["a", "b", "c"])
+            await _exec(block, state, call_stack=["a", "b", "c"])
 
         error_msg = str(exc_info.value)
         assert "maximum depth" in error_msg.lower() or "max_depth" in error_msg
@@ -386,7 +396,7 @@ transitions:
         registry = WorkflowRegistry()
 
         # Execute with registry
-        await block.execute(parent_state, workflow_registry=registry)
+        await _exec(block, parent_state, workflow_registry=registry)
 
         # Verify registry was passed to child
         call_kwargs = child_wf.run.call_args.kwargs
@@ -411,7 +421,7 @@ transitions:
         parent_state = WorkflowState()
 
         # Execute with initial call_stack
-        await block.execute(parent_state, call_stack=["parent_wf"])
+        await _exec(block, parent_state, call_stack=["parent_wf"])
 
         # Verify extended call_stack was passed
         call_kwargs = child_wf.run.call_args.kwargs
@@ -491,7 +501,7 @@ transitions:
         state = WorkflowState()
 
         # Execute without explicit call_stack (should default to empty list)
-        await block.execute(state)
+        await _exec(block, state)
 
         # Verify default empty list was used
         call_kwargs = child_wf.run.call_args.kwargs
@@ -533,7 +543,7 @@ transitions:
 
         parent_state = WorkflowState(total_cost_usd=0.05, total_tokens=50)
 
-        result = await parent_block.execute(parent_state, call_stack=[])
+        result = await _exec(parent_block, parent_state, call_stack=[])
 
         # Verify state and costs are properly aggregated
         assert result.results["final"] == BlockResult(output="outer_output")

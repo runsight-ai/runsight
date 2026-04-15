@@ -18,9 +18,10 @@ from typing import Any, Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import LoopBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
 
@@ -37,16 +38,9 @@ class ResultBlock(BaseBlock):
         self.output = output
         self.calls = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self.output),
-                },
-            }
-        )
+        return BlockOutput(output=self.output)
 
 
 class ExitHandleBlock(BaseBlock):
@@ -58,16 +52,9 @@ class ExitHandleBlock(BaseBlock):
         self._output = output
         self.calls = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._output, exit_handle=self._exit_handle),
-                },
-            }
-        )
+        return BlockOutput(output=self._output, exit_handle=self._exit_handle)
 
 
 class FlakyBlock(BaseBlock):
@@ -77,18 +64,11 @@ class FlakyBlock(BaseBlock):
         super().__init__(block_id)
         self.calls = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
         if self.calls % 2 == 1:
             raise RuntimeError("flaky!")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output="recovered"),
-                },
-            }
-        )
+        return BlockOutput(output="recovered")
 
 
 class RecordingObserver:
@@ -457,7 +437,7 @@ class TestRetryInNestedLoop:
                 super().__init__(block_id)
                 self.calls = 0
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 self.calls += 1
                 raise RuntimeError("always fails")
 

@@ -20,10 +20,10 @@ import inspect
 import json
 import textwrap
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -43,11 +43,11 @@ class _RecordingBlock(BaseBlock):
         super().__init__(block_id)
         self.received_states: list[WorkflowState] = []
 
-    async def execute(self, state: WorkflowState, **kwargs: Any) -> WorkflowState:
-        self.received_states.append(state)
-        return state.model_copy(
-            update={"results": {**state.results, self.block_id: BlockResult(output="ok")}}
-        )
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        # Record the state snapshot so tests can inspect state.results["workflow"]
+        if ctx.state_snapshot is not None:
+            self.received_states.append(ctx.state_snapshot)
+        return BlockOutput(output="ok")
 
 
 def _make_single_block_workflow(block: BaseBlock) -> Workflow:
@@ -269,7 +269,7 @@ class TestDeclaredInputsResolvesWorkflowField:
         Step with declared_inputs={"x": "workflow.name"} resolves "name" from
         the seeded workflow BlockResult.
         """
-        from runsight_core.block_io import BlockContext, BlockOutput
+        from runsight_core.block_io import BlockOutput
         from runsight_core.primitives import Step
 
         captured_inputs: list[dict] = []
@@ -306,7 +306,7 @@ class TestDeclaredInputsResolvesWorkflowField:
         does not contain "nonexistent" — must not crash (field missing in JSON).
         The resolved value can be None or absent, but must not raise.
         """
-        from runsight_core.block_io import BlockContext, BlockOutput
+        from runsight_core.block_io import BlockOutput
         from runsight_core.primitives import Step
 
         class _NoOpBlock(BaseBlock):
@@ -330,7 +330,7 @@ class TestDeclaredInputsResolvesWorkflowField:
         Step with declared_inputs={"all": "workflow"} (no field path) resolves
         to the full JSON string of the inputs dict.
         """
-        from runsight_core.block_io import BlockContext, BlockOutput
+        from runsight_core.block_io import BlockOutput
         from runsight_core.primitives import Step
 
         captured_inputs: list[dict] = []

@@ -21,6 +21,7 @@ implementation because:
 from __future__ import annotations
 
 import pytest
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
@@ -29,6 +30,16 @@ from runsight_core.yaml.schema import (
     WorkflowInterfaceInputDef,
     WorkflowInterfaceOutputDef,
 )
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -149,7 +160,7 @@ class TestInterfaceBoundExecution:
             shared_memory={"parent_topic": "climate change"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # The child should have received the value at shared_memory.topic
         # (the interface target), NOT at "topic" (the raw interface name).
@@ -185,7 +196,7 @@ class TestInterfaceBoundExecution:
             shared_memory={"parent_topic": "climate"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         # Parent must see the child's results.writer value at results.analysis
         analysis = result_state.results.get("analysis")
@@ -217,7 +228,7 @@ class TestInterfaceBoundExecution:
             results={"prepare_input": BlockResult(output="climate change")},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         analysis = result_state.results.get("analysis")
         assert analysis is not None
@@ -252,7 +263,7 @@ class TestInterfaceBoundExecution:
             shared_memory={"parent_topic": "testing"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results.get("invoke_child")
         assert br is not None, "WorkflowBlock must store its own BlockResult"
@@ -295,7 +306,7 @@ class TestInterfaceBoundExecution:
             shared_memory={"parent_topic": "test"},
         )
 
-        result_state = await wb.execute(parent_state)
+        result_state = await _exec(wb, parent_state)
 
         br = result_state.results.get("invoke_child")
         assert br is not None
@@ -329,7 +340,7 @@ class TestInterfaceBoundExecution:
         )
 
         with pytest.raises((KeyError, ValueError)):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
     async def test_workflow_block_repeated_invocation(self) -> None:
         """
@@ -355,11 +366,11 @@ class TestInterfaceBoundExecution:
 
         # First invocation
         state_a = WorkflowState(shared_memory={"parent_topic": "alpha"})
-        result_a = await wb.execute(state_a)
+        result_a = await _exec(wb, state_a)
 
         # Second invocation with different data
         state_b = WorkflowState(shared_memory={"parent_topic": "beta"})
-        result_b = await wb.execute(state_b)
+        result_b = await _exec(wb, state_b)
 
         # Each invocation must reflect its own input — no leakage
         analysis_a = result_a.results.get("analysis")
@@ -394,7 +405,7 @@ class TestInterfaceBoundExecution:
         )
 
         with pytest.raises((KeyError, ValueError)):
-            await wb.execute(parent_state)
+            await _exec(wb, parent_state)
 
     async def test_workflow_block_rejects_dotted_path_input_bindings(self) -> None:
         """

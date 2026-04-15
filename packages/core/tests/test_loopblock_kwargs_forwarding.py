@@ -17,6 +17,12 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
+from runsight_core.block_io import (
+    BlockContext,
+    BlockOutput,
+    apply_block_output,
+    build_block_context,
+)
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
@@ -24,33 +30,41 @@ from runsight_core.workflow import Workflow
 # ── Test helpers ─────────────────────────────────────────────────────────────
 
 
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
+
 class KwargsSpyBlock(BaseBlock):
-    """Block that captures the kwargs it receives in execute().
+    """Block that captures the inputs it receives in execute().
 
     Stores them on the instance AND in shared_memory so tests can inspect
     what was actually forwarded by the caller (LoopBlock).
+    Now captures ctx.inputs (the new API) instead of **kwargs.
     """
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
         self.captured_kwargs: List[Dict[str, Any]] = []
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        self.captured_kwargs.append(dict(kwargs))
-        # Also persist into shared_memory for inspection via state
-        all_captures = list(state.shared_memory.get(f"{self.block_id}_kwargs_log", []))
-        all_captures.append(sorted(kwargs.keys()))
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: f"call_{len(self.captured_kwargs)}",
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_kwargs_log": all_captures,
-                },
-            }
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        # Capture ctx.inputs (replaces old **kwargs)
+        inputs_snapshot = dict(ctx.inputs)
+        self.captured_kwargs.append(inputs_snapshot)
+        call_num = len(self.captured_kwargs)
+        # Persist into shared_memory_updates for inspection via state
+        state = ctx.state_snapshot
+        all_captures = list(
+            (state.shared_memory.get(f"{self.block_id}_kwargs_log", []) if state else [])
+        )
+        all_captures.append(sorted(inputs_snapshot.keys()))
+        return BlockOutput(
+            output=f"call_{call_num}",
+            shared_memory_updates={f"{self.block_id}_kwargs_log": all_captures},
         )
 
 
@@ -60,14 +74,13 @@ class SimplePassthroughBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        state = ctx.state_snapshot
+        calls = list((state.shared_memory.get(f"{self.block_id}_calls", []) if state else []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"call_{len(calls)}"},
-                "shared_memory": {**state.shared_memory, f"{self.block_id}_calls": calls},
-            }
+        return BlockOutput(
+            output=f"call_{len(calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -93,7 +106,7 @@ class TestLoopBlockForwardsKwargs:
         blocks = {"spy_block": spy, "loop_block": loop}
 
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks)
+        await _exec(loop, state, blocks=blocks)
 
         assert len(spy.captured_kwargs) == 1
         assert "blocks" in spy.captured_kwargs[0], (
@@ -115,7 +128,7 @@ class TestLoopBlockForwardsKwargs:
 
         state = WorkflowState()
         call_stack = ["parent_workflow"]
-        await loop.execute(state, blocks=blocks, call_stack=call_stack)
+        await _exec(loop, state, blocks=blocks, call_stack=call_stack)
 
         assert len(spy.captured_kwargs) == 1
         assert "call_stack" in spy.captured_kwargs[0], (
@@ -138,7 +151,7 @@ class TestLoopBlockForwardsKwargs:
 
         mock_registry = MagicMock()
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks, workflow_registry=mock_registry)
+        await _exec(loop, state, blocks=blocks, workflow_registry=mock_registry)
 
         assert len(spy.captured_kwargs) == 1
         assert "workflow_registry" in spy.captured_kwargs[0], (
@@ -161,7 +174,7 @@ class TestLoopBlockForwardsKwargs:
 
         mock_observer = MagicMock()
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks, observer=mock_observer)
+        await _exec(loop, state, blocks=blocks, observer=mock_observer)
 
         assert len(spy.captured_kwargs) == 1
         assert "observer" in spy.captured_kwargs[0], (
@@ -187,7 +200,8 @@ class TestLoopBlockForwardsKwargs:
         call_stack = ["wf_root"]
 
         state = WorkflowState()
-        await loop.execute(
+        await _exec(
+            loop,
             state,
             blocks=blocks,
             call_stack=call_stack,
@@ -217,7 +231,7 @@ class TestLoopBlockForwardsKwargs:
 
         mock_observer = MagicMock()
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks, observer=mock_observer)
+        await _exec(loop, state, blocks=blocks, observer=mock_observer)
 
         # spy should be called 3 times (once per round), each time with kwargs
         assert len(spy.captured_kwargs) == 3
@@ -263,7 +277,7 @@ class TestNestedLoopBlockKwargs:
         state = WorkflowState()
         # Without kwargs forwarding, inner_loop.execute(state) has no blocks dict
         # and raises ValueError: inner block ref 'leaf_block' not found
-        result_state = await outer_loop.execute(state, blocks=blocks)
+        result_state = await _exec(outer_loop, state, blocks=blocks)
 
         # leaf should have executed 2 (inner rounds) x 2 (outer rounds) = 4 times
         leaf_calls = result_state.shared_memory.get("leaf_block_calls", [])
@@ -303,7 +317,7 @@ class TestNestedLoopBlockKwargs:
         }
 
         state = WorkflowState()
-        result_state = await outer_loop.execute(state, blocks=blocks)
+        result_state = await _exec(outer_loop, state, blocks=blocks)
 
         # leaf: 2 (inner) x 2 (middle) x 2 (outer) = 8 executions
         leaf_calls = result_state.shared_memory.get("leaf_block_calls", [])
@@ -470,7 +484,7 @@ class TestObserverForwardingInsideLoop:
 
         mock_observer = MagicMock()
         state = WorkflowState()
-        await loop.execute(state, blocks=blocks, observer=mock_observer)
+        await _exec(loop, state, blocks=blocks, observer=mock_observer)
 
         # Verify observer was forwarded in both rounds
         assert len(spy.captured_kwargs) == 2
@@ -502,7 +516,7 @@ class TestLoopBlockSimpleRegression:
         blocks = {"inner_block": inner, "loop_block": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec(loop, state, blocks=blocks)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 3
@@ -546,7 +560,7 @@ class TestLoopBlockSimpleRegression:
         blocks = {"block_a": block_a, "block_b": block_b, "loop_block": loop}
 
         state = WorkflowState()
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _exec(loop, state, blocks=blocks)
 
         assert len(result_state.shared_memory.get("block_a_calls", [])) == 2
         assert len(result_state.shared_memory.get("block_b_calls", [])) == 2

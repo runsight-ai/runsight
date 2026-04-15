@@ -36,9 +36,20 @@ from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
+
+
+async def _exec(block, state, **extra_inputs):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ==============================================================================
 # NoCoercionWorkflowState — rejects raw strings in results
@@ -141,7 +152,7 @@ class TestLinearBlockEmitsBlockResult:
         state = _make_state()
 
         # This will raise TypeError if the block writes a raw string
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["linear1"], BlockResult)
         assert result_state.results["linear1"].output == "mock LLM output"
@@ -183,7 +194,7 @@ class TestDispatchBlockEmitsBlockResult:
         block = DispatchBlock("dispatch1", branches, mock_runner)
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["dispatch1"], BlockResult)
 
@@ -212,7 +223,7 @@ class TestSynthesizeBlockEmitsBlockResult:
         # Seed with an already-valid BlockResult for the input block
         state = _make_state(results={"input_a": BlockResult(output="previous block output")})
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["synth1"], BlockResult)
         assert result_state.results["synth1"].output == "synthesized content"
@@ -234,22 +245,15 @@ class TestLoopBlockEmitsBlockResult:
 
         # Create a minimal inner block that writes a BlockResult (compliant)
         class PassthroughBlock(BaseBlock):
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: BlockResult(output="inner done"),
-                        }
-                    }
-                )
+            async def execute(self, ctx) -> BlockOutput:
+                return BlockOutput(output="inner done")
 
         inner = PassthroughBlock("inner1")
         loop = LoopBlock("loop1", inner_block_refs=["inner1"], max_rounds=1)
 
         state = _make_state()
 
-        result_state = await loop.execute(state, blocks={"inner1": inner})
+        result_state = await _exec(loop, state, blocks={"inner1": inner})
 
         assert isinstance(result_state.results["loop1"], BlockResult)
 
@@ -283,7 +287,7 @@ class TestWorkflowBlockEmitsBlockResult:
 
         state = _make_state()
 
-        result_state = await block.execute(state, call_stack=[])
+        result_state = await _exec(block, state, call_stack=[])
 
         assert isinstance(result_state.results["wf_block1"], BlockResult)
 
@@ -314,7 +318,7 @@ class TestGateBlockEmitsBlockResult:
 
         state = _make_state(results={"input_block": BlockResult(output="content to evaluate")})
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["gate1"], BlockResult)
 
@@ -338,7 +342,7 @@ class TestGateBlockEmitsBlockResult:
 
         state = _make_state(results={"input_block": BlockResult(output=json_content)})
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["gate2"], BlockResult)
 
@@ -361,7 +365,7 @@ class TestCodeBlockErrorEmitsBlockResult:
 
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["code_err"], BlockResult)
         # The output should contain the error message
@@ -404,7 +408,7 @@ class TestCodeBlockNonJsonEmitsBlockResult:
 
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         # The result should be a BlockResult regardless of path taken
         assert isinstance(result_state.results["code_nonjson"], BlockResult)
@@ -428,7 +432,7 @@ class TestCodeBlockSuccessEmitsBlockResult:
 
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["code_ok"], BlockResult)
 
@@ -442,7 +446,7 @@ class TestCodeBlockSuccessEmitsBlockResult:
 
         state = _make_state()
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
 
         assert isinstance(result_state.results["code_str"], BlockResult)
         assert result_state.results["code_str"].output == "hello world"
@@ -483,8 +487,8 @@ class TestNoRawStringsInResultsAfterExecution:
         )
 
         state = _make_state()
-        state = await linear.execute(state)
-        state = await dispatch.execute(state)
+        state = await _exec(linear, state)
+        state = await _exec(dispatch, state)
 
         for block_id, result in state.results.items():
             assert isinstance(result, BlockResult), (

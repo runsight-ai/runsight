@@ -12,6 +12,7 @@ import pytest
 from runsight_core import (
     LoopBlock,
 )
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
@@ -26,17 +27,13 @@ class TrackingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        state = ctx.state_snapshot
         calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
         calls.append(len(calls) + 1)
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"call_{len(calls)}"},
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return BlockOutput(
+            output=f"call_{len(calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": calls},
         )
 
 
@@ -46,15 +43,14 @@ class WriterBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        state = ctx.state_snapshot
         drafts = list(state.shared_memory.get("drafts", []))
         round_num = state.shared_memory.get("loop_block_round", 0)
         drafts.append(f"draft_round_{round_num}")
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"draft_round_{round_num}"},
-                "shared_memory": {**state.shared_memory, "drafts": drafts},
-            }
+        return BlockOutput(
+            output=f"draft_round_{round_num}",
+            shared_memory_updates={"drafts": drafts},
         )
 
 
@@ -64,18 +60,14 @@ class CriticBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        state = ctx.state_snapshot
         feedback = list(state.shared_memory.get("feedback", []))
         round_num = state.shared_memory.get("loop_block_round", 0)
         feedback.append(f"feedback_round_{round_num}")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: f"feedback_round_{round_num}",
-                },
-                "shared_memory": {**state.shared_memory, "feedback": feedback},
-            }
+        return BlockOutput(
+            output=f"feedback_round_{round_num}",
+            shared_memory_updates={"feedback": feedback},
         )
 
 
@@ -88,18 +80,11 @@ class FailNTimesThenSucceed(BaseBlock):
         self._error_cls = error_cls
         self._call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self._call_count += 1
         if self._call_count <= self._fail_count:
             raise self._error_cls(f"fail #{self._call_count}")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: f"ok on attempt {self._call_count}",
-                }
-            }
-        )
+        return BlockOutput(output=f"ok on attempt {self._call_count}")
 
 
 # ===========================================================================
@@ -212,7 +197,7 @@ class TestLoopBlockWithRetryConfig:
         assert retry_meta["total_retries"] == 1
         assert sleep_mock.await_count == 1
         assert inner._call_count == 3
-        assert final_state.results["inner_block"] == "ok on attempt 3"
+        assert final_state.results["inner_block"].output == "ok on attempt 3"
         assert final_state.results["loop_block"].output == "completed_2_rounds"
 
     @pytest.mark.asyncio
@@ -235,18 +220,11 @@ class TestLoopBlockWithRetryConfig:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
                 FailOnFirstLoopAttempt.attempt_count += 1
                 if FailOnFirstLoopAttempt.attempt_count <= 1:
                     raise RuntimeError("transient error")
-                return state.model_copy(
-                    update={
-                        "results": {
-                            **state.results,
-                            self.block_id: f"ok_attempt_{FailOnFirstLoopAttempt.attempt_count}",
-                        }
-                    }
-                )
+                return BlockOutput(output=f"ok_attempt_{FailOnFirstLoopAttempt.attempt_count}")
 
         # Reset class-level counter
         FailOnFirstLoopAttempt.attempt_count = 0
@@ -296,12 +274,12 @@ class TestLoopBlockStateFlowBetweenRounds:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-                previous = state.results.get(self.block_id, "")
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                state = ctx.state_snapshot
+                previous_result = state.results.get(self.block_id)
+                previous = previous_result.output if previous_result is not None else ""
                 new_output = f"{previous}|round_{state.shared_memory.get('loop_block_round', 0)}"
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: new_output}}
-                )
+                return BlockOutput(output=new_output)
 
         accum = AccumulatingBlock("accum_block")
         loop = LoopBlock(
@@ -319,7 +297,9 @@ class TestLoopBlockStateFlowBetweenRounds:
         final_state = await wf.run(WorkflowState())
 
         # The accumulating block should have built up output across rounds
-        accum_result = final_state.results.get("accum_block", "")
+        accum_block_result = final_state.results.get("accum_block")
+        assert accum_block_result is not None
+        accum_result = accum_block_result.output
         assert "|round_1" in accum_result
         assert "|round_2" in accum_result
         assert "|round_3" in accum_result

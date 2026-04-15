@@ -20,9 +20,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from runsight_core import LinearBlock
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
+
+
+async def _exec(block, state):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -91,7 +100,7 @@ async def test_stateful_first_invocation_stores_user_and_assistant(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history_key = "analyze_soul_a"
     assert history_key in new_state.conversation_histories
@@ -118,7 +127,7 @@ async def test_stateful_first_invocation_user_message_contains_instruction(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
     assert isinstance(history[0]["content"], str)
@@ -147,7 +156,7 @@ async def test_stateful_first_invocation_with_resolved_inputs(
         }
     )
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
     assert isinstance(history[0]["content"], str)
@@ -185,7 +194,7 @@ async def test_stateful_continuation_passes_existing_history_to_runner(
         conversation_histories={"analyze_soul_a": prior_history},
     )
 
-    await block.execute(state)
+    await _exec(block, state)
 
     # runner.execute must have been called with messages= containing prior history
     call_kwargs = mock_runner.execute.call_args
@@ -224,7 +233,7 @@ async def test_stateful_continuation_appends_new_pair_to_history(
         conversation_histories={"analyze_soul_a": prior_history},
     )
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
     # At minimum 4 messages (prior 2 + new 2); windowing may reduce but
@@ -253,7 +262,7 @@ async def test_stateful_history_key_format(mock_runner, sample_soul):
     block = _make_stateful_block("my_block", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     assert "my_block_soul_a" in new_state.conversation_histories
     # No other keys should have been created
@@ -286,7 +295,7 @@ async def test_stateful_windowing_is_called(
         "runsight_core.memory.windowing.prune_messages",
         side_effect=lambda msgs, max_tok, model: msgs,
     ) as mock_prune:
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
     # The implementation must call prune_messages at least once
     assert mock_prune.call_count >= 1 or (
@@ -322,7 +331,7 @@ async def test_stateful_windowing_prunes_oldest_pairs(
         conversation_histories={"analyze_soul_a": prior_history},
     )
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history = new_state.conversation_histories["analyze_soul_a"]
     # With 10 prior pairs + 1 new pair = 22 messages, windowing should prune.
@@ -358,7 +367,7 @@ async def test_stateful_windowing_uses_soul_model_name(
         "runsight_core.memory.windowing.get_max_tokens",
         return_value=16000,
     ) as mock_get_max:
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
     # Verify get_max_tokens was called with the soul's model
     if mock_get_max.called:
@@ -389,7 +398,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
         "runsight_core.memory.windowing.get_max_tokens",
         return_value=8000,
     ) as mock_get_max:
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
     if mock_get_max.called:
         mock_get_max.assert_called_with("gpt-4o")
@@ -418,7 +427,7 @@ async def test_non_stateful_block_no_history_entries(
     assert block.stateful is False  # default
 
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     assert new_state.conversation_histories == {}
 
@@ -447,7 +456,7 @@ async def test_non_stateful_block_preserves_other_histories(
         shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}},
         conversation_histories={"other_block_other_soul": other_history},
     )
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     # Other block's history should be untouched
     assert new_state.conversation_histories == {"other_block_other_soul": other_history}
@@ -471,7 +480,7 @@ async def test_non_stateful_calls_runner_execute_without_messages(
     assert block.stateful is False
 
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
-    await block.execute(state)
+    await _exec(block, state)
 
     # Should have been called with (instruction, context, soul) — no messages kwarg
     call_kwargs = mock_runner.execute.call_args
@@ -500,7 +509,7 @@ async def test_stateful_no_system_messages_stored(
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
     state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Summarize the data"}})
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     history_key = "analyze_soul_a"
     assert history_key in new_state.conversation_histories, (
@@ -542,7 +551,7 @@ async def test_stateful_block_still_stores_result_and_log(
         total_tokens=100,
     )
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     # Standard result storage
     assert new_state.results["analyze"].output == "Analysis result."
@@ -580,7 +589,7 @@ async def test_stateful_does_not_mutate_original_state(
         conversation_histories=original_histories,
     )
 
-    new_state = await block.execute(state)
+    new_state = await _exec(block, state)
 
     # Original state must be unchanged
     assert state.conversation_histories == {}

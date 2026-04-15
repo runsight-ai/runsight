@@ -15,6 +15,7 @@ Tests cover all 8 acceptance criteria:
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.isolation.envelope import DelegateArtifact, ResultEnvelope
 from runsight_core.primitives import Soul
@@ -60,7 +61,13 @@ def _make_result_envelope(
 
 def _execute_wrapper(wrapper, state):
     """Run wrapper.execute synchronously."""
-    return asyncio.get_event_loop().run_until_complete(wrapper.execute(state))
+
+    async def _run():
+        ctx = build_block_context(wrapper, state)
+        output = await wrapper.execute(ctx)
+        return apply_block_output(state, wrapper.block_id, output)
+
+    return asyncio.get_event_loop().run_until_complete(_run())
 
 
 def _make_wrapped_dispatch(branches):

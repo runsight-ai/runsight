@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 import pytest
 from runsight_core.assertions.base import AssertionContext
 from runsight_core.assertions.registry import run_assertions
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.budget_enforcement import BudgetKilledException, BudgetSession, _active_budget
@@ -270,7 +271,9 @@ class TestRUN814BlockTypeE2E:
         state = WorkflowState()
 
         try:
-            next_state = await wrapper.execute(state)
+            ctx = build_block_context(wrapper, state)
+            output = await wrapper.execute(ctx)
+            next_state = apply_block_output(state, wrapper.block_id, output)
         finally:
             _active_budget.reset(token)
 
@@ -396,7 +399,9 @@ class TestRUN814BlockTypeE2E:
         wrapper = IsolatedBlockWrapper("run814-dispatch", inner, harness=harness)
         state = WorkflowState()
 
-        next_state = await wrapper.execute(state)
+        ctx = build_block_context(wrapper, state)
+        output = await wrapper.execute(ctx)
+        next_state = apply_block_output(state, wrapper.block_id, output)
 
         assert next_state.results["run814-dispatch.north"].output == "north result"
         assert next_state.results["run814-dispatch.north"].exit_handle == "north"
@@ -559,7 +564,9 @@ class TestRUN814SmartAssertionAndToolsE2E:
         wrapper = IsolatedBlockWrapper("run814-tool", inner, harness=harness)
         state = WorkflowState()
 
-        next_state = await wrapper.execute(state)
+        ctx = build_block_context(wrapper, state)
+        output = await wrapper.execute(ctx)
+        next_state = apply_block_output(state, wrapper.block_id, output)
 
         assert tool_calls_seen == [{"value": "from subprocess"}]
         assert next_state.results["run814-tool"].output == "final after engine tool"

@@ -28,8 +28,17 @@ import inspect
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
+
+
+async def _exec(block, state):
+    """Helper: build BlockContext, execute block, apply output to state."""
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -155,7 +164,7 @@ class TestNoRaiseOnNoneCurrentTask:
         state = WorkflowState(current_task=None)
 
         # Must not raise — should execute normally
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
         assert "linear1" in result_state.results
 
     @pytest.mark.asyncio
@@ -168,7 +177,7 @@ class TestNoRaiseOnNoneCurrentTask:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()  # current_task=None by default
 
-        result_state = await block.execute(state)
+        result_state = await _exec(block, state)
         assert "linear1" in result_state.results
 
 
@@ -194,7 +203,7 @@ class TestReadsResolvedInputsFromSharedMemory:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState(shared_memory={"_resolved_inputs": {}})
 
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         assert captured_calls[0]["instruction"] == "", (
@@ -218,7 +227,7 @@ class TestReadsResolvedInputsFromSharedMemory:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()  # no shared_memory at all
 
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         assert captured_calls[0]["instruction"] == "", (
@@ -244,7 +253,7 @@ class TestReadsResolvedInputsFromSharedMemory:
             shared_memory={"_resolved_inputs": {"step1": "upstream result", "step2": "more data"}}
         )
 
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         instruction = captured_calls[0]["instruction"]
@@ -270,7 +279,7 @@ class TestReadsResolvedInputsFromSharedMemory:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()
 
-        await block.execute(state)
+        await _exec(block, state)
 
         assert captured_calls[0]["context"] is None, (
             f"Expected context=None, got {captured_calls[0]['context']!r}"
@@ -295,7 +304,7 @@ class TestRunnerExecuteCalledNotExecuteTask:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await _exec(block, state)
 
         assert mock_runner.execute.called, "runner.execute() was never called"
         mock_runner.execute_task.assert_not_called()
@@ -311,7 +320,7 @@ class TestRunnerExecuteCalledNotExecuteTask:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        await block.execute(state)
+        await _exec(block, state)
 
         assert mock_runner.execute.called, "runner.execute() was never called in stateful path"
         mock_runner.execute_task.assert_not_called()
@@ -338,7 +347,7 @@ class TestRunnerExecuteReceivesStringArgs:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState(shared_memory={"_resolved_inputs": {"input_block": "some data"}})
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         assert isinstance(captured_calls[0]["instruction"], str), (
@@ -359,7 +368,7 @@ class TestRunnerExecuteReceivesStringArgs:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         block.stateful = True
         state = WorkflowState(shared_memory={"_resolved_inputs": {"block_a": "upstream output"}})
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         assert isinstance(captured_calls[0]["instruction"], str), (
@@ -379,7 +388,7 @@ class TestRunnerExecuteReceivesStringArgs:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_souls) == 1
         assert captured_souls[0].id == "test_soul"
@@ -405,7 +414,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         history_key = "linear1_test_soul"
         assert history_key in new_state.conversation_histories, (
@@ -436,7 +445,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         history = new_state.conversation_histories.get("linear1_test_soul", [])
         assistant_msgs = [m for m in history if m.get("role") == "assistant"]
@@ -461,7 +470,7 @@ class TestStatefulHistoryBuiltFromStrings:
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         block.stateful = True
         state = WorkflowState()
-        await block.execute(state)
+        await _exec(block, state)
 
         # _build_prompt must not have been called at all (Task is deleted, strings are used directly)
         assert len(build_prompt_calls) == 0, (
@@ -487,7 +496,7 @@ class TestResultStoredCorrectly:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         assert "linear1" in new_state.results
         assert new_state.results["linear1"].output == "Linear output text"
@@ -501,7 +510,7 @@ class TestResultStoredCorrectly:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState(results={"previous_block": BlockResult(output="Previous output")})
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         assert new_state.results["previous_block"].output == "Previous output"
         assert new_state.results["linear1"].output == "New output"
@@ -513,7 +522,7 @@ class TestResultStoredCorrectly:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState()
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         assert len(new_state.execution_log) == 1
         assert "[Block linear1]" in new_state.execution_log[0]["content"]
@@ -527,7 +536,7 @@ class TestResultStoredCorrectly:
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
         state = WorkflowState(total_cost_usd=0.10, total_tokens=100)
-        new_state = await block.execute(state)
+        new_state = await _exec(block, state)
 
         assert new_state.total_cost_usd == pytest.approx(0.35)
         assert new_state.total_tokens == 600
@@ -562,7 +571,7 @@ class TestResolvedInputsMultipleKeys:
                 }
             }
         )
-        await block.execute(state)
+        await _exec(block, state)
 
         assert len(captured_calls) == 1
         instruction = captured_calls[0]["instruction"]
@@ -593,7 +602,7 @@ class TestResolvedInputsMultipleKeys:
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"research_block": "deep research output"}}
         )
-        await block.execute(state)
+        await _exec(block, state)
 
         instruction = captured_calls[0]["instruction"]
         assert "deep research output" in instruction or "research_block" in instruction, (

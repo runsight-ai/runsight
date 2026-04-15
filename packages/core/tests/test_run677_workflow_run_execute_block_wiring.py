@@ -5,11 +5,12 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.loop import LoopBlock
 from runsight_core.blocks.registry import BlockRegistry
 from runsight_core.blocks.workflow_block import WorkflowBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RetryConfig
@@ -61,16 +62,9 @@ class ResultBlock(BaseBlock):
         self.output = output
         self.calls = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self.output),
-                }
-            }
-        )
+        return BlockOutput(output=self.output)
 
 
 class FlakyChildBlock(BaseBlock):
@@ -78,39 +72,26 @@ class FlakyChildBlock(BaseBlock):
         super().__init__(block_id)
         self.calls = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
         if self.calls == 1:
             raise RuntimeError("child fail once")
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output="child recovered"),
-                }
-            }
-        )
+        return BlockOutput(output="child recovered")
 
 
 class InjectingPlannerBlock(BaseBlock):
     def __init__(self) -> None:
         super().__init__("planner")
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output="planned injected steps"),
-                },
-                "metadata": {
-                    **state.metadata,
-                    "planner_new_steps": [
-                        {"step_id": "inner_loop", "description": "Run the injected loop"},
-                        {"step_id": "injected_leaf", "description": "Run the injected leaf"},
-                    ],
-                },
-            }
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        return BlockOutput(
+            output="planned injected steps",
+            metadata_updates={
+                "planner_new_steps": [
+                    {"step_id": "inner_loop", "description": "Run the injected loop"},
+                    {"step_id": "injected_leaf", "description": "Run the injected leaf"},
+                ],
+            },
         )
 
 

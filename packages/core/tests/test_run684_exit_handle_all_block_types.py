@@ -23,6 +23,12 @@ from typing import Optional
 from unittest.mock import AsyncMock
 
 import pytest
+from runsight_core.block_io import (
+    BlockContext,
+    BlockOutput,
+    apply_block_output,
+    build_block_context,
+)
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.code import CodeBlock
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
@@ -33,6 +39,15 @@ from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, Workflow, execute_block
+
+
+async def _exec(block, state, **extra_inputs):
+    ctx = build_block_context(block, state)
+    if extra_inputs:
+        ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
+    output = await block.execute(ctx)
+    return apply_block_output(state, block.block_id, output)
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -123,15 +138,8 @@ class OutputBlock(BaseBlock):
         super().__init__(block_id)
         self.output_text = output_text
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self.output_text),
-                }
-            }
-        )
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        return BlockOutput(output=self.output_text)
 
 
 class ExplicitExitBlock(BaseBlock):
@@ -142,18 +150,8 @@ class ExplicitExitBlock(BaseBlock):
         self.output_text = output_text
         self._exit_handle = exit_handle
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(
-                        output=self.output_text,
-                        exit_handle=self._exit_handle,
-                    ),
-                }
-            }
-        )
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        return BlockOutput(output=self.output_text, exit_handle=self._exit_handle)
 
 
 class RoundAwareOutputBlock(BaseBlock):
@@ -166,7 +164,8 @@ class RoundAwareOutputBlock(BaseBlock):
         self.trigger_round = trigger_round
         self.trigger_text = trigger_text
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        state = ctx.state_snapshot
         round_num = 0
         for key, value in state.shared_memory.items():
             if key.endswith("_round"):
@@ -176,14 +175,7 @@ class RoundAwareOutputBlock(BaseBlock):
             output = f"Review result: {self.trigger_text}"
         else:
             output = "Review result: NEEDS_REVISION"
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=output),
-                }
-            }
-        )
+        return BlockOutput(output=output)
 
 
 # ===========================================================================
@@ -632,7 +624,7 @@ class TestScenario8DispatchBlockInLoop:
         state = _make_state()
         state = state.model_copy(update={"shared_memory": {"_resolved_inputs": {"context": "ctx"}}})
 
-        final = await dispatch.execute(state)
+        final = await _exec(dispatch, state)
 
         per_exit_br = final.results["dispatcher.branch_a"]
         assert isinstance(per_exit_br, BlockResult)
