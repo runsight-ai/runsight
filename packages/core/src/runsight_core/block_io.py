@@ -176,6 +176,22 @@ def build_block_context(
     if not model_name and runner is not None:
         model_name = getattr(runner, "model_name", None)
 
+    # LoopBlock strategy: detect inner_block_refs attribute
+    inner_block_refs = getattr(block, "inner_block_refs", None)
+    if inner_block_refs is not None:
+        return BlockContext(
+            block_id=block.block_id,
+            instruction=(
+                state.current_task.instruction if state.current_task is not None else "loop"
+            ),
+            context=None,
+            inputs={},
+            conversation_history=[],
+            soul=None,
+            model_name=None,
+            state_snapshot=state,
+        )
+
     # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
     code = getattr(block, "code", None)
     if code is not None:

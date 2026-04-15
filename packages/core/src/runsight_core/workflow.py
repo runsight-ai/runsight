@@ -137,9 +137,24 @@ async def execute_block(
         if isinstance(blk, WorkflowBlock):
             return await blk.execute(current_state, **kwargs_for_context)
         if isinstance(blk, LoopBlock):
-            loop_kwargs = dict(kwargs_for_context)
-            loop_kwargs.update({"blocks": ctx.blocks, "ctx": ctx})
-            return await blk.execute(current_state, **loop_kwargs)
+            from runsight_core.block_io import BlockContext
+
+            loop_ctx = BlockContext(
+                block_id=blk.block_id,
+                instruction=(
+                    current_state.current_task.instruction
+                    if current_state.current_task is not None
+                    else "loop"
+                ),
+                context=None,
+                inputs={"blocks": ctx.blocks, "ctx": ctx},
+                conversation_history=[],
+                soul=None,
+                model_name=None,
+                state_snapshot=current_state,
+            )
+            output = await blk.execute(loop_ctx)
+            return apply_block_output(current_state, blk.block_id, output)
         from runsight_core.blocks.code import CodeBlock
         from runsight_core.blocks.dispatch import DispatchBlock
         from runsight_core.blocks.gate import GateBlock
