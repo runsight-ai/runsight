@@ -90,8 +90,13 @@ export const runsApi = {
     return RunResponseSchema.parse(res);
   },
   
-  cancelRun: async (id: string): Promise<unknown> => {
-    return api.post(`/runs/${id}/cancel`);
+  cancelRun: async (id: string): Promise<{ id: string; status: string }> => {
+    const CancelRunResponseSchema = z.object({
+      id: z.string(),
+      status: z.string(),
+    });
+    const res = await api.post(`/runs/${id}/cancel`);
+    return CancelRunResponseSchema.parse(res);
   },
   
   deleteRun: async (id: string): Promise<{ id: string; deleted: boolean }> => {
