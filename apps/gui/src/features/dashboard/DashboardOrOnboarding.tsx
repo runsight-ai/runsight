@@ -1,26 +1,22 @@
-import { useNavigate } from "react-router";
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { Plus, Workflow, Play } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@runsight/ui/empty-state";
 import { Button } from "@runsight/ui/button";
-import { useWorkflows, useCreateWorkflow } from "@/queries/workflows";
+import { useWorkflows } from "@/queries/workflows";
 import { useDashboardKPIs, useAttentionItems, useRecentRuns } from "@/queries/dashboard";
 import { useActiveRuns } from "@/queries/runs";
 import { DashboardKPIs } from "./components/DashboardKPIs";
 import { AttentionItems } from "./components/AttentionItems";
 import { ActiveRunsTable } from "./components/ActiveRunsTable";
-import {
-  DEFAULT_WORKFLOW_NAME,
-  buildBlankWorkflowYaml,
-  deriveWorkflowId,
-} from "@/features/setup/workflowDraft";
+import { useNewWorkflow } from "./useNewWorkflow";
 
 const SUBTITLE = "Here's what's happening with your workflows today.";
 
 export function Component() {
   const navigate = useNavigate();
-  const createWorkflow = useCreateWorkflow();
+  const { handleNewWorkflow, isPending: isCreating } = useNewWorkflow();
   const workflows = useWorkflows();
   const { activeRuns, subscribeToRunStream, isLoading, isError: isRunsError } = useActiveRuns();
   const { data, isPending, isError, refetch } = useDashboardKPIs();
@@ -37,37 +33,18 @@ export function Component() {
     return () => { for (const es of cur.values()) es.close(); cur.clear(); };
   }, [activeRuns, subscribeToRunStream]);
 
-  async function handleNewWorkflow() {
-    const baseId = deriveWorkflowId(DEFAULT_WORKFLOW_NAME);
-    const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const workflowId = `${baseId}-${uniqueSuffix}`;
-    const result = await createWorkflow.mutateAsync({
-      name: DEFAULT_WORKFLOW_NAME,
-      yaml: buildBlankWorkflowYaml(workflowId, DEFAULT_WORKFLOW_NAME),
-      canvas_state: {
-        nodes: [],
-        edges: [],
-        viewport: { x: 0, y: 0, zoom: 1 },
-        selected_node_id: null,
-        canvas_mode: "dag",
-      },
-      commit: false,
-    });
-    navigate(`/workflows/${result.id}/edit`);
-  }
-
   const runsToday = isError ? "—" : (data?.runs_today ?? 0);
   const hasNoWorkflows = workflows.data?.items?.length === 0;
   if (hasNoWorkflows) {
     return (
       <div className="flex-1 flex flex-col">
-        <PageHeader title="Home" actions={<Button onClick={handleNewWorkflow} disabled={createWorkflow.isPending}><Plus className="w-4 h-4 mr-2" />New Workflow</Button>} />
+        <PageHeader title="Home" actions={<Button onClick={handleNewWorkflow} disabled={isCreating}><Plus className="w-4 h-4 mr-2" />New Workflow</Button>} />
         <EmptyState icon={Workflow} title="Welcome to Runsight" description="Create your first workflow to start orchestrating AI agents." action={{ label: "Create Workflow", onClick: handleNewWorkflow }} className="flex-1" />
       </div>
     );
   }
 
-  const headerActions = <Button onClick={handleNewWorkflow} disabled={createWorkflow.isPending}><Plus className="w-4 h-4 mr-2" />New Workflow</Button>;
+  const headerActions = <Button onClick={handleNewWorkflow} disabled={isCreating}><Plus className="w-4 h-4 mr-2" />New Workflow</Button>;
   const errorBanner = (isError || isRunsError) && (
     <div className="mx-6 mt-4 p-4 rounded-md border border-border-danger bg-danger-3 text-danger-11">
       <p>Couldn't load dashboard data. Check that the Runsight server is running.</p>

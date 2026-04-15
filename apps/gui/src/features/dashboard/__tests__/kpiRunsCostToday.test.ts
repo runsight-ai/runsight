@@ -110,10 +110,11 @@ describe("useDashboardKPIs hook exists and is wired (AC3)", () => {
   });
 
   it("useDashboardKPIs calls /dashboard endpoint", () => {
-    const source = readSource(QUERIES_DASHBOARD_PATH);
-    // The hook should fetch from the /dashboard endpoint
-    expect(source).toMatch(/useDashboardKPIs/);
-    expect(source).toMatch(/["'`]\/dashboard["'`]/);
+    const querySource = readSource(QUERIES_DASHBOARD_PATH);
+    const apiSource = readSource(API_DASHBOARD_PATH);
+    // The hook wires through dashboardApi; the URL lives in the api client
+    expect(querySource).toMatch(/useDashboardKPIs/);
+    expect(apiSource).toMatch(/["'`]\/dashboard["'`]/);
   });
 
   it("Dashboard page imports useDashboardKPIs (not useDashboardSummary)", () => {

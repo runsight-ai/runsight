@@ -53,17 +53,19 @@ export function useProviderConnection(opts: UseProviderConnectionOptions): Conne
     try {
       let pid: string;
       if (isEditMode && editing) {
-        const data: Record<string, string | undefined> = {};
-        if (displayName && displayName !== editing.name) data.name = displayName;
-        if (useEnvVar && envVarName.trim()) { data.api_key_env = "$" + envVarName.trim(); }
-        else if (currentKey) { data.api_key_env = currentKey; }
-        if (currentBaseUrl !== (editing.baseUrl ?? "")) data.base_url = currentBaseUrl || undefined;
-        if (Object.keys(data).length > 0) { await updateProvider.mutateAsync({ id: editing.id, data }); }
+        const patchFields: Record<string, string | undefined> = {};
+        if (displayName && displayName !== editing.name) patchFields.name = displayName;
+        if (useEnvVar && envVarName.trim()) { patchFields.api_key_env = "$" + envVarName.trim(); }
+        else if (currentKey) { patchFields.api_key_env = currentKey; }
+        if (currentBaseUrl !== (editing.baseUrl ?? "")) patchFields.base_url = currentBaseUrl || undefined;
+        if (Object.keys(patchFields).length > 0) { await updateProvider.mutateAsync({ id: editing.id, data: { id: editing.id, kind: "provider", ...patchFields } }); }
         pid = editing.id;
       } else {
         pid = createdProviderIdRef.current!;
         if (!pid) {
           const created = await createProvider.mutateAsync({
+            id: provider.id,
+            kind: "provider",
             name: displayName || provider.name,
             api_key_env: useEnvVar ? "$" + envVarName.trim() : (currentKey || undefined),
             base_url: currentBaseUrl || undefined,

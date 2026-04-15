@@ -58,6 +58,12 @@ class SoulEntity(BaseModel):
     modified_at: Optional[float] = None
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("id")
+    @classmethod
+    def _validate_identity(cls, value: str) -> str:
+        validate_entity_id(value, EntityKind.SOUL)
+        return value
+
 
 class ProviderEntity(BaseModel):
     kind: Literal["provider"]

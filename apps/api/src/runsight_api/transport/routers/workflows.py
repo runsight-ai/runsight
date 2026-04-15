@@ -1,10 +1,8 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 from runsight_core.identity import EntityKind, EntityRef
 
-from ...domain.errors import RunsightError
 from ...logic.services.eval_service import EvalService
 from ...logic.services.workflow_service import WorkflowService
 from ..deps import get_eval_service, get_workflow_service
@@ -45,12 +43,9 @@ async def list_workflows(
 async def get_workflow(id: str, service: WorkflowService = Depends(get_workflow_service)):
     from ...domain.errors import WorkflowNotFound
 
-    try:
-        w = service.get_workflow_detail(id)
-        if not w:
-            raise WorkflowNotFound(f"Workflow {_workflow_ref(id)} not found")
-    except RunsightError as exc:
-        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
+    w = service.get_workflow_detail(id)
+    if not w:
+        raise WorkflowNotFound(f"Workflow {_workflow_ref(id)} not found")
     return WorkflowResponse(**w.model_dump())
 
 

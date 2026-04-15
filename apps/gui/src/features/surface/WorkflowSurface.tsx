@@ -171,13 +171,10 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const resetCanvas = useCanvasStore((s) => (s as { reset?: () => void }).reset);
   const toPersistedState = useCanvasStore((s) => s.toPersistedState);
 
-  const { overlayYaml, isOverlayLoading } = useOverlayYaml(workflowId, overlayRef);
-  const { readonlyYaml, isReadonlyYamlLoading } = useReadonlyRunYaml(mode, run);
-  const { canvasHydrationRevision } = useCanvasHydration({ mode, resolvedWorkflowId, activeRunId, initialRunId, overlayRef, overlayYaml, readonlyYaml, workflow, setYamlContent, hydrateFromPersisted });
-  useRunStatusSync({ mode, run, setActiveCanvasRunId, setRunCost });
-  useNodeStatusMapping({ mode, nodesLength: nodes.length, runNodes, canvasHydrationRevision, setNodeStatus });
   const { activeTab, setActiveTab, isDirty, setIsDirty, inspectedNodeId, setInspectedNodeId } = useSurfaceTabState(toggleVisibility.yaml ?? false);
 
+  // Reset canvas on prop changes — must be registered before data-overlay hooks so
+  // hydration and run-status effects run AFTER the reset on initial mount.
   useEffect(() => {
     setMode(initialMode); setWorkflowId(initialWorkflowId); setRunId(initialRunId); setInspectedNodeId(null); resetCanvas?.();
   }, [initialMode, initialWorkflowId, initialRunId, resetCanvas, setInspectedNodeId]);
@@ -186,6 +183,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     if (mode !== "readonly" || !run?.workflow_id || workflowId === run.workflow_id) return;
     setWorkflowId(run.workflow_id);
   }, [mode, run?.workflow_id, workflowId]);
+
+  const { overlayYaml, isOverlayLoading } = useOverlayYaml(workflowId, overlayRef);
+  const { readonlyYaml, isReadonlyYamlLoading } = useReadonlyRunYaml(mode, run);
+  const { canvasHydrationRevision } = useCanvasHydration({ mode, resolvedWorkflowId, activeRunId, initialRunId, overlayRef, overlayYaml, readonlyYaml, workflow, setYamlContent, hydrateFromPersisted });
+  useRunStatusSync({ mode, run, setActiveCanvasRunId, setRunCost });
+  useNodeStatusMapping({ mode, nodesLength: nodes.length, runNodes, canvasHydrationRevision, setNodeStatus });
 
   const handleForkTransition = useCallback((id: string) => { window.history.replaceState(null, "", `/workflows/${id}/edit`); window.dispatchEvent(new PopStateEvent("popstate")); }, []);
   const handleReadonlyForkTransition = useCallback((id: string) => { if (typeof globalThis.setTimeout === "function") { globalThis.setTimeout(() => handleForkTransition(id), 0); return; } handleForkTransition(id); }, [handleForkTransition]);

@@ -4,7 +4,6 @@ import {
   AppSettingsOutSchema,
   FallbackUpdateSchema,
   ModelListResponseSchema,
-  ModelResponseSchema,
   ProviderCreateSchema,
   ProviderSummarySchema,
   ProviderTestOutSchema,

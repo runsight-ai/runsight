@@ -167,19 +167,22 @@ describe("soul data API helpers (RUN-444)", () => {
   });
 
   it("adds settingsApi.listModelsForProvider and calls /models?provider=...", async () => {
-    mocks.apiGet.mockResolvedValue([
-      {
-        provider: "openai",
-        provider_name: "OpenAI",
-        model_id: "gpt-4o",
-        mode: "chat",
-        max_tokens: 128000,
-        input_cost_per_token: 0.000005,
-        output_cost_per_token: 0.000015,
-        supports_vision: true,
-        supports_function_calling: true,
-      },
-    ]);
+    mocks.apiGet.mockResolvedValue({
+      items: [
+        {
+          provider: "openai",
+          provider_name: "OpenAI",
+          model_id: "gpt-4o",
+          mode: "chat",
+          max_tokens: 128000,
+          input_cost_per_token: 0.000005,
+          output_cost_per_token: 0.000015,
+          supports_vision: true,
+          supports_function_calling: true,
+        },
+      ],
+      total: 1,
+    });
 
     const { settingsApi } = await import("../../api/settings");
     const listModelsForProvider = (settingsApi as Record<string, unknown>).listModelsForProvider;
@@ -358,7 +361,7 @@ describe("soul data query hooks (RUN-444)", () => {
       }),
     );
 
-    mocks.apiGet.mockResolvedValue([]);
+    mocks.apiGet.mockResolvedValue({ items: [], total: 0 });
 
     await query.queryFn();
     expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=openai");

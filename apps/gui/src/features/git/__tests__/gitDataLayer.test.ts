@@ -283,6 +283,7 @@ describe("Git API client (RUN-154)", () => {
     });
 
     it("throws on invalid response data from /git/status", async () => {
+      vi.resetModules();
       vi.doMock("../../../api/client", () => ({
         api: {
           get: vi.fn().mockResolvedValue({ bad: "data" }),
@@ -303,6 +304,7 @@ describe("Git API client (RUN-154)", () => {
     it("calls POST /git/commit with message and parses GitCommitResponseSchema", async () => {
       const mockResponse = { hash: "abc123", message: "feat: test" };
 
+      vi.resetModules();
       vi.doMock("../../../api/client", () => ({
         api: {
           get: vi.fn(),
@@ -326,6 +328,7 @@ describe("Git API client (RUN-154)", () => {
     it("calls GET /git/diff and parses GitDiffResponseSchema", async () => {
       const mockResponse = { diff: "--- a/foo\n+++ b/foo" };
 
+      vi.resetModules();
       vi.doMock("../../../api/client", () => ({
         api: {
           get: vi.fn().mockResolvedValue(mockResponse),
@@ -352,6 +355,7 @@ describe("Git API client (RUN-154)", () => {
         ],
       };
 
+      vi.resetModules();
       vi.doMock("../../../api/client", () => ({
         api: {
           get: vi.fn().mockResolvedValue(mockResponse),
@@ -374,6 +378,7 @@ describe("Git API client (RUN-154)", () => {
     it("passes limit as query parameter when provided", async () => {
       const getMock = vi.fn().mockResolvedValue({ commits: [] });
 
+      vi.resetModules();
       vi.doMock("../../../api/client", () => ({
         api: {
           get: getMock,

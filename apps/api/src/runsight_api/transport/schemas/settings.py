@@ -1,6 +1,6 @@
 """Response and request schemas for the settings API (RUN-859)."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, StrictBool
 
@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, StrictBool
 class ProviderCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str
+    kind: Literal["provider"]
     name: str
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
@@ -16,6 +18,8 @@ class ProviderCreate(BaseModel):
 class ProviderUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str
+    kind: Literal["provider"]
     name: Optional[str] = None
     api_key_env: Optional[str] = None  # Frontend sends the raw API key in this field
     base_url: Optional[str] = None
@@ -40,6 +44,7 @@ class ProviderTestOut(BaseModel):
 
 class SettingsProviderResponse(BaseModel):
     id: str
+    kind: Literal["provider"]
     name: str
     type: Optional[str] = None
     status: str
