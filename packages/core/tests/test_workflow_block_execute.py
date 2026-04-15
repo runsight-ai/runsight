@@ -9,6 +9,19 @@ from runsight_core import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 
 
+async def _run_block(block, state: WorkflowState) -> WorkflowState:
+    """Helper: build BlockContext, run block, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+
+    ctx = build_block_context(block, state)
+    output = await block.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, block.block_id, output)
+    return state
+
+
 @pytest.fixture
 def base_parent_state():
     """Create a parent state with pre-populated data."""
@@ -48,7 +61,7 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
     )
 
     # Act
-    await block.execute(base_parent_state)
+    await _run_block(block, base_parent_state)
 
     # Assert - verify child received the mapped input
     call_args = mock_child_workflow.run.call_args
@@ -70,7 +83,7 @@ async def test_input_mapping_missing_key_raises(base_parent_state, mock_child_wo
 
     # Act & Assert
     with pytest.raises(KeyError) as exc_info:
-        await block.execute(base_parent_state)
+        await _run_block(block, base_parent_state)
 
     error_msg = str(exc_info.value)
     assert "nonexistent_key" in error_msg
@@ -97,7 +110,7 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
     )
 
     # Act
-    result = await block.execute(base_parent_state)
+    result = await _run_block(block, base_parent_state)
 
     # Assert - verify output was written to parent state
     assert result.results.get("parent_out") == BlockResult(output="child_output_value")
@@ -123,7 +136,7 @@ async def test_child_state_isolation(base_parent_state, mock_child_workflow):
     )
 
     # Act
-    await block.execute(base_parent_state)
+    await _run_block(block, base_parent_state)
 
     # Assert - child should receive empty state
     call_args = mock_child_workflow.run.call_args
@@ -158,7 +171,7 @@ async def test_cost_propagation(base_parent_state, mock_child_workflow):
     )
 
     # Act
-    result = await block.execute(parent_state)
+    result = await _run_block(block, parent_state)
 
     # Assert
     assert result.total_cost_usd == pytest.approx(0.15)  # 0.10 + 0.05
@@ -185,7 +198,7 @@ async def test_system_message_appended(base_parent_state, mock_child_workflow):
     )
 
     # Act
-    result = await block.execute(base_parent_state)
+    result = await _run_block(block, base_parent_state)
 
     # Assert - check for system message
     system_messages = [m for m in result.execution_log if m.get("role") == "system"]
@@ -208,7 +221,7 @@ async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow
 
     # Act & Assert
     with pytest.raises(ValueError) as exc_info:
-        await block.execute(base_parent_state)
+        await _run_block(block, base_parent_state)
 
     error_msg = str(exc_info.value)
     assert "invalid" in error_msg.lower() or "unknown" in error_msg.lower()

@@ -25,6 +25,24 @@ from runsight_core.state import BlockResult, WorkflowState
 # ---------------------------------------------------------------------------
 
 
+async def _run_loop(loop, state: WorkflowState, blocks: dict) -> WorkflowState:
+    """Helper: build BlockContext, run LoopBlock, apply output → WorkflowState."""
+    from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
+
+    ctx = BlockContext(
+        block_id=loop.block_id,
+        instruction="loop",
+        inputs={"blocks": blocks},
+        state_snapshot=state,
+    )
+    output = await loop.execute(ctx)
+    if isinstance(output, WorkflowState):
+        return output
+    if isinstance(output, BlockOutput):
+        return apply_block_output(state, loop.block_id, output)
+    return state
+
+
 def _make_mock_runner(prompt_fn=None):
     """Create a mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
@@ -75,7 +93,8 @@ class StatefulArtifactBlock(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx) -> WorkflowState:
+        state = ctx.state_snapshot
         # Track round number via shared_memory
         call_key = f"__{self.block_id}_call_count"
         call_count = state.shared_memory.get(call_key, 0) + 1
@@ -145,9 +164,10 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
         self.soul = soul
         self.runner = runner
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx) -> WorkflowState:
         from runsight_core.memory.windowing import get_max_tokens, prune_messages
 
+        state = ctx.state_snapshot
         call_key = f"__{self.block_id}_call_count"
         call_count = state.shared_memory.get(call_key, 0) + 1
 
@@ -243,7 +263,7 @@ class TestStatefulLoopWithArtifacts:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState(artifact_store=store)
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # -- Conversation history: 3 rounds * 2 messages = 6 --
         history_key = "analyze_analyst"
@@ -301,7 +321,7 @@ class TestStatefulLoopWithArtifacts:
         blocks = {"analyze": inner, "loop": loop}
 
         state = WorkflowState(artifact_store=store)
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # The final BlockResult should have artifact_ref from the last round
         block_result = result_state.results["analyze"]
@@ -350,7 +370,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         blocks = {"write": inner, "loop": loop}
 
         state = WorkflowState(artifact_store=store)
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # carry_context should inject string values, not BlockResult objects
         carried = result_state.shared_memory["prev_draft"]
@@ -396,7 +416,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         blocks = {"write": inner, "loop": loop}
 
         state = WorkflowState(artifact_store=store)
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # mode="all" injects a list of dicts (one per round)
         history = result_state.shared_memory["all_drafts"]
@@ -444,7 +464,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         blocks = {"write": inner, "loop": loop}
 
         state = WorkflowState(artifact_store=store)
-        result_state = await loop.execute(state, blocks=blocks)
+        result_state = await _run_loop(loop, state, blocks)
 
         # BlockResult in state.results retains full artifact_ref
         block_result = result_state.results["write"]
@@ -510,7 +530,7 @@ class TestStatefulWithWindowingAndArtifacts:
         ):
             # Also patch within implementations if windowing is called there
             # The StatefulArtifactBlockWithWindowing imports from windowing directly
-            result_state = await loop.execute(state, blocks=blocks)
+            result_state = await _run_loop(loop, state, blocks)
 
         # -- History was pruned: should be 4 messages, not 10 --
         history = result_state.conversation_histories["analyze_analyst"]
@@ -573,7 +593,7 @@ class TestStatefulWithWindowingAndArtifacts:
             "runsight_core.memory.windowing.prune_messages",
             side_effect=_prune_to_2,
         ):
-            result_state = await loop.execute(state, blocks=blocks)
+            result_state = await _run_loop(loop, state, blocks)
 
         # -- History was pruned to 2 messages --
         history = result_state.conversation_histories["write_writer"]
@@ -638,7 +658,7 @@ class TestStatefulWithWindowingAndArtifacts:
             "runsight_core.memory.windowing.prune_messages",
             side_effect=_prune_to_2,
         ):
-            await loop.execute(state, blocks=blocks)
+            await _run_loop(loop, state, blocks)
 
         assert len(messages_received_per_call) == 4
 

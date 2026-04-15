@@ -15,6 +15,8 @@ Tests cover:
 - Concurrent blocks with retry — each has independent retry state
 """
 
+from __future__ import annotations
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -32,8 +34,10 @@ class SucceedingBlock(BaseBlock):
     def __init__(self, block_id: str):
         super().__init__(block_id)
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(update={"results": {**state.results, self.block_id: "ok"}})
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
+        return BlockOutput(output="ok")
 
 
 class AlwaysFailingBlock(BaseBlock):
@@ -45,7 +49,7 @@ class AlwaysFailingBlock(BaseBlock):
         self._message = message
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
         self.call_count += 1
         raise self._error_cls(self._message)
 
@@ -59,15 +63,13 @@ class FailNTimesThenSucceed(BaseBlock):
         self._error_cls = error_cls
         self._call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
         self._call_count += 1
         if self._call_count <= self._fail_count:
             raise self._error_cls(f"fail #{self._call_count}")
-        return state.model_copy(
-            update={
-                "results": {**state.results, self.block_id: f"ok on attempt {self._call_count}"}
-            }
-        )
+        return BlockOutput(output=f"ok on attempt {self._call_count}")
 
 
 class CountingBlock(BaseBlock):
@@ -77,11 +79,11 @@ class CountingBlock(BaseBlock):
         super().__init__(block_id)
         self.call_count = 0
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx):
+        from runsight_core.block_io import BlockOutput
+
         self.call_count += 1
-        return state.model_copy(
-            update={"results": {**state.results, self.block_id: f"call_{self.call_count}"}}
-        )
+        return BlockOutput(output=f"call_{self.call_count}")
 
 
 def _make_workflow_with_single_block(block: BaseBlock) -> Workflow:
@@ -186,7 +188,7 @@ class TestRetrySucceedsAfterFailure:
             state = await wf.run(WorkflowState())
 
         assert "b1" in state.results
-        assert "ok on attempt 2" in state.results["b1"]
+        assert "ok on attempt 2" in state.results["b1"].output
 
     @pytest.mark.asyncio
     async def test_succeeds_on_third_attempt(self):
@@ -200,7 +202,7 @@ class TestRetrySucceedsAfterFailure:
             state = await wf.run(WorkflowState())
 
         assert "b1" in state.results
-        assert "ok on attempt 3" in state.results["b1"]
+        assert "ok on attempt 3" in state.results["b1"].output
 
 
 # ===========================================================================
@@ -576,7 +578,7 @@ class TestMaxAttemptsOne:
         with patch("asyncio.sleep", new_callable=AsyncMock):
             state = await wf.run(WorkflowState())
 
-        assert state.results["b1"] == "ok"
+        assert state.results["b1"].output == "ok"
 
 
 # ===========================================================================
@@ -645,14 +647,15 @@ class TestRetryTransparency:
                 self.received_states = []
                 self._call_count = 0
 
-            async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+            async def execute(self, ctx):
+                from runsight_core.block_io import BlockOutput
+
+                state = ctx.state_snapshot
                 self._call_count += 1
                 self.received_states.append(state)
                 if self._call_count <= 2:
                     raise RuntimeError(f"fail #{self._call_count}")
-                return state.model_copy(
-                    update={"results": {**state.results, self.block_id: "done"}}
-                )
+                return BlockOutput(output="done")
 
         block = StateCapturingBlock("b1")
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
@@ -665,7 +668,7 @@ class TestRetryTransparency:
 
         # Block was called 3 times (2 failures + 1 success)
         assert block._call_count == 3
-        assert state.results["b1"] == "done"
+        assert state.results["b1"].output == "done"
 
 
 # ===========================================================================

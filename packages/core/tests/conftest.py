@@ -105,6 +105,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
             return await self.harness.run(envelope)
 
+        from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
         from runsight_core.state import BlockResult, WorkflowState
 
@@ -129,7 +130,14 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
         budget_token = _active_budget.set(None)
         try:
-            result_state = await self.inner_block.execute(state)
+            block_ctx = build_block_context(self.inner_block, state)
+            raw_output = await self.inner_block.execute(block_ctx)
+            if isinstance(raw_output, WorkflowState):
+                result_state = raw_output
+            elif isinstance(raw_output, BlockOutput):
+                result_state = apply_block_output(state, self.inner_block.block_id, raw_output)
+            else:
+                result_state = state
         finally:
             _active_budget.reset(budget_token)
 
