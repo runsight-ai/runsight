@@ -16,6 +16,7 @@ import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
 import { useContextAuditStore } from "@/store/contextAudit";
+import { ContextAuditPanel } from "./contextAuditSurfaces";
 
 interface LogEntry {
   timestamp: string | number;
@@ -31,6 +32,8 @@ interface SurfaceBottomPanelProps {
     tone: "success" | "danger";
     text: string;
   };
+  selectedNodeId?: string | null;
+  onAuditNodeSelect?: (nodeId: string) => void;
 }
 
 type RegressionsData = {
@@ -89,9 +92,11 @@ function SurfaceBottomPanelContent({
   defaultState = "collapsed",
   executionSummary,
   regressionsData,
+  selectedNodeId,
+  onAuditNodeSelect,
 }: SurfaceBottomPanelContentProps) {
   const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
-  const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions">("logs");
+  const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions" | "audit">("logs");
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
   const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
@@ -123,8 +128,9 @@ function SurfaceBottomPanelContent({
   }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
 
   const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-  useRunContextAudit(currentRunId ?? "", { page_size: 100 });
   useRunContextAuditStream(currentRunId, { enabled: false });
+
+  const contextAuditQuery = useRunContextAudit(currentRunId ?? "", { page_size: 100 });
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
@@ -272,6 +278,19 @@ function SurfaceBottomPanelContent({
           Regressions{count > 0 ? ` (${count})` : ""}
         </button>
         <button
+          data-testid="workflow-audit-tab"
+          role="tab"
+          aria-label="Expand audit panel"
+          aria-selected={activeTab === "audit"}
+          onClick={() => {
+            setActiveTab("audit");
+            setIsExpanded(true);
+          }}
+          className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "audit" ? "text-heading" : "text-muted hover:text-primary"}`}
+        >
+          Audit
+        </button>
+        <button
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
           data-testid="workflow-bottom-panel-toggle"
@@ -345,6 +364,19 @@ function SurfaceBottomPanelContent({
               />
             </div>
           )}
+        </div>
+      )}
+      {isExpanded && activeTab === "audit" && (
+        <div data-testid="workflow-audit-panel" className="overflow-hidden flex-1">
+          <ContextAuditPanel
+            runId={currentRunId}
+            selectedNodeId={selectedNodeId ?? null}
+            onSelectNode={(nodeId) => {
+              onAuditNodeSelect?.(nodeId);
+            }}
+            fetchNextPage={contextAuditQuery.fetchNextPage}
+            hasNextPage={contextAuditQuery.hasNextPage}
+          />
         </div>
       )}
     </div>

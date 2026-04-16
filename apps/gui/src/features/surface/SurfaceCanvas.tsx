@@ -7,11 +7,13 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
+  type Edge,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { useCanvasStore } from "@/store/canvas";
+import { selectContextAuditEdges, useContextAuditStore } from "@/store/contextAudit";
 import { nodeTypes } from "./nodes";
 
 interface SurfaceCanvasProps {
@@ -31,9 +33,31 @@ export function SurfaceCanvas({
   onNodeClick: onNodeClickProp,
   onNodeDoubleClick: onNodeDoubleClickProp,
   onPaneClick: onPaneClickProp,
+  runId,
 }: SurfaceCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
+  const namespace = "results";
+  const contextOverlayEdges = useContextAuditStore((state) =>
+    runId
+      ? selectContextAuditEdges(runId)(state)
+          .filter((edge) => edge.namespace === namespace && edge.source !== "workflow")
+          .map<Edge>((edge) => ({
+            id: `context-overlay:${edge.id}`,
+            source: edge.source,
+            target: edge.target,
+            type: "straight",
+            className: "context-overlay",
+            label: edge.inputName ?? "context",
+            style: {
+              stroke: "var(--info-9)",
+              strokeDasharray: "4 4",
+              strokeWidth: 1.5,
+            },
+            data: { context: true, namespace: edge.namespace },
+          }))
+      : [],
+  );
 
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
@@ -61,7 +85,7 @@ export function SurfaceCanvas({
       <div className="h-full min-h-0 flex-1">
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={[...edges, ...contextOverlayEdges]}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}

@@ -5,6 +5,10 @@ export type ContextAuditTableRow = {
   id: string;
   runId: string;
   nodeId: string;
+  blockType: string;
+  access: string;
+  sequence: number | null | undefined;
+  emittedAt: string;
   inputName: string | null;
   fromRef: string | null;
   status: string;
@@ -104,6 +108,10 @@ export const selectContextAuditRows =
         id: `${eventKey(event)}:${index}`,
         runId: event.run_id,
         nodeId: event.node_id,
+        blockType: event.block_type,
+        access: event.access,
+        sequence: event.sequence,
+        emittedAt: event.emitted_at,
         inputName: record.input_name ?? null,
         fromRef: record.from_ref ?? null,
         status: record.status,
@@ -117,7 +125,13 @@ export const selectContextAuditEdges =
   (state: ContextAuditState): ContextAuditEdgeInput[] =>
     selectRunEvents(runId)(state).flatMap((event) =>
       (event.records ?? [])
-        .filter((record) => typeof record.source === "string" && record.source.length > 0)
+        .filter(
+          (record) =>
+            record.namespace === "results"
+            && typeof record.source === "string"
+            && record.source.length > 0
+            && record.source !== "workflow",
+        )
         .map((record, index) => ({
           id: `${eventKey(event)}:${index}:edge`,
           runId: event.run_id,

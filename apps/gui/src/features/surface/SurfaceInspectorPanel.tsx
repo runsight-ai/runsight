@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Node } from "@xyflow/react";
 
 import { Button } from "@runsight/ui/button";
@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { cn } from "@runsight/ui/utils";
 import { formatDuration } from "@/utils/formatting";
 import { CheckCircle, XCircle, Clock, X } from "lucide-react";
+import { ContextInspectorTab, useNodeContextEvents } from "./contextAuditSurfaces";
 
 export type InspectorNodeData = Record<string, unknown> & {
   name: string;
@@ -22,6 +23,8 @@ interface SurfaceInspectorPanelProps {
   selectedNode: Node<InspectorNodeData> | null;
   onClose: () => void;
   trigger?: "single-click" | "double-click";
+  runId?: string;
+  initialTab?: "overview" | "execution" | "context";
 }
 
 function statusIcon(status: string) {
@@ -59,8 +62,15 @@ export function SurfaceInspectorPanel({
   selectedNode,
   onClose,
   trigger = "double-click",
+  runId,
+  initialTab = "execution",
 }: SurfaceInspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "execution">("execution");
+  const [activeTab, setActiveTab] = useState<"overview" | "execution" | "context">(initialTab);
+  const events = useNodeContextEvents(runId, selectedNode?.id);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab, selectedNode?.id]);
 
   if (!selectedNode) return null;
 
@@ -77,7 +87,7 @@ export function SurfaceInspectorPanel({
       </div>
 
       <div role="tablist" aria-label="Inspector tabs" className="h-9 flex items-center px-2 border-b border-[var(--border-default)] gap-1 shrink-0 overflow-x-auto">
-        {(["execution", "overview"] as const).map((tab) => (
+        {(["execution", "overview", "context"] as const).map((tab) => (
           <button key={tab} role="tab" aria-selected={activeTab === tab} aria-controls={`inspector-${tab}-panel`} id={`inspector-${tab}-tab`} onClick={() => setActiveTab(tab)} className={cn("h-full px-3 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2", activeTab === tab ? "text-[var(--text-primary)] border-[var(--interactive-default)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] border-transparent")}>
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -146,6 +156,11 @@ export function SurfaceInspectorPanel({
                 <div className="flex justify-between"><span className="text-[var(--text-muted)]">Model</span><span className="text-[var(--text-primary)]">{d.model || "\u2014"}</span></div>
               </div>
             </div>
+          </div>
+        ) : null}
+        {activeTab === "context" ? (
+          <div role="tabpanel" id="inspector-context-panel" aria-labelledby="inspector-context-tab" className="space-y-4">
+            <ContextInspectorTab events={events} />
           </div>
         ) : null}
       </div>
