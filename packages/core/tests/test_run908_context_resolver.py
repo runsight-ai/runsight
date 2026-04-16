@@ -20,7 +20,8 @@ import pytest
 from pydantic import ValidationError
 from runsight_core import block_io
 from runsight_core.block_io import build_block_context
-from runsight_core.primitives import Step
+from runsight_core.blocks.linear import LinearBlock
+from runsight_core.primitives import Soul, Step
 from runsight_core.state import BlockResult, WorkflowState
 
 
@@ -31,6 +32,19 @@ class _FakeDeclaredBlock:
     access = "declared"
     soul = None
     runner = None
+
+
+def _linear_block(block_id: str = "summarize") -> LinearBlock:
+    soul = Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="",
+        model_name="gpt-4o",
+    )
+    runner = SimpleNamespace(model_name="gpt-4o")
+    return LinearBlock(block_id=block_id, soul=soul, runner=runner)
 
 
 def _cg():
@@ -329,6 +343,41 @@ def test_build_block_context_resolves_declared_workflow_input_through_resolver(
     )
 
     assert ctx.inputs == {"reason": "audit"}
+
+
+def test_build_block_context_linear_block_rejects_arbitrary_non_json_field_path(
+    cheap_budget: None,
+) -> None:
+    """LinearBlock must not rewrite arbitrary non-JSON field paths to raw output."""
+    cg = _cg()
+    block = _linear_block()
+    step = Step(block=block, declared_inputs={"summary": "draft.subfield"})
+    state = _state(results={"draft": BlockResult(output="plain text draft")})
+
+    with pytest.raises(cg.ContextResolutionError, match="draft.subfield"):
+        build_block_context(block, state, step=step)
+
+
+def test_build_block_context_linear_block_preserves_result_and_output_aliases(
+    cheap_budget: None,
+) -> None:
+    """.result and .output remain explicit aliases for whole non-JSON output."""
+    block = _linear_block()
+    step = Step(
+        block=block,
+        declared_inputs={
+            "from_result": "draft.result",
+            "from_output": "draft.output",
+        },
+    )
+    state = _state(results={"draft": BlockResult(output="plain text draft")})
+
+    ctx = build_block_context(block, state, step=step)
+
+    assert ctx.inputs == {
+        "from_result": "plain text draft",
+        "from_output": "plain text draft",
+    }
 
 
 def test_build_block_context_missing_declared_input_raises_governance_error(
