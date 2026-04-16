@@ -399,7 +399,7 @@ def build_block_context(
     declaration = ContextDeclaration(
         block_id=block.block_id,
         block_type=block.__class__.__name__,
-        access=getattr(block, "access", "declared"),
+        access=getattr(block, "context_access", getattr(block, "access", "declared")),
         declared_inputs=getattr(step, "declared_inputs", {}) if step is not None else {},
     )
     resolver = ContextResolver(

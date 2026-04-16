@@ -83,6 +83,7 @@ class Step:
         pre_hook: Optional[Callable[["WorkflowState"], "WorkflowState"]] = None,
         post_hook: Optional[Callable[["WorkflowState"], "WorkflowState"]] = None,
         declared_inputs: Optional[Dict[str, str]] = None,
+        context_access: str = "declared",
     ) -> None:
         """
         Args:
@@ -100,6 +101,9 @@ class Step:
         self.pre_hook = pre_hook
         self.post_hook = post_hook
         self.declared_inputs: Dict[str, str] = declared_inputs or {}
+        self.context_access = context_access
+        setattr(self.block, "context_access", context_access)
+        setattr(self.block, "declared_inputs", dict(self.declared_inputs))
 
     @property
     def block_id(self) -> str:
