@@ -415,25 +415,8 @@ def build_block_context(
     system_prompt = soul.system_prompt or "" if soul is not None else ""
     instruction = system_prompt
 
-    # Context: workflow-level external input or resolved context input.
-    # None when no workflow result with real content and no resolved context.
-    workflow_result = state.results.get("workflow")
-    if workflow_result is not None:
-        _wf_output = (
-            workflow_result.output
-            if isinstance(workflow_result, BlockResult)
-            else str(workflow_result)
-        )
-        # Only use workflow result if it contains non-trivially empty content.
-        # "{}" (empty JSON object from inputs={}) should not count as context.
-        try:
-            _wf_parsed = json.loads(_wf_output)
-            _wf_has_content = bool(_wf_parsed)
-        except (json.JSONDecodeError, TypeError):
-            _wf_has_content = bool(_wf_output)
-        raw_context: Optional[str] = _wf_output if _wf_has_content else None
-    else:
-        raw_context = None
+    # Workflow-seeded inputs are available only through explicit declarations.
+    raw_context: Optional[str] = None
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
