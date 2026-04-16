@@ -1,7 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo } from "react";
+import { ContextAuditEventV1Schema, type ContextAuditEventV1 } from "@runsight/shared/zod";
 import { toast } from "sonner";
-import { runsApi, type RunQueryParams } from "../api/runs";
+import { runsApi, type RunContextAuditParams, type RunQueryParams } from "../api/runs";
+import { useContextAuditStore } from "../store/contextAudit";
 import { queryKeys } from "./keys";
 
 const PRODUCTION_RUN_SOURCES = new Set(["manual", "webhook", "schedule"]);
@@ -95,6 +97,56 @@ export function useRunLogs(id: string, params?: Record<string, string>, options?
   });
 }
 
+export function useRunContextAudit(runId: string, params?: Pick<RunContextAuditParams, "page_size" | "node_id">) {
+  const replaceRunEvents = useContextAuditStore((state) => state.replaceRunEvents);
+  const query = useInfiniteQuery({
+    queryKey: [...queryKeys.runs.contextAudit(runId), params],
+    queryFn: ({ pageParam }) =>
+      runsApi.getRunContextAudit(runId, {
+        ...params,
+        ...(pageParam ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.end_cursor ?? undefined,
+    enabled: !!runId,
+  });
+
+  useEffect(() => {
+    if (!runId || !query.data) {
+      return;
+    }
+    replaceRunEvents(
+      runId,
+      query.data.pages.flatMap((page) => page.items),
+    );
+  }, [query.data, replaceRunEvents, runId]);
+
+  return query;
+}
+
+export function useRunContextAuditStream(runId: string | null | undefined): void {
+  const appendEvents = useContextAuditStore((state) => state.appendEvents);
+
+  useEffect(() => {
+    if (!runId) {
+      return;
+    }
+    const source = new EventSource(`/api/runs/${runId}/stream`);
+
+    source.addEventListener("context_resolution", (event) => {
+      const auditEvent = parseContextAuditEvent((event as MessageEvent).data);
+      if (auditEvent?.run_id === runId) {
+        appendEvents(runId, [auditEvent]);
+      }
+    });
+
+    source.addEventListener("run_completed", () => source.close());
+    source.addEventListener("run_failed", () => source.close());
+
+    return () => source.close();
+  }, [appendEvents, runId]);
+}
+
 export function useRunRegressions(runId: string) {
   return useQuery({
     queryKey: queryKeys.runs.regressions(runId),
@@ -184,4 +236,12 @@ export function useActiveRuns() {
   );
 
   return { ...query, activeRuns, subscribeToRunStream };
+}
+
+function parseContextAuditEvent(data: string): ContextAuditEventV1 | null {
+  try {
+    return ContextAuditEventV1Schema.parse(JSON.parse(data));
+  } catch {
+    return null;
+  }
 }

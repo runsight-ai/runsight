@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useRunLogs, useRunRegressions, useRuns } from "@/queries/runs";
+import {
+  useRunContextAudit,
+  useRunContextAuditStream,
+  useRunLogs,
+  useRunRegressions,
+  useRuns,
+} from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
@@ -114,6 +120,8 @@ function SurfaceBottomPanelContent({
   }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
 
   const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
+  useRunContextAudit(currentRunId ?? "", { page_size: 100 });
+  useRunContextAuditStream(currentRunId);
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
