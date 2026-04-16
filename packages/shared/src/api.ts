@@ -125,6 +125,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/context-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Context Audit */
+        get: operations["get_run_context_audit_api_runs__run_id__context_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/regressions": {
         parameters: {
             query?: never;
@@ -668,6 +685,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runsight.svg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Favicon */
+        get: operations["_favicon_runsight_svg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{full_path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spa Catch All */
+        get: operations["_spa_catch_all__full_path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -757,6 +808,127 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * ContextAccess
+         * @description Block-level context access policy declared in workflow YAML.
+         * @enum {string}
+         */
+        ContextAccess: "declared" | "all";
+        /**
+         * ContextAuditEventV1
+         * @description Audit event emitted after resolving context for one block.
+         */
+        ContextAuditEventV1: {
+            /**
+             * Schema Version
+             * @default context_audit.v1
+             * @constant
+             */
+            schema_version: "context_audit.v1";
+            /**
+             * Event
+             * @default context_resolution
+             * @constant
+             */
+            event: "context_resolution";
+            /** Run Id */
+            run_id: string;
+            /** Workflow Name */
+            workflow_name: string;
+            /** Node Id */
+            node_id: string;
+            /** Block Type */
+            block_type: string;
+            access: components["schemas"]["ContextAccess"];
+            mode: components["schemas"]["ContextAuditMode"];
+            /** Sequence */
+            sequence?: number | null;
+            /** Records */
+            records?: components["schemas"]["ContextAuditRecordV1"][];
+            /**
+             * Resolved Count
+             * @default 0
+             */
+            resolved_count: number;
+            /**
+             * Denied Count
+             * @default 0
+             */
+            denied_count: number;
+            /**
+             * Warning Count
+             * @default 0
+             */
+            warning_count: number;
+            /**
+             * Emitted At
+             * Format: date-time
+             */
+            emitted_at: string;
+        };
+        /** ContextAuditListResponse */
+        ContextAuditListResponse: {
+            /** Items */
+            items: components["schemas"]["ContextAuditEventV1"][];
+            /** Page Size */
+            page_size: number;
+            /** Has Next Page */
+            has_next_page: boolean;
+            /** End Cursor */
+            end_cursor?: string | null;
+        };
+        /**
+         * ContextAuditMode
+         * @description Context governance enforcement mode.
+         * @enum {string}
+         */
+        ContextAuditMode: "strict" | "dev";
+        /**
+         * ContextAuditNamespace
+         * @description Supported namespaces for context audit records.
+         * @enum {string}
+         */
+        ContextAuditNamespace: "results" | "shared_memory" | "metadata";
+        /**
+         * ContextAuditRecordV1
+         * @description Audit record for a single block input context reference.
+         */
+        ContextAuditRecordV1: {
+            /** Input Name */
+            input_name: string | null;
+            /** From Ref */
+            from_ref: string | null;
+            namespace: components["schemas"]["ContextAuditNamespace"] | null;
+            /** Source */
+            source: string | null;
+            /** Field Path */
+            field_path?: string | null;
+            status: components["schemas"]["ContextAuditStatus"];
+            severity: components["schemas"]["ContextAuditSeverity"];
+            /** Value Type */
+            value_type?: string | null;
+            /** Preview */
+            preview?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Internal
+             * @default false
+             */
+            internal: boolean;
+        };
+        /**
+         * ContextAuditSeverity
+         * @description Audit severity for one resolution record.
+         * @enum {string}
+         */
+        ContextAuditSeverity: "allow" | "warn" | "error";
+        /**
+         * ContextAuditStatus
+         * @description Resolution outcome for one requested context reference.
+         * @enum {string}
+         */
+        ContextAuditStatus: "resolved" | "missing" | "denied" | "all_access" | "empty";
         /** DashboardKPIsResponse */
         DashboardKPIsResponse: {
             /** Runs Today */
@@ -1887,6 +2059,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_context_audit_api_runs__run_id__context_audit_get: {
+        parameters: {
+            query?: {
+                node_id?: string | null;
+                cursor?: string | null;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextAuditListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3112,6 +3319,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    _favicon_runsight_svg_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    _spa_catch_all__full_path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                full_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

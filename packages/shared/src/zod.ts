@@ -17,12 +17,12 @@ export const AppSettingsUpdateSchema = z.object({
 export type AppSettingsUpdate = z.infer<typeof AppSettingsUpdateSchema>;
 
 export const AttentionItemSchema = z.object({
-  type: z.string(),
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop", "new_baseline"]),
   title: z.string(),
   description: z.string(),
   run_id: z.string(),
   workflow_id: z.string(),
-  severity: z.string(),
+  severity: z.enum(["warning", "info"]),
 });
 export type AttentionItem = z.infer<typeof AttentionItemSchema>;
 
@@ -57,6 +57,62 @@ export const CommitResponseSchema = z.object({
   message: z.string(),
 });
 export type CommitResponse = z.infer<typeof CommitResponseSchema>;
+
+export const ContextAccessSchema = z.enum(["declared", "all"]);
+export type ContextAccess = z.infer<typeof ContextAccessSchema>;
+
+export const ContextAuditModeSchema = z.enum(["strict", "dev"]);
+export type ContextAuditMode = z.infer<typeof ContextAuditModeSchema>;
+
+export const ContextAuditStatusSchema = z.enum(["resolved", "missing", "denied", "all_access", "empty"]);
+export type ContextAuditStatus = z.infer<typeof ContextAuditStatusSchema>;
+
+export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
+export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
+
+export const ContextAuditSeveritySchema = z.enum(["allow", "warn", "error"]);
+export type ContextAuditSeverity = z.infer<typeof ContextAuditSeveritySchema>;
+
+export const ContextAuditRecordV1Schema = z.object({
+  input_name: z.string().nullable(),
+  from_ref: z.string().nullable(),
+  namespace: ContextAuditNamespaceSchema.nullable(),
+  source: z.string().nullable(),
+  field_path: z.string().nullable().optional(),
+  status: ContextAuditStatusSchema,
+  severity: ContextAuditSeveritySchema,
+  value_type: z.string().nullable().optional(),
+  preview: z.string().nullable().optional(),
+  reason: z.string().nullable().optional(),
+  internal: z.boolean().optional().default(false),
+}).strict();
+export type ContextAuditRecordV1 = z.infer<typeof ContextAuditRecordV1Schema>;
+
+export const ContextAuditEventV1Schema = z.object({
+  schema_version: z.literal("context_audit.v1").optional().default("context_audit.v1"),
+  event: z.literal("context_resolution").optional().default("context_resolution"),
+  run_id: z.string(),
+  workflow_name: z.string(),
+  node_id: z.string(),
+  block_type: z.string(),
+  access: ContextAccessSchema,
+  mode: ContextAuditModeSchema,
+  sequence: z.number().nullable().optional(),
+  records: z.array(ContextAuditRecordV1Schema).optional(),
+  resolved_count: z.number().optional().default(0),
+  denied_count: z.number().optional().default(0),
+  warning_count: z.number().optional().default(0),
+  emitted_at: z.string(),
+}).strict();
+export type ContextAuditEventV1 = z.infer<typeof ContextAuditEventV1Schema>;
+
+export const ContextAuditListResponseSchema = z.object({
+  items: z.array(ContextAuditEventV1Schema),
+  page_size: z.number(),
+  has_next_page: z.boolean(),
+  end_cursor: z.string().nullable().optional(),
+});
+export type ContextAuditListResponse = z.infer<typeof ContextAuditListResponseSchema>;
 
 export const DashboardKPIsResponseSchema = z.object({
   runs_today: z.number(),
@@ -446,8 +502,8 @@ export const ToolListItemResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
-  origin: z.string(),
-  executor: z.string(),
+  origin: z.enum(["builtin", "custom"]),
+  executor: z.enum(["native", "python", "request"]),
 });
 export type ToolListItemResponse = z.infer<typeof ToolListItemResponseSchema>;
 
@@ -456,7 +512,7 @@ export const WorkflowCanvasStateSchema = z.object({
   edges: z.array(z.record(z.string(), z.unknown())).optional(),
   viewport: CanvasViewportSchema.optional(),
   selected_node_id: z.string().nullable().optional(),
-  canvas_mode: z.string().optional().default("dag"),
+  canvas_mode: z.enum(["dag", "state-machine"]).optional().default("dag"),
 });
 export type WorkflowCanvasState = z.infer<typeof WorkflowCanvasStateSchema>;
 
@@ -499,7 +555,7 @@ export type WorkflowEnabledUpdate = z.infer<typeof WorkflowEnabledUpdateSchema>;
 export const WorkflowHealthMetricsSchema = z.object({
   run_count: z.number().optional().default(0),
   eval_pass_pct: z.number().nullable().optional(),
-  eval_health: z.string().nullable().optional(),
+  eval_health: z.enum(["success", "warning", "danger"]).nullable().optional(),
   total_cost_usd: z.number().optional().default(0.0),
   regression_count: z.number().optional().default(0),
 });

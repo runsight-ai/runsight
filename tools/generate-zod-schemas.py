@@ -21,6 +21,20 @@ def openapi_type_to_zod(prop: dict, schemas: dict) -> str:
             return f"z.literal({const_value})"
         return "z.unknown()"
 
+    if "enum" in prop:
+        values = prop["enum"]
+        if all(isinstance(value, str) for value in values):
+            return "z.enum([" + ", ".join(json.dumps(value) for value in values) + "])"
+        literals = []
+        for value in values:
+            if isinstance(value, str):
+                literals.append(f"z.literal({json.dumps(value)})")
+            elif isinstance(value, bool):
+                literals.append(f"z.literal({str(value).lower()})")
+            elif isinstance(value, (int, float)):
+                literals.append(f"z.literal({value})")
+        return f"z.union([{', '.join(literals)}])" if literals else "z.unknown()"
+
     # anyOf (nullable / union)
     if "anyOf" in prop:
         types = prop["anyOf"]
@@ -123,7 +137,10 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
 
     for name in sorted_names:
         schema = schemas[name]
-        zod_expr = generate_object_schema(schema, schemas)
+        if "enum" in schema:
+            zod_expr = openapi_type_to_zod(schema, schemas)
+        else:
+            zod_expr = generate_object_schema(schema, schemas)
         lines.append(f"export const {name}Schema = {zod_expr};")
         lines.append(f"export type {name} = z.infer<typeof {name}Schema>;")
         lines.append("")

@@ -479,6 +479,92 @@
         }
       }
     },
+    "/api/runs/{run_id}/context-audit": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Get Run Context Audit",
+        "operationId": "get_run_context_audit_api_runs__run_id__context_audit_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContextAuditListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}/regressions": {
       "get": {
         "tags": [
@@ -2181,6 +2267,59 @@
           }
         }
       }
+    },
+    "/runsight.svg": {
+      "get": {
+        "summary": " Favicon",
+        "operationId": "_favicon_runsight_svg_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{full_path}": {
+      "get": {
+        "summary": " Spa Catch All",
+        "operationId": "_spa_catch_all__full_path__get",
+        "parameters": [
+          {
+            "name": "full_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Full Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2382,6 +2521,299 @@
           "message"
         ],
         "title": "CommitResponse"
+      },
+      "ContextAccess": {
+        "type": "string",
+        "enum": [
+          "declared",
+          "all"
+        ],
+        "title": "ContextAccess",
+        "description": "Block-level context access policy declared in workflow YAML."
+      },
+      "ContextAuditEventV1": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "context_audit.v1",
+            "title": "Schema Version",
+            "default": "context_audit.v1"
+          },
+          "event": {
+            "type": "string",
+            "const": "context_resolution",
+            "title": "Event",
+            "default": "context_resolution"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "block_type": {
+            "type": "string",
+            "title": "Block Type"
+          },
+          "access": {
+            "$ref": "#/components/schemas/ContextAccess"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ContextAuditMode"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ContextAuditRecordV1"
+            },
+            "type": "array",
+            "title": "Records"
+          },
+          "resolved_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Resolved Count",
+            "default": 0
+          },
+          "denied_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Denied Count",
+            "default": 0
+          },
+          "warning_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Warning Count",
+            "default": 0
+          },
+          "emitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Emitted At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "workflow_name",
+          "node_id",
+          "block_type",
+          "access",
+          "mode",
+          "emitted_at"
+        ],
+        "title": "ContextAuditEventV1",
+        "description": "Audit event emitted after resolving context for one block."
+      },
+      "ContextAuditListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContextAuditEventV1"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "has_next_page": {
+            "type": "boolean",
+            "title": "Has Next Page"
+          },
+          "end_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page_size",
+          "has_next_page"
+        ],
+        "title": "ContextAuditListResponse"
+      },
+      "ContextAuditMode": {
+        "type": "string",
+        "enum": [
+          "strict",
+          "dev"
+        ],
+        "title": "ContextAuditMode",
+        "description": "Context governance enforcement mode."
+      },
+      "ContextAuditNamespace": {
+        "type": "string",
+        "enum": [
+          "results",
+          "shared_memory",
+          "metadata"
+        ],
+        "title": "ContextAuditNamespace",
+        "description": "Supported namespaces for context audit records."
+      },
+      "ContextAuditRecordV1": {
+        "properties": {
+          "input_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Name"
+          },
+          "from_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Ref"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContextAuditNamespace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "field_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Path"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContextAuditStatus"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ContextAuditSeverity"
+          },
+          "value_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Type"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "internal": {
+            "type": "boolean",
+            "title": "Internal",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "input_name",
+          "from_ref",
+          "namespace",
+          "source",
+          "status",
+          "severity"
+        ],
+        "title": "ContextAuditRecordV1",
+        "description": "Audit record for a single block input context reference."
+      },
+      "ContextAuditSeverity": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "warn",
+          "error"
+        ],
+        "title": "ContextAuditSeverity",
+        "description": "Audit severity for one resolution record."
+      },
+      "ContextAuditStatus": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "missing",
+          "denied",
+          "all_access",
+          "empty"
+        ],
+        "title": "ContextAuditStatus",
+        "description": "Resolution outcome for one requested context reference."
       },
       "DashboardKPIsResponse": {
         "properties": {
