@@ -145,6 +145,61 @@ def test_context_audit_event_serializes_workflow_seeded_input_in_results_namespa
     assert round_tripped == event
 
 
+def test_context_audit_event_sequence_defaults_to_none_and_round_trips_integer_values():
+    """ContextAuditEventV1 should default sequence to None and preserve explicit integers."""
+    cg = _load_contract_module()
+
+    base_kwargs = dict(
+        schema_version="context_audit.v1",
+        event="context_resolution",
+        run_id="run_123",
+        workflow_name="example_workflow",
+        node_id="node_1",
+        block_type="code",
+        access="declared",
+        mode="strict",
+        records=[],
+        resolved_count=0,
+        denied_count=0,
+        warning_count=0,
+        emitted_at=datetime(2026, 4, 16, tzinfo=UTC),
+    )
+
+    default_event = cg.ContextAuditEventV1(**base_kwargs)
+    assert default_event.sequence is None
+    assert default_event.model_dump()["sequence"] is None
+
+    sequenced_event = cg.ContextAuditEventV1(sequence=17, **base_kwargs)
+    assert sequenced_event.sequence == 17
+    assert sequenced_event.model_dump()["sequence"] == 17
+
+
+def test_context_audit_event_rejects_missing_or_none_workflow_name():
+    """workflow_name must be required and non-null on ContextAuditEventV1."""
+    cg = _load_contract_module()
+
+    base_kwargs = dict(
+        schema_version="context_audit.v1",
+        event="context_resolution",
+        run_id="run_123",
+        node_id="node_1",
+        block_type="code",
+        access="declared",
+        mode="strict",
+        records=[],
+        resolved_count=0,
+        denied_count=0,
+        warning_count=0,
+        emitted_at=datetime(2026, 4, 16, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValidationError):
+        cg.ContextAuditEventV1.model_validate(base_kwargs)
+
+    with pytest.raises(ValidationError):
+        cg.ContextAuditEventV1.model_validate({**base_kwargs, "workflow_name": None})
+
+
 def test_context_audit_record_allows_empty_and_all_access_style_fields():
     """Empty/all-access audit records may leave origin fields unset."""
     cg = _load_contract_module()
