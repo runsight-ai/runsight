@@ -410,14 +410,10 @@ def build_block_context(
     scoped_context = resolver.resolve(declaration=declaration, state=state)
     inputs = dict(scoped_context.inputs)
 
-    # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
-    resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
-    # The actual instruction to the LLM is re-derived in LinearBlock.execute from
-    # _resolved_inputs, so ctx.instruction is used only as a budget-calculation input.
+    # Generic declared blocks must not fall back to legacy _resolved_inputs.
     system_prompt = soul.system_prompt or "" if soul is not None else ""
-    instruction = system_prompt or resolved_inputs.get("instruction", "") or ""
+    instruction = system_prompt
 
     # Context: workflow-level external input or resolved context input.
     # None when no workflow result with real content and no resolved context.
@@ -437,8 +433,7 @@ def build_block_context(
             _wf_has_content = bool(_wf_output)
         raw_context: Optional[str] = _wf_output if _wf_has_content else None
     else:
-        _resolved_context = resolved_inputs.get("context", "") if resolved_inputs else ""
-        raw_context = _resolved_context if _resolved_context else None
+        raw_context = None
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
