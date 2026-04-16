@@ -9,9 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from runsight_core.artifacts import ArtifactStore
 from runsight_core.context_governance import (
-    ContextDeclaration,
     ContextGovernancePolicy,
     ContextResolver,
+    collect_context_declaration,
 )
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.primitives import Soul
@@ -177,6 +177,23 @@ _GATE_INSTRUCTION = (
 )
 
 
+def _resolve_governed_context(
+    block: Any,
+    state: WorkflowState,
+    *,
+    step: Optional[Any] = None,
+    policy: ContextGovernancePolicy | None = None,
+) -> Dict[str, Any]:
+    declaration = collect_context_declaration(block, step=step)
+    resolver = ContextResolver(
+        policy=policy,
+        run_id=str(state.metadata.get("run_id", "")),
+        workflow_name=str(state.metadata.get("workflow_name", "")),
+    )
+    scoped_context = resolver.resolve(declaration=declaration, state=state)
+    return dict(scoped_context.inputs)
+
+
 def build_block_context(
     block: Any,
     state: WorkflowState,
@@ -211,9 +228,7 @@ def build_block_context(
     inner_block = getattr(block, "inner_block", None)
     if inner_block is not None:
         wrapper_soul = getattr(block, "soul", None)
-        # Resolve declared inputs from Step BEFORE returning, so isolated blocks
-        # receive their YAML inputs: declarations via ctx.inputs.
-        wrapper_inputs = _resolve_declared_inputs(step, state)
+        wrapper_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         # Preserve conversation history for stateful inner blocks so that the
         # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
         _inner_stateful = getattr(inner_block, "stateful", False)
@@ -246,11 +261,13 @@ def build_block_context(
     # WorkflowBlock strategy: detect child_workflow attribute
     child_workflow = getattr(block, "child_workflow", None)
     if child_workflow is not None:
+        workflow_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         return BlockContext(
             block_id=block.block_id,
             instruction="invoke child",
             context=None,
             inputs={
+                **workflow_inputs,
                 "call_stack": [],
                 "workflow_registry": None,
                 "observer": None,
@@ -264,10 +281,7 @@ def build_block_context(
     # LoopBlock strategy: detect inner_block_refs attribute
     inner_block_refs = getattr(block, "inner_block_refs", None)
     if inner_block_refs is not None:
-        loop_inputs = _resolve_declared_inputs(step, state)
-        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-        if not loop_inputs and resolved_inputs:
-            loop_inputs = dict(resolved_inputs)
+        loop_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         return BlockContext(
             block_id=block.block_id,
             instruction="loop",
@@ -310,10 +324,7 @@ def build_block_context(
             if first_branch is not None and getattr(first_branch, "task_instruction", None)
             else "dispatch"
         )
-        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-        dispatch_inputs = _resolve_declared_inputs(step, state)
-        if not dispatch_inputs and resolved_inputs:
-            dispatch_inputs = dict(resolved_inputs)
+        dispatch_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         dispatch_context = dispatch_inputs.get("context") if dispatch_inputs else None
         return BlockContext(
             block_id=block.block_id,
@@ -330,36 +341,15 @@ def build_block_context(
     # SynthesizeBlock strategy: detect input_block_ids attribute
     input_block_ids = getattr(block, "input_block_ids", None)
     if input_block_ids is not None:
-        missing = [bid for bid in input_block_ids if bid not in state.results]
-        if missing:
-            available = sorted(state.results.keys())
-            raise ValueError(
-                f"build_block_context: SynthesizeBlock '{block.block_id}' missing inputs: {missing}. "
-                f"Available: {available}"
-            )
+        resolved_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         combined_outputs = "\n\n".join(
-            f"=== Output from {bid} ===\n"
-            + (
-                state.results[bid].output
-                if isinstance(state.results[bid], BlockResult)
-                else str(state.results[bid])
-            )
-            for bid in input_block_ids
+            f"=== Output from {bid} ===\n" + str(resolved_inputs[bid]) for bid in input_block_ids
         )
         synthesis_instruction = (
             "Synthesize the following outputs into a cohesive, unified result. "
             "Identify common themes, resolve conflicts, and provide a comprehensive summary."
         )
         synth_soul: Optional[Soul] = getattr(block, "synthesizer_soul", soul)
-        # Resolve each input_block_id into inputs as named entries (unified YAML inputs contract)
-        resolved_inputs = {
-            bid: (
-                state.results[bid].output
-                if isinstance(state.results[bid], BlockResult)
-                else str(state.results[bid])
-            )
-            for bid in input_block_ids
-        }
         return BlockContext(
             block_id=block.block_id,
             instruction=synthesis_instruction,
@@ -375,19 +365,14 @@ def build_block_context(
     # GateBlock strategy: gate instruction + eval_key content as context
     eval_key = getattr(block, "eval_key", None)
     if eval_key is not None:
-        if eval_key not in state.results:
-            raise ValueError(
-                f"build_block_context: GateBlock '{block.block_id}' eval_key '{eval_key}' "
-                f"not found in state.results. Available: {sorted(state.results.keys())}"
-            )
-        raw = state.results[eval_key]
-        content = raw.output if isinstance(raw, BlockResult) else str(raw)
+        gate_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        content = gate_inputs["content"]
         # Resolve eval_key content into inputs as "content" (unified YAML inputs contract)
         return BlockContext(
             block_id=block.block_id,
             instruction=_GATE_INSTRUCTION,
-            context=content,
-            inputs={"content": content},
+            context=str(content),
+            inputs=gate_inputs,
             conversation_history=[],
             soul=soul,
             model_name=model_name,
@@ -395,20 +380,7 @@ def build_block_context(
             state_snapshot=state,
         )
 
-    # Resolve declared inputs (done here so it applies even when current_task is None).
-    declaration = ContextDeclaration(
-        block_id=block.block_id,
-        block_type=block.__class__.__name__,
-        access=getattr(block, "context_access", getattr(block, "access", "declared")),
-        declared_inputs=getattr(step, "declared_inputs", {}) if step is not None else {},
-    )
-    resolver = ContextResolver(
-        policy=policy,
-        run_id=str(state.metadata.get("run_id", "")),
-        workflow_name=str(state.metadata.get("workflow_name", "")),
-    )
-    scoped_context = resolver.resolve(declaration=declaration, state=state)
-    inputs = dict(scoped_context.inputs)
+    inputs = _resolve_governed_context(block, state, step=step, policy=policy)
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
     # Generic declared blocks must not fall back to legacy _resolved_inputs.

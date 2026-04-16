@@ -159,7 +159,7 @@ class ScopedContextData(BaseModel):
     audit_event: ContextAuditEventV1
 
 
-class ContextResolutionError(ValueError):
+class ContextResolutionError(ValueError, KeyError):
     """Raised when declared context cannot be resolved."""
 
 
@@ -198,7 +198,7 @@ class ContextResolver:
                 f"Context access '{declaration.access}' is not implemented for {declaration.block_id}"
             )
 
-        for input_name, from_ref in declaration.declared_inputs.items():
+        for input_name, from_ref, internal in _iter_declared_and_internal_inputs(declaration):
             parsed = parse_context_ref(from_ref)
             try:
                 value = _resolve_parsed_ref(parsed, state)
@@ -212,6 +212,7 @@ class ContextResolver:
                             status=ContextAuditStatus.MISSING,
                             severity=ContextAuditSeverity.WARN,
                             reason=str(exc),
+                            internal=internal,
                         )
                     )
                     continue
@@ -234,6 +235,7 @@ class ContextResolver:
                     status=ContextAuditStatus.RESOLVED,
                     severity=ContextAuditSeverity.ALLOW,
                     value=value,
+                    internal=internal,
                 )
             )
 
@@ -266,6 +268,27 @@ class ContextResolver:
         )
 
 
+def collect_context_declaration(block: object, step: object | None = None) -> ContextDeclaration:
+    """Collect user and special-block context declarations for one runtime block."""
+
+    declared_inputs = _user_declared_inputs(block, step)
+    internal_inputs = _special_internal_inputs(block)
+    collisions = sorted(set(declared_inputs) & set(internal_inputs))
+    if collisions:
+        raise ValueError(
+            f"Block '{getattr(block, 'block_id', '<unknown>')}' input(s) {collisions} "
+            "collide with internal context inputs"
+        )
+
+    return ContextDeclaration(
+        block_id=str(getattr(block, "block_id")),
+        block_type=_context_block_type(block),
+        access=str(getattr(block, "context_access", getattr(block, "access", "declared"))),
+        declared_inputs=declared_inputs,
+        internal_inputs=internal_inputs,
+    )
+
+
 def parse_context_ref(ref: str) -> ParsedContextRef:
     """Parse a context reference into the supported governance namespaces."""
 
@@ -295,12 +318,62 @@ def _is_secret_like_ref(*parts: str | None) -> bool:
     return any(marker in normalized for marker in _SECRET_REF_MARKERS)
 
 
+def _iter_declared_and_internal_inputs(
+    declaration: ContextDeclaration,
+) -> list[tuple[str, str, bool]]:
+    return [
+        *((name, from_ref, False) for name, from_ref in declaration.declared_inputs.items()),
+        *((name, from_ref, True) for name, from_ref in declaration.internal_inputs.items()),
+    ]
+
+
+def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:
+    if step is not None and hasattr(step, "declared_inputs"):
+        return dict(getattr(step, "declared_inputs") or {})
+    declared_inputs = getattr(block, "declared_inputs", None)
+    if declared_inputs:
+        return dict(declared_inputs)
+    workflow_inputs = getattr(block, "inputs", None)
+    if isinstance(workflow_inputs, dict):
+        return dict(workflow_inputs)
+    return {}
+
+
+def _special_internal_inputs(block: object) -> dict[str, str]:
+    eval_key = getattr(block, "eval_key", None)
+    if eval_key is not None:
+        return {"content": str(eval_key)}
+
+    input_block_ids = getattr(block, "input_block_ids", None)
+    if input_block_ids is not None:
+        return {str(block_id): str(block_id) for block_id in input_block_ids}
+
+    return {}
+
+
+def _context_block_type(block: object) -> str:
+    if getattr(block, "eval_key", None) is not None:
+        return "gate"
+    if getattr(block, "input_block_ids", None) is not None:
+        return "synthesize"
+    if getattr(block, "branches", None) is not None:
+        return "dispatch"
+    if getattr(block, "child_workflow", None) is not None:
+        return "workflow"
+    if getattr(block, "inner_block_refs", None) is not None:
+        return "loop"
+    if getattr(block, "code", None) is not None:
+        return "code"
+    return block.__class__.__name__
+
+
 def _resolve_parsed_ref(parsed: ParsedContextRef, state: WorkflowState) -> object:
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
         if parsed.source not in state.results:
             raise ContextResolutionError(
                 f"Context resolution failed for {parsed.source}"
-                f"{'.' + parsed.field_path if parsed.field_path else ''}: source result missing"
+                f"{'.' + parsed.field_path if parsed.field_path else ''}: source result missing. "
+                f"Available: {sorted(state.results.keys())}"
             )
         result = state.results[parsed.source]
         raw_output = result.output if isinstance(result, BlockResult) else str(result)
@@ -427,6 +500,7 @@ def _audit_record(
     severity: ContextAuditSeverity,
     value: object | None = None,
     reason: str | None = None,
+    internal: bool = False,
 ) -> ContextAuditRecordV1:
     return ContextAuditRecordV1(
         input_name=input_name,
@@ -439,7 +513,7 @@ def _audit_record(
         value_type=None if value is None else type(value).__name__,
         preview=None if value is None else bounded_context_preview(value),
         reason=reason,
-        internal=False,
+        internal=internal,
     )
 
 
