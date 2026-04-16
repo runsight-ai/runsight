@@ -315,6 +315,22 @@ def test_build_block_context_resolves_declared_inputs_through_resolver(cheap_bud
     assert ctx.inputs == {"summary": "ready"}
 
 
+def test_build_block_context_resolves_declared_workflow_input_through_resolver(
+    cheap_budget: None,
+) -> None:
+    """Workflow-seeded input is available only through an explicit declaration."""
+    block = _FakeDeclaredBlock()
+    step = Step(block=block, declared_inputs={"reason": "workflow.reason"})
+
+    ctx = build_block_context(
+        block,
+        _state(results={"workflow": BlockResult(output=json.dumps({"reason": "audit"}))}),
+        step=step,
+    )
+
+    assert ctx.inputs == {"reason": "audit"}
+
+
 def test_build_block_context_missing_declared_input_raises_governance_error(
     cheap_budget: None,
 ) -> None:
@@ -356,6 +372,32 @@ def test_build_block_context_declared_no_step_ignores_legacy_resolved_inputs(
     ctx = build_block_context(block, state, step=None)
 
     assert ctx.inputs == {}
+
+
+def test_build_block_context_declared_no_step_does_not_expose_workflow_result_context(
+    cheap_budget: None,
+) -> None:
+    """No-input declared blocks must not receive workflow-seeded input as context."""
+    block = _FakeDeclaredBlock()
+    state = _state(
+        results={
+            "workflow": BlockResult(
+                output=json.dumps(
+                    {
+                        "reason": "workflow context leak",
+                        "prompt": "undeclared workflow input",
+                    }
+                )
+            )
+        }
+    )
+
+    ctx = build_block_context(block, state, step=None)
+
+    assert ctx.inputs == {}
+    assert ctx.context is None
+    assert "workflow context leak" not in (ctx.context or "")
+    assert "undeclared workflow input" not in (ctx.context or "")
 
 
 def test_build_block_context_declared_no_step_does_not_expose_legacy_instruction_or_context(
