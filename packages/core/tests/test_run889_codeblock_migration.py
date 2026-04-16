@@ -6,8 +6,8 @@ AC-1: CodeBlock.execute accepts BlockContext and returns BlockOutput (not Workfl
 AC-2: stdin_data to subprocess is byte-identical to current path
 AC-3: Error cases produce correct BlockOutput with exit_handle="error"
 AC-4: exit_handle extraction from dict results still works
-AC-5: build_block_context detects CodeBlock (has `code` attribute) and populates
-      ctx.inputs with full state snapshot: results, metadata, shared_memory
+AC-5: build_block_context detects CodeBlock (has `code` attribute) without requiring
+      current_task or LLM state.
 AC-6: End-to-end via execute_block dispatches CodeBlock through new path
 """
 
@@ -445,13 +445,13 @@ class TestAC4ExitHandleExtraction:
 
 
 # ===========================================================================
-# AC-5: build_block_context "access: all" pattern for CodeBlock
+# AC-5: build_block_context for CodeBlock
 # ===========================================================================
 
 
 class TestAC5BuildBlockContext:
     def test_build_block_context_detects_code_attribute(self):
-        """build_block_context must detect CodeBlock (has 'code' attr) and use 'access: all'."""
+        """build_block_context must detect CodeBlock (has 'code' attr)."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state(
             results={"prev": BlockResult(output="some result")},
@@ -465,56 +465,40 @@ class TestAC5BuildBlockContext:
             f"build_block_context must return BlockContext for CodeBlock, got {type(ctx).__name__}"
         )
 
-    def test_build_block_context_inputs_contain_results(self):
-        """ctx.inputs must contain 'results' key with full state snapshot."""
+    def test_build_block_context_without_declarations_has_empty_inputs(self):
+        """CodeBlock without inputs or access: all receives empty inputs."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state(
             results={"prev": BlockResult(output="some result")},
+            metadata={"wf": "test_workflow"},
+            shared_memory={"sm": "data"},
         )
 
         ctx = build_block_context(block, state)
 
-        assert "results" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['results']"
-        )
+        assert ctx.inputs == {}
 
-    def test_build_block_context_inputs_contain_metadata(self):
-        """ctx.inputs must contain 'metadata' key from state."""
+    def test_build_block_context_access_all_inputs_contain_results_metadata_shared_memory(self):
+        """Explicit CodeBlock access: all receives the broad state shape."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(metadata={"wf": "test_workflow"})
-
-        ctx = build_block_context(block, state)
-
-        assert "metadata" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['metadata']"
+        block.context_access = "all"
+        state = _make_state(
+            results={"prev": BlockResult(output="output str")},
+            metadata={"wf": "test_workflow"},
+            shared_memory={"sm": "data"},
         )
-        assert ctx.inputs["metadata"] == {"wf": "test_workflow"}
-
-    def test_build_block_context_inputs_contain_shared_memory(self):
-        """ctx.inputs must contain 'shared_memory' key from state."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(shared_memory={"sm": "data"})
 
         ctx = build_block_context(block, state)
 
-        assert "shared_memory" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['shared_memory']"
-        )
-        assert ctx.inputs["shared_memory"] == {"sm": "data"}
-
-    def test_build_block_context_results_values_are_unwrapped(self):
-        """Results in ctx.inputs must be unwrapped BlockResult.output strings."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(results={"prev": BlockResult(output="output str")})
-
-        ctx = build_block_context(block, state)
-
+        assert set(ctx.inputs) == {"results", "metadata", "shared_memory"}
         results_in_inputs = ctx.inputs["results"]
         assert isinstance(results_in_inputs["prev"], str), (
             "Results values must be unwrapped to strings (BlockResult.output), "
             f"got {type(results_in_inputs['prev']).__name__}"
         )
         assert results_in_inputs["prev"] == "output str"
+        assert ctx.inputs["metadata"] == {"wf": "test_workflow"}
+        assert ctx.inputs["shared_memory"] == {"sm": "data"}
 
     def test_build_block_context_block_id_matches(self):
         """ctx.block_id must match the block's block_id."""
