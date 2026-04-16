@@ -296,18 +296,12 @@ def build_block_context(
     # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
     code = getattr(block, "code", None)
     if code is not None:
+        code_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
         return BlockContext(
             block_id=block.block_id,
             instruction="",
             context=None,
-            inputs={
-                "results": {
-                    k: v.output if isinstance(v, BlockResult) else v
-                    for k, v in state.results.items()
-                },
-                "metadata": state.metadata,
-                "shared_memory": state.shared_memory,
-            },
+            inputs=code_inputs,
             conversation_history=[],
             soul=None,
             model_name=None,
