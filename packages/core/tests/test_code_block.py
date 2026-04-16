@@ -8,7 +8,8 @@ import textwrap
 import pytest
 from conftest import execute_block_for_test
 from runsight_core import CodeBlock
-from runsight_core.state import WorkflowState
+from runsight_core.primitives import Step
+from runsight_core.state import BlockResult, WorkflowState
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -28,7 +29,7 @@ def _make_state(**overrides) -> WorkflowState:
 
 SIMPLE_CODE = textwrap.dedent("""\
 def main(data):
-    return {"greeting": "hello " + data["shared_memory"].get("name", "world")}
+    return {"greeting": "hello " + data.get("name", "world")}
 """)
 
 MATH_CODE = textwrap.dedent("""\
@@ -37,8 +38,13 @@ import json
 import re
 
 def main(data):
-    val = data["shared_memory"].get("x", 9)
+    val = data.get("x", 9)
     return {"sqrt": math.sqrt(val), "is_digit": bool(re.match(r"^\\d+$", str(val)))}
+""")
+
+BROAD_STATE_CODE = textwrap.dedent("""\
+def main(data):
+    return {"greeting": "hello " + data["shared_memory"].get("name", "world")}
 """)
 
 
@@ -51,8 +57,9 @@ class TestCodeBlockHappyPath:
     @pytest.mark.asyncio
     async def test_basic_transform(self):
         block = CodeBlock("cb1", SIMPLE_CODE)
-        state = _make_state(shared_memory={"name": "alice"})
-        result = await execute_block_for_test(block, state)
+        step = Step(block=block, declared_inputs={"name": "profile.name"})
+        state = _make_state(results={"profile": BlockResult(output=json.dumps({"name": "alice"}))})
+        result = await execute_block_for_test(block, state, step=step)
 
         assert "cb1" in result.results
         parsed = json.loads(result.results["cb1"].output)
@@ -62,8 +69,9 @@ class TestCodeBlockHappyPath:
     @pytest.mark.asyncio
     async def test_allowed_imports(self):
         block = CodeBlock("cb2", MATH_CODE)
-        state = _make_state(shared_memory={"x": 16})
-        result = await execute_block_for_test(block, state)
+        step = Step(block=block, declared_inputs={"x": "numbers.x"})
+        state = _make_state(results={"numbers": BlockResult(output=json.dumps({"x": 16}))})
+        result = await execute_block_for_test(block, state, step=step)
 
         assert "cb2" in result.results
         parsed = json.loads(result.results["cb2"].output)
@@ -103,6 +111,31 @@ def main(data):
         result = await execute_block_for_test(block, state)
         # String results stored directly
         assert result.results["cb_str"].output == "just a string"
+
+    @pytest.mark.asyncio
+    async def test_no_declaration_receives_empty_input(self):
+        block = CodeBlock(
+            "cb_empty",
+            textwrap.dedent("""\
+def main(data):
+    return data
+"""),
+        )
+        state = _make_state(shared_memory={"name": "implicit leak"})
+        result = await execute_block_for_test(block, state)
+
+        assert json.loads(result.results["cb_empty"].output) == {}
+
+    @pytest.mark.asyncio
+    async def test_explicit_all_access_receives_broad_state(self):
+        block = CodeBlock("cb_all", BROAD_STATE_CODE)
+        block.context_access = "all"
+        block.declared_inputs = {}
+        state = _make_state(shared_memory={"name": "alice"})
+        result = await execute_block_for_test(block, state)
+
+        parsed = json.loads(result.results["cb_all"].output)
+        assert parsed["greeting"] == "hello alice"
 
 
 # ---------------------------------------------------------------------------
