@@ -160,43 +160,54 @@ export function ContextInspectorTab({ events }: ContextInspectorTabProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {events.map((event) => (
-        <div
+        <section
           key={`${event.run_id}:${event.sequence ?? event.emitted_at}:${event.node_id}`}
-          className="rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] p-3"
+          className="border-b border-[var(--border-default)] pb-3 last:border-b-0"
         >
-          <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[11px] uppercase text-[var(--text-muted)]">
+              {event.block_type}
+            </span>
             <ContextAccessBadge access={event.access} />
-            <ContextResolutionBadge
-              warningCount={event.warning_count ?? 0}
-              deniedCount={event.denied_count ?? 0}
-            />
+            <ContextResolutionBadge warningCount={event.warning_count ?? 0} deniedCount={event.denied_count ?? 0} />
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {event.resolved_count ?? 0} resolved · {event.warning_count ?? 0} warning · {event.denied_count ?? 0} denied
+            </span>
           </div>
-          <div className="space-y-2">
-            {(event.records ?? []).map((record, index) => (
-              <div
-                key={`${record.input_name ?? "record"}:${index}`}
-                className="rounded-md border border-border-subtle p-2 text-xs"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-[var(--text-primary)]">
+          <table className="w-full table-fixed text-left text-xs">
+            <thead className="text-[11px] uppercase text-[var(--text-muted)]">
+              <tr>
+                <th className="w-[28%] py-1 pr-2 font-medium">Input</th>
+                <th className="w-[34%] py-1 pr-2 font-medium">Reference</th>
+                <th className="w-[18%] py-1 pr-2 font-medium">Status</th>
+                <th className="w-[20%] py-1 font-medium">Preview</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(event.records ?? []).map((record, index) => (
+                <tr key={`${record.input_name ?? "record"}:${index}`} className="border-t border-border-subtle align-top">
+                  <td className="truncate py-1.5 pr-2 font-medium text-[var(--text-primary)]">
                     {record.input_name ?? "all access"}
-                  </span>
-                  <span className={severityClass(record.severity)}>{record.severity}</span>
-                </div>
-                <div className="mt-1 break-all font-mono text-[var(--text-muted)]">
-                  {record.from_ref ?? record.reason ?? event.access}
-                </div>
-                {record.preview ? (
-                  <div className="mt-1 overflow-hidden break-all text-[var(--text-secondary)]">
-                    {record.preview}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
+                  </td>
+                  <td className="break-all py-1.5 pr-2 font-mono text-[var(--text-muted)]">
+                    {record.from_ref ?? record.reason ?? event.access}
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className={resolutionClass(record.status)}>{record.status}</span>
+                      <span className={severityClass(record.severity)}>{record.severity}</span>
+                    </div>
+                  </td>
+                  <td className="break-all py-1.5 text-[var(--text-secondary)]">
+                    {record.preview ?? "No preview"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       ))}
     </div>
   );
