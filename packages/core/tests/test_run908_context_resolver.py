@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from runsight_core import block_io
 from runsight_core.block_io import build_block_context
 from runsight_core.primitives import Step
@@ -72,9 +73,24 @@ def _resolver(*, mode: str = "strict") -> Any:
     )
 
 
-def _declaration(input_name: str, from_ref: str) -> Any:
+def _declaration(
+    declared_inputs: dict[str, str] | None = None,
+    *,
+    access: str = "declared",
+    internal_inputs: dict[str, str] | None = None,
+    block_id: str = "summarize",
+    block_type: str = "linear",
+) -> Any:
     cg = _cg()
-    return cg.ContextDeclaration(input_name=input_name, from_ref=from_ref)
+    payload: dict[str, Any] = {
+        "block_id": block_id,
+        "block_type": block_type,
+        "access": access,
+        "declared_inputs": declared_inputs or {},
+    }
+    if internal_inputs is not None:
+        payload["internal_inputs"] = internal_inputs
+    return cg.ContextDeclaration(**payload)
 
 
 def test_context_governance_exports_resolver_contract_symbols() -> None:
@@ -91,13 +107,36 @@ def test_context_governance_exports_resolver_contract_symbols() -> None:
         assert hasattr(cg, name), f"missing RUN-908 context resolver symbol: {name}"
 
 
-def test_context_resolver_resolves_declared_field_path() -> None:
-    """A declared input resolves a field from a prior block result."""
-    scoped = _resolver().resolve(
+def test_context_declaration_defaults_and_rejects_invalid_access() -> None:
+    """ContextDeclaration is a block-level declaration with empty internal inputs."""
+    cg = _cg()
+
+    declaration = cg.ContextDeclaration(
         block_id="summarize",
         block_type="linear",
         access="declared",
-        declarations=[_declaration("summary", "draft.summary")],
+        declared_inputs={"summary": "draft.summary"},
+    )
+
+    assert declaration.block_id == "summarize"
+    assert declaration.block_type == "linear"
+    assert declaration.access == "declared"
+    assert declaration.declared_inputs == {"summary": "draft.summary"}
+    assert declaration.internal_inputs == {}
+
+    with pytest.raises(ValidationError):
+        cg.ContextDeclaration(
+            block_id="summarize",
+            block_type="linear",
+            access="legacy",
+            declared_inputs={},
+        )
+
+
+def test_context_resolver_resolves_declared_field_path() -> None:
+    """A declared input resolves a field from a prior block result."""
+    scoped = _resolver().resolve(
+        declaration=_declaration({"summary": "draft.summary"}),
         state=_state(
             results={
                 "draft": BlockResult(
@@ -120,10 +159,7 @@ def test_context_resolver_missing_declared_ref_raises_resolution_error() -> None
 
     with pytest.raises(cg.ContextResolutionError, match="draft.summary"):
         _resolver().resolve(
-            block_id="summarize",
-            block_type="linear",
-            access="declared",
-            declarations=[_declaration("summary", "draft.summary")],
+            declaration=_declaration({"summary": "draft.summary"}),
             state=_state(results={}),
         )
 
@@ -131,10 +167,7 @@ def test_context_resolver_missing_declared_ref_raises_resolution_error() -> None
 def test_context_resolver_no_declarations_returns_empty_inputs() -> None:
     """Declared access with no input declarations grants no context."""
     scoped = _resolver().resolve(
-        block_id="summarize",
-        block_type="linear",
-        access="declared",
-        declarations=[],
+        declaration=_declaration(),
         state=_state(results={"draft": BlockResult(output='{"summary": "hidden"}')}),
     )
 
@@ -146,10 +179,7 @@ def test_context_resolver_no_declarations_returns_empty_inputs() -> None:
 def test_context_resolver_dev_mode_warns_without_granting_missing_data() -> None:
     """Dev mode may report warnings, but it must not insert undeclared fallback data."""
     scoped = _resolver(mode="dev").resolve(
-        block_id="summarize",
-        block_type="linear",
-        access="declared",
-        declarations=[_declaration("summary", "draft.summary")],
+        declaration=_declaration({"summary": "draft.summary"}),
         state=_state(
             results={},
             shared_memory={"_resolved_inputs": {"summary": "legacy leak"}},
@@ -167,10 +197,7 @@ def test_context_resolver_dev_mode_warns_without_granting_missing_data() -> None
 def test_context_resolver_full_block_ref_preserves_raw_non_json_output() -> None:
     """A full-block ref returns raw output even when that output is not JSON."""
     scoped = _resolver().resolve(
-        block_id="summarize",
-        block_type="linear",
-        access="declared",
-        declarations=[_declaration("raw_draft", "draft")],
+        declaration=_declaration({"raw_draft": "draft"}),
         state=_state(results={"draft": BlockResult(output="plain text draft")}),
     )
 
@@ -184,10 +211,7 @@ def test_context_resolver_field_path_into_non_json_output_fails_clearly() -> Non
 
     with pytest.raises(cg.ContextResolutionError, match="non-JSON.*draft.summary"):
         _resolver().resolve(
-            block_id="summarize",
-            block_type="linear",
-            access="declared",
-            declarations=[_declaration("summary", "draft.summary")],
+            declaration=_declaration({"summary": "draft.summary"}),
             state=_state(results={"draft": BlockResult(output="plain text draft")}),
         )
 
@@ -200,10 +224,7 @@ def test_context_resolver_audit_preview_is_bounded_but_value_remains_full() -> N
     }
 
     scoped = _resolver().resolve(
-        block_id="summarize",
-        block_type="linear",
-        access="declared",
-        declarations=[_declaration("payload", "draft.payload")],
+        declaration=_declaration({"payload": "draft.payload"}),
         state=_state(results={"draft": BlockResult(output=json.dumps({"payload": large_value}))}),
     )
 
@@ -212,6 +233,71 @@ def test_context_resolver_audit_preview_is_bounded_but_value_remains_full() -> N
     assert preview is not None
     assert len(preview) <= 200
     assert "x" * 500 not in preview
+
+
+def test_scoped_context_data_is_least_privilege_for_declared_result_ref() -> None:
+    """ScopedContextData exposes only the declared result slice, not full state."""
+    scoped = _resolver().resolve(
+        declaration=_declaration({"summary": "draft.summary"}),
+        state=_state(
+            results={
+                "draft": BlockResult(
+                    output=json.dumps(
+                        {
+                            "summary": "short version",
+                            "secret": "must stay hidden",
+                        }
+                    )
+                ),
+                "private_notes": BlockResult(output="hidden block"),
+            },
+            shared_memory={"secret": "hidden memory"},
+            metadata={"secret": "hidden metadata"},
+        ),
+    )
+
+    assert scoped.inputs == {"summary": "short version"}
+    assert scoped.scoped_results == {"draft": {"summary": "short version"}}
+    assert scoped.scoped_shared_memory == {}
+    assert scoped.scoped_metadata == {}
+    assert scoped.state_snapshot is None
+    assert scoped.audit_event.resolved_count == 1
+    assert "must stay hidden" not in scoped.model_dump_json()
+    assert "hidden block" not in scoped.model_dump_json()
+    assert "hidden memory" not in scoped.model_dump_json()
+    assert "hidden metadata" not in scoped.model_dump_json()
+
+
+def test_context_resolver_supports_declared_shared_memory_and_metadata_refs() -> None:
+    """Explicit non-results namespaces populate matching scoped context buckets."""
+    scoped = _resolver().resolve(
+        declaration=_declaration(
+            {
+                "customer_id": "shared_memory.customer.id",
+                "priority": "metadata.run.priority",
+            }
+        ),
+        state=_state(
+            shared_memory={
+                "customer": {
+                    "id": "cust_123",
+                    "token": "must stay hidden",
+                }
+            },
+            metadata={
+                "run": {
+                    "priority": "high",
+                    "api_key": "must stay hidden",
+                }
+            },
+        ),
+    )
+
+    assert scoped.inputs == {"customer_id": "cust_123", "priority": "high"}
+    assert scoped.scoped_results == {}
+    assert scoped.scoped_shared_memory == {"customer": {"id": "cust_123"}}
+    assert scoped.scoped_metadata == {"run": {"priority": "high"}}
+    assert "must stay hidden" not in scoped.model_dump_json()
 
 
 def test_build_block_context_resolves_declared_inputs_through_resolver(cheap_budget: None) -> None:
