@@ -145,6 +145,32 @@ def test_context_audit_event_serializes_workflow_seeded_input_in_results_namespa
     assert round_tripped == event
 
 
+def test_context_audit_record_allows_empty_and_all_access_style_fields():
+    """Empty/all-access audit records may leave origin fields unset."""
+    cg = _load_contract_module()
+
+    record = cg.ContextAuditRecordV1(
+        input_name=None,
+        from_ref=None,
+        namespace=None,
+        source=None,
+        field_path=None,
+        status="all_access",
+        severity="allow",
+        value_type=None,
+        preview=None,
+        reason="all access",
+        internal=False,
+    )
+
+    payload = record.model_dump()
+    assert payload["input_name"] is None
+    assert payload["from_ref"] is None
+    assert payload["namespace"] is None
+    assert payload["source"] is None
+    assert payload["field_path"] is None
+
+
 def test_dev_mode_warns_without_exposing_undeclared_data():
     """Dev mode can warn on denied access without leaking the denied value."""
     cg = _load_contract_module()
@@ -195,6 +221,83 @@ def test_dev_mode_warns_without_exposing_undeclared_data():
         "reason": "undeclared access",
         "internal": False,
     }
+
+
+def test_context_audit_event_rejects_invalid_schema_and_event_literals():
+    """Invalid literal values for the event contract must fail validation."""
+    cg = _load_contract_module()
+
+    base_kwargs = dict(
+        run_id="run_123",
+        workflow_name="example_workflow",
+        node_id="node_1",
+        block_type="code",
+        access="declared",
+        mode="strict",
+        records=[],
+        resolved_count=0,
+        denied_count=0,
+        warning_count=0,
+        emitted_at=datetime(2026, 4, 16, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValidationError):
+        cg.ContextAuditEventV1(
+            schema_version="context_audit.v2", event="context_resolution", **base_kwargs
+        )
+
+    with pytest.raises(ValidationError):
+        cg.ContextAuditEventV1(
+            schema_version="context_audit.v1", event="context_changed", **base_kwargs
+        )
+
+
+def test_base_block_def_rejects_invalid_access_values():
+    """BaseBlockDef must reject unknown access values."""
+    with pytest.raises(ValidationError):
+        BaseBlockDef.model_validate({"type": "code", "access": "restricted"})
+
+
+def test_context_audit_event_redacts_secret_like_previews_but_keeps_normal_previews():
+    """Secret-like previews must not serialize raw values, but normal previews may."""
+    cg = _load_contract_module()
+
+    secret_record = cg.ContextAuditRecordV1(
+        input_name="api_key",
+        from_ref="shared_memory.credentials.api_key",
+        namespace="shared_memory",
+        source="credentials",
+        field_path="api_key",
+        status="denied",
+        severity="warn",
+        value_type="str",
+        preview="sk-live-secret",
+        reason="secret-like value",
+        internal=False,
+    )
+    normal_record = cg.ContextAuditRecordV1(
+        input_name="summary",
+        from_ref="results.workflow.summary",
+        namespace="results",
+        source="workflow",
+        field_path="summary",
+        status="resolved",
+        severity="allow",
+        value_type="str",
+        preview="plain text preview",
+        reason=None,
+        internal=False,
+    )
+
+    secret_payload = secret_record.model_dump()
+    normal_payload = normal_record.model_dump()
+
+    assert secret_payload["preview"] != "sk-live-secret"
+    assert isinstance(secret_payload["preview"], str)
+    assert (
+        "redact" in secret_payload["preview"].lower() or secret_payload["preview"] == "[redacted]"
+    )
+    assert normal_payload["preview"] == "plain text preview"
 
 
 def test_invalid_context_audit_enums_are_rejected():
