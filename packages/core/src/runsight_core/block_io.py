@@ -11,7 +11,6 @@ from runsight_core.artifacts import ArtifactStore
 from runsight_core.context_governance import (
     ContextDeclaration,
     ContextGovernancePolicy,
-    ContextResolutionError,
     ContextResolver,
 )
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
@@ -408,22 +407,7 @@ def build_block_context(
         run_id=str(state.metadata.get("run_id", "")),
         workflow_name=str(state.metadata.get("workflow_name", "")),
     )
-    try:
-        scoped_context = resolver.resolve(declaration=declaration, state=state)
-    except ContextResolutionError as exc:
-        if block.__class__.__name__ != "LinearBlock" or "non-JSON output" not in str(exc):
-            raise
-        scoped_context = resolver.resolve(
-            declaration=declaration.model_copy(
-                update={
-                    "declared_inputs": {
-                        name: from_ref.split(".", 1)[0]
-                        for name, from_ref in declaration.declared_inputs.items()
-                    }
-                }
-            ),
-            state=state,
-        )
+    scoped_context = resolver.resolve(declaration=declaration, state=state)
     inputs = dict(scoped_context.inputs)
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
