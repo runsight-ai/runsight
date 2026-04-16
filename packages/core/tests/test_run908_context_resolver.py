@@ -257,7 +257,8 @@ def test_scoped_context_data_is_least_privilege_for_declared_result_ref() -> Non
     )
 
     assert scoped.inputs == {"summary": "short version"}
-    assert scoped.scoped_results == {"draft": {"summary": "short version"}}
+    assert isinstance(scoped.scoped_results["draft"], BlockResult)
+    assert json.loads(scoped.scoped_results["draft"].output) == {"summary": "short version"}
     assert scoped.scoped_shared_memory == {}
     assert scoped.scoped_metadata == {}
     assert scoped.state_snapshot is None
@@ -338,6 +339,21 @@ def test_build_block_context_declared_without_inputs_ignores_legacy_resolved_inp
     )
 
     ctx = build_block_context(block, state, step=step)
+
+    assert ctx.inputs == {}
+
+
+def test_build_block_context_declared_no_step_ignores_legacy_resolved_inputs(
+    cheap_budget: None,
+) -> None:
+    """Parsed no-input declared blocks have no Step and still ignore legacy inputs."""
+    block = _FakeDeclaredBlock()
+    state = _state(
+        results={"draft": BlockResult(output=json.dumps({"summary": "hidden"}))},
+        shared_memory={"_resolved_inputs": {"summary": "legacy leak"}},
+    )
+
+    ctx = build_block_context(block, state, step=None)
 
     assert ctx.inputs == {}
 
