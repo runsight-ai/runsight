@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { ContextAuditEventV1Schema } from "@runsight/shared/zod";
 import {
   useRunContextAudit,
   useRunContextAuditStream,
@@ -14,6 +15,7 @@ import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
+import { useContextAuditStore } from "@/store/contextAudit";
 
 interface LogEntry {
   timestamp: string | number;
@@ -99,6 +101,7 @@ function SurfaceBottomPanelContent({
   const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
+  const appendContextAuditEvents = useContextAuditStore((s) => s.appendEvents);
 
   const { data: runsData } = useRuns(
     workflowId ? { workflow_id: workflowId } : undefined,
@@ -121,7 +124,7 @@ function SurfaceBottomPanelContent({
 
   const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
   useRunContextAudit(currentRunId ?? "", { page_size: 100 });
-  useRunContextAuditStream(currentRunId);
+  useRunContextAuditStream(currentRunId, { enabled: false });
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
@@ -139,6 +142,19 @@ function SurfaceBottomPanelContent({
   useEffect(() => {
     if (!currentRunId) return;
     const source = new EventSource(`/api/runs/${currentRunId}/stream`);
+
+    source.addEventListener("context_resolution", (event) => {
+      try {
+        const auditEvent = ContextAuditEventV1Schema.parse(
+          JSON.parse((event as MessageEvent).data),
+        );
+        if (auditEvent.run_id === currentRunId) {
+          appendContextAuditEvents(currentRunId, [auditEvent]);
+        }
+      } catch {
+        return;
+      }
+    });
 
     const EVENT_TYPES = [
       "log_entry",
@@ -190,7 +206,7 @@ function SurfaceBottomPanelContent({
     }
 
     return () => source.close();
-  }, [currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
+  }, [appendContextAuditEvents, currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
 
   // Auto-scroll when new entries arrive
   useEffect(() => {

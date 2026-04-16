@@ -124,11 +124,14 @@ export function useRunContextAudit(runId: string, params?: Pick<RunContextAuditP
   return query;
 }
 
-export function useRunContextAuditStream(runId: string | null | undefined): void {
+export function useRunContextAuditStream(
+  runId: string | null | undefined,
+  options?: { enabled?: boolean },
+): void {
   const appendEvents = useContextAuditStore((state) => state.appendEvents);
 
   useEffect(() => {
-    if (!runId) {
+    if (!runId || options?.enabled === false) {
       return;
     }
     const source = new EventSource(`/api/runs/${runId}/stream`);
@@ -144,7 +147,7 @@ export function useRunContextAuditStream(runId: string | null | undefined): void
     source.addEventListener("run_failed", () => source.close());
 
     return () => source.close();
-  }, [appendEvents, runId]);
+  }, [appendEvents, options?.enabled, runId]);
 }
 
 export function useRunRegressions(runId: string) {
