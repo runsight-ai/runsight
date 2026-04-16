@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
+from runsight_core.context_governance import ContextResolver, collect_context_declaration
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     PromptEnvelope,
@@ -104,6 +105,39 @@ def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, An
         else:
             serialized[key] = {"output": value}
     return serialized
+
+
+def _scoped_context_for_envelope(
+    block: BaseBlock,
+    state: Any,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], str, list[Any]]:
+    access = str(getattr(block, "context_access", getattr(block, "access", "declared")))
+    if state is None:
+        return {}, {}, {}, {}, access, []
+    if access == "all":
+        return (
+            {},
+            _serialize_scoped_results(state.results),
+            dict(state.shared_memory),
+            dict(state.metadata),
+            access,
+            [],
+        )
+
+    declaration = collect_context_declaration(block)
+    resolver = ContextResolver(
+        run_id=str(state.metadata.get("run_id", "")),
+        workflow_name=str(state.metadata.get("workflow_name", "")),
+    )
+    scoped = resolver.resolve(declaration=declaration, state=state)
+    return (
+        dict(scoped.inputs),
+        _serialize_scoped_results(scoped.scoped_results),
+        dict(scoped.scoped_shared_memory),
+        dict(scoped.scoped_metadata),
+        access,
+        [scoped.audit_event],
+    )
 
 
 def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
@@ -239,15 +273,15 @@ class IsolatedBlockWrapper(BaseBlock):
         history_key = f"{self.block_id}_{soul.id}" if soul else self.block_id
         conversation_history = list(ctx.conversation_history) if self.inner_block.stateful else []
 
-        # Resolve scoped results and shared memory from state_snapshot
-        scoped_results: dict
-        scoped_shared_memory: dict
-        if state is not None:
-            scoped_results = _serialize_scoped_results(state.results)
-            scoped_shared_memory = dict(state.shared_memory)
-        else:
-            scoped_results = {}
-            scoped_shared_memory = {}
+        (
+            scoped_inputs,
+            scoped_results,
+            scoped_shared_memory,
+            scoped_metadata,
+            access,
+            context_audit,
+        ) = _scoped_context_for_envelope(self, state)
+        envelope_inputs = dict(ctx.inputs) if access == "all" else scoped_inputs
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)
@@ -266,9 +300,12 @@ class IsolatedBlockWrapper(BaseBlock):
             soul=soul_envelope,
             tools=_build_tool_envelopes_from_tools(resolved_tools),
             prompt=task_envelope,
-            inputs=dict(ctx.inputs),
+            inputs=envelope_inputs,
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
+            scoped_metadata=scoped_metadata,
+            access=access,
+            context_audit=context_audit,
             conversation_history=conversation_history,
             timeout_seconds=300,
             max_output_bytes=1_000_000,

@@ -95,6 +95,7 @@ def build_scoped_state(envelope: ContextEnvelope) -> WorkflowState:
     return WorkflowState(
         shared_memory=dict(envelope.scoped_shared_memory),
         results=results,
+        metadata=dict(envelope.scoped_metadata),
         conversation_histories={history_key: list(envelope.conversation_history)},
     )
 
@@ -140,6 +141,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             soul=soul,
             runner=runner,
         )
+        block.context_access = envelope.access
         block.stateful = True
         return block
 
@@ -154,6 +156,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             extract_field=envelope.block_config.get("extract_field"),
             runner=runner,
         )
+        block.context_access = envelope.access
         block.stateful = True
         return block
 
@@ -168,6 +171,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             synthesizer_soul=synthesizer_soul,
             runner=runner,
         )
+        block.context_access = envelope.access
         block.stateful = True
         return block
 
@@ -186,6 +190,7 @@ def _create_block(envelope: ContextEnvelope, soul: Soul, runner: RunsightTeamRun
             if isinstance(branch, dict)
         ]
         block = DispatchBlock(block_id=envelope.block_id, branches=branches, runner=runner)
+        block.context_access = envelope.access
         block.stateful = True
         return block
 
