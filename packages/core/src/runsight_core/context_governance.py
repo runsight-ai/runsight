@@ -4,8 +4,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+_REDACTED_PREVIEW = "[redacted]"
+_SECRET_REF_MARKERS = (
+    "api_key",
+    "apikey",
+    "secret",
+    "password",
+    "passwd",
+    "token",
+    "credential",
+    "private_key",
+)
 
 
 class ContextAccess(StrEnum):
@@ -71,10 +84,10 @@ class ContextAuditRecordV1(BaseModel):
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
-    input_name: str
-    from_ref: str
-    namespace: ContextAuditNamespace
-    source: str
+    input_name: str | None
+    from_ref: str | None
+    namespace: ContextAuditNamespace | None
+    source: str | None
     field_path: str | None = None
     status: ContextAuditStatus
     severity: ContextAuditSeverity
@@ -83,20 +96,32 @@ class ContextAuditRecordV1(BaseModel):
     reason: str | None = None
     internal: bool = False
 
+    @model_validator(mode="after")
+    def _redact_secret_like_preview(self) -> Self:
+        if self.preview is not None and _is_secret_like_ref(
+            self.input_name,
+            self.from_ref,
+            self.source,
+            self.field_path,
+        ):
+            self.preview = _REDACTED_PREVIEW
+        return self
+
 
 class ContextAuditEventV1(BaseModel):
     """Audit event emitted after resolving context for one block."""
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
-    schema_version: str = "context_audit.v1"
-    event: str = "context_resolution"
+    schema_version: Literal["context_audit.v1"] = "context_audit.v1"
+    event: Literal["context_resolution"] = "context_resolution"
     run_id: str
-    workflow_name: str | None = None
+    workflow_name: str
     node_id: str
     block_type: str
     access: ContextAccess
     mode: ContextAuditMode
+    sequence: int | None = None
     records: list[ContextAuditRecordV1] = Field(default_factory=list)
     resolved_count: int = Field(default=0, ge=0)
     denied_count: int = Field(default=0, ge=0)
@@ -126,3 +151,8 @@ def parse_context_ref(ref: str) -> ParsedContextRef:
         source=source,
         field_path=field_path,
     )
+
+
+def _is_secret_like_ref(*parts: str | None) -> bool:
+    normalized = ".".join(part.lower().replace("-", "_") for part in parts if part)
+    return any(marker in normalized for marker in _SECRET_REF_MARKERS)
