@@ -285,6 +285,7 @@ class BaseBlockDef(BaseModel):
     routes: Optional[List[RouteDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
+    access: Literal["declared", "all"] = "declared"
     depends: Optional[Union[str, List[str]]] = None
     error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
