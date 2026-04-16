@@ -4,11 +4,13 @@ import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from runsight_core.context_governance import ContextAuditEventV1
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 
 from ...domain.events import (
     SSE_CHILD_RUN_COMPLETED,
+    SSE_CONTEXT_RESOLUTION,
     SSE_NODE_COMPLETED,
     SSE_NODE_FAILED,
     SSE_NODE_STARTED,
@@ -159,3 +161,11 @@ class StreamingObserver:
             }
         )
         self.is_done = True
+
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        self.queue.put_nowait(
+            {
+                "event": SSE_CONTEXT_RESOLUTION,
+                "data": event.model_dump(mode="json"),
+            }
+        )

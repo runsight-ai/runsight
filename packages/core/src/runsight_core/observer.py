@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
+from runsight_core.context_governance import ContextAuditEventV1
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
@@ -92,6 +93,8 @@ class WorkflowObserver(Protocol):
     def on_workflow_error(
         self, workflow_name: str, error: Exception, duration_s: float
     ) -> None: ...
+
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None: ...
 
 
 class LoggingObserver:
@@ -195,6 +198,15 @@ class LoggingObserver:
             duration_s,
             type(error).__name__,
             error,
+        )
+
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        self.logger.log(
+            self.level,
+            "[%s] Context resolved: %s (%d records)",
+            event.workflow_name,
+            event.node_id,
+            len(event.records),
         )
 
 
@@ -315,6 +327,9 @@ class FileObserver:
             },
         )
 
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        self._write("context_resolution", event.model_dump(mode="json"))
+
 
 _composite_logger = logging.getLogger("runsight.observer.composite")
 
@@ -379,6 +394,9 @@ class ChildObserverWrapper:
         timestamp: datetime,
     ) -> None:
         self._parent.on_block_heartbeat(workflow_name, block_id, phase, detail, timestamp)
+
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        self._parent.on_context_resolution(event)
 
     # -- Intercepted events (workflow-level terminal) -----------------------
 
@@ -543,3 +561,7 @@ class CompositeObserver:
     def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
         for obs in self.observers:
             self._safe_call(obs, "on_workflow_error", workflow_name, error, duration_s)
+
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        for obs in self.observers:
+            self._safe_call(obs, "on_context_resolution", event)

@@ -137,7 +137,7 @@ async def execute_block(
                 extra_inputs=extra_inputs,
             )
         if isinstance(blk, WorkflowBlock):
-            wf_block_ctx = build_block_context(blk, current_state)
+            wf_block_ctx = build_block_context(blk, current_state, observer=observer)
             wf_block_ctx = wf_block_ctx.model_copy(
                 update={
                     "inputs": {
@@ -151,7 +151,7 @@ async def execute_block(
             wf_output = await blk.execute(wf_block_ctx)
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
-            loop_ctx = build_block_context(blk, current_state)
+            loop_ctx = build_block_context(blk, current_state, observer=observer)
             loop_ctx = loop_ctx.model_copy(
                 update={
                     "inputs": {
@@ -166,7 +166,7 @@ async def execute_block(
             return apply_block_output(current_state, blk.block_id, loop_output)
         # All other blocks: build BlockContext and dispatch via new signature
 
-        block_ctx = build_block_context(blk, current_state, step=None)
+        block_ctx = build_block_context(blk, current_state, step=None, observer=observer)
         if extra_inputs:
             block_ctx = block_ctx.model_copy(
                 update={"inputs": {**extra_inputs, **block_ctx.inputs}}

@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
+from runsight_core.context_governance import ContextAuditEventV1, ContextAuditSeverity
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
@@ -432,9 +433,28 @@ class ExecutionObserver:
         except Exception:
             logger.warning("ExecutionObserver.on_workflow_error failed", exc_info=True)
 
+    def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        try:
+            self._insert_log(
+                self._context_audit_level(event),
+                event.model_dump_json(),
+                node_id=event.node_id,
+            )
+        except Exception:
+            logger.warning("ExecutionObserver.on_context_resolution failed", exc_info=True)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _context_audit_level(event: ContextAuditEventV1) -> str:
+        severities = {record.severity for record in event.records}
+        if ContextAuditSeverity.ERROR.value in severities:
+            return "error"
+        if event.warning_count > 0 or ContextAuditSeverity.WARN.value in severities:
+            return "warning"
+        return "trace"
 
     def _get_run(self) -> Optional[Run]:
         """Load the Run record for this observer's run_id."""

@@ -3,12 +3,14 @@ BlockContext and BlockOutput models, apply_block_output, and build_block_context
 """
 
 import json
-from typing import Any, Dict, List, Optional
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from runsight_core.artifacts import ArtifactStore
 from runsight_core.context_governance import (
+    ContextAuditEventV1,
     ContextGovernancePolicy,
     ContextResolver,
     collect_context_declaration,
@@ -16,6 +18,11 @@ from runsight_core.context_governance import (
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+
+if TYPE_CHECKING:
+    from runsight_core.observer import WorkflowObserver
+
+logger = logging.getLogger(__name__)
 
 
 class BlockContext(BaseModel):
@@ -183,6 +190,7 @@ def _resolve_governed_context(
     *,
     step: Optional[Any] = None,
     policy: ContextGovernancePolicy | None = None,
+    observer: Optional["WorkflowObserver"] = None,
 ) -> Dict[str, Any]:
     declaration = collect_context_declaration(block, step=step)
     resolver = ContextResolver(
@@ -191,7 +199,20 @@ def _resolve_governed_context(
         workflow_name=str(state.metadata.get("workflow_name", "")),
     )
     scoped_context = resolver.resolve(declaration=declaration, state=state)
+    _emit_context_audit(observer, scoped_context.audit_event)
     return dict(scoped_context.inputs)
+
+
+def _emit_context_audit(
+    observer: Optional["WorkflowObserver"],
+    event: ContextAuditEventV1,
+) -> None:
+    if observer is None:
+        return
+    try:
+        observer.on_context_resolution(event)
+    except Exception:
+        logger.warning("Observer.on_context_resolution failed", exc_info=True)
 
 
 def build_block_context(
@@ -199,6 +220,7 @@ def build_block_context(
     state: WorkflowState,
     step: Optional[Any] = None,
     policy: ContextGovernancePolicy | None = None,
+    observer: Optional["WorkflowObserver"] = None,
 ) -> BlockContext:
     """Build a BlockContext for a block from the current workflow state.
 
@@ -228,7 +250,13 @@ def build_block_context(
     inner_block = getattr(block, "inner_block", None)
     if inner_block is not None:
         wrapper_soul = getattr(block, "soul", None)
-        wrapper_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        wrapper_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         # Preserve conversation history for stateful inner blocks so that the
         # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
         _inner_stateful = getattr(inner_block, "stateful", False)
@@ -261,7 +289,13 @@ def build_block_context(
     # WorkflowBlock strategy: detect child_workflow attribute
     child_workflow = getattr(block, "child_workflow", None)
     if child_workflow is not None:
-        workflow_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        workflow_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         return BlockContext(
             block_id=block.block_id,
             instruction="invoke child",
@@ -281,7 +315,13 @@ def build_block_context(
     # LoopBlock strategy: detect inner_block_refs attribute
     inner_block_refs = getattr(block, "inner_block_refs", None)
     if inner_block_refs is not None:
-        loop_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        loop_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         return BlockContext(
             block_id=block.block_id,
             instruction="loop",
@@ -296,7 +336,13 @@ def build_block_context(
     # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
     code = getattr(block, "code", None)
     if code is not None:
-        code_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        code_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         return BlockContext(
             block_id=block.block_id,
             instruction="",
@@ -318,7 +364,13 @@ def build_block_context(
             if first_branch is not None and getattr(first_branch, "task_instruction", None)
             else "dispatch"
         )
-        dispatch_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        dispatch_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         dispatch_context = dispatch_inputs.get("context") if dispatch_inputs else None
         return BlockContext(
             block_id=block.block_id,
@@ -335,7 +387,13 @@ def build_block_context(
     # SynthesizeBlock strategy: detect input_block_ids attribute
     input_block_ids = getattr(block, "input_block_ids", None)
     if input_block_ids is not None:
-        resolved_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        resolved_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         combined_outputs = "\n\n".join(
             f"=== Output from {bid} ===\n" + str(resolved_inputs[bid]) for bid in input_block_ids
         )
@@ -359,7 +417,13 @@ def build_block_context(
     # GateBlock strategy: gate instruction + eval_key content as context
     eval_key = getattr(block, "eval_key", None)
     if eval_key is not None:
-        gate_inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+        gate_inputs = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
         content = gate_inputs["content"]
         # Resolve eval_key content into inputs as "content" (unified YAML inputs contract)
         return BlockContext(
@@ -374,7 +438,13 @@ def build_block_context(
             state_snapshot=state,
         )
 
-    inputs = _resolve_governed_context(block, state, step=step, policy=policy)
+    inputs = _resolve_governed_context(
+        block,
+        state,
+        step=step,
+        policy=policy,
+        observer=observer,
+    )
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
     # Generic declared blocks must not fall back to legacy _resolved_inputs.
