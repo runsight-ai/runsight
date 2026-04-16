@@ -358,6 +358,29 @@ def test_build_block_context_declared_no_step_ignores_legacy_resolved_inputs(
     assert ctx.inputs == {}
 
 
+def test_build_block_context_declared_no_step_does_not_expose_legacy_instruction_or_context(
+    cheap_budget: None,
+) -> None:
+    """Legacy _resolved_inputs must not leak through generic instruction/context fields."""
+    block = _FakeDeclaredBlock()
+    state = _state(
+        shared_memory={
+            "_resolved_inputs": {
+                "instruction": "legacy instruction leak",
+                "context": "legacy context leak",
+                "summary": "legacy input leak",
+            }
+        },
+    )
+
+    ctx = build_block_context(block, state, step=None)
+
+    assert ctx.inputs == {}
+    assert "legacy input leak" not in json.dumps(ctx.inputs)
+    assert "legacy instruction leak" not in (ctx.instruction or "")
+    assert "legacy context leak" not in (ctx.context or "")
+
+
 def test_build_block_context_dev_policy_warns_without_legacy_fallback(
     cheap_budget: None,
 ) -> None:
