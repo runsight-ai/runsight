@@ -13,6 +13,7 @@ from runsight_core.state import BlockResult, WorkflowState
 
 _REDACTED_PREVIEW = "[redacted]"
 _MAX_PREVIEW_LENGTH = 200
+_WHOLE_OUTPUT_ALIASES = {"output", "result"}
 _SECRET_REF_MARKERS = (
     "api_key",
     "apikey",
@@ -154,7 +155,7 @@ class ScopedContextData(BaseModel):
     scoped_results: dict[str, BlockResult] = Field(default_factory=dict)
     scoped_shared_memory: dict[str, object] = Field(default_factory=dict)
     scoped_metadata: dict[str, object] = Field(default_factory=dict)
-    state_snapshot: None = None
+    state_snapshot: WorkflowState | None = None
     audit_event: ContextAuditEventV1
 
 
@@ -220,6 +221,7 @@ class ContextResolver:
             _scope_value(
                 parsed=parsed,
                 value=value,
+                whole_output_alias=_is_non_json_result_alias(parsed, state),
                 scoped_results=scoped_results,
                 scoped_shared_memory=scoped_shared_memory,
                 scoped_metadata=scoped_metadata,
@@ -332,7 +334,7 @@ def _resolve_field_path(value: object, field_path: str, parsed: ParsedContextRef
         try:
             parsed_value = json.loads(value)
         except (json.JSONDecodeError, TypeError) as exc:
-            if field_path == "output":
+            if field_path in _WHOLE_OUTPUT_ALIASES:
                 return value
             raise ContextResolutionError(
                 f"Context resolution failed: non-JSON output cannot satisfy "
@@ -368,12 +370,13 @@ def _scope_value(
     *,
     parsed: ParsedContextRef,
     value: object,
+    whole_output_alias: bool,
     scoped_results: dict[str, BlockResult],
     scoped_shared_memory: dict[str, object],
     scoped_metadata: dict[str, object],
 ) -> None:
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
-        if parsed.field_path is None:
+        if parsed.field_path is None or whole_output_alias:
             output = value if isinstance(value, str) else json.dumps(value)
         else:
             output = json.dumps(_nest_field_path(parsed.field_path, value))
@@ -397,6 +400,22 @@ def _nest_field_path(field_path: str, value: object) -> dict[str, object]:
     for part in reversed(parts):
         nested = {part: nested}
     return nested if isinstance(nested, dict) else {}
+
+
+def _is_non_json_result_alias(parsed: ParsedContextRef, state: WorkflowState) -> bool:
+    if (
+        parsed.namespace != ContextAuditNamespace.RESULTS.value
+        or parsed.field_path not in _WHOLE_OUTPUT_ALIASES
+        or parsed.source not in state.results
+    ):
+        return False
+    raw = state.results[parsed.source]
+    raw_output = raw.output if isinstance(raw, BlockResult) else str(raw)
+    try:
+        json.loads(raw_output)
+    except (json.JSONDecodeError, TypeError):
+        return True
+    return False
 
 
 def _audit_record(
