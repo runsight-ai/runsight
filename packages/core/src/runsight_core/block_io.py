@@ -8,6 +8,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.context_governance import (
+    ContextDeclaration,
+    ContextGovernancePolicy,
+    ContextResolver,
+)
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
@@ -176,6 +181,7 @@ def build_block_context(
     block: Any,
     state: WorkflowState,
     step: Optional[Any] = None,
+    policy: ContextGovernancePolicy | None = None,
 ) -> BlockContext:
     """Build a BlockContext for a block from the current workflow state.
 
@@ -390,15 +396,22 @@ def build_block_context(
         )
 
     # Resolve declared inputs (done here so it applies even when current_task is None).
-    inputs = _resolve_declared_inputs(step, state)
+    declaration = ContextDeclaration(
+        block_id=block.block_id,
+        block_type=block.__class__.__name__,
+        access=getattr(block, "access", "declared"),
+        declared_inputs=getattr(step, "declared_inputs", {}) if step is not None else {},
+    )
+    resolver = ContextResolver(
+        policy=policy,
+        run_id=str(state.metadata.get("run_id", "")),
+        workflow_name=str(state.metadata.get("workflow_name", "")),
+    )
+    scoped_context = resolver.resolve(declaration=declaration, state=state)
+    inputs = dict(scoped_context.inputs)
 
     # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
     resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-
-    # Merge _resolved_inputs into ctx.inputs when no Step declared_inputs were resolved.
-    # This bridges RUN-866's shared_memory["_resolved_inputs"] with RUN-867's ctx.inputs.
-    if not inputs and resolved_inputs:
-        inputs = dict(resolved_inputs)
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
     # The actual instruction to the LLM is re-derived in LinearBlock.execute from
