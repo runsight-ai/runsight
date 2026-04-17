@@ -113,14 +113,18 @@ access: all
     )
 
     with pytest.raises(
-        ValueError, match=r"analyze.*access.*all.*CodeBlock|analyze.*CodeBlock.*access.*all"
+        ValueError,
+        match=(
+            r"Block 'analyze': unsupported block field 'access'; "
+            r"declare context with the 'inputs' field"
+        ),
     ):
         parse_workflow_yaml(yaml_text)
 
 
 @pytest.mark.parametrize("access_value", ["declared", "all", "xyz"])
 def test_parser_rejects_public_access_field_on_codeblock(access_value: str) -> None:
-    """CodeBlock must reject public access values as unsupported YAML configuration."""
+    """CodeBlock must reject access as unsupported YAML configuration."""
     yaml_text = _code_workflow(
         f"""\
 type: code
@@ -133,7 +137,10 @@ code: |
 
     with pytest.raises(
         ValueError,
-        match=rf"access {access_value} is unsupported|CodeBlock all-access is no longer supported",
+        match=(
+            r"Block 'transform': unsupported block field 'access'; "
+            r"declare context with the 'inputs' field"
+        ),
     ):
         parse_workflow_yaml(yaml_text)
 
