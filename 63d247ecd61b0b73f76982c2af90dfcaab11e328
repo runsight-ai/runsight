@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "63d247ecd61b0b73f76982c2af90dfcaab11e328",
+  "prompts": {
+    "0c042c690d61671c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9d08-dc1b-76a2-9437-0bd0354bc87a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 131,
+      "overriden_lines": 0
+    }
+  }
+}
