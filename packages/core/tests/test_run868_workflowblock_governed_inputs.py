@@ -9,6 +9,7 @@ import pytest
 from runsight_core.block_io import build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import BlockExecutionContext, execute_block
 from runsight_core.yaml.schema import (
     WorkflowInterfaceDef,
     WorkflowInterfaceInputDef,
@@ -219,3 +220,29 @@ async def test_workflowblock_legacy_mapping_keeps_execution_plumbing_out_of_chil
     assert child_workflow.received_state.metadata == {"branch": "main"}
     assert child_workflow.received_state.results == {}
     assert child_workflow.received_state.shared_memory == {}
+
+
+@pytest.mark.asyncio
+async def test_execute_block_direct_workflowblock_preserves_governed_declared_inputs() -> None:
+    """Direct WorkflowBlock dispatch must not drop inputs resolved by governance."""
+    child_workflow = CapturingWorkflow()
+    block = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={"value": "metadata.runtime.branch"},
+        outputs={},
+        interface=_interface("metadata.branch"),
+    )
+    state = _state_with_parent_context()
+    exec_ctx = BlockExecutionContext(
+        workflow_name="parent_workflow",
+        blocks={},
+        call_stack=[],
+        workflow_registry=None,
+        observer=None,
+    )
+
+    await execute_block(block, state, exec_ctx)
+
+    assert child_workflow.received_state is not None
+    assert child_workflow.received_state.metadata == {"branch": "main"}
