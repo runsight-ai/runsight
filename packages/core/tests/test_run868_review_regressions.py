@@ -106,9 +106,11 @@ def main(data):
         inputs={
             "safe": "ok",
             "nested": {"value": 1},
-            "blocks": {"infra": object()},
-            "ctx": object(),
-            "observer": object(),
+            "blocks": {"serializable": "infra"},
+            "call_stack": ["parent"],
+            "ctx": "serializable-infra",
+            "observer": "serializable-infra",
+            "workflow_registry": {"serializable": "infra"},
         },
     )
 

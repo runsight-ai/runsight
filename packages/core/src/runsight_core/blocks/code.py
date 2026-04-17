@@ -61,6 +61,14 @@ BLOCKED_MODULES: set = {
     "_thread",
 }
 
+CODEBLOCK_INTERNAL_INPUT_KEYS: set[str] = {
+    "blocks",
+    "call_stack",
+    "ctx",
+    "observer",
+    "workflow_registry",
+}
+
 
 def _validate_code_ast(code: str, allowed_imports: List[str]) -> None:
     """
@@ -303,9 +311,11 @@ _register_block_def("code", CodeBlockDef)
 
 
 def _json_serializable_inputs(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Return the top-level input entries that can cross the subprocess JSON boundary."""
+    """Return top-level entries allowed to cross the subprocess JSON boundary."""
     serializable: Dict[str, Any] = {}
     for key, value in inputs.items():
+        if key in CODEBLOCK_INTERNAL_INPUT_KEYS:
+            continue
         try:
             json.dumps(value)
         except (TypeError, ValueError):
