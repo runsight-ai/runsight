@@ -64,11 +64,11 @@ export type ContextAccess = z.infer<typeof ContextAccessSchema>;
 export const ContextAuditSeveritySchema = z.enum(["allow", "warn", "error"]);
 export type ContextAuditSeverity = z.infer<typeof ContextAuditSeveritySchema>;
 
-export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
-export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
-
 export const ContextAuditStatusSchema = z.enum(["resolved", "missing", "denied", "all_access", "empty"]);
 export type ContextAuditStatus = z.infer<typeof ContextAuditStatusSchema>;
+
+export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
+export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
 
 export const ContextAuditRecordV1Schema = z.object({
   input_name: z.string().nullable(),
