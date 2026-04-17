@@ -142,6 +142,7 @@ async def execute_block(
                 update={
                     "inputs": {
                         **(extra_inputs or {}),
+                        **wf_block_ctx.inputs,
                         "call_stack": ctx.call_stack + [ctx.workflow_name],
                         "workflow_registry": ctx.workflow_registry,
                         "observer": observer,
