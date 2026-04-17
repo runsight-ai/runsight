@@ -7,6 +7,7 @@
 [![python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
 [![docs](https://img.shields.io/badge/docs-runsight.ai-orange)](https://runsight.ai/docs)
 [![GitHub stars](https://img.shields.io/github/stars/runsight-ai/runsight)](https://github.com/runsight-ai/runsight)
+[![Powered by cubic.dev](https://img.shields.io/badge/powered%20by-cubic.dev-111111)](https://www.cubic.dev/)
 
 <p align="center">
   <img src="assets/demo.gif" alt="Runsight — visual workflow builder for AI agents" width="640">
