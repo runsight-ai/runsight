@@ -1,42 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ContextAuditEventV1 } from "@runsight/shared/zod";
-
-type ContextAuditStoreModule = {
-  useContextAuditStore: {
-    getState: () => ContextAuditStoreState;
-  };
-  selectRunEvents: (runId: string) => (state: ContextAuditStoreState) => ContextAuditEventV1[];
-  selectNodeEvents: (runId: string, nodeId: string) => (state: ContextAuditStoreState) => ContextAuditEventV1[];
-  selectRunSummary: (runId: string) => (state: ContextAuditStoreState) => {
-    totalEvents: number;
-    resolvedCount: number;
-    deniedCount: number;
-    warningCount: number;
-  };
-  selectNodeSummary: (runId: string, nodeId: string) => (state: ContextAuditStoreState) => {
-    totalEvents: number;
-    inputCount: number;
-    warningCount: number;
-  };
-  selectContextAuditRows: (runId: string) => (state: ContextAuditStoreState) => Array<{
-    id: string;
-    runId: string;
-    nodeId: string;
-    inputName: string | null;
-    fromRef: string | null;
-    status: string;
-    severity: string;
-    internal: boolean;
-  }>;
-  selectContextAuditEdges: (runId: string) => (state: ContextAuditStoreState) => Array<{
-    id: string;
-    runId: string;
-    source: string;
-    target: string;
-    inputName: string | null;
-    namespace: string | null;
-  }>;
-};
+import {
+  selectContextAuditEdges,
+  selectContextAuditRows,
+  selectNodeEvents,
+  selectNodeSummary,
+  selectRunEvents,
+  selectRunSummary,
+  useContextAuditStore,
+} from "./contextAudit";
 
 type ContextAuditStoreState = {
   activeRunId: string | null;
@@ -44,11 +16,6 @@ type ContextAuditStoreState = {
   appendEvents: (runId: string, events: ContextAuditEventV1[]) => void;
   clearRun: (runId: string) => void;
 };
-
-async function loadStore(): Promise<ContextAuditStoreModule> {
-  const storeModulePath = "./contextAudit";
-  return import(/* @vite-ignore */ storeModulePath) as Promise<ContextAuditStoreModule>;
-}
 
 function event(
   runId: string,
@@ -90,14 +57,12 @@ function event(
 }
 
 describe("useContextAuditStore", () => {
-  beforeEach(async () => {
-    const { useContextAuditStore } = await loadStore();
+  beforeEach(() => {
     useContextAuditStore.getState().clearRun("run_a");
     useContextAuditStore.getState().clearRun("run_b");
   });
 
   it("replaceRunEvents sets the active run and clears previous run state", async () => {
-    const { useContextAuditStore, selectRunEvents } = await loadStore();
     const store = useContextAuditStore.getState();
 
     store.replaceRunEvents("run_a", [event("run_a", "a", 1)]);
@@ -110,7 +75,6 @@ describe("useContextAuditStore", () => {
   });
 
   it("appendEvents preserves history order, appends live events, and ignores wrong runs", async () => {
-    const { useContextAuditStore, selectRunEvents } = await loadStore();
     const store = useContextAuditStore.getState();
 
     store.replaceRunEvents("run_a", [event("run_a", "draft", 1)]);
@@ -127,7 +91,6 @@ describe("useContextAuditStore", () => {
   });
 
   it("dedupes duplicate run_id:sequence events from history and SSE", async () => {
-    const { useContextAuditStore, selectRunEvents } = await loadStore();
     const store = useContextAuditStore.getState();
 
     store.replaceRunEvents("run_a", [event("run_a", "draft", 7)]);
@@ -137,7 +100,6 @@ describe("useContextAuditStore", () => {
   });
 
   it("uses deterministic fallback dedupe when sequence is null", async () => {
-    const { useContextAuditStore, selectRunEvents } = await loadStore();
     const fallbackEvent = event("run_a", "draft", null, {
       emitted_at: "2026-04-17T01:00:00.000Z",
     });
@@ -149,14 +111,6 @@ describe("useContextAuditStore", () => {
   });
 
   it("selectors produce run and node summaries, rows, and data-flow edges", async () => {
-    const {
-      useContextAuditStore,
-      selectRunSummary,
-      selectNodeSummary,
-      selectContextAuditRows,
-      selectContextAuditEdges,
-      selectNodeEvents,
-    } = await loadStore();
     const warningEvent = event("run_a", "review", 2, {
       records: [
         {
