@@ -6,6 +6,20 @@ import { describe, expect, it } from "vitest";
 const SHARED_SRC = resolve(__dirname, "..");
 const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
+const docsSource = readFileSync(
+  resolve(
+    REPO_ROOT,
+    "apps",
+    "site",
+    "src",
+    "content",
+    "docs",
+    "docs",
+    "workflows",
+    "context-governance.mdx",
+  ),
+  "utf8",
+);
 const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 const runsApiSource = readFileSync(
   resolve(REPO_ROOT, "apps", "gui", "src", "api", "runs.ts"),
@@ -95,5 +109,19 @@ describe("RUN-914 context audit shared/client contract", () => {
     );
     expect(methodMatch).not.toBeNull();
     expect(methodMatch?.[0]).toContain("ContextAuditListResponseSchema.parse");
+  });
+
+  it("generated contracts and docs do not expose all-access governance", () => {
+    const contextAccessSchema = getSchema("ContextAccessSchema");
+    const contextAuditStatusSchema = getSchema("ContextAuditStatusSchema");
+
+    expect(contextAccessSchema.parse("declared")).toBe("declared");
+    expect(() => contextAccessSchema.parse("all")).toThrow();
+    expect(contextAuditStatusSchema.parse("resolved")).toBe("resolved");
+    expect(() => contextAuditStatusSchema.parse("all_access")).toThrow();
+    expect(apiSource).not.toContain("all_access");
+    expect(apiSource).not.toContain('access: all');
+    expect(docsSource).not.toContain("access: all");
+    expect(docsSource).not.toContain("all_access");
   });
 });

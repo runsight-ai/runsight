@@ -2,7 +2,7 @@
 RED tests for RUN-909: attach context declarations through parser and wrappers.
 
 These tests pin the parser/runtime metadata path for Epic C context governance:
-- access: all is valid only for CodeBlock and only without inputs
+- access: all is rejected by normal schema/config validation
 - context namespace roots are reserved block ids
 - parsed runtime blocks and Steps carry context_access plus declared_inputs
 - isolation wrapping preserves those declarations
@@ -118,9 +118,9 @@ access: all
         parse_workflow_yaml(yaml_text)
 
 
-def test_parser_accepts_codeblock_access_all_without_inputs() -> None:
-    """CodeBlock may explicitly request all access when it declares no inputs."""
-    yaml_text = _code_workflow(
+def test_parser_rejects_codeblock_access_all_as_unsupported_configuration() -> None:
+    """CodeBlock access: all must fail like any other unsupported access value."""
+    all_yaml = _code_workflow(
         """\
 type: code
 access: all
@@ -129,30 +129,48 @@ code: |
       return {"ok": True}
 """
     )
-
-    workflow = parse_workflow_yaml(yaml_text)
-    block = workflow._blocks["transform"]
-
-    assert getattr(block, "context_access") == "all"
-    assert getattr(block, "declared_inputs") == {}
-
-
-def test_parser_rejects_codeblock_access_all_combined_with_inputs() -> None:
-    """access: all and inputs are mutually exclusive even for CodeBlock."""
-    yaml_text = _code_workflow(
+    unknown_yaml = _code_workflow(
         """\
 type: code
-access: all
-inputs:
-  reason:
-    from: workflow.reason
+access: xyz
 code: |
   def main(data):
-      return data
+      return {"ok": True}
 """
     )
 
-    with pytest.raises(ValueError, match=r"transform.*access.*all.*inputs"):
+    with pytest.raises(Exception) as all_exc:
+        parse_workflow_yaml(all_yaml)
+    with pytest.raises(Exception) as unknown_exc:
+        parse_workflow_yaml(unknown_yaml)
+
+    assert type(all_exc.value) is type(unknown_exc.value)
+
+
+@pytest.mark.parametrize(
+    "reserved_input_name", ["workflow", "results", "shared_memory", "metadata"]
+)
+def test_parser_rejects_reserved_local_input_names(reserved_input_name: str) -> None:
+    """Reserved context names must not be reusable as local block input names."""
+    yaml_text = _two_block_workflow(
+        """\
+type: code
+code: |
+  def main(data):
+      return {"summary": "ready"}
+""",
+        f"""\
+type: code
+inputs:
+  {reserved_input_name}:
+    from: source.summary
+code: |
+  def main(data):
+      return data
+""",
+    )
+
+    with pytest.raises(ValueError, match=rf"{reserved_input_name}.*reserved"):
         parse_workflow_yaml(yaml_text)
 
 

@@ -29,12 +29,10 @@ def test_base_block_def_defaults_access_to_declared():
     assert block.model_dump()["access"] == "declared"
 
 
-def test_base_block_def_accepts_explicit_all_access():
-    """A block definition can explicitly opt into all access."""
-    block = BaseBlockDef.model_validate({"type": "code", "access": "all"})
-
-    assert block.access == "all"
-    assert block.model_dump()["access"] == "all"
+def test_base_block_def_rejects_explicit_all_access():
+    """A block definition must reject access: all as unsupported configuration."""
+    with pytest.raises(ValidationError):
+        BaseBlockDef.model_validate({"type": "code", "access": "all"})
 
 
 def test_context_governance_module_exports_expected_contract():
@@ -67,9 +65,9 @@ def test_context_governance_module_exports_expected_contract():
         "resolved",
         "missing",
         "denied",
-        "all_access",
         "empty",
     }
+    assert {member.value for member in cg.ContextAccess} == {"declared"}
     assert {member.value for member in cg.ContextAuditSeverity} == {
         "allow",
         "warn",
@@ -200,9 +198,24 @@ def test_context_audit_event_rejects_missing_or_none_workflow_name():
         cg.ContextAuditEventV1.model_validate({**base_kwargs, "workflow_name": None})
 
 
-def test_context_audit_record_allows_empty_and_all_access_style_fields():
-    """Empty/all-access audit records may leave origin fields unset."""
+def test_context_audit_record_rejects_all_access_status():
+    """Audit records must not expose the historical all_access status."""
     cg = _load_contract_module()
+
+    with pytest.raises(ValidationError):
+        cg.ContextAuditRecordV1(
+            input_name=None,
+            from_ref=None,
+            namespace=None,
+            source=None,
+            field_path=None,
+            status="all_access",
+            severity="allow",
+            value_type=None,
+            preview=None,
+            reason="all access",
+            internal=False,
+        )
 
     record = cg.ContextAuditRecordV1(
         input_name=None,
@@ -210,11 +223,11 @@ def test_context_audit_record_allows_empty_and_all_access_style_fields():
         namespace=None,
         source=None,
         field_path=None,
-        status="all_access",
+        status="empty",
         severity="allow",
         value_type=None,
         preview=None,
-        reason="all access",
+        reason=None,
         internal=False,
     )
 

@@ -363,24 +363,13 @@ def test_dev_mode_missing_ref_warns_without_granting_implicit_data() -> None:
 
 
 @pytest.mark.asyncio
-async def test_codeblock_access_all_subprocess_shape_and_audit_are_explicit() -> None:
-    """CodeBlock broad state is available only through explicit access: all."""
+async def test_codeblock_access_all_is_rejected_before_subprocess_execution() -> None:
+    """Legacy access: all must not produce broad subprocess input or audit state."""
     block = CapturingCodeBlock()
     block.context_access = "all"
     block.declared_inputs = {}
     recorder = RecordingObserver()
 
-    ctx = build_block_context(block, _state(), observer=recorder)
-    await block.execute(ctx)
-
-    assert set(block.captured_inputs or {}) == {"results", "metadata", "shared_memory"}
-    assert block.captured_inputs["results"]["draft"] == json.dumps(
-        {"summary": "safe draft", "secret": "draft secret"}
-    )
-    assert block.captured_inputs["shared_memory"]["secret"] == "shared secret"
-    assert block.captured_inputs["metadata"]["secret"] == "metadata secret"
-    assert len(recorder.context_events) == 1
-    event = recorder.context_events[0]
-    assert event.access == "all"
-    assert event.records[0].status == "all_access"
-    assert event.records[0].reason == "explicit all access"
+    with pytest.raises(ContextResolutionError, match="all"):
+        ctx = build_block_context(block, _state(), observer=recorder)
+        await block.execute(ctx)

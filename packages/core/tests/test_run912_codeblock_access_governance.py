@@ -1,9 +1,8 @@
 """
-RED tests for RUN-912: CodeBlock declared and explicit all-access behavior.
+RED tests for RUN-912: CodeBlock declared-only governance behavior.
 
-CodeBlock must stop receiving implicit full-state input. Broad state access is
-allowed only through explicit ``access: all`` and must be visible in the
-governance audit contract.
+CodeBlock must stop receiving implicit full-state input. ``access: all`` is
+unsupported configuration and must not survive into the runtime contract.
 """
 
 from __future__ import annotations
@@ -12,11 +11,13 @@ import json
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from runsight_core.block_io import BlockContext, build_block_context
 from runsight_core.blocks.code import CodeBlock
 from runsight_core.context_governance import (
     ContextDeclaration,
     ContextGovernancePolicy,
+    ContextReadDeniedError,
     ContextResolver,
 )
 from runsight_core.primitives import Step
@@ -75,34 +76,22 @@ async def test_declared_codeblock_passes_only_declared_inputs_to_subprocess() ->
     assert "hidden" not in json.dumps(block.captured_inputs)
 
 
-@pytest.mark.asyncio
-async def test_access_all_codeblock_passes_explicit_broad_state_shape_to_subprocess() -> None:
-    """Explicit access: all gives CodeBlock results, metadata, and shared_memory."""
-    block = CapturingCodeBlock("all_code")
-    block.context_access = "all"
-    block.declared_inputs = {}
-    ctx = build_block_context(block, _state())
-
-    await block.execute(ctx)
-
-    assert set(block.captured_inputs or {}) == {"results", "metadata", "shared_memory"}
-    assert block.captured_inputs["results"]["a"] == json.dumps(
-        {"value": "safe", "secret": "hidden"}
-    )
-    assert block.captured_inputs["metadata"] == {
-        "run": {"id": "run_912"},
-        "secret": "metadata secret",
-    }
-    assert block.captured_inputs["shared_memory"] == {
-        "visible": "ok",
-        "secret": "shared secret",
-    }
+def test_access_all_codeblock_declaration_is_rejected_before_runtime() -> None:
+    """CodeBlock access: all must be rejected as unsupported configuration."""
+    with pytest.raises(ValidationError):
+        ContextDeclaration(
+            block_id="all_code",
+            block_type="code",
+            access="all",
+            declared_inputs={},
+            internal_inputs={},
+        )
 
 
-def test_context_resolver_access_all_audit_is_bounded_and_marked_all_access() -> None:
-    """All-access resolver output is audited without dumping raw full-state previews."""
+def test_context_resolver_rejects_legacy_all_access_declaration() -> None:
+    """Legacy all-access declarations must not expand into broad runtime state."""
     state = _state()
-    declaration = ContextDeclaration(
+    declaration = ContextDeclaration.model_construct(
         block_id="all_code",
         block_type="code",
         access="all",
@@ -110,18 +99,8 @@ def test_context_resolver_access_all_audit_is_bounded_and_marked_all_access() ->
         internal_inputs={},
     )
 
-    scoped = _resolver().resolve(declaration=declaration, state=state)
-
-    assert set(scoped.inputs) == {"results", "metadata", "shared_memory"}
-    assert scoped.audit_event.access == "all"
-    assert len(scoped.audit_event.records) == 1
-    record = scoped.audit_event.records[0]
-    assert record.status == "all_access"
-    assert record.severity == "allow"
-    assert record.preview is None or len(record.preview) <= 200
-    assert "top secret" not in scoped.audit_event.model_dump_json()
-    assert "metadata secret" not in scoped.audit_event.model_dump_json()
-    assert "shared secret" not in scoped.audit_event.model_dump_json()
+    with pytest.raises(ContextReadDeniedError, match="all"):
+        _resolver().resolve(declaration=declaration, state=state)
 
 
 @pytest.mark.asyncio
