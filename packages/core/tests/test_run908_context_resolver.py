@@ -283,6 +283,88 @@ def test_scoped_context_data_is_least_privilege_for_declared_result_ref() -> Non
     assert "hidden metadata" not in scoped.model_dump_json()
 
 
+def test_scoped_context_deep_merges_multiple_fields_from_same_result_source() -> None:
+    """Multiple declared fields from one result source must not overwrite siblings."""
+    scoped = _resolver().resolve(
+        declaration=_declaration(
+            {
+                "summary": "draft.summary",
+                "title": "draft.title",
+                "author": "draft.meta.author",
+            }
+        ),
+        state=_state(
+            results={
+                "draft": BlockResult(
+                    output=json.dumps(
+                        {
+                            "summary": "short version",
+                            "title": "T",
+                            "meta": {
+                                "author": "Ada",
+                                "secret": "hidden nested result",
+                            },
+                            "secret": "hidden result",
+                        }
+                    )
+                ),
+            },
+        ),
+    )
+
+    assert scoped.inputs == {"summary": "short version", "title": "T", "author": "Ada"}
+    assert json.loads(scoped.scoped_results["draft"].output) == {
+        "summary": "short version",
+        "title": "T",
+        "meta": {"author": "Ada"},
+    }
+    scoped_json = scoped.model_dump_json()
+    assert "hidden result" not in scoped_json
+    assert "hidden nested result" not in scoped_json
+
+
+def test_scoped_context_deep_merges_multiple_fields_from_same_mapping_source() -> None:
+    """Shared-memory and metadata slices from the same key merge like result slices."""
+    scoped = _resolver().resolve(
+        declaration=_declaration(
+            {
+                "customer_id": "shared_memory.customer.id",
+                "customer_tier": "shared_memory.customer.tier",
+                "branch": "metadata.runtime.branch",
+                "commit": "metadata.runtime.commit",
+            }
+        ),
+        state=_state(
+            shared_memory={
+                "customer": {
+                    "id": "cust_123",
+                    "tier": "pro",
+                    "token": "hidden customer token",
+                }
+            },
+            metadata={
+                "runtime": {
+                    "branch": "main",
+                    "commit": "abc123",
+                    "api_key": "hidden runtime key",
+                }
+            },
+        ),
+    )
+
+    assert scoped.inputs == {
+        "customer_id": "cust_123",
+        "customer_tier": "pro",
+        "branch": "main",
+        "commit": "abc123",
+    }
+    assert scoped.scoped_shared_memory == {"customer": {"id": "cust_123", "tier": "pro"}}
+    assert scoped.scoped_metadata == {"runtime": {"branch": "main", "commit": "abc123"}}
+    scoped_json = scoped.model_dump_json()
+    assert "hidden customer token" not in scoped_json
+    assert "hidden runtime key" not in scoped_json
+
+
 def test_context_resolver_supports_declared_shared_memory_and_metadata_refs() -> None:
     """Explicit non-results namespaces populate matching scoped context buckets."""
     scoped = _resolver().resolve(

@@ -556,7 +556,10 @@ def _scope_value(
         if parsed.field_path is None or whole_output_alias:
             output = value if isinstance(value, str) else json.dumps(value)
         else:
-            output = json.dumps(_nest_field_path(parsed.field_path, value))
+            output = _merge_result_slice(
+                existing=scoped_results.get(parsed.source),
+                slice_value=_nest_field_path(parsed.field_path, value),
+            )
         scoped_results[parsed.source] = BlockResult(output=output)
         return
 
@@ -568,7 +571,52 @@ def _scope_value(
     if parsed.field_path is None:
         target[parsed.source] = value
     else:
-        target[parsed.source] = _nest_field_path(parsed.field_path, value)
+        target[parsed.source] = _merge_mapping_slice(
+            existing=target.get(parsed.source),
+            slice_value=_nest_field_path(parsed.field_path, value),
+        )
+
+
+def _merge_result_slice(existing: BlockResult | None, slice_value: dict[str, object]) -> str:
+    if existing is None:
+        return json.dumps(slice_value)
+
+    existing_value = _json_object_or_none(existing.output)
+    if existing_value is None:
+        return json.dumps(slice_value)
+
+    return json.dumps(_deep_merge_dicts(existing_value, slice_value))
+
+
+def _merge_mapping_slice(
+    existing: object | None,
+    slice_value: dict[str, object],
+) -> object:
+    if isinstance(existing, dict):
+        return _deep_merge_dicts(existing, slice_value)
+    return slice_value
+
+
+def _json_object_or_none(value: str) -> dict[str, object] | None:
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _deep_merge_dicts(
+    left: dict[str, object],
+    right: dict[str, object],
+) -> dict[str, object]:
+    merged = dict(left)
+    for key, value in right.items():
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            merged[key] = _deep_merge_dicts(existing, value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _nest_field_path(field_path: str, value: object) -> dict[str, object]:

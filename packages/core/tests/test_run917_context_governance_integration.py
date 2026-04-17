@@ -264,6 +264,66 @@ async def test_isolated_wrapper_envelope_and_worker_state_are_scoped_from_same_d
     assert worker_state.metadata == {"runtime": {"branch": "codex/run-868-context-governance"}}
 
 
+@pytest.mark.asyncio
+async def test_isolated_wrapper_preserves_multiple_declared_fields_from_same_source() -> None:
+    """Wrapper re-resolution must see every scoped slice from the same source."""
+    soul = _soul()
+    inner = LinearBlock("isolated", soul=soul, runner=CapturingRunner())
+    inner.context_access = "declared"
+    inner.declared_inputs = {
+        "summary": "draft.summary",
+        "title": "draft.title",
+    }
+    wrapper = IsolatedBlockWrapper("isolated", inner)
+    wrapper.context_access = "declared"
+    wrapper.declared_inputs = dict(inner.declared_inputs)
+    captured: dict[str, ContextEnvelope] = {}
+
+    async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+        captured["envelope"] = envelope
+        return ResultEnvelope(
+            block_id=envelope.block_id,
+            output="ok",
+            exit_handle="done",
+            cost_usd=0.0,
+            total_tokens=0,
+            tool_calls_made=0,
+            delegate_artifacts={},
+            conversation_history=[],
+            error=None,
+            error_type=None,
+        )
+
+    wrapper._run_in_subprocess = _capture
+    state = _state().model_copy(
+        update={
+            "results": {
+                **_state().results,
+                "draft": BlockResult(
+                    output=json.dumps(
+                        {
+                            "summary": "safe draft",
+                            "title": "T",
+                            "secret": "draft secret",
+                        }
+                    )
+                ),
+            }
+        }
+    )
+    ctx = build_block_context(wrapper, state)
+
+    await wrapper.execute(ctx)
+
+    envelope = captured["envelope"]
+    assert envelope.inputs == {"summary": "safe draft", "title": "T"}
+    assert json.loads(envelope.scoped_results["draft"]["output"]) == {
+        "summary": "safe draft",
+        "title": "T",
+    }
+    assert "draft secret" not in envelope.model_dump_json()
+
+
 def test_strict_missing_ref_fails_and_emits_audit_record() -> None:
     """Strict missing refs should fail the block and still leave an auditable record."""
     recorder = RecordingObserver()
