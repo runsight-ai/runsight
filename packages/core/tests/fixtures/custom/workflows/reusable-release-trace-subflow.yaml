@@ -64,6 +64,11 @@ blocks:
   materialize_child_phase_context:
     type: code
     timeout_seconds: 15
+    inputs:
+      manifest_payload:
+        from: shared_memory.manifest_json
+      phase_payload:
+        from: shared_memory.phase_payload
     assertions:
       - type: contains-json
         value:
@@ -87,11 +92,8 @@ blocks:
           return fallback
 
       def main(data):
-          manifest = _load_json(data["shared_memory"].get("manifest_json", "{}"), {})
-          phase_payload = _load_json(
-              data["shared_memory"].get("phase_payload", "{}"),
-              {},
-          )
+          manifest = _load_json(data.get("manifest_payload", "{}"), {})
+          phase_payload = _load_json(data.get("phase_payload", "{}"), {})
           return {
               "workflow_name": manifest.get("workflow_name", "Provider Pulse Release Digest"),
               "phase": phase_payload.get("phase", "unknown"),
@@ -149,6 +151,9 @@ blocks:
   trace_path_value:
     type: code
     timeout_seconds: 10
+    inputs:
+      phase_payload:
+        from: shared_memory.phase_payload
     assertions:
       - type: regex
         value: \S
@@ -166,10 +171,7 @@ blocks:
           return fallback
 
       def main(data):
-          phase_payload = _load_json(
-              data["shared_memory"].get("phase_payload", "{}"),
-              {},
-          )
+          phase_payload = _load_json(data.get("phase_payload", "{}"), {})
           return phase_payload.get(
               "trace_path",
               "custom/outputs/reusable-release-trace-latest.md",
@@ -178,6 +180,9 @@ blocks:
   route_trace_writer:
     type: code
     timeout_seconds: 10
+    inputs:
+      phase_payload:
+        from: shared_memory.phase_payload
     assertions:
       - type: contains-json
         value:
@@ -216,10 +221,7 @@ blocks:
           return fallback
 
       def main(data):
-          phase_payload = _load_json(
-              data["shared_memory"].get("phase_payload", "{}"),
-              {},
-          )
+          phase_payload = _load_json(data.get("phase_payload", "{}"), {})
           return {
               "phase": phase_payload.get("phase", "unknown"),
               "trace_path": phase_payload.get(
@@ -255,6 +257,15 @@ blocks:
   package_child_result:
     type: code
     timeout_seconds: 15
+    inputs:
+      phase_payload:
+        from: shared_memory.phase_payload
+      child_summary:
+        from: draft_child_summary
+      quality_gate_result:
+        from: child_quality_gate
+      trace_writer_route:
+        from: route_trace_writer
     assertions:
       - type: contains-json
         value:
@@ -281,24 +292,19 @@ blocks:
 
       def main(data):
           phase_payload = _load_json(
-              data["shared_memory"].get("phase_payload", "{}"),
+              data.get("phase_payload", "{}"),
               {"phase": "unknown", "trace_hint": "unknown"},
           )
-          summary = data["results"].get("draft_child_summary", "")
-          gate_result = data["results"].get("child_quality_gate", "")
-          trace_write = data["results"].get("write_primary_trace_file", "")
-          if not trace_write:
-              trace_write = data["results"].get("write_secondary_trace_file", "")
           return {
               "phase": phase_payload.get("phase", "unknown"),
               "trace_hint": phase_payload.get("trace_hint", "unknown"),
-              "summary": summary,
-              "quality_status": gate_result,
+              "summary": data.get("child_summary", ""),
+              "quality_status": data.get("quality_gate_result", ""),
               "trace_path": phase_payload.get(
                   "trace_path",
                   "custom/outputs/reusable-release-trace-latest.md",
               ),
-              "trace_write_result": trace_write,
+              "trace_write_result": data.get("trace_writer_route", ""),
           }
 workflow:
   name: Provider Trace Review Subflow
