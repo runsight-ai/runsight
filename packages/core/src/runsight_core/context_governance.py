@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Self
@@ -115,11 +116,14 @@ class ContextAuditRecordV1(BaseModel):
 
     @model_validator(mode="after")
     def _redact_secret_like_preview(self) -> Self:
-        if self.preview is not None and _is_secret_like_ref(
-            self.input_name,
-            self.from_ref,
-            self.source,
-            self.field_path,
+        if self.preview is not None and (
+            _is_secret_like_ref(
+                self.input_name,
+                self.from_ref,
+                self.source,
+                self.field_path,
+            )
+            or _is_secret_like_value(self.preview)
         ):
             self.preview = _REDACTED_PREVIEW
         return self
@@ -411,6 +415,20 @@ def _is_secret_like_ref(*parts: str | None) -> bool:
     return any(marker in normalized for marker in _SECRET_REF_MARKERS)
 
 
+def _is_secret_like_value(value: str) -> bool:
+    normalized = value.strip().strip('"').lower()
+    if not normalized:
+        return False
+
+    secret_patterns = (
+        r"\bsk-[a-z0-9][a-z0-9._-]{6,}\b",
+        r"\b[a-z0-9_]*(api[_-]?key|secret|token|credential|password)[a-z0-9_]*\s*[:=]",
+        r"-----begin [a-z ]*private key-----",
+        r"\bakia[0-9a-z]{16}\b",
+    )
+    return any(re.search(pattern, normalized) for pattern in secret_patterns)
+
+
 def _iter_declared_and_internal_inputs(
     declaration: ContextDeclaration,
 ) -> list[tuple[str, str, bool]]:
@@ -480,7 +498,7 @@ def _resolve_parsed_ref(parsed: ParsedContextRef, state: WorkflowState) -> objec
                 f"Available: {sorted(state.results.keys())}"
             )
         result = state.results[parsed.source]
-        raw_output = result.output if isinstance(result, BlockResult) else str(result)
+        raw_output = result.output if isinstance(result, BlockResult) else result
         if parsed.field_path is None:
             return raw_output
         return _resolve_field_path(raw_output, parsed.field_path, parsed)
@@ -635,7 +653,9 @@ def _is_non_json_result_alias(parsed: ParsedContextRef, state: WorkflowState) ->
     ):
         return False
     raw = state.results[parsed.source]
-    raw_output = raw.output if isinstance(raw, BlockResult) else str(raw)
+    raw_output = raw.output if isinstance(raw, BlockResult) else raw
+    if not isinstance(raw_output, str):
+        return False
     try:
         json.loads(raw_output)
     except (json.JSONDecodeError, TypeError):

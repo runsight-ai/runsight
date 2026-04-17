@@ -186,7 +186,9 @@ class CodeBlock(BaseBlock):
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute block with BlockContext, return BlockOutput."""
-        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(dict(ctx.inputs))
+        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(
+            _json_serializable_inputs(dict(ctx.inputs))
+        )
 
         if returncode != 0:
             error_msg = stderr_bytes.decode(errors="replace").strip()
@@ -298,6 +300,18 @@ from runsight_core.blocks._registry import register_block_builder as _register_b
 from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
 _register_block_def("code", CodeBlockDef)
+
+
+def _json_serializable_inputs(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the top-level input entries that can cross the subprocess JSON boundary."""
+    serializable: Dict[str, Any] = {}
+    for key, value in inputs.items():
+        try:
+            json.dumps(value)
+        except (TypeError, ValueError):
+            continue
+        serializable[key] = value
+    return serializable
 
 
 # -- Builder function --------------------------------------------------------

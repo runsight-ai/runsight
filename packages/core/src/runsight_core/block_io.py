@@ -166,15 +166,7 @@ def _resolve_declared_inputs(step: Optional[Any], state: WorkflowState) -> Dict[
     inputs: Dict[str, Any] = {}
     if step is not None and step.declared_inputs:
         for name, from_ref in step.declared_inputs.items():
-            try:
-                inputs[name] = _resolve_ref(from_ref, state)
-            except ValueError as exc:
-                # Re-raise when the SOURCE BLOCK is missing (hard error).
-                # Swallow only when the FIELD PATH is missing within an existing result
-                # (e.g. workflow.nonexistent when "nonexistent" is not in the JSON).
-                if "not found in state.results" in str(exc):
-                    raise
-                # Field path not found — skip gracefully; callers decide how to handle.
+            inputs[name] = _resolve_ref(from_ref, state)
     return inputs
 
 
