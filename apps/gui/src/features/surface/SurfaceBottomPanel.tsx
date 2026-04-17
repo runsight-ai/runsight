@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ContextAuditEventV1Schema } from "@runsight/shared/zod";
 import {
   useRunContextAudit,
+  useRunContextAuditStream,
   useRunLogs,
   useRunRegressions,
   useRuns,
@@ -113,7 +113,6 @@ function SurfaceBottomPanelContent({
   const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
-  const appendContextAuditEvents = useContextAuditStore((s) => s.appendEvents);
   const replaceContextAuditEvents = useContextAuditStore((s) => s.replaceRunEvents);
 
   const { data: runsData } = useRuns(
@@ -136,6 +135,7 @@ function SurfaceBottomPanelContent({
   }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
 
   const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
+  useRunContextAuditStream(currentRunId);
 
   useEffect(() => {
     if (!currentRunId) return;
@@ -159,19 +159,6 @@ function SurfaceBottomPanelContent({
   useEffect(() => {
     if (!currentRunId) return;
     const source = new EventSource(`/api/runs/${currentRunId}/stream`);
-
-    source.addEventListener("context_resolution", (event) => {
-      try {
-        const auditEvent = ContextAuditEventV1Schema.parse(
-          JSON.parse((event as MessageEvent).data),
-        );
-        if (auditEvent.run_id === currentRunId) {
-          appendContextAuditEvents(currentRunId, [auditEvent]);
-        }
-      } catch {
-        return;
-      }
-    });
 
     const EVENT_TYPES = [
       "log_entry",
@@ -223,7 +210,7 @@ function SurfaceBottomPanelContent({
     }
 
     return () => source.close();
-  }, [appendContextAuditEvents, currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
+  }, [currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
 
   // Auto-scroll when new entries arrive
   useEffect(() => {
