@@ -115,9 +115,10 @@ export function useRunContextAudit(runId: string, params?: Pick<RunContextAuditP
     if (!runId || !query.data) {
       return;
     }
+    const existingEvents = useContextAuditStore.getState().eventsByRun[runId] ?? [];
     replaceRunEvents(
       runId,
-      query.data.pages.flatMap((page) => page.items),
+      [...query.data.pages.flatMap((page) => page.items), ...existingEvents],
     );
   }, [query.data, replaceRunEvents, runId]);
 

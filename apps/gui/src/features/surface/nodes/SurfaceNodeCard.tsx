@@ -1,12 +1,16 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Layers, Layers2, Mail, Server, User } from "lucide-react";
 
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useCanvasStore } from "@/store/canvas";
-import { selectNodeEvents, useContextAuditStore } from "@/store/contextAudit";
+import {
+  EMPTY_CONTEXT_AUDIT_EVENTS,
+  selectRunEvents,
+  useContextAuditStore,
+} from "@/store/contextAudit";
 import { cn } from "@runsight/ui/utils";
 import type { StepNodeData } from "@/types/schemas/canvas";
 import { getIconForBlockType } from "../surfaceUtils";
@@ -98,8 +102,12 @@ function SurfaceNodeCardComponent({
 }: SurfaceNodeCardProps) {
   const selectNode = useCanvasStore((state) => state.selectNode);
   const contextRunId = useContextAuditStore((state) => state.activeRunId);
-  const contextEvents = useContextAuditStore((state) =>
-    contextRunId ? selectNodeEvents(contextRunId, id)(state) : [],
+  const runContextEvents = useContextAuditStore((state) =>
+    contextRunId ? selectRunEvents(contextRunId)(state) : EMPTY_CONTEXT_AUDIT_EVENTS,
+  );
+  const contextEvents = useMemo(
+    () => runContextEvents.filter((event) => event.node_id === id),
+    [id, runContextEvents],
   );
   const handleClick = useCallback(() => {
     selectNode(id);

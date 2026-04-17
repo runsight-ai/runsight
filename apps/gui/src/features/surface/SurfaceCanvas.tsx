@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -13,7 +13,12 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useCanvasStore } from "@/store/canvas";
-import { selectContextAuditEdges, useContextAuditStore } from "@/store/contextAudit";
+import {
+  EMPTY_CONTEXT_AUDIT_EVENTS,
+  contextAuditEdgesFromEvents,
+  selectRunEvents,
+  useContextAuditStore,
+} from "@/store/contextAudit";
 import { nodeTypes } from "./nodes";
 
 interface SurfaceCanvasProps {
@@ -38,26 +43,33 @@ export function SurfaceCanvas({
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
   const namespace = "results";
-  const contextOverlayEdges = useContextAuditStore((state) =>
-    runId
-      ? selectContextAuditEdges(runId)(state)
-          .filter((edge) => edge.namespace === namespace && edge.source !== "workflow")
-          .map<Edge>((edge) => ({
-            id: `context-overlay:${edge.id}`,
-            source: edge.source,
-            target: edge.target,
-            type: "straight",
-            className: "context-overlay",
-            label: edge.inputName ?? "context",
-            style: {
-              stroke: "var(--info-9)",
-              strokeDasharray: "4 4",
-              strokeWidth: 1.5,
-            },
-            data: { context: true, namespace: edge.namespace },
-          }))
-      : [],
+  const contextEvents = useContextAuditStore((state) =>
+    runId ? selectRunEvents(runId)(state) : EMPTY_CONTEXT_AUDIT_EVENTS,
   );
+  const contextOverlayEdges = useMemo(
+    () =>
+      runId
+        ? contextAuditEdgesFromEvents(contextEvents)
+            .filter((edge) => edge.namespace === namespace && edge.source !== "workflow")
+            .map<Edge>((edge) => ({
+              id: `context-overlay:${edge.id}`,
+              source: edge.source,
+              target: edge.target,
+              type: "straight",
+              className: "context-overlay",
+              label: edge.inputName ?? "context",
+              style: {
+                stroke: "var(--info-9)",
+                strokeDasharray: "4 4",
+                strokeWidth: 1.5,
+              },
+              data: { context: true, namespace: edge.namespace },
+            }))
+        : [],
+    [contextEvents, runId],
+  );
+  // Keep this runtime derivation aligned with selectContextAuditEdges without
+  // subscribing React to a freshly allocated selector result.
 
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {

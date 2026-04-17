@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { ContextAuditEventV1Schema } from "@runsight/shared/zod";
 import {
   useRunContextAudit,
-  useRunContextAuditStream,
   useRunLogs,
   useRunRegressions,
   useRuns,
@@ -34,6 +33,7 @@ interface SurfaceBottomPanelProps {
   };
   selectedNodeId?: string | null;
   onAuditNodeSelect?: (nodeId: string) => void;
+  onAuditOpen?: () => void;
 }
 
 type RegressionsData = {
@@ -43,6 +43,12 @@ type RegressionsData = {
 
 type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
   regressionsData?: RegressionsData;
+};
+
+type AuditPanelWithQueryProps = {
+  runId: string | undefined;
+  selectedNodeId: string | null;
+  onSelectNode: (nodeId: string) => void;
 };
 
 function sseEventToLogEntry(
@@ -94,6 +100,7 @@ function SurfaceBottomPanelContent({
   regressionsData,
   selectedNodeId,
   onAuditNodeSelect,
+  onAuditOpen,
 }: SurfaceBottomPanelContentProps) {
   const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
   const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions" | "audit">("logs");
@@ -107,6 +114,7 @@ function SurfaceBottomPanelContent({
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
   const appendContextAuditEvents = useContextAuditStore((s) => s.appendEvents);
+  const replaceContextAuditEvents = useContextAuditStore((s) => s.replaceRunEvents);
 
   const { data: runsData } = useRuns(
     workflowId ? { workflow_id: workflowId } : undefined,
@@ -128,9 +136,12 @@ function SurfaceBottomPanelContent({
   }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
 
   const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-  useRunContextAuditStream(currentRunId, { enabled: false });
 
-  const contextAuditQuery = useRunContextAudit(currentRunId ?? "", { page_size: 100 });
+  useEffect(() => {
+    if (!currentRunId) return;
+    const currentEvents = useContextAuditStore.getState().eventsByRun[currentRunId] ?? [];
+    replaceContextAuditEvents(currentRunId, currentEvents);
+  }, [currentRunId, replaceContextAuditEvents]);
 
   const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
     refetchInterval: undefined,
@@ -285,6 +296,7 @@ function SurfaceBottomPanelContent({
           onClick={() => {
             setActiveTab("audit");
             setIsExpanded(true);
+            onAuditOpen?.();
           }}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "audit" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
@@ -368,18 +380,34 @@ function SurfaceBottomPanelContent({
       )}
       {isExpanded && activeTab === "audit" && (
         <div data-testid="workflow-audit-panel" className="overflow-hidden flex-1">
-          <ContextAuditPanel
+          <AuditPanelWithQuery
             runId={currentRunId}
             selectedNodeId={selectedNodeId ?? null}
             onSelectNode={(nodeId) => {
               onAuditNodeSelect?.(nodeId);
             }}
-            fetchNextPage={contextAuditQuery.fetchNextPage}
-            hasNextPage={contextAuditQuery.hasNextPage}
           />
         </div>
       )}
     </div>
+  );
+}
+
+function AuditPanelWithQuery({
+  runId,
+  selectedNodeId,
+  onSelectNode,
+}: AuditPanelWithQueryProps) {
+  const contextAuditQuery = useRunContextAudit(runId ?? "", { page_size: 100 });
+
+  return (
+    <ContextAuditPanel
+      runId={runId}
+      selectedNodeId={selectedNodeId}
+      onSelectNode={onSelectNode}
+      fetchNextPage={contextAuditQuery.fetchNextPage}
+      hasNextPage={contextAuditQuery.hasNextPage}
+    />
   );
 }
 

@@ -33,6 +33,8 @@ type ContextAuditState = {
   clearRun: (runId: string) => void;
 };
 
+export const EMPTY_CONTEXT_AUDIT_EVENTS: ContextAuditEventV1[] = [];
+
 export const useContextAuditStore = create<ContextAuditState>((set, get) => ({
   activeRunId: null,
   eventsByRun: {},
@@ -73,7 +75,7 @@ export const useContextAuditStore = create<ContextAuditState>((set, get) => ({
 export const selectRunEvents =
   (runId: string) =>
   (state: ContextAuditState): ContextAuditEventV1[] =>
-    state.eventsByRun[runId] ?? [];
+    state.eventsByRun[runId] ?? EMPTY_CONTEXT_AUDIT_EVENTS;
 
 export const selectNodeEvents =
   (runId: string, nodeId: string) =>
@@ -103,44 +105,56 @@ export const selectNodeSummary =
 export const selectContextAuditRows =
   (runId: string) =>
   (state: ContextAuditState): ContextAuditTableRow[] =>
-    selectRunEvents(runId)(state).flatMap((event) =>
-      (event.records ?? []).map((record, index) => ({
-        id: `${eventKey(event)}:${index}`,
-        runId: event.run_id,
-        nodeId: event.node_id,
-        blockType: event.block_type,
-        access: event.access,
-        sequence: event.sequence,
-        emittedAt: event.emitted_at,
-        inputName: record.input_name ?? null,
-        fromRef: record.from_ref ?? null,
-        status: record.status,
-        severity: record.severity,
-        internal: record.internal ?? false,
-      })),
-    );
+    contextAuditRowsFromEvents(selectRunEvents(runId)(state));
 
 export const selectContextAuditEdges =
   (runId: string) =>
   (state: ContextAuditState): ContextAuditEdgeInput[] =>
-    selectRunEvents(runId)(state).flatMap((event) =>
-      (event.records ?? [])
-        .filter(
-          (record) =>
-            record.namespace === "results"
-            && typeof record.source === "string"
-            && record.source.length > 0
-            && record.source !== "workflow",
-        )
-        .map((record, index) => ({
-          id: `${eventKey(event)}:${index}:edge`,
-          runId: event.run_id,
-          source: record.source as string,
-          target: event.node_id,
-          inputName: record.input_name ?? null,
-          namespace: record.namespace ?? null,
-        })),
-    );
+    contextAuditEdgesFromEvents(selectRunEvents(runId)(state));
+
+export function contextAuditRowsFromEvents(
+  events: ContextAuditEventV1[],
+): ContextAuditTableRow[] {
+  return events.flatMap((event) =>
+    (event.records ?? []).map((record, index) => ({
+      id: `${eventKey(event)}:${index}`,
+      runId: event.run_id,
+      nodeId: event.node_id,
+      blockType: event.block_type,
+      access: event.access,
+      sequence: event.sequence,
+      emittedAt: event.emitted_at,
+      inputName: record.input_name ?? null,
+      fromRef: record.from_ref ?? null,
+      status: record.status,
+      severity: record.severity,
+      internal: record.internal ?? false,
+    })),
+  );
+}
+
+export function contextAuditEdgesFromEvents(
+  events: ContextAuditEventV1[],
+): ContextAuditEdgeInput[] {
+  return events.flatMap((event) =>
+    (event.records ?? [])
+      .filter(
+        (record) =>
+          record.namespace === "results"
+          && typeof record.source === "string"
+          && record.source.length > 0
+          && record.source !== "workflow",
+      )
+      .map((record, index) => ({
+        id: `${eventKey(event)}:${index}:edge`,
+        runId: event.run_id,
+        source: record.source as string,
+        target: event.node_id,
+        inputName: record.input_name ?? null,
+        namespace: record.namespace ?? null,
+      })),
+  );
+}
 
 function normalizeEvents(runId: string, events: ContextAuditEventV1[]): ContextAuditEventV1[] {
   const byKey = new Map<string, ContextAuditEventV1>();

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ContextAuditEventV1 } from "@runsight/shared/zod";
 import { cn } from "@runsight/ui/utils";
 import {
-  selectContextAuditRows,
-  selectNodeEvents,
+  EMPTY_CONTEXT_AUDIT_EVENTS,
+  contextAuditRowsFromEvents,
+  selectRunEvents,
   useContextAuditStore,
   type ContextAuditTableRow,
 } from "@/store/contextAudit";
@@ -39,9 +40,10 @@ export function ContextAuditPanel({
   hasNextPage,
 }: ContextAuditPanelProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const rows = useContextAuditStore((state) =>
-    runId ? selectContextAuditRows(runId)(state) : [],
+  const events = useContextAuditStore((state) =>
+    runId ? selectRunEvents(runId)(state) : EMPTY_CONTEXT_AUDIT_EVENTS,
   );
+  const rows = useMemo(() => contextAuditRowsFromEvents(events), [events]);
   const visibleRows = rows.slice(0, visibleCount);
   const canShowMoreLocal = rows.length > visibleCount;
   const canLoadMore = canShowMoreLocal || Boolean(hasNextPage);
@@ -252,8 +254,12 @@ export function ContextResolutionBadge({
 }
 
 export function useNodeContextEvents(runId: string | undefined, nodeId: string | undefined) {
-  return useContextAuditStore((state) =>
-    runId && nodeId ? selectNodeEvents(runId, nodeId)(state) : [],
+  const events = useContextAuditStore((state) =>
+    runId ? selectRunEvents(runId)(state) : EMPTY_CONTEXT_AUDIT_EVENTS,
+  );
+  return useMemo(
+    () => (nodeId ? events.filter((event) => event.node_id === nodeId) : EMPTY_CONTEXT_AUDIT_EVENTS),
+    [events, nodeId],
   );
 }
 
