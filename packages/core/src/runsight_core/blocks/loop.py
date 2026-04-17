@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from runsight_core.blocks._helpers import convert_condition, convert_condition_group
 from runsight_core.blocks.base import BaseBlock
@@ -24,9 +24,16 @@ class CarryContextConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
-    mode: Literal["last", "all"] = "last"
+    mode: str = "last"
     source_blocks: Optional[List[str]] = None
     inject_as: str = "previous_round_context"
+
+    @field_validator("mode")
+    @classmethod
+    def _validate_mode(cls, value: str) -> str:
+        if value not in {"last", "all"}:
+            raise ValueError("mode must be 'last' or 'all'")
+        return value
 
 
 class LoopBlock(BaseBlock):

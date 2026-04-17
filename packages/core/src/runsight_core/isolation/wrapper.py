@@ -115,7 +115,7 @@ def _scoped_context_for_envelope(
     block: BaseBlock,
     state: Any,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], str, list[Any]]:
-    access = str(getattr(block, "context_access", getattr(block, "access", "declared")))
+    access = str(getattr(block, "context_access", "declared"))
     if access != "declared":
         raise ContextReadDeniedError(
             f"Context access '{access}' is not implemented for {block.block_id}"

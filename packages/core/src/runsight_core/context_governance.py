@@ -334,7 +334,7 @@ def collect_context_declaration(block: object, step: object | None = None) -> Co
             "collide with internal context inputs"
         )
 
-    access = str(getattr(block, "context_access", getattr(block, "access", "declared")))
+    access = str(getattr(block, "context_access", "declared"))
     if access != ContextAccess.DECLARED.value:
         raise ContextReadDeniedError(
             f"Context access '{access}' is not implemented for "
