@@ -299,7 +299,6 @@ class BaseBlockDef(BaseModel):
     routes: Optional[List[RouteDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
-    access: str = "declared"
     depends: Optional[Union[str, List[str]]] = None
     error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
@@ -328,15 +327,6 @@ class BaseBlockDef(BaseModel):
                     raise ValueError("depends entries must not be blank")
                 normalized_items.append(normalized)
             return normalized_items
-        return value
-
-    @field_validator("access")
-    @classmethod
-    def _validate_access(cls, value: str) -> str:
-        if value != "declared":
-            raise ValueError(
-                f"access {value!r} is unsupported; CodeBlock all-access is no longer supported"
-            )
         return value
 
     @field_validator("inputs")

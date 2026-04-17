@@ -643,8 +643,8 @@ def _validate_raw_context_config(raw: dict[str, Any]) -> None:
     for block_id, block_config in raw_blocks.items():
         if not isinstance(block_config, dict):
             continue
-        access = block_config.get("access")
-        if access is not None and access != "declared":
+        if "access" in block_config:
+            access = block_config["access"]
             raise ValueError(
                 f"Block '{block_id}': access {access} is unsupported; "
                 "CodeBlock all-access is no longer supported"
@@ -688,7 +688,7 @@ def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
 
 
 def _context_access(block_def: Any) -> str:
-    return str(getattr(block_def, "access", "declared"))
+    return "declared"
 
 
 def _declared_inputs(block_def: Any) -> Dict[str, str]:
