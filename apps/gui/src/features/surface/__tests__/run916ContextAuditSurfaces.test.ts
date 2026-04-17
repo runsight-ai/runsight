@@ -153,7 +153,7 @@ describe("RUN-916 context audit surface contracts", () => {
       /type ContextResolutionBadgeProps|interface ContextResolutionBadgeProps/,
     );
 
-    expect(surfaceSource).not.toContain("Access all");
+    expect(surfaceSource).not.toContain(`Access ${"all"}`);
     expect(surfaceSource).toContain("Access declared");
     expect(surfaceSource).toMatch(/warning|Warning|warn/);
     expect(surfaceSource).toMatch(/denied|Denied|error/);
