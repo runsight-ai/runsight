@@ -90,7 +90,7 @@ class WorkflowBlock(BaseBlock):
             )
 
         # Step 3: Map inputs (parent -> child)
-        child_state = self._map_inputs(state, self.inputs)
+        child_state = self._map_inputs_from_context(state, ctx.inputs)
 
         # Step 4: Run child workflow
         from runsight_core.observer import build_child_observer
@@ -98,7 +98,12 @@ class WorkflowBlock(BaseBlock):
         child_observer = None
         child_run_id = None
         if observer:
-            child_observer, child_run_id = build_child_observer(observer, block_id=self.block_id)
+            if self._observer_has_terminal_hooks(observer):
+                child_observer, child_run_id = build_child_observer(
+                    observer, block_id=self.block_id
+                )
+            else:
+                child_observer = observer
 
         start_time = time.monotonic()
         try:
@@ -319,6 +324,46 @@ class WorkflowBlock(BaseBlock):
                 child_state = self._write_dotted(child_state, child_key, value)
 
         return child_state
+
+    def _map_inputs_from_context(
+        self,
+        parent_state: WorkflowState,
+        resolved_inputs: Dict[str, Any],
+    ) -> WorkflowState:
+        child_state = WorkflowState(artifact_store=parent_state.artifact_store)
+
+        if self.interface is not None:
+            input_lookup = {idef.name: idef.target for idef in self.interface.inputs}
+            for interface_name in self.inputs:
+                target = input_lookup.get(interface_name)
+                if target is None:
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': input binding "
+                        f"'{interface_name}' does not match any interface input."
+                    )
+                value = self._require_governed_input(resolved_inputs, interface_name)
+                child_state = self._write_dotted(child_state, target, value)
+        else:
+            for child_key in self.inputs:
+                value = self._require_governed_input(resolved_inputs, child_key)
+                child_state = self._write_dotted(child_state, child_key, value)
+
+        return child_state
+
+    def _require_governed_input(self, resolved_inputs: Dict[str, Any], input_name: str) -> Any:
+        if input_name not in resolved_inputs:
+            raise KeyError(
+                f"WorkflowBlock '{self.block_id}': governed input '{input_name}' is missing "
+                "from BlockContext inputs. WorkflowBlock inputs must be resolved by "
+                "context governance before execution."
+            )
+        return resolved_inputs[input_name]
+
+    @staticmethod
+    def _observer_has_terminal_hooks(observer: Any) -> bool:
+        return callable(getattr(observer, "on_workflow_complete", None)) or callable(
+            getattr(observer, "on_workflow_error", None)
+        )
 
 
 # -- Schema definition (co-located) -----------------------------------------
