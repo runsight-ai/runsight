@@ -48,12 +48,12 @@ class _EchoBlock:
         self.block_id = block_id
         self.retry_config = None
         self.stateful = False
-        self.context_access = "all"
+        self.context_access = "declared"
+        self.declared_inputs = {copy_key: f"shared_memory.{copy_key}"}
         self._copy_key = copy_key
 
     async def execute(self, ctx):
-        state = ctx.state_snapshot
-        value = str(state.shared_memory.get(self._copy_key, ""))
+        value = str(ctx.inputs.get(self._copy_key, ""))
         return BlockOutput(output=value)
 
 
@@ -64,7 +64,7 @@ class _WriterBlock:
         self.block_id = block_id
         self.retry_config = None
         self.stateful = False
-        self.context_access = "all"
+        self.context_access = "declared"
         self._value = value
 
     async def execute(self, ctx):

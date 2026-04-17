@@ -23,19 +23,20 @@ from runsight_core.state import WorkflowState
 class ArtifactCapturingBlock(BaseBlock):
     """Block that captures state.artifact_store into shared_memory for assertion."""
 
+    _captures: dict[str, int | None] = {}
+
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
         state = ctx.state_snapshot
-        captures = dict(state.shared_memory.get("artifact_store_captures", {}))
-        captures[self.block_id] = id(state.artifact_store) if state.artifact_store else None
+        self._captures[self.block_id] = id(state.artifact_store) if state.artifact_store else None
         return BlockOutput(
             output="done",
-            shared_memory_updates={"artifact_store_captures": captures},
+            shared_memory_updates={"artifact_store_captures": dict(self._captures)},
         )
 
 
@@ -44,17 +45,17 @@ class RoundTrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self.store_ids: list[int | None] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
         state = ctx.state_snapshot
-        ids = list(state.shared_memory.get(f"{self.block_id}_store_ids", []))
-        ids.append(id(state.artifact_store) if state.artifact_store else None)
+        self.store_ids.append(id(state.artifact_store) if state.artifact_store else None)
         return BlockOutput(
-            output=f"call_{len(ids)}",
-            shared_memory_updates={f"{self.block_id}_store_ids": ids},
+            output=f"call_{len(self.store_ids)}",
+            shared_memory_updates={f"{self.block_id}_store_ids": list(self.store_ids)},
         )
 
 

@@ -36,20 +36,22 @@ class EchoBlock(BaseBlock):
 
     def __init__(self, block_id: str, output: str = "echo_output"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self._output = output
 
     async def execute(self, ctx):
-        state = ctx.state_snapshot
-        next_state = state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._output),
+        return block_output_from_state(
+            self.block_id,
+            ctx.state_snapshot,
+            ctx.state_snapshot.model_copy(
+                update={
+                    "results": {
+                        **ctx.state_snapshot.results,
+                        self.block_id: BlockResult(output=self._output),
+                    }
                 }
-            }
+            ),
         )
-        return block_output_from_state(self.block_id, state, next_state)
 
 
 class SharedMemoryReaderBlock(BaseBlock):
@@ -57,13 +59,14 @@ class SharedMemoryReaderBlock(BaseBlock):
 
     def __init__(self, block_id: str, key: str = "previous_round_context"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self.declared_inputs = {"value": f"shared_memory.{key}"}
         self.key = key
         self.seen: list = []
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
-        value = state.shared_memory.get(self.key)
+        value = ctx.inputs.get("value")
         self.seen.append(value)
         next_state = state.model_copy(
             update={
@@ -81,7 +84,7 @@ class AccumulatingWriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self._round = 0
 
     async def execute(self, ctx):
@@ -321,7 +324,7 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
         reader = SharedMemoryReaderBlock("reader", key="previous_round_context")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="previous_round_context")
         loop = _make_loop("loop1", ["reader"], max_rounds=2, carry=carry)
-        state = WorkflowState()
+        state = WorkflowState(shared_memory={"previous_round_context": None})
 
         await execute_loop_for_test(loop, state, blocks={"reader": reader})
 
@@ -342,8 +345,8 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
 
         class ContextSpyBlock(BaseBlock):
             async def execute(self, ctx):
+                shared_memory_values_seen.append(ctx.inputs.get("previous_round_context"))
                 state = ctx.state_snapshot
-                shared_memory_values_seen.append(state.shared_memory.get("previous_round_context"))
                 next_state = state.model_copy(
                     update={
                         "results": {
@@ -355,10 +358,11 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
                 return block_output_from_state(self.block_id, state, next_state)
 
         spy = ContextSpyBlock("spy")
-        spy.context_access = "all"
+        spy.context_access = "declared"
+        spy.declared_inputs = {"previous_round_context": "shared_memory.previous_round_context"}
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="previous_round_context")
         loop = _make_loop("loop1", ["spy"], max_rounds=3, carry=carry)
-        state = WorkflowState()
+        state = WorkflowState(shared_memory={"previous_round_context": None})
 
         await execute_loop_for_test(loop, state, blocks={"spy": spy})
 
@@ -444,13 +448,14 @@ class TestMultipleRoundsCarryAccumulation:
         class RoundCapture(BaseBlock):
             def __init__(self, bid):
                 super().__init__(bid)
-                self.context_access = "all"
+                self.context_access = "declared"
+                self.declared_inputs = {"prev": "shared_memory.prev"}
                 self._r = 0
 
             async def execute(self, ctx):
                 state = ctx.state_snapshot
                 self._r += 1
-                seen_in_round[self._r] = state.shared_memory.get("prev", "NOT_SET")
+                seen_in_round[self._r] = ctx.inputs.get("prev")
                 next_state = state.model_copy(
                     update={
                         "results": {
@@ -464,23 +469,23 @@ class TestMultipleRoundsCarryAccumulation:
         capturer = RoundCapture("capturer")
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="prev")
         loop = _make_loop("loop1", ["capturer"], max_rounds=3, carry=carry)
-        state = WorkflowState()
+        state = WorkflowState(shared_memory={"prev": None})
 
         await execute_loop_for_test(loop, state, blocks={"capturer": capturer})
 
         # Round 1: nothing carried yet
-        assert seen_in_round[1] == "NOT_SET", (
-            f"Round 1 should not have 'prev' in shared_memory, got: {seen_in_round[1]}"
+        assert seen_in_round[1] is None, (
+            f"Round 1 should not have prior carry context, got: {seen_in_round[1]}"
         )
         # Round 2: carry from round 1
-        assert seen_in_round[2] != "NOT_SET", "Round 2 must see carry_context from round 1"
+        assert seen_in_round[2] is not None, "Round 2 must see carry_context from round 1"
         round2_ctx = seen_in_round[2]
         assert isinstance(round2_ctx, dict)
         assert round2_ctx.get("capturer") == "out1", (
             f"Round 2 carry must reflect round 1 output 'out1', got: {round2_ctx}"
         )
         # Round 3: carry from round 2
-        assert seen_in_round[3] != "NOT_SET"
+        assert seen_in_round[3] is not None
         round3_ctx = seen_in_round[3]
         assert round3_ctx.get("capturer") == "out2", (
             f"Round 3 carry must reflect round 2 output 'out2', got: {round3_ctx}"

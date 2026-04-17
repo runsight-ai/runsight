@@ -84,16 +84,12 @@ class RoundAwareOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self.calls = 0
 
     async def execute(self, ctx):
-        state = ctx.state_snapshot
-        # LoopBlock stores round as "{loop_block_id}_round" in shared_memory
-        round_num = 0
-        for key, value in state.shared_memory.items():
-            if key.endswith("_round"):
-                round_num = value
-                break
+        self.calls += 1
+        round_num = self.calls
         # On round >= 2, output contains "APPROVED" to trigger exit_conditions
         if round_num >= 2:
             output = "Review result: APPROVED"

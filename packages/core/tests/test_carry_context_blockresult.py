@@ -34,29 +34,31 @@ class BlockResultProducer(BaseBlock):
 
     def __init__(self, block_id: str, output_prefix: str = "output"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self.output_prefix = output_prefix
+        self.calls = 0
 
     async def execute(self, ctx):
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self.calls += 1
+        round_num = self.calls
 
         output_text = f"{self.output_prefix}_round_{round_num}"
-        next_state = state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=output_text),
-                },
-                "shared_memory": {
-                    **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                },
-            }
+        return block_output_from_state(
+            self.block_id,
+            ctx.state_snapshot,
+            ctx.state_snapshot.model_copy(
+                update={
+                    "results": {
+                        **ctx.state_snapshot.results,
+                        self.block_id: BlockResult(output=output_text),
+                    },
+                    "shared_memory": {
+                        **ctx.state_snapshot.shared_memory,
+                        f"{self.block_id}_calls": list(range(1, self.calls + 1)),
+                    },
+                }
+            ),
         )
-        return block_output_from_state(self.block_id, state, next_state)
 
 
 class BlockResultWithArtifact(BaseBlock):
@@ -64,16 +66,16 @@ class BlockResultWithArtifact(BaseBlock):
 
     def __init__(self, block_id: str, artifact_ref: str = "s3://bucket/artifact.json"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self.artifact_ref = artifact_ref
+        self.calls = 0
 
     async def execute(self, ctx):
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self.calls += 1
+        round_num = self.calls
 
         output_text = f"artifact_output_round_{round_num}"
+        state = ctx.state_snapshot
         next_state = state.model_copy(
             update={
                 "results": {
@@ -87,7 +89,7 @@ class BlockResultWithArtifact(BaseBlock):
                 },
                 "shared_memory": {
                     **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
+                    f"{self.block_id}_calls": list(range(1, self.calls + 1)),
                 },
             }
         )
@@ -102,18 +104,19 @@ class ContextSnapshotBlock(BaseBlock):
 
     def __init__(self, block_id: str, read_key: str = "previous_round_context"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self.declared_inputs = {"context_value": f"shared_memory.{read_key}"}
         self.read_key = read_key
+        self.calls = 0
+        self.snapshots: list[Any] = []
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self.calls += 1
+        round_num = self.calls
 
-        context_value = state.shared_memory.get(self.read_key)
-        snapshots = list(state.shared_memory.get(f"{self.block_id}_snapshots", []))
-        snapshots.append(context_value)
+        context_value = ctx.inputs.get("context_value")
+        self.snapshots.append(context_value)
 
         output_text = f"{self.block_id}_output_round_{round_num}"
         next_state = state.model_copy(
@@ -124,8 +127,8 @@ class ContextSnapshotBlock(BaseBlock):
                 },
                 "shared_memory": {
                     **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
-                    f"{self.block_id}_snapshots": snapshots,
+                    f"{self.block_id}_calls": list(range(1, self.calls + 1)),
+                    f"{self.block_id}_snapshots": list(self.snapshots),
                 },
             }
         )
@@ -232,7 +235,7 @@ class TestCarryContextLastModeBlockResult:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = WorkflowState(shared_memory={"feedback": None})
         result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -313,7 +316,7 @@ class TestCarryContextAllModeBlockResult:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = WorkflowState(shared_memory={"all_ctx": None})
         result_state = await execute_loop_for_test(loop, state, blocks=blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
