@@ -1,0 +1,73 @@
+pyproject.toml
+  6360d91600179f34 3
+packages/core/src/runsight_core/isolation/wrapper.py
+  6360d91600179f34 10-14,119-122,283
+openapi.json
+  398870b36f55f45f 2475
+packages/core/src/runsight_core/block_io.py
+  6360d91600179f34 382
+packages/core/src/runsight_core/blocks/code.py
+  6360d91600179f34 163
+packages/core/src/runsight_core/isolation/envelope.py
+  6360d91600179f34 67
+packages/shared/src/api.ts
+  398870b36f55f45f 782,897
+apps/gui/src/features/surface/contextAuditSurfaces.tsx
+  6360d91600179f34 150,201,204,225-227
+packages/core/src/runsight_core/yaml/parser.py
+  6360d91600179f34 53-65,619,639-660,720-721
+packages/shared/src/zod.ts
+  398870b36f55f45f 61,73
+packages/core/src/runsight_core/context_governance.py
+  6360d91600179f34 337-343,347
+packages/core/src/runsight_core/yaml/schema.py
+  6360d91600179f34 22-35,302,333-352
+apps/site/src/content/docs/docs/workflows/context-governance.mdx
+  6360d91600179f34 3,6,10,45-48,50,52,54,65-77,88,110,119,121,133,200,206-207,218,225,227,235,241,269,278-280,292,296,306
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "daa8ebea1be3e361a8ce088220b5a7f43f85aada",
+  "prompts": {
+    "0c042c690d61671c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9d08-dc1b-76a2-9437-0bd0354bc87a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 131,
+      "overriden_lines": 0
+    },
+    "398870b36f55f45f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9d53-a592-7dd1-9e81-898b98cf55c7",
+        "model": "unknown"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 7,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "6360d91600179f34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9d53-a4fd-7a50-86c3-0ddc268d2970",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 146,
+      "total_deletions": 233,
+      "accepted_lines": 146,
+      "overriden_lines": 0
+    }
+  }
+}
