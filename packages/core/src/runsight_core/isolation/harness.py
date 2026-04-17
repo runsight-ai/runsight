@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
+from runsight_core.context_governance import ContextDeclaration, ContextResolver
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     HeartbeatMessage,
@@ -39,6 +40,7 @@ from runsight_core.isolation.interceptors import (
 )
 from runsight_core.isolation.ipc import IPCServer
 from runsight_core.isolation.ipc_models import GrantToken
+from runsight_core.state import BlockResult
 from runsight_core.yaml.schema import BlockLimitsDef
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,35 @@ class HeartbeatTracker:
 # ---------------------------------------------------------------------------
 
 _SIGTERM_GRACE_SECONDS = 5
+
+
+def _declared_inputs_from_block_config(block_config: dict[str, Any]) -> dict[str, str]:
+    raw_inputs = block_config.get("declared_inputs") or block_config.get("inputs") or {}
+    declared_inputs: dict[str, str] = {}
+    for input_name, raw_ref in raw_inputs.items():
+        from_ref = raw_ref
+        if isinstance(raw_ref, dict):
+            from_ref = raw_ref.get("from") or raw_ref.get("from_ref")
+        if from_ref is not None:
+            declared_inputs[str(input_name)] = str(from_ref)
+    return declared_inputs
+
+
+def _internal_inputs_from_block_config(
+    block_type: str,
+    block_config: dict[str, Any],
+) -> dict[str, str]:
+    if block_type == "gate" and block_config.get("eval_key") is not None:
+        return {"content": str(block_config["eval_key"])}
+    if block_type == "synthesize":
+        return {
+            str(block_id): str(block_id) for block_id in block_config.get("input_block_ids", [])
+        }
+    return {}
+
+
+def _serialize_scoped_results(results: dict[str, BlockResult]) -> dict[str, dict[str, Any]]:
+    return {key: value.model_dump() for key, value in results.items()}
 
 
 class SubprocessHarness:
@@ -179,36 +210,22 @@ class SubprocessHarness:
         state: Any,
         block_config: dict[str, Any],
     ) -> ContextEnvelope:
-        """Build a ContextEnvelope with scoped data based on block type and YAML declarations."""
+        """Build a ContextEnvelope with data scoped by context declarations."""
         block_id = block_config.get("block_id", "")
         block_type = block_config.get("block_type", "linear")
 
-        scoped_results: dict[str, Any] = {}
-        scoped_shared_memory: dict[str, Any] = {}
-
-        # Custom context_scope overrides default scoping
-        context_scope = block_config.get("context_scope")
-        if context_scope:
-            for result_key in context_scope.get("results", []):
-                if result_key in state.results:
-                    scoped_results[result_key] = state.results[result_key].output
-            for mem_key in context_scope.get("shared_memory", []):
-                if mem_key in state.shared_memory:
-                    scoped_shared_memory[mem_key] = state.shared_memory[mem_key]
-        else:
-            # Default scoping by block type
-            if block_type == "linear":
-                prev_id = block_config.get("previous_block_id")
-                if prev_id and prev_id in state.results:
-                    scoped_results[prev_id] = state.results[prev_id].output
-            elif block_type == "gate":
-                eval_key = block_config.get("eval_key")
-                if eval_key and eval_key in state.results:
-                    scoped_results[eval_key] = state.results[eval_key].output
-            elif block_type == "synthesize":
-                for bid in block_config.get("input_block_ids", []):
-                    if bid in state.results:
-                        scoped_results[bid] = state.results[bid].output
+        declaration = ContextDeclaration(
+            block_id=str(block_id),
+            block_type=str(block_type),
+            access=str(block_config.get("context_access", block_config.get("access", "declared"))),
+            declared_inputs=_declared_inputs_from_block_config(block_config),
+            internal_inputs=_internal_inputs_from_block_config(block_type, block_config),
+        )
+        resolver = ContextResolver(
+            run_id=str(getattr(state, "metadata", {}).get("run_id", "")),
+            workflow_name=str(getattr(state, "metadata", {}).get("workflow_name", "")),
+        )
+        scoped = resolver.resolve(declaration=declaration, state=state)
 
         return ContextEnvelope(
             block_id=block_id,
@@ -224,8 +241,12 @@ class SubprocessHarness:
             ),
             tools=[],
             prompt=PromptEnvelope(id="task-0", instruction="", context={}),
-            scoped_results=scoped_results,
-            scoped_shared_memory=scoped_shared_memory,
+            inputs=dict(scoped.inputs),
+            scoped_results=_serialize_scoped_results(scoped.scoped_results),
+            scoped_shared_memory=dict(scoped.scoped_shared_memory),
+            scoped_metadata=dict(scoped.scoped_metadata),
+            access=str(scoped.audit_event.access),
+            context_audit=[scoped.audit_event],
             conversation_history=[],
             timeout_seconds=self._timeout_seconds,
             max_output_bytes=1_000_000,

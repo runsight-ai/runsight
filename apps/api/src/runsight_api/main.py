@@ -188,11 +188,11 @@ def create_app() -> FastAPI:
 
         index_html = static_dir / "index.html"
 
-        @app.get("/runsight.svg")
+        @app.get("/runsight.svg", include_in_schema=False)
         async def _favicon():
             return FileResponse(static_dir / "runsight.svg")
 
-        @app.get("/{full_path:path}")
+        @app.get("/{full_path:path}", include_in_schema=False)
         async def _spa_catch_all(full_path: str):
             # Serve static file if it exists, otherwise index.html for SPA routing
             candidate = static_dir / full_path

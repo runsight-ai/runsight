@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const SHARED_SRC = resolve(__dirname, "..");
 const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
+const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 const runsApiSource = readFileSync(
   resolve(REPO_ROOT, "apps", "gui", "src", "api", "runs.ts"),
   "utf8",
@@ -31,6 +32,13 @@ describe("RUN-914 context audit shared/client contract", () => {
   it("generated OpenAPI types include the historical context audit path", () => {
     expect(apiSource).toContain("/api/runs/{run_id}/context-audit");
     expect(apiSource).toContain("ContextAuditListResponse");
+  });
+
+  it("generated API contracts exclude frontend static and SPA fallback routes", () => {
+    expect(openapi.paths).not.toHaveProperty("/runsight.svg");
+    expect(openapi.paths).not.toHaveProperty("/{full_path}");
+    expect(apiSource).not.toContain('"/runsight.svg"');
+    expect(apiSource).not.toContain('"/{full_path}"');
   });
 
   it("generated Zod exports ContextAuditListResponseSchema", () => {

@@ -175,6 +175,34 @@ def test_parser_to_resolver_block_context_observer_resolves_only_declared_namesp
     assert "legacy leak" not in event_json
 
 
+def test_block_context_state_snapshot_is_scoped_to_declared_context() -> None:
+    """Declared blocks must not get a full WorkflowState escape hatch."""
+    workflow = parse_workflow_yaml(_workflow_yaml_with_allowed_namespace_refs())
+    step = workflow._blocks["review"]
+    assert isinstance(step, Step)
+
+    ctx = build_block_context(step.block, _state(), step=step)
+
+    assert ctx.state_snapshot is not None
+    assert set(ctx.state_snapshot.results) == {"draft", "workflow"}
+    assert json.loads(ctx.state_snapshot.results["draft"].output) == {"summary": "safe draft"}
+    assert json.loads(ctx.state_snapshot.results["workflow"].output) == {
+        "request": "external input"
+    }
+    assert ctx.state_snapshot.shared_memory == {"flags": {"safe": True}}
+    assert ctx.state_snapshot.metadata == {
+        "runtime": {"branch": "codex/run-868-context-governance"}
+    }
+
+    snapshot_json = ctx.state_snapshot.model_dump_json()
+    assert "draft secret" not in snapshot_json
+    assert "workflow secret" not in snapshot_json
+    assert "top secret result" not in snapshot_json
+    assert "shared secret" not in snapshot_json
+    assert "metadata secret" not in snapshot_json
+    assert "legacy leak" not in snapshot_json
+
+
 @pytest.mark.asyncio
 async def test_isolated_wrapper_envelope_and_worker_state_are_scoped_from_same_declaration() -> (
     None

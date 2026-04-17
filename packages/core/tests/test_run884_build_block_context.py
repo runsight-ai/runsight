@@ -580,7 +580,11 @@ class TestEdgeCases:
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
             ctx = build_block_context(block, state)
         assert ctx.instruction == block.soul.system_prompt
-        assert ctx.state_snapshot is state
+        assert ctx.state_snapshot is not state
+        assert ctx.state_snapshot is not None
+        assert ctx.state_snapshot.results == {}
+        assert ctx.state_snapshot.shared_memory == {}
+        assert ctx.state_snapshot.metadata == {}
 
     def test_step_with_empty_declared_inputs_no_step_produces_same_result(self):
         """Passing step with no declared_inputs is equivalent to passing step=None for inputs."""
