@@ -2,7 +2,7 @@
 RED tests for RUN-907: define context audit contract and YAML access schema.
 
 These tests pin the public contract surface expected by RUN-868:
-- BaseBlockDef gains access with a declared default
+- BaseBlockDef must not expose public YAML access configuration
 - the context governance module exposes the audit and policy models
 - context refs normalize into the supported namespaces
 - invalid enums are rejected by Pydantic
@@ -21,12 +21,17 @@ def _load_contract_module():
     return import_module("runsight_core.context_governance")
 
 
-def test_base_block_def_defaults_access_to_declared():
-    """A bare block definition defaults access to declared."""
+def test_base_block_def_hides_access_from_public_yaml_dump():
+    """A bare block definition must not serialize access in public YAML."""
     block = BaseBlockDef.model_validate({"type": "code"})
 
-    assert block.access == "declared"
-    assert block.model_dump()["access"] == "declared"
+    assert "access" not in block.model_dump()
+
+
+def test_base_block_def_rejects_public_access_declared_field():
+    """A block definition must reject access: declared as unsupported public YAML."""
+    with pytest.raises(ValidationError):
+        BaseBlockDef.model_validate({"type": "code", "access": "declared"})
 
 
 def test_base_block_def_rejects_explicit_all_access():

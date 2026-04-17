@@ -2,7 +2,7 @@
 RED tests for RUN-909: attach context declarations through parser and wrappers.
 
 These tests pin the parser/runtime metadata path for Epic C context governance:
-- access: all is rejected by normal schema/config validation
+- public YAML access is rejected by normal schema/config validation
 - context namespace roots are reserved block ids
 - parsed runtime blocks and Steps carry context_access plus declared_inputs
 - isolation wrapping preserves those declarations
@@ -101,8 +101,8 @@ def _unwrap_step(block: Any) -> Step:
     return block
 
 
-def test_parser_rejects_access_all_on_linear_block() -> None:
-    """Only CodeBlock may request access: all."""
+def test_parser_rejects_public_access_field_on_linear_block() -> None:
+    """Linear blocks must reject public access configuration in YAML."""
     yaml_text = _linear_workflow(
         """\
 type: linear
@@ -118,33 +118,24 @@ access: all
         parse_workflow_yaml(yaml_text)
 
 
-def test_parser_rejects_codeblock_access_all_as_unsupported_configuration() -> None:
-    """CodeBlock access: all must fail like any other unsupported access value."""
-    all_yaml = _code_workflow(
-        """\
+@pytest.mark.parametrize("access_value", ["declared", "all", "xyz"])
+def test_parser_rejects_public_access_field_on_codeblock(access_value: str) -> None:
+    """CodeBlock must reject public access values as unsupported YAML configuration."""
+    yaml_text = _code_workflow(
+        f"""\
 type: code
-access: all
+access: {access_value}
 code: |
   def main(data):
-      return {"ok": True}
-"""
-    )
-    unknown_yaml = _code_workflow(
-        """\
-type: code
-access: xyz
-code: |
-  def main(data):
-      return {"ok": True}
+      return {{"ok": True}}
 """
     )
 
-    with pytest.raises(Exception) as all_exc:
-        parse_workflow_yaml(all_yaml)
-    with pytest.raises(Exception) as unknown_exc:
-        parse_workflow_yaml(unknown_yaml)
-
-    assert type(all_exc.value) is type(unknown_exc.value)
+    with pytest.raises(
+        ValueError,
+        match=rf"access {access_value} is unsupported|CodeBlock all-access is no longer supported",
+    ):
+        parse_workflow_yaml(yaml_text)
 
 
 @pytest.mark.parametrize(
