@@ -1379,6 +1379,36 @@ class TestContextScoping:
         assert "secret_key" not in envelope.scoped_shared_memory
         assert envelope.inputs == {"x": "x", "allowed": "allowed_val"}
 
+    @pytest.mark.asyncio
+    async def test_raw_access_block_config_is_rejected_while_default_remains_declared(
+        self,
+    ):
+        """Raw harness configs must reject access while the implicit default stays declared."""
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import WorkflowState
+
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        state = WorkflowState()
+
+        declared_envelope = harness._build_context_envelope(
+            state=state,
+            block_config={
+                "block_id": "block-1",
+                "block_type": "linear",
+            },
+        )
+        assert declared_envelope.access == "declared"
+
+        with pytest.raises(ValueError, match=r"access.*unsupported|all-access is no longer"):
+            harness._build_context_envelope(
+                state=state,
+                block_config={
+                    "block_id": "block-1",
+                    "block_type": "linear",
+                    "access": "declared",
+                },
+            )
+
 
 # ===========================================================================
 # AC5: Timeout enforced — subprocess killed on timeout

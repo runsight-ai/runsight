@@ -3,18 +3,40 @@ RED tests for RUN-907: define context audit contract and YAML access schema.
 
 These tests pin the public contract surface expected by RUN-868:
 - BaseBlockDef must not expose public YAML access configuration
+- the checked-in workflow schema stays aligned with the generated source of truth
 - the context governance module exposes the audit and policy models
 - context refs normalize into the supported namespaces
 - invalid enums are rejected by Pydantic
 - workflow-seeded inputs stay represented as results.workflow
 """
 
+import json
 from datetime import UTC, datetime
 from importlib import import_module
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 from runsight_core.yaml.schema import BaseBlockDef
+
+SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema.json"
+
+
+def _collect_access_key_paths(schema: object) -> list[str]:
+    paths: list[str] = []
+
+    def visit(node: object, path: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "access":
+                    paths.append(path or "$")
+                visit(value, f"{path}.{key}" if path else key)
+        elif isinstance(node, list):
+            for index, item in enumerate(node):
+                visit(item, f"{path}[{index}]")
+
+    visit(schema, "")
+    return paths
 
 
 def _load_contract_module():
@@ -329,6 +351,38 @@ def test_base_block_def_rejects_invalid_access_values():
     """BaseBlockDef must reject unknown access values."""
     with pytest.raises(ValidationError):
         BaseBlockDef.model_validate({"type": "code", "access": "restricted"})
+
+
+def test_checked_in_workflow_schema_does_not_expose_access_keys_or_enums():
+    """The published workflow schema must not leak public access configuration."""
+    schema = json.loads(SCHEMA_PATH.read_text())
+    access_enum_values: set[str] = set()
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "enum" and isinstance(value, list):
+                    access_enum_values.update(str(item) for item in value)
+                visit(value)
+        elif isinstance(node, list):
+            for item in node:
+                visit(item)
+
+    visit(schema)
+
+    assert _collect_access_key_paths(schema) == []
+    assert "declared" not in access_enum_values
+    assert "all" not in access_enum_values
+
+
+def test_checked_in_workflow_schema_matches_generated_schema_without_access():
+    """The checked-in workflow schema should track the generated source of truth."""
+    from runsight_core.yaml.schema import RunsightWorkflowFile
+
+    schema = json.loads(SCHEMA_PATH.read_text())
+    generated = RunsightWorkflowFile.model_json_schema()
+
+    assert _collect_access_key_paths(schema) == _collect_access_key_paths(generated) == []
 
 
 def test_context_audit_event_redacts_secret_like_previews_but_keeps_normal_previews():
