@@ -144,7 +144,6 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [activeRunId, setRunId] = useState(initialRunId);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<"execution" | "overview" | "context">("execution");
 
   const queryClient = useQueryClient();
   const overlayRef = getOverlayRefFromLocation();
@@ -173,7 +172,7 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const resetCanvas = useCanvasStore((s) => (s as { reset?: () => void }).reset);
   const toPersistedState = useCanvasStore((s) => s.toPersistedState);
 
-  const { activeTab, setActiveTab, isDirty, setIsDirty, inspectedNodeId, setInspectedNodeId } = useSurfaceTabState(toggleVisibility.yaml ?? false);
+  const { activeTab, setActiveTab, isDirty, setIsDirty, inspectedNodeId, setInspectedNodeId, inspectorTab, setInspectorTab } = useSurfaceTabState(toggleVisibility.yaml ?? false);
 
   // Reset canvas on prop changes — must be registered before data-overlay hooks so
   // hydration and run-status effects run AFTER the reset on initial mount.

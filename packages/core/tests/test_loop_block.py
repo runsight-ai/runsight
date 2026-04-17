@@ -59,6 +59,7 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -77,6 +78,7 @@ class FailingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         raise RuntimeError(f"Block {self.block_id} failed")
@@ -87,6 +89,7 @@ class WriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -106,6 +109,7 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -345,6 +349,7 @@ class TestLoopBlockRoundCounter:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "all"
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput
@@ -766,6 +771,7 @@ class TestLoopBlockWorkflowIntegration:
         class CapturingInnerBlock(BaseBlock):
             def __init__(self):
                 super().__init__(block_id="inner_block")
+                self.context_access = "all"
                 self.received_inputs = None
 
             async def execute(self, ctx):

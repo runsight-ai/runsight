@@ -207,8 +207,11 @@ def _emit_context_audit(
 ) -> None:
     if observer is None:
         return
+    on_context_resolution = getattr(observer, "on_context_resolution", None)
+    if on_context_resolution is None:
+        return
     try:
-        observer.on_context_resolution(event)
+        on_context_resolution(event)
     except Exception:
         logger.warning("Observer.on_context_resolution failed", exc_info=True)
 
@@ -374,7 +377,10 @@ def build_block_context(
             conversation_history=[],
             soul=None,
             model_name=None,
-            state_snapshot=_scoped_state_snapshot(state, loop_context, block),
+            # LoopBlock is orchestration plumbing: it needs the current workflow
+            # state to run rounds and compute diffs, while inner blocks remain
+            # governed when they are dispatched.
+            state_snapshot=state,
         )
 
     # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)

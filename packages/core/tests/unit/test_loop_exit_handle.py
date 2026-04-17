@@ -35,6 +35,7 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
@@ -64,6 +65,7 @@ class ExitHandleBlock(BaseBlock):
 
     def __init__(self, block_id: str, exit_handle: str, threshold: int = 1):
         super().__init__(block_id)
+        self.context_access = "all"
         self._exit_handle = exit_handle
         self._threshold = threshold
 
@@ -630,6 +632,7 @@ class ContextPayloadBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, trace_path: str):
         super().__init__(block_id)
+        self.context_access = "all"
         self._trace_path = trace_path
 
     async def execute(self, ctx):
@@ -969,6 +972,7 @@ class TestCombinedBreakAndRetryOnExit:
 
             def __init__(self, block_id: str, pass_on_call: int = 3):
                 super().__init__(block_id)
+                self.context_access = "all"
                 self._pass_on_call = pass_on_call
 
             async def execute(self, ctx):

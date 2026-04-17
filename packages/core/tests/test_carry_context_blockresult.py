@@ -34,6 +34,7 @@ class BlockResultProducer(BaseBlock):
 
     def __init__(self, block_id: str, output_prefix: str = "output"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.output_prefix = output_prefix
 
     async def execute(self, ctx):
@@ -63,6 +64,7 @@ class BlockResultWithArtifact(BaseBlock):
 
     def __init__(self, block_id: str, artifact_ref: str = "s3://bucket/artifact.json"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.artifact_ref = artifact_ref
 
     async def execute(self, ctx):
@@ -100,6 +102,7 @@ class ContextSnapshotBlock(BaseBlock):
 
     def __init__(self, block_id: str, read_key: str = "previous_round_context"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.read_key = read_key
 
     async def execute(self, ctx):

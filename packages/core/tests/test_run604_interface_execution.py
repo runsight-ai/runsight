@@ -53,6 +53,7 @@ class _EchoBlock:
         self.block_id = block_id
         self.retry_config = None
         self.stateful = False
+        self.context_access = "all"
         self._copy_key = copy_key
 
     async def execute(self, ctx):
@@ -70,6 +71,7 @@ class _WriterBlock:
         self.block_id = block_id
         self.retry_config = None
         self.stateful = False
+        self.context_access = "all"
         self._value = value
 
     async def execute(self, ctx):

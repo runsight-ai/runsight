@@ -51,6 +51,7 @@ class _WriteBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, output: str | None = None):
         super().__init__(block_id)
+        self.context_access = "all"
         self.output = output or block_id
         self.call_count = 0
 
@@ -77,6 +78,7 @@ class _ErrorAwareHandlerBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, failed_block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
         self.failed_block_id = failed_block_id
         self.call_count = 0
 

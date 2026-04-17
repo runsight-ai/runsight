@@ -26,6 +26,7 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         state = ctx.state_snapshot
@@ -42,6 +43,7 @@ class WriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         state = ctx.state_snapshot
@@ -59,6 +61,7 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         state = ctx.state_snapshot
@@ -76,6 +79,7 @@ class FailNTimesThenSucceed(BaseBlock):
 
     def __init__(self, block_id: str, fail_count: int, error_cls: type = RuntimeError):
         super().__init__(block_id)
+        self.context_access = "all"
         self._fail_count = fail_count
         self._error_cls = error_cls
         self._call_count = 0
@@ -219,6 +223,7 @@ class TestLoopBlockWithRetryConfig:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "all"
 
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 FailOnFirstLoopAttempt.attempt_count += 1
@@ -273,6 +278,7 @@ class TestLoopBlockStateFlowBetweenRounds:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "all"
 
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 state = ctx.state_snapshot

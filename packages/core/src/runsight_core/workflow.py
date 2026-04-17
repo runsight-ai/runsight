@@ -199,19 +199,19 @@ async def execute_block(
         else:
             dispatch_coro = _dispatch(block, state)
 
-        try:
-            if timeout is not None:
+        if timeout is not None:
+            try:
                 state = await asyncio.wait_for(dispatch_coro, timeout=timeout)
-            else:
-                state = await dispatch_coro
-        except asyncio.TimeoutError:
-            raise BudgetKilledException(
-                scope="block",
-                block_id=block_id,
-                limit_kind="timeout",
-                limit_value=timeout,
-                actual_value=timeout,
-            )
+            except asyncio.TimeoutError:
+                raise BudgetKilledException(
+                    scope="block",
+                    block_id=block_id,
+                    limit_kind="timeout",
+                    limit_value=timeout,
+                    actual_value=timeout,
+                )
+        else:
+            state = await dispatch_coro
 
         if getattr(block, "exit_conditions", None):
             br = state.results.get(block_id)
@@ -785,18 +785,18 @@ class Workflow:
         """Await loop_coro, converting TimeoutError to BudgetKilledException."""
         from runsight_core.budget_enforcement import BudgetKilledException
 
-        try:
-            if flow_timeout is not None:
+        if flow_timeout is not None:
+            try:
                 return await asyncio.wait_for(loop_coro, timeout=flow_timeout)
-            return await loop_coro
-        except asyncio.TimeoutError:
-            raise BudgetKilledException(
-                scope="workflow",
-                block_id=None,
-                limit_kind="timeout",
-                limit_value=flow_timeout,
-                actual_value=flow_timeout,
-            )
+            except asyncio.TimeoutError:
+                raise BudgetKilledException(
+                    scope="workflow",
+                    block_id=None,
+                    limit_kind="timeout",
+                    limit_value=flow_timeout,
+                    actual_value=flow_timeout,
+                )
+        return await loop_coro
 
     def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
         """Return a copy of state with inputs serialised into results['workflow']."""

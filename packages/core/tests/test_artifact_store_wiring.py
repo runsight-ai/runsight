@@ -25,6 +25,7 @@ class ArtifactCapturingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -43,6 +44,7 @@ class RoundTrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput

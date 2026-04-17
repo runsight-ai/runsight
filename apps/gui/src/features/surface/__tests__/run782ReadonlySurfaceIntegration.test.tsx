@@ -189,6 +189,7 @@ vi.mock("@/queries/runs", () => ({
       isError: false,
     };
   },
+  useRunContextAuditStream: () => undefined,
   useRuns: (filters?: Record<string, unknown>) => {
     harness.useRunsFilters.push(filters);
     return {

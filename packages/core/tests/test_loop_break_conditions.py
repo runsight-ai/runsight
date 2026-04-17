@@ -67,6 +67,7 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -89,6 +90,7 @@ class KeywordBlock(BaseBlock):
 
     def __init__(self, block_id: str, keyword_on_call: int = 2):
         super().__init__(block_id)
+        self.context_access = "all"
         self.keyword_on_call = keyword_on_call
 
     async def execute(self, ctx):
@@ -116,6 +118,7 @@ class JsonOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         import json
@@ -143,6 +146,7 @@ class GatePassBlock(BaseBlock):
 
     def __init__(self, block_id: str, pass_on_round: int = 2):
         super().__init__(block_id)
+        self.context_access = "all"
         self.pass_on_round = pass_on_round
 
     async def execute(self, ctx):
@@ -167,6 +171,7 @@ class BadFieldBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         import json
@@ -572,6 +577,7 @@ class TestLoopBlockBreakMetadata:
         class DownstreamBlock(BaseBlock):
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "all"
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput

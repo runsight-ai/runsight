@@ -12,7 +12,7 @@ import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import BudgetKilledException
 from runsight_core.state import WorkflowState
-from runsight_core.workflow import BlockExecutionContext, execute_block
+from runsight_core.workflow import BlockExecutionContext, Workflow, execute_block
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -43,6 +43,16 @@ class FastBlock(BaseBlock):
         from runsight_core.block_io import BlockOutput
 
         return BlockOutput(output="fast done")
+
+
+class InnerTimeoutBlock(BaseBlock):
+    """Block that raises its own TimeoutError without a workflow timeout budget."""
+
+    def __init__(self, block_id: str) -> None:
+        super().__init__(block_id)
+
+    async def execute(self, ctx):
+        raise TimeoutError("inner timeout")
 
 
 class RecordingObserver:
@@ -130,6 +140,24 @@ class TestBlockTimeoutEnforcement:
         result = await execute_block(block, state, ctx)
 
         assert result.results["plain_block"].output == "fast done"
+
+    @pytest.mark.asyncio
+    async def test_inner_timeout_without_budget_propagates_original_error(self):
+        block = InnerTimeoutBlock("inner_timeout")
+        state = WorkflowState()
+        ctx = _make_ctx()
+
+        with pytest.raises(TimeoutError, match="inner timeout"):
+            await execute_block(block, state, ctx)
+
+    @pytest.mark.asyncio
+    async def test_workflow_without_budget_propagates_inner_timeout(self):
+        wf = Workflow("inner_timeout_workflow")
+        wf.add_block(InnerTimeoutBlock("inner_timeout"))
+        wf.set_entry("inner_timeout")
+
+        with pytest.raises(TimeoutError, match="inner timeout"):
+            await wf.run(WorkflowState())
 
     @pytest.mark.asyncio
     async def test_max_duration_seconds_none_treated_as_no_timeout(self):

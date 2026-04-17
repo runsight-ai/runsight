@@ -36,6 +36,7 @@ class EchoBlock(BaseBlock):
 
     def __init__(self, block_id: str, output: str = "echo_output"):
         super().__init__(block_id)
+        self.context_access = "all"
         self._output = output
 
     async def execute(self, ctx):
@@ -56,6 +57,7 @@ class SharedMemoryReaderBlock(BaseBlock):
 
     def __init__(self, block_id: str, key: str = "previous_round_context"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.key = key
         self.seen: list = []
 
@@ -79,6 +81,7 @@ class AccumulatingWriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
         self._round = 0
 
     async def execute(self, ctx):
@@ -352,6 +355,7 @@ class TestInnerBlocksReceiveCarryViaSharedMemory:
                 return block_output_from_state(self.block_id, state, next_state)
 
         spy = ContextSpyBlock("spy")
+        spy.context_access = "all"
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="previous_round_context")
         loop = _make_loop("loop1", ["spy"], max_rounds=3, carry=carry)
         state = WorkflowState()
@@ -440,6 +444,7 @@ class TestMultipleRoundsCarryAccumulation:
         class RoundCapture(BaseBlock):
             def __init__(self, bid):
                 super().__init__(bid)
+                self.context_access = "all"
                 self._r = 0
 
             async def execute(self, ctx):

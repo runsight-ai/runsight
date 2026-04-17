@@ -147,6 +147,10 @@ async def test_stateful_first_invocation_with_resolved_inputs(
     )
 
     block = _make_stateful_block("analyze", sample_soul, mock_runner)
+    block.declared_inputs = {
+        "upstream": "shared_memory._resolved_inputs.upstream",
+        "extra": "shared_memory._resolved_inputs.extra",
+    }
     state = WorkflowState(
         shared_memory={
             "_resolved_inputs": {

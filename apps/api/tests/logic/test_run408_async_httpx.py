@@ -66,6 +66,16 @@ def _get_provider_service_source() -> str:
         return f.read()
 
 
+@pytest.fixture(autouse=True)
+def _mock_ssrf_validation():
+    """Keep async HTTP client tests isolated from live DNS resolution."""
+    with patch(
+        "runsight_api.logic.services.provider_service.validate_ssrf",
+        new_callable=AsyncMock,
+    ) as mock_validate:
+        yield mock_validate
+
+
 # ===========================================================================
 # 1. Source-level: zero sync httpx calls in provider_service
 # ===========================================================================

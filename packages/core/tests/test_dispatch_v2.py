@@ -479,6 +479,7 @@ class TestContextInheritance:
         mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = DispatchBlock("fan", branches, mock_runner)
+        block.declared_inputs = {"context": "shared_memory._resolved_inputs.context"}
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"context": "Budget is $10k"}},
         )

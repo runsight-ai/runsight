@@ -90,6 +90,7 @@ class StatefulArtifactBlock(BaseBlock):
 
     def __init__(self, block_id: str, soul: Soul, runner):
         super().__init__(block_id)
+        self.context_access = "all"
         self.stateful = True
         self.soul = soul
         self.runner = runner
@@ -147,6 +148,7 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
 
     def __init__(self, block_id: str, soul: Soul, runner):
         super().__init__(block_id)
+        self.context_access = "all"
         self.stateful = True
         self.soul = soul
         self.runner = runner

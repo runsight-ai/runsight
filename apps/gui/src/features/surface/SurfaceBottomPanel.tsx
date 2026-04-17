@@ -1,11 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import {
-  useRunContextAudit,
-  useRunContextAuditStream,
-  useRunLogs,
-  useRunRegressions,
-  useRuns,
-} from "@/queries/runs";
+import { useRunContextAudit, useRunContextAuditStream, useRunLogs, useRunRegressions, useRuns } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";

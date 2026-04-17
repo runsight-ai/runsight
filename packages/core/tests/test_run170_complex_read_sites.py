@@ -48,6 +48,7 @@ class TestCodeBlockSubprocessSerialization:
             block_id="code1",
             code='def main(data): return {"echo": data["results"]["prev"]}',
         )
+        block.context_access = "all"
 
         state = WorkflowState(
             results={"prev": BlockResult(output="hello world")},
@@ -87,6 +88,7 @@ class TestCodeBlockSubprocessSerialization:
             block_id="code2",
             code='def main(data): return {"ok": True}',
         )
+        block.context_access = "all"
 
         state = WorkflowState(
             results={
@@ -126,6 +128,7 @@ class TestCodeBlockSubprocessSerialization:
             block_id="code3",
             code='def main(data): return data["results"]',
         )
+        block.context_access = "all"
 
         state = WorkflowState(
             results={

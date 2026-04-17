@@ -49,6 +49,7 @@ class KwargsSpyBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
         self.captured_kwargs: List[Dict[str, Any]] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -73,6 +74,7 @@ class SimplePassthroughBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         state = ctx.state_snapshot

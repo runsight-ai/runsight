@@ -309,9 +309,9 @@ async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_
 
     original_build = build_block_context
 
-    def tracking_build(block, state, step=None):
+    def tracking_build(block, state, step=None, **kwargs):
         build_ctx_calls.append(block.block_id)
-        return original_build(block, state, step=step)
+        return original_build(block, state, step=step, **kwargs)
 
     with patch("runsight_core.workflow.build_block_context", side_effect=tracking_build):
         final_state = await wf.run(state)

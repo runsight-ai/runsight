@@ -84,6 +84,7 @@ class RoundAwareOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         state = ctx.state_snapshot

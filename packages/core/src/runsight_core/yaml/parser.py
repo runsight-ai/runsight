@@ -656,10 +656,11 @@ def _context_access(block_def: Any) -> str:
 
 
 def _declared_inputs(block_def: Any) -> Dict[str, str]:
-    if block_def.inputs is None:
+    inputs = getattr(block_def, "inputs", None)
+    if inputs is None:
         return {}
     declared_inputs: Dict[str, str] = {}
-    for input_name, input_ref in block_def.inputs.items():
+    for input_name, input_ref in inputs.items():
         declared_inputs[input_name] = (
             input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
         )
@@ -808,14 +809,22 @@ def _validate_inputs_and_detect_cycles(
     for block_id, block_def in file_def.blocks.items():
         if block_def.inputs is None or block_def.type == "workflow" or block_id not in built_blocks:
             continue
-        declared_inputs = _declared_inputs(block_def)
-        context_access = _context_access(block_def)
-        _attach_context_metadata(built_blocks[block_id], context_access, declared_inputs)
-        built_blocks[block_id] = Step(
-            block=built_blocks[block_id],
-            declared_inputs=declared_inputs,
-            context_access=context_access,
-        )
+        _wrap_declared_input_block(block_id, block_def, built_blocks)
+
+
+def _wrap_declared_input_block(
+    block_id: str,
+    block_def: Any,
+    built_blocks: Dict[str, Any],
+) -> None:
+    declared_inputs = _declared_inputs(block_def)
+    context_access = _context_access(block_def)
+    _attach_context_metadata(built_blocks[block_id], context_access, declared_inputs)
+    built_blocks[block_id] = Step(
+        block=built_blocks[block_id],
+        declared_inputs=declared_inputs,
+        context_access=context_access,
+    )
 
 
 def _wrap_llm_blocks_with_isolation(
@@ -916,15 +925,7 @@ def parse_workflow_yaml(
         model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
-    # Step 5: Build all blocks (single pass)
-    # Reject reserved IDs that collide with context namespace roots.
-    reserved_block_ids = sorted(set(file_def.blocks) & _RESERVED_CONTEXT_BLOCK_IDS)
-    if reserved_block_ids:
-        reserved_id = reserved_block_ids[0]
-        raise ValueError(
-            f"Block ID '{reserved_id}' is reserved for context namespace access and cannot be used as a block ID."
-        )
-
+    _validate_reserved_context_block_ids(file_def)
     _validate_context_declarations(file_def)
 
     built_blocks: Dict[str, BaseBlock] = {}
@@ -969,3 +970,12 @@ def parse_workflow_yaml(
     _resolve_tools_for_souls(file_def, souls_map, workflow_base_dir)
     _validate_inputs_and_detect_cycles(file_def, built_blocks)
     return _assemble_workflow(file_def, built_blocks)
+
+
+def _validate_reserved_context_block_ids(file_def: RunsightWorkflowFile) -> None:
+    reserved_block_ids = sorted(set(file_def.blocks) & _RESERVED_CONTEXT_BLOCK_IDS)
+    if reserved_block_ids:
+        reserved_id = reserved_block_ids[0]
+        raise ValueError(
+            f"Block ID '{reserved_id}' is reserved for context namespace access and cannot be used as a block ID."
+        )

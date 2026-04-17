@@ -80,6 +80,7 @@ def _ensure_sqlite_columns(engine) -> None:
             "fail_reason": "VARCHAR",
             "fail_metadata": "JSON",
             "warnings_json": "JSON",
+            "deleted_at": "FLOAT",
         },
         "runnode": {
             "last_phase": "VARCHAR",
@@ -173,6 +174,14 @@ def create_app() -> FastAPI:
     app.include_router(models.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")
     app.include_router(sse_stream.router, prefix="/api")
+
+    @app.api_route(
+        "/api/{full_path:path}",
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
+    async def _api_not_found(full_path: str):
+        raise RunsightError("Not found", error_code="NOT_FOUND", status_code=404)
 
     @app.get("/health")
     def health_check():

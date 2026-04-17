@@ -95,6 +95,7 @@ blocks:
     soul_ref: writer
   code_block:
     type: code
+    access: all
     code: |
       import json
       def main(data):
@@ -114,6 +115,7 @@ blocks:
     fail: fail_handler
   pass_handler:
     type: code
+    access: all
     code: |
       import json
       def main(data):
@@ -126,6 +128,7 @@ blocks:
           }
   fail_handler:
     type: code
+    access: all
     code: |
       import json
       def main(data):

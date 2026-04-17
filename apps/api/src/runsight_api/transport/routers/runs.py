@@ -2,10 +2,10 @@ import inspect as _inspect
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import RunFailed, RunNotFound, ServiceUnavailable
+from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -405,7 +405,7 @@ async def get_run_context_audit(
         try:
             after_key = decode_context_audit_cursor(cursor)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail="Invalid cursor") from exc
+            raise InputValidationError("Invalid cursor", status_code=422) from exc
 
     try:
         logs = run_service.get_run_logs(run_id)

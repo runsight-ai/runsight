@@ -68,6 +68,7 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -88,6 +89,7 @@ class ContextAwareWriterBlock(BaseBlock):
 
     def __init__(self, block_id: str, context_key: str = "previous_round_context"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.context_key = context_key
 
     async def execute(self, ctx):
@@ -118,6 +120,7 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -138,6 +141,7 @@ class EmptyOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
@@ -156,6 +160,7 @@ class ContextReaderBlock(BaseBlock):
 
     def __init__(self, block_id: str, read_key: str = "previous_round_context"):
         super().__init__(block_id)
+        self.context_access = "all"
         self.read_key = read_key
 
     async def execute(self, ctx):
@@ -185,6 +190,7 @@ class NullSoulOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "all"
         self.soul = None
 
     async def execute(self, ctx):
@@ -888,6 +894,7 @@ class TestCarryContextRoundOne:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "all"
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput

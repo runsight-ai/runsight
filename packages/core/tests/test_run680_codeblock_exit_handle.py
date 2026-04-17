@@ -151,6 +151,7 @@ def main(data):
     return result
 """)
         code_block = CodeBlock("code_inner", code)
+        code_block.context_access = "all"
 
         loop_block = LoopBlock(
             "loop_main",

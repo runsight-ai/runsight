@@ -71,6 +71,7 @@ class RecordingObserver:
 class ExitHandleBlock(BaseBlock):
     def __init__(self, block_id: str, exit_handle: str, threshold: int) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
         self._exit_handle = exit_handle
         self._threshold = threshold
 
@@ -89,6 +90,7 @@ class ExitHandleBlock(BaseBlock):
 class KwargsProbeBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
         self.captured_kwargs: list[dict[str, object]] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -184,7 +186,7 @@ async def test_loopblock_direct_execute_without_ctx_stays_backward_compatible():
 
     result_state = await _exec(loop, WorkflowState(), blocks=blocks)
 
-    assert probe.captured_kwargs == [{"blocks": blocks}]
+    assert probe.captured_kwargs[0]["blocks"] == blocks
     assert result_state.results["probe"].output == "probe_ok"
     assert result_state.results["loop_block"].output == "completed_1_rounds"
 

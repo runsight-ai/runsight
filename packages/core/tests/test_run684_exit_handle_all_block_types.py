@@ -136,6 +136,7 @@ class OutputBlock(BaseBlock):
 
     def __init__(self, block_id: str, output_text: str) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
         self.output_text = output_text
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -147,6 +148,7 @@ class ExplicitExitBlock(BaseBlock):
 
     def __init__(self, block_id: str, output_text: str, exit_handle: str) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
         self.output_text = output_text
         self._exit_handle = exit_handle
 
@@ -161,6 +163,7 @@ class RoundAwareOutputBlock(BaseBlock):
         self, block_id: str, trigger_round: int = 2, trigger_text: str = "APPROVED"
     ) -> None:
         super().__init__(block_id)
+        self.context_access = "all"
         self.trigger_round = trigger_round
         self.trigger_text = trigger_text
 

@@ -249,6 +249,10 @@ class TestReadsResolvedInputsFromSharedMemory:
         mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
+        block.declared_inputs = {
+            "step1": "shared_memory._resolved_inputs.step1",
+            "step2": "shared_memory._resolved_inputs.step2",
+        }
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"step1": "upstream result", "step2": "more data"}}
         )
@@ -562,6 +566,11 @@ class TestResolvedInputsMultipleKeys:
         mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
+        block.declared_inputs = {
+            "block_a": "shared_memory._resolved_inputs.block_a",
+            "block_b": "shared_memory._resolved_inputs.block_b",
+            "block_c": "shared_memory._resolved_inputs.block_c",
+        }
         state = WorkflowState(
             shared_memory={
                 "_resolved_inputs": {
@@ -599,6 +608,7 @@ class TestResolvedInputsMultipleKeys:
         mock_runner.execute = AsyncMock(side_effect=_capture)
 
         block = _make_linear_block("linear1", sample_soul, mock_runner)
+        block.declared_inputs = {"research_block": "shared_memory._resolved_inputs.research_block"}
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"research_block": "deep research output"}}
         )

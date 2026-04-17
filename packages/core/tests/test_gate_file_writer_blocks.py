@@ -93,7 +93,7 @@ class TestGateBlock:
         )
         state = WorkflowState(results={"other_key": BlockResult(output="value")})
 
-        with pytest.raises(ValueError, match=f"eval_key '{eval_key}' not found in state.results"):
+        with pytest.raises(ValueError, match="source result missing"):
             await execute_block_for_test(block, state)
 
     @pytest.mark.asyncio

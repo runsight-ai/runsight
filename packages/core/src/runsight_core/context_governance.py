@@ -156,7 +156,7 @@ class ScopedContextData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     inputs: dict[str, object] = Field(default_factory=dict)
-    scoped_results: dict[str, BlockResult] = Field(default_factory=dict)
+    scoped_results: dict[str, object] = Field(default_factory=dict)
     scoped_shared_memory: dict[str, object] = Field(default_factory=dict)
     scoped_metadata: dict[str, object] = Field(default_factory=dict)
     state_snapshot: WorkflowState | None = None
@@ -253,7 +253,7 @@ class ContextResolver:
             )
 
         for input_name, from_ref, internal in _iter_declared_and_internal_inputs(declaration):
-            parsed = parse_context_ref(from_ref)
+            parsed = _canonicalize_context_ref(parse_context_ref(from_ref), state)
             try:
                 value = _resolve_parsed_ref(parsed, state)
             except ContextResolutionError as exc:
@@ -408,6 +408,38 @@ def parse_context_ref(ref: str) -> ParsedContextRef:
         source=source,
         field_path=field_path,
     )
+
+
+def _canonicalize_context_ref(
+    parsed: ParsedContextRef,
+    state: WorkflowState,
+) -> ParsedContextRef:
+    """Prefer exact/longest result keys so block IDs may contain dots."""
+    if parsed.namespace != ContextAuditNamespace.RESULTS.value:
+        return parsed
+
+    source, field_path = _resolve_result_source(parsed, state)
+    if source == parsed.source and field_path == parsed.field_path:
+        return parsed
+    return parsed.model_copy(update={"source": source, "field_path": field_path})
+
+
+def _resolve_result_source(
+    parsed: ParsedContextRef,
+    state: WorkflowState,
+) -> tuple[str, str | None]:
+    if parsed.field_path is None:
+        return parsed.source, None
+
+    parts = [parsed.source, *parsed.field_path.split(".")]
+    for split_at in range(len(parts), 0, -1):
+        candidate = ".".join(parts[:split_at])
+        if candidate in state.results:
+            remaining = ".".join(parts[split_at:]) or None
+            return candidate, remaining
+    if parsed.source in state.results:
+        return parsed.source, parsed.field_path
+    return parsed.source, parsed.field_path
 
 
 def _is_secret_like_ref(*parts: str | None) -> bool:

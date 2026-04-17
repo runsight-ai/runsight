@@ -117,12 +117,14 @@ class TestYamlDxSugarE2E:
                       return {"step": "A"}
               step_b:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"step": "B", "seen": list(data["results"].keys())}
                 depends: step_a
               step_c:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"step": "C", "seen": list(data["results"].keys())}
@@ -147,11 +149,13 @@ class TestYamlDxSugarE2E:
                       return {"step": "A"}
               step_b:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"step": "B", "seen": list(data["results"].keys())}
               step_c:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"step": "C", "seen": list(data["results"].keys())}
@@ -216,6 +220,7 @@ class TestYamlDxSugarE2E:
             blocks:
               analyze:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"status": data["shared_memory"]["status"]}
@@ -284,6 +289,7 @@ class TestYamlDxSugarE2E:
                 error_route: handler
               handler:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       err = data["shared_memory"]["__error__risky"]
@@ -346,6 +352,7 @@ class TestYamlDxSugarE2E:
                   backoff_base_seconds: 0.1
               handler:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       err = data["shared_memory"]["__error__risky"]
@@ -393,6 +400,7 @@ class TestYamlDxSugarE2E:
             blocks:
               review:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"status": data["shared_memory"]["status"]}
@@ -432,6 +440,7 @@ class TestYamlDxSugarE2E:
             blocks:
               review:
                 type: code
+                access: all
                 code: |
                   def main(data):
                       return {"status": data["shared_memory"]["status"]}

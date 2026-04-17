@@ -58,6 +58,7 @@ async def test_e2e_single_block_workflow(mock_achat):
 
     runner = RunsightTeamRunner(model_name="gpt-4o")
     block = LinearBlock("research_block", soul, runner)
+    block.declared_inputs = {"instruction": "shared_memory._resolved_inputs.instruction"}
 
     # Initialize state with shared_memory inputs for the instruction
     initial_state = WorkflowState(
