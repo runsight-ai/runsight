@@ -219,8 +219,8 @@ class SubprocessHarness:
         """Build a ContextEnvelope with data scoped by context declarations."""
         if "access" in block_config:
             raise ValueError(
-                f"Block '{block_config.get('block_id', '<unknown>')}': access "
-                f"{block_config['access']} is unsupported; CodeBlock all-access is no longer supported"
+                f"Block '{block_config.get('block_id', '<unknown>')}': access block configuration "
+                "is unsupported; declare context with the 'inputs' field"
             )
 
         block_id = block_config.get("block_id", "")

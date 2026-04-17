@@ -644,10 +644,9 @@ def _validate_raw_context_config(raw: dict[str, Any]) -> None:
         if not isinstance(block_config, dict):
             continue
         if "access" in block_config:
-            access = block_config["access"]
             raise ValueError(
-                f"Block '{block_id}': access {access} is unsupported; "
-                "CodeBlock all-access is no longer supported"
+                f"Block '{block_id}': unsupported block field 'access'; "
+                "declare context with the 'inputs' field"
             )
         raw_inputs = block_config.get("inputs")
         if not isinstance(raw_inputs, dict):
