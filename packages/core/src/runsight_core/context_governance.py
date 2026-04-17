@@ -253,10 +253,11 @@ class ContextResolver:
             )
 
         for input_name, from_ref, internal in _iter_declared_and_internal_inputs(declaration):
-            parsed = _canonicalize_context_ref(parse_context_ref(from_ref), state)
+            parsed: ParsedContextRef | None = None
             try:
+                parsed = _canonicalize_context_ref(parse_context_ref(from_ref), state)
                 value = _resolve_parsed_ref(parsed, state)
-            except ContextResolutionError as exc:
+            except (ValueError, ContextResolutionError) as exc:
                 if self.policy.mode == ContextAuditMode.DEV.value:
                     records.append(
                         _audit_record(
@@ -454,7 +455,8 @@ def _is_secret_like_value(value: str) -> bool:
 
     secret_patterns = (
         r"\bsk-[a-z0-9][a-z0-9._-]{6,}\b",
-        r"\b[a-z0-9_]*(api[_-]?key|secret|token|credential|password)[a-z0-9_]*\s*[:=]",
+        r"['\"]?[a-z0-9_]*(api[_-]?key|secret|token|credential|password)"
+        r"[a-z0-9_]*['\"]?\s*[:=]",
         r"-----begin [a-z ]*private key-----",
         r"\bakia[0-9a-z]{16}\b",
     )
@@ -699,7 +701,7 @@ def _audit_record(
     *,
     input_name: str,
     from_ref: str,
-    parsed: ParsedContextRef,
+    parsed: ParsedContextRef | None,
     status: ContextAuditStatus,
     severity: ContextAuditSeverity,
     value: object | None = None,
@@ -709,9 +711,9 @@ def _audit_record(
     return ContextAuditRecordV1(
         input_name=input_name,
         from_ref=from_ref,
-        namespace=parsed.namespace,
-        source=parsed.source,
-        field_path=parsed.field_path,
+        namespace=None if parsed is None else parsed.namespace,
+        source=None if parsed is None else parsed.source,
+        field_path=None if parsed is None else parsed.field_path,
         status=status,
         severity=severity,
         value_type=None if value is None else type(value).__name__,

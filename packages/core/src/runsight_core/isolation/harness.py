@@ -106,8 +106,14 @@ def _internal_inputs_from_block_config(
     return {}
 
 
-def _serialize_scoped_results(results: dict[str, BlockResult]) -> dict[str, dict[str, Any]]:
-    return {key: value.model_dump() for key, value in results.items()}
+def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    serialized: dict[str, dict[str, Any]] = {}
+    for key, value in results.items():
+        if isinstance(value, BlockResult):
+            serialized[key] = value.model_dump()
+        else:
+            serialized[key] = {"output": value}
+    return serialized
 
 
 class SubprocessHarness:

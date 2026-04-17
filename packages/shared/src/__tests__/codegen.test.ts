@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { existsSync, readFileSync, mkdtempSync, rmSync } from "fs";
+import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { execFileSync } from "child_process";
 import { tmpdir } from "os";
@@ -250,6 +250,51 @@ describe("RUN-515: generated API wrapper cleanup stays concrete", () => {
   it("committed generated api.ts output does not include a runtime components shim", () => {
     const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
     expect(apiSource).not.toMatch(/\bexport const components\s*=\s*\{\s*\};/);
+  });
+});
+
+describe("RUN-868: Zod generator enum edge cases", () => {
+  it("emits bare literals for single-value non-string enums", () => {
+    const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-enum-"));
+    const openapiPath = resolve(workdir, "openapi.json");
+    const generatedZodPath = resolve(workdir, "zod.ts");
+    try {
+      writeFileSync(
+        openapiPath,
+        JSON.stringify(
+          {
+            openapi: "3.1.0",
+            info: { title: "enum fixture", version: "1.0.0" },
+            paths: {},
+            components: {
+              schemas: {
+                SingleNumberEnum: { type: "integer", enum: [1] },
+                SingleBooleanEnum: { type: "boolean", enum: [true] },
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      execFileSync(
+        "uv",
+        ["run", "python", ZOD_GENERATOR_SCRIPT, openapiPath, generatedZodPath],
+        {
+          cwd: REPO_ROOT,
+          stdio: "pipe",
+        },
+      );
+
+      const generatedZod = readFileSync(generatedZodPath, "utf8");
+      expect(generatedZod).toContain("SingleNumberEnumSchema = z.literal(1)");
+      expect(generatedZod).toContain("SingleBooleanEnumSchema = z.literal(true)");
+      expect(generatedZod).not.toContain("z.union([z.literal(1)])");
+      expect(generatedZod).not.toContain("z.union([z.literal(true)])");
+    } finally {
+      rmSync(workdir, { recursive: true, force: true });
+    }
   });
 });
 

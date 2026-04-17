@@ -84,6 +84,7 @@ type CenterProps = {
   runNodesError: unknown;
   runError?: string;
   refetchRunNodes: () => void;
+  contextRunId: string;
   inspectorVisible: boolean;
   selectedNode: Node<RuntimeStepNodeData> | null;
   onNodeClick: (id: string) => void;
@@ -120,11 +121,11 @@ function SurfaceCenter(p: CenterProps) {
                 <EmptyState icon={LayoutGrid} title="Canvas layout unavailable" description="Canvas layout unavailable for this run. Switch to the YAML tab to inspect the workflow definition." />
               </div>
             ) : (
-              <SurfaceCanvas isDraggable={p.contract.canvas.draggable} connectionsAllowed={p.contract.canvas.connectionsAllowed} deletionAllowed={p.contract.canvas.deletionAllowed} runId={p.readonlyRunId} />
+              <SurfaceCanvas isDraggable={p.contract.canvas.draggable} connectionsAllowed={p.contract.canvas.connectionsAllowed} deletionAllowed={p.contract.canvas.deletionAllowed} runId={p.contextRunId} />
             )}
           </div>
           {p.inspectorVisible && p.selectedNode ? (
-            <SurfaceInspectorPanel selectedNode={p.selectedNode} onClose={p.onInspectorClose} trigger={p.inspectorTrigger} runId={p.readonlyRunId} initialTab={p.inspectorTab} />
+            <SurfaceInspectorPanel selectedNode={p.selectedNode} onClose={p.onInspectorClose} trigger={p.inspectorTrigger} runId={p.contextRunId} initialTab={p.inspectorTab} />
           ) : null}
         </div>
       ) : p.activeTab === "yaml" ? (
@@ -142,12 +143,14 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
+  const [inspectedRunId, setInspectedRunId] = useState<string | undefined>(initialRunId);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const overlayRef = getOverlayRefFromLocation();
   const readonlyRunId = mode === "readonly" ? (activeRunId ?? initialRunId ?? "") : "";
+  const contextRunId = inspectedRunId ?? activeRunId ?? initialRunId ?? "";
   const contract = getContractForMode(mode);
   const toggleVisibility = getCanvasYamlToggleVisibility(mode);
   const editable = isEditable(mode);
@@ -177,8 +180,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   // Reset canvas on prop changes — must be registered before data-overlay hooks so
   // hydration and run-status effects run AFTER the reset on initial mount.
   useEffect(() => {
-    setMode(initialMode); setWorkflowId(initialWorkflowId); setRunId(initialRunId); setInspectedNodeId(null); setInspectorTab("execution"); resetCanvas?.();
-  }, [initialMode, initialWorkflowId, initialRunId, resetCanvas, setInspectedNodeId]);
+    setMode(initialMode); setWorkflowId(initialWorkflowId); setRunId(initialRunId); setInspectedRunId(initialRunId); setInspectedNodeId(null); setInspectorTab("execution"); resetCanvas?.();
+  }, [initialMode, initialWorkflowId, initialRunId, resetCanvas, setInspectedNodeId, setInspectorTab]);
 
   useEffect(() => {
     if (mode !== "readonly" || !run?.workflow_id || workflowId === run.workflow_id) return;
@@ -217,8 +220,8 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
     <>
       <SurfaceShell
         topbar={<SurfaceTopbar workflowId={resolvedWorkflowId} runId={activeRunId ?? initialRunId} activeTab={activeTab} onValueChange={(v) => setActiveTab(v as "canvas" | "yaml")} isDirty={isDirty} onSave={handleSave} nameEditable={contract.topbar.nameEditable} toggleVisibility={toggleVisibility} saveButton={getSaveButtonState(mode, isDirty)} metricsVisible={contract.topbar.metricsVisible} metricsStyle={contract.topbar.metricsStyle} actionButton={mode === "edit" ? undefined : getActionButton(mode)} onAddApiKey={editable ? () => setApiKeyModalOpen(true) : undefined} onForkTransition={mode === "readonly" ? handleReadonlyForkTransition : handleForkTransition} titleAfter={headerSlots.titleAfter} metricsOverride={headerSlots.metricsOverride} actionsOverride={headerSlots.actionsOverride} forkConfigOverride={mode === "readonly" ? { commitSha: run?.commit_sha ?? "", workflowPath: `custom/workflows/${resolvedWorkflowId}.yaml`, workflowName: run?.workflow_name ?? workflow?.name ?? "Untitled Workflow" } : undefined} />}
-        center={<SurfaceCenter mode={mode} activeTab={activeTab} contract={contract} readonlyRunId={readonlyRunId} regressionCount={regressionCount} showRunGraphError={showRunGraphError} showPreExecutionFailure={showPreExecutionFailure} showReadonlyCanvas={showReadonlyCanvas} runNodesError={runNodesError} runError={typeof run?.error === "string" ? run.error : undefined} refetchRunNodes={() => void refetchRunNodes()} inspectorVisible={contract.inspectorVisible} selectedNode={selectedNode} onNodeClick={(nodeId) => { setInspectorTab("execution"); setInspectedNodeId(nodeId); }} onPaneClick={() => setInspectedNodeId(null)} onInspectorClose={() => { setInspectedNodeId(null); selectNode(null); }} inspectorTrigger={contract.inspector.trigger} isReadonlyYamlLoading={isReadonlyYamlLoading} isOverlayLoading={isOverlayLoading} readonlyYaml={readonlyYaml} overlayYaml={overlayYaml} resolvedWorkflowId={resolvedWorkflowId} editable={editable} onDirtyChange={setIsDirty} inspectorTab={inspectorTab} />}
-        bottomPanel={<SurfaceBottomPanel runId={activeRunId ?? initialRunId} workflowId={resolvedWorkflowId} defaultState={contract.bottomPanel.defaultState} executionSummary={executionSummary} selectedNodeId={inspectedNodeId} onAuditOpen={() => setActiveTab("canvas")} onAuditNodeSelect={(nodeId) => { selectNode(nodeId); setInspectedNodeId(nodeId); setInspectorTab("context"); }} />}
+        center={<SurfaceCenter mode={mode} activeTab={activeTab} contract={contract} readonlyRunId={readonlyRunId} contextRunId={contextRunId} regressionCount={regressionCount} showRunGraphError={showRunGraphError} showPreExecutionFailure={showPreExecutionFailure} showReadonlyCanvas={showReadonlyCanvas} runNodesError={runNodesError} runError={typeof run?.error === "string" ? run.error : undefined} refetchRunNodes={() => void refetchRunNodes()} inspectorVisible={contract.inspectorVisible} selectedNode={selectedNode} onNodeClick={(nodeId) => { setInspectorTab("execution"); setInspectedRunId(contextRunId || undefined); setInspectedNodeId(nodeId); }} onPaneClick={() => setInspectedNodeId(null)} onInspectorClose={() => { setInspectedNodeId(null); selectNode(null); }} inspectorTrigger={contract.inspector.trigger} isReadonlyYamlLoading={isReadonlyYamlLoading} isOverlayLoading={isOverlayLoading} readonlyYaml={readonlyYaml} overlayYaml={overlayYaml} resolvedWorkflowId={resolvedWorkflowId} editable={editable} onDirtyChange={setIsDirty} inspectorTab={inspectorTab} />}
+        bottomPanel={<SurfaceBottomPanel runId={activeRunId ?? initialRunId} workflowId={resolvedWorkflowId} defaultState={contract.bottomPanel.defaultState} executionSummary={executionSummary} selectedNodeId={inspectedNodeId} onAuditOpen={() => setActiveTab("canvas")} onAuditNodeSelect={(nodeId, runId) => { selectNode(nodeId); setInspectedRunId(runId); setInspectedNodeId(nodeId); setInspectorTab("context"); }} />}
         statusBar={<SurfaceStatusBar activeTab={activeTab} blockCount={blockCount} edgeCount={edgeCount} stepCountFormat={contract.statusBar.stepCountFormat} metricsVisibility={contract.statusBar.metricsVisibility} />}
       />
       <ProviderModal mode="canvas" open={apiKeyModalOpen} onOpenChange={setApiKeyModalOpen} onSaveSuccess={handleProviderSaveSuccess} />

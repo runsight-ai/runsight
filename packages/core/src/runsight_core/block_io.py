@@ -448,7 +448,9 @@ def build_block_context(
         )
         resolved_inputs = dict(resolved_context.inputs)
         combined_outputs = "\n\n".join(
-            f"=== Output from {bid} ===\n" + str(resolved_inputs[bid]) for bid in input_block_ids
+            f"=== Output from {bid} ===\n" + str(resolved_inputs[bid])
+            for bid in input_block_ids
+            if bid in resolved_inputs
         )
         synthesis_instruction = (
             "Synthesize the following outputs into a cohesive, unified result. "
@@ -478,7 +480,7 @@ def build_block_context(
             observer=observer,
         )
         gate_inputs = dict(gate_context.inputs)
-        content = gate_inputs["content"]
+        content = gate_inputs.get("content", "")
         # Resolve eval_key content into inputs as "content" (unified YAML inputs contract)
         return BlockContext(
             block_id=block.block_id,

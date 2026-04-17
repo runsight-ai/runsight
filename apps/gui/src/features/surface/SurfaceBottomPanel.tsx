@@ -26,7 +26,7 @@ interface SurfaceBottomPanelProps {
     text: string;
   };
   selectedNodeId?: string | null;
-  onAuditNodeSelect?: (nodeId: string) => void;
+  onAuditNodeSelect?: (nodeId: string, runId?: string) => void;
   onAuditOpen?: () => void;
 }
 
@@ -42,7 +42,7 @@ type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
 type AuditPanelWithQueryProps = {
   runId: string | undefined;
   selectedNodeId: string | null;
-  onSelectNode: (nodeId: string) => void;
+  onSelectNode: (nodeId: string, runId?: string) => void;
 };
 
 function sseEventToLogEntry(
@@ -365,7 +365,7 @@ function SurfaceBottomPanelContent({
             runId={currentRunId}
             selectedNodeId={selectedNodeId ?? null}
             onSelectNode={(nodeId) => {
-              onAuditNodeSelect?.(nodeId);
+              onAuditNodeSelect?.(nodeId, currentRunId);
             }}
           />
         </div>
@@ -385,7 +385,7 @@ function AuditPanelWithQuery({
     <ContextAuditPanel
       runId={runId}
       selectedNodeId={selectedNodeId}
-      onSelectNode={onSelectNode}
+      onSelectNode={(nodeId) => onSelectNode(nodeId, runId)}
       fetchNextPage={contextAuditQuery.fetchNextPage}
       hasNextPage={contextAuditQuery.hasNextPage}
     />

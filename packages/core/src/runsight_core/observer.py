@@ -564,4 +564,6 @@ class CompositeObserver:
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
         for obs in self.observers:
+            if not callable(getattr(obs, "on_context_resolution", None)):
+                continue
             self._safe_call(obs, "on_context_resolution", event)

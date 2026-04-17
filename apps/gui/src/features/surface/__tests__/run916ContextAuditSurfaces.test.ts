@@ -166,7 +166,18 @@ describe("RUN-916 context audit surface contracts", () => {
     expect(canvasSource).toMatch(/source\s*!==\s*["']workflow["']/);
     expect(canvasSource).toMatch(/namespace\s*={0,2}\s*["']results["']/);
     expect(canvasSource).toMatch(/edges=\{\[[\s\S]*edges[\s\S]*context/);
+    expect(canvasSource).toContain("selectable: false");
+    expect(canvasSource).toContain("focusable: false");
+    expect(canvasSource).toContain("deletable: false");
+    expect(canvasSource).toContain("reconnectable: false");
     expect(canvasSource).not.toMatch(/setEdges\([^)]*context/i);
+  });
+
+  it("passes the selected audit run id into canvas and inspector context views", () => {
+    expect(workflowSurfaceSource).toContain("contextRunId");
+    expect(workflowSurfaceSource).toContain("setInspectedRunId");
+    expect(workflowSurfaceSource).toMatch(/runId=\{p\.contextRunId\}/);
+    expect(workflowSurfaceSource).toMatch(/onAuditNodeSelect=\{\(nodeId, runId\)/);
   });
 });
 

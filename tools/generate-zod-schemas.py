@@ -33,6 +33,8 @@ def openapi_type_to_zod(prop: dict, schemas: dict) -> str:
                 literals.append(f"z.literal({str(value).lower()})")
             elif isinstance(value, (int, float)):
                 literals.append(f"z.literal({value})")
+        if len(literals) == 1:
+            return literals[0]
         return f"z.union([{', '.join(literals)}])" if literals else "z.unknown()"
 
     # anyOf (nullable / union)

@@ -281,7 +281,7 @@ class IsolatedBlockWrapper(BaseBlock):
             access,
             context_audit,
         ) = _scoped_context_for_envelope(self, state)
-        envelope_inputs = dict(ctx.inputs) if access == "all" else scoped_inputs
+        envelope_inputs = dict(ctx.inputs) if access == "all" or state is None else scoped_inputs
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)

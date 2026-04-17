@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ContextAuditEventV1 } from "@runsight/shared/zod";
 import { cn } from "@runsight/ui/utils";
 import {
@@ -48,12 +48,19 @@ export function ContextAuditPanel({
   const canShowMoreLocal = rows.length > visibleCount;
   const canLoadMore = canShowMoreLocal || Boolean(hasNextPage);
 
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [runId]);
+
   const loadMore = async () => {
     if (canShowMoreLocal) {
       setVisibleCount((count) => count + PAGE_SIZE);
       return;
     }
-    await fetchNextPage?.();
+    if (fetchNextPage) {
+      await fetchNextPage();
+      setVisibleCount((count) => count + PAGE_SIZE);
+    }
   };
 
   if (!runId) {

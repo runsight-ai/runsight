@@ -58,6 +58,11 @@ export function SurfaceCanvas({
               type: "straight",
               className: "context-overlay",
               label: edge.inputName ?? "context",
+              selectable: false,
+              focusable: false,
+              deletable: false,
+              reconnectable: false,
+              interactionWidth: 0,
               style: {
                 stroke: "var(--info-9)",
                 strokeDasharray: "4 4",

@@ -20,5 +20,5 @@ Current layout:
 
 The retained harness surface is intentionally small:
 
-- Playwright starts or reuses the API server on `http://localhost:8000`
+- Playwright starts the API server on `http://localhost:8000`
 - Playwright starts or reuses the GUI dev server on `http://localhost:3000`
