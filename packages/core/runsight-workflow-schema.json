@@ -68,6 +68,16 @@
         },
         "mode": {
           "default": "last",
+          "oneOf": [
+            {
+              "const": "last",
+              "type": "string"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
+          ],
           "title": "Mode",
           "type": "string"
         },
