@@ -95,11 +95,13 @@ blocks:
     soul_ref: writer
   code_block:
     type: code
-    access: all
+    inputs:
+      linear_output:
+        from: linear_block
     code: |
       import json
       def main(data):
-          linear_output = data["results"]["linear_block"]
+          linear_output = data["linear_output"]
           parsed = json.loads(linear_output)
           return {
               "transformed": True,
@@ -115,12 +117,16 @@ blocks:
     fail: fail_handler
   pass_handler:
     type: code
-    access: all
+    inputs:
+      gate_result:
+        from: quality_gate
+      code_result:
+        from: code_block
     code: |
       import json
       def main(data):
-          gate_result = data["results"]["quality_gate"]
-          code_result = json.loads(data["results"]["code_block"])
+          gate_result = data["gate_result"]
+          code_result = json.loads(data["code_result"])
           return {
               "branch": "pass",
               "gate_said": gate_result,
@@ -128,12 +134,16 @@ blocks:
           }
   fail_handler:
     type: code
-    access: all
+    inputs:
+      gate_result:
+        from: quality_gate
+      code_result:
+        from: code_block
     code: |
       import json
       def main(data):
-          gate_result = data["results"]["quality_gate"]
-          code_result = json.loads(data["results"]["code_block"])
+          gate_result = data["gate_result"]
+          code_result = json.loads(data["code_result"])
           return {
               "branch": "fail",
               "gate_said": gate_result,

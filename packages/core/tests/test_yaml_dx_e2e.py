@@ -117,17 +117,26 @@ class TestYamlDxSugarE2E:
                       return {"step": "A"}
               step_b:
                 type: code
-                access: all
+                inputs:
+                  step_a_result:
+                    from: step_a
                 code: |
                   def main(data):
-                      return {"step": "B", "seen": list(data["results"].keys())}
+                      _ = data["step_a_result"]
+                      return {"step": "B", "seen": ["step_a"]}
                 depends: step_a
               step_c:
                 type: code
-                access: all
+                inputs:
+                  step_a_result:
+                    from: step_a
+                  step_b_result:
+                    from: step_b
                 code: |
                   def main(data):
-                      return {"step": "C", "seen": list(data["results"].keys())}
+                      _ = data["step_a_result"]
+                      _ = data["step_b_result"]
+                      return {"step": "C", "seen": ["step_a", "step_b"]}
                 depends: step_b
             workflow:
               name: depends_sugar
@@ -149,16 +158,25 @@ class TestYamlDxSugarE2E:
                       return {"step": "A"}
               step_b:
                 type: code
-                access: all
+                inputs:
+                  step_a_result:
+                    from: step_a
                 code: |
                   def main(data):
-                      return {"step": "B", "seen": list(data["results"].keys())}
+                      _ = data["step_a_result"]
+                      return {"step": "B", "seen": ["step_a"]}
               step_c:
                 type: code
-                access: all
+                inputs:
+                  step_a_result:
+                    from: step_a
+                  step_b_result:
+                    from: step_b
                 code: |
                   def main(data):
-                      return {"step": "C", "seen": list(data["results"].keys())}
+                      _ = data["step_a_result"]
+                      _ = data["step_b_result"]
+                      return {"step": "C", "seen": ["step_a", "step_b"]}
             workflow:
               name: depends_explicit
               entry: step_a
@@ -220,10 +238,12 @@ class TestYamlDxSugarE2E:
             blocks:
               analyze:
                 type: code
-                access: all
+                inputs:
+                  status_value:
+                    from: shared_memory.status
                 code: |
                   def main(data):
-                      return {"status": data["shared_memory"]["status"]}
+                      return {"status": data["status_value"]}
               quality_gate:
                 type: gate
                 soul_ref: evaluator
@@ -289,10 +309,12 @@ class TestYamlDxSugarE2E:
                 error_route: handler
               handler:
                 type: code
-                access: all
+                inputs:
+                  routed_error:
+                    from: shared_memory.__error__risky
                 code: |
                   def main(data):
-                      err = data["shared_memory"]["__error__risky"]
+                      err = data["routed_error"]
                       return {"handled": err["message"], "type": err["type"]}
             workflow:
               name: error_route
@@ -352,10 +374,12 @@ class TestYamlDxSugarE2E:
                   backoff_base_seconds: 0.1
               handler:
                 type: code
-                access: all
+                inputs:
+                  routed_error:
+                    from: shared_memory.__error__risky
                 code: |
                   def main(data):
-                      err = data["shared_memory"]["__error__risky"]
+                      err = data["routed_error"]
                       return {"handled": err["message"], "type": err["type"]}
             workflow:
               name: retry_error_route
@@ -400,10 +424,12 @@ class TestYamlDxSugarE2E:
             blocks:
               review:
                 type: code
-                access: all
+                inputs:
+                  status_value:
+                    from: shared_memory.status
                 code: |
                   def main(data):
-                      return {"status": data["shared_memory"]["status"]}
+                      return {"status": data["status_value"]}
                 routes:
                   - case: publish
                     when:
@@ -440,10 +466,12 @@ class TestYamlDxSugarE2E:
             blocks:
               review:
                 type: code
-                access: all
+                inputs:
+                  status_value:
+                    from: shared_memory.status
                 code: |
                   def main(data):
-                      return {"status": data["shared_memory"]["status"]}
+                      return {"status": data["status_value"]}
                 output_conditions:
                   - case_id: publish
                     condition_group:

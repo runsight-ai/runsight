@@ -509,10 +509,12 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             blocks:
               analyzer:
                 type: code
-                access: all
+                inputs:
+                  topic:
+                    from: shared_memory.topic
                 code: |
                   def main(data):
-                      topic = data["shared_memory"].get("topic", "unknown")
+                      topic = data.get("topic", "unknown")
                       return {"analyzed": topic, "score": 42}
             workflow:
               name: child_code_wf
@@ -692,10 +694,12 @@ class TestDependsPredecessorFailsErrorRouteRuns:
                       return {"analyzed": True}
               handler:
                 type: code
-                access: all
+                inputs:
+                  routed_error:
+                    from: shared_memory.__error__fetch
                 code: |
                   def main(data):
-                      err = data["shared_memory"].get("__error__fetch", {})
+                      err = data.get("routed_error", {})
                       return {"handled": True, "error_type": err.get("type", "unknown")}
             workflow:
               name: depends_error_route

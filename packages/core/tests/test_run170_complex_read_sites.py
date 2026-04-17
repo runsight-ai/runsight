@@ -29,26 +29,22 @@ from runsight_core.state import BlockResult, WorkflowState
 
 
 class TestCodeBlockSubprocessSerialization:
-    """CodeBlock.execute() must serialize state.results containing BlockResult
+    """CodeBlock.execute() must serialize declared inputs containing BlockResult
     objects into the JSON payload sent to the subprocess via stdin.
 
-    Current code does:
-        json.dumps({"results": state.results, ...})
-    which raises TypeError because BlockResult is not JSON-serializable.
-
-    After fix, the subprocess should receive plain string values.
+    The subprocess should receive plain values resolved from explicit inputs.
     """
 
     @pytest.mark.asyncio
     async def test_codeblock_serializes_results_with_block_result(self):
-        """json.dumps should not raise TypeError when results contain BlockResult."""
+        """json.dumps should not raise TypeError when inputs resolve BlockResult."""
         from runsight_core import CodeBlock
 
         block = CodeBlock(
             block_id="code1",
-            code='def main(data): return {"echo": data["results"]["prev"]}',
+            code='def main(data): return {"echo": data["prev"]}',
         )
-        block.context_access = "all"
+        block.declared_inputs = {"prev": "prev"}
 
         state = WorkflowState(
             results={"prev": BlockResult(output="hello world")},
@@ -75,9 +71,9 @@ class TestCodeBlockSubprocessSerialization:
         # The subprocess should have received valid JSON on stdin
         assert "data" in captured_stdin, "Subprocess was never called"
         payload = json.loads(captured_stdin["data"])
-        # The results values should be plain strings, not BlockResult repr
-        assert payload["results"]["prev"] == "hello world"
-        assert isinstance(payload["results"]["prev"], str)
+        # The resolved input should be a plain string, not BlockResult repr
+        assert payload["prev"] == "hello world"
+        assert isinstance(payload["prev"], str)
 
     @pytest.mark.asyncio
     async def test_codeblock_serializes_mixed_results(self):
@@ -88,7 +84,11 @@ class TestCodeBlockSubprocessSerialization:
             block_id="code2",
             code='def main(data): return {"ok": True}',
         )
-        block.context_access = "all"
+        block.declared_inputs = {
+            "step_a": "step_a",
+            "step_b": "step_b",
+            "step_c": "step_c",
+        }
 
         state = WorkflowState(
             results={
@@ -115,9 +115,9 @@ class TestCodeBlockSubprocessSerialization:
             await execute_block_for_test(block, state)
 
         payload = json.loads(captured_stdin["data"])
-        assert payload["results"]["step_a"] == "result A"
-        assert payload["results"]["step_b"] == '{"nested": "json"}'
-        assert payload["results"]["step_c"] == ""
+        assert payload["step_a"] == "result A"
+        assert payload["step_b"] == '{"nested": "json"}'
+        assert payload["step_c"] == ""
 
     @pytest.mark.asyncio
     async def test_codeblock_serializes_results_with_metadata(self):
@@ -126,9 +126,9 @@ class TestCodeBlockSubprocessSerialization:
 
         block = CodeBlock(
             block_id="code3",
-            code='def main(data): return data["results"]',
+            code="def main(data): return data",
         )
-        block.context_access = "all"
+        block.declared_inputs = {"enriched": "enriched"}
 
         state = WorkflowState(
             results={
@@ -159,8 +159,8 @@ class TestCodeBlockSubprocessSerialization:
 
         payload = json.loads(captured_stdin["data"])
         # Should be the plain output string, not the full BlockResult model
-        assert payload["results"]["enriched"] == "enriched value"
-        assert isinstance(payload["results"]["enriched"], str)
+        assert payload["enriched"] == "enriched value"
+        assert isinstance(payload["enriched"], str)
 
 
 # =============================================================================
