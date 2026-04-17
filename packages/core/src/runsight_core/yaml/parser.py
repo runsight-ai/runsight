@@ -687,6 +687,21 @@ def _validate_context_declarations(file_def: RunsightWorkflowFile) -> None:
             raise ValueError(f"Block '{block_id}': access all cannot be combined with inputs")
 
 
+def _context_ref_dependency_source_id(from_ref: str) -> str | None:
+    parts = from_ref.split(".")
+    root = parts[0]
+    if root in {"metadata", "shared_memory"}:
+        return None
+    if root == "workflow":
+        return None
+    if root == "results":
+        if len(parts) < 2:
+            raise ValueError("results context references must include a source")
+        source_id = parts[1]
+        return None if source_id == "workflow" else source_id
+    return root
+
+
 def _find_block_for_soul(file_def: RunsightWorkflowFile, soul_key: str) -> tuple[Any, Any]:
     """Return (block_id, block_def) for the block that owns soul_key, or (None, None)."""
     for bid, bdef in file_def.blocks.items():
@@ -755,13 +770,13 @@ def _validate_inputs_and_detect_cycles(
             deps = []
             for input_name, input_ref in block_def.inputs.items():
                 from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                source_id = from_ref.split(".")[0]
-                if source_id not in file_def.blocks:
-                    if source_id != "workflow":  # "workflow" is reserved for input seeding
-                        raise ValueError(
-                            f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
-                        )
+                source_id = _context_ref_dependency_source_id(from_ref)
+                if source_id is None:
                     continue
+                if source_id not in file_def.blocks:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
+                    )
                 if source_id == block_id:
                     raise ValueError(
                         f"Block '{block_id}': input '{input_name}' references itself (circular)"

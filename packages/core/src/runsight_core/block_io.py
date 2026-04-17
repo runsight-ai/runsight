@@ -12,6 +12,7 @@ from runsight_core.artifacts import ArtifactStore
 from runsight_core.context_governance import (
     ContextAuditEventV1,
     ContextGovernancePolicy,
+    ContextResolutionAuditError,
     ContextResolver,
     collect_context_declaration,
 )
@@ -198,7 +199,11 @@ def _resolve_governed_context(
         run_id=str(state.metadata.get("run_id", "")),
         workflow_name=str(state.metadata.get("workflow_name", "")),
     )
-    scoped_context = resolver.resolve(declaration=declaration, state=state)
+    try:
+        scoped_context = resolver.resolve(declaration=declaration, state=state)
+    except ContextResolutionAuditError as exc:
+        _emit_context_audit(observer, exc.audit_event)
+        raise
     _emit_context_audit(observer, scoped_context.audit_event)
     return dict(scoped_context.inputs)
 

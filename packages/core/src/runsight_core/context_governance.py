@@ -163,6 +163,14 @@ class ContextResolutionError(ValueError, KeyError):
     """Raised when declared context cannot be resolved."""
 
 
+class ContextResolutionAuditError(ContextResolutionError):
+    """Raised when context resolution fails after producing an audit event."""
+
+    def __init__(self, message: str, *, audit_event: ContextAuditEventV1) -> None:
+        super().__init__(message)
+        self.audit_event = audit_event
+
+
 class ContextReadDeniedError(ContextResolutionError):
     """Raised when a context read violates the declared access policy."""
 
@@ -258,7 +266,50 @@ class ContextResolver:
                         )
                     )
                     continue
-                raise
+                status = (
+                    ContextAuditStatus.DENIED
+                    if isinstance(exc, ContextReadDeniedError)
+                    else ContextAuditStatus.MISSING
+                )
+                records.append(
+                    _audit_record(
+                        input_name=input_name,
+                        from_ref=from_ref,
+                        parsed=parsed,
+                        status=status,
+                        severity=ContextAuditSeverity.ERROR,
+                        reason=str(exc),
+                        internal=internal,
+                    )
+                )
+                raise ContextResolutionAuditError(
+                    str(exc),
+                    audit_event=ContextAuditEventV1(
+                        run_id=self.run_id,
+                        workflow_name=self.workflow_name,
+                        node_id=declaration.block_id,
+                        block_type=declaration.block_type,
+                        access=declaration.access,
+                        mode=self.policy.mode,
+                        records=records,
+                        resolved_count=sum(
+                            1
+                            for record in records
+                            if record.status == ContextAuditStatus.RESOLVED.value
+                        ),
+                        denied_count=sum(
+                            1
+                            for record in records
+                            if record.status == ContextAuditStatus.DENIED.value
+                        ),
+                        warning_count=sum(
+                            1
+                            for record in records
+                            if record.severity == ContextAuditSeverity.WARN.value
+                        ),
+                        emitted_at=datetime.now().astimezone(),
+                    ),
+                ) from exc
 
             inputs[input_name] = value
             _scope_value(
