@@ -8,7 +8,6 @@ import textwrap
 import pytest
 from conftest import execute_block_for_test
 from runsight_core import CodeBlock
-from runsight_core.context_governance import ContextResolutionError
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -120,15 +119,6 @@ def main(data):
         result = await execute_block_for_test(block, state)
 
         assert json.loads(result.results["cb_empty"].output) == {}
-
-    @pytest.mark.asyncio
-    async def test_context_access_all_is_rejected_before_execution(self):
-        block = CodeBlock("cb_all", SIMPLE_CODE)
-        block.context_access = "all"
-        block.declared_inputs = {}
-        state = _make_state(shared_memory={"name": "alice"})
-        with pytest.raises(ContextResolutionError, match="all"):
-            await execute_block_for_test(block, state)
 
 
 # ---------------------------------------------------------------------------

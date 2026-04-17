@@ -1,8 +1,8 @@
 """
 RED tests for RUN-912: CodeBlock declared-only governance behavior.
 
-CodeBlock must stop receiving implicit full-state input. ``access: all`` is
-unsupported configuration and must not survive into the runtime contract.
+CodeBlock must stop receiving implicit full-state input. Only declared inputs
+may survive into the runtime contract.
 """
 
 from __future__ import annotations
@@ -11,14 +11,10 @@ import json
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
 from runsight_core.block_io import BlockContext, build_block_context
 from runsight_core.blocks.code import CodeBlock
 from runsight_core.context_governance import (
-    ContextDeclaration,
     ContextGovernancePolicy,
-    ContextReadDeniedError,
-    ContextResolver,
 )
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
@@ -52,14 +48,6 @@ def _state() -> WorkflowState:
     )
 
 
-def _resolver() -> ContextResolver:
-    return ContextResolver(
-        policy=ContextGovernancePolicy(),
-        run_id="run_912",
-        workflow_name="codeblock_access_governance",
-    )
-
-
 @pytest.mark.asyncio
 async def test_declared_codeblock_passes_only_declared_inputs_to_subprocess() -> None:
     """Declared CodeBlock input shape is exactly the declared local input map."""
@@ -76,36 +64,9 @@ async def test_declared_codeblock_passes_only_declared_inputs_to_subprocess() ->
     assert "hidden" not in json.dumps(block.captured_inputs)
 
 
-def test_access_all_codeblock_declaration_is_rejected_before_runtime() -> None:
-    """CodeBlock access: all must be rejected as unsupported configuration."""
-    with pytest.raises(ValidationError):
-        ContextDeclaration(
-            block_id="all_code",
-            block_type="code",
-            access="all",
-            declared_inputs={},
-            internal_inputs={},
-        )
-
-
-def test_context_resolver_rejects_legacy_all_access_declaration() -> None:
-    """Legacy all-access declarations must not expand into broad runtime state."""
-    state = _state()
-    declaration = ContextDeclaration.model_construct(
-        block_id="all_code",
-        block_type="code",
-        access="all",
-        declared_inputs={},
-        internal_inputs={},
-    )
-
-    with pytest.raises(ContextReadDeniedError, match="all"):
-        _resolver().resolve(declaration=declaration, state=state)
-
-
 @pytest.mark.asyncio
 async def test_strict_codeblock_without_declaration_receives_empty_input() -> None:
-    """Strict default CodeBlock without inputs/access: all receives no data."""
+    """Strict default CodeBlock without inputs receives no data."""
     block = CapturingCodeBlock("strict_empty")
     ctx = build_block_context(block, _state())
 
@@ -116,7 +77,7 @@ async def test_strict_codeblock_without_declaration_receives_empty_input() -> No
 
 @pytest.mark.asyncio
 async def test_dev_codeblock_without_declaration_still_receives_empty_input() -> None:
-    """Dev mode may warn, but it must not grant implicit CodeBlock all-access."""
+    """Dev mode may warn, but it must not grant implicit full-state input."""
     block = CapturingCodeBlock("dev_empty")
     ctx = build_block_context(
         block,

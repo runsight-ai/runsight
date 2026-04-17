@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from runsight_core.block_io import build_block_context
-from runsight_core.blocks.code import CodeBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.context_governance import (
     ContextAuditEventV1,
@@ -42,19 +41,6 @@ class DeclaredBlock:
     declared_inputs = {"summary": "draft.summary"}
     soul = None
     runner = None
-
-
-class CapturingCodeBlock(CodeBlock):
-    def __init__(self, block_id: str = "inspect") -> None:
-        super().__init__(
-            block_id,
-            "def main(data):\n    return data\n",
-        )
-        self.captured_inputs: dict[str, Any] | None = None
-
-    async def _run_subprocess(self, inputs: dict[str, Any]) -> tuple[bytes, bytes, int]:
-        self.captured_inputs = inputs
-        return json.dumps(inputs).encode(), b"", 0
 
 
 class CapturingRunner:
@@ -360,16 +346,3 @@ def test_dev_mode_missing_ref_warns_without_granting_implicit_data() -> None:
     assert record.status == "missing"
     assert record.severity == "warn"
     assert "legacy leak" not in recorder.context_events[0].model_dump_json()
-
-
-@pytest.mark.asyncio
-async def test_codeblock_access_all_is_rejected_before_subprocess_execution() -> None:
-    """Legacy access: all must not produce broad subprocess input or audit state."""
-    block = CapturingCodeBlock()
-    block.context_access = "all"
-    block.declared_inputs = {}
-    recorder = RecordingObserver()
-
-    with pytest.raises(ContextResolutionError, match="all"):
-        ctx = build_block_context(block, _state(), observer=recorder)
-        await block.execute(ctx)

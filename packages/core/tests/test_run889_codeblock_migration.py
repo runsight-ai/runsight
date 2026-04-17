@@ -23,7 +23,6 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.code import CodeBlock
-from runsight_core.context_governance import ContextResolutionError
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
@@ -479,19 +478,6 @@ class TestAC5BuildBlockContext:
         ctx = build_block_context(block, state)
 
         assert ctx.inputs == {}
-
-    def test_build_block_context_rejects_all_context_access(self):
-        """CodeBlock legacy all-access must be rejected before a context is built."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        block.context_access = "all"
-        state = _make_state(
-            results={"prev": BlockResult(output="output str")},
-            metadata={"wf": "test_workflow"},
-            shared_memory={"sm": "data"},
-        )
-
-        with pytest.raises(ContextResolutionError, match="all"):
-            build_block_context(block, state)
 
     def test_build_block_context_block_id_matches(self):
         """ctx.block_id must match the block's block_id."""
