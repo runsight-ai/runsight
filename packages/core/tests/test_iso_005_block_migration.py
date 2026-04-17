@@ -325,8 +325,9 @@ class TestExistingBlockCodeUnchanged:
         inner.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_wrapper_serializes_plain_workflow_mapped_results(self):
-        """Workflow-mapped string/dict results must not crash envelope building."""
+    async def test_wrapper_serializes_declared_workflow_mapped_results(self):
+        """Declared workflow-mapped string/dict results must not crash envelope building."""
+        import json
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -336,7 +337,12 @@ class TestExistingBlockCodeUnchanged:
         runner = MagicMock()
         inner = LinearBlock("blk1", soul, runner)
         wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
-        wrapper.context_access = "all"
+        wrapper.declared_inputs = {
+            "real_output": "real_block.output",
+            "workflow_string": "workflow_mapped_string.output",
+            "workflow_phase": "workflow_mapped_dict.phase",
+            "workflow_status": "workflow_mapped_dict.status",
+        }
 
         captured = {}
 
@@ -369,9 +375,20 @@ class TestExistingBlockCodeUnchanged:
         result_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         envelope = captured["envelope"]
+        assert envelope.inputs == {
+            "real_output": "wrapped",
+            "workflow_string": "plain string output",
+            "workflow_phase": "primary_pass",
+            "workflow_status": "ok",
+        }
+        assert set(envelope.scoped_results) == {
+            "real_block",
+            "workflow_mapped_string",
+            "workflow_mapped_dict",
+        }
         assert envelope.scoped_results["real_block"]["output"] == "wrapped"
         assert envelope.scoped_results["workflow_mapped_string"]["output"] == "plain string output"
-        assert envelope.scoped_results["workflow_mapped_dict"]["output"] == {
+        assert json.loads(envelope.scoped_results["workflow_mapped_dict"]["output"]) == {
             "phase": "primary_pass",
             "status": "ok",
         }
