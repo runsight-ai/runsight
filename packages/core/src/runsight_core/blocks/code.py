@@ -160,8 +160,7 @@ class CodeBlock(BaseBlock):
     Execute user-provided Python code in an isolated subprocess.
 
     The code MUST define ``def main(data) -> <json-serializable>``.
-    ``data`` is a dict with keys ``results``, ``metadata``, ``shared_memory``
-    from the current :class:`WorkflowState`.
+    ``data`` is the block's governed local input dict.
 
     Security:
         * AST validation rejects dangerous imports / builtins at init time.

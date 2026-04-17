@@ -58,7 +58,7 @@ export const CommitResponseSchema = z.object({
 });
 export type CommitResponse = z.infer<typeof CommitResponseSchema>;
 
-export const ContextAccessSchema = z.enum(["declared", "all"]);
+export const ContextAccessSchema = z.enum(["declared"]);
 export type ContextAccess = z.infer<typeof ContextAccessSchema>;
 
 export const ContextAuditModeSchema = z.enum(["strict", "dev"]);
@@ -70,7 +70,7 @@ export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
 export const ContextAuditSeveritySchema = z.enum(["allow", "warn", "error"]);
 export type ContextAuditSeverity = z.infer<typeof ContextAuditSeveritySchema>;
 
-export const ContextAuditStatusSchema = z.enum(["resolved", "missing", "denied", "all_access", "empty"]);
+export const ContextAuditStatusSchema = z.enum(["resolved", "missing", "denied", "empty"]);
 export type ContextAuditStatus = z.infer<typeof ContextAuditStatusSchema>;
 
 export const ContextAuditRecordV1Schema = z.object({

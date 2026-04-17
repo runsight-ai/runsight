@@ -147,7 +147,7 @@ function ContextAuditRow({
       )}
     >
       <td className="truncate px-3 py-2 font-mono text-primary">{row.nodeId}</td>
-      <td className="truncate px-3 py-2">{row.inputName ?? "all"}</td>
+      <td className="truncate px-3 py-2">{row.inputName ?? "No input"}</td>
       <td className="break-all px-3 py-2 font-mono text-muted">{row.fromRef ?? row.access}</td>
       <td className="px-3 py-2">
         <span className={resolutionClass(row.status)}>{row.status}</span>
@@ -198,10 +198,10 @@ export function ContextInspectorTab({ events }: ContextInspectorTabProps) {
               {(event.records ?? []).map((record, index) => (
                 <tr key={`${record.input_name ?? "record"}:${index}`} className="border-t border-border-subtle align-top">
                   <td className="truncate py-1.5 pr-2 font-medium text-[var(--text-primary)]">
-                    {record.input_name ?? "all access"}
+                    {record.input_name ?? "No input"}
                   </td>
                   <td className="break-all py-1.5 pr-2 font-mono text-[var(--text-muted)]">
-                    {record.from_ref ?? record.reason ?? event.access}
+                    {record.from_ref ?? record.reason ?? "No reference"}
                   </td>
                   <td className="py-1.5 pr-2">
                     <div className="flex flex-col gap-0.5">
@@ -222,12 +222,9 @@ export function ContextInspectorTab({ events }: ContextInspectorTabProps) {
   );
 }
 
-export function ContextAccessBadge({ access }: ContextAccessBadgeProps) {
-  const label = access === "all" ? "Access all" : "Access declared";
-  const tone =
-    access === "all"
-      ? "border-[var(--warning-9)]/40 bg-warning-3 text-[var(--warning-11)]"
-      : "border-[var(--info-9)]/40 bg-info-3 text-[var(--info-11)]";
+export function ContextAccessBadge(_props: ContextAccessBadgeProps) {
+  const label = "Access declared";
+  const tone = "border-[var(--info-9)]/40 bg-info-3 text-[var(--info-11)]";
   return (
     <span className={cn("inline-flex min-w-[84px] items-center rounded-md border px-2 py-0.5 text-[11px] font-medium", tone)}>
       {label}

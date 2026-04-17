@@ -1,15 +1,13 @@
 ---
 title: Context Governance
-description: Declared context access, audit events, and context-resolution behavior for Runsight workflows.
+description: Declared context inputs, audit events, and context-resolution behavior for Runsight workflows.
 ---
 
-Context governance controls which workflow state each block can read. Blocks receive declared inputs by default. A block only sees the values named in its `inputs` map, unless it is a `code` block that explicitly opts into `access: all`.
+Context governance controls which workflow state each block can read. Blocks receive only the values named in their `inputs` map. A block with no `inputs` receives empty inputs.
 
 The same declarations are used for normal execution, isolated subprocess envelopes, audit events, historical API responses, live Server-Sent Events, and the GUI audit panel.
 
-## How to declare context access
-
-### Declare block inputs
+## Declare Inputs
 
 Use `inputs` to map local input names to context references.
 
@@ -42,71 +40,21 @@ blocks:
         from: draft.summary
 ```
 
-In this example:
-
 | Local input | Reference | Meaning |
 |-------------|-----------|---------|
-| `request` | `workflow.request` | Reads workflow-seeded input named `request` |
-| `safe_to_publish` | `shared_memory.flags.safe` | Reads `safe` from shared memory source `flags` |
-| `branch` | `metadata.runtime.branch` | Reads `branch` from metadata source `runtime` |
-| `draft_summary` | `draft.summary` | Reads `summary` from the upstream `draft` block result |
+| `request` | `workflow.request` | Reads workflow-seeded input named `request`. |
+| `safe_to_publish` | `shared_memory.flags.safe` | Reads `safe` from shared memory source `flags`. |
+| `branch` | `metadata.runtime.branch` | Reads `branch` from metadata source `runtime`. |
+| `draft_summary` | `draft.summary` | Reads `summary` from the upstream `draft` block result. |
 
-A block with no `inputs` receives empty inputs. Runsight does not backfill legacy state into blocks that do not declare inputs.
+Runsight does not backfill legacy state into blocks that do not declare inputs. Code blocks follow the same rule as every other block: their subprocess receives exactly `ctx.inputs`.
 
-### Allow CodeBlock full context access
+## YAML Reference
 
-Only `code` blocks can use `access: all`.
-
-```yaml title="custom/workflows/code-access-all.yaml"
-version: "1.0"
-kind: workflow
-
-workflow:
-  name: Code access example
-  entry: inspect_state
-
-blocks:
-  inspect_state:
-    type: code
-    access: all
-    code: |
-      def main(data):
-          return {
-              "result_count": len(data.get("results", {})),
-              "metadata_keys": sorted(data.get("metadata", {}).keys()),
-              "shared_memory_keys": sorted(data.get("shared_memory", {}).keys()),
-          }
-```
-
-`access: all` gives the code block full `results`, `metadata`, and `shared_memory` snapshots. It cannot be combined with `inputs`.
-
-:::caution
-Dev mode does not grant implicit all-access. A `code` block must declare `access: all` to receive full context.
-:::
-
-### Read historical and live audit events
-
-Use the historical endpoint to fetch persisted context-resolution events for a run.
-
-```bash title="Fetch context audit events"
-RUN_ID=8f7a23d2-3a2d-4e9a-8a3e-4df9a37c5a91
-
-curl "http://localhost:8321/api/runs/${RUN_ID}/context-audit?page_size=50"
-```
-
-Live run streams emit the same payload shape with the SSE event name `context_resolution`.
-
-```text title="SSE event name"
-context_resolution
-```
-
-## YAML access reference
-
-Every block definition supports the `access` field and the `inputs` field.
+Every block definition supports the `inputs` field. The effective context mode is always `declared`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `access` | `"declared"` or `"all"` | `"declared"` | Context access mode for the block. `all` is valid only for `code` blocks. |
 | `inputs` | `Dict[str, InputRef]` | none | Local input name to context reference mapping. |
 | `inputs.<name>.from` | `str` | required | Context reference to resolve for this local input. |
 
@@ -114,11 +62,19 @@ Constraints:
 
 | Rule | Behavior |
 |------|----------|
-| `access: declared` with `inputs` | Resolves only the listed inputs. |
-| `access: declared` without `inputs` | Provides empty inputs. |
-| `access: all` on `code` | Provides full `results`, `metadata`, and `shared_memory` snapshots. |
-| `access: all` with `inputs` | Invalid. |
-| `access: all` on non-`code` blocks | Invalid. |
+| Block with `inputs` | Resolves only the listed inputs. |
+| Block without `inputs` | Provides empty inputs. |
+| Unsupported context mode field values | Invalid workflow YAML. |
+| Reserved local input names | Invalid workflow YAML. |
+
+The following local input names are reserved:
+
+| Reserved input | Use |
+|----------------|-----|
+| `workflow` | Workflow-seeded run input reference root. |
+| `results` | Explicit block result namespace root. |
+| `shared_memory` | Shared memory namespace root. |
+| `metadata` | Runtime metadata namespace root. |
 
 The following block IDs are reserved and cannot be used as normal block IDs:
 
@@ -129,7 +85,7 @@ The following block IDs are reserved and cannot be used as normal block IDs:
 | `shared_memory` | Shared memory namespace root. |
 | `metadata` | Runtime metadata namespace root. |
 
-## Reference syntax
+## Reference Syntax
 
 A `from` reference identifies a namespace, source, and optional field path.
 
@@ -151,14 +107,7 @@ Allowed audit namespaces:
 | `shared_memory` | Shared memory state. |
 | `metadata` | Runtime metadata. |
 
-## Access modes
-
-| Mode | Where valid | Description |
-|------|-------------|-------------|
-| `declared` | All block types | Resolves only values listed in `inputs`. This is the default. |
-| `all` | `code` blocks only | Resolves full `results`, `metadata`, and `shared_memory` snapshots. |
-
-## Governance modes
+## Governance Modes
 
 Runsight resolves context in one of two governance modes.
 
@@ -167,9 +116,9 @@ Runsight resolves context in one of two governance modes.
 | `strict` | yes | Fails the block and emits an audit event. | Denied or missing values are not exposed. |
 | `dev` | no | Emits a warning audit record. | Denied or missing values are not exposed. |
 
-Dev mode is for development feedback. It does not grant undeclared data, backfill missing values, or create implicit all-access behavior.
+Dev mode is for development feedback. It does not grant undeclared data, backfill missing values, or create implicit broad state access.
 
-## Audit event model
+## Audit Event Model
 
 Historical API responses and live `context_resolution` SSE events use the same event shape.
 
@@ -181,7 +130,7 @@ Historical API responses and live `context_resolution` SSE events use the same e
 | `workflow_name` | `str` | Workflow name. |
 | `node_id` | `str` | Block ID from the workflow YAML. |
 | `block_type` | `str` | Block type, such as `linear`, `code`, or `workflow`. |
-| `access` | `"declared"` or `"all"` | Access mode used for the block. |
+| `access` | `"declared"` | Context mode used for the block. |
 | `mode` | `"strict"` or `"dev"` | Governance mode used for resolution. |
 | `sequence` | `int` or `null` | Event sequence when available. |
 | `records` | `ContextAuditRecordV1[]` | Zero or more per-input resolution records. |
@@ -246,18 +195,16 @@ A declared block with no `inputs` emits an event with empty records and zero cou
 }
 ```
 
-:::caution
 `preview` is for diagnostics only. It can be redacted or truncated and is not the full payload.
-:::
 
-## Audit record model
+## Audit Record Model
 
 Each event contains zero or more `ContextAuditRecordV1` records.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `input_name` | `str` or `null` | Local input name. For `access: all`, this may be absent and the GUI displays `all`. |
-| `from_ref` | `str` or `null` | Original YAML `from` reference. For `access: all`, this may be absent. |
+| `input_name` | `str` or `null` | Local input name. |
+| `from_ref` | `str` or `null` | Original YAML `from` reference. |
 | `namespace` | `"results"`, `"shared_memory"`, or `"metadata"` | Context namespace used for the read. |
 | `source` | `str` or `null` | Source inside the namespace, such as a block ID, `workflow`, `flags`, or `runtime`. |
 | `field_path` | `str` or `null` | Nested field path inside the source. |
@@ -268,18 +215,16 @@ Each event contains zero or more `ContextAuditRecordV1` records.
 | `reason` | `str` or `null` | Explanation for missing, denied, or warning records. |
 | `internal` | `bool` | Whether the record is internal runtime context. |
 
-## Status, severity, and access meaning
-
-### Status values
+Status values:
 
 | Status | Meaning |
 |--------|---------|
 | `resolved` | The declared reference resolved successfully. |
 | `missing` | The declared reference did not exist. |
 | `denied` | The read was not allowed by the declaration or policy. |
-| `all_access` | A `code` block used explicit `access: all`. |
+| `empty` | No declared reads were needed. |
 
-### Severity values
+Severity values:
 
 | Severity | Meaning |
 |----------|---------|
@@ -287,16 +232,13 @@ Each event contains zero or more `ContextAuditRecordV1` records.
 | `warn` | Resolution produced a development warning or non-fatal warning. |
 | `error` | Resolution failed in strict mode or was denied. |
 
-Warning severity is persisted as warning-level log data.
-
-### Access values
+Access values:
 
 | Access | Meaning |
 |--------|---------|
 | `declared` | The block received only declared inputs. |
-| `all` | The `code` block received full context snapshots. |
 
-## API and SSE consumption
+## API and SSE Consumption
 
 ### Historical endpoint
 
@@ -313,43 +255,6 @@ Response shape:
 | `has_next_page` | `bool` | Whether another page is available. |
 | `end_cursor` | `str` or `null` | Cursor for the next page. |
 
-Example response:
-
-```json title="ContextAuditListResponse"
-{
-  "items": [
-    {
-      "schema_version": "context_audit.v1",
-      "event": "context_resolution",
-      "run_id": "8f7a23d2-3a2d-4e9a-8a3e-4df9a37c5a91",
-      "workflow_name": "Context example",
-      "node_id": "draft",
-      "block_type": "linear",
-      "access": "declared",
-      "mode": "strict",
-      "sequence": 12,
-      "records": [],
-      "resolved_count": 0,
-      "denied_count": 0,
-      "warning_count": 0,
-      "emitted_at": "2026-04-17T09:30:00Z"
-    }
-  ],
-  "page_size": 50,
-  "has_next_page": false,
-  "end_cursor": null
-}
-```
-
-Endpoint behavior:
-
-| Case | Response |
-|------|----------|
-| Run exists | Returns context audit events for that run. |
-| Run does not exist | `404` |
-| Invalid pagination | `422` |
-| Malformed non-audit log row | Skipped. |
-
 ### Live SSE
 
 Live streams use event name `context_resolution`.
@@ -361,7 +266,7 @@ data: {"schema_version":"context_audit.v1","event":"context_resolution","run_id"
 
 Historical replay and live SSE use the same `ContextAuditEventV1` payload shape.
 
-## GUI interpretation
+## GUI Interpretation
 
 The GUI merges historical audit events with live SSE events and deduplicates records for the run.
 
@@ -370,9 +275,9 @@ The audit panel displays:
 | Column | Meaning |
 |--------|---------|
 | `Node` | Block ID that resolved context. |
-| `Input` | Local input name. Displays `all` when `input_name` is absent. |
-| `Reference` | Original `from` reference. Falls back to `access` when no `from_ref` exists. |
-| `Status` | Resolution status, such as `resolved`, `missing`, `denied`, or `all_access`. |
+| `Input` | Local input name. |
+| `Reference` | Original `from` reference. |
+| `Status` | Resolution status, such as `resolved`, `missing`, `denied`, or `empty`. |
 | `Severity` | Resolution severity: `allow`, `warn`, or `error`. |
 
 Badges:
@@ -380,26 +285,22 @@ Badges:
 | Badge | Source | Meaning |
 |-------|--------|---------|
 | `Access declared` | `access: "declared"` | The block received only declared inputs. |
-| `Access all` | `access: "all"` | A `code` block received full context snapshots. |
 | `Resolved` | `denied_count: 0`, `warning_count: 0` | No denied or warning records. |
 | `Denied N` | `denied_count` | One or more denied records. |
 | `Warning N` | `warning_count` | One or more warning records. |
 
-## Edge cases and constraints
+## Edge Cases And Constraints
 
 | Case | Behavior |
 |------|----------|
-| No `inputs` with declared access | The block receives empty inputs and emits an audit event with `records: []`, `resolved_count: 0`, `denied_count: 0`, and `warning_count: 0`. |
+| No `inputs` | The block receives empty inputs and emits an audit event with `records: []`, `resolved_count: 0`, `denied_count: 0`, and `warning_count: 0`. |
 | Missing reference in strict mode | The block fails and an audit event is emitted. |
 | Missing reference in dev mode | The block continues with a warning, but the missing value is not exposed. |
 | Denied read in strict mode | The block fails and an audit event is emitted. |
 | Denied read in dev mode | The block continues with a warning, but the denied value is not exposed. |
 | `workflow.request` | Audited as `namespace: "results"`, `source: "workflow"`, `field_path: "request"`. |
-| `access: all` on `code` | Full `results`, `metadata`, and `shared_memory` snapshots are available. |
-| `access: all` on another block type | Invalid workflow YAML. |
-| `access: all` with `inputs` | Invalid workflow YAML. |
 | Audit `preview` | Redacted or truncated diagnostic text, not the full value. |
 
 Context governance is least-privilege by default. YAML declarations are the source of truth for what a block can read, and the same declarations are used for isolated execution and audit reporting.
 
-{/* Linear: RUN-907, RUN-908, RUN-909, RUN-910, RUN-911, RUN-912, RUN-913, RUN-914, RUN-915, RUN-916, RUN-917, RUN-918, RUN-919 - last verified against codebase 2026-04-17 */}
+{/* Linear: RUN-907, RUN-908, RUN-909, RUN-910, RUN-911, RUN-912, RUN-913, RUN-914, RUN-915, RUN-916, RUN-917, RUN-918, RUN-919, RUN-920 - last verified against codebase 2026-04-18 */}

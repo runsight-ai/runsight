@@ -31,7 +31,6 @@ class ContextAccess(StrEnum):
     """Block-level context access policy declared in workflow YAML."""
 
     DECLARED = "declared"
-    ALL = "all"
 
 
 class ContextAuditNamespace(StrEnum):
@@ -55,7 +54,6 @@ class ContextAuditStatus(StrEnum):
     RESOLVED = "resolved"
     MISSING = "missing"
     DENIED = "denied"
-    ALL_ACCESS = "all_access"
     EMPTY = "empty"
 
 
@@ -205,48 +203,6 @@ class ContextResolver:
         scoped_metadata: dict[str, object] = {}
         records: list[ContextAuditRecordV1] = []
 
-        if declaration.access == ContextAccess.ALL.value:
-            if declaration.declared_inputs or declaration.internal_inputs:
-                raise ContextReadDeniedError(
-                    f"Context access 'all' cannot be combined with declared inputs for {declaration.block_id}"
-                )
-            inputs = _all_access_inputs(state)
-            records.append(
-                ContextAuditRecordV1(
-                    input_name=None,
-                    from_ref=None,
-                    namespace=None,
-                    source=None,
-                    field_path=None,
-                    status=ContextAuditStatus.ALL_ACCESS,
-                    severity=ContextAuditSeverity.ALLOW,
-                    value_type="dict",
-                    preview=None,
-                    reason="explicit all access",
-                    internal=False,
-                )
-            )
-            audit_event = ContextAuditEventV1(
-                run_id=self.run_id,
-                workflow_name=self.workflow_name,
-                node_id=declaration.block_id,
-                block_type=declaration.block_type,
-                access=declaration.access,
-                mode=self.policy.mode,
-                records=records,
-                resolved_count=0,
-                denied_count=0,
-                warning_count=0,
-                emitted_at=datetime.now().astimezone(),
-            )
-            return ScopedContextData(
-                inputs=inputs,
-                scoped_results=dict(state.results),
-                scoped_shared_memory=dict(state.shared_memory),
-                scoped_metadata=dict(state.metadata),
-                audit_event=audit_event,
-            )
-
         if declaration.access != ContextAccess.DECLARED.value:
             raise ContextReadDeniedError(
                 f"Context access '{declaration.access}' is not implemented for {declaration.block_id}"
@@ -378,10 +334,17 @@ def collect_context_declaration(block: object, step: object | None = None) -> Co
             "collide with internal context inputs"
         )
 
+    access = str(getattr(block, "context_access", getattr(block, "access", "declared")))
+    if access != ContextAccess.DECLARED.value:
+        raise ContextReadDeniedError(
+            f"Context access '{access}' is not implemented for "
+            f"{getattr(block, 'block_id', '<unknown>')}"
+        )
+
     return ContextDeclaration(
         block_id=str(getattr(block, "block_id")),
         block_type=_context_block_type(block),
-        access=str(getattr(block, "context_access", getattr(block, "access", "declared"))),
+        access=access,
         declared_inputs=declared_inputs,
         internal_inputs=internal_inputs,
     )
@@ -470,17 +433,6 @@ def _iter_declared_and_internal_inputs(
         *((name, from_ref, False) for name, from_ref in declaration.declared_inputs.items()),
         *((name, from_ref, True) for name, from_ref in declaration.internal_inputs.items()),
     ]
-
-
-def _all_access_inputs(state: WorkflowState) -> dict[str, object]:
-    return {
-        "results": {
-            key: value.output if isinstance(value, BlockResult) else value
-            for key, value in state.results.items()
-        },
-        "metadata": dict(state.metadata),
-        "shared_memory": dict(state.shared_memory),
-    }
 
 
 def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:

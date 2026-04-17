@@ -779,7 +779,7 @@ export interface components {
          * @description Block-level context access policy declared in workflow YAML.
          * @enum {string}
          */
-        ContextAccess: "declared" | "all";
+        ContextAccess: "declared";
         /**
          * ContextAuditEventV1
          * @description Audit event emitted after resolving context for one block.
@@ -894,7 +894,7 @@ export interface components {
          * @description Resolution outcome for one requested context reference.
          * @enum {string}
          */
-        ContextAuditStatus: "resolved" | "missing" | "denied" | "all_access" | "empty";
+        ContextAuditStatus: "resolved" | "missing" | "denied" | "empty";
         /** DashboardKPIsResponse */
         DashboardKPIsResponse: {
             /** Runs Today */

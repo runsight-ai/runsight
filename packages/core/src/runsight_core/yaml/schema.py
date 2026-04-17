@@ -19,6 +19,20 @@ from pydantic import (
 
 from runsight_core.identity import EntityKind, validate_entity_id
 
+_RESERVED_BLOCK_INPUT_NAMES = frozenset(
+    {
+        "workflow",
+        "results",
+        "shared_memory",
+        "metadata",
+        "blocks",
+        "ctx",
+        "call_stack",
+        "workflow_registry",
+        "observer",
+    }
+)
+
 # -- Soul / Tool definitions ------------------------------------------------
 
 
@@ -285,7 +299,7 @@ class BaseBlockDef(BaseModel):
     routes: Optional[List[RouteDef]] = None
     inputs: Optional[Dict[str, InputRef]] = None
     outputs: Optional[Dict[str, str]] = None  # name -> type string
-    access: Literal["declared", "all"] = "declared"
+    access: str = "declared"
     depends: Optional[Union[str, List[str]]] = None
     error_route: Optional[str] = None
     retry_config: Optional[RetryConfig] = None
@@ -314,6 +328,28 @@ class BaseBlockDef(BaseModel):
                     raise ValueError("depends entries must not be blank")
                 normalized_items.append(normalized)
             return normalized_items
+        return value
+
+    @field_validator("access")
+    @classmethod
+    def _validate_access(cls, value: str) -> str:
+        if value != "declared":
+            raise ValueError(
+                f"access {value!r} is unsupported; CodeBlock all-access is no longer supported"
+            )
+        return value
+
+    @field_validator("inputs")
+    @classmethod
+    def _validate_reserved_input_names(
+        cls, value: Optional[Dict[str, InputRef]]
+    ) -> Optional[Dict[str, InputRef]]:
+        if value is None:
+            return value
+        reserved = sorted(set(value) & _RESERVED_BLOCK_INPUT_NAMES)
+        if reserved:
+            joined = ", ".join(repr(name) for name in reserved)
+            raise ValueError(f"reserved local input name(s) cannot be declared: {joined}")
         return value
 
     @field_validator("error_route")

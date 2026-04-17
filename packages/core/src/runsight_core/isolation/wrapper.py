@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
-from runsight_core.context_governance import ContextResolver, collect_context_declaration
+from runsight_core.context_governance import (
+    ContextReadDeniedError,
+    ContextResolver,
+    collect_context_declaration,
+)
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
     PromptEnvelope,
@@ -112,17 +116,12 @@ def _scoped_context_for_envelope(
     state: Any,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], str, list[Any]]:
     access = str(getattr(block, "context_access", getattr(block, "access", "declared")))
+    if access != "declared":
+        raise ContextReadDeniedError(
+            f"Context access '{access}' is not implemented for {block.block_id}"
+        )
     if state is None:
         return {}, {}, {}, {}, access, []
-    if access == "all":
-        return (
-            {},
-            _serialize_scoped_results(state.results),
-            dict(state.shared_memory),
-            dict(state.metadata),
-            access,
-            [],
-        )
 
     declaration = collect_context_declaration(block)
     resolver = ContextResolver(
@@ -281,7 +280,7 @@ class IsolatedBlockWrapper(BaseBlock):
             access,
             context_audit,
         ) = _scoped_context_for_envelope(self, state)
-        envelope_inputs = dict(ctx.inputs) if access == "all" or state is None else scoped_inputs
+        envelope_inputs = dict(ctx.inputs) if state is None else scoped_inputs
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)

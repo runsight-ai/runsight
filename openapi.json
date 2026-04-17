@@ -2472,8 +2472,7 @@
       "ContextAccess": {
         "type": "string",
         "enum": [
-          "declared",
-          "all"
+          "declared"
         ],
         "title": "ContextAccess",
         "description": "Block-level context access policy declared in workflow YAML."
@@ -2756,7 +2755,6 @@
           "resolved",
           "missing",
           "denied",
-          "all_access",
           "empty"
         ],
         "title": "ContextAuditStatus",

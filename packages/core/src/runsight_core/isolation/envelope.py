@@ -64,7 +64,7 @@ class ContextEnvelope(BaseModel):
     scoped_results: dict[str, Any]
     scoped_shared_memory: dict[str, Any]
     scoped_metadata: dict[str, Any] = Field(default_factory=dict)
-    access: Literal["declared", "all"] = "declared"
+    access: Literal["declared"] = "declared"
     context_audit: list[ContextAuditEventV1] = Field(default_factory=list)
     conversation_history: list[dict[str, Any]]
     timeout_seconds: int

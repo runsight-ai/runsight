@@ -50,6 +50,19 @@ from runsight_core.yaml.validation import ValidationResult
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 _RESERVED_CONTEXT_BLOCK_IDS = frozenset({"workflow", "results", "shared_memory", "metadata"})
+_RESERVED_BLOCK_INPUT_NAMES = frozenset(
+    {
+        "workflow",
+        "results",
+        "shared_memory",
+        "metadata",
+        "blocks",
+        "ctx",
+        "call_stack",
+        "workflow_registry",
+        "observer",
+    }
+)
 logger = logging.getLogger(__name__)
 
 
@@ -603,6 +616,7 @@ def _normalize_workflow_input(
             for soul_data in raw_souls.values():
                 if isinstance(soul_data, dict):
                     soul_data.pop("exits", None)
+        _validate_raw_context_config(raw)
 
     file_def = RunsightWorkflowFile.model_validate(raw)
 
@@ -620,6 +634,28 @@ def _normalize_workflow_input(
     )
 
     return file_def, workflow_base_dir, require_custom_metadata
+
+
+def _validate_raw_context_config(raw: dict[str, Any]) -> None:
+    raw_blocks = raw.get("blocks")
+    if not isinstance(raw_blocks, dict):
+        return
+    for block_id, block_config in raw_blocks.items():
+        if not isinstance(block_config, dict):
+            continue
+        access = block_config.get("access")
+        if access is not None and access != "declared":
+            raise ValueError(
+                f"Block '{block_id}': access {access} is unsupported; "
+                "CodeBlock all-access is no longer supported"
+            )
+        raw_inputs = block_config.get("inputs")
+        if not isinstance(raw_inputs, dict):
+            continue
+        reserved_inputs = sorted(set(raw_inputs) & _RESERVED_BLOCK_INPUT_NAMES)
+        if reserved_inputs:
+            input_name = reserved_inputs[0]
+            raise ValueError(f"Block '{block_id}': local input '{input_name}' is reserved")
 
 
 def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
@@ -681,11 +717,8 @@ def _attach_context_metadata(
 def _validate_context_declarations(file_def: RunsightWorkflowFile) -> None:
     for block_id, block_def in file_def.blocks.items():
         access = _context_access(block_def)
-        declared_inputs = _declared_inputs(block_def)
-        if access == "all" and block_def.type != "code":
-            raise ValueError(f"Block '{block_id}': access all is only allowed for CodeBlock")
-        if access == "all" and declared_inputs:
-            raise ValueError(f"Block '{block_id}': access all cannot be combined with inputs")
+        if access != "declared":
+            raise ValueError(f"Block '{block_id}': access {access!r} is unsupported")
 
 
 def _context_ref_dependency_source_id(from_ref: str) -> str | None:

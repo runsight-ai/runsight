@@ -222,10 +222,6 @@ def _scoped_state_snapshot(
     block: Any,
 ) -> WorkflowState:
     """Build a state snapshot containing only resolver-scoped data."""
-    access = scoped_context.audit_event.access
-    if access == "all":
-        return state
-
     return WorkflowState(
         execution_log=[],
         shared_memory=dict(scoped_context.scoped_shared_memory),
@@ -383,7 +379,7 @@ def build_block_context(
             state_snapshot=state,
         )
 
-    # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
+    # CodeBlock strategy: detect code attribute (no LLM)
     code = getattr(block, "code", None)
     if code is not None:
         code_context = _resolve_governed_context(
