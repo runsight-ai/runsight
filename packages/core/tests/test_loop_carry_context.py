@@ -42,6 +42,11 @@ def _validate_block(data: dict):
     return block_adapter.validate_python(data)
 
 
+def _seeded_state(*shared_memory_keys: str) -> WorkflowState:
+    """Build a WorkflowState with declared shared-memory keys seeded to None."""
+    return WorkflowState(shared_memory={key: None for key in shared_memory_keys})
+
+
 async def _run_loop(loop, state: WorkflowState, blocks: dict) -> WorkflowState:
     """Helper: build BlockContext, run LoopBlock, apply output → WorkflowState."""
     from runsight_core.block_io import BlockContext, BlockOutput, apply_block_output
@@ -68,18 +73,17 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self._calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        output = f"{self.block_id}_output_round_{len(calls)}"
+        self._calls.append(len(self._calls) + 1)
+        output = f"{self.block_id}_output_round_{len(self._calls)}"
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self._calls)},
         )
 
 
@@ -89,28 +93,29 @@ class ContextAwareWriterBlock(BaseBlock):
 
     def __init__(self, block_id: str, context_key: str = "previous_round_context"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self.context_key = context_key
+        self.declared_inputs = {context_key: f"shared_memory.{context_key}"}
+        self._calls: list[int] = []
+        self._contexts_seen: list[object] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self._calls.append(len(self._calls) + 1)
+        round_num = len(self._calls)
 
         # Read the carried context from shared_memory
         carried = state.shared_memory.get(self.context_key)
-        contexts_seen = list(state.shared_memory.get(f"{self.block_id}_contexts_seen", []))
-        contexts_seen.append(carried)
+        self._contexts_seen.append(carried)
 
         output = f"draft_round_{round_num}"
         return BlockOutput(
             output=output,
             shared_memory_updates={
-                f"{self.block_id}_calls": calls,
-                f"{self.block_id}_contexts_seen": contexts_seen,
+                f"{self.block_id}_calls": list(self._calls),
+                f"{self.block_id}_contexts_seen": list(self._contexts_seen),
             },
         )
 
@@ -120,19 +125,18 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self._calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self._calls.append(len(self._calls) + 1)
+        round_num = len(self._calls)
         output = f"feedback_round_{round_num}"
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self._calls)},
         )
 
 
@@ -141,17 +145,16 @@ class EmptyOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
+        self._calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self._calls.append(len(self._calls) + 1)
         return BlockOutput(
             output="",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self._calls)},
         )
 
 
@@ -160,27 +163,28 @@ class ContextReaderBlock(BaseBlock):
 
     def __init__(self, block_id: str, read_key: str = "previous_round_context"):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self.read_key = read_key
+        self.declared_inputs = {read_key: f"shared_memory.{read_key}"}
+        self._calls: list[int] = []
+        self._snapshots: list[object] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        round_num = len(calls)
+        self._calls.append(len(self._calls) + 1)
+        round_num = len(self._calls)
 
         context_value = state.shared_memory.get(self.read_key)
-        snapshots = list(state.shared_memory.get(f"{self.block_id}_snapshots", []))
-        snapshots.append(context_value)
+        self._snapshots.append(context_value)
 
         output = f"{self.block_id}_output_round_{round_num}"
         return BlockOutput(
             output=output,
             shared_memory_updates={
-                f"{self.block_id}_calls": calls,
-                f"{self.block_id}_snapshots": snapshots,
+                f"{self.block_id}_calls": list(self._calls),
+                f"{self.block_id}_snapshots": list(self._snapshots),
             },
         )
 
@@ -190,18 +194,17 @@ class NullSoulOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
-        self.context_access = "all"
+        self.context_access = "declared"
         self.soul = None
+        self._calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self._calls.append(len(self._calls) + 1)
         return BlockOutput(
             output=f"{self.block_id}_output",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self._calls)},
         )
 
 
@@ -514,7 +517,7 @@ class TestCarryContextModeLast:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("previous_round_context")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -554,7 +557,7 @@ class TestCarryContextModeLast:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("prev_ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -596,7 +599,7 @@ class TestCarryContextModeAll:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("all_rounds_context")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -637,7 +640,7 @@ class TestCarryContextModeAll:
         )
         blocks_all = {"reader": reader_all, "loop_block": loop_all}
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_all = await _run_loop(loop_all, state, blocks_all)
         snapshots_all = result_all.shared_memory.get("reader_snapshots", [])
 
@@ -653,7 +656,7 @@ class TestCarryContextModeAll:
         )
         blocks_last = {"reader": reader_last, "loop_block": loop_last}
 
-        state2 = WorkflowState()
+        state2 = _seeded_state("ctx")
         result_last = await _run_loop(loop_last, state2, blocks_last)
         snapshots_last = result_last.shared_memory.get("reader_snapshots", [])
 
@@ -695,7 +698,7 @@ class TestCarryContextSourceBlocks:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("feedback")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -732,7 +735,7 @@ class TestCarryContextSourceBlocks:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("all_ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -774,7 +777,7 @@ class TestCarryContextSourceBlocks:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -814,7 +817,7 @@ class TestCarryContextInjectAs:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state()
         result_state = await _run_loop(loop, state, blocks)
 
         # After round 2, the inject_as key should be present in shared_memory
@@ -839,12 +842,12 @@ class TestCarryContextInjectAs:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state()
         result_state = await _run_loop(loop, state, blocks)
 
         assert "feedback" in result_state.shared_memory
         # The default key should NOT be present since we customized it
-        assert "previous_round_context" not in result_state.shared_memory
+        assert result_state.shared_memory.get("previous_round_context") is None
 
 
 # ==============================================================================
@@ -857,7 +860,7 @@ class TestCarryContextRoundOne:
 
     @pytest.mark.asyncio
     async def test_round_1_has_no_context(self):
-        """On round 1, the inject_as key should not be present in shared_memory."""
+        """On round 1, the seeded carry-context slot should still be empty."""
         from runsight_core import LoopBlock
         from runsight_core.blocks.loop import CarryContextConfig
 
@@ -874,7 +877,7 @@ class TestCarryContextRoundOne:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("previous_round_context")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -882,8 +885,8 @@ class TestCarryContextRoundOne:
         assert snapshots[0] is None
 
     @pytest.mark.asyncio
-    async def test_round_1_no_inject_key_in_shared_memory(self):
-        """On round 1, the inject_as key should not exist in shared_memory at all."""
+    async def test_round_1_seeded_ctx_remains_empty_until_injected(self):
+        """The declared carry-context slot starts empty and fills after the first round."""
         from runsight_core import LoopBlock
         from runsight_core.blocks.loop import CarryContextConfig
 
@@ -894,25 +897,26 @@ class TestCarryContextRoundOne:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
-                self.context_access = "all"
+                self.context_access = "declared"
+                self.declared_inputs = {"ctx": "shared_memory.ctx"}
+                self._calls: list[int] = []
+                self._ctx_values: list[object] = []
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput
 
                 state = ctx.state_snapshot
-                calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-                calls.append(len(calls) + 1)
-                round_num = len(calls)
+                self._calls.append(len(self._calls) + 1)
+                round_num = len(self._calls)
 
-                # Record whether inject key exists in shared_memory
-                key_snapshots = list(state.shared_memory.get(f"{self.block_id}_key_exists", []))
-                key_snapshots.append("ctx" in state.shared_memory)
+                # Record the declared carry-context slot value each round.
+                self._ctx_values.append(state.shared_memory.get("ctx"))
 
                 return BlockOutput(
                     output=f"round_{round_num}",
                     shared_memory_updates={
-                        f"{self.block_id}_calls": calls,
-                        f"{self.block_id}_key_exists": key_snapshots,
+                        f"{self.block_id}_calls": list(self._calls),
+                        f"{self.block_id}_key_exists": list(self._ctx_values),
                     },
                 )
 
@@ -927,15 +931,15 @@ class TestCarryContextRoundOne:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
-        key_exists_per_round = result_state.shared_memory.get("inspector_key_exists", [])
-        # Round 1: inject_as key should NOT exist
-        assert key_exists_per_round[0] is False
-        # Round 2+: inject_as key SHOULD exist
-        assert key_exists_per_round[1] is True
-        assert key_exists_per_round[2] is True
+        ctx_values_per_round = result_state.shared_memory.get("inspector_key_exists", [])
+        # Round 1: declared shared_memory slot is seeded empty.
+        assert ctx_values_per_round[0] is None
+        # Round 2+: carry_context should populate the declared slot.
+        assert ctx_values_per_round[1] is not None
+        assert ctx_values_per_round[2] is not None
 
 
 # ==============================================================================
@@ -947,8 +951,8 @@ class TestCarryContextNoneBackwardCompat:
     """carry_context=None means no context passing (backward compatible)."""
 
     @pytest.mark.asyncio
-    async def test_no_carry_context_no_inject_key(self):
-        """With carry_context=None, inject_as key should never appear in shared_memory."""
+    async def test_no_carry_context_leaves_seeded_slot_empty(self):
+        """With carry_context=None, the declared slot should remain empty."""
         from runsight_core import LoopBlock
 
         reader = ContextReaderBlock("reader", read_key="previous_round_context")
@@ -962,11 +966,11 @@ class TestCarryContextNoneBackwardCompat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("previous_round_context")
         result_state = await _run_loop(loop, state, blocks)
 
-        # inject_as key should never appear
-        assert "previous_round_context" not in result_state.shared_memory
+        # Declared-only access keeps the seeded slot empty when carry_context is disabled.
+        assert result_state.shared_memory.get("previous_round_context") is None
 
         # All snapshots should be None (no context was ever injected)
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -987,7 +991,7 @@ class TestCarryContextNoneBackwardCompat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state()
         result_state = await _run_loop(loop, state, blocks)
 
         # Basic behavior unchanged
@@ -1005,8 +1009,8 @@ class TestCarryContextDisabled:
     """carry_context.enabled=False explicitly disables context passing."""
 
     @pytest.mark.asyncio
-    async def test_enabled_false_no_context_injected(self):
-        """With enabled=False, no context should be injected even though carry_context is configured."""
+    async def test_enabled_false_leaves_seeded_slot_empty(self):
+        """With enabled=False, the declared slot should stay empty."""
         from runsight_core import LoopBlock
         from runsight_core.blocks.loop import CarryContextConfig
 
@@ -1027,11 +1031,11 @@ class TestCarryContextDisabled:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("feedback")
         result_state = await _run_loop(loop, state, blocks)
 
         # feedback key should not appear in shared_memory
-        assert "feedback" not in result_state.shared_memory
+        assert result_state.shared_memory.get("feedback") is None
 
         # All snapshots should be None (no context)
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -1129,7 +1133,7 @@ class TestCarryContextEmptyOutput:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -1175,7 +1179,7 @@ class TestCarryContextWriterCriticIntegration:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("feedback")
         result_state = await _run_loop(loop, state, blocks)
 
         contexts_seen = result_state.shared_memory.get("writer_contexts_seen", [])
@@ -1215,7 +1219,7 @@ class TestCarryContextWriterCriticIntegration:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("feedback_history")
         result_state = await _run_loop(loop, state, blocks)
 
         contexts_seen = result_state.shared_memory.get("writer_contexts_seen", [])
@@ -1260,7 +1264,7 @@ class TestCarryContextWriterCriticIntegration:
         wf.add_transition("loop_block", None)
         wf.set_entry("loop_block")
 
-        state = WorkflowState()
+        state = _seeded_state("feedback")
         result_state = await wf.run(state)
 
         # Verify the workflow completed all 3 rounds
@@ -1304,7 +1308,7 @@ class TestCarryContextFormat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -1338,7 +1342,7 @@ class TestCarryContextFormat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -1371,7 +1375,7 @@ class TestCarryContextFormat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
@@ -1404,7 +1408,7 @@ class TestCarryContextFormat:
         )
         blocks["loop_block"] = loop
 
-        state = WorkflowState()
+        state = _seeded_state("ctx")
         result_state = await _run_loop(loop, state, blocks)
 
         assert result_state.shared_memory.get("ctx") is not None
