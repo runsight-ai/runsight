@@ -8,6 +8,7 @@ import textwrap
 import pytest
 from conftest import execute_block_for_test
 from runsight_core import CodeBlock
+from runsight_core.context_governance import ContextResolutionError
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -41,12 +42,6 @@ def main(data):
     val = data.get("x", 9)
     return {"sqrt": math.sqrt(val), "is_digit": bool(re.match(r"^\\d+$", str(val)))}
 """)
-
-BROAD_STATE_CODE = textwrap.dedent("""\
-def main(data):
-    return {"greeting": "hello " + data["shared_memory"].get("name", "world")}
-""")
-
 
 # ---------------------------------------------------------------------------
 # Happy path
@@ -127,15 +122,13 @@ def main(data):
         assert json.loads(result.results["cb_empty"].output) == {}
 
     @pytest.mark.asyncio
-    async def test_explicit_all_access_receives_broad_state(self):
-        block = CodeBlock("cb_all", BROAD_STATE_CODE)
+    async def test_context_access_all_is_rejected_before_execution(self):
+        block = CodeBlock("cb_all", SIMPLE_CODE)
         block.context_access = "all"
         block.declared_inputs = {}
         state = _make_state(shared_memory={"name": "alice"})
-        result = await execute_block_for_test(block, state)
-
-        parsed = json.loads(result.results["cb_all"].output)
-        assert parsed["greeting"] == "hello alice"
+        with pytest.raises(ContextResolutionError, match="all"):
+            await execute_block_for_test(block, state)
 
 
 # ---------------------------------------------------------------------------

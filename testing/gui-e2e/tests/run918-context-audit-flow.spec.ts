@@ -29,7 +29,7 @@ type AuditEvent = {
   workflow_name: string;
   node_id: string;
   block_type: string;
-  access: "declared" | "all";
+  access: "declared";
   mode: "strict" | "dev";
   sequence: number;
   records: Array<{
@@ -38,7 +38,7 @@ type AuditEvent = {
     namespace: "results" | "shared_memory" | "metadata" | null;
     source: string | null;
     field_path?: string | null;
-    status: "resolved" | "missing" | "denied" | "all_access" | "empty";
+    status: "resolved" | "missing" | "denied" | "empty";
     severity: "allow" | "warn" | "error";
     value_type?: string | null;
     preview?: string | null;
@@ -73,12 +73,14 @@ blocks:
     inputs:
       api_key:
         from: ${LONG_REF}
-  all_code:
+  declared_code:
     type: code
-    access: all
+    inputs:
+      summary:
+        from: secret_producer.public_summary
     code: |
       def main(data):
-          return {"keys": list(data.keys())}
+          return {"keys": list(data.keys()), "summary": data["summary"]}
 workflow:
   name: Context Governance 918
   entry: secret_producer
@@ -88,8 +90,8 @@ workflow:
     - from: declared_consumer
       to: strict_missing
     - from: strict_missing
-      to: all_code
-    - from: all_code
+      to: declared_code
+    - from: declared_code
       to: null
 `;
 }
@@ -100,12 +102,12 @@ function canvasState() {
       node("secret_producer", "Secret Producer", 40, 80),
       node("declared_consumer", "Declared Consumer", 360, 80),
       node("strict_missing", "Strict Missing", 680, 80),
-      node("all_code", "All Access Inspector", 1000, 80),
+      node("declared_code", "Declared Inspector", 1000, 80),
     ],
     edges: [
       edge("secret_producer-declared_consumer", "secret_producer", "declared_consumer"),
       edge("declared_consumer-strict_missing", "declared_consumer", "strict_missing"),
-      edge("strict_missing-all_code", "strict_missing", "all_code"),
+      edge("strict_missing-declared_code", "strict_missing", "declared_code"),
     ],
     viewport: { x: 0, y: 0, zoom: 1 },
     selected_node_id: null,
@@ -121,8 +123,8 @@ function node(id: string, name: string, x: number, y: number) {
     data: {
       stepId: id,
       name,
-      stepType: id === "all_code" ? "code" : "linear",
-      soulRef: id === "all_code" ? undefined : "analyst",
+      stepType: id === "declared_code" ? "code" : "linear",
+      soulRef: id === "declared_code" ? undefined : "analyst",
       status: "idle",
     },
   };
@@ -168,7 +170,7 @@ function runNodes(runId: string) {
       runId === LIVE_RUN_ID ? "running" : "failed",
       "Context resolution failed for missing api_key",
     ),
-    runNode(runId, "all_code", runId === LIVE_RUN_ID ? "pending" : "completed", null),
+    runNode(runId, "declared_code", runId === LIVE_RUN_ID ? "pending" : "completed", null),
   ];
 }
 
@@ -182,7 +184,7 @@ function runNode(
     id: `${runId}:${nodeId}`,
     run_id: runId,
     node_id: nodeId,
-    block_type: nodeId === "all_code" ? "code" : "linear",
+    block_type: nodeId === "declared_code" ? "code" : "linear",
     status,
     started_at: 1776370001,
     completed_at: status === "completed" || status === "failed" ? 1776370002 : null,
@@ -191,8 +193,8 @@ function runNode(
     tokens: { input: 10, output: 20, total: 30 },
     error,
     output: status === "completed" ? `${nodeId} output` : null,
-    soul_id: nodeId === "all_code" ? null : "analyst",
-    model_name: nodeId === "all_code" ? null : "gpt-4o",
+    soul_id: nodeId === "declared_code" ? null : "analyst",
+    model_name: nodeId === "declared_code" ? null : "gpt-4o",
   };
 }
 
@@ -274,26 +276,10 @@ function historicalAuditEvents(runId = COMPLETED_RUN_ID): AuditEvent[] {
     }),
     auditEvent({
       run_id: runId,
-      node_id: "all_code",
+      node_id: "declared_code",
       block_type: "code",
-      access: "all",
       sequence: 3,
-      records: [
-        {
-          input_name: null,
-          from_ref: null,
-          namespace: null,
-          source: null,
-          field_path: null,
-          status: "all_access",
-          severity: "allow",
-          value_type: "dict",
-          preview: null,
-          reason: "explicit all access",
-          internal: false,
-        },
-      ],
-      resolved_count: 0,
+      resolved_count: 1,
       denied_count: 0,
       warning_count: 0,
       emitted_at: "2026-04-17T00:00:03.000Z",
@@ -479,10 +465,10 @@ test("completed run loads historical audit records, access badges, long rows, an
   await expect(auditPanel).toContainText("missing");
   await expect(auditPanel).toContainText("error");
   await expect(auditPanel).toContainText(LONG_REF);
-  await expect(auditPanel).toContainText("all_code");
-  await expect(auditPanel).toContainText("all_access");
+  await expect(auditPanel).toContainText("declared_code");
+  await expect(auditPanel).not.toContainText("all_access");
 
-  await expect(page.getByTestId("node-All Access Inspector")).toContainText("Access all");
+  await expect(page.getByTestId("node-Declared Inspector")).toContainText("Access declared");
   await expect(page.getByTestId("node-Strict Missing")).toContainText("Denied 1");
   await expect(page.locator(".react-flow__edge.context-overlay")).toHaveCount(1);
 
@@ -500,6 +486,7 @@ test("completed run loads historical audit records, access badges, long rows, an
     .toBe(1);
   expect(JSON.stringify(workflowCreateBodies[0])).not.toContain("context-overlay");
   expect(JSON.stringify(workflowCreateBodies[0])).not.toContain("contextOverlay");
+  expect(JSON.stringify(workflowCreateBodies[0])).not.toContain("access: all");
 });
 
 test("active run appends live context_resolution SSE and ignores malformed audit events", async ({

@@ -23,6 +23,7 @@ from runsight_core.block_io import (
     build_block_context,
 )
 from runsight_core.blocks.code import CodeBlock
+from runsight_core.context_governance import ContextResolutionError
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
@@ -466,7 +467,7 @@ class TestAC5BuildBlockContext:
         )
 
     def test_build_block_context_without_declarations_has_empty_inputs(self):
-        """CodeBlock without inputs or access: all receives empty inputs."""
+        """CodeBlock without inputs receives empty inputs."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state(
             results={"prev": BlockResult(output="some result")},
@@ -478,8 +479,8 @@ class TestAC5BuildBlockContext:
 
         assert ctx.inputs == {}
 
-    def test_build_block_context_access_all_inputs_contain_results_metadata_shared_memory(self):
-        """Explicit CodeBlock access: all receives the broad state shape."""
+    def test_build_block_context_rejects_all_context_access(self):
+        """CodeBlock legacy all-access must be rejected before a context is built."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         block.context_access = "all"
         state = _make_state(
@@ -488,17 +489,8 @@ class TestAC5BuildBlockContext:
             shared_memory={"sm": "data"},
         )
 
-        ctx = build_block_context(block, state)
-
-        assert set(ctx.inputs) == {"results", "metadata", "shared_memory"}
-        results_in_inputs = ctx.inputs["results"]
-        assert isinstance(results_in_inputs["prev"], str), (
-            "Results values must be unwrapped to strings (BlockResult.output), "
-            f"got {type(results_in_inputs['prev']).__name__}"
-        )
-        assert results_in_inputs["prev"] == "output str"
-        assert ctx.inputs["metadata"] == {"wf": "test_workflow"}
-        assert ctx.inputs["shared_memory"] == {"sm": "data"}
+        with pytest.raises(ContextResolutionError, match="all"):
+            build_block_context(block, state)
 
     def test_build_block_context_block_id_matches(self):
         """ctx.block_id must match the block's block_id."""
