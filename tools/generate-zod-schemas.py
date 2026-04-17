@@ -128,7 +128,7 @@ def generate_zod_file(openapi_path: str, output_path: str) -> None:
         if name in visited:
             return
         visited.add(name)
-        for dep in get_deps(name):
+        for dep in sorted(get_deps(name)):
             visit(dep)
         sorted_names.append(name)
 

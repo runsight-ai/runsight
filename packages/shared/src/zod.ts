@@ -61,14 +61,17 @@ export type CommitResponse = z.infer<typeof CommitResponseSchema>;
 export const ContextAccessSchema = z.enum(["declared", "all"]);
 export type ContextAccess = z.infer<typeof ContextAccessSchema>;
 
+export const ContextAuditModeSchema = z.enum(["strict", "dev"]);
+export type ContextAuditMode = z.infer<typeof ContextAuditModeSchema>;
+
+export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
+export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
+
 export const ContextAuditSeveritySchema = z.enum(["allow", "warn", "error"]);
 export type ContextAuditSeverity = z.infer<typeof ContextAuditSeveritySchema>;
 
 export const ContextAuditStatusSchema = z.enum(["resolved", "missing", "denied", "all_access", "empty"]);
 export type ContextAuditStatus = z.infer<typeof ContextAuditStatusSchema>;
-
-export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
-export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
 
 export const ContextAuditRecordV1Schema = z.object({
   input_name: z.string().nullable(),
@@ -84,9 +87,6 @@ export const ContextAuditRecordV1Schema = z.object({
   internal: z.boolean().optional().default(false),
 }).strict();
 export type ContextAuditRecordV1 = z.infer<typeof ContextAuditRecordV1Schema>;
-
-export const ContextAuditModeSchema = z.enum(["strict", "dev"]);
-export type ContextAuditMode = z.infer<typeof ContextAuditModeSchema>;
 
 export const ContextAuditEventV1Schema = z.object({
   schema_version: z.literal("context_audit.v1").optional().default("context_audit.v1"),
