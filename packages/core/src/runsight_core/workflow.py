@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
     from runsight_core.observer import WorkflowObserver
     from runsight_core.yaml.registry import WorkflowRegistry
+    from runsight_core.yaml.schema import WorkflowInputDef
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +280,11 @@ class Workflow:
         final_state = await wf.run(initial_state)
     """
 
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        input_schema: Optional[Dict[str, "WorkflowInputDef"]] = None,
+    ):
         """
         Args:
             name: Workflow identifier (for logging/debugging).
@@ -290,6 +295,7 @@ class Workflow:
         if not name:
             raise ValueError("Workflow name cannot be empty")
         self.name = name
+        self.input_schema = input_schema
         self.identity: Optional[str] = None
         self._blocks: Dict[str, BaseBlock] = {}
         self._transitions: Dict[str, str] = {}  # from_block_id -> to_block_id

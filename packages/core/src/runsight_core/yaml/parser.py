@@ -920,7 +920,7 @@ def _assemble_workflow(
     built_blocks: Dict[str, Any],
 ) -> Workflow:
     """Assemble, wire, and validate the final Workflow object."""
-    wf = Workflow(name=file_def.workflow.name)
+    wf = Workflow(name=file_def.workflow.name, input_schema=file_def.inputs)
     wf.identity = file_def.id
     for block in built_blocks.values():
         wf.add_block(block)
