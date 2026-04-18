@@ -173,6 +173,42 @@ class TestRunInputValidationRouter:
             branch="main",
         )
 
+    def test_structured_json_and_array_inputs_are_preserved_through_run_creation(self):
+        expected_inputs = {
+            "query": "search",
+            "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+            "tags": ["support", "vip"],
+        }
+        run_service, execution_service = _services(normalized_inputs=expected_inputs)
+
+        response = client.post(
+            "/api/runs",
+            json={
+                "workflow_id": "wf_inputs",
+                "branch": "feature-x",
+                "inputs": expected_inputs,
+            },
+        )
+
+        assert response.status_code == 200
+        execution_service.prepare_run_inputs.assert_called_once_with(
+            "wf_inputs",
+            expected_inputs,
+            branch="feature-x",
+        )
+        run_service.create_run.assert_called_once_with(
+            "wf_inputs",
+            expected_inputs,
+            source="manual",
+            branch="feature-x",
+        )
+        execution_service.launch_execution.assert_called_once_with(
+            "run_896",
+            "wf_inputs",
+            expected_inputs,
+            branch="feature-x",
+        )
+
     def test_no_schema_no_inputs_still_uses_immediate_no_input_path(self):
         run_service, execution_service = _services(normalized_inputs={})
 

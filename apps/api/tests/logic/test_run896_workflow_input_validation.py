@@ -194,6 +194,63 @@ class TestWorkflowInputValidationPreparation:
             "tags": ["support"],
         }
 
+    def test_structured_json_and_array_inputs_are_preserved_in_normalized_inputs(self):
+        service = _service(_workflow_yaml_with_inputs())
+
+        submitted_inputs = {
+            "query": "search",
+            "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+            "tags": ["support", "vip"],
+        }
+
+        normalized = service.prepare_run_inputs("run896_inputs", submitted_inputs, branch="main")
+
+        assert normalized == {
+            "query": "search",
+            "max_results": 10,
+            "include_archived": False,
+            "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+            "tags": ["support", "vip"],
+        }
+
+    def test_branch_specific_yaml_snapshot_is_used_for_input_validation(self):
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = WorkflowEntity(
+            kind="workflow",
+            id="run896_inputs",
+            name="run896_inputs",
+            yaml=_workflow_yaml_without_inputs(),
+            valid=True,
+            validation_error=None,
+        )
+        workflow_repo._get_path.return_value = "/custom/workflows/run896_inputs.yaml"
+        git_service = Mock()
+        git_service.read_file.return_value = _workflow_yaml_with_inputs()
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=Mock(),
+            git_service=git_service,
+        )
+
+        normalized = service.prepare_run_inputs(
+            "run896_inputs",
+            {"query": "search"},
+            branch="feature-x",
+        )
+
+        assert normalized == {
+            "query": "search",
+            "max_results": 10,
+            "include_archived": False,
+            "payload": {"region": "us"},
+            "tags": ["support"],
+        }
+        git_service.read_file.assert_called_once_with(
+            "/custom/workflows/run896_inputs.yaml", "feature-x"
+        )
+
     def test_no_schema_no_inputs_keeps_no_input_path_empty(self):
         service = _service(_workflow_yaml_without_inputs(), workflow_id="run896_no_inputs")
 
