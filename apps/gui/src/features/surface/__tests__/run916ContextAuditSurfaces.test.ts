@@ -179,6 +179,8 @@ describe("RUN-916 context audit surface contracts", () => {
     expect(workflowSurfaceSource).toContain("setInspectedRunId");
     expect(workflowSurfaceSource).toMatch(/runId=\{p\.contextRunId\}/);
     expect(workflowSurfaceSource).toMatch(/onAuditNodeSelect=\{\(nodeId, runId\)/);
+    expect(workflowSurfaceSource).toContain("setInspectedRunId(readonlyRunId || undefined)");
+    expect(workflowSurfaceSource).not.toContain("setInspectedRunId(contextRunId || undefined)");
   });
 });
 
