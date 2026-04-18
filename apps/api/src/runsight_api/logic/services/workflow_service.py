@@ -22,36 +22,21 @@ def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | 
     if not raw_yaml:
         return None
     try:
+        from runsight_core.workflow_input_schema import effective_workflow_input_schema
+        from runsight_core.yaml.schema import RunsightWorkflowFile as WorkflowFileModel
+
         data = yaml_mod.safe_load(raw_yaml)
         if not isinstance(data, dict):
             return None
-        if "interface" in data:
-            return None
-        file_def = RunsightWorkflowFile.model_validate(data)
+        file_def = WorkflowFileModel.model_validate(data)
     except (yaml_mod.YAMLError, PydanticValidationError, ValueError):
         return None
 
-    inputs = file_def.get("inputs") if isinstance(file_def, dict) else file_def.inputs
-    if not isinstance(inputs, dict) or not inputs:
+    inputs = effective_workflow_input_schema(file_def)
+    if not inputs:
         return None
 
-    schema: dict[str, dict[str, Any]] = {}
-    for name, input_def in inputs.items():
-        if hasattr(input_def, "model_dump"):
-            schema[name] = input_def.model_dump()
-            continue
-        if isinstance(input_def, dict):
-            schema[name] = {
-                "type": input_def.get("type"),
-                "required": input_def.get("required", True),
-                "default": input_def.get("default"),
-                "description": input_def.get("description"),
-                "sensitive": input_def.get("sensitive", False),
-            }
-            continue
-        return None
-
-    return schema
+    return {name: input_def.model_dump() for name, input_def in inputs.items()}
 
 
 class WorkflowService:

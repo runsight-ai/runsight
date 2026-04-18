@@ -21,8 +21,8 @@ from runsight_core.state import BlockResult, WorkflowState
 if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
     from runsight_core.observer import WorkflowObserver
+    from runsight_core.workflow_input_schema import EffectiveWorkflowInputDef
     from runsight_core.yaml.registry import WorkflowRegistry
-    from runsight_core.yaml.schema import WorkflowInputDef
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +283,7 @@ class Workflow:
     def __init__(
         self,
         name: str,
-        input_schema: Optional[Dict[str, "WorkflowInputDef"]] = None,
+        input_schema: Optional[Dict[str, "EffectiveWorkflowInputDef"]] = None,
     ):
         """
         Args:

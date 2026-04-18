@@ -29,6 +29,7 @@ from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
 from runsight_core.workflow_contract_names import RESERVED_WORKFLOW_CONTRACT_NAMES
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.discovery import (
     AssertionScanner,
     SoulScanner,
@@ -920,7 +921,10 @@ def _assemble_workflow(
     built_blocks: Dict[str, Any],
 ) -> Workflow:
     """Assemble, wire, and validate the final Workflow object."""
-    wf = Workflow(name=file_def.workflow.name, input_schema=file_def.inputs)
+    wf = Workflow(
+        name=file_def.workflow.name,
+        input_schema=effective_workflow_input_schema(file_def),
+    )
     wf.identity = file_def.id
     for block in built_blocks.values():
         wf.add_block(block)

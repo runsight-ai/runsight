@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class CanvasViewport(BaseModel):
@@ -34,6 +34,8 @@ class WarningItem(BaseModel):
 
 
 class WorkflowInputSchemaItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     type: Literal["string", "number", "boolean", "json", "array"]
     required: bool = True
     default: Any | None = None

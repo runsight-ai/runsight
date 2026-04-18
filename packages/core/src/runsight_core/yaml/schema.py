@@ -189,6 +189,12 @@ class WorkflowInputDef(BaseModel):
         return self
 
 
+class InferredWorkflowInputDef(WorkflowInputDef):
+    """Workflow input contract inferred from explicit workflow.* references."""
+
+    source: Literal["inferred"] = "inferred"
+
+
 # -- Retry configuration ---------------------------------------------------
 
 
