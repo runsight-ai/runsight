@@ -54,14 +54,18 @@ def _cg():
 def _state(
     *,
     results: dict[str, BlockResult] | None = None,
+    workflow_inputs: dict[str, Any] | None = None,
     shared_memory: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> WorkflowState:
-    return WorkflowState(
+    state = WorkflowState(
         results=results or {},
         shared_memory=shared_memory or {},
         metadata=metadata or {},
     )
+    if workflow_inputs is not None:
+        state = state.model_copy(update={"workflow_inputs": workflow_inputs})
+    return state
 
 
 @pytest.fixture
@@ -420,7 +424,7 @@ def test_build_block_context_resolves_declared_workflow_input_through_resolver(
 
     ctx = build_block_context(
         block,
-        _state(results={"workflow": BlockResult(output=json.dumps({"reason": "audit"}))}),
+        _state(workflow_inputs={"reason": "audit"}),
         step=step,
     )
 
