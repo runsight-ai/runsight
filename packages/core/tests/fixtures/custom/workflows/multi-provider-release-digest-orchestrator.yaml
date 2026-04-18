@@ -112,8 +112,8 @@ blocks:
       phase_payload: results.prepare_primary_phase
     outputs:
       results.primary_packaged: packaged_result
+      shared_memory.primary_packaged: packaged_result
       shared_memory.primary_trace_path: trace_path
-      metadata.primary_quality: quality_status
 
   capture_primary_package:
     type: code
@@ -124,7 +124,7 @@ blocks:
       primary_trace_path_value:
         from: shared_memory.primary_trace_path
       primary_quality_status:
-        from: metadata.primary_quality
+        from: shared_memory.primary_packaged.quality_status
     assertions:
       - type: contains-json
         value:
@@ -193,8 +193,8 @@ blocks:
       phase_payload: results.prepare_secondary_phase
     outputs:
       results.secondary_packaged: packaged_result
+      shared_memory.secondary_packaged: packaged_result
       shared_memory.secondary_trace_path: trace_path
-      metadata.secondary_quality: quality_status
 
   capture_secondary_package:
     type: code
@@ -205,7 +205,7 @@ blocks:
       secondary_trace_path_value:
         from: shared_memory.secondary_trace_path
       secondary_quality_status:
-        from: metadata.secondary_quality
+        from: shared_memory.secondary_packaged.quality_status
     assertions:
       - type: contains-json
         value:
@@ -363,9 +363,9 @@ blocks:
       secondary_trace_path_value:
         from: shared_memory.secondary_trace_path
       primary_quality_status:
-        from: metadata.primary_quality
+        from: shared_memory.primary_packaged.quality_status
       secondary_quality_status:
-        from: metadata.secondary_quality
+        from: shared_memory.secondary_packaged.quality_status
       report_write_output:
         from: write_final_report
       slack_output:

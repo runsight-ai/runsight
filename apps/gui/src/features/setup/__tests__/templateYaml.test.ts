@@ -114,6 +114,7 @@ describe("TEMPLATE_YAML block graph", () => {
       review_status_result: { from: "check_review_status" },
     });
     expect(parsed.blocks?.finish_error?.inputs).toEqual({
+      review_status_result: { from: "check_review_status" },
       error_stub_result: { from: "write_error_stub" },
     });
 

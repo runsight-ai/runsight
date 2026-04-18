@@ -713,13 +713,6 @@ def _attach_context_metadata(
         inner_block.declared_inputs = dict(declared_inputs)
 
 
-def _validate_context_declarations(file_def: RunsightWorkflowFile) -> None:
-    for block_id, block_def in file_def.blocks.items():
-        access = _context_access(block_def)
-        if access != "declared":
-            raise ValueError(f"Block '{block_id}': access {access!r} is unsupported")
-
-
 def _context_ref_dependency_source_id(from_ref: str) -> str | None:
     parts = from_ref.split(".")
     root = parts[0]
@@ -958,8 +951,6 @@ def parse_workflow_yaml(
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
     _validate_reserved_context_block_ids(file_def)
-    _validate_context_declarations(file_def)
-
     built_blocks: Dict[str, BaseBlock] = {}
     for block_id, block_def in file_def.blocks.items():
         from runsight_core.blocks._registry import get_builder

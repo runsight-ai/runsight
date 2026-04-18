@@ -144,6 +144,8 @@ blocks:
     type: code
     timeout_seconds: 10
     inputs:
+      review_status_result:
+        from: check_review_status
       error_stub_result:
         from: write_error_stub
     code: |
@@ -164,7 +166,7 @@ blocks:
               "status": "completed",
               "report_path": "custom/outputs/onboarding-research-brief.md",
               "error_stub_path": "custom/outputs/onboarding-research-error.md",
-              "review_status": {"status": "fail"},
+              "review_status": _normalize(data.get("review_status_result", "")),
               "error_stub": _normalize(data.get("error_stub_result", "")),
           }
 workflow:

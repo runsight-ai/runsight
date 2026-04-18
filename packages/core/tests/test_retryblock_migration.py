@@ -14,6 +14,7 @@ from runsight_core import (
 )
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.blocks.loop import CarryContextConfig
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
@@ -278,13 +279,18 @@ class TestLoopBlockStateFlowBetweenRounds:
             def __init__(self, block_id: str):
                 super().__init__(block_id)
                 self.context_access = "declared"
-                self.declared_inputs = {"round_num": "shared_memory.loop_block_round"}
-                self._previous = ""
+                self.declared_inputs = {
+                    "round_num": "shared_memory.loop_block_round",
+                    "previous_context": "shared_memory.previous_round_context",
+                }
 
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 round_num = ctx.inputs.get("round_num", 0)
-                new_output = f"{self._previous}|round_{round_num}"
-                self._previous = new_output
+                previous_context = ctx.inputs.get("previous_context")
+                previous = ""
+                if isinstance(previous_context, dict):
+                    previous = str(previous_context.get(self.block_id) or "")
+                new_output = f"{previous}|round_{round_num}"
                 return BlockOutput(output=new_output)
 
         accum = AccumulatingBlock("accum_block")
@@ -292,6 +298,12 @@ class TestLoopBlockStateFlowBetweenRounds:
             block_id="loop_block",
             inner_block_refs=["accum_block"],
             max_rounds=3,
+            carry_context=CarryContextConfig(
+                enabled=True,
+                mode="last",
+                source_blocks=["accum_block"],
+                inject_as="previous_round_context",
+            ),
         )
 
         wf = Workflow(name="state_flow_test")
@@ -300,7 +312,7 @@ class TestLoopBlockStateFlowBetweenRounds:
         wf.add_transition("loop_block", None)
         wf.set_entry("loop_block")
 
-        final_state = await wf.run(WorkflowState())
+        final_state = await wf.run(WorkflowState(shared_memory={"previous_round_context": {}}))
 
         # The accumulating block should have built up output across rounds
         accum_block_result = final_state.results.get("accum_block")
