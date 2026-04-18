@@ -18,20 +18,11 @@ from pydantic import (
 )
 
 from runsight_core.identity import EntityKind, validate_entity_id
-
-_RESERVED_BLOCK_INPUT_NAMES = frozenset(
-    {
-        "workflow",
-        "results",
-        "shared_memory",
-        "metadata",
-        "blocks",
-        "ctx",
-        "call_stack",
-        "workflow_registry",
-        "observer",
-    }
+from runsight_core.workflow_contract_names import (
+    RESERVED_WORKFLOW_CONTRACT_NAMES,
 )
+
+_RESERVED_BLOCK_INPUT_NAMES = RESERVED_WORKFLOW_CONTRACT_NAMES
 
 # -- Soul / Tool definitions ------------------------------------------------
 

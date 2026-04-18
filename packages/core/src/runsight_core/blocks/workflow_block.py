@@ -14,6 +14,7 @@ from pydantic import model_validator
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow_contract_names import validate_workflow_contract_name
 
 if TYPE_CHECKING:
     from runsight_core.workflow import Workflow
@@ -392,14 +393,16 @@ class WorkflowBlockDef(BaseBlockDef):
         for binding_name in (self.inputs or {}).keys():
             if "." in binding_name:
                 raise ValueError(
-                    "workflow block inputs must bind child interface names, not child dotted paths"
+                    "workflow block inputs must bind child interface names, not dotted child paths"
                 )
+            validate_workflow_contract_name(binding_name)
 
         for binding_name in (self.outputs or {}).values():
             if "." in binding_name:
                 raise ValueError(
-                    "workflow block outputs must bind child interface names, not child dotted paths"
+                    "workflow block outputs must bind child interface names, not dotted child paths"
                 )
+            validate_workflow_contract_name(binding_name)
 
         return self
 
@@ -422,6 +425,11 @@ def _validate_workflow_block_contract(
             f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
             "must declare an interface"
         )
+
+    for item in child_interface.inputs:
+        validate_workflow_contract_name(item.name)
+    for item in child_interface.outputs:
+        validate_workflow_contract_name(item.name)
 
     declared_inputs = {item.name: item for item in child_interface.inputs}
     declared_outputs = {item.name for item in child_interface.outputs}
