@@ -507,7 +507,7 @@ class TestPerExitReferences:
             }
         )
 
-        with pytest.raises(ValueError, match="missing inputs.*dispatch_work.coder"):
+        with pytest.raises(ValueError, match="dispatch_work\\.coder.*source result missing"):
             await execute_block_for_test(synthesize, state)
 
 
@@ -761,6 +761,7 @@ class TestContextInheritance:
             ],
             runner,
         )
+        dispatch.declared_inputs = {"context": "shared_memory._resolved_inputs.context"}
 
         runner.execute.side_effect = [
             _make_exec_result("dispatch_work_researcher", "researcher", "Research done", 0.01, 20),
@@ -889,6 +890,11 @@ class TestContextInheritance:
 
         with patch("runsight_core.llm.client.completion_cost", return_value=0.001):
             wf = parse_workflow_yaml(DISPATCH_SYNTHESIZE_YAML)
+            dispatch_block = wf.blocks["dispatch_work"]
+            dispatch_block.declared_inputs = {"context": "shared_memory._resolved_inputs.context"}
+            inner_dispatch = getattr(dispatch_block, "inner_block", None)
+            if inner_dispatch is not None:
+                inner_dispatch.declared_inputs = dict(dispatch_block.declared_inputs)
             important_context = "IMPORTANT_PROJECT_CONTEXT_XYZ"
             state = WorkflowState(
                 shared_memory={"_resolved_inputs": {"context": important_context}}

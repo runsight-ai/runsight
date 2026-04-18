@@ -7,6 +7,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from runsight_api.core.context import request_id
+
 logger = structlog.get_logger()
 
 
@@ -24,5 +26,6 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             path=request.url.path,
             status_code=response.status_code,
             duration_ms=round(duration_ms, 2),
+            request_id=request_id.get(),
         )
         return response

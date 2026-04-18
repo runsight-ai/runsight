@@ -23,6 +23,7 @@ from runsight_core.block_io import (  # noqa: F401
     build_block_context,
 )
 from runsight_core.blocks.linear import LinearBlock
+from runsight_core.context_governance import ContextResolutionError
 from runsight_core.memory.budget import BudgetedContext, BudgetReport
 from runsight_core.primitives import Soul, Step
 from runsight_core.state import BlockResult, WorkflowState
@@ -168,8 +169,8 @@ class TestInputResolution:
 
         assert ctx.inputs["extracted"] == "val"
 
-    def test_non_json_string_returned_as_is_with_dot_path(self):
-        """Non-JSON output with dot-path ref returns the raw string (no crash)."""
+    def test_non_json_string_with_arbitrary_dot_path_raises_resolution_error(self):
+        """Arbitrary field paths into non-JSON output fail clearly."""
         block = make_linear_block()
         state = make_state(
             results={"block_a": BlockResult(output="plain text")},
@@ -178,9 +179,8 @@ class TestInputResolution:
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
-            ctx = build_block_context(block, state, step=step)
-
-        assert ctx.inputs["data"] == "plain text"
+            with pytest.raises((ContextResolutionError, ValueError), match="block_a.subfield"):
+                build_block_context(block, state, step=step)
 
 
 # ==============================================================================
@@ -580,7 +580,11 @@ class TestEdgeCases:
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
             ctx = build_block_context(block, state)
         assert ctx.instruction == block.soul.system_prompt
-        assert ctx.state_snapshot is state
+        assert ctx.state_snapshot is not state
+        assert ctx.state_snapshot is not None
+        assert ctx.state_snapshot.results == {}
+        assert ctx.state_snapshot.shared_memory == {}
+        assert ctx.state_snapshot.metadata == {}
 
     def test_step_with_empty_declared_inputs_no_step_produces_same_result(self):
         """Passing step with no declared_inputs is equivalent to passing step=None for inputs."""

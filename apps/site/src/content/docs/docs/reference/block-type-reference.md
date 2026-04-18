@@ -87,15 +87,19 @@ Sandboxed Python code execution. No LLM calls.
 | `timeout_seconds` | `int` | `30` | no | Execution timeout (overrides base default of 300) |
 | `allowed_imports` | `List[str]` | `["json", "re", "math", "datetime", "collections", "itertools", "hashlib", "base64", "time", "urllib.parse"]` | no | Whitelist of importable modules |
 
-The `main` function receives a `data` dict with keys `results`, `metadata`, and `shared_memory`. It must return a JSON-serializable value. If the return value is a dict containing `exit_handle`, that value is extracted and used as the block's exit handle.
+The `main` function receives a `data` dict containing only the local names declared in the block's `inputs` map. It must return a JSON-serializable value. If the return value is a dict containing `exit_handle`, that value is extracted and used as the block's exit handle.
 
-```yaml title="minimal code block"
+```yaml title="declared-input code block"
 blocks:
   transform:
     type: code
+    depends: draft
+    inputs:
+      draft_text:
+        from: draft.text
     code: |
       def main(data):
-          return {"count": len(data.get("results", {}))}
+          return {"word_count": len(data.get("draft_text", "").split())}
 ```
 
 ---

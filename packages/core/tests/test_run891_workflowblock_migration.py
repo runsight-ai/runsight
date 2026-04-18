@@ -246,6 +246,14 @@ class TestAC2InputOutputMapping:
         )
         state = _make_base_state(shared_memory={"research_topic": "quantum computing"})
         ctx = _make_block_context(block.block_id, state)
+        ctx = ctx.model_copy(
+            update={
+                "inputs": {
+                    **ctx.inputs,
+                    "shared_memory.topic": "quantum computing",
+                }
+            }
+        )
 
         await block.execute(ctx)
 

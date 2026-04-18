@@ -71,24 +71,25 @@ class RecordingObserver:
 class ExitHandleBlock(BaseBlock):
     def __init__(self, block_id: str, exit_handle: str, threshold: int) -> None:
         super().__init__(block_id)
+        self.context_access = "declared"
         self._exit_handle = exit_handle
         self._threshold = threshold
+        self.calls: list[int] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        handle = self._exit_handle if len(calls) >= self._threshold else None
+        self.calls.append(len(self.calls) + 1)
+        handle = self._exit_handle if len(self.calls) >= self._threshold else None
         return BlockOutput(
-            output=f"{self.block_id}_round_{len(calls)}",
+            output=f"{self.block_id}_round_{len(self.calls)}",
             exit_handle=handle,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
 class KwargsProbeBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
+        self.context_access = "declared"
         self.captured_kwargs: list[dict[str, object]] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -184,7 +185,7 @@ async def test_loopblock_direct_execute_without_ctx_stays_backward_compatible():
 
     result_state = await _exec(loop, WorkflowState(), blocks=blocks)
 
-    assert probe.captured_kwargs == [{"blocks": blocks}]
+    assert probe.captured_kwargs[0]["blocks"] == blocks
     assert result_state.results["probe"].output == "probe_ok"
     assert result_state.results["loop_block"].output == "completed_1_rounds"
 

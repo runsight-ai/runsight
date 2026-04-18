@@ -314,6 +314,7 @@ class TestContextInheritanceViaSharedMemory:
 
         branches = [_make_branch("exit_a", soul_alpha, "Do it")]
         block = _make_dispatch_block("d1", branches, mock_runner)
+        block.declared_inputs = {"context": "shared_memory._resolved_inputs.context"}
         state = WorkflowState(
             shared_memory={"_resolved_inputs": {"context": "Shared context value"}}
         )

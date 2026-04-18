@@ -41,6 +41,8 @@ class _RecordingBlock(BaseBlock):
 
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"workflow": "workflow"}
         self.received_states: list[WorkflowState] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -321,8 +323,8 @@ class TestDeclaredInputsResolvesWorkflowField:
         wf.set_entry(step.block_id)
         initial_state = WorkflowState()
 
-        # Must not raise even though "nonexistent" key is absent from inputs
-        await wf.run(initial_state, inputs={"name": "Alice"})
+        with pytest.raises(ValueError, match="field path missing"):
+            await wf.run(initial_state, inputs={"name": "Alice"})
 
     @pytest.mark.asyncio
     async def test_declared_input_whole_workflow_object_without_field(self):

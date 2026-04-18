@@ -3,14 +3,28 @@ BlockContext and BlockOutput models, apply_block_output, and build_block_context
 """
 
 import json
-from typing import Any, Dict, List, Optional
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.context_governance import (
+    ContextAuditEventV1,
+    ContextGovernancePolicy,
+    ContextResolutionAuditError,
+    ContextResolver,
+    ScopedContextData,
+    collect_context_declaration,
+)
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+
+if TYPE_CHECKING:
+    from runsight_core.observer import WorkflowObserver
+
+logger = logging.getLogger(__name__)
 
 
 class BlockContext(BaseModel):
@@ -152,15 +166,7 @@ def _resolve_declared_inputs(step: Optional[Any], state: WorkflowState) -> Dict[
     inputs: Dict[str, Any] = {}
     if step is not None and step.declared_inputs:
         for name, from_ref in step.declared_inputs.items():
-            try:
-                inputs[name] = _resolve_ref(from_ref, state)
-            except ValueError as exc:
-                # Re-raise when the SOURCE BLOCK is missing (hard error).
-                # Swallow only when the FIELD PATH is missing within an existing result
-                # (e.g. workflow.nonexistent when "nonexistent" is not in the JSON).
-                if "not found in state.results" in str(exc):
-                    raise
-                # Field path not found — skip gracefully; callers decide how to handle.
+            inputs[name] = _resolve_ref(from_ref, state)
     return inputs
 
 
@@ -172,10 +178,89 @@ _GATE_INSTRUCTION = (
 )
 
 
+def _resolve_governed_context(
+    block: Any,
+    state: WorkflowState,
+    *,
+    step: Optional[Any] = None,
+    policy: ContextGovernancePolicy | None = None,
+    observer: Optional["WorkflowObserver"] = None,
+) -> ScopedContextData:
+    declaration = collect_context_declaration(block, step=step)
+    resolver = ContextResolver(
+        policy=policy,
+        run_id=str(state.metadata.get("run_id", "")),
+        workflow_name=str(state.metadata.get("workflow_name", "")),
+    )
+    try:
+        scoped_context = resolver.resolve(declaration=declaration, state=state)
+    except ContextResolutionAuditError as exc:
+        _emit_context_audit(observer, exc.audit_event)
+        raise
+    _emit_context_audit(observer, scoped_context.audit_event)
+    return scoped_context
+
+
+def _emit_context_audit(
+    observer: Optional["WorkflowObserver"],
+    event: ContextAuditEventV1,
+) -> None:
+    if observer is None:
+        return
+    on_context_resolution = getattr(observer, "on_context_resolution", None)
+    if on_context_resolution is None:
+        return
+    try:
+        on_context_resolution(event)
+    except Exception:
+        logger.warning("Observer.on_context_resolution failed", exc_info=True)
+
+
+def _scoped_state_snapshot(
+    state: WorkflowState,
+    scoped_context: ScopedContextData,
+    block: Any,
+) -> WorkflowState:
+    """Build a state snapshot containing only resolver-scoped data."""
+    return WorkflowState(
+        execution_log=[],
+        shared_memory=dict(scoped_context.scoped_shared_memory),
+        results=dict(scoped_context.scoped_results),
+        metadata=dict(scoped_context.scoped_metadata),
+        total_cost_usd=state.total_cost_usd,
+        total_tokens=state.total_tokens,
+        conversation_histories=_scoped_conversation_histories(state, block),
+        artifact_store=state.artifact_store,
+    )
+
+
+def _scoped_conversation_histories(state: WorkflowState, block: Any) -> Dict[str, List[Dict]]:
+    keys: set[str] = set()
+    block_id = str(getattr(block, "block_id", ""))
+    soul = getattr(block, "soul", None)
+    if soul is not None:
+        keys.add(f"{block_id}_{soul.id}")
+    if block_id:
+        keys.add(block_id)
+
+    for branch in getattr(block, "branches", []) or []:
+        exit_id = getattr(branch, "exit_id", None)
+        if exit_id is not None:
+            keys.add(f"{block_id}_{exit_id}")
+
+    return {
+        key: list(state.conversation_histories[key])
+        for key in keys
+        if key in state.conversation_histories
+    }
+
+
 def build_block_context(
     block: Any,
     state: WorkflowState,
     step: Optional[Any] = None,
+    policy: ContextGovernancePolicy | None = None,
+    observer: Optional["WorkflowObserver"] = None,
 ) -> BlockContext:
     """Build a BlockContext for a block from the current workflow state.
 
@@ -205,9 +290,14 @@ def build_block_context(
     inner_block = getattr(block, "inner_block", None)
     if inner_block is not None:
         wrapper_soul = getattr(block, "soul", None)
-        # Resolve declared inputs from Step BEFORE returning, so isolated blocks
-        # receive their YAML inputs: declarations via ctx.inputs.
-        wrapper_inputs = _resolve_declared_inputs(step, state)
+        wrapper_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        wrapper_inputs = dict(wrapper_context.inputs)
         # Preserve conversation history for stateful inner blocks so that the
         # IsolatedBlockWrapper can include prior turns in the subprocess envelope.
         _inner_stateful = getattr(inner_block, "stateful", False)
@@ -225,7 +315,7 @@ def build_block_context(
             soul=wrapper_soul,
             model_name=None,
             artifact_store=getattr(state, "artifact_store", None),
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, wrapper_context, block),
         )
 
     # Resolve soul and model
@@ -240,11 +330,20 @@ def build_block_context(
     # WorkflowBlock strategy: detect child_workflow attribute
     child_workflow = getattr(block, "child_workflow", None)
     if child_workflow is not None:
+        workflow_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        workflow_inputs = dict(workflow_context.inputs)
         return BlockContext(
             block_id=block.block_id,
             instruction="invoke child",
             context=None,
             inputs={
+                **workflow_inputs,
                 "call_stack": [],
                 "workflow_registry": None,
                 "observer": None,
@@ -252,16 +351,20 @@ def build_block_context(
             conversation_history=[],
             soul=None,
             model_name=None,
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, workflow_context, block),
         )
 
     # LoopBlock strategy: detect inner_block_refs attribute
     inner_block_refs = getattr(block, "inner_block_refs", None)
     if inner_block_refs is not None:
-        loop_inputs = _resolve_declared_inputs(step, state)
-        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-        if not loop_inputs and resolved_inputs:
-            loop_inputs = dict(resolved_inputs)
+        loop_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        loop_inputs = dict(loop_context.inputs)
         return BlockContext(
             block_id=block.block_id,
             instruction="loop",
@@ -270,28 +373,32 @@ def build_block_context(
             conversation_history=[],
             soul=None,
             model_name=None,
+            # LoopBlock is orchestration plumbing: it needs the current workflow
+            # state to run rounds and compute diffs, while inner blocks remain
+            # governed when they are dispatched.
             state_snapshot=state,
         )
 
-    # CodeBlock strategy: detect code attribute (no LLM, "access: all" pattern)
+    # CodeBlock strategy: detect code attribute (no LLM)
     code = getattr(block, "code", None)
     if code is not None:
+        code_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        code_inputs = dict(code_context.inputs)
         return BlockContext(
             block_id=block.block_id,
             instruction="",
             context=None,
-            inputs={
-                "results": {
-                    k: v.output if isinstance(v, BlockResult) else v
-                    for k, v in state.results.items()
-                },
-                "metadata": state.metadata,
-                "shared_memory": state.shared_memory,
-            },
+            inputs=code_inputs,
             conversation_history=[],
             soul=None,
             model_name=None,
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, code_context, block),
         )
 
     # DispatchBlock strategy: detect branches attribute
@@ -304,10 +411,14 @@ def build_block_context(
             if first_branch is not None and getattr(first_branch, "task_instruction", None)
             else "dispatch"
         )
-        resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-        dispatch_inputs = _resolve_declared_inputs(step, state)
-        if not dispatch_inputs and resolved_inputs:
-            dispatch_inputs = dict(resolved_inputs)
+        dispatch_context_data = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        dispatch_inputs = dict(dispatch_context_data.inputs)
         dispatch_context = dispatch_inputs.get("context") if dispatch_inputs else None
         return BlockContext(
             block_id=block.block_id,
@@ -318,42 +429,30 @@ def build_block_context(
             soul=dispatch_soul,
             model_name=model_name if isinstance(model_name, str) else None,
             artifact_store=getattr(state, "artifact_store", None),
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, dispatch_context_data, block),
         )
 
     # SynthesizeBlock strategy: detect input_block_ids attribute
     input_block_ids = getattr(block, "input_block_ids", None)
     if input_block_ids is not None:
-        missing = [bid for bid in input_block_ids if bid not in state.results]
-        if missing:
-            available = sorted(state.results.keys())
-            raise ValueError(
-                f"build_block_context: SynthesizeBlock '{block.block_id}' missing inputs: {missing}. "
-                f"Available: {available}"
-            )
+        resolved_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        resolved_inputs = dict(resolved_context.inputs)
         combined_outputs = "\n\n".join(
-            f"=== Output from {bid} ===\n"
-            + (
-                state.results[bid].output
-                if isinstance(state.results[bid], BlockResult)
-                else str(state.results[bid])
-            )
+            f"=== Output from {bid} ===\n" + str(resolved_inputs[bid])
             for bid in input_block_ids
+            if bid in resolved_inputs
         )
         synthesis_instruction = (
             "Synthesize the following outputs into a cohesive, unified result. "
             "Identify common themes, resolve conflicts, and provide a comprehensive summary."
         )
         synth_soul: Optional[Soul] = getattr(block, "synthesizer_soul", soul)
-        # Resolve each input_block_id into inputs as named entries (unified YAML inputs contract)
-        resolved_inputs = {
-            bid: (
-                state.results[bid].output
-                if isinstance(state.results[bid], BlockResult)
-                else str(state.results[bid])
-            )
-            for bid in input_block_ids
-        }
         return BlockContext(
             block_id=block.block_id,
             instruction=synthesis_instruction,
@@ -363,69 +462,50 @@ def build_block_context(
             soul=synth_soul,
             model_name=model_name,
             artifact_store=getattr(state, "artifact_store", None),
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, resolved_context, block),
         )
 
     # GateBlock strategy: gate instruction + eval_key content as context
     eval_key = getattr(block, "eval_key", None)
     if eval_key is not None:
-        if eval_key not in state.results:
-            raise ValueError(
-                f"build_block_context: GateBlock '{block.block_id}' eval_key '{eval_key}' "
-                f"not found in state.results. Available: {sorted(state.results.keys())}"
-            )
-        raw = state.results[eval_key]
-        content = raw.output if isinstance(raw, BlockResult) else str(raw)
+        gate_context = _resolve_governed_context(
+            block,
+            state,
+            step=step,
+            policy=policy,
+            observer=observer,
+        )
+        gate_inputs = dict(gate_context.inputs)
+        content = gate_inputs.get("content", "")
         # Resolve eval_key content into inputs as "content" (unified YAML inputs contract)
         return BlockContext(
             block_id=block.block_id,
             instruction=_GATE_INSTRUCTION,
-            context=content,
-            inputs={"content": content},
+            context=str(content),
+            inputs=gate_inputs,
             conversation_history=[],
             soul=soul,
             model_name=model_name,
             artifact_store=state.artifact_store,
-            state_snapshot=state,
+            state_snapshot=_scoped_state_snapshot(state, gate_context, block),
         )
 
-    # Resolve declared inputs (done here so it applies even when current_task is None).
-    inputs = _resolve_declared_inputs(step, state)
-
-    # LinearBlock (and others) strategy: build from _resolved_inputs and soul system_prompt
-    resolved_inputs = state.shared_memory.get("_resolved_inputs", {})
-
-    # Merge _resolved_inputs into ctx.inputs when no Step declared_inputs were resolved.
-    # This bridges RUN-866's shared_memory["_resolved_inputs"] with RUN-867's ctx.inputs.
-    if not inputs and resolved_inputs:
-        inputs = dict(resolved_inputs)
+    scoped_context = _resolve_governed_context(
+        block,
+        state,
+        step=step,
+        policy=policy,
+        observer=observer,
+    )
+    inputs = dict(scoped_context.inputs)
 
     # system_prompt is passed to fit_to_budget for budget-trimming (token counting).
-    # The actual instruction to the LLM is re-derived in LinearBlock.execute from
-    # _resolved_inputs, so ctx.instruction is used only as a budget-calculation input.
+    # Generic declared blocks must not fall back to legacy _resolved_inputs.
     system_prompt = soul.system_prompt or "" if soul is not None else ""
-    instruction = system_prompt or resolved_inputs.get("instruction", "") or ""
+    instruction = system_prompt
 
-    # Context: workflow-level external input or resolved context input.
-    # None when no workflow result with real content and no resolved context.
-    workflow_result = state.results.get("workflow")
-    if workflow_result is not None:
-        _wf_output = (
-            workflow_result.output
-            if isinstance(workflow_result, BlockResult)
-            else str(workflow_result)
-        )
-        # Only use workflow result if it contains non-trivially empty content.
-        # "{}" (empty JSON object from inputs={}) should not count as context.
-        try:
-            _wf_parsed = json.loads(_wf_output)
-            _wf_has_content = bool(_wf_parsed)
-        except (json.JSONDecodeError, TypeError):
-            _wf_has_content = bool(_wf_output)
-        raw_context: Optional[str] = _wf_output if _wf_has_content else None
-    else:
-        _resolved_context = resolved_inputs.get("context", "") if resolved_inputs else ""
-        raw_context = _resolved_context if _resolved_context else None
+    # Workflow-seeded inputs are available only through explicit declarations.
+    raw_context: Optional[str] = None
 
     # Get conversation history (shallow copy)
     history_key = f"{block.block_id}_{soul.id}" if soul is not None else block.block_id
@@ -459,5 +539,5 @@ def build_block_context(
         soul=soul,
         model_name=model_name if isinstance(model_name, str) else None,
         artifact_store=state.artifact_store,
-        state_snapshot=state,
+        state_snapshot=_scoped_state_snapshot(state, scoped_context, block),
     )

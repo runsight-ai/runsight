@@ -137,11 +137,12 @@ async def execute_block(
                 extra_inputs=extra_inputs,
             )
         if isinstance(blk, WorkflowBlock):
-            wf_block_ctx = build_block_context(blk, current_state)
+            wf_block_ctx = build_block_context(blk, current_state, observer=observer)
             wf_block_ctx = wf_block_ctx.model_copy(
                 update={
                     "inputs": {
                         **(extra_inputs or {}),
+                        **wf_block_ctx.inputs,
                         "call_stack": ctx.call_stack + [ctx.workflow_name],
                         "workflow_registry": ctx.workflow_registry,
                         "observer": observer,
@@ -151,7 +152,7 @@ async def execute_block(
             wf_output = await blk.execute(wf_block_ctx)
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
-            loop_ctx = build_block_context(blk, current_state)
+            loop_ctx = build_block_context(blk, current_state, observer=observer)
             loop_ctx = loop_ctx.model_copy(
                 update={
                     "inputs": {
@@ -166,7 +167,7 @@ async def execute_block(
             return apply_block_output(current_state, blk.block_id, loop_output)
         # All other blocks: build BlockContext and dispatch via new signature
 
-        block_ctx = build_block_context(blk, current_state, step=None)
+        block_ctx = build_block_context(blk, current_state, step=None, observer=observer)
         if extra_inputs:
             block_ctx = block_ctx.model_copy(
                 update={"inputs": {**extra_inputs, **block_ctx.inputs}}
@@ -198,19 +199,19 @@ async def execute_block(
         else:
             dispatch_coro = _dispatch(block, state)
 
-        try:
-            if timeout is not None:
+        if timeout is not None:
+            try:
                 state = await asyncio.wait_for(dispatch_coro, timeout=timeout)
-            else:
-                state = await dispatch_coro
-        except asyncio.TimeoutError:
-            raise BudgetKilledException(
-                scope="block",
-                block_id=block_id,
-                limit_kind="timeout",
-                limit_value=timeout,
-                actual_value=timeout,
-            )
+            except asyncio.TimeoutError:
+                raise BudgetKilledException(
+                    scope="block",
+                    block_id=block_id,
+                    limit_kind="timeout",
+                    limit_value=timeout,
+                    actual_value=timeout,
+                )
+        else:
+            state = await dispatch_coro
 
         if getattr(block, "exit_conditions", None):
             br = state.results.get(block_id)
@@ -784,18 +785,18 @@ class Workflow:
         """Await loop_coro, converting TimeoutError to BudgetKilledException."""
         from runsight_core.budget_enforcement import BudgetKilledException
 
-        try:
-            if flow_timeout is not None:
+        if flow_timeout is not None:
+            try:
                 return await asyncio.wait_for(loop_coro, timeout=flow_timeout)
-            return await loop_coro
-        except asyncio.TimeoutError:
-            raise BudgetKilledException(
-                scope="workflow",
-                block_id=None,
-                limit_kind="timeout",
-                limit_value=flow_timeout,
-                actual_value=flow_timeout,
-            )
+            except asyncio.TimeoutError:
+                raise BudgetKilledException(
+                    scope="workflow",
+                    block_id=None,
+                    limit_kind="timeout",
+                    limit_value=flow_timeout,
+                    actual_value=flow_timeout,
+                )
+        return await loop_coro
 
     def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
         """Return a copy of state with inputs serialised into results['workflow']."""

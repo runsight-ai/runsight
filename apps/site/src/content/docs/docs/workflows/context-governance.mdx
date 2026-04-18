@@ -1,0 +1,311 @@
+---
+title: Context Governance
+description: Declared context inputs, audit events, and context-resolution behavior for Runsight workflows.
+---
+
+Context governance controls which workflow state each block can read. Blocks receive only the values named in their `inputs` map. A block with no `inputs` receives empty inputs.
+
+The same declarations are used for normal execution, isolated subprocess envelopes, audit events, historical API responses, live Server-Sent Events, and the GUI audit panel.
+
+## Declare Inputs
+
+Use `inputs` to map local input names to context references.
+
+```yaml title="custom/workflows/context-example.yaml"
+version: "1.0"
+kind: workflow
+
+workflow:
+  name: Context example
+  entry: draft
+
+blocks:
+  draft:
+    type: linear
+    soul_ref: writer
+    inputs:
+      request:
+        from: workflow.request
+      safe_to_publish:
+        from: shared_memory.flags.safe
+      branch:
+        from: metadata.runtime.branch
+
+  review:
+    type: linear
+    soul_ref: reviewer
+    depends: draft
+    inputs:
+      draft_summary:
+        from: draft.summary
+```
+
+| Local input | Reference | Meaning |
+|-------------|-----------|---------|
+| `request` | `workflow.request` | Reads workflow-seeded input named `request`. |
+| `safe_to_publish` | `shared_memory.flags.safe` | Reads `safe` from shared memory source `flags`. |
+| `branch` | `metadata.runtime.branch` | Reads `branch` from metadata source `runtime`. |
+| `draft_summary` | `draft.summary` | Reads `summary` from the upstream `draft` block result. |
+
+Runsight does not backfill legacy state into blocks that do not declare inputs. Code blocks follow the same rule as every other block: their subprocess receives exactly `ctx.inputs`.
+
+## YAML Reference
+
+Every block definition supports the `inputs` field. The effective context mode is always `declared`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `inputs` | `Dict[str, InputRef]` | none | Local input name to context reference mapping. |
+| `inputs.<name>.from` | `str` | required | Context reference to resolve for this local input. |
+
+Constraints:
+
+| Rule | Behavior |
+|------|----------|
+| Block with `inputs` | Resolves only the listed inputs. |
+| Block without `inputs` | Provides empty inputs. |
+| Unsupported context mode field values | Invalid workflow YAML. |
+| Reserved local input names | Invalid workflow YAML. |
+
+The following local input names are reserved:
+
+| Reserved input | Use |
+|----------------|-----|
+| `workflow` | Workflow-seeded run input reference root. |
+| `results` | Explicit block result namespace root. |
+| `shared_memory` | Shared memory namespace root. |
+| `metadata` | Runtime metadata namespace root. |
+| `blocks` | Engine orchestration context. |
+| `ctx` | Engine orchestration context. |
+| `call_stack` | Engine orchestration context. |
+| `workflow_registry` | Engine orchestration context. |
+| `observer` | Engine orchestration context. |
+
+The following block IDs are reserved and cannot be used as normal block IDs:
+
+| Reserved ID | Use |
+|-------------|-----|
+| `workflow` | Workflow-seeded run input reference root. |
+| `results` | Explicit block result namespace root. |
+| `shared_memory` | Shared memory namespace root. |
+| `metadata` | Runtime metadata namespace root. |
+
+## Reference Syntax
+
+A `from` reference identifies a namespace, source, and optional field path.
+
+| Reference | Namespace | Source | Field path | Description |
+|-----------|-----------|--------|------------|-------------|
+| `draft.summary` | `results` | `draft` | `summary` | Shorthand for an upstream block result. |
+| `results.draft.summary` | `results` | `draft` | `summary` | Explicit upstream block result reference. |
+| `workflow.request` | `results` | `workflow` | `request` | Workflow-seeded input named `request`. |
+| `shared_memory.flags.safe` | `shared_memory` | `flags` | `safe` | Shared memory value. |
+| `metadata.runtime.branch` | `metadata` | `runtime` | `branch` | Runtime metadata value. |
+
+Workflow-seeded input is represented in audit records as `namespace: "results"` and `source: "workflow"`. It is not a separate namespace.
+
+Allowed audit namespaces:
+
+| Namespace | Description |
+|-----------|-------------|
+| `results` | Workflow-seeded input or block output. |
+| `shared_memory` | Shared memory state. |
+| `metadata` | Runtime metadata. |
+
+## Governance Modes
+
+Runsight resolves context in one of two governance modes.
+
+| Mode | Default | Missing or denied read | Data exposure |
+|------|---------|------------------------|---------------|
+| `strict` | yes | Fails the block and emits an audit event. | Denied or missing values are not exposed. |
+| `dev` | no | Emits a warning audit record. | Denied or missing values are not exposed. |
+
+Dev mode is for development feedback. It does not grant undeclared data, backfill missing values, or create implicit broad state access.
+
+## Audit Event Model
+
+Historical API responses and live `context_resolution` SSE events use the same event shape.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | `str` | Audit event schema version. Current value: `context_audit.v1`. |
+| `event` | `str` | Event name for the payload. |
+| `run_id` | `str` | Run that emitted the event. |
+| `workflow_name` | `str` | Workflow name. |
+| `node_id` | `str` | Block ID from the workflow YAML. |
+| `block_type` | `str` | Block type, such as `linear`, `code`, or `workflow`. |
+| `access` | `"declared"` | Context mode used for the block. |
+| `mode` | `"strict"` or `"dev"` | Governance mode used for resolution. |
+| `sequence` | `int` or `null` | Event sequence when available. |
+| `records` | `ContextAuditRecordV1[]` | Zero or more per-input resolution records. |
+| `resolved_count` | `int` | Number of resolved records. |
+| `denied_count` | `int` | Number of denied records. |
+| `warning_count` | `int` | Number of warning records. |
+| `emitted_at` | `str` | Event timestamp. |
+
+Example event:
+
+```json title="ContextAuditEventV1"
+{
+  "schema_version": "context_audit.v1",
+  "event": "context_resolution",
+  "run_id": "8f7a23d2-3a2d-4e9a-8a3e-4df9a37c5a91",
+  "workflow_name": "Context example",
+  "node_id": "draft",
+  "block_type": "linear",
+  "access": "declared",
+  "mode": "strict",
+  "sequence": 12,
+  "records": [
+    {
+      "input_name": "request",
+      "from_ref": "workflow.request",
+      "namespace": "results",
+      "source": "workflow",
+      "field_path": "request",
+      "status": "resolved",
+      "severity": "allow",
+      "value_type": "str",
+      "preview": "Summarize the launch notes",
+      "reason": null,
+      "internal": false
+    }
+  ],
+  "resolved_count": 1,
+  "denied_count": 0,
+  "warning_count": 0,
+  "emitted_at": "2026-04-17T09:30:00Z"
+}
+```
+
+A declared block with no `inputs` emits an event with empty records and zero counts.
+
+```json title="Declared block with no inputs"
+{
+  "schema_version": "context_audit.v1",
+  "event": "context_resolution",
+  "run_id": "8f7a23d2-3a2d-4e9a-8a3e-4df9a37c5a91",
+  "workflow_name": "Context example",
+  "node_id": "start",
+  "block_type": "linear",
+  "access": "declared",
+  "mode": "strict",
+  "sequence": 1,
+  "records": [],
+  "resolved_count": 0,
+  "denied_count": 0,
+  "warning_count": 0,
+  "emitted_at": "2026-04-17T09:30:00Z"
+}
+```
+
+`preview` is for diagnostics only. It can be redacted or truncated and is not the full payload.
+
+## Audit Record Model
+
+Each event contains zero or more `ContextAuditRecordV1` records.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `input_name` | `str` or `null` | Local input name. |
+| `from_ref` | `str` or `null` | Original YAML `from` reference. |
+| `namespace` | `"results"`, `"shared_memory"`, or `"metadata"` | Context namespace used for the read. |
+| `source` | `str` or `null` | Source inside the namespace, such as a block ID, `workflow`, `flags`, or `runtime`. |
+| `field_path` | `str` or `null` | Nested field path inside the source. |
+| `status` | `str` | Resolution outcome. |
+| `severity` | `str` | Audit severity. |
+| `value_type` | `str` or `null` | Type name for the resolved value when available. |
+| `preview` | `str` or `null` | Redacted or truncated diagnostic preview. |
+| `reason` | `str` or `null` | Explanation for missing, denied, or warning records. |
+| `internal` | `bool` | Whether the record is internal runtime context. |
+
+Status values:
+
+| Status | Meaning |
+|--------|---------|
+| `resolved` | The declared reference resolved successfully. |
+| `missing` | The declared reference did not exist. |
+| `denied` | The read was not allowed by the declaration or policy. |
+| `empty` | No declared reads were needed. |
+
+Severity values:
+
+| Severity | Meaning |
+|----------|---------|
+| `allow` | Resolution succeeded without warning. |
+| `warn` | Resolution produced a development warning or non-fatal warning. |
+| `error` | Resolution failed in strict mode or was denied. |
+
+Access values:
+
+| Access | Meaning |
+|--------|---------|
+| `declared` | The block received only declared inputs. |
+
+## API and SSE Consumption
+
+### Historical endpoint
+
+```http
+GET /api/runs/{run_id}/context-audit
+```
+
+Response shape:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | `ContextAuditEventV1[]` | Audit events for the run. |
+| `page_size` | `int` | Number of events requested. |
+| `has_next_page` | `bool` | Whether another page is available. |
+| `end_cursor` | `str` or `null` | Cursor for the next page. |
+
+### Live SSE
+
+Live streams use event name `context_resolution`.
+
+```text title="SSE event"
+event: context_resolution
+data: {"schema_version":"context_audit.v1","event":"context_resolution","run_id":"8f7a23d2-3a2d-4e9a-8a3e-4df9a37c5a91","workflow_name":"Context example","node_id":"draft","block_type":"linear","access":"declared","mode":"strict","sequence":12,"records":[],"resolved_count":0,"denied_count":0,"warning_count":0,"emitted_at":"2026-04-17T09:30:00Z"}
+```
+
+Historical replay and live SSE use the same `ContextAuditEventV1` payload shape.
+
+## GUI Interpretation
+
+The GUI merges historical audit events with live SSE events and deduplicates records for the run.
+
+The audit panel displays:
+
+| Column | Meaning |
+|--------|---------|
+| `Node` | Block ID that resolved context. |
+| `Input` | Local input name. |
+| `Reference` | Original `from` reference. |
+| `Status` | Resolution status, such as `resolved`, `missing`, `denied`, or `empty`. |
+| `Severity` | Resolution severity: `allow`, `warn`, or `error`. |
+
+Badges:
+
+| Badge | Source | Meaning |
+|-------|--------|---------|
+| `Access declared` | `access: "declared"` | The block received only declared inputs. |
+| `Resolved` | `denied_count: 0`, `warning_count: 0` | No denied or warning records. |
+| `Denied N` | `denied_count` | One or more denied records. |
+| `Warning N` | `warning_count` | One or more warning records. |
+
+## Edge Cases And Constraints
+
+| Case | Behavior |
+|------|----------|
+| No `inputs` | The block receives empty inputs and emits an audit event with `records: []`, `resolved_count: 0`, `denied_count: 0`, and `warning_count: 0`. |
+| Missing reference in strict mode | The block fails and an audit event is emitted. |
+| Missing reference in dev mode | The block continues with a warning, but the missing value is not exposed. |
+| Denied read in strict mode | The block fails and an audit event is emitted. |
+| Denied read in dev mode | The block continues with a warning, but the denied value is not exposed. |
+| `workflow.request` | Audited as `namespace: "results"`, `source: "workflow"`, `field_path: "request"`. |
+| Audit `preview` | Redacted or truncated diagnostic text, not the full value. |
+
+Context governance is least-privilege by default. YAML declarations are the source of truth for what a block can read, and the same declarations are used for isolated execution and audit reporting.
+
+{/* Linear: RUN-907, RUN-908, RUN-909, RUN-910, RUN-911, RUN-912, RUN-913, RUN-914, RUN-915, RUN-916, RUN-917, RUN-918, RUN-919, RUN-920 - last verified against codebase 2026-04-18 */}

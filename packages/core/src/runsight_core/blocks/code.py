@@ -61,6 +61,14 @@ BLOCKED_MODULES: set = {
     "_thread",
 }
 
+CODEBLOCK_INTERNAL_INPUT_KEYS: set[str] = {
+    "blocks",
+    "call_stack",
+    "ctx",
+    "observer",
+    "workflow_registry",
+}
+
 
 def _validate_code_ast(code: str, allowed_imports: List[str]) -> None:
     """
@@ -152,8 +160,7 @@ class CodeBlock(BaseBlock):
     Execute user-provided Python code in an isolated subprocess.
 
     The code MUST define ``def main(data) -> <json-serializable>``.
-    ``data`` is a dict with keys ``results``, ``metadata``, ``shared_memory``
-    from the current :class:`WorkflowState`.
+    ``data`` is the block's governed local input dict.
 
     Security:
         * AST validation rejects dangerous imports / builtins at init time.
@@ -186,13 +193,9 @@ class CodeBlock(BaseBlock):
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute block with BlockContext, return BlockOutput."""
-        # Only pass the three well-known serializable keys to the subprocess.
-        # ctx.inputs may contain non-serializable values (e.g. block objects forwarded
-        # by LoopBlock) that should not be sent to the sandboxed process.
-        subprocess_inputs = {
-            k: ctx.inputs[k] for k in ("results", "metadata", "shared_memory") if k in ctx.inputs
-        }
-        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(subprocess_inputs)
+        stdout_bytes, stderr_bytes, returncode = await self._run_subprocess(
+            _json_serializable_inputs(dict(ctx.inputs))
+        )
 
         if returncode != 0:
             error_msg = stderr_bytes.decode(errors="replace").strip()
@@ -304,6 +307,20 @@ from runsight_core.blocks._registry import register_block_builder as _register_b
 from runsight_core.blocks._registry import register_block_def as _register_block_def  # noqa: E402
 
 _register_block_def("code", CodeBlockDef)
+
+
+def _json_serializable_inputs(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """Return top-level entries allowed to cross the subprocess JSON boundary."""
+    serializable: Dict[str, Any] = {}
+    for key, value in inputs.items():
+        if key in CODEBLOCK_INTERNAL_INPUT_KEYS:
+            continue
+        try:
+            json.dumps(value)
+        except (TypeError, ValueError):
+            continue
+        serializable[key] = value
+    return serializable
 
 
 # -- Builder function --------------------------------------------------------

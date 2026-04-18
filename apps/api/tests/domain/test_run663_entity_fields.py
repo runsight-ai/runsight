@@ -90,7 +90,13 @@ class TestSqliteBackfillColumns:
 
         source = inspect.getsource(_ensure_sqlite_columns)
 
-        required_run_columns = ["parent_run_id", "parent_node_id", "root_run_id", "depth"]
+        required_run_columns = [
+            "parent_run_id",
+            "parent_node_id",
+            "root_run_id",
+            "depth",
+            "deleted_at",
+        ]
         for col in required_run_columns:
             assert col in source, (
                 f"_ensure_sqlite_columns must include '{col}' in the 'run' table backfill dict"

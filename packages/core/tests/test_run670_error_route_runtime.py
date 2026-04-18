@@ -51,6 +51,7 @@ class _WriteBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, output: str | None = None):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.output = output or block_id
         self.call_count = 0
 
@@ -77,13 +78,15 @@ class _ErrorAwareHandlerBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, failed_block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"error_info": f"shared_memory.__error__{failed_block_id}"}
         self.failed_block_id = failed_block_id
         self.call_count = 0
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
         self.call_count += 1
-        error_info = state.shared_memory.get(f"__error__{self.failed_block_id}")
+        error_info = ctx.inputs.get("error_info")
         next_state = state.model_copy(
             update={
                 "results": {

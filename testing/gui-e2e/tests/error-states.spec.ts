@@ -6,7 +6,10 @@
  */
 import { test, expect } from "@playwright/test";
 
+import { setupShellReadyWorkspace } from "./helpers/shellReady";
+
 test.describe.configure({ mode: "serial" });
+setupShellReadyWorkspace(test);
 
 const API = "http://localhost:8000/api";
 

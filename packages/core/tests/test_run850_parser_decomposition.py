@@ -537,13 +537,13 @@ class TestBehavioralPreservation:
                 type: linear
                 soul_ref: agent
                 inputs:
-                  ctx:
+                  prior:
                     from: step_b.output
               step_b:
                 type: linear
                 soul_ref: agent
                 inputs:
-                  ctx:
+                  prior:
                     from: step_a.output
             workflow:
               name: circular

@@ -49,6 +49,20 @@ from runsight_core.yaml.validation import ValidationResult
 # 2. Gate migration logic on ``file_def.version`` before the block-building loop.
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
+_RESERVED_CONTEXT_BLOCK_IDS = frozenset({"workflow", "results", "shared_memory", "metadata"})
+_RESERVED_BLOCK_INPUT_NAMES = frozenset(
+    {
+        "workflow",
+        "results",
+        "shared_memory",
+        "metadata",
+        "blocks",
+        "ctx",
+        "call_stack",
+        "workflow_registry",
+        "observer",
+    }
+)
 logger = logging.getLogger(__name__)
 
 
@@ -602,6 +616,7 @@ def _normalize_workflow_input(
             for soul_data in raw_souls.values():
                 if isinstance(soul_data, dict):
                     soul_data.pop("exits", None)
+        _validate_raw_context_config(raw)
 
     file_def = RunsightWorkflowFile.model_validate(raw)
 
@@ -619,6 +634,27 @@ def _normalize_workflow_input(
     )
 
     return file_def, workflow_base_dir, require_custom_metadata
+
+
+def _validate_raw_context_config(raw: dict[str, Any]) -> None:
+    raw_blocks = raw.get("blocks")
+    if not isinstance(raw_blocks, dict):
+        return
+    for block_id, block_config in raw_blocks.items():
+        if not isinstance(block_config, dict):
+            continue
+        if "access" in block_config:
+            raise ValueError(
+                f"Block '{block_id}': unsupported block field 'access'; "
+                "declare context with the 'inputs' field"
+            )
+        raw_inputs = block_config.get("inputs")
+        if not isinstance(raw_inputs, dict):
+            continue
+        reserved_inputs = sorted(set(raw_inputs) & _RESERVED_BLOCK_INPUT_NAMES)
+        if reserved_inputs:
+            input_name = reserved_inputs[0]
+            raise ValueError(f"Block '{block_id}': local input '{input_name}' is reserved")
 
 
 def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
@@ -647,6 +683,49 @@ def _bridge_block_attributes(block_id: str, block_def: Any, block: Any) -> None:
             inner_blk.limits = block_def.limits
             if block_def.limits.max_duration_seconds:
                 inner_blk.max_duration_seconds = block_def.limits.max_duration_seconds
+    _attach_context_metadata(block, _context_access(block_def), _declared_inputs(block_def))
+
+
+def _context_access(block_def: Any) -> str:
+    return "declared"
+
+
+def _declared_inputs(block_def: Any) -> Dict[str, str]:
+    inputs = getattr(block_def, "inputs", None)
+    if inputs is None:
+        return {}
+    declared_inputs: Dict[str, str] = {}
+    for input_name, input_ref in inputs.items():
+        declared_inputs[input_name] = (
+            input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
+        )
+    return declared_inputs
+
+
+def _attach_context_metadata(
+    block: Any, context_access: str, declared_inputs: Dict[str, str]
+) -> None:
+    block.context_access = context_access
+    block.declared_inputs = dict(declared_inputs)
+    inner_block = getattr(block, "inner_block", None)
+    if inner_block is not None:
+        inner_block.context_access = context_access
+        inner_block.declared_inputs = dict(declared_inputs)
+
+
+def _context_ref_dependency_source_id(from_ref: str) -> str | None:
+    parts = from_ref.split(".")
+    root = parts[0]
+    if root in {"metadata", "shared_memory"}:
+        return None
+    if root == "workflow":
+        return None
+    if root == "results":
+        if len(parts) < 2:
+            raise ValueError("results context references must include a source")
+        source_id = parts[1]
+        return None if source_id == "workflow" else source_id
+    return root
 
 
 def _find_block_for_soul(file_def: RunsightWorkflowFile, soul_key: str) -> tuple[Any, Any]:
@@ -717,13 +796,13 @@ def _validate_inputs_and_detect_cycles(
             deps = []
             for input_name, input_ref in block_def.inputs.items():
                 from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-                source_id = from_ref.split(".")[0]
-                if source_id not in file_def.blocks:
-                    if source_id != "workflow":  # "workflow" is reserved for input seeding
-                        raise ValueError(
-                            f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
-                        )
+                source_id = _context_ref_dependency_source_id(from_ref)
+                if source_id is None:
                     continue
+                if source_id not in file_def.blocks:
+                    raise ValueError(
+                        f"Block '{block_id}': input '{input_name}' references unknown block '{source_id}'"
+                    )
                 if source_id == block_id:
                     raise ValueError(
                         f"Block '{block_id}': input '{input_name}' references itself (circular)"
@@ -755,11 +834,22 @@ def _validate_inputs_and_detect_cycles(
     for block_id, block_def in file_def.blocks.items():
         if block_def.inputs is None or block_def.type == "workflow" or block_id not in built_blocks:
             continue
-        declared_inputs: Dict[str, str] = {}
-        for input_name, input_ref in block_def.inputs.items():
-            from_ref = input_ref.from_ref if isinstance(input_ref, InputRef) else input_ref
-            declared_inputs[input_name] = from_ref
-        built_blocks[block_id] = Step(block=built_blocks[block_id], declared_inputs=declared_inputs)
+        _wrap_declared_input_block(block_id, block_def, built_blocks)
+
+
+def _wrap_declared_input_block(
+    block_id: str,
+    block_def: Any,
+    built_blocks: Dict[str, Any],
+) -> None:
+    declared_inputs = _declared_inputs(block_def)
+    context_access = _context_access(block_def)
+    _attach_context_metadata(built_blocks[block_id], context_access, declared_inputs)
+    built_blocks[block_id] = Step(
+        block=built_blocks[block_id],
+        declared_inputs=declared_inputs,
+        context_access=context_access,
+    )
 
 
 def _wrap_llm_blocks_with_isolation(
@@ -793,6 +883,11 @@ def _wrap_llm_blocks_with_isolation(
                 wrapper.limits = getattr(inner, "limits")
             if hasattr(inner, "max_duration_seconds"):
                 wrapper.max_duration_seconds = getattr(inner, "max_duration_seconds")
+            _attach_context_metadata(
+                wrapper,
+                _context_access(block_def),
+                _declared_inputs(block_def),
+            )
             wrapper.stateful = inner.stateful
             built_blocks[block_id] = wrapper
 
@@ -855,13 +950,7 @@ def parse_workflow_yaml(
         model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
 
-    # Step 5: Build all blocks (single pass)
-    # Reject any block using the reserved ID "workflow" (collides with input seeding)
-    if "workflow" in file_def.blocks:
-        raise ValueError(
-            "Block ID 'workflow' is reserved for workflow input seeding and cannot be used as a block ID."
-        )
-
+    _validate_reserved_context_block_ids(file_def)
     built_blocks: Dict[str, BaseBlock] = {}
     for block_id, block_def in file_def.blocks.items():
         from runsight_core.blocks._registry import get_builder
@@ -904,3 +993,12 @@ def parse_workflow_yaml(
     _resolve_tools_for_souls(file_def, souls_map, workflow_base_dir)
     _validate_inputs_and_detect_cycles(file_def, built_blocks)
     return _assemble_workflow(file_def, built_blocks)
+
+
+def _validate_reserved_context_block_ids(file_def: RunsightWorkflowFile) -> None:
+    reserved_block_ids = sorted(set(file_def.blocks) & _RESERVED_CONTEXT_BLOCK_IDS)
+    if reserved_block_ids:
+        reserved_id = reserved_block_ids[0]
+        raise ValueError(
+            f"Block ID '{reserved_id}' is reserved for context namespace access and cannot be used as a block ID."
+        )

@@ -49,22 +49,19 @@ class KwargsSpyBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.captured_kwargs: List[Dict[str, Any]] = []
+        self.kwargs_log: list[list[str]] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         # Capture ctx.inputs (replaces old **kwargs)
         inputs_snapshot = dict(ctx.inputs)
         self.captured_kwargs.append(inputs_snapshot)
         call_num = len(self.captured_kwargs)
-        # Persist into shared_memory_updates for inspection via state
-        state = ctx.state_snapshot
-        all_captures = list(
-            (state.shared_memory.get(f"{self.block_id}_kwargs_log", []) if state else [])
-        )
-        all_captures.append(sorted(inputs_snapshot.keys()))
+        self.kwargs_log.append(sorted(inputs_snapshot.keys()))
         return BlockOutput(
             output=f"call_{call_num}",
-            shared_memory_updates={f"{self.block_id}_kwargs_log": all_captures},
+            shared_memory_updates={f"{self.block_id}_kwargs_log": list(self.kwargs_log)},
         )
 
 
@@ -73,14 +70,14 @@ class SimplePassthroughBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        state = ctx.state_snapshot
-        calls = list((state.shared_memory.get(f"{self.block_id}_calls", []) if state else []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         return BlockOutput(
-            output=f"call_{len(calls)}",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            output=f"call_{len(self.calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 

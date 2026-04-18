@@ -59,16 +59,16 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         return BlockOutput(
-            output=f"call_{len(calls)}",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            output=f"call_{len(self.calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -77,6 +77,7 @@ class FailingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
 
     async def execute(self, ctx):
         raise RuntimeError(f"Block {self.block_id} failed")
@@ -87,17 +88,18 @@ class WriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"round_num": "shared_memory.loop_block_round"}
+        self.drafts: list[str] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        drafts = list(state.shared_memory.get("drafts", []))
-        round_num = state.shared_memory.get("loop_block_round", 0)
-        drafts.append(f"draft_round_{round_num}")
+        round_num = ctx.inputs.get("round_num", 0)
+        self.drafts.append(f"draft_round_{round_num}")
         return BlockOutput(
             output=f"draft_round_{round_num}",
-            shared_memory_updates={"drafts": drafts},
+            shared_memory_updates={"drafts": list(self.drafts)},
         )
 
 
@@ -106,17 +108,18 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"round_num": "shared_memory.loop_block_round"}
+        self.feedback: list[str] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        feedback = list(state.shared_memory.get("feedback", []))
-        round_num = state.shared_memory.get("loop_block_round", 0)
-        feedback.append(f"feedback_round_{round_num}")
+        round_num = ctx.inputs.get("round_num", 0)
+        self.feedback.append(f"feedback_round_{round_num}")
         return BlockOutput(
             output=f"feedback_round_{round_num}",
-            shared_memory_updates={"feedback": feedback},
+            shared_memory_updates={"feedback": list(self.feedback)},
         )
 
 
@@ -345,18 +348,18 @@ class TestLoopBlockRoundCounter:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "declared"
+                self.declared_inputs = {"current_round": "shared_memory.loop_block_round"}
+                self.rounds_seen: list[int] = []
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput
 
-                state = ctx.state_snapshot
-                # The LoopBlock should set 'loop_round' or similar before executing inner blocks
-                rounds_seen = list(state.shared_memory.get("rounds_seen", []))
-                current_round = state.shared_memory.get("loop_block_round", -1)
-                rounds_seen.append(current_round)
+                current_round = ctx.inputs.get("current_round", -1)
+                self.rounds_seen.append(current_round)
                 return BlockOutput(
                     output="ok",
-                    shared_memory_updates={"rounds_seen": rounds_seen},
+                    shared_memory_updates={"rounds_seen": list(self.rounds_seen)},
                 )
 
         reader = RoundReaderBlock("reader_block")
@@ -766,17 +769,18 @@ class TestLoopBlockWorkflowIntegration:
         class CapturingInnerBlock(BaseBlock):
             def __init__(self):
                 super().__init__(block_id="inner_block")
+                self.context_access = "declared"
                 self.received_inputs = None
+                self.calls: list[int] = []
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput
 
                 self.received_inputs = dict(ctx.inputs)
-                calls = list(ctx.state_snapshot.shared_memory.get("inner_block_calls", []))
-                calls.append(len(calls) + 1)
+                self.calls.append(len(self.calls) + 1)
                 return BlockOutput(
                     output="inner",
-                    shared_memory_updates={"inner_block_calls": calls},
+                    shared_memory_updates={"inner_block_calls": list(self.calls)},
                 )
 
         inner = CapturingInnerBlock()

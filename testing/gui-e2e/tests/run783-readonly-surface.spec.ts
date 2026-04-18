@@ -39,6 +39,52 @@ const SEEDED_CANVAS_STATE = {
   canvas_mode: "dag",
 } as const;
 
+const SEEDED_WORKFLOW_YAML = `version: '1.0'
+id: research-review
+kind: workflow
+tools:
+  - slack_payload_builder
+  - slack_webhook
+souls:
+  slack_notifier:
+    id: slack_notifier
+    kind: soul
+    name: Slack Reporter
+    role: Slack Reporter
+    system_prompt: >
+      Post the provided summary to Slack using the tools available to you.
+      Use slack_payload_builder to format the message, then slack_webhook to send it.
+    provider: test
+    model_name: test
+    tools:
+      - slack_payload_builder
+      - slack_webhook
+blocks:
+  research:
+    type: linear
+    soul_ref: researcher
+  write_summary:
+    type: linear
+    soul_ref: writer
+  quality_review:
+    type: gate
+    soul_ref: reviewer
+    eval_key: write_summary
+  notify:
+    type: linear
+    soul_ref: slack_notifier
+workflow:
+  name: Research & Review
+  entry: research
+  transitions:
+    - from: research
+      to: write_summary
+    - from: write_summary
+      to: quality_review
+    - from: quality_review
+      to: notify
+`;
+
 let originalCanvasSidecar: string | null = null;
 
 type RunSummary = {
@@ -76,6 +122,24 @@ async function apiDelete(request: APIRequestContext, path: string) {
     [200, 404].includes(response.status()),
     `DELETE ${path} failed with ${response.status()}`,
   ).toBeTruthy();
+}
+
+async function seedReadonlyWorkflowFixture() {
+  const response = await fetch(`${API}/workflows`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Research & Review",
+      yaml: SEEDED_WORKFLOW_YAML,
+      canvas_state: SEEDED_CANVAS_STATE,
+      commit: true,
+    }),
+  });
+
+  expect(
+    response.ok,
+    `POST /workflows failed with ${response.status}: ${await response.text()}`,
+  ).toBe(true);
 }
 
 async function expectSurfaceShell(page: Page) {
@@ -340,6 +404,7 @@ test.beforeAll(async () => {
     onboarding_completed: true,
     fallback_enabled: false,
   });
+  await seedReadonlyWorkflowFixture();
   seedReadonlyRunFixture();
   seedReadonlyCanvasFixture();
 });
@@ -350,6 +415,7 @@ test.afterAll(async ({ request }) => {
   for (const workflowId of forkedWorkflowIds) {
     await apiDelete(request, `/workflows/${workflowId}`);
   }
+  await apiDelete(request, `/workflows/${SEEDED_WORKFLOW_ID}`);
 });
 
 test.describe("RUN-783 readonly surface browser flows", () => {

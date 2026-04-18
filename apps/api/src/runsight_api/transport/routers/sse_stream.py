@@ -11,6 +11,7 @@ from ...domain.errors import RunNotFound, ServiceUnavailable
 from ...domain.events import SSE_TERMINAL_EVENTS
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
+from ..context_audit import parse_context_audit_message
 from ..deps import get_execution_service, get_run_service
 
 router = APIRouter(prefix="/runs", tags=["SSE Stream"])
@@ -36,6 +37,11 @@ async def stream_run_events(
             logs = run_service.get_run_logs(run_id)
             for log in logs:
                 try:
+                    audit_event = parse_context_audit_message(log.message)
+                    if audit_event is not None:
+                        data = audit_event.model_dump(mode="json")
+                        yield f"event:context_resolution\ndata:{json.dumps(data)}\n\n"
+                        continue
                     data = json.loads(log.message)
                 except (json.JSONDecodeError, TypeError):
                     data = {"message": log.message}

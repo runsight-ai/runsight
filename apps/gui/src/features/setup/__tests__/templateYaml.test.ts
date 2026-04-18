@@ -62,7 +62,8 @@ describe("TEMPLATE_YAML block graph", () => {
       "review_loop",
       "check_review_status",
       "write_error_stub",
-      "finish",
+      "finish_success",
+      "finish_error",
     ]);
   });
 
@@ -92,16 +93,42 @@ describe("TEMPLATE_YAML block graph", () => {
     });
     expect(parsed.workflow?.transitions).toEqual([
       { from: "review_loop", to: "check_review_status" },
-      { from: "write_error_stub", to: "finish" },
+      { from: "write_error_stub", to: "finish_error" },
     ]);
     expect(parsed.workflow?.conditional_transitions).toEqual([
       {
         from: "check_review_status",
-        pass: "finish",
+        pass: "finish_success",
         fail: "write_error_stub",
         default: "write_error_stub",
       },
     ]);
+  });
+
+  it("declares local inputs for CodeBlocks that consume upstream context", () => {
+    const parsed = parseTemplate();
+    expect(parsed.blocks?.check_review_status?.inputs).toEqual({
+      loop_status: { from: "shared_memory.__loop__review_loop" },
+    });
+    expect(parsed.blocks?.finish_success?.inputs).toEqual({
+      review_status_result: { from: "check_review_status" },
+    });
+    expect(parsed.blocks?.finish_error?.inputs).toEqual({
+      review_status_result: { from: "check_review_status" },
+      error_stub_result: { from: "write_error_stub" },
+    });
+
+    const broadReads = ["shared_memory", "results", "metadata"].map(
+      (name) => `data["${name}"]`,
+    );
+    for (const block of Object.values(parsed.blocks ?? {}) as Array<Record<string, any>>) {
+      if (block.type !== "code" || typeof block.code !== "string") {
+        continue;
+      }
+      for (const broadRead of broadReads) {
+        expect(block.code).not.toContain(broadRead);
+      }
+    }
   });
 
   it("declares success and fallback artifact paths in the template", () => {
@@ -111,7 +138,7 @@ describe("TEMPLATE_YAML block graph", () => {
 });
 
 describe("TEMPLATE_YAML parses in the canvas graph", () => {
-  it("produces six nodes with no parser error", () => {
+  it("produces seven nodes with no parser error", () => {
     const result = parseWorkflowYamlToGraph(TEMPLATE_YAML);
     expect(result.error).toBeUndefined();
     expect(result.nodes.map((node) => node.id)).toEqual([
@@ -120,7 +147,8 @@ describe("TEMPLATE_YAML parses in the canvas graph", () => {
       "review_loop",
       "check_review_status",
       "write_error_stub",
-      "finish",
+      "finish_success",
+      "finish_error",
     ]);
   });
 });

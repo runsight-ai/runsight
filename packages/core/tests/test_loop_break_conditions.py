@@ -67,16 +67,16 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         return BlockOutput(
-            output=f"call_{len(calls)}",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            output=f"call_{len(self.calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -89,22 +89,22 @@ class KeywordBlock(BaseBlock):
 
     def __init__(self, block_id: str, keyword_on_call: int = 2):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.keyword_on_call = keyword_on_call
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        call_num = len(calls)
+        self.calls.append(len(self.calls) + 1)
+        call_num = len(self.calls)
         if call_num >= self.keyword_on_call:
             output = "DONE: finished"
         else:
             output = "working..."
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -116,22 +116,22 @@ class JsonOutputBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         import json
 
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        call_num = len(calls)
+        self.calls.append(len(self.calls) + 1)
+        call_num = len(self.calls)
         output = json.dumps(
             {"score": call_num * 20, "status": "complete" if call_num >= 3 else "pending"}
         )
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -143,22 +143,22 @@ class GatePassBlock(BaseBlock):
 
     def __init__(self, block_id: str, pass_on_round: int = 2):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.pass_on_round = pass_on_round
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        call_num = len(calls)
+        self.calls.append(len(self.calls) + 1)
+        call_num = len(self.calls)
         if call_num >= self.pass_on_round:
             output = "PASS"
         else:
             output = "FAIL: not ready"
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -167,20 +167,20 @@ class BadFieldBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         import json
 
         from runsight_core.block_io import BlockOutput
 
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         # Output has "name" but NOT "status" — condition referencing "status" should get None
-        output = json.dumps({"name": "test", "round": len(calls)})
+        output = json.dumps({"name": "test", "round": len(self.calls)})
         return BlockOutput(
             output=output,
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -572,12 +572,13 @@ class TestLoopBlockBreakMetadata:
         class DownstreamBlock(BaseBlock):
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "declared"
+                self.declared_inputs = {"loop_meta": "shared_memory.__loop__loop_block"}
 
             async def execute(self, ctx):
                 from runsight_core.block_io import BlockOutput
 
-                state = ctx.state_snapshot
-                meta = state.shared_memory.get("__loop__loop_block", {})
+                meta = ctx.inputs.get("loop_meta", {})
                 return BlockOutput(
                     output=f"broke_early={meta.get('broke_early')}",
                 )

@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   BackgroundVariant,
+  type Edge,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { useCanvasStore } from "@/store/canvas";
+import {
+  EMPTY_CONTEXT_AUDIT_EVENTS,
+  contextAuditEdgesFromEvents,
+  selectRunEvents,
+  useContextAuditStore,
+} from "@/store/contextAudit";
 import { nodeTypes } from "./nodes";
 
 interface SurfaceCanvasProps {
@@ -31,9 +38,43 @@ export function SurfaceCanvas({
   onNodeClick: onNodeClickProp,
   onNodeDoubleClick: onNodeDoubleClickProp,
   onPaneClick: onPaneClickProp,
+  runId,
 }: SurfaceCanvasProps) {
   const { nodes, edges, onNodesChange, onEdgesChange, selectNode } =
     useCanvasStore();
+  const namespace = "results";
+  const contextEvents = useContextAuditStore((state) =>
+    runId ? selectRunEvents(runId)(state) : EMPTY_CONTEXT_AUDIT_EVENTS,
+  );
+  const contextOverlayEdges = useMemo(
+    () =>
+      runId
+        ? contextAuditEdgesFromEvents(contextEvents)
+            .filter((edge) => edge.namespace === namespace && edge.source !== "workflow")
+            .map<Edge>((edge) => ({
+              id: `context-overlay:${edge.id}`,
+              source: edge.source,
+              target: edge.target,
+              type: "straight",
+              className: "context-overlay",
+              label: edge.inputName ?? "context",
+              selectable: false,
+              focusable: false,
+              deletable: false,
+              reconnectable: false,
+              interactionWidth: 0,
+              style: {
+                stroke: "var(--info-9)",
+                strokeDasharray: "4 4",
+                strokeWidth: 1.5,
+              },
+              data: { context: true, namespace: edge.namespace },
+            }))
+        : [],
+    [contextEvents, runId],
+  );
+  // Keep this runtime derivation aligned with selectContextAuditEdges without
+  // subscribing React to a freshly allocated selector result.
 
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
@@ -61,7 +102,7 @@ export function SurfaceCanvas({
       <div className="h-full min-h-0 flex-1">
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={[...edges, ...contextOverlayEdges]}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}

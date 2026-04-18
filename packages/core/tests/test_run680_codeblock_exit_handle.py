@@ -144,13 +144,14 @@ class TestAC4LoopBlockBreakOnExit:
         shared_memory to decide when to emit exit_handle="pass"."""
         code = textwrap.dedent("""\
 def main(data):
-    round_num = data["shared_memory"].get("loop_main_round", 1)
+    round_num = data.get("round_num", 1)
     result = {"round": round_num}
     if round_num >= 2:
         result["exit_handle"] = "pass"
     return result
 """)
         code_block = CodeBlock("code_inner", code)
+        code_block.declared_inputs = {"round_num": "shared_memory.loop_main_round"}
 
         loop_block = LoopBlock(
             "loop_main",

@@ -67,6 +67,9 @@ swe_af_goal.md
 apps/gui/playwright-report/
 apps/gui/e2e-screenshots/
 apps/gui/e2e/test-results/
+testing/gui-e2e/.runtime/
+testing/gui-e2e/playwright-report/
+testing/gui-e2e/test-results/
 apps/gui/tsconfig.tsbuildinfo
 apps/gui/page.html
 apps/gui/test-monaco.js

@@ -5,12 +5,19 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import RunFailed, RunNotFound, ServiceUnavailable
+from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
+from ..context_audit import (
+    context_audit_sort_key,
+    decode_context_audit_cursor,
+    encode_context_audit_cursor,
+    parse_context_audit_message,
+)
 from ..deps import get_eval_service, get_execution_service, get_run_service
 from ..schemas.runs import (
+    ContextAuditListResponse,
     NodeSummary,
     PaginatedLogsResponse,
     RunCreate,
@@ -379,6 +386,56 @@ async def get_run_logs(
     logs = run_service.get_run_logs(run_id)
     items = logs[offset : offset + limit]
     return PaginatedLogsResponse(items=items, total=len(logs), offset=offset, limit=limit)
+
+
+@router.get("/{run_id}/context-audit", response_model=ContextAuditListResponse)
+async def get_run_context_audit(
+    run_id: str,
+    node_id: Optional[str] = None,
+    cursor: Optional[str] = None,
+    page_size: int = Query(100, ge=1, le=500),
+    run_service: RunService = Depends(get_run_service),
+):
+    run = run_service.get_run(run_id)
+    if not run:
+        raise RunNotFound(f"Run {run_id} not found")
+
+    after_key = None
+    if cursor:
+        try:
+            after_key = decode_context_audit_cursor(cursor)
+        except ValueError as exc:
+            raise InputValidationError("Invalid cursor", status_code=422) from exc
+
+    try:
+        logs = run_service.get_run_logs(run_id)
+    except Exception as exc:
+        logger.warning("Failed to load context audit logs for run %s", run_id, exc_info=True)
+        raise RunFailed("Failed to load context audit", run_id=run_id) from exc
+
+    rows = []
+    for log in logs:
+        event = parse_context_audit_message(log.message)
+        if event is None:
+            continue
+        if node_id is not None and event.node_id != node_id:
+            continue
+        key = context_audit_sort_key(log, event)
+        rows.append((key, event))
+
+    rows.sort(key=lambda item: item[0])
+    if after_key is not None:
+        rows = [item for item in rows if item[0] > after_key]
+
+    page = rows[:page_size]
+    has_next_page = len(rows) > page_size
+    end_cursor = encode_context_audit_cursor(page[-1][0]) if page else None
+    return ContextAuditListResponse(
+        items=[event for _, event in page],
+        page_size=page_size,
+        has_next_page=has_next_page,
+        end_cursor=end_cursor,
+    )
 
 
 @router.get("/{run_id}/regressions")

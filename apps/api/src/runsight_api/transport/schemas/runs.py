@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from runsight_core.context_governance import ContextAuditEventV1
 
 from .workflows import WarningItem
 
@@ -92,3 +93,10 @@ class PaginatedLogsResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class ContextAuditListResponse(BaseModel):
+    items: List[ContextAuditEventV1]
+    page_size: int
+    has_next_page: bool
+    end_cursor: Optional[str] = None

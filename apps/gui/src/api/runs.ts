@@ -9,6 +9,8 @@ import {
   type RunNodeResponse,
   PaginatedLogsResponseSchema,
   type PaginatedLogsResponse,
+  ContextAuditListResponseSchema,
+  type ContextAuditListResponse,
   type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
 } from "@runsight/shared/zod";
 import { z } from "zod";
@@ -32,6 +34,11 @@ export const RunRegressionsResponseSchema = z.object({
 });
 
 export type RunRegressionsResponse = z.infer<typeof RunRegressionsResponseSchema>;
+export type RunContextAuditParams = {
+  node_id?: string;
+  cursor?: string;
+  page_size?: number;
+};
 
 /** Map frontend shorthand status values to actual RunStatus enum values. */
 const STATUS_ALIASES: Record<string, string[]> = {
@@ -122,6 +129,25 @@ export const runsApi = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     const res = await api.get(`/runs/${id}/logs${qs}`);
     return PaginatedLogsResponseSchema.parse(res);
+  },
+
+  getRunContextAudit: async (
+    id: string,
+    params?: RunContextAuditParams,
+  ): Promise<ContextAuditListResponse> => {
+    const sp = new URLSearchParams();
+    if (params?.node_id) {
+      sp.set("node_id", params.node_id);
+    }
+    if (params?.cursor) {
+      sp.set("cursor", params.cursor);
+    }
+    if (params?.page_size !== undefined) {
+      sp.set("page_size", String(params.page_size));
+    }
+    const qs = sp.toString() ? `?${sp.toString()}` : "";
+    const res = await api.get(`/runs/${id}/context-audit${qs}`);
+    return ContextAuditListResponseSchema.parse(res);
   },
 
   getRunRegressions: async (id: string): Promise<RunRegressionsResponse> => {

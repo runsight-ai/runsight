@@ -19,6 +19,20 @@ from pydantic import (
 
 from runsight_core.identity import EntityKind, validate_entity_id
 
+_RESERVED_BLOCK_INPUT_NAMES = frozenset(
+    {
+        "workflow",
+        "results",
+        "shared_memory",
+        "metadata",
+        "blocks",
+        "ctx",
+        "call_stack",
+        "workflow_registry",
+        "observer",
+    }
+)
+
 # -- Soul / Tool definitions ------------------------------------------------
 
 
@@ -313,6 +327,19 @@ class BaseBlockDef(BaseModel):
                     raise ValueError("depends entries must not be blank")
                 normalized_items.append(normalized)
             return normalized_items
+        return value
+
+    @field_validator("inputs")
+    @classmethod
+    def _validate_reserved_input_names(
+        cls, value: Optional[Dict[str, InputRef]]
+    ) -> Optional[Dict[str, InputRef]]:
+        if value is None:
+            return value
+        reserved = sorted(set(value) & _RESERVED_BLOCK_INPUT_NAMES)
+        if reserved:
+            joined = ", ".join(repr(name) for name in reserved)
+            raise ValueError(f"reserved local input name(s) cannot be declared: {joined}")
         return value
 
     @field_validator("error_route")

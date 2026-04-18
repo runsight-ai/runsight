@@ -325,8 +325,9 @@ class TestExistingBlockCodeUnchanged:
         inner.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_wrapper_serializes_plain_workflow_mapped_results(self):
-        """Workflow-mapped string/dict results must not crash envelope building."""
+    async def test_wrapper_serializes_declared_workflow_mapped_results(self):
+        """Declared workflow-mapped string/dict results must not crash envelope building."""
+        import json
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -336,6 +337,12 @@ class TestExistingBlockCodeUnchanged:
         runner = MagicMock()
         inner = LinearBlock("blk1", soul, runner)
         wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper.declared_inputs = {
+            "real_output": "real_block.output",
+            "workflow_string": "workflow_mapped_string.output",
+            "workflow_phase": "workflow_mapped_dict.phase",
+            "workflow_status": "workflow_mapped_dict.status",
+        }
 
         captured = {}
 
@@ -368,9 +375,20 @@ class TestExistingBlockCodeUnchanged:
         result_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         envelope = captured["envelope"]
+        assert envelope.inputs == {
+            "real_output": "wrapped",
+            "workflow_string": "plain string output",
+            "workflow_phase": "primary_pass",
+            "workflow_status": "ok",
+        }
+        assert set(envelope.scoped_results) == {
+            "real_block",
+            "workflow_mapped_string",
+            "workflow_mapped_dict",
+        }
         assert envelope.scoped_results["real_block"]["output"] == "wrapped"
         assert envelope.scoped_results["workflow_mapped_string"]["output"] == "plain string output"
-        assert envelope.scoped_results["workflow_mapped_dict"]["output"] == {
+        assert json.loads(envelope.scoped_results["workflow_mapped_dict"]["output"]) == {
             "phase": "primary_pass",
             "status": "ok",
         }
@@ -1256,7 +1274,12 @@ workflow:
 class TestRUN392EnvelopeBlockContracts:
     """RUN-392: wrapper must emit full envelope config for migrated block types."""
 
-    async def _execute_and_capture_envelope(self, wrapper) -> ContextEnvelope:
+    async def _execute_and_capture_envelope(
+        self,
+        wrapper,
+        *,
+        state: WorkflowState | None = None,
+    ) -> ContextEnvelope:
         captured: dict[str, ContextEnvelope] = {}
 
         async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
@@ -1275,8 +1298,7 @@ class TestRUN392EnvelopeBlockContracts:
             )
 
         wrapper._run_in_subprocess = _capture
-        state = _make_state()
-        await wrapper.execute(_make_ctx(wrapper, state))
+        await wrapper.execute(_make_ctx(wrapper, state or _make_state()))
         return captured["envelope"]
 
     @pytest.mark.asyncio
@@ -1294,7 +1316,8 @@ class TestRUN392EnvelopeBlockContracts:
         )
         wrapper = IsolatedBlockWrapper(block_id="gate1", inner_block=inner)
 
-        envelope = await self._execute_and_capture_envelope(wrapper)
+        state = WorkflowState(results={"producer": BlockResult(output='{"answer": "ok"}')})
+        envelope = await self._execute_and_capture_envelope(wrapper, state=state)
 
         assert envelope.block_type == "gate"
         assert envelope.block_config["eval_key"] == "producer"
@@ -1311,7 +1334,13 @@ class TestRUN392EnvelopeBlockContracts:
         inner = SynthesizeBlock("synth1", ["draft", "facts"], synth_soul, MagicMock())
         wrapper = IsolatedBlockWrapper(block_id="synth1", inner_block=inner)
 
-        envelope = await self._execute_and_capture_envelope(wrapper)
+        state = WorkflowState(
+            results={
+                "draft": BlockResult(output="draft text"),
+                "facts": BlockResult(output="fact text"),
+            }
+        )
+        envelope = await self._execute_and_capture_envelope(wrapper, state=state)
 
         assert envelope.block_type == "synthesize"
         assert envelope.block_config["input_block_ids"] == ["draft", "facts"]
@@ -1475,6 +1504,7 @@ class TestRUN815WrapperHarnessWiringContract:
 
         harness = _FakeHarness(result)
         wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner, harness=harness)
+        wrapper.declared_inputs = {"instruction": "shared_memory._resolved_inputs.instruction"}
 
         state = _make_state()
         state = state.model_copy(

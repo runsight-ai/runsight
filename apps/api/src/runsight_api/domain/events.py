@@ -14,6 +14,7 @@ SSE_RUN_FAILED: str = "run_failed"
 SSE_NODE_STARTED: str = "node_started"
 SSE_NODE_COMPLETED: str = "node_completed"
 SSE_NODE_FAILED: str = "node_failed"
+SSE_CONTEXT_RESOLUTION: str = "context_resolution"
 
 SSE_CHILD_RUN_COMPLETED: str = "child_run_completed"
 

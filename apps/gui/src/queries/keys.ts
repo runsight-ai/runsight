@@ -8,6 +8,7 @@ export const queryKeys = {
     all: ["runs"] as const,
     detail: (id: string) => ["runs", id] as const,
     logs: (id: string) => ["runs", id, "logs"] as const,
+    contextAudit: (id: string) => ["runs", id, "contextAudit"] as const,
     regressions: (id: string) => ["runs", id, "regressions"] as const,
     children: (id: string) => ["runs", id, "children"] as const,
   },

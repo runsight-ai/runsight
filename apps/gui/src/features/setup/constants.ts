@@ -97,9 +97,12 @@ blocks:
   check_review_status:
     type: code
     timeout_seconds: 10
+    inputs:
+      loop_status:
+        from: shared_memory.__loop__review_loop
     code: |
       def main(data):
-          loop_meta = data["shared_memory"].get("__loop__review_loop", {}) or {}
+          loop_meta = data.get("loop_status", {}) or {}
           break_reason = str(loop_meta.get("break_reason", ""))
           passed = "pass" in break_reason
           return {
@@ -110,9 +113,12 @@ blocks:
   write_error_stub:
     type: linear
     soul_ref: error_writer
-  finish:
+  finish_success:
     type: code
     timeout_seconds: 10
+    inputs:
+      review_status_result:
+        from: check_review_status
     code: |
       import json
 
@@ -131,8 +137,37 @@ blocks:
               "status": "completed",
               "report_path": "custom/outputs/onboarding-research-brief.md",
               "error_stub_path": "custom/outputs/onboarding-research-error.md",
-              "review_status": _normalize(data["results"].get("check_review_status", "")),
-              "error_stub": _normalize(data["results"].get("write_error_stub", "")),
+              "review_status": _normalize(data.get("review_status_result", "")),
+              "error_stub": {"raw": ""},
+          }
+  finish_error:
+    type: code
+    timeout_seconds: 10
+    inputs:
+      review_status_result:
+        from: check_review_status
+      error_stub_result:
+        from: write_error_stub
+    code: |
+      import json
+
+      def _normalize(raw):
+          if isinstance(raw, dict):
+              return raw
+          if isinstance(raw, str):
+              try:
+                  return json.loads(raw)
+              except Exception:
+                  return {"raw": raw}
+          return {"raw": raw}
+
+      def main(data):
+          return {
+              "status": "completed",
+              "report_path": "custom/outputs/onboarding-research-brief.md",
+              "error_stub_path": "custom/outputs/onboarding-research-error.md",
+              "review_status": _normalize(data.get("review_status_result", "")),
+              "error_stub": _normalize(data.get("error_stub_result", "")),
           }
 workflow:
   name: Research & Review
@@ -141,10 +176,10 @@ workflow:
     - from: review_loop
       to: check_review_status
     - from: write_error_stub
-      to: finish
+      to: finish_error
   conditional_transitions:
     - from: check_review_status
-      pass: finish
+      pass: finish_success
       fail: write_error_stub
       default: write_error_stub
 `;

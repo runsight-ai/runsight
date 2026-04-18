@@ -86,11 +86,13 @@ class _ErrorAwareHandlerBlock(BaseBlock):
         super().__init__(block_id)
         self.failed_block_id = failed_block_id
         self.call_count = 0
+        self.declared_inputs = {
+            "routed_error": f"shared_memory.__error__{failed_block_id}",
+        }
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.call_count += 1
-        state = ctx.state_snapshot
-        error_info = state.shared_memory.get(f"__error__{self.failed_block_id}") if state else None
+        error_info = ctx.inputs.get("routed_error")
         return BlockOutput(
             output="handled",
             metadata={"seen_error": error_info},
@@ -197,7 +199,7 @@ class TestWorkflowBlockOnErrorCatchWithErrorRoute:
             on_error="catch",
         )
 
-        handler = _ErrorAwareHandlerBlock("handler", failed_block_id="invoke_child")
+        handler = _WriteBlock("handler", output="handled")
         happy_next = _WriteBlock("happy_next", output="should not run")
 
         # Parent workflow: invoke_child -> happy_next (normal path)
@@ -507,9 +509,12 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             blocks:
               analyzer:
                 type: code
+                inputs:
+                  topic:
+                    from: shared_memory.topic
                 code: |
                   def main(data):
-                      topic = data["shared_memory"].get("topic", "unknown")
+                      topic = data.get("topic", "unknown")
                       return {"analyzed": topic, "score": 42}
             workflow:
               name: child_code_wf
@@ -689,9 +694,12 @@ class TestDependsPredecessorFailsErrorRouteRuns:
                       return {"analyzed": True}
               handler:
                 type: code
+                inputs:
+                  routed_error:
+                    from: shared_memory.__error__fetch
                 code: |
                   def main(data):
-                      err = data["shared_memory"].get("__error__fetch", {})
+                      err = data.get("routed_error", {})
                       return {"handled": True, "error_type": err.get("type", "unknown")}
             workflow:
               name: depends_error_route

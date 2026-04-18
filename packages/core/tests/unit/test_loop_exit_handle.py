@@ -35,20 +35,21 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         next_state = state.model_copy(
             update={
                 "results": {
                     **state.results,
-                    self.block_id: BlockResult(output=f"call_{len(calls)}"),
+                    self.block_id: BlockResult(output=f"call_{len(self.calls)}"),
                 },
                 "shared_memory": {
                     **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
+                    f"{self.block_id}_calls": list(self.calls),
                 },
             }
         )
@@ -64,14 +65,15 @@ class ExitHandleBlock(BaseBlock):
 
     def __init__(self, block_id: str, exit_handle: str, threshold: int = 1):
         super().__init__(block_id)
+        self.context_access = "declared"
         self._exit_handle = exit_handle
         self._threshold = threshold
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        call_num = len(calls)
+        self.calls.append(len(self.calls) + 1)
+        call_num = len(self.calls)
 
         if call_num >= self._threshold:
             handle = self._exit_handle
@@ -89,7 +91,7 @@ class ExitHandleBlock(BaseBlock):
                 },
                 "shared_memory": {
                     **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
+                    f"{self.block_id}_calls": list(self.calls),
                 },
             }
         )
@@ -630,13 +632,14 @@ class ContextPayloadBlock(BaseBlock):
 
     def __init__(self, block_id: str, *, trace_path: str):
         super().__init__(block_id)
+        self.context_access = "declared"
         self._trace_path = trace_path
+        self.calls: list[int] = []
 
     async def execute(self, ctx):
         state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
-        call_num = len(calls)
+        self.calls.append(len(self.calls) + 1)
+        call_num = len(self.calls)
         next_state = state.model_copy(
             update={
                 "results": {
@@ -647,7 +650,7 @@ class ContextPayloadBlock(BaseBlock):
                 },
                 "shared_memory": {
                     **state.shared_memory,
-                    f"{self.block_id}_calls": calls,
+                    f"{self.block_id}_calls": list(self.calls),
                 },
             }
         )
@@ -969,13 +972,14 @@ class TestCombinedBreakAndRetryOnExit:
 
             def __init__(self, block_id: str, pass_on_call: int = 3):
                 super().__init__(block_id)
+                self.context_access = "declared"
                 self._pass_on_call = pass_on_call
+                self.calls: list[int] = []
 
             async def execute(self, ctx):
                 state = ctx.state_snapshot
-                calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-                calls.append(len(calls) + 1)
-                call_num = len(calls)
+                self.calls.append(len(self.calls) + 1)
+                call_num = len(self.calls)
 
                 if call_num >= self._pass_on_call:
                     handle = "pass"
@@ -993,7 +997,7 @@ class TestCombinedBreakAndRetryOnExit:
                         },
                         "shared_memory": {
                             **state.shared_memory,
-                            f"{self.block_id}_calls": calls,
+                            f"{self.block_id}_calls": list(self.calls),
                         },
                     }
                 )

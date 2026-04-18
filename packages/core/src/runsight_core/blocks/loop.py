@@ -28,6 +28,18 @@ class CarryContextConfig(BaseModel):
     source_blocks: Optional[List[str]] = None
     inject_as: str = "previous_round_context"
 
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> Any:
+        schema = handler(core_schema)
+        mode_schema = schema.get("properties", {}).get("mode")
+        if isinstance(mode_schema, dict):
+            mode_schema.pop("enum", None)
+            mode_schema["oneOf"] = [
+                {"const": "last", "type": "string"},
+                {"const": "all", "type": "string"},
+            ]
+        return schema
+
 
 class LoopBlock(BaseBlock):
     """

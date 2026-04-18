@@ -68,9 +68,15 @@
         },
         "mode": {
           "default": "last",
-          "enum": [
-            "last",
-            "all"
+          "oneOf": [
+            {
+              "const": "last",
+              "type": "string"
+            },
+            {
+              "const": "all",
+              "type": "string"
+            }
           ],
           "title": "Mode",
           "type": "string"

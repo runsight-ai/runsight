@@ -6,8 +6,8 @@ AC-1: CodeBlock.execute accepts BlockContext and returns BlockOutput (not Workfl
 AC-2: stdin_data to subprocess is byte-identical to current path
 AC-3: Error cases produce correct BlockOutput with exit_handle="error"
 AC-4: exit_handle extraction from dict results still works
-AC-5: build_block_context detects CodeBlock (has `code` attribute) and populates
-      ctx.inputs with full state snapshot: results, metadata, shared_memory
+AC-5: build_block_context detects CodeBlock (has `code` attribute) without requiring
+      current_task or LLM state.
 AC-6: End-to-end via execute_block dispatches CodeBlock through new path
 """
 
@@ -87,19 +87,18 @@ def _make_state(**overrides) -> WorkflowState:
     return WorkflowState(**defaults)
 
 
-def _make_code_block_context(block: CodeBlock, state: WorkflowState) -> BlockContext:
+def _make_code_block_context(
+    block: CodeBlock,
+    state: WorkflowState,
+    *,
+    inputs: dict | None = None,
+) -> BlockContext:
     """Helper: build a BlockContext for CodeBlock directly (no build_block_context)."""
     return BlockContext(
         block_id=block.block_id,
         instruction="run code",
         context=None,
-        inputs={
-            "results": {
-                k: v.output if isinstance(v, BlockResult) else v for k, v in state.results.items()
-            },
-            "metadata": state.metadata,
-            "shared_memory": state.shared_memory,
-        },
+        inputs=dict(inputs or {}),
         conversation_history=[],
         soul=None,
         model_name=None,
@@ -200,84 +199,86 @@ class TestAC1AcceptsBlockContextReturnsBlockOutput:
 
 
 # ===========================================================================
-# AC-2: stdin_data byte-identical to current path
+# AC-2: governed ctx.inputs are passed through to stdin
 # ===========================================================================
 
 
 class TestAC2StdinDataByteIdentical:
     @pytest.mark.asyncio
-    async def test_stdin_data_structure_matches_current_path(self):
-        """ctx.inputs must produce the same JSON structure as the current stdin_data."""
-        prior_result = BlockResult(output="prior output")
-        state = _make_state(
-            results={"prior_block": prior_result},
-            metadata={"run_id": "abc"},
-            shared_memory={"key": "value"},
-        )
+    async def test_stdin_data_structure_matches_governed_inputs(self):
+        """ctx.inputs must be passed to the subprocess using local declared names."""
+        state = _make_state()
         block = CodeBlock("cb_stdin", ECHO_DATA_CODE)
-        ctx = _make_code_block_context(block, state)
+        declared_inputs = {
+            "prior_output": "prior output",
+            "run_context": {"run_id": "abc"},
+            "scratch_value": "value",
+        }
+        ctx = _make_code_block_context(block, state, inputs=declared_inputs)
 
-        # The ctx.inputs must be structured exactly as the current code builds stdin_data:
-        # {"results": {k: v.output}, "metadata": {...}, "shared_memory": {...}}
-        assert "results" in ctx.inputs
-        assert "metadata" in ctx.inputs
-        assert "shared_memory" in ctx.inputs
+        assert ctx.inputs == declared_inputs
 
     @pytest.mark.asyncio
-    async def test_stdin_results_values_are_unwrapped_output_strings(self):
-        """Results values in ctx.inputs must be unwrapped .output strings, not BlockResult."""
+    async def test_stdin_upstream_values_are_plain_declared_input_values(self):
+        """Resolved upstream values in ctx.inputs must already be plain local inputs."""
         prior_result = BlockResult(output="prior output string")
         state = _make_state(results={"prior_block": prior_result})
         block = CodeBlock("cb_unwrap", ECHO_DATA_CODE)
-        ctx = _make_code_block_context(block, state)
-
-        results_in_inputs = ctx.inputs["results"]
-        assert isinstance(results_in_inputs["prior_block"], str), (
-            "Results values in ctx.inputs must be unwrapped to .output strings, "
-            f"got {type(results_in_inputs['prior_block']).__name__}"
+        ctx = _make_code_block_context(
+            block,
+            state,
+            inputs={"prior_output": prior_result.output},
         )
-        assert results_in_inputs["prior_block"] == "prior output string"
+
+        assert isinstance(ctx.inputs["prior_output"], str), (
+            "Resolved upstream values in ctx.inputs must be plain JSON-serializable values, "
+            f"got {type(ctx.inputs['prior_output']).__name__}"
+        )
+        assert ctx.inputs["prior_output"] == "prior output string"
 
     @pytest.mark.asyncio
     async def test_stdin_data_round_trips_through_subprocess(self):
-        """The data passed to main() in the subprocess must contain results, metadata, shared_memory."""
-        state = _make_state(
-            results={"prev": BlockResult(output="prev_out")},
-            metadata={"wf": "test"},
-            shared_memory={"sm_key": "sm_val"},
-        )
+        """The data passed to main() in the subprocess must match ctx.inputs exactly."""
+        state = _make_state()
         block = CodeBlock("cb_echo", ECHO_DATA_CODE)
-        ctx = _make_code_block_context(block, state)
+        declared_inputs = {
+            "previous_output": "prev_out",
+            "runtime_info": {"workflow_name": "test"},
+            "scratchpad": {"sm_key": "sm_val"},
+        }
+        ctx = _make_code_block_context(block, state, inputs=declared_inputs)
 
         result = await block.execute(ctx)
 
         assert isinstance(result, BlockOutput)
         parsed = json.loads(result.output)
-        # data passed to main() must contain all three keys
-        assert "results" in parsed
-        assert "metadata" in parsed
-        assert "shared_memory" in parsed
-        assert parsed["results"]["prev"] == "prev_out"
-        assert parsed["metadata"]["wf"] == "test"
-        assert parsed["shared_memory"]["sm_key"] == "sm_val"
+        assert parsed == declared_inputs
 
     @pytest.mark.asyncio
-    async def test_stdin_metadata_matches_state_metadata(self):
-        """ctx.inputs['metadata'] must be identical to state.metadata."""
+    async def test_stdin_local_mapping_matches_declared_payload(self):
+        """ctx.inputs preserves local mapping payloads."""
         state = _make_state(metadata={"blueprint": "test_wf", "run_id": "run-123"})
         block = CodeBlock("cb_meta", SIMPLE_CODE)
-        ctx = _make_code_block_context(block, state)
+        ctx = _make_code_block_context(
+            block,
+            state,
+            inputs={"run_context": {"blueprint": "test_wf", "run_id": "run-123"}},
+        )
 
-        assert ctx.inputs["metadata"] == {"blueprint": "test_wf", "run_id": "run-123"}
+        assert ctx.inputs["run_context"] == {"blueprint": "test_wf", "run_id": "run-123"}
 
     @pytest.mark.asyncio
-    async def test_stdin_shared_memory_matches_state_shared_memory(self):
-        """ctx.inputs['shared_memory'] must be identical to state.shared_memory."""
+    async def test_stdin_local_nested_inputs_are_preserved(self):
+        """ctx.inputs preserves nested local payloads."""
         state = _make_state(shared_memory={"counter": 42, "flag": True})
         block = CodeBlock("cb_sm", SIMPLE_CODE)
-        ctx = _make_code_block_context(block, state)
+        ctx = _make_code_block_context(
+            block,
+            state,
+            inputs={"scratchpad": {"counter": 42, "flag": True}},
+        )
 
-        assert ctx.inputs["shared_memory"] == {"counter": 42, "flag": True}
+        assert ctx.inputs["scratchpad"] == {"counter": 42, "flag": True}
 
 
 # ===========================================================================
@@ -445,13 +446,13 @@ class TestAC4ExitHandleExtraction:
 
 
 # ===========================================================================
-# AC-5: build_block_context "access: all" pattern for CodeBlock
+# AC-5: build_block_context for CodeBlock
 # ===========================================================================
 
 
 class TestAC5BuildBlockContext:
     def test_build_block_context_detects_code_attribute(self):
-        """build_block_context must detect CodeBlock (has 'code' attr) and use 'access: all'."""
+        """build_block_context must detect CodeBlock (has 'code' attr)."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state(
             results={"prev": BlockResult(output="some result")},
@@ -465,56 +466,18 @@ class TestAC5BuildBlockContext:
             f"build_block_context must return BlockContext for CodeBlock, got {type(ctx).__name__}"
         )
 
-    def test_build_block_context_inputs_contain_results(self):
-        """ctx.inputs must contain 'results' key with full state snapshot."""
+    def test_build_block_context_without_declarations_has_empty_inputs(self):
+        """CodeBlock without inputs receives empty inputs."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state(
             results={"prev": BlockResult(output="some result")},
+            metadata={"wf": "test_workflow"},
+            shared_memory={"sm": "data"},
         )
 
         ctx = build_block_context(block, state)
 
-        assert "results" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['results']"
-        )
-
-    def test_build_block_context_inputs_contain_metadata(self):
-        """ctx.inputs must contain 'metadata' key from state."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(metadata={"wf": "test_workflow"})
-
-        ctx = build_block_context(block, state)
-
-        assert "metadata" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['metadata']"
-        )
-        assert ctx.inputs["metadata"] == {"wf": "test_workflow"}
-
-    def test_build_block_context_inputs_contain_shared_memory(self):
-        """ctx.inputs must contain 'shared_memory' key from state."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(shared_memory={"sm": "data"})
-
-        ctx = build_block_context(block, state)
-
-        assert "shared_memory" in ctx.inputs, (
-            "build_block_context for CodeBlock must populate ctx.inputs['shared_memory']"
-        )
-        assert ctx.inputs["shared_memory"] == {"sm": "data"}
-
-    def test_build_block_context_results_values_are_unwrapped(self):
-        """Results in ctx.inputs must be unwrapped BlockResult.output strings."""
-        block = CodeBlock("cb_ctx", SIMPLE_CODE)
-        state = _make_state(results={"prev": BlockResult(output="output str")})
-
-        ctx = build_block_context(block, state)
-
-        results_in_inputs = ctx.inputs["results"]
-        assert isinstance(results_in_inputs["prev"], str), (
-            "Results values must be unwrapped to strings (BlockResult.output), "
-            f"got {type(results_in_inputs['prev']).__name__}"
-        )
-        assert results_in_inputs["prev"] == "output str"
+        assert ctx.inputs == {}
 
     def test_build_block_context_block_id_matches(self):
         """ctx.block_id must match the block's block_id."""

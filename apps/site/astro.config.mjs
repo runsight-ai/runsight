@@ -41,6 +41,7 @@ export default defineConfig({
 					label: 'Workflows',
 					items: [
 						{ label: 'YAML Schema', slug: 'docs/workflows/yaml-schema' },
+						{ label: 'Context Governance', slug: 'docs/workflows/context-governance' },
 						{ label: 'Block Types', slug: 'docs/workflows/block-types' },
 						{ label: 'Transitions & Routing', slug: 'docs/workflows/transitions-and-routing' },
 						{ label: 'Sub-Workflows', slug: 'docs/workflows/sub-workflows' },

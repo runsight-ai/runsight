@@ -1248,49 +1248,53 @@ class TestSocketCreation:
 
 
 class TestContextScoping:
-    """ContextEnvelope must contain only data declared by YAML context_scope."""
+    """ContextEnvelope must contain only declaration-governed scoped data."""
 
     @pytest.mark.asyncio
-    async def test_linear_block_gets_previous_block_output(self):
-        """LinearBlock default scoping: receives previous block output from state.results."""
+    async def test_linear_block_uses_declared_inputs_not_previous_block_type_scope(self):
+        """LinearBlock scoping follows declared inputs, not previous_block_id."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import BlockResult, WorkflowState
 
         harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
 
-        # Simulate state with multiple block results
-        state = MagicMock()
-        state.results = {
-            "block-0": MagicMock(output="first result"),
-            "block-1": MagicMock(output="second result"),
-        }
-        state.shared_memory = {"global_key": "global_value"}
+        state = WorkflowState(
+            results={
+                "block-0": BlockResult(output="first result"),
+                "block-1": BlockResult(output='{"summary": "declared", "secret": "hidden"}'),
+            },
+            shared_memory={"global_key": "global_value"},
+        )
 
         block_config = {
             "block_id": "block-2",
             "block_type": "linear",
             "soul_ref": "test",
-            "previous_block_id": "block-1",
+            "previous_block_id": "block-0",
+            "inputs": {"summary": {"from": "block-1.summary"}},
         }
 
         envelope = harness._build_context_envelope(state=state, block_config=block_config)
 
-        # Should have only the previous block's result, not all results
         assert "block-1" in envelope.scoped_results
         assert "block-0" not in envelope.scoped_results
+        assert envelope.inputs == {"summary": "declared"}
+        assert "hidden" not in envelope.model_dump_json()
 
     @pytest.mark.asyncio
-    async def test_gate_block_gets_eval_key_only(self):
-        """GateBlock scoping: receives eval_key result only."""
+    async def test_gate_block_gets_eval_key_as_internal_declared_context(self):
+        """GateBlock scoping is represented as governed internal content input."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import BlockResult, WorkflowState
 
         harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
 
-        state = MagicMock()
-        state.results = {
-            "eval-block": MagicMock(output="eval output"),
-            "other-block": MagicMock(output="other output"),
-        }
-        state.shared_memory = {}
+        state = WorkflowState(
+            results={
+                "eval-block": BlockResult(output="eval output"),
+                "other-block": BlockResult(output="other output"),
+            }
+        )
 
         block_config = {
             "block_id": "gate-1",
@@ -1302,21 +1306,23 @@ class TestContextScoping:
 
         assert "eval-block" in envelope.scoped_results
         assert "other-block" not in envelope.scoped_results
+        assert envelope.inputs == {"content": "eval output"}
 
     @pytest.mark.asyncio
-    async def test_synthesize_block_gets_input_block_ids_only(self):
-        """SynthesizeBlock scoping: receives only input_block_ids results."""
+    async def test_synthesize_block_gets_input_block_ids_as_internal_declared_context(self):
+        """SynthesizeBlock input_block_ids are governed internal inputs."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import BlockResult, WorkflowState
 
         harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
 
-        state = MagicMock()
-        state.results = {
-            "block-a": MagicMock(output="a output"),
-            "block-b": MagicMock(output="b output"),
-            "block-c": MagicMock(output="c output"),
-        }
-        state.shared_memory = {}
+        state = WorkflowState(
+            results={
+                "block-a": BlockResult(output="a output"),
+                "block-b": BlockResult(output="b output"),
+                "block-c": BlockResult(output="c output"),
+            }
+        )
 
         block_config = {
             "block_id": "synth-1",
@@ -1329,41 +1335,79 @@ class TestContextScoping:
         assert "block-a" in envelope.scoped_results
         assert "block-c" in envelope.scoped_results
         assert "block-b" not in envelope.scoped_results
+        assert envelope.inputs == {"block-a": "a output", "block-c": "c output"}
 
     @pytest.mark.asyncio
-    async def test_custom_scope_from_yaml_declarations(self):
-        """Custom YAML context_scope.results + context_scope.shared_memory."""
+    async def test_declared_namespace_inputs_replace_legacy_context_scope(self):
+        """YAML inputs/access replace legacy context_scope serialization."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import BlockResult, WorkflowState
 
         harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
 
-        state = MagicMock()
-        state.results = {
-            "block-x": MagicMock(output="x"),
-            "block-y": MagicMock(output="y"),
-            "block-z": MagicMock(output="z"),
-        }
-        state.shared_memory = {
-            "allowed_key": "allowed_val",
-            "secret_key": "secret_val",
-        }
+        state = WorkflowState(
+            results={
+                "block-x": BlockResult(output="x"),
+                "block-y": BlockResult(output="y"),
+                "block-z": BlockResult(output="z"),
+            },
+            shared_memory={
+                "allowed_key": "allowed_val",
+                "secret_key": "secret_val",
+            },
+        )
 
         block_config = {
             "block_id": "custom-1",
             "block_type": "linear",
+            "inputs": {
+                "x": {"from": "block-x"},
+                "allowed": {"from": "shared_memory.allowed_key"},
+            },
             "context_scope": {
-                "results": ["block-x", "block-z"],
-                "shared_memory": ["allowed_key"],
+                "results": ["block-y", "block-z"],
+                "shared_memory": ["secret_key"],
             },
         }
 
         envelope = harness._build_context_envelope(state=state, block_config=block_config)
 
         assert "block-x" in envelope.scoped_results
-        assert "block-z" in envelope.scoped_results
+        assert "block-z" not in envelope.scoped_results
         assert "block-y" not in envelope.scoped_results
         assert "allowed_key" in envelope.scoped_shared_memory
         assert "secret_key" not in envelope.scoped_shared_memory
+        assert envelope.inputs == {"x": "x", "allowed": "allowed_val"}
+
+    @pytest.mark.asyncio
+    async def test_raw_access_block_config_is_rejected_while_default_remains_declared(
+        self,
+    ):
+        """Raw harness configs must reject access while the implicit default stays declared."""
+        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.state import WorkflowState
+
+        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        state = WorkflowState()
+
+        declared_envelope = harness._build_context_envelope(
+            state=state,
+            block_config={
+                "block_id": "block-1",
+                "block_type": "linear",
+            },
+        )
+        assert declared_envelope.access == "declared"
+
+        with pytest.raises(ValueError, match=r"access.*unsupported|all-access is no longer"):
+            harness._build_context_envelope(
+                state=state,
+                block_config={
+                    "block_id": "block-1",
+                    "block_type": "linear",
+                    "access": "declared",
+                },
+            )
 
 
 # ===========================================================================

@@ -90,15 +90,15 @@ class StatefulArtifactBlock(BaseBlock):
 
     def __init__(self, block_id: str, soul: Soul, runner):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.stateful = True
         self.soul = soul
         self.runner = runner
+        self.call_count = 0
 
     async def execute(self, ctx) -> BlockOutput:
         state = ctx.state_snapshot
-        # Track round number via shared_memory
-        call_key = f"__{self.block_id}_call_count"
-        call_count = state.shared_memory.get(call_key, 0) + 1
+        self.call_count += 1
 
         # -- Stateful: read / append conversation history --
         history_key = f"{self.block_id}_{self.soul.id}"
@@ -112,29 +112,29 @@ class StatefulArtifactBlock(BaseBlock):
         ]
 
         # -- Artifact: write one artifact per round --
-        artifact_key = f"{self.block_id}_round_{call_count}"
+        artifact_key = f"{self.block_id}_round_{self.call_count}"
         ref = await self.write_artifact(
             state,
             artifact_key,
-            f"artifact content for round {call_count}",
-            metadata={"round": call_count},
+            f"artifact content for round {self.call_count}",
+            metadata={"round": self.call_count},
         )
 
         return BlockOutput(
             output=result.output,
             artifact_ref=ref,
             artifact_type="text",
-            metadata={"round": call_count},
+            metadata={"round": self.call_count},
             cost_usd=result.cost_usd,
             total_tokens=result.total_tokens,
             log_entries=[
                 {
                     "role": "system",
-                    "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
+                    "content": f"[Block {self.block_id}] Round {self.call_count}: {result.output[:100]}",
                 }
             ],
             conversation_replacements={history_key: updated_history},
-            shared_memory_updates={call_key: call_count},
+            shared_memory_updates={f"__{self.block_id}_call_count": self.call_count},
         )
 
 
@@ -147,16 +147,17 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
 
     def __init__(self, block_id: str, soul: Soul, runner):
         super().__init__(block_id)
+        self.context_access = "declared"
         self.stateful = True
         self.soul = soul
         self.runner = runner
+        self.call_count = 0
 
     async def execute(self, ctx) -> BlockOutput:
         from runsight_core.memory.windowing import get_max_tokens, prune_messages
 
         state = ctx.state_snapshot
-        call_key = f"__{self.block_id}_call_count"
-        call_count = state.shared_memory.get(call_key, 0) + 1
+        self.call_count += 1
 
         history_key = f"{self.block_id}_{self.soul.id}"
         history = list(state.conversation_histories.get(history_key, []))
@@ -173,29 +174,29 @@ class StatefulArtifactBlockWithWindowing(BaseBlock):
         updated_history = prune_messages(updated_history, get_max_tokens(model), model)
 
         # Write artifact
-        artifact_key = f"{self.block_id}_round_{call_count}"
+        artifact_key = f"{self.block_id}_round_{self.call_count}"
         ref = await self.write_artifact(
             state,
             artifact_key,
-            f"artifact content for round {call_count}",
-            metadata={"round": call_count},
+            f"artifact content for round {self.call_count}",
+            metadata={"round": self.call_count},
         )
 
         return BlockOutput(
             output=result.output,
             artifact_ref=ref,
             artifact_type="text",
-            metadata={"round": call_count},
+            metadata={"round": self.call_count},
             cost_usd=result.cost_usd,
             total_tokens=result.total_tokens,
             log_entries=[
                 {
                     "role": "system",
-                    "content": f"[Block {self.block_id}] Round {call_count}: {result.output[:100]}",
+                    "content": f"[Block {self.block_id}] Round {self.call_count}: {result.output[:100]}",
                 }
             ],
             conversation_replacements={history_key: updated_history},
-            shared_memory_updates={call_key: call_count},
+            shared_memory_updates={f"__{self.block_id}_call_count": self.call_count},
         )
 
 

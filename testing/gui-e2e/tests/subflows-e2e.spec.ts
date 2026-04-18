@@ -50,11 +50,6 @@ type RunNodeResponse = {
   exit_handle?: string | null;
 };
 
-type WorkflowSimulationResponse = {
-  branch: string;
-  commit_sha: string;
-};
-
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API}${path}`);
   if (!response.ok) {
@@ -71,6 +66,18 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   });
   if (!response.ok) {
     throw new Error(`POST ${path} failed with ${response.status}: ${await response.text()}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`PUT ${path} failed with ${response.status}: ${await response.text()}`);
   }
   return response.json() as Promise<T>;
 }
@@ -132,7 +139,7 @@ async function createWorkflowViaUi(
       selected_node_id: null,
       canvas_mode: "dag",
     },
-    commit: false,
+    commit: true,
   });
   const trackedWorkflow: TrackedWorkflow = { id: workflowId, name: name };
   onCreated(trackedWorkflow);
@@ -211,16 +218,10 @@ async function runWorkflowFromEditor(page: Page, workflowId: string) {
   const runSurfaceButton = page.getByTestId("workflow-run-button");
   await expect(runSurfaceButton).toBeVisible({ timeout: 10000 });
   await expect(runSurfaceButton).toBeEnabled({ timeout: 10000 });
-  const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
-  const simulation = await apiPost<WorkflowSimulationResponse>(
-    `/workflows/${workflowId}/simulations`,
-    { yaml: workflow.yaml },
-  );
   const run = await apiPost<RunSummary>("/runs", {
     workflow_id: workflowId,
     inputs: {},
-    source: "simulation",
-    branch: simulation.branch,
+    source: "manual",
   });
   await page.goto(`/runs/${run.id}`);
   await expect(page).toHaveURL(/\/runs\/[^/]+$/, { timeout: 15000 });
@@ -315,9 +316,12 @@ function buildHappyChildYaml(workflowId: string, workflowName: string): string {
     "blocks:",
     "  compose_summary:",
     "    type: code",
+    "    inputs:",
+    "      topic:",
+    "        from: shared_memory.topic",
     "    code: |",
     "      def main(data):",
-    '          topic = data["shared_memory"]["topic"]',
+    '          topic = data["topic"]',
     '          return f"happy child handled {topic}"',
     "workflow:",
     `  name: ${workflowName}`,
@@ -382,9 +386,12 @@ function buildHappyParentYaml(
     "      results.final_summary: summary",
     "  confirm_summary:",
     "    type: code",
+    "    inputs:",
+    "      summary:",
+    "        from: results.final_summary",
     "    code: |",
     "      def main(data):",
-    '          return data["results"]["final_summary"]',
+    '          return data["summary"]',
     "workflow:",
     `  name: ${workflowName}`,
     "  entry: prepare_input",
@@ -438,6 +445,8 @@ test("subflows run end to end through the GUI for happy and failing paths", asyn
   const createdRunIds: string[] = [];
 
   try {
+    await apiPut("/settings/app", { onboarding_completed: true, fallback_enabled: false });
+
     const happyChildName = `${TEST_PREFIX}-child-happy`;
     const failingChildName = `${TEST_PREFIX}-child-failing`;
     const happyParentName = `${TEST_PREFIX}-parent-happy`;

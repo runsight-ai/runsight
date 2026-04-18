@@ -14,6 +14,7 @@ from runsight_core import (
 )
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.blocks.loop import CarryContextConfig
 from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
@@ -26,14 +27,14 @@ class TrackingBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.calls: list[int] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        state = ctx.state_snapshot
-        calls = list(state.shared_memory.get(f"{self.block_id}_calls", []))
-        calls.append(len(calls) + 1)
+        self.calls.append(len(self.calls) + 1)
         return BlockOutput(
-            output=f"call_{len(calls)}",
-            shared_memory_updates={f"{self.block_id}_calls": calls},
+            output=f"call_{len(self.calls)}",
+            shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
         )
 
 
@@ -42,15 +43,16 @@ class WriterBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"round_num": "shared_memory.loop_block_round"}
+        self.drafts: list[str] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        state = ctx.state_snapshot
-        drafts = list(state.shared_memory.get("drafts", []))
-        round_num = state.shared_memory.get("loop_block_round", 0)
-        drafts.append(f"draft_round_{round_num}")
+        round_num = ctx.inputs.get("round_num", 0)
+        self.drafts.append(f"draft_round_{round_num}")
         return BlockOutput(
             output=f"draft_round_{round_num}",
-            shared_memory_updates={"drafts": drafts},
+            shared_memory_updates={"drafts": list(self.drafts)},
         )
 
 
@@ -59,15 +61,16 @@ class CriticBlock(BaseBlock):
 
     def __init__(self, block_id: str):
         super().__init__(block_id)
+        self.context_access = "declared"
+        self.declared_inputs = {"round_num": "shared_memory.loop_block_round"}
+        self.feedback: list[str] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        state = ctx.state_snapshot
-        feedback = list(state.shared_memory.get("feedback", []))
-        round_num = state.shared_memory.get("loop_block_round", 0)
-        feedback.append(f"feedback_round_{round_num}")
+        round_num = ctx.inputs.get("round_num", 0)
+        self.feedback.append(f"feedback_round_{round_num}")
         return BlockOutput(
             output=f"feedback_round_{round_num}",
-            shared_memory_updates={"feedback": feedback},
+            shared_memory_updates={"feedback": list(self.feedback)},
         )
 
 
@@ -76,6 +79,7 @@ class FailNTimesThenSucceed(BaseBlock):
 
     def __init__(self, block_id: str, fail_count: int, error_cls: type = RuntimeError):
         super().__init__(block_id)
+        self.context_access = "declared"
         self._fail_count = fail_count
         self._error_cls = error_cls
         self._call_count = 0
@@ -219,6 +223,7 @@ class TestLoopBlockWithRetryConfig:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "declared"
 
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 FailOnFirstLoopAttempt.attempt_count += 1
@@ -273,12 +278,19 @@ class TestLoopBlockStateFlowBetweenRounds:
 
             def __init__(self, block_id: str):
                 super().__init__(block_id)
+                self.context_access = "declared"
+                self.declared_inputs = {
+                    "round_num": "shared_memory.loop_block_round",
+                    "previous_context": "shared_memory.previous_round_context",
+                }
 
             async def execute(self, ctx: BlockContext) -> BlockOutput:
-                state = ctx.state_snapshot
-                previous_result = state.results.get(self.block_id)
-                previous = previous_result.output if previous_result is not None else ""
-                new_output = f"{previous}|round_{state.shared_memory.get('loop_block_round', 0)}"
+                round_num = ctx.inputs.get("round_num", 0)
+                previous_context = ctx.inputs.get("previous_context")
+                previous = ""
+                if isinstance(previous_context, dict):
+                    previous = str(previous_context.get(self.block_id) or "")
+                new_output = f"{previous}|round_{round_num}"
                 return BlockOutput(output=new_output)
 
         accum = AccumulatingBlock("accum_block")
@@ -286,6 +298,12 @@ class TestLoopBlockStateFlowBetweenRounds:
             block_id="loop_block",
             inner_block_refs=["accum_block"],
             max_rounds=3,
+            carry_context=CarryContextConfig(
+                enabled=True,
+                mode="last",
+                source_blocks=["accum_block"],
+                inject_as="previous_round_context",
+            ),
         )
 
         wf = Workflow(name="state_flow_test")
@@ -294,7 +312,7 @@ class TestLoopBlockStateFlowBetweenRounds:
         wf.add_transition("loop_block", None)
         wf.set_entry("loop_block")
 
-        final_state = await wf.run(WorkflowState())
+        final_state = await wf.run(WorkflowState(shared_memory={"previous_round_context": {}}))
 
         # The accumulating block should have built up output across rounds
         accum_block_result = final_state.results.get("accum_block")

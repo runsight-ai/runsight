@@ -226,7 +226,7 @@ async def test_synthesize_block_missing_input(mock_runner, sample_soul):
     block = SynthesizeBlock("synth1", ["block_a", "block_b"], sample_soul, mock_runner)
     state = WorkflowState(results={"block_a": BlockResult(output="Output A")})  # Missing block_b
 
-    with pytest.raises(ValueError, match="missing inputs: \\['block_b'\\]"):
+    with pytest.raises(ValueError, match="source result missing"):
         build_block_context(block, state)
 
 
