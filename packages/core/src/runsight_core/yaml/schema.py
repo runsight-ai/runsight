@@ -155,63 +155,6 @@ class InputRef(BaseModel):
     from_ref: str = Field(alias="from")  # "step_id.output_field" dot-notation
 
 
-class WorkflowInterfaceInputDef(BaseModel):
-    """Child-owned public input contract for callable workflows."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    target: str
-    type: Optional[str] = None
-    required: bool = True
-    default: Optional[Any] = None
-    description: Optional[str] = None
-
-
-class WorkflowInterfaceOutputDef(BaseModel):
-    """Child-owned public output contract for callable workflows."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    source: str
-    type: Optional[str] = None
-    description: Optional[str] = None
-
-
-class WorkflowInterfaceDef(BaseModel):
-    """Public callable contract exposed by a child workflow."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    inputs: List[WorkflowInterfaceInputDef] = Field(default_factory=list)
-    outputs: List[WorkflowInterfaceOutputDef] = Field(default_factory=list)
-
-    @field_validator("inputs")
-    @classmethod
-    def _validate_unique_input_names(
-        cls, items: List[WorkflowInterfaceInputDef]
-    ) -> List[WorkflowInterfaceInputDef]:
-        seen: set[str] = set()
-        for item in items:
-            if item.name in seen:
-                raise ValueError(f"duplicate workflow interface input name: {item.name}")
-            seen.add(item.name)
-        return items
-
-    @field_validator("outputs")
-    @classmethod
-    def _validate_unique_output_names(
-        cls, items: List[WorkflowInterfaceOutputDef]
-    ) -> List[WorkflowInterfaceOutputDef]:
-        seen: set[str] = set()
-        for item in items:
-            if item.name in seen:
-                raise ValueError(f"duplicate workflow interface output name: {item.name}")
-            seen.add(item.name)
-        return items
-
-
 # -- Retry configuration ---------------------------------------------------
 
 
@@ -476,13 +419,19 @@ class RunsightWorkflowFile(BaseModel):
     version: str = "1.0"
     enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
-    interface: Optional[WorkflowInterfaceDef] = None
     tools: List[str] = Field(default_factory=list)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
     limits: Optional[WorkflowLimitsDef] = None
     eval: Optional[EvalSectionDef] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_interface(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "interface" in value:
+            raise ValueError("legacy workflow interface is unsupported")
+        return value
 
     @field_validator("id")
     @classmethod

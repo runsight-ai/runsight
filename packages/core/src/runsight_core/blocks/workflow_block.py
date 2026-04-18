@@ -19,7 +19,7 @@ from runsight_core.workflow_contract_names import validate_workflow_contract_nam
 if TYPE_CHECKING:
     from runsight_core.workflow import Workflow
     from runsight_core.yaml.registry import WorkflowRegistry
-    from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInterfaceDef
+    from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
 class WorkflowBlock(BaseBlock):
@@ -42,30 +42,22 @@ class WorkflowBlock(BaseBlock):
         outputs: Dict[str, str],
         workflow_ref: Optional[str] = None,
         max_depth: int = 10,
-        interface: Optional["WorkflowInterfaceDef"] = None,
+        interface: Any = None,
         on_error: str = "raise",
     ):
         super().__init__(block_id)
+        if interface is not None:
+            raise ValueError("legacy workflow interface is unsupported")
         self.child_workflow = child_workflow
         self.inputs = inputs
         self.outputs = outputs
         self.workflow_ref = workflow_ref
         self.max_depth = max_depth
-        self.interface = interface
+        self.interface = None
         self.on_error = on_error
 
-        # Validate: when interface is present, input binding keys must be plain
-        # interface names (no dotted child paths).
-        if self.interface is not None:
-            for binding_name in self.inputs:
-                if "." in binding_name:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': input binding key "
-                        f"'{binding_name}' contains a dotted path. When an "
-                        f"interface is provided, input keys must be plain "
-                        f"interface names (e.g. 'topic'), not child dotted "
-                        f"paths (e.g. 'shared_memory.topic')."
-                    )
+        for binding_name in self.inputs:
+            self._validate_child_invocation_input_name(binding_name)
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute WorkflowBlock with BlockContext, return BlockOutput."""
@@ -90,8 +82,9 @@ class WorkflowBlock(BaseBlock):
                 f"Call stack: {' -> '.join(call_stack)}"
             )
 
-        # Step 3: Map inputs (parent -> child)
-        child_state = self._map_inputs_from_context(state, ctx.inputs)
+        # Step 3: Map parent values to public child invocation inputs.
+        child_inputs = self._map_inputs_from_context(ctx.inputs)
+        child_state = WorkflowState(artifact_store=state.artifact_store)
 
         # Step 4: Run child workflow
         from runsight_core.observer import build_child_observer
@@ -113,6 +106,7 @@ class WorkflowBlock(BaseBlock):
                 call_stack=call_stack + [self.child_workflow.name],
                 workflow_registry=workflow_registry,
                 observer=child_observer,
+                inputs=child_inputs,
             )
         except Exception as exc:
             duration_s = time.monotonic() - start_time
@@ -176,37 +170,15 @@ class WorkflowBlock(BaseBlock):
         extra_results: Dict[str, Any] = {}
         shared_memory_updates: Dict[str, Any] = {}
 
-        if self.interface is not None:
-            output_lookup = {odef.name: odef.source for odef in self.interface.outputs}
-            for parent_path, interface_name in self.outputs.items():
-                source = output_lookup.get(interface_name)
-                if source is None:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': output binding "
-                        f"'{interface_name}' does not match any interface output."
-                    )
-                value = self._resolve_dotted(child_final_state, source, context="child state")
-                parts = parent_path.split(".", 1)
-                if parts[0] == "results" and len(parts) == 2:
-                    # Unwrap BlockResult to its .output string, matching legacy _map_outputs behavior.
-                    if isinstance(value, BlockResult):
-                        value = value.output
-                    extra_results[parts[1]] = value
-                elif parts[0] == "shared_memory" and len(parts) == 2:
-                    if isinstance(value, BlockResult):
-                        value = value.output
-                    shared_memory_updates[parts[1]] = value
-        else:
-            for parent_path, child_path in self.outputs.items():
-                value = self._resolve_dotted(child_final_state, child_path, context="child state")
-                parts = parent_path.split(".", 1)
-                if parts[0] == "results" and len(parts) == 2:
-                    # No-interface path: store value as-is (BlockResult or raw), matching legacy behavior.
-                    extra_results[parts[1]] = value
-                elif parts[0] == "shared_memory" and len(parts) == 2:
-                    if isinstance(value, BlockResult):
-                        value = value.output
-                    shared_memory_updates[parts[1]] = value
+        for parent_path, child_path in self.outputs.items():
+            value = self._resolve_dotted(child_final_state, child_path, context="child state")
+            parts = parent_path.split(".", 1)
+            if parts[0] == "results" and len(parts) == 2:
+                extra_results[parts[1]] = value
+            elif parts[0] == "shared_memory" and len(parts) == 2:
+                if isinstance(value, BlockResult):
+                    value = value.output
+                shared_memory_updates[parts[1]] = value
 
         child_metadata = {
             "child_status": "completed",
@@ -301,55 +273,33 @@ class WorkflowBlock(BaseBlock):
         self,
         parent_state: WorkflowState,
         inputs: Dict[str, str],
-    ) -> WorkflowState:
-        child_state = WorkflowState(artifact_store=parent_state.artifact_store)
-
-        if self.interface is not None:
-            # Interface-mediated: keys are interface names, resolve via target
-            input_lookup = {idef.name: idef.target for idef in self.interface.inputs}
-            for interface_name, parent_path in inputs.items():
-                target = input_lookup.get(interface_name)
-                if target is None:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': input binding "
-                        f"'{interface_name}' does not match any interface input."
-                    )
-                value = self._resolve_dotted(parent_state, parent_path, context="parent state")
-                if isinstance(value, BlockResult):
-                    value = value.output
-                child_state = self._write_dotted(child_state, target, value)
-        else:
-            # Legacy: keys are child dotted paths directly
-            for child_key, parent_path in inputs.items():
-                value = self._resolve_dotted(parent_state, parent_path, context="parent state")
-                child_state = self._write_dotted(child_state, child_key, value)
-
-        return child_state
+    ) -> Dict[str, Any]:
+        child_inputs: Dict[str, Any] = {}
+        for input_name, parent_path in inputs.items():
+            self._validate_child_invocation_input_name(input_name)
+            value = self._resolve_dotted(parent_state, parent_path, context="parent state")
+            if isinstance(value, BlockResult):
+                value = value.output
+            child_inputs[input_name] = value
+        return child_inputs
 
     def _map_inputs_from_context(
         self,
-        parent_state: WorkflowState,
         resolved_inputs: Dict[str, Any],
-    ) -> WorkflowState:
-        child_state = WorkflowState(artifact_store=parent_state.artifact_store)
+    ) -> Dict[str, Any]:
+        child_inputs: Dict[str, Any] = {}
+        for input_name in self.inputs:
+            self._validate_child_invocation_input_name(input_name)
+            child_inputs[input_name] = self._require_governed_input(resolved_inputs, input_name)
+        return child_inputs
 
-        if self.interface is not None:
-            input_lookup = {idef.name: idef.target for idef in self.interface.inputs}
-            for interface_name in self.inputs:
-                target = input_lookup.get(interface_name)
-                if target is None:
-                    raise ValueError(
-                        f"WorkflowBlock '{self.block_id}': input binding "
-                        f"'{interface_name}' does not match any interface input."
-                    )
-                value = self._require_governed_input(resolved_inputs, interface_name)
-                child_state = self._write_dotted(child_state, target, value)
-        else:
-            for child_key in self.inputs:
-                value = self._require_governed_input(resolved_inputs, child_key)
-                child_state = self._write_dotted(child_state, child_key, value)
-
-        return child_state
+    def _validate_child_invocation_input_name(self, input_name: str) -> str:
+        if "." in input_name:
+            raise ValueError(
+                f"WorkflowBlock '{self.block_id}': input binding '{input_name}' targets "
+                "private child state. Bind a child invocation input name instead."
+            )
+        return validate_workflow_contract_name(input_name)
 
     def _require_governed_input(self, resolved_inputs: Dict[str, Any], input_name: str) -> Any:
         if input_name not in resolved_inputs:
@@ -419,44 +369,21 @@ def _validate_workflow_block_contract(
     block_def: Any,
     child_file: "RunsightWorkflowFile",
 ) -> None:
-    child_interface = child_file.interface
-    if child_interface is None:
-        raise ValueError(
-            f"WorkflowBlock '{block_id}': child workflow '{block_def.workflow_ref}' "
-            "must declare an interface"
-        )
-
-    for item in child_interface.inputs:
-        validate_workflow_contract_name(item.name)
-    for item in child_interface.outputs:
-        validate_workflow_contract_name(item.name)
-
-    declared_inputs = {item.name: item for item in child_interface.inputs}
-    declared_outputs = {item.name for item in child_interface.outputs}
-
     for binding_name in (block_def.inputs or {}).keys():
-        if binding_name not in declared_inputs:
+        if "." in binding_name:
             raise ValueError(
-                f"WorkflowBlock '{block_id}': unknown interface input '{binding_name}'. "
-                f"Declared child inputs: {sorted(declared_inputs)}"
+                f"WorkflowBlock '{block_id}': input binding '{binding_name}' targets "
+                "private child state. Bind a child invocation input name instead."
             )
-
-    missing_required = [
-        item.name
-        for item in child_interface.inputs
-        if item.required and item.default is None and item.name not in (block_def.inputs or {})
-    ]
-    if missing_required:
-        raise ValueError(
-            f"WorkflowBlock '{block_id}': missing required interface inputs {missing_required}"
-        )
+        validate_workflow_contract_name(binding_name)
 
     for binding_name in (block_def.outputs or {}).values():
-        if binding_name not in declared_outputs:
+        if "." in binding_name:
             raise ValueError(
-                f"WorkflowBlock '{block_id}': unknown interface output '{binding_name}'. "
-                f"Declared child outputs: {sorted(declared_outputs)}"
+                f"WorkflowBlock '{block_id}': output binding '{binding_name}' targets "
+                "private child state. Bind a child invocation output name instead."
             )
+        validate_workflow_contract_name(binding_name)
 
 
 def _resolve_workflow_block_max_depth(
@@ -520,7 +447,6 @@ def build(
         outputs=block_def.outputs or {},
         workflow_ref=block_def.workflow_ref,
         max_depth=max_depth,
-        interface=child_file.interface,
         on_error=block_def.on_error,
     )
 
