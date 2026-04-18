@@ -5,9 +5,9 @@ These tests pin the public contract surface expected by RUN-868:
 - BaseBlockDef must not expose public YAML access configuration
 - the checked-in workflow schema stays aligned with the generated source of truth
 - the context governance module exposes the audit and policy models
-- context refs normalize into the supported namespaces
+- context refs parse into result, workflow input, shared, and metadata namespaces
 - invalid enums are rejected by Pydantic
-- workflow-seeded inputs stay represented as results.workflow
+- workflow invocation inputs stay represented as workflow.<input>
 """
 
 import json
@@ -83,6 +83,7 @@ def test_context_governance_module_exports_expected_contract():
         assert hasattr(cg, name), f"missing contract symbol: {name}"
 
     assert {member.value for member in cg.ContextAuditNamespace} == {
+        "workflow",
         "results",
         "shared_memory",
         "metadata",
@@ -114,7 +115,7 @@ def test_context_governance_policy_defaults_to_strict():
 
 
 def test_parse_context_ref_supports_explicit_and_unqualified_refs():
-    """Context refs normalize results, shared_memory, and metadata paths."""
+    """Context refs parse workflow input, results, shared_memory, and metadata paths."""
     cg = _load_contract_module()
 
     parsed = cg.parse_context_ref("shared_memory.customer.id")
@@ -122,22 +123,35 @@ def test_parse_context_ref_supports_explicit_and_unqualified_refs():
     assert parsed.source == "customer"
     assert parsed.field_path == "id"
 
-    workflow_seeded = cg.parse_context_ref("workflow.output")
-    assert workflow_seeded.namespace == "results"
-    assert workflow_seeded.source == "workflow"
-    assert workflow_seeded.field_path == "output"
+    workflow_input = cg.parse_context_ref("workflow.output")
+    assert workflow_input.namespace == "workflow"
+    assert workflow_input.source == "output"
+    assert workflow_input.field_path is None
+
+    workflow_input_field = cg.parse_context_ref("workflow.payload.title")
+    assert workflow_input_field.namespace == "workflow"
+    assert workflow_input_field.source == "payload"
+    assert workflow_input_field.field_path == "title"
+
+    results_workflow = cg.parse_context_ref("results.workflow.output")
+    assert results_workflow.namespace == "results"
+    assert results_workflow.source == "workflow"
+    assert results_workflow.field_path == "output"
+
+    with pytest.raises(ValueError, match="workflow context references must name an input"):
+        cg.parse_context_ref("workflow")
 
 
-def test_context_audit_event_serializes_workflow_seeded_input_in_results_namespace():
-    """Workflow-seeded audit records serialize under results.workflow."""
+def test_context_audit_event_serializes_workflow_input_namespace():
+    """Workflow invocation input audit records serialize under workflow.<input>."""
     cg = _load_contract_module()
 
     record = cg.ContextAuditRecordV1(
         input_name="draft",
         from_ref="workflow.output",
-        namespace="results",
-        source="workflow",
-        field_path="output",
+        namespace="workflow",
+        source="output",
+        field_path=None,
         status="resolved",
         severity="allow",
         value_type="str",
@@ -162,8 +176,9 @@ def test_context_audit_event_serializes_workflow_seeded_input_in_results_namespa
     )
 
     payload = event.model_dump()
-    assert payload["records"][0]["namespace"] == "results"
-    assert payload["records"][0]["source"] == "workflow"
+    assert payload["records"][0]["namespace"] == "workflow"
+    assert payload["records"][0]["source"] == "output"
+    assert payload["records"][0]["field_path"] is None
     assert "workflow_inputs" not in payload["records"][0]
 
     round_tripped = cg.ContextAuditEventV1.model_validate(payload)

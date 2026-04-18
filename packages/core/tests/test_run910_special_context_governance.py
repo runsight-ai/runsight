@@ -222,7 +222,7 @@ def test_workflow_and_loop_system_keys_are_injected_after_governance_not_audit_r
 
     block = CaptureBlock()
     step = Step(block=block, declared_inputs={"payload": "workflow.payload"})
-    state = _state(results={"workflow": BlockResult(output=json.dumps({"payload": "hello"}))})
+    state = _state(workflow_inputs={"payload": "hello"})
     execution_context = BlockExecutionContext(
         workflow_name="parent",
         blocks={"capture": block},
@@ -277,11 +277,11 @@ def test_workflow_and_loop_build_context_do_not_audit_system_keys() -> None:
     workflow_block = WorkflowBlock(
         block_id="invoke_child",
         child_workflow=child_workflow,
-        inputs={"payload": "results.workflow.payload"},
+        inputs={"payload": "workflow.payload"},
         outputs={},
     )
     loop_block = LoopBlock("iterate", ["writer"], max_rounds=1)
-    state = _state(results={"workflow": BlockResult(output=json.dumps({"payload": "hello"}))})
+    state = _state(workflow_inputs={"payload": "hello"})
 
     workflow_declaration = _collect_context_declaration(workflow_block)
     loop_declaration = _collect_context_declaration(loop_block)
