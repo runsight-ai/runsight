@@ -33,6 +33,14 @@ class WarningItem(BaseModel):
     model_config = {"json_schema_extra": {"additionalProperties": False}}
 
 
+class WorkflowInputSchemaItem(BaseModel):
+    type: Literal["string", "number", "boolean", "json", "array"]
+    required: bool = True
+    default: Any | None = None
+    description: str | None = None
+    sensitive: bool = False
+
+
 class WorkflowResponse(BaseModel):
     kind: Literal["workflow"]
     id: str
@@ -51,6 +59,7 @@ class WorkflowResponse(BaseModel):
     enabled: bool = False
     commit_sha: str | None = None
     health: WorkflowHealthMetrics = Field(default_factory=WorkflowHealthMetrics)
+    input_schema: Dict[str, WorkflowInputSchemaItem] | None = None
 
 
 class WorkflowListResponse(BaseModel):

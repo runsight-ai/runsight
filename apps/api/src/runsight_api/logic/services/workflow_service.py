@@ -18,6 +18,42 @@ def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
+def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | None:
+    if not raw_yaml:
+        return None
+    try:
+        data = yaml_mod.safe_load(raw_yaml)
+        if not isinstance(data, dict):
+            return None
+        if "interface" in data:
+            return None
+        file_def = RunsightWorkflowFile.model_validate(data)
+    except (yaml_mod.YAMLError, PydanticValidationError, ValueError):
+        return None
+
+    inputs = file_def.get("inputs") if isinstance(file_def, dict) else file_def.inputs
+    if not isinstance(inputs, dict) or not inputs:
+        return None
+
+    schema: dict[str, dict[str, Any]] = {}
+    for name, input_def in inputs.items():
+        if hasattr(input_def, "model_dump"):
+            schema[name] = input_def.model_dump()
+            continue
+        if isinstance(input_def, dict):
+            schema[name] = {
+                "type": input_def.get("type"),
+                "required": input_def.get("required", True),
+                "default": input_def.get("default"),
+                "description": input_def.get("description"),
+                "sensitive": input_def.get("sensitive", False),
+            }
+            continue
+        return None
+
+    return schema
+
+
 class WorkflowService:
     def __init__(
         self,
@@ -51,6 +87,7 @@ class WorkflowService:
                         "modified_at": self.workflow_repo.get_file_mtime(workflow.id),
                         "enabled": bool(getattr(workflow, "enabled", False)),
                         "commit_sha": self._get_workflow_commit_sha(yaml_path),
+                        "input_schema": _workflow_input_schema(workflow.yaml),
                         "health": health_by_workflow.get(
                             workflow.id,
                             {
@@ -79,6 +116,7 @@ class WorkflowService:
         return workflow.model_copy(
             update={
                 "commit_sha": self._get_workflow_commit_sha_on_main(yaml_path),
+                "input_schema": _workflow_input_schema(workflow.yaml),
             }
         )
 
