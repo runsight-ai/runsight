@@ -58,6 +58,8 @@ class WorkflowBlock(BaseBlock):
 
         for binding_name in self.inputs:
             self._validate_child_invocation_input_name(binding_name)
+        for child_source_path in self.outputs.values():
+            self._validate_child_output_source_path(child_source_path)
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute WorkflowBlock with BlockContext, return BlockOutput."""
@@ -301,6 +303,9 @@ class WorkflowBlock(BaseBlock):
             )
         return validate_workflow_contract_name(input_name)
 
+    def _validate_child_output_source_path(self, source_path: str) -> str:
+        return _validate_child_output_source_path(source_path, block_id=self.block_id)
+
     def _require_governed_input(self, resolved_inputs: Dict[str, Any], input_name: str) -> Any:
         if input_name not in resolved_inputs:
             raise KeyError(
@@ -315,6 +320,25 @@ class WorkflowBlock(BaseBlock):
         return callable(getattr(observer, "on_workflow_complete", None)) or callable(
             getattr(observer, "on_workflow_error", None)
         )
+
+
+def _validate_child_output_source_path(source_path: str, *, block_id: str | None = None) -> str:
+    if not isinstance(source_path, str):
+        raise ValueError("workflow block output child source path must be a string")
+
+    prefix = f"WorkflowBlock '{block_id}': " if block_id is not None else ""
+    field, sep, key = source_path.partition(".")
+    if not sep or not key:
+        raise ValueError(
+            f"{prefix}workflow block outputs must use a dotted child source path; "
+            "public output contract names are unsupported in this ticket"
+        )
+    if field not in {"results", "shared_memory", "metadata"}:
+        raise ValueError(
+            f"{prefix}workflow block output child source path '{source_path}' must start "
+            "with results., shared_memory., or metadata."
+        )
+    return source_path
 
 
 # -- Schema definition (co-located) -----------------------------------------
@@ -348,11 +372,7 @@ class WorkflowBlockDef(BaseBlockDef):
             validate_workflow_contract_name(binding_name)
 
         for binding_name in (self.outputs or {}).values():
-            if "." in binding_name:
-                raise ValueError(
-                    "workflow block outputs must bind child interface names, not dotted child paths"
-                )
-            validate_workflow_contract_name(binding_name)
+            _validate_child_output_source_path(binding_name)
 
         return self
 
@@ -378,12 +398,7 @@ def _validate_workflow_block_contract(
         validate_workflow_contract_name(binding_name)
 
     for binding_name in (block_def.outputs or {}).values():
-        if "." in binding_name:
-            raise ValueError(
-                f"WorkflowBlock '{block_id}': output binding '{binding_name}' targets "
-                "private child state. Bind a child invocation output name instead."
-            )
-        validate_workflow_contract_name(binding_name)
+        _validate_child_output_source_path(binding_name, block_id=block_id)
 
 
 def _resolve_workflow_block_max_depth(
