@@ -46,15 +46,6 @@ class TestParseWorkflowBlock:
             "version": "1.0",
             "id": "child_workflow",
             "kind": "workflow",
-            "interface": {
-                "inputs": [],
-                "outputs": [
-                    {
-                        "name": "done",
-                        "source": "results.child_step",
-                    }
-                ],
-            },
             "blocks": {
                 "child_step": {
                     "type": "code",
@@ -89,7 +80,6 @@ class TestParseWorkflowBlock:
                 "invoke_child": {
                     "type": "workflow",
                     "workflow_ref": "child_workflow",
-                    "outputs": {"results.child_summary": "done"},
                 },
             },
             "workflow": {
@@ -165,21 +155,6 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
-            "interface": {
-                "inputs": [
-                    {
-                        "name": "topic",
-                        "target": "shared_memory.topic",
-                        "required": False,
-                    }
-                ],
-                "outputs": [
-                    {
-                        "name": "child_result",
-                        "source": "results.child_step",
-                    }
-                ],
-            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -209,7 +184,6 @@ class TestParseWorkflowBlock:
                     "type": "workflow",
                     "workflow_ref": "child_workflow",
                     "inputs": {"topic": "shared_memory.research_topic"},
-                    "outputs": {"results.child_result": "child_result"},
                 },
                 "final_step": {
                     "type": "linear",
@@ -243,9 +217,9 @@ class TestParseWorkflowBlock:
         # Assert WorkflowBlock has correct child workflow
         assert workflow_block.child_workflow.name == "child_workflow"
 
-        # Assert input/output mappings are correctly set
+        # Assert name-based invocation mappings are correctly set
         assert workflow_block.inputs == {"topic": "shared_memory.research_topic"}
-        assert workflow_block.outputs == {"results.child_result": "child_result"}
+        assert workflow_block.outputs == {}
 
     def test_parse_workflow_block_no_registry_raises(self):
         """
@@ -293,21 +267,6 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
-            "interface": {
-                "inputs": [
-                    {
-                        "name": "topic",
-                        "target": "shared_memory.topic",
-                        "required": False,
-                    }
-                ],
-                "outputs": [
-                    {
-                        "name": "child_result",
-                        "source": "results.child_step",
-                    }
-                ],
-            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -362,21 +321,6 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
-            "interface": {
-                "inputs": [
-                    {
-                        "name": "topic",
-                        "target": "shared_memory.topic",
-                        "required": False,
-                    }
-                ],
-                "outputs": [
-                    {
-                        "name": "child_result",
-                        "source": "results.child_step",
-                    }
-                ],
-            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
@@ -432,21 +376,6 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
-            "interface": {
-                "inputs": [
-                    {
-                        "name": "topic",
-                        "target": "shared_memory.topic",
-                        "required": False,
-                    }
-                ],
-                "outputs": [
-                    {
-                        "name": "child_result",
-                        "source": "results.child_step",
-                    }
-                ],
-            },
             "blocks": {
                 "child_step": {
                     "type": "linear",
