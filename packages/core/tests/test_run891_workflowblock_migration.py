@@ -3,7 +3,7 @@ RUN-891: Failing tests for WorkflowBlock migration to BlockContext/BlockOutput.
 
 Tests verify that after migration:
 AC-1: WorkflowBlock.execute accepts BlockContext and returns BlockOutput
-AC-2: Input/output mapping works identically (dotted path resolution preserved)
+AC-2: Input mapping passes public invocation names; output mapping reads child source paths
 AC-3: Cycle detection and depth limits use call_stack from ctx.inputs
 AC-4: on_error="catch" produces correct BlockOutput with exit_handle="error"
 AC-5: Child workflow cost/token propagation correct in BlockOutput
@@ -229,20 +229,20 @@ class TestAC1AcceptsBlockContextReturnsBlockOutput:
 
 
 # ---------------------------------------------------------------------------
-# AC-2: Input/output mapping works identically (dotted path resolution preserved)
+# AC-2: Input mapping passes public invocation names; output mapping reads child source paths
 # ---------------------------------------------------------------------------
 
 
 class TestAC2InputOutputMapping:
-    """Input/output mapping must preserve dotted path resolution via state_snapshot."""
+    """WorkflowBlock mapping must align with RUN-922 input/output semantics."""
 
     @pytest.mark.asyncio
     async def test_input_mapping_resolves_from_state_snapshot(self):
-        """Inputs are resolved from ctx.state_snapshot using dotted path resolution."""
+        """Parent refs resolve from state_snapshot and pass as child invocation inputs."""
         child_wf = _make_mock_child_workflow()
         block = _make_workflow_block(
             child_wf=child_wf,
-            inputs={"shared_memory.topic": "shared_memory.research_topic"},
+            inputs={"topic": "shared_memory.research_topic"},
         )
         state = _make_base_state(shared_memory={"research_topic": "quantum computing"})
         ctx = _make_block_context(block.block_id, state)
@@ -250,20 +250,19 @@ class TestAC2InputOutputMapping:
             update={
                 "inputs": {
                     **ctx.inputs,
-                    "shared_memory.topic": "quantum computing",
+                    "topic": "quantum computing",
                 }
             }
         )
 
         await block.execute(ctx)
 
-        # Child workflow was called — inspect the state passed to it
         call_args = child_wf.run.call_args
         child_state_arg = call_args[0][0]
-        assert child_state_arg.shared_memory.get("topic") == "quantum computing", (
-            "Input mapping must resolve 'shared_memory.research_topic' from state_snapshot "
-            "and write it to 'shared_memory.topic' in child state."
-        )
+        assert call_args.kwargs["inputs"] == {"topic": "quantum computing"}
+        assert child_state_arg.shared_memory == {}
+        assert child_state_arg.results == {}
+        assert child_state_arg.metadata == {}
 
     @pytest.mark.asyncio
     async def test_output_mapping_written_to_block_output(self):
@@ -293,7 +292,7 @@ class TestAC2InputOutputMapping:
         child_wf = _make_mock_child_workflow()
         block = _make_workflow_block(
             child_wf=child_wf,
-            inputs={"shared_memory.topic": "shared_memory.nonexistent"},
+            inputs={"topic": "shared_memory.nonexistent"},
         )
         state = _make_base_state(shared_memory={"other_key": "value"})
         ctx = _make_block_context(block.block_id, state)

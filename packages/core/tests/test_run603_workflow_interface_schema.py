@@ -76,18 +76,31 @@ class TestWorkflowBlockCallsiteBindings:
                 }
             )
 
-    def test_workflow_block_rejects_raw_child_dotted_path_output_bindings(self) -> None:
+    def test_workflow_block_accepts_explicit_child_source_path_output_bindings(self) -> None:
         adapter = TypeAdapter(BlockDef)
 
-        with pytest.raises(
-            ValidationError,
-            match="private child state|child invocation input|dotted child path",
-        ):
+        block_def = adapter.validate_python(
+            {
+                "type": "workflow",
+                "workflow_ref": "custom/workflows/child-contract.yaml",
+                "inputs": {"topic": "shared_memory.parent_topic"},
+                "outputs": {"results.parent_summary": "results.writer"},
+            }
+        )
+
+        assert block_def.outputs == {"results.parent_summary": "results.writer"}
+
+    def test_workflow_block_rejects_public_child_output_names_until_output_contract_exists(
+        self,
+    ) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        with pytest.raises(ValidationError, match="child source path|output contract|dotted"):
             adapter.validate_python(
                 {
                     "type": "workflow",
                     "workflow_ref": "custom/workflows/child-contract.yaml",
                     "inputs": {"topic": "shared_memory.parent_topic"},
-                    "outputs": {"results.parent_summary": "results.writer"},
+                    "outputs": {"results.parent_summary": "summary"},
                 }
             )

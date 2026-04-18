@@ -1,4 +1,4 @@
-"""RUN-868 regressions for WorkflowBlock governed input mapping."""
+"""RUN-868/922 regressions for WorkflowBlock governed input mapping."""
 
 from __future__ import annotations
 
@@ -10,14 +10,10 @@ from runsight_core.block_io import build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
-from runsight_core.yaml.schema import (
-    WorkflowInterfaceDef,
-    WorkflowInterfaceInputDef,
-)
 
 
 class CapturingWorkflow:
-    """Child workflow spy that records the state WorkflowBlock passes to it."""
+    """Child workflow spy that records the state and kwargs WorkflowBlock passes."""
 
     def __init__(self) -> None:
         self.name = "child_workflow"
@@ -58,80 +54,50 @@ def _state_with_parent_context() -> WorkflowState:
     )
 
 
-def _interface(target: str) -> WorkflowInterfaceDef:
-    return WorkflowInterfaceDef(
-        inputs=[WorkflowInterfaceInputDef(name="value", target=target)],
-        outputs=[],
-    )
-
-
 @pytest.mark.parametrize(
-    ("parent_ref", "expected_value", "target", "target_bucket", "target_key"),
+    ("public_name", "parent_ref", "expected_value"),
     [
-        (
-            "metadata.runtime.branch",
-            "main",
-            "metadata.branch",
-            "metadata",
-            "branch",
-        ),
-        (
-            "results.workflow.payload",
-            {"id": "payload-1"},
-            "shared_memory.payload",
-            "shared_memory",
-            "payload",
-        ),
-        (
-            "draft.summary",
-            "draft summary",
-            "results.summary",
-            "results",
-            "summary",
-        ),
+        ("branch", "metadata.runtime.branch", "main"),
+        ("payload", "results.workflow.payload", {"id": "payload-1"}),
+        ("summary", "draft.summary", "draft summary"),
     ],
 )
 @pytest.mark.asyncio
-async def test_workflowblock_interface_mapping_uses_governed_ctx_inputs(
+async def test_workflowblock_passes_governed_ctx_inputs_as_child_invocation_inputs(
+    public_name: str,
     parent_ref: str,
     expected_value: Any,
-    target: str,
-    target_bucket: str,
-    target_key: str,
 ) -> None:
-    """Interface bindings must consume already-resolved ctx.inputs values."""
     child_workflow = CapturingWorkflow()
     block = WorkflowBlock(
         block_id="invoke_child",
         child_workflow=child_workflow,
-        inputs={"value": parent_ref},
+        inputs={public_name: parent_ref},
         outputs={},
-        interface=_interface(target),
     )
     ctx = build_block_context(block, _state_with_parent_context())
-    assert ctx.inputs["value"] == expected_value
+    assert ctx.inputs[public_name] == expected_value
 
     await block.execute(ctx)
 
     assert child_workflow.received_state is not None
-    bucket = getattr(child_workflow.received_state, target_bucket)
-    assert bucket[target_key] == expected_value
+    assert child_workflow.received_kwargs is not None
+    assert child_workflow.received_kwargs["inputs"] == {public_name: expected_value}
+    assert child_workflow.received_state.metadata == {}
+    assert child_workflow.received_state.results == {}
+    assert child_workflow.received_state.shared_memory == {}
 
 
 @pytest.mark.asyncio
-async def test_workflowblock_interface_mapping_keeps_execution_plumbing_out_of_child_state() -> (
-    None
-):
-    """Internal execution inputs must not become child workflow input data."""
+async def test_workflowblock_keeps_execution_plumbing_out_of_child_invocation_inputs() -> None:
     child_workflow = CapturingWorkflow()
     observer = object()
     registry = object()
     block = WorkflowBlock(
         block_id="invoke_child",
         child_workflow=child_workflow,
-        inputs={"value": "metadata.runtime.branch"},
+        inputs={"branch": "metadata.runtime.branch"},
         outputs={},
-        interface=_interface("metadata.branch"),
     )
     governed_ctx = build_block_context(block, _state_with_parent_context())
     ctx = governed_ctx.model_copy(
@@ -147,11 +113,8 @@ async def test_workflowblock_interface_mapping_keeps_execution_plumbing_out_of_c
 
     await block.execute(ctx)
 
-    assert child_workflow.received_state is not None
     assert child_workflow.received_kwargs is not None
-    assert child_workflow.received_state.metadata == {"branch": "main"}
-    assert child_workflow.received_state.results == {}
-    assert child_workflow.received_state.shared_memory == {}
+    assert child_workflow.received_kwargs["inputs"] == {"branch": "main"}
     assert child_workflow.received_kwargs["call_stack"] == [
         "parent_workflow",
         "child_workflow",
@@ -161,77 +124,35 @@ async def test_workflowblock_interface_mapping_keeps_execution_plumbing_out_of_c
 
 
 @pytest.mark.asyncio
-async def test_workflowblock_legacy_mapping_uses_governed_ctx_inputs_for_child_paths() -> None:
-    """Legacy child dotted-path keys must also use resolved ctx.inputs values."""
+@pytest.mark.parametrize(
+    "private_target", ["metadata.branch", "shared_memory.payload", "results.summary"]
+)
+async def test_workflowblock_rejects_private_child_state_input_targets(
+    private_target: str,
+) -> None:
     child_workflow = CapturingWorkflow()
-    block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_workflow,
-        inputs={
-            "metadata.branch": "metadata.runtime.branch",
-            "shared_memory.payload": "results.workflow.payload",
-            "results.summary": "draft.summary",
-        },
-        outputs={},
-    )
-    ctx = build_block_context(block, _state_with_parent_context())
-    assert ctx.inputs == {
-        "metadata.branch": "main",
-        "shared_memory.payload": {"id": "payload-1"},
-        "results.summary": "draft summary",
-        "call_stack": [],
-        "workflow_registry": None,
-        "observer": None,
-    }
 
-    await block.execute(ctx)
+    with pytest.raises(ValueError, match="private child state|child invocation input"):
+        block = WorkflowBlock(
+            block_id="invoke_child",
+            child_workflow=child_workflow,
+            inputs={private_target: "metadata.runtime.branch"},
+            outputs={},
+        )
+        ctx = build_block_context(block, _state_with_parent_context())
+        await block.execute(ctx)
 
-    assert child_workflow.received_state is not None
-    assert child_workflow.received_state.metadata == {"branch": "main"}
-    assert child_workflow.received_state.shared_memory == {"payload": {"id": "payload-1"}}
-    assert child_workflow.received_state.results == {"summary": "draft summary"}
-
-
-@pytest.mark.asyncio
-async def test_workflowblock_legacy_mapping_keeps_execution_plumbing_out_of_child_state() -> None:
-    """Legacy mode must keep execution plumbing separate from child input data."""
-    child_workflow = CapturingWorkflow()
-    block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_workflow,
-        inputs={"metadata.branch": "metadata.runtime.branch"},
-        outputs={},
-    )
-    governed_ctx = build_block_context(block, _state_with_parent_context())
-    ctx = governed_ctx.model_copy(
-        update={
-            "inputs": {
-                **governed_ctx.inputs,
-                "call_stack": ["parent_workflow"],
-                "workflow_registry": object(),
-                "observer": object(),
-            }
-        }
-    )
-
-    await block.execute(ctx)
-
-    assert child_workflow.received_state is not None
-    assert child_workflow.received_state.metadata == {"branch": "main"}
-    assert child_workflow.received_state.results == {}
-    assert child_workflow.received_state.shared_memory == {}
+    assert child_workflow.received_state is None
 
 
 @pytest.mark.asyncio
 async def test_execute_block_direct_workflowblock_preserves_governed_declared_inputs() -> None:
-    """Direct WorkflowBlock dispatch must not drop inputs resolved by governance."""
     child_workflow = CapturingWorkflow()
     block = WorkflowBlock(
         block_id="invoke_child",
         child_workflow=child_workflow,
-        inputs={"value": "metadata.runtime.branch"},
+        inputs={"branch": "metadata.runtime.branch"},
         outputs={},
-        interface=_interface("metadata.branch"),
     )
     state = _state_with_parent_context()
     exec_ctx = BlockExecutionContext(
@@ -244,5 +165,5 @@ async def test_execute_block_direct_workflowblock_preserves_governed_declared_in
 
     await execute_block(block, state, exec_ctx)
 
-    assert child_workflow.received_state is not None
-    assert child_workflow.received_state.metadata == {"branch": "main"}
+    assert child_workflow.received_kwargs is not None
+    assert child_workflow.received_kwargs["inputs"] == {"branch": "main"}

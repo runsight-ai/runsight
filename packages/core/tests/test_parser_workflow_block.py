@@ -184,6 +184,7 @@ class TestParseWorkflowBlock:
                     "type": "workflow",
                     "workflow_ref": "child_workflow",
                     "inputs": {"topic": "shared_memory.research_topic"},
+                    "outputs": {"results.child_result": "results.child_step"},
                 },
                 "final_step": {
                     "type": "linear",
@@ -219,7 +220,7 @@ class TestParseWorkflowBlock:
 
         # Assert name-based invocation mappings are correctly set
         assert workflow_block.inputs == {"topic": "shared_memory.research_topic"}
-        assert workflow_block.outputs == {}
+        assert workflow_block.outputs == {"results.child_result": "results.child_step"}
 
     def test_parse_workflow_block_no_registry_raises(self):
         """

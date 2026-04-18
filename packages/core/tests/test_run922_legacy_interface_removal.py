@@ -6,14 +6,14 @@ import json
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from runsight_core.block_io import build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
-from runsight_core.yaml.schema import RunsightWorkflowFile
+from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
 
 def _minimal_workflow(**overrides: Any) -> dict[str, Any]:
@@ -141,6 +141,34 @@ workflow:
 
 
 class TestWorkflowBlockNameBasedInvocation:
+    def test_schema_accepts_explicit_child_state_output_source_paths(self) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        block_def = adapter.validate_python(
+            {
+                "type": "workflow",
+                "workflow_ref": "child_workflow",
+                "inputs": {"query": "shared_memory.topic"},
+                "outputs": {"results.parent_summary": "results.echo"},
+            }
+        )
+
+        assert block_def.inputs == {"query": "shared_memory.topic"}
+        assert block_def.outputs == {"results.parent_summary": "results.echo"}
+
+    def test_schema_rejects_public_child_output_names_until_output_contract_exists(self) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        with pytest.raises(ValidationError, match="child source path|output contract|dotted"):
+            adapter.validate_python(
+                {
+                    "type": "workflow",
+                    "workflow_ref": "child_workflow",
+                    "inputs": {"query": "shared_memory.topic"},
+                    "outputs": {"results.parent_summary": "summary"},
+                }
+            )
+
     def test_parser_no_longer_requires_child_interface_for_workflowblock(self) -> None:
         registry = WorkflowRegistry()
         registry.register("child_workflow", _child_file_without_interface())
@@ -189,6 +217,23 @@ class TestWorkflowBlockNameBasedInvocation:
         assert child_workflow.received_state.results == {}
         assert child_workflow.received_state.shared_memory == {}
         assert child_workflow.received_state.metadata == {}
+
+    @pytest.mark.asyncio
+    async def test_workflowblock_extracts_outputs_from_explicit_child_state_paths(self) -> None:
+        child_workflow = CapturingWorkflow()
+        block = WorkflowBlock(
+            block_id="invoke_child",
+            child_workflow=child_workflow,
+            inputs={},
+            outputs={"results.parent_summary": "results.echo"},
+        )
+        ctx = build_block_context(block, _parent_state())
+
+        output = await block.execute(ctx)
+
+        assert output.extra_results == {
+            "parent_summary": BlockResult(output=json.dumps({"summary": "child summary"}))
+        }
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

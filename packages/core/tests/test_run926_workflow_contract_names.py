@@ -29,13 +29,12 @@ def _workflow_block(
     return block
 
 
-def _child_file_with_interface(interface: dict) -> RunsightWorkflowFile:
+def _child_file_without_interface() -> RunsightWorkflowFile:
     return RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
             "id": "child_workflow",
             "kind": "workflow",
-            "interface": interface,
             "blocks": {
                 "child_step": {
                     "type": "code",
@@ -124,20 +123,23 @@ class TestWorkflowBlockBindingValidation:
         with pytest.raises(ValidationError, match="workflow contract name"):
             adapter.validate_python(_workflow_block(inputs={name: "shared_memory.parent_value"}))
 
-    @pytest.mark.parametrize("name", ["UserId", "user-id", "user id", "results"])
-    def test_workflow_block_output_bindings_use_contract_name_validator(self, name: str) -> None:
+    def test_workflow_block_rejects_public_output_names_without_child_source_path(self) -> None:
         adapter = TypeAdapter(BlockDef)
 
-        with pytest.raises(ValidationError):
-            adapter.validate_python(_workflow_block(outputs={"results.child": name}))
+        with pytest.raises(ValidationError, match="child source path|output contract|dotted"):
+            adapter.validate_python(_workflow_block(outputs={"results.child": "summary"}))
+
+    def test_workflow_block_output_binding_accepts_explicit_child_source_path(self) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        block_def = adapter.validate_python(
+            _workflow_block(outputs={"results.child": "results.summary"})
+        )
+
+        assert block_def.outputs == {"results.child": "results.summary"}
 
     def test_parse_workflow_yaml_rejects_invalid_child_binding_before_runtime(self) -> None:
-        child_file = _child_file_with_interface(
-            {
-                "inputs": [{"name": "UserId", "target": "shared_memory.user_id"}],
-                "outputs": [{"name": "summary", "source": "results.child_step"}],
-            }
-        )
+        child_file = _child_file_without_interface()
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
 
@@ -165,12 +167,7 @@ class TestWorkflowBlockBindingValidation:
             parse_workflow_yaml(parent_yaml, workflow_registry=registry)
 
     def test_parse_workflow_yaml_rejects_duplicate_workflow_block_binding_names(self) -> None:
-        child_file = _child_file_with_interface(
-            {
-                "inputs": [{"name": "topic", "target": "shared_memory.topic"}],
-                "outputs": [{"name": "summary", "source": "results.child_step"}],
-            }
-        )
+        child_file = _child_file_without_interface()
         registry = WorkflowRegistry()
         registry.register("child_workflow", child_file)
 

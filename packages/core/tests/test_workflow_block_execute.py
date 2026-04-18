@@ -43,7 +43,7 @@ def mock_child_workflow():
 
 @pytest.mark.asyncio
 async def test_input_mapping_success(base_parent_state, mock_child_workflow):
-    """Test successful input mapping from parent to child."""
+    """Test successful input mapping from parent state to child invocation inputs."""
     # Arrange
     child_final_state = WorkflowState(
         results={"final": BlockResult(output="child_output")},
@@ -55,7 +55,7 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
     block = WorkflowBlock(
         block_id="test_input",
         child_workflow=mock_child_workflow,
-        inputs={"shared_memory.topic": "shared_memory.research_topic"},
+        inputs={"topic": "shared_memory.research_topic"},
         outputs={},
         max_depth=10,
     )
@@ -63,10 +63,12 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
     # Act
     await _run_block(block, base_parent_state)
 
-    # Assert - verify child received the mapped input
     call_args = mock_child_workflow.run.call_args
     child_state = call_args[0][0]
-    assert child_state.shared_memory.get("topic") == "AI safety"
+    assert call_args.kwargs["inputs"] == {"topic": "AI safety"}
+    assert child_state.shared_memory == {}
+    assert child_state.results == {}
+    assert child_state.metadata == {}
 
 
 @pytest.mark.asyncio
@@ -88,6 +90,20 @@ async def test_input_mapping_missing_key_raises(base_parent_state, mock_child_wo
     error_msg = str(exc_info.value)
     assert "nonexistent_key" in error_msg
     assert "shared_memory" in error_msg
+
+
+@pytest.mark.asyncio
+async def test_private_child_state_input_mapping_raises(base_parent_state, mock_child_workflow):
+    """RUN-922: inputs keys are public invocation names, not child private state paths."""
+    with pytest.raises(ValueError, match="private child state|child invocation input"):
+        block = WorkflowBlock(
+            block_id="test_private_input",
+            child_workflow=mock_child_workflow,
+            inputs={"shared_memory.topic": "shared_memory.research_topic"},
+            outputs={},
+            max_depth=10,
+        )
+        await _run_block(block, base_parent_state)
 
 
 @pytest.mark.asyncio
