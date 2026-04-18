@@ -171,9 +171,18 @@ async def create_run(
     if execution_service is None:
         raise ServiceUnavailable("Execution runtime is unavailable")
 
+    normalized_inputs = body.inputs
+    prepare_run_inputs = getattr(execution_service, "prepare_run_inputs", None)
+    if callable(prepare_run_inputs):
+        prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
+        if inspect.isawaitable(prepared):
+            prepared = await prepared
+        if isinstance(prepared, dict):
+            normalized_inputs = prepared
+
     run = run_service.create_run(
         body.workflow_id,
-        body.inputs,
+        normalized_inputs,
         source=source,
         branch=branch,
     )
@@ -181,7 +190,7 @@ async def create_run(
         await execution_service.launch_execution(
             run.id,
             run.workflow_id,
-            body.inputs,
+            normalized_inputs,
             branch=branch,
         )
     except Exception as exc:

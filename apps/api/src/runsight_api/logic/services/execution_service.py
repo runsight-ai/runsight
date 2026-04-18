@@ -1,6 +1,7 @@
 """ExecutionService — launches workflow execution as background asyncio tasks."""
 
 import asyncio
+import copy
 import logging
 import subprocess
 import time
@@ -9,11 +10,14 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInputDef
 import yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
+from ...domain.errors import InputValidationError
 from ...domain.events import SSE_TERMINAL_EVENTS
 from ..observers.eval_observer import EvalObserver
 from ..observers.execution_observer import ExecutionObserver
@@ -28,6 +32,72 @@ def _workflow_ref(workflow_id: str) -> str:
 
 def _provider_ref(provider_id: str) -> str:
     return str(EntityRef(EntityKind.PROVIDER, provider_id))
+
+
+def _actual_input_type(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "json"
+    return type(value).__name__
+
+
+def _matches_input_type(value: Any, expected_type: str) -> bool:
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "number":
+        return not isinstance(value, bool) and isinstance(value, int | float)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "json":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    return False
+
+
+def _type_label(input_def: WorkflowInputDef) -> str:
+    article = "an" if input_def.type == "array" else "a"
+    return f"{article} {input_def.type}"
+
+
+def _workflow_input_field_error(
+    field: str,
+    code: str,
+    message: str,
+    *,
+    expected_type: str | None,
+    actual_type: str | None,
+) -> dict[str, Any]:
+    return {
+        "field": field,
+        "code": code,
+        "message": message,
+        "input_path": ["inputs", field],
+        "expected_type": expected_type,
+        "actual_type": actual_type,
+    }
+
+
+def _raise_workflow_input_validation(workflow_id: str, fields: list[dict[str, Any]]) -> None:
+    raise InputValidationError(
+        "Workflow input validation failed",
+        error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+        status_code=422,
+        details={
+            "kind": "workflow_input_validation",
+            "workflow_id": workflow_id,
+            "fields": fields,
+        },
+    )
 
 
 class ExecutionService:
@@ -222,6 +292,81 @@ class ExecutionService:
         task = asyncio.create_task(self._run_workflow(run_id, wf, inputs))
         self._running_tasks[run_id] = task
         task.add_done_callback(lambda t: self._running_tasks.pop(run_id, None))
+
+    def prepare_run_inputs(
+        self,
+        workflow_id: str,
+        inputs: Dict[str, Any],
+        *,
+        branch: str = "main",
+    ) -> Dict[str, Any]:
+        wf_entity = self.workflow_repo.get_by_id(workflow_id)
+        if wf_entity is None:
+            raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
+
+        workflow_path = str(self.workflow_repo._get_path(workflow_id))
+        yaml_content = (
+            self.git_service.read_file(workflow_path, branch)
+            if self.git_service
+            else wf_entity.yaml
+        )
+        data = yaml.safe_load(yaml_content)
+        if not isinstance(data, dict):
+            raise ValueError("YAML content is not a mapping")
+        workflow_file = RunsightWorkflowFile.model_validate(data)
+        input_schema = effective_workflow_input_schema(workflow_file) or {}
+
+        raw_inputs = dict(inputs or {})
+        fields: list[dict[str, Any]] = []
+        normalized: Dict[str, Any] = {}
+
+        for name, value in raw_inputs.items():
+            if name not in input_schema:
+                fields.append(
+                    _workflow_input_field_error(
+                        name,
+                        "unknown",
+                        f"Input '{name}' is not declared by this workflow.",
+                        expected_type=None,
+                        actual_type=_actual_input_type(value),
+                    )
+                )
+
+        for name, input_def in input_schema.items():
+            if name not in raw_inputs:
+                if input_def.default is not None:
+                    normalized[name] = copy.deepcopy(input_def.default)
+                    continue
+                if input_def.required:
+                    fields.append(
+                        _workflow_input_field_error(
+                            name,
+                            "required",
+                            f"Input '{name}' is required.",
+                            expected_type=input_def.type,
+                            actual_type=None,
+                        )
+                    )
+                continue
+
+            value = raw_inputs[name]
+            if not _matches_input_type(value, input_def.type):
+                fields.append(
+                    _workflow_input_field_error(
+                        name,
+                        "type_mismatch",
+                        f"Input '{name}' must be {_type_label(input_def)}.",
+                        expected_type=input_def.type,
+                        actual_type=_actual_input_type(value),
+                    )
+                )
+                continue
+            normalized[name] = value
+
+        if fields:
+            _raise_workflow_input_validation(workflow_id, fields)
+
+        return normalized
 
     async def _run_workflow(self, run_id: str, wf: Any, inputs: Dict[str, Any]) -> None:
         """Execute the workflow with CompositeObserver for status management.
