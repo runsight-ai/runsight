@@ -94,9 +94,6 @@ class TestDepthParityMaxDepth3:
         """
         grandchild_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             workflow:
               name: grandchild
               entry: finish
@@ -104,9 +101,6 @@ class TestDepthParityMaxDepth3:
         """)
         child_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_grandchild:
                 type: workflow
@@ -122,9 +116,6 @@ class TestDepthParityMaxDepth3:
         """)
         parent_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_child:
                 type: workflow
@@ -144,9 +135,6 @@ class TestDepthParityMaxDepth3:
             "custom/workflows/grandchild.yaml",
             """
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             workflow:
               name: grandchild
               entry: finish
@@ -158,9 +146,6 @@ class TestDepthParityMaxDepth3:
             "custom/workflows/child.yaml",
             """
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_grandchild:
                 type: workflow
@@ -240,9 +225,6 @@ class TestDepthParityMaxDepth2:
         """
         grandchild_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             workflow:
               name: grandchild
               entry: finish
@@ -250,9 +232,6 @@ class TestDepthParityMaxDepth2:
         """)
         child_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_grandchild:
                 type: workflow
@@ -268,9 +247,6 @@ class TestDepthParityMaxDepth2:
         """)
         parent_file = _make_workflow_file("""
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_child:
                 type: workflow
@@ -289,9 +265,6 @@ class TestDepthParityMaxDepth2:
             "custom/workflows/grandchild.yaml",
             """
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             workflow:
               name: grandchild
               entry: finish
@@ -303,9 +276,6 @@ class TestDepthParityMaxDepth2:
             "custom/workflows/child.yaml",
             """
             version: "1.0"
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_grandchild:
                 type: workflow

@@ -15,7 +15,6 @@ def _write_workflow(path: Path, *, workflow_id: str, workflow_name: str) -> Runs
         "version": "1.0",
         "id": workflow_id,
         "kind": "workflow",
-        "interface": {"inputs": [], "outputs": []},
         "blocks": {
             "finish": {
                 "type": "code",
