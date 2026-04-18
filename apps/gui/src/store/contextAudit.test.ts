@@ -10,13 +10,6 @@ import {
   useContextAuditStore,
 } from "./contextAudit";
 
-type ContextAuditStoreState = {
-  activeRunId: string | null;
-  replaceRunEvents: (runId: string, events: ContextAuditEventV1[]) => void;
-  appendEvents: (runId: string, events: ContextAuditEventV1[]) => void;
-  clearRun: (runId: string) => void;
-};
-
 function event(
   runId: string,
   nodeId: string,
