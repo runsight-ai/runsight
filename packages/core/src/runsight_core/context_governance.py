@@ -223,6 +223,8 @@ class ContextResolver:
                 parsed = _canonicalize_context_ref(parse_context_ref(from_ref), state)
                 value = _resolve_parsed_ref(parsed, state)
             except (ValueError, ContextResolutionError) as exc:
+                if isinstance(exc, ValueError) and from_ref == ContextAuditNamespace.WORKFLOW.value:
+                    raise ValueError(str(exc)) from exc
                 if self.policy.mode == ContextAuditMode.DEV.value:
                     records.append(
                         _audit_record(
@@ -476,10 +478,7 @@ def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:
         return dict(getattr(step, "declared_inputs") or {})
     declared_inputs = getattr(block, "declared_inputs", None)
     if declared_inputs:
-        inputs = dict(declared_inputs)
-        if inputs == {"workflow": "workflow"}:
-            return {}
-        return inputs
+        return dict(declared_inputs)
     workflow_inputs = getattr(block, "inputs", None)
     if isinstance(workflow_inputs, dict):
         return dict(workflow_inputs)
