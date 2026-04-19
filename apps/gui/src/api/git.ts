@@ -6,6 +6,7 @@ import {
   FileReadResponseSchema,
   StatusResponseSchema,
   WorkflowCommitResponseSchema,
+  WorkflowSimulationResponseSchema,
 } from "@runsight/shared/zod";
 import type {
   CommitEntry,
@@ -13,16 +14,12 @@ import type {
   DiffResponse,
   FileReadResponse,
   StatusResponse,
+  WorkflowSimulationResponse,
 } from "@runsight/shared/zod";
 import { z } from "zod";
 
 const GitLogResponseSchema = z.object({
   commits: z.array(CommitEntrySchema),
-});
-
-const SimulationSnapshotResponseSchema = z.object({
-  branch: z.string(),
-  commit_sha: z.string(),
 });
 
 const WorkflowCommitPayloadSchema = z.object({
@@ -64,9 +61,9 @@ export const gitApi = {
   createSimBranch: async (
     workflowId: string,
     yamlContent: string,
-  ): Promise<{ branch: string; commit_sha: string }> => {
+  ): Promise<WorkflowSimulationResponse> => {
     const res = await api.post(`/workflows/${workflowId}/simulations`, { yaml: yamlContent });
-    return SimulationSnapshotResponseSchema.parse(res);
+    return WorkflowSimulationResponseSchema.parse(res);
   },
 
   commitWorkflow: async (
