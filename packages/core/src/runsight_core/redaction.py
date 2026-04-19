@@ -14,6 +14,7 @@ class RunRedactor:
     def __init__(self, values: list[object] | None = None) -> None:
         self._values: set[str] = set()
         self._named_values: dict[str, set[str]] = {}
+        self._structured_named_values: set[str] = set()
         for value in values or []:
             self.register(value)
 
@@ -25,28 +26,47 @@ class RunRedactor:
 
     def register_named(self, name: str, value: object) -> None:
         """Register non-empty string leaves for one sensitive structured field."""
+        if isinstance(value, dict | list | tuple):
+            self._structured_named_values.add(name)
         named_values = self._named_values.setdefault(name, set())
-        for item in self._iter_string_leaves(value):
+        for item in self._iter_named_string_leaves(value):
             if item:
                 named_values.add(item)
 
     def redact(self, value: object) -> Any:
         """Redact exact scalar matches while preserving nested container shape."""
-        return self._redact(value, field_name=None)
+        scope_name = None
+        if isinstance(value, dict | list | tuple) and len(self._structured_named_values) == 1:
+            scope_name = next(iter(self._structured_named_values))
+        return self._redact(value, field_name=None, scope_name=scope_name)
 
-    def _redact(self, value: object, *, field_name: str | None) -> Any:
+    def _redact(
+        self,
+        value: object,
+        *,
+        field_name: str | None,
+        scope_name: str | None,
+    ) -> Any:
         if isinstance(value, str):
-            scoped_values = self._named_values.get(field_name or "", set())
+            scoped_values = set(self._named_values.get(field_name or "", set()))
+            scoped_values.update(self._named_values.get(scope_name or "", set()))
             return REDACTED_VALUE if value in self._values or value in scoped_values else value
         if isinstance(value, dict):
+            next_scope = field_name if field_name in self._named_values else scope_name
             return {
-                key: self._redact(item, field_name=key if isinstance(key, str) else None)
+                key: self._redact(
+                    item,
+                    field_name=key if isinstance(key, str) else None,
+                    scope_name=next_scope,
+                )
                 for key, item in value.items()
             }
         if isinstance(value, list):
-            return [self._redact(item, field_name=None) for item in value]
+            return [self._redact(item, field_name=None, scope_name=scope_name) for item in value]
         if isinstance(value, tuple):
-            return tuple(self._redact(item, field_name=None) for item in value)
+            return tuple(
+                self._redact(item, field_name=None, scope_name=scope_name) for item in value
+            )
         return value
 
     def redact_text(self, value: str) -> str:
@@ -87,6 +107,23 @@ class RunRedactor:
             leaves = []
             for item in value:
                 leaves.extend(RunRedactor._iter_string_leaves(item))
+            return leaves
+        return []
+
+    @staticmethod
+    def _iter_named_string_leaves(value: object, *, path: tuple[str, ...] = ()) -> list[str]:
+        if isinstance(value, str):
+            return [] if "public" in path else [value]
+        if isinstance(value, dict):
+            leaves: list[str] = []
+            for key, item in value.items():
+                part = key if isinstance(key, str) else ""
+                leaves.extend(RunRedactor._iter_named_string_leaves(item, path=(*path, part)))
+            return leaves
+        if isinstance(value, list | tuple):
+            leaves = []
+            for item in value:
+                leaves.extend(RunRedactor._iter_named_string_leaves(item, path=path))
             return leaves
         return []
 

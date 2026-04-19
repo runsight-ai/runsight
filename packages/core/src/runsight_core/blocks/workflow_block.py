@@ -120,6 +120,7 @@ class WorkflowBlock(BaseBlock):
             duration_s = time.monotonic() - start_time
             if self.on_error != "catch":
                 raise
+            child_redactor = self._promote_child_sensitive_inputs(child_redactor, child_inputs)
             return BlockOutput(
                 output=f"WorkflowBlock '{self.child_workflow.name}' failed",
                 exit_handle="error",
@@ -142,8 +143,13 @@ class WorkflowBlock(BaseBlock):
                         ),
                     }
                 ],
+                input_redactor=child_redactor,
             )
         duration_s = time.monotonic() - start_time
+        child_redactor = self._promote_child_sensitive_inputs(
+            child_final_state.input_redactor or child_redactor,
+            child_inputs,
+        )
 
         # Step 4b: Soft failures
         if self.on_error == "catch":
@@ -172,6 +178,7 @@ class WorkflowBlock(BaseBlock):
                                 ),
                             }
                         ],
+                        input_redactor=child_redactor,
                     )
 
         # Step 5: Collect output mappings as extra_results / shared_memory_updates
@@ -214,6 +221,7 @@ class WorkflowBlock(BaseBlock):
             ],
             extra_results=extra_results if extra_results else None,
             shared_memory_updates=shared_memory_updates if shared_memory_updates else None,
+            input_redactor=child_redactor,
         )
 
     def _resolve_dotted(self, state: WorkflowState, path: str, *, context: str = "state") -> Any:
@@ -333,6 +341,20 @@ class WorkflowBlock(BaseBlock):
             if redactor is None:
                 redactor = RunRedactor()
             redactor.register_named(name, child_inputs[name])
+        return redactor
+
+    def _promote_child_sensitive_inputs(
+        self,
+        redactor: RunRedactor | None,
+        child_inputs: Dict[str, Any],
+    ) -> RunRedactor | None:
+        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        for name, input_def in input_schema.items():
+            if not getattr(input_def, "sensitive", False) or name not in child_inputs:
+                continue
+            if redactor is None:
+                redactor = RunRedactor()
+            redactor.register(child_inputs[name])
         return redactor
 
     @staticmethod
