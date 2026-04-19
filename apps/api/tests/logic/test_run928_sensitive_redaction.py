@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+from queue import Queue
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import SQLModel, Session, create_engine, select
+from sqlalchemy.pool import StaticPool
 
 from runsight_api.domain.errors import InputValidationError
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.value_objects import WorkflowEntity
+from runsight_api.logic.observers.eval_observer import EvalObserver
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
 from runsight_api.logic.services.execution_service import ExecutionService
@@ -113,6 +116,16 @@ def _db_engine():
     return engine
 
 
+def _eval_db_engine():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
 def _seed_run(engine, run_id: str = "run_928_api") -> None:
     with Session(engine) as session:
         session.add(
@@ -143,6 +156,29 @@ def _log_messages(engine, run_id: str = "run_928_api") -> list[str]:
     with Session(engine) as session:
         logs = list(session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all())
     return [entry.message for entry in logs]
+
+
+def _seed_eval_run(engine, run_id: str = "run_928_eval", block_id: str = "block_a") -> None:
+    with Session(engine) as session:
+        session.add(
+            Run(
+                id=run_id,
+                workflow_id="wf_928",
+                workflow_name="redaction_api",
+                status=RunStatus.running,
+                task_json="{}",
+            )
+        )
+        session.add(
+            RunNode(
+                id=f"{run_id}:{block_id}",
+                run_id=run_id,
+                node_id=block_id,
+                block_type="LinearBlock",
+                status="completed",
+            )
+        )
+        session.commit()
 
 
 def test_prepare_run_inputs_returns_values_and_runtime_redactor_for_sensitive_inputs() -> None:
@@ -359,3 +395,46 @@ def test_streaming_observer_redacts_workflow_error_sse_payload_when_state_is_ava
     assert queued["event"] == "run_failed"
     assert SENSITIVE_VALUE not in payload
     assert REDACTED in payload
+
+
+def test_eval_observer_redacts_registered_sensitive_values_in_persisted_eval_results_and_sse() -> (
+    None
+):
+    engine = _eval_db_engine()
+    _seed_eval_run(engine)
+    sse_queue: Queue = Queue()
+    state = WorkflowState(
+        input_redactor=_redactor(SENSITIVE_VALUE),
+        results={
+            "block_a": BlockResult(output=f"payload {SENSITIVE_VALUE}"),
+        },
+    )
+    observer = EvalObserver(
+        engine=engine,
+        run_id="run_928_eval",
+        sse_queue=sse_queue,
+        assertion_configs={
+            "block_a": [
+                {"type": "contains", "value": SENSITIVE_VALUE, "weight": 1.0},
+            ]
+        },
+    )
+
+    observer.on_block_complete("wf", "block_a", "LinearBlock", 0.1, state)
+
+    with Session(engine) as session:
+        node = session.get(RunNode, "run_928_eval:block_a")
+
+    assert node is not None
+    assert node.eval_results is not None
+    persisted = json.dumps(node.eval_results, default=str)
+    assert SENSITIVE_VALUE not in persisted
+    assert REDACTED in persisted
+    assert node.eval_results["assertions"][0]["reason"] == f"Output contains '{REDACTED}'"
+
+    event = sse_queue.get_nowait()
+    event_payload = json.dumps(event, default=str)
+    assert event["event"] == "node_eval_complete"
+    assert SENSITIVE_VALUE not in event_payload
+    assert REDACTED in event_payload
+    assert event["data"]["assertions"][0]["reason"] == f"Output contains '{REDACTED}'"

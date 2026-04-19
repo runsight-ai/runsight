@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from runsight_core.block_io import build_block_context
@@ -16,6 +17,8 @@ from runsight_core.context_governance import (
 )
 from runsight_core.observer import LoggingObserver
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import Workflow
+from runsight_core.yaml.schema import WorkflowInputDef
 
 SENSITIVE_VALUE = "orchid-928-sensitive-value"
 PUBLIC_VALUE = "orchid-928-public-value"
@@ -134,6 +137,52 @@ def test_context_audit_redacts_runtime_registered_workflow_input_preview() -> No
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
+def test_context_audit_preview_keeps_secret_like_names_visible_until_registered() -> None:
+    declaration = ContextDeclaration(
+        block_id="consumer",
+        block_type="linear",
+        declared_inputs={
+            "api_token": "workflow.api_token",
+            "private_note": "workflow.private_note",
+        },
+    )
+
+    plain_scoped = _resolver().resolve(
+        declaration=declaration,
+        state=_state_with_redactor(
+            workflow_inputs={
+                "api_token": PUBLIC_VALUE,
+                "private_note": PUBLIC_VALUE,
+            },
+        ),
+    )
+    plain_previews = {
+        record.input_name: record.preview for record in plain_scoped.audit_event.records
+    }
+    assert plain_previews == {
+        "api_token": PUBLIC_VALUE,
+        "private_note": PUBLIC_VALUE,
+    }
+
+    redacted_scoped = _resolver().resolve(
+        declaration=declaration,
+        state=_state_with_redactor(
+            redactor=_redactor(PUBLIC_VALUE),
+            workflow_inputs={
+                "api_token": PUBLIC_VALUE,
+                "private_note": PUBLIC_VALUE,
+            },
+        ),
+    )
+    redacted_previews = {
+        record.input_name: record.preview for record in redacted_scoped.audit_event.records
+    }
+    assert redacted_previews == {
+        "api_token": REDACTED,
+        "private_note": REDACTED,
+    }
+
+
 def test_logging_observer_redacts_registered_sensitive_value_in_error_details(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -195,3 +244,77 @@ async def test_workflow_block_passes_parent_redaction_context_to_child_state() -
         {"echo": child.received_state.workflow_inputs["private_note"]}
     ) == {"echo": REDACTED}
     assert output.shared_memory_updates == {"child_echo": SENSITIVE_VALUE}
+
+
+def _sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
+    child = Workflow(
+        name="child_sensitive_workflow",
+        input_schema={
+            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+        },
+    )
+    captured: dict[str, WorkflowState] = {}
+
+    async def _run(state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        captured["received_state"] = state
+        redactor = state.input_redactor
+        assert redactor is not None
+
+        child_secret = state.workflow_inputs["child_secret"]
+        redacted_payload = redactor.redact(
+            {
+                "child_secret": child_secret,
+                "public_note": PUBLIC_VALUE,
+            }
+        )
+        returned_state = WorkflowState(
+            input_redactor=redactor,
+            workflow_inputs=dict(state.workflow_inputs),
+            results={
+                "child_result": BlockResult(output=json.dumps(redacted_payload)),
+            },
+            execution_log=[
+                {
+                    "role": "system",
+                    "content": redactor.redact_text(f"child saw {child_secret}"),
+                }
+            ],
+        )
+        captured["returned_state"] = returned_state
+        return returned_state
+
+    child.run = AsyncMock(side_effect=_run)
+    return child, captured
+
+
+@pytest.mark.asyncio
+async def test_workflow_block_registers_child_sensitive_inputs_at_child_boundary() -> None:
+    child, captured = _sensitive_child_workflow()
+    block = WorkflowBlock(
+        block_id="invoke_sensitive_child",
+        child_workflow=child,
+        inputs={"child_secret": "shared_memory.topic"},
+        outputs={},
+    )
+    parent_state = _state_with_redactor(
+        redactor=_redactor(SENSITIVE_VALUE),
+        shared_memory={"topic": PUBLIC_VALUE},
+    )
+    ctx = build_block_context(block, parent_state)
+
+    await block.execute(ctx)
+
+    received_state = captured["received_state"]
+    returned_state = captured["returned_state"]
+
+    assert received_state.workflow_inputs == {"child_secret": PUBLIC_VALUE}
+    assert received_state.input_redactor is parent_state.input_redactor
+    assert received_state.input_redactor.redact({"child_secret": PUBLIC_VALUE}) == {
+        "child_secret": REDACTED
+    }
+    assert json.loads(returned_state.results["child_result"].output) == {
+        "child_secret": REDACTED,
+        "public_note": PUBLIC_VALUE,
+    }
+    assert returned_state.execution_log[0]["content"] == f"child saw {REDACTED}"
+    assert PUBLIC_VALUE not in returned_state.model_dump_json()
