@@ -3,9 +3,11 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
+from runsight_core.redaction import RedactionContext
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.domain.errors import InputValidationError
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_api.main import app
 from runsight_api.transport.deps import get_execution_service, get_run_service
 
@@ -67,6 +69,13 @@ def _mock_run(run_id: str = "run_896"):
     return run
 
 
+def _prepared_inputs(normalized_inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(normalized_inputs),
+        input_redactor=RedactionContext.from_values(normalized_inputs.values()).redactor,
+    )
+
+
 def _services(*, normalized_inputs: dict | None = None, validation_error: Exception | None = None):
     run_service = Mock()
     run_service.create_run.return_value = _mock_run()
@@ -77,7 +86,9 @@ def _services(*, normalized_inputs: dict | None = None, validation_error: Except
     if validation_error is not None:
         execution_service.prepare_run_inputs.side_effect = validation_error
     else:
-        execution_service.prepare_run_inputs.return_value = dict(normalized_inputs or {})
+        execution_service.prepare_run_inputs.return_value = _prepared_inputs(
+            normalized_inputs or {}
+        )
 
     app.dependency_overrides[get_run_service] = lambda: run_service
     app.dependency_overrides[get_execution_service] = lambda: execution_service
