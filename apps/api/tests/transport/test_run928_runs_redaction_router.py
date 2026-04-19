@@ -71,6 +71,29 @@ def _plain_execution_service(*, prepared_result: object):
     return PlainExecutionService()
 
 
+def _execution_service_without_callable_prepare_run_inputs():
+    class MissingPrepareRunInputsExecutionService:
+        def __init__(self) -> None:
+            self.launch_execution = AsyncMock()
+
+    return MissingPrepareRunInputsExecutionService()
+
+
+def _post_run_payload_with_service(execution_service: object, run_service: Mock):
+    app.dependency_overrides[get_run_service] = lambda: run_service
+    app.dependency_overrides[get_execution_service] = lambda: execution_service
+    try:
+        return client.post(
+            "/api/runs",
+            json={
+                "workflow_id": "wf_inputs",
+                "inputs": {"private_note": SENSITIVE_VALUE},
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
     run_service, execution_service = _services(
         prepared_result={
@@ -92,6 +115,41 @@ def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
     )
     run_service.create_run.assert_not_called()
     execution_service.launch_execution.assert_not_called()
+
+
+def test_post_runs_fails_closed_when_prepare_run_inputs_is_missing() -> None:
+    run_service = Mock()
+    run_service.create_run.return_value = _mock_run("run_missing_prepare")
+    run_service.refresh_run.return_value = _mock_run("run_missing_prepare")
+    execution_service = _execution_service_without_callable_prepare_run_inputs()
+
+    response = _post_run_payload_with_service(execution_service, run_service)
+
+    assert (
+        response.status_code,
+        run_service.create_run.call_count,
+        execution_service.launch_execution.call_count,
+    ) == (500, 0, 0)
+
+
+def test_post_runs_fails_closed_when_prepare_run_inputs_is_noncallable() -> None:
+    class NonCallablePrepareRunInputsExecutionService:
+        def __init__(self) -> None:
+            self.prepare_run_inputs = None
+            self.launch_execution = AsyncMock()
+
+    run_service = Mock()
+    run_service.create_run.return_value = _mock_run("run_noncallable_prepare")
+    run_service.refresh_run.return_value = _mock_run("run_noncallable_prepare")
+    execution_service = NonCallablePrepareRunInputsExecutionService()
+
+    response = _post_run_payload_with_service(execution_service, run_service)
+
+    assert (
+        response.status_code,
+        run_service.create_run.call_count,
+        execution_service.launch_execution.call_count,
+    ) == (500, 0, 0)
 
 
 def test_post_runs_rejects_public_only_plain_mapping_prepare_run_inputs_result() -> None:

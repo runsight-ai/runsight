@@ -137,6 +137,35 @@ def test_context_audit_redacts_runtime_registered_workflow_input_preview() -> No
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
+def test_named_structured_sensitive_input_redacts_unique_leaves_directly_and_in_preview() -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {"api_key": "alpha", "nested": {"inner": "beta"}}
+    redactor.register_named("credentials", credentials)
+    state = _state_with_redactor(
+        redactor=redactor,
+        workflow_inputs={"credentials": credentials},
+    )
+
+    scoped = _resolver().resolve(
+        declaration=ContextDeclaration(
+            block_id="consumer",
+            block_type="linear",
+            declared_inputs={"credentials": "workflow.credentials"},
+        ),
+        state=state,
+    )
+
+    preview = scoped.audit_event.records[0].preview or ""
+    expected = {
+        "api_key": REDACTED,
+        "nested": {"inner": REDACTED},
+    }
+
+    assert (redactor.redact(credentials), json.loads(preview)) == (expected, expected)
+
+
 def test_context_audit_preview_keeps_secret_like_names_visible_until_registered() -> None:
     declaration = ContextDeclaration(
         block_id="consumer",
