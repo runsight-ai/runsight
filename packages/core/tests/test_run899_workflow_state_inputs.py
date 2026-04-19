@@ -104,6 +104,41 @@ def test_parse_context_ref_rejects_bare_workflow_access() -> None:
         cg.parse_context_ref("workflow")
 
 
+def test_build_block_context_rejects_bare_workflow_declared_input_like_parser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bare workflow declaration must fail at runtime instead of being silently ignored."""
+    from types import SimpleNamespace
+
+    from runsight_core import block_io as block_io_module
+    from runsight_core import context_governance as cg
+
+    class BareWorkflowBlock:
+        block_id = "invoke_child"
+        context_access = "declared"
+        declared_inputs = {"workflow": "workflow"}
+        soul = None
+        runner = None
+
+    monkeypatch.setattr(
+        block_io_module,
+        "fit_to_budget",
+        lambda request, counter: SimpleNamespace(
+            instruction=request.instruction,
+            context=request.context,
+            messages=list(request.conversation_history),
+        ),
+    )
+
+    with pytest.raises(ValueError) as parser_exc:
+        cg.parse_context_ref("workflow")
+
+    with pytest.raises(ValueError) as runtime_exc:
+        build_block_context(BareWorkflowBlock(), _state())
+
+    assert str(runtime_exc.value) == str(parser_exc.value)
+
+
 def test_context_resolver_missing_named_workflow_input_does_not_expose_unrelated_state() -> None:
     """Missing workflow refs should name the missing input without echoing unrelated state keys."""
     declaration = ContextDeclaration(
