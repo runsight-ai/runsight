@@ -30,10 +30,17 @@ class RunRedactor:
         named_values = self._named_values.setdefault(name, set())
         if isinstance(value, dict | list | tuple):
             self._structured_named_values[name] = value
-            counts = Counter(self._iter_string_leaves(value))
-            for item, count in counts.items():
-                if item and count > 1:
-                    named_values.add(item)
+            leaves = [item for item in self._iter_string_leaves(value) if item]
+            if not leaves:
+                return
+            counts = Counter(leaves)
+            if any(count > 1 for count in counts.values()):
+                for item, count in counts.items():
+                    if count > 1:
+                        named_values.add(item)
+                return
+            for item in leaves:
+                named_values.add(item)
             return
         for item in self._iter_string_leaves(value):
             if item:
