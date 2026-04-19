@@ -226,23 +226,21 @@ async def test_launch_execution_keeps_prepared_redactor_for_plain_mapping_inputs
     with patch("runsight_api.logic.services.execution_service.parse_workflow_yaml") as mock_parse:
         mock_parse.return_value = mock_wf
 
-        try:
-            await service.launch_execution(
-                "run_928_launch",
-                "run928_inputs",
-                dict(prepared.normalized_inputs),
-                branch="main",
-            )
-        except (TypeError, ValueError) as exc:
-            assert "PreparedRunInputs" in str(exc) or "prepared" in str(exc)
-            return
+        await service.launch_execution(
+            "run_928_launch",
+            "run928_inputs",
+            dict(prepared.normalized_inputs),
+            branch="main",
+        )
 
         await asyncio.sleep(0.1)
 
     assert "state" in captured
     assert captured["inputs"] == prepared.normalized_inputs
     sample = {"private_note": SENSITIVE_VALUE, "api_token": PUBLIC_VALUE}
-    assert captured["state"].input_redactor.redact(sample) == prepared.input_redactor.redact(sample)
+    redacted = captured["state"].input_redactor.redact(sample)
+    assert redacted["private_note"] == REDACTED
+    assert redacted["api_token"] == PUBLIC_VALUE
 
 
 def test_execution_observer_redacts_node_output_and_execution_log_before_persisting() -> None:
