@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from runsight_core.state import BlockResult, WorkflowState
@@ -199,6 +200,49 @@ def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() ->
         InputValidationError, match="sensitive workflow inputs cannot declare a default"
     ):
         service.prepare_run_inputs("run928_inputs", {}, branch="main")
+
+
+@pytest.mark.asyncio
+async def test_launch_execution_keeps_prepared_redactor_for_plain_mapping_inputs() -> None:
+    service = _service()
+    prepared = service.prepare_run_inputs(
+        "run928_inputs",
+        {
+            "private_note": SENSITIVE_VALUE,
+            "api_token": PUBLIC_VALUE,
+        },
+        branch="main",
+    )
+    captured: dict[str, object] = {}
+
+    async def _capture_state(state, **kwargs):
+        captured["state"] = state
+        captured["inputs"] = kwargs["inputs"]
+        return state
+
+    mock_wf = Mock()
+    mock_wf.run = AsyncMock(side_effect=_capture_state)
+
+    with patch("runsight_api.logic.services.execution_service.parse_workflow_yaml") as mock_parse:
+        mock_parse.return_value = mock_wf
+
+        try:
+            await service.launch_execution(
+                "run_928_launch",
+                "run928_inputs",
+                dict(prepared.normalized_inputs),
+                branch="main",
+            )
+        except (TypeError, ValueError) as exc:
+            assert "PreparedRunInputs" in str(exc) or "prepared" in str(exc)
+            return
+
+        await asyncio.sleep(0.1)
+
+    assert "state" in captured
+    assert captured["inputs"] == prepared.normalized_inputs
+    sample = {"private_note": SENSITIVE_VALUE, "api_token": PUBLIC_VALUE}
+    assert captured["state"].input_redactor.redact(sample) == prepared.input_redactor.redact(sample)
 
 
 def test_execution_observer_redacts_node_output_and_execution_log_before_persisting() -> None:
