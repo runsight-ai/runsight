@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,7 +15,7 @@ class RunRedactor:
     def __init__(self, values: list[object] | None = None) -> None:
         self._values: set[str] = set()
         self._named_values: dict[str, set[str]] = {}
-        self._structured_named_values: set[str] = set()
+        self._structured_named_values: dict[str, object] = {}
         for value in values or []:
             self.register(value)
 
@@ -25,19 +26,22 @@ class RunRedactor:
                 self._values.add(item)
 
     def register_named(self, name: str, value: object) -> None:
-        """Register non-empty string leaves for one sensitive structured field."""
-        if isinstance(value, dict | list | tuple):
-            self._structured_named_values.add(name)
+        """Register non-empty string leaves for one sensitive structured value."""
         named_values = self._named_values.setdefault(name, set())
-        for item in self._iter_named_string_leaves(value):
+        if isinstance(value, dict | list | tuple):
+            self._structured_named_values[name] = value
+            counts = Counter(self._iter_string_leaves(value))
+            for item, count in counts.items():
+                if item and count > 1:
+                    named_values.add(item)
+            return
+        for item in self._iter_string_leaves(value):
             if item:
                 named_values.add(item)
 
     def redact(self, value: object) -> Any:
         """Redact exact scalar matches while preserving nested container shape."""
-        scope_name = None
-        if isinstance(value, dict | list | tuple) and len(self._structured_named_values) == 1:
-            scope_name = next(iter(self._structured_named_values))
+        scope_name = self._structured_scope_for_value(value)
         return self._redact(value, field_name=None, scope_name=scope_name)
 
     def _redact(
@@ -52,7 +56,11 @@ class RunRedactor:
             scoped_values.update(self._named_values.get(scope_name or "", set()))
             return REDACTED_VALUE if value in self._values or value in scoped_values else value
         if isinstance(value, dict):
-            next_scope = field_name if field_name in self._named_values else scope_name
+            next_scope = (
+                field_name
+                if field_name in self._named_values or field_name in self._structured_named_values
+                else scope_name
+            )
             return {
                 key: self._redact(
                     item,
@@ -94,6 +102,14 @@ class RunRedactor:
             values.update(named_values)
         return values
 
+    def _structured_scope_for_value(self, value: object) -> str | None:
+        if not isinstance(value, dict | list | tuple):
+            return None
+        for name, structured_value in self._structured_named_values.items():
+            if value == structured_value:
+                return name
+        return None
+
     @staticmethod
     def _iter_string_leaves(value: object) -> list[str]:
         if isinstance(value, str):
@@ -107,23 +123,6 @@ class RunRedactor:
             leaves = []
             for item in value:
                 leaves.extend(RunRedactor._iter_string_leaves(item))
-            return leaves
-        return []
-
-    @staticmethod
-    def _iter_named_string_leaves(value: object, *, path: tuple[str, ...] = ()) -> list[str]:
-        if isinstance(value, str):
-            return [] if "public" in path else [value]
-        if isinstance(value, dict):
-            leaves: list[str] = []
-            for key, item in value.items():
-                part = key if isinstance(key, str) else ""
-                leaves.extend(RunRedactor._iter_named_string_leaves(item, path=(*path, part)))
-            return leaves
-        if isinstance(value, list | tuple):
-            leaves = []
-            for item in value:
-                leaves.extend(RunRedactor._iter_named_string_leaves(item, path=path))
             return leaves
         return []
 
