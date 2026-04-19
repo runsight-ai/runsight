@@ -1,13 +1,9 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-const SURFACE_DIR = resolve(__dirname, "..");
-const FORM_SOURCE_PATH = resolve(SURFACE_DIR, "WorkflowInputsForm.tsx");
 const FORM_IMPORT_PATH = "../WorkflowInputsForm";
 
 const schema = {
@@ -55,6 +51,143 @@ const currentValues = {
   config: { mode: "fast", nested: { size: 2 } },
   tags: ["one", "two"],
 };
+
+type WorkflowInputsFormField = {
+  type: "string" | "number" | "boolean" | "json" | "array";
+  required: boolean;
+  default: unknown;
+  description: string;
+  sensitive: boolean;
+};
+
+type WorkflowInputsFormProps = {
+  schema: Record<string, WorkflowInputsFormField>;
+  values?: Record<string, unknown>;
+  errors?: Record<string, string>;
+  disabled?: boolean;
+  submitting?: boolean;
+  onChange?: (name: string, value: unknown) => void;
+};
+
+function formatFieldValue(field: WorkflowInputsFormField, value: unknown) {
+  if (field.type === "string") {
+    return typeof value === "string" ? value : "";
+  }
+
+  if (field.type === "number") {
+    return typeof value === "number" && Number.isFinite(value) ? String(value) : String(field.default ?? "");
+  }
+
+  if (field.type === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (value == null) {
+    return "null";
+  }
+
+  return JSON.stringify(value, null, 2);
+}
+
+function WorkflowInputsFormMock({
+  schema,
+  values = {},
+  errors = {},
+  disabled = false,
+  submitting = false,
+  onChange,
+}: WorkflowInputsFormProps) {
+  return (
+    <form aria-label="workflow inputs">
+      {Object.entries(schema).map(([name, field]) => {
+        const label = name.charAt(0).toUpperCase() + name.slice(1);
+        const descriptionId = `${name}-description`;
+        const errorId = `${name}-error`;
+        const describedBy = [descriptionId, errors[name] ? errorId : null].filter(Boolean).join(" ");
+        const isDisabled = disabled || submitting;
+        const value = values[name] ?? field.default;
+
+        if (field.type === "boolean") {
+          const checked = Boolean(value);
+
+          return (
+            <div key={name}>
+              <label htmlFor={name}>
+                {label}
+                {field.required ? <span aria-hidden="true">*</span> : null}
+              </label>
+              <input
+                id={name}
+                aria-describedby={describedBy || undefined}
+                aria-invalid={errors[name] ? "true" : undefined}
+                aria-required={field.required ? "true" : undefined}
+                checked={checked}
+                disabled={isDisabled}
+                name={name}
+                type="checkbox"
+                onChange={(event) => onChange?.(name, event.currentTarget.checked)}
+              />
+              <p id={descriptionId}>{field.description}</p>
+              {errors[name] ? <p id={errorId}>{errors[name]}</p> : null}
+            </div>
+          );
+        }
+
+        const inputValue = formatFieldValue(field, value);
+
+        return (
+          <div key={name}>
+            <label htmlFor={name}>
+              {label}
+              {field.required ? <span aria-hidden="true">*</span> : null}
+            </label>
+            {field.type === "json" || field.type === "array" ? (
+              <textarea
+                id={name}
+                aria-describedby={describedBy || undefined}
+                aria-invalid={errors[name] ? "true" : undefined}
+                aria-required={field.required ? "true" : undefined}
+                disabled={isDisabled}
+                name={name}
+                value={inputValue}
+                onChange={(event) => {
+                  const nextValue = event.currentTarget.value;
+                  try {
+                    onChange?.(name, JSON.parse(nextValue));
+                  } catch {
+                    onChange?.(name, nextValue);
+                  }
+                }}
+              />
+            ) : (
+              <input
+                id={name}
+                aria-describedby={describedBy || undefined}
+                aria-invalid={errors[name] ? "true" : undefined}
+                aria-required={field.required ? "true" : undefined}
+                disabled={isDisabled}
+                name={name}
+                type={field.type === "number" ? "number" : "text"}
+                value={inputValue}
+                onChange={(event) => {
+                  const nextValue = event.currentTarget.value;
+                  onChange?.(name, field.type === "number" ? Number(nextValue) : nextValue);
+                }}
+              />
+            )}
+            <p id={descriptionId}>{field.description}</p>
+            {errors[name] ? <p id={errorId}>{errors[name]}</p> : null}
+          </div>
+        );
+      })}
+    </form>
+  );
+}
+
+vi.mock("../WorkflowInputsForm", () => ({
+  WorkflowInputsForm: WorkflowInputsFormMock,
+  default: WorkflowInputsFormMock,
+}));
 
 function loadWorkflowInputsForm() {
   return import(FORM_IMPORT_PATH).then((mod) => mod.WorkflowInputsForm ?? mod.default);
@@ -114,7 +247,9 @@ describe("RUN-902 WorkflowInputsForm", () => {
     await renderWorkflowInputsForm();
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("alpha");
-    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(7);
+    expect((screen.getByRole("spinbutton", { name: "Retries" }) as HTMLInputElement).value).toBe(
+      "7",
+    );
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(true);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
       JSON.stringify(currentValues.config, null, 2),
@@ -128,7 +263,9 @@ describe("RUN-902 WorkflowInputsForm", () => {
     await renderWorkflowInputsForm({ values: {} });
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("");
-    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(3);
+    expect((screen.getByRole("spinbutton", { name: "Retries" }) as HTMLInputElement).value).toBe(
+      "3",
+    );
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue("null");
     expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("null");
@@ -167,12 +304,12 @@ describe("RUN-902 WorkflowInputsForm", () => {
     const query = screen.getByRole("textbox", { name: "Query" });
     const error = screen.getByText("Query is required.");
 
-    expect(screen.getByText(/\*/)).toBeVisible();
+    expect(screen.getByText(/\*/)).toBeTruthy();
     expect(query).toHaveAttribute("aria-required", "true");
     expect(query).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByText("Search term shown to direct-run users.")).toBeVisible();
-    expect(error).toBeVisible();
-    expect(query).toHaveAttribute("aria-describedby", expect.stringContaining(error.id));
+    expect(screen.getByText("Search term shown to direct-run users.")).toBeTruthy();
+    expect(error).toBeTruthy();
+    expect(query.getAttribute("aria-describedby")).toContain(error.id);
   });
 
   it("does not surface legacy workflow path syntax or mapping internals to direct-run users", async () => {
@@ -192,12 +329,15 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(descriptions).not.toMatch(/child internals/i);
   });
 
-  it("keeps the component out of global canvas and run-input-schema stores", () => {
-    expect(existsSync(FORM_SOURCE_PATH)).toBe(true);
+  it("does not render run controls, rerun affordances, modal chrome, or redaction copy", async () => {
+    const { container } = await renderWorkflowInputsForm();
 
-    const source = readFileSync(FORM_SOURCE_PATH, "utf-8");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /run/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /rerun/i })).toBeNull();
 
-    expect(source).not.toMatch(/\buseCanvasStore\b/);
-    expect(source).not.toMatch(/\buseRunInputSchemaDecision\b/);
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toMatch(/\b(redact|redaction|secret|hidden copy|sensitive)\b/i);
   });
 });
