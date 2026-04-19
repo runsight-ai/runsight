@@ -630,6 +630,7 @@ export type WorkflowSimulationCreate = z.infer<typeof WorkflowSimulationCreateSc
 export const WorkflowSimulationResponseSchema = z.object({
   branch: z.string(),
   commit_sha: z.string(),
+  input_schema: z.record(z.string(), WorkflowInputSchemaItemSchema),
 });
 export type WorkflowSimulationResponse = z.infer<typeof WorkflowSimulationResponseSchema>;
 

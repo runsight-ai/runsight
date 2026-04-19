@@ -104,6 +104,7 @@ class WorkflowSimulationCreate(BaseModel):
 class WorkflowSimulationResponse(BaseModel):
     branch: str
     commit_sha: str
+    input_schema: Dict[str, WorkflowInputSchemaItem]
 
 
 class WorkflowDeleteResponse(BaseModel):

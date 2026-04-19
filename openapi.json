@@ -993,14 +993,14 @@
             }
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/WorkflowInputValidationErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Unprocessable Content"
           }
         }
       }
@@ -5479,12 +5479,20 @@
           "commit_sha": {
             "type": "string",
             "title": "Commit Sha"
+          },
+          "input_schema": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkflowInputSchemaItem"
+            },
+            "type": "object",
+            "title": "Input Schema"
           }
         },
         "type": "object",
         "required": [
           "branch",
-          "commit_sha"
+          "commit_sha",
+          "input_schema"
         ],
         "title": "WorkflowSimulationResponse"
       },

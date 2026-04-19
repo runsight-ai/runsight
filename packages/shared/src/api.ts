@@ -1787,6 +1787,10 @@ export interface components {
             branch: string;
             /** Commit Sha */
             commit_sha: string;
+            /** Input Schema */
+            input_schema: {
+                [key: string]: components["schemas"]["WorkflowInputSchemaItem"];
+            };
         };
         /** WorkflowUpdate */
         WorkflowUpdate: {
@@ -2437,13 +2441,13 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowSimulationResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["WorkflowInputValidationErrorResponse"];
                 };
             };
         };
