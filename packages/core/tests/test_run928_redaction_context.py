@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from runsight_core.block_io import build_block_context
+from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.context_governance import (
     ContextDeclaration,
@@ -183,6 +183,40 @@ def test_context_audit_preview_keeps_secret_like_names_visible_until_registered(
     }
 
 
+def test_context_audit_preview_redacts_every_exact_leaf_in_named_structured_input() -> None:
+    """Named redaction must cover every exact sensitive leaf in structured previews."""
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {
+        "api_key": SENSITIVE_VALUE,
+        "nested": [SENSITIVE_VALUE, {"inner": SENSITIVE_VALUE}],
+        "public": PUBLIC_VALUE,
+    }
+    redactor.register_named("credentials", credentials)
+    state = _state_with_redactor(
+        redactor=redactor,
+        workflow_inputs={"credentials": credentials},
+    )
+
+    scoped = _resolver().resolve(
+        declaration=ContextDeclaration(
+            block_id="consumer",
+            block_type="linear",
+            declared_inputs={"credentials": "workflow.credentials"},
+        ),
+        state=state,
+    )
+
+    preview = scoped.audit_event.records[0].preview or ""
+
+    assert scoped.inputs == {"credentials": credentials}
+    assert SENSITIVE_VALUE not in preview
+    assert preview.count(REDACTED) >= 3
+    assert PUBLIC_VALUE in preview
+    assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
+
+
 def test_logging_observer_redacts_registered_sensitive_value_in_error_details(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -287,6 +321,38 @@ def _sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
     return child, captured
 
 
+def _raw_sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
+    child = Workflow(
+        name="child_sensitive_workflow",
+        input_schema={
+            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+        },
+    )
+    captured: dict[str, WorkflowState] = {}
+
+    async def _run(state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        captured["received_state"] = state
+        child_secret = state.workflow_inputs["child_secret"]
+        returned_state = WorkflowState(
+            input_redactor=state.input_redactor,
+            workflow_inputs=dict(state.workflow_inputs),
+            results={
+                "child_result": BlockResult(output=child_secret),
+            },
+            execution_log=[
+                {
+                    "role": "system",
+                    "content": f"child saw {child_secret}",
+                }
+            ],
+        )
+        captured["returned_state"] = returned_state
+        return returned_state
+
+    child.run = AsyncMock(side_effect=_run)
+    return child, captured
+
+
 @pytest.mark.asyncio
 async def test_workflow_block_registers_child_sensitive_inputs_at_child_boundary() -> None:
     child, captured = _sensitive_child_workflow()
@@ -318,3 +384,32 @@ async def test_workflow_block_registers_child_sensitive_inputs_at_child_boundary
     }
     assert returned_state.execution_log[0]["content"] == f"child saw {REDACTED}"
     assert PUBLIC_VALUE not in returned_state.model_dump_json()
+
+
+@pytest.mark.asyncio
+async def test_workflow_block_merges_child_sensitive_input_back_into_parent_redaction_state() -> (
+    None
+):
+    """Parent state must inherit child-sensitive redaction after block application."""
+    child, captured = _raw_sensitive_child_workflow()
+    block = WorkflowBlock(
+        block_id="invoke_sensitive_child",
+        child_workflow=child,
+        inputs={"child_secret": "shared_memory.topic"},
+        outputs={"shared_memory.child_echo": "results.child_result"},
+    )
+    parent_state = _state_with_redactor(
+        shared_memory={"topic": SENSITIVE_VALUE},
+    )
+    ctx = build_block_context(block, parent_state)
+
+    output = await block.execute(ctx)
+    merged_state = apply_block_output(parent_state, block.block_id, output)
+
+    assert parent_state.input_redactor is None
+    assert captured["received_state"].input_redactor is not None
+    assert merged_state.input_redactor is not None
+    assert merged_state.input_redactor.redact({"child_echo": SENSITIVE_VALUE}) == {
+        "child_echo": REDACTED
+    }
+    assert SENSITIVE_VALUE not in merged_state.model_dump_json()

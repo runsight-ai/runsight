@@ -400,46 +400,24 @@ def test_checked_in_workflow_schema_matches_generated_schema_without_access():
     assert _collect_access_key_paths(schema) == _collect_access_key_paths(generated) == []
 
 
-def test_context_audit_event_redacts_secret_like_previews_but_keeps_normal_previews():
-    """Secret-like previews must not serialize raw values, but normal previews may."""
-    cg = _load_contract_module()
+def test_context_audit_event_redacts_only_explicitly_registered_values():
+    """Secret-looking names are not sensitive until the redactor registers them."""
+    from runsight_core.redaction import RunRedactor
 
-    secret_record = cg.ContextAuditRecordV1(
-        input_name="api_key",
-        from_ref="shared_memory.credentials.api_key",
-        namespace="shared_memory",
-        source="credentials",
-        field_path="api_key",
-        status="denied",
-        severity="warn",
-        value_type="str",
-        preview="sk-live-secret",
-        reason="secret-like value",
-        internal=False,
-    )
-    normal_record = cg.ContextAuditRecordV1(
-        input_name="summary",
-        from_ref="results.workflow.summary",
-        namespace="results",
-        source="workflow",
-        field_path="summary",
-        status="resolved",
-        severity="allow",
-        value_type="str",
-        preview="plain text preview",
-        reason=None,
-        internal=False,
-    )
+    redactor = RunRedactor()
+    payload = {
+        "api_token": "plain public text",
+        "summary": "plain public text",
+    }
 
-    secret_payload = secret_record.model_dump()
-    normal_payload = normal_record.model_dump()
+    assert redactor.redact(payload) == payload
 
-    assert secret_payload["preview"] != "sk-live-secret"
-    assert isinstance(secret_payload["preview"], str)
-    assert (
-        "redact" in secret_payload["preview"].lower() or secret_payload["preview"] == "[redacted]"
-    )
-    assert normal_payload["preview"] == "plain text preview"
+    redactor.register_named("api_token", "plain public text")
+
+    assert redactor.redact(payload) == {
+        "api_token": "[redacted]",
+        "summary": "plain public text",
+    }
 
 
 def test_invalid_context_audit_enums_are_rejected():

@@ -62,6 +62,15 @@ def _services(*, prepared_result: object):
     return run_service, execution_service
 
 
+def _plain_execution_service(*, prepared_result: object):
+    class PlainExecutionService:
+        def __init__(self) -> None:
+            self.prepare_run_inputs = Mock(return_value=prepared_result)
+            self.launch_execution = AsyncMock()
+
+    return PlainExecutionService()
+
+
 def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
     run_service, execution_service = _services(
         prepared_result={
@@ -79,6 +88,36 @@ def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
     execution_service.prepare_run_inputs.assert_called_once_with(
         "wf_inputs",
         {"private_note": SENSITIVE_VALUE},
+        branch="main",
+    )
+    run_service.create_run.assert_not_called()
+    execution_service.launch_execution.assert_not_called()
+
+
+def test_post_runs_rejects_public_only_plain_mapping_prepare_run_inputs_result() -> None:
+    run_service = Mock()
+    run_service.create_run.return_value = _mock_run("run_public_only")
+    run_service.refresh_run.return_value = _mock_run("run_public_only")
+
+    execution_service = _plain_execution_service(
+        prepared_result={
+            "summary": PUBLIC_VALUE,
+            "note": "plain public note",
+        }
+    )
+
+    app.dependency_overrides[get_run_service] = lambda: run_service
+    app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+    response = client.post(
+        "/api/runs",
+        json={"workflow_id": "wf_inputs", "inputs": {"summary": PUBLIC_VALUE}},
+    )
+
+    assert response.status_code >= 400
+    execution_service.prepare_run_inputs.assert_called_once_with(
+        "wf_inputs",
+        {"summary": PUBLIC_VALUE},
         branch="main",
     )
     run_service.create_run.assert_not_called()

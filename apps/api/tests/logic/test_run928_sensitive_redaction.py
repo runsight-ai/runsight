@@ -19,7 +19,7 @@ from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.observers.eval_observer import EvalObserver
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
 
 
 SENSITIVE_VALUE = "orchid-928-sensitive-value"
@@ -193,6 +193,7 @@ def test_prepare_run_inputs_returns_values_and_runtime_redactor_for_sensitive_in
         branch="main",
     )
 
+    assert isinstance(prepared, PreparedRunInputs)
     assert prepared.normalized_inputs == {
         "private_note": SENSITIVE_VALUE,
         "api_token": PUBLIC_VALUE,
@@ -239,7 +240,7 @@ def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() ->
 
 
 @pytest.mark.asyncio
-async def test_launch_execution_keeps_prepared_redactor_for_plain_mapping_inputs() -> None:
+async def test_launch_execution_keeps_prepared_redactor_for_prepared_run_inputs() -> None:
     service = _service()
     prepared = service.prepare_run_inputs(
         "run928_inputs",
@@ -265,7 +266,7 @@ async def test_launch_execution_keeps_prepared_redactor_for_plain_mapping_inputs
         await service.launch_execution(
             "run_928_launch",
             "run928_inputs",
-            dict(prepared.normalized_inputs),
+            prepared,
             branch="main",
         )
 
@@ -277,6 +278,29 @@ async def test_launch_execution_keeps_prepared_redactor_for_plain_mapping_inputs
     redacted = captured["state"].input_redactor.redact(sample)
     assert redacted["private_note"] == REDACTED
     assert redacted["api_token"] == PUBLIC_VALUE
+
+
+@pytest.mark.asyncio
+async def test_launch_execution_rejects_raw_mapping_inputs_at_service_boundary() -> None:
+    service = _service()
+    mock_wf = Mock()
+    mock_wf.run = AsyncMock()
+
+    with patch("runsight_api.logic.services.execution_service.parse_workflow_yaml") as mock_parse:
+        mock_parse.return_value = mock_wf
+
+        with pytest.raises(TypeError, match="PreparedRunInputs"):
+            await service.launch_execution(
+                "run_928_launch",
+                "run928_inputs",
+                {
+                    "private_note": SENSITIVE_VALUE,
+                    "api_token": PUBLIC_VALUE,
+                },
+                branch="main",
+            )
+
+    mock_wf.run.assert_not_called()
 
 
 def test_execution_observer_redacts_node_output_and_execution_log_before_persisting() -> None:
