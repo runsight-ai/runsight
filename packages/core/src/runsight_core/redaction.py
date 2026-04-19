@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -57,8 +58,11 @@ class RunRedactor:
         *,
         field_name: str | None,
         scope_name: str | None,
+        strict: bool = False,
     ) -> Any:
         if isinstance(value, str):
+            if strict:
+                return REDACTED_VALUE if value else value
             scoped_values = set(self._named_values.get(field_name or "", set()))
             scoped_values.update(self._named_values.get(scope_name or "", set()))
             return REDACTED_VALUE if value in self._values or value in scoped_values else value
@@ -73,14 +77,36 @@ class RunRedactor:
                     item,
                     field_name=key if isinstance(key, str) else None,
                     scope_name=next_scope,
+                    strict=(
+                        (
+                            isinstance(key, str)
+                            and key in self._structured_named_values
+                            and len(value) > 1
+                        )
+                        or (strict and isinstance(item, str))
+                    ),
                 )
                 for key, item in value.items()
             }
         if isinstance(value, list):
-            return [self._redact(item, field_name=None, scope_name=scope_name) for item in value]
+            return [
+                self._redact(
+                    item,
+                    field_name=None,
+                    scope_name=scope_name,
+                    strict=strict if isinstance(item, str) else False,
+                )
+                for item in value
+            ]
         if isinstance(value, tuple):
             return tuple(
-                self._redact(item, field_name=None, scope_name=scope_name) for item in value
+                self._redact(
+                    item,
+                    field_name=None,
+                    scope_name=scope_name,
+                    strict=strict if isinstance(item, str) else False,
+                )
+                for item in value
             )
         return value
 
@@ -93,15 +119,13 @@ class RunRedactor:
 
     def redact_runtime_value(self, value: object) -> Any:
         """Redact values before persistence or external emission."""
-        if isinstance(value, str):
-            return self.redact_text(value)
-        if isinstance(value, dict):
-            return {key: self.redact_runtime_value(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [self.redact_runtime_value(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(self.redact_runtime_value(item) for item in value)
-        return value
+        scope_name = self._structured_scope_for_value(value)
+        return self._redact_runtime_value(
+            value,
+            field_name=None,
+            scope_name=scope_name,
+            strict=False,
+        )
 
     def _all_values(self) -> set[str]:
         values = set(self._values)
@@ -132,6 +156,93 @@ class RunRedactor:
                 leaves.extend(RunRedactor._iter_string_leaves(item))
             return leaves
         return []
+
+    @staticmethod
+    def _contains_redacted_marker(value: object) -> bool:
+        if isinstance(value, str):
+            return value == REDACTED_VALUE
+        if isinstance(value, dict):
+            return any(RunRedactor._contains_redacted_marker(item) for item in value.values())
+        if isinstance(value, list | tuple):
+            return any(RunRedactor._contains_redacted_marker(item) for item in value)
+        return False
+
+    def _redact_runtime_value(
+        self,
+        value: object,
+        *,
+        field_name: str | None,
+        scope_name: str | None,
+        strict: bool,
+    ) -> Any:
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return REDACTED_VALUE if strict and value else self.redact_text(value)
+            if isinstance(parsed, dict | list | tuple):
+                parsed_scope = self._structured_scope_for_value(parsed)
+                next_strict = strict or self._contains_redacted_marker(parsed)
+                return self._redact_runtime_value(
+                    parsed,
+                    field_name=None,
+                    scope_name=parsed_scope if parsed_scope is not None else scope_name,
+                    strict=next_strict,
+                )
+            return REDACTED_VALUE if strict and value else self.redact_text(value)
+        if isinstance(value, dict):
+            return {
+                key: self._redact_runtime_value(
+                    item,
+                    field_name=key if isinstance(key, str) else None,
+                    scope_name=(
+                        key
+                        if key in self._named_values or key in self._structured_named_values
+                        else scope_name
+                    ),
+                    strict=(
+                        (
+                            isinstance(key, str)
+                            and key in self._structured_named_values
+                            and len(value) > 1
+                        )
+                        or (strict and isinstance(item, str))
+                        or self._contains_redacted_marker(item)
+                    ),
+                )
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [
+                self._redact_runtime_value(
+                    item,
+                    field_name=None,
+                    scope_name=scope_name,
+                    strict=(strict or self._contains_redacted_marker(item))
+                    if isinstance(item, str)
+                    else False,
+                )
+                for item in value
+            ]
+        if isinstance(value, tuple):
+            return tuple(
+                self._redact_runtime_value(
+                    item,
+                    field_name=None,
+                    scope_name=scope_name,
+                    strict=(strict or self._contains_redacted_marker(item))
+                    if isinstance(item, str)
+                    else False,
+                )
+                for item in value
+            )
+        if strict and isinstance(value, str):
+            return REDACTED_VALUE if value else value
+        if isinstance(value, str):
+            scoped_values = set(self._named_values.get(field_name or "", set()))
+            scoped_values.update(self._named_values.get(scope_name or "", set()))
+            return REDACTED_VALUE if value in self._values or value in scoped_values else value
+        return value
 
 
 SensitiveValueRedactor = RunRedactor

@@ -211,6 +211,7 @@ class ContextResolver:
                             severity=ContextAuditSeverity.WARN,
                             reason=str(exc),
                             internal=internal,
+                            preview_value=None,
                             redactor=redactor,
                         )
                     )
@@ -229,6 +230,7 @@ class ContextResolver:
                         severity=ContextAuditSeverity.ERROR,
                         reason=str(exc),
                         internal=internal,
+                        preview_value=None,
                         redactor=redactor,
                     )
                 )
@@ -279,6 +281,7 @@ class ContextResolver:
                     status=ContextAuditStatus.RESOLVED,
                     severity=ContextAuditSeverity.ALLOW,
                     value=value,
+                    preview_value=_audit_preview_value(parsed, value, state, redactor),
                     internal=internal,
                     redactor=redactor,
                 )
@@ -673,11 +676,11 @@ def _audit_record(
     status: ContextAuditStatus,
     severity: ContextAuditSeverity,
     value: object | None = None,
+    preview_value: object | None = None,
     reason: str | None = None,
     internal: bool = False,
     redactor: RunRedactor | None = None,
 ) -> ContextAuditRecordV1:
-    preview_value = redactor.redact(value) if redactor is not None else value
     redacted_reason = redactor.redact_text(reason) if redactor is not None and reason else reason
     return ContextAuditRecordV1(
         input_name=input_name,
@@ -688,10 +691,40 @@ def _audit_record(
         status=status,
         severity=severity,
         value_type=None if value is None else type(value).__name__,
-        preview=None if value is None else bounded_context_preview(preview_value),
+        preview=None
+        if value is None
+        else bounded_context_preview(
+            preview_value
+            if preview_value is not None
+            else (redactor.redact(value) if redactor is not None else value)
+        ),
         reason=redacted_reason,
         internal=internal,
     )
+
+
+def _audit_preview_value(
+    parsed: ParsedContextRef,
+    value: object,
+    state: WorkflowState,
+    redactor: RunRedactor | None,
+) -> object:
+    if redactor is None or parsed.namespace != ContextAuditNamespace.WORKFLOW.value:
+        return redactor.redact(value) if redactor is not None else value
+
+    workflow_inputs = state.workflow_inputs
+    if len(workflow_inputs) <= 1:
+        return redactor.redact(value)
+
+    redacted_workflow_inputs = redactor.redact(workflow_inputs)
+    preview_value = redacted_workflow_inputs.get(parsed.source, value)
+    if parsed.field_path is None:
+        return preview_value
+
+    try:
+        return _resolve_field_path(preview_value, parsed.field_path, parsed)
+    except ContextResolutionError:
+        return redactor.redact(value)
 
 
 def bounded_context_preview(value: object, *, max_length: int = _MAX_PREVIEW_LENGTH) -> str:

@@ -2,6 +2,7 @@
 WorkflowState data model for workflow execution context.
 """
 
+import json
 from typing import Annotated, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
@@ -89,7 +90,11 @@ class WorkflowState(BaseModel):
         return self.input_redactor.redact_runtime_value(dumped)
 
     def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
-        dumped = super().model_dump_json(*args, **kwargs)
+        dumped = super().model_dump(*args, mode="json", **kwargs)
         if self.input_redactor is None:
-            return dumped
-        return self.input_redactor.redact_text(dumped)
+            return json.dumps(dumped, separators=(",", ":"), ensure_ascii=False)
+        return json.dumps(
+            self.input_redactor.redact_runtime_value(dumped),
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
