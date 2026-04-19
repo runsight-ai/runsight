@@ -297,6 +297,54 @@ def test_context_audit_preview_redacts_each_registered_structured_input_recursiv
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
+def test_named_structured_sensitive_input_redacts_duplicate_and_unique_leaves_without_over_redacting_public_siblings() -> (
+    None
+):
+    """Mixed structured sensitive leaves must all redact while public siblings stay visible."""
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {"a": "dup", "b": "dup", "c": "unique"}
+    payload = {
+        "credentials": credentials,
+        "public": PUBLIC_VALUE,
+    }
+    redactor.register_named("credentials", credentials)
+    state = _state_with_redactor(
+        redactor=redactor,
+        workflow_inputs=payload,
+    )
+
+    scoped = _resolver().resolve(
+        declaration=ContextDeclaration(
+            block_id="consumer",
+            block_type="linear",
+            declared_inputs={
+                "credentials": "workflow.credentials",
+                "public": "workflow.public",
+            },
+        ),
+        state=state,
+    )
+
+    redacted_payload = redactor.redact(payload)
+    state_dump = state.model_dump()
+    state_dump_json = state.model_dump_json()
+    previews = {record.input_name: record.preview for record in scoped.audit_event.records}
+
+    expected_credentials = {"a": REDACTED, "b": REDACTED, "c": REDACTED}
+
+    assert redacted_payload["credentials"] == expected_credentials
+    assert redacted_payload["public"] == PUBLIC_VALUE
+    assert state_dump["workflow_inputs"]["credentials"] == expected_credentials
+    assert state_dump["workflow_inputs"]["public"] == PUBLIC_VALUE
+    assert "dup" not in state_dump_json
+    assert "unique" not in state_dump_json
+    assert PUBLIC_VALUE in state_dump_json
+    assert json.loads(previews["credentials"] or "") == expected_credentials
+    assert previews["public"] == PUBLIC_VALUE
+
+
 def test_explicit_sensitive_registration_redacts_leaves_under_public_paths() -> None:
     from runsight_core.redaction import RunRedactor
 
