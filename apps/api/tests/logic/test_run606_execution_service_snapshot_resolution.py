@@ -80,10 +80,16 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
 
     parent_yaml = """
     version: "1.0"
+    inputs:
+      instruction:
+        type: string
+        required: true
     blocks:
       call_child:
         type: workflow
         workflow_ref: child
+        inputs:
+          topic: workflow.instruction
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -94,27 +100,47 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
     """
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs:
-        - name: summary
-          source: results.writer
+    inputs:
+      topic:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          topic:
+            from: workflow.topic
+        code: |
+          def main(data):
+              return {"summary": data["topic"]}
     workflow:
       name: Child Workflow
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
     dirty_child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs:
-        - name: detail
-          source: results.writer
+    inputs:
+      detail:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          detail:
+            from: workflow.detail
+        code: |
+          def main(data):
+              return {"detail": data["detail"]}
     workflow:
       name: Dirty Child Workflow
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
 
     repo = _init_git_repo_with_nested_workflows(
@@ -148,8 +174,10 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         workflow_registry = kwargs.get("workflow_registry")
         assert workflow_registry is not None
         child_file = workflow_registry.get("child")
-        assert child_file.interface is not None
-        assert [item.name for item in child_file.interface.outputs] == ["summary"]
+        assert child_file.workflow.name == "Child Workflow"
+        assert child_file.inputs is not None
+        assert list(child_file.inputs) == ["topic"]
+        assert child_file.inputs["topic"].type == "string"
         return Mock(name="parsed_parent_workflow")
 
     with (
@@ -175,7 +203,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
 
 
 @pytest.mark.asyncio
-async def test_launch_execution_rejects_invalid_child_interface_bindings_from_snapshot(
+async def test_launch_execution_rejects_invalid_child_public_input_contract_from_snapshot(
     tmp_path: Path,
 ) -> None:
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
@@ -184,14 +212,16 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
 
     parent_yaml = """
     version: "1.0"
+    inputs:
+      instruction:
+        type: string
+        required: true
     blocks:
       call_child:
         type: workflow
         workflow_ref: child
         inputs:
-          question: shared_memory.topic
-        outputs:
-          results.summary: summary
+          topic: workflow.instruction
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -202,33 +232,47 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
     """
     committed_child_yaml = """
     version: "1.0"
-    interface:
-      inputs:
-        - name: topic
-          target: shared_memory.topic
-          required: true
-      outputs:
-        - name: summary
-          source: results.writer
+    inputs:
+      UserId:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          topic:
+            from: workflow.topic
+        code: |
+          def main(data):
+              return {"summary": data["topic"]}
     workflow:
       name: Child Workflow
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
     dirty_child_yaml = """
     version: "1.0"
-    interface:
-      inputs:
-        - name: question
-          target: shared_memory.topic
-          required: true
-      outputs:
-        - name: summary
-          source: results.writer
+    inputs:
+      topic:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          topic:
+            from: workflow.topic
+        code: |
+          def main(data):
+              return {"summary": data["topic"]}
     workflow:
       name: Dirty Child Workflow
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
 
     repo = _init_git_repo_with_nested_workflows(
@@ -264,7 +308,7 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
         side_effect=lambda *, yaml_content, api_keys: (yaml.safe_load(yaml_content), Mock()),
     ):
         await svc.launch_execution(
-            "run_invalid_interface",
+            "run_invalid_child_contract",
             "parent",
             _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
@@ -274,8 +318,8 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
     run_repo.update_run.assert_called_once()
     updated = run_repo.update_run.call_args.args[0]
     assert updated.error is not None
-    assert "question" in updated.error
-    assert "interface" in updated.error.lower()
+    assert "workflow contract name" in updated.error.lower()
+    assert "userid" in updated.error.lower()
     assert svc._run_workflow.await_count == 0
 
 
@@ -289,10 +333,16 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
 
     parent_yaml = """
     version: "1.0"
+    inputs:
+      instruction:
+        type: string
+        required: true
     blocks:
       call_child:
         type: workflow
         workflow_ref: renamed-child
+        inputs:
+          topic: workflow.instruction
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -353,7 +403,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
 
 
 @pytest.mark.asyncio
-async def test_launch_execution_rejects_child_workflow_without_public_interface_contract(
+async def test_launch_execution_rejects_reserved_child_public_input_contract_from_snapshot(
     tmp_path: Path,
 ) -> None:
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
@@ -362,14 +412,16 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
 
     parent_yaml = """
     version: "1.0"
+    inputs:
+      instruction:
+        type: string
+        required: true
     blocks:
       call_child:
         type: workflow
         workflow_ref: child
         inputs:
-          topic: shared_memory.topic
-        outputs:
-          results.summary: summary
+          topic: workflow.instruction
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -380,10 +432,25 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
     """
     child_yaml = """
     version: "1.0"
+    inputs:
+      workflow:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          topic:
+            from: workflow.topic
+        code: |
+          def main(data):
+              return {"summary": data["topic"]}
     workflow:
       name: Child Workflow
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
 
     repo = _init_git_repo_with_nested_workflows(
@@ -415,7 +482,7 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
         side_effect=lambda *, yaml_content, api_keys: (yaml.safe_load(yaml_content), Mock()),
     ):
         await svc.launch_execution(
-            "run_missing_interface_contract",
+            "run_reserved_child_contract",
             "parent",
             _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
@@ -425,7 +492,8 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
     run_repo.update_run.assert_called_once()
     updated = run_repo.update_run.call_args.args[0]
     assert updated.error is not None
-    assert "interface" in updated.error.lower()
+    assert "reserved" in updated.error.lower()
+    assert "workflow" in updated.error.lower()
     assert "child" in updated.error.lower()
     assert svc._run_workflow.await_count == 0
 
@@ -446,10 +514,16 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
 
     parent_yaml = """
     version: "1.0"
+    inputs:
+      instruction:
+        type: string
+        required: true
     blocks:
       call_child:
         type: workflow
         workflow_ref: child-impl
+        inputs:
+          topic: workflow.instruction
     workflow:
       name: Parent Workflow
       entry: call_child
@@ -461,15 +535,25 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs:
-        - name: summary
-          source: results.writer
+    inputs:
+      topic:
+        type: string
+        required: true
+    blocks:
+      finish:
+        type: code
+        inputs:
+          topic:
+            from: workflow.topic
+        code: |
+          def main(data):
+              return {"summary": data["topic"]}
     workflow:
       name: My Special Child
       entry: finish
-      transitions: []
+      transitions:
+        - from: finish
+          to: null
     """
 
     # Set up git repo with both parent and child on feature-a.
