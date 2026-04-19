@@ -37,7 +37,7 @@ class _RecordingBlock(BaseBlock):
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
         self.context_access = "declared"
-        self.declared_inputs = {"workflow": "workflow"}
+        self.declared_inputs = {}
         self.received_states: list[WorkflowState] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
