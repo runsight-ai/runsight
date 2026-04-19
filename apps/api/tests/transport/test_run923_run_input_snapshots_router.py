@@ -3,9 +3,14 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.domain.errors import InputValidationError
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.main import app
+from runsight_api.logic.services.run_service import RunService
 from runsight_api.transport.deps import get_execution_service, get_run_service
 
 
@@ -14,6 +19,16 @@ client = TestClient(app, raise_server_exceptions=False)
 
 def teardown_function():
     app.dependency_overrides.clear()
+
+
+def _db_engine():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
 
 
 def _child_workflow_input_schema() -> dict[str, dict[str, object]]:
@@ -133,6 +148,28 @@ def _mock_run_service(*, runs: list[Mock]):
     return run_service
 
 
+def _validation_error(field: str, code: str, *, expected_type: str | None, actual_type: str | None):
+    return InputValidationError(
+        "Workflow input validation failed",
+        error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+        status_code=422,
+        details={
+            "kind": "workflow_input_validation",
+            "workflow_id": "run923_inputs",
+            "fields": [
+                {
+                    "field": field,
+                    "code": code,
+                    "message": f"Input '{field}' is invalid.",
+                    "input_path": ["inputs", field],
+                    "expected_type": expected_type,
+                    "actual_type": actual_type,
+                }
+            ],
+        },
+    )
+
+
 def _assert_snapshot_payload(payload: dict[str, object]) -> None:
     assert payload["workflow_input_schema"] == _child_workflow_input_schema()
 
@@ -188,3 +225,57 @@ class TestRunSnapshotResponses:
 
         _assert_snapshot_payload(detail_response.json())
         _assert_snapshot_payload(list_response.json()["items"][0])
+
+
+class TestRunInputValidationSnapshots:
+    def test_post_runs_returns_422_and_persists_no_run_snapshot_when_prepare_run_inputs_rejects_run923_input(
+        self,
+    ):
+        engine = _db_engine()
+        workflow_repo = Mock()
+        workflow = Mock()
+        workflow.id = "run923_inputs"
+        workflow.name = "run923_inputs"
+        workflow.warnings = None
+        workflow_repo.get_by_id.return_value = workflow
+
+        with Session(engine) as session:
+            run_service = RunService(RunRepository(session), workflow_repo)
+            run_service.create_run = Mock(wraps=run_service.create_run)
+
+            execution_service = Mock()
+            execution_service.launch_execution = AsyncMock()
+            execution_service.prepare_run_inputs.side_effect = _validation_error(
+                "debug",
+                "unknown",
+                expected_type=None,
+                actual_type="boolean",
+            )
+
+            app.dependency_overrides[get_run_service] = lambda: run_service
+            app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+            response = client.post(
+                "/api/runs",
+                json={
+                    "workflow_id": "run923_inputs",
+                    "inputs": {
+                        "query": "audit runs",
+                        "api_token": "secret-token-923",
+                        "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+                        "tags": ["support", "vip"],
+                        "debug": True,
+                    },
+                },
+            )
+
+            assert response.status_code == 422
+            payload = response.json()
+            assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+            assert payload["details"]["workflow_id"] == "run923_inputs"
+            assert payload["details"]["fields"][0]["field"] == "debug"
+            assert payload["details"]["fields"][0]["code"] == "unknown"
+
+            run_service.create_run.assert_not_called()
+            execution_service.launch_execution.assert_not_called()
+            assert run_service.run_repo.list_runs() == []

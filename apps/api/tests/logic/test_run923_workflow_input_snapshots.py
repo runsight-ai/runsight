@@ -194,19 +194,18 @@ class TestRunServiceWorkflowInputSnapshots:
     def test_create_run_persists_defaulted_non_sensitive_and_sensitive_input_snapshot(self):
         engine = _db_engine()
         workflow_entity = _workflow_entity(_workflow_yaml_v1())
+        prepared_inputs = {
+            "query": "search runs",
+            "max_results": 10,
+            "api_token": "secret-token-923",
+            "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+            "tags": ["support", "vip"],
+        }
 
         with Session(engine) as session:
             service = _service(session, workflow_entity)
             run = service.create_run(
-                "run923_inputs",
-                {
-                    "query": "search runs",
-                    "api_token": "secret-token-923",
-                    "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
-                    "tags": ["support", "vip"],
-                },
-                source="manual",
-                branch="main",
+                "run923_inputs", prepared_inputs, source="manual", branch="main"
             )
 
         assert getattr(run, "workflow_inputs", None) == _expected_workflow_inputs()
@@ -224,19 +223,18 @@ class TestRunServiceWorkflowInputSnapshots:
     def test_persisted_workflow_input_schema_stays_fixed_after_yaml_changes(self):
         engine = _db_engine()
         workflow_entity = _workflow_entity(_workflow_yaml_v1())
+        prepared_inputs = {
+            "query": "search runs",
+            "max_results": 10,
+            "api_token": "secret-token-923",
+            "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
+            "tags": ["support", "vip"],
+        }
 
         with Session(engine) as session:
             service = _service(session, workflow_entity)
             run = service.create_run(
-                "run923_inputs",
-                {
-                    "query": "search runs",
-                    "api_token": "secret-token-923",
-                    "payload": {"region": "eu", "filters": [{"name": "tier", "value": 1}]},
-                    "tags": ["support", "vip"],
-                },
-                source="manual",
-                branch="main",
+                "run923_inputs", prepared_inputs, source="manual", branch="main"
             )
 
         workflow_entity.yaml = _workflow_yaml_v2()
