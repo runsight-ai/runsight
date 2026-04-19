@@ -9,6 +9,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import yaml
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 
 def _with_workflow_identity(workflow_id: str, yaml_text: str) -> str:
     """Prepend id and kind identity fields to a workflow YAML string."""
@@ -57,6 +60,13 @@ def _init_git_repo_with_nested_workflows(
     return _init_git_repo_with_workflow_files(
         tmp_path,
         workflow_files={"parent.yaml": parent_yaml, "child.yaml": child_yaml},
+    )
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
     )
 
 
@@ -155,7 +165,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         await svc.launch_execution(
             "run_snapshot_child",
             "parent",
-            {"instruction": "execute nested workflow"},
+            _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -256,7 +266,7 @@ async def test_launch_execution_rejects_invalid_child_interface_bindings_from_sn
         await svc.launch_execution(
             "run_invalid_interface",
             "parent",
-            {"instruction": "execute nested workflow"},
+            _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -329,7 +339,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
         await svc.launch_execution(
             "run_missing_child",
             "parent",
-            {"instruction": "execute nested workflow"},
+            _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -407,7 +417,7 @@ async def test_launch_execution_rejects_child_workflow_without_public_interface_
         await svc.launch_execution(
             "run_missing_interface_contract",
             "parent",
-            {"instruction": "execute nested workflow"},
+            _prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -556,7 +566,7 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
         await svc.launch_execution(
             "run_embedded_id_branch",
             "parent",
-            {"instruction": "execute with embedded-id child"},
+            _prepared_inputs({"instruction": "execute with embedded-id child"}),
             branch="feature-a",
         )
         await asyncio.sleep(0.05)

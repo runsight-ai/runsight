@@ -12,9 +12,19 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 # ---------------------------------------------------------------------------
 # 1. Run model — commit_sha only
 # ---------------------------------------------------------------------------
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 class TestRunCommitShaOnly:
@@ -241,7 +251,11 @@ class TestLaunchExecutionStoresSha:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(db_engine) as session:
@@ -309,7 +323,11 @@ class TestLaunchExecutionStoresSha:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(db_engine) as session:

@@ -15,7 +15,8 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
+from runsight_core.redaction import RunRedactor
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -35,6 +36,13 @@ blocks:
 souls: {}
 config: {}
 """
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 def _make_service(*, engine=None):
@@ -88,7 +96,12 @@ class TestLaunchAcceptsBranch:
             mock_parse.return_value = mock_wf
 
             # Must not raise TypeError for unexpected keyword argument 'branch'
-            await svc.launch_execution("run_1", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
 
     @pytest.mark.asyncio
     async def test_accepts_sim_branch(self):
@@ -105,7 +118,7 @@ class TestLaunchAcceptsBranch:
             await svc.launch_execution(
                 "run_2",
                 "wf_1",
-                {"instruction": "go"},
+                _prepared_inputs({"instruction": "go"}),
                 branch="sim/my-workflow/20260329/abc12",
             )
 
@@ -122,7 +135,11 @@ class TestLaunchAcceptsBranch:
             mock_parse.return_value = mock_wf
 
             # Call without branch — should load committed main from git
-            await svc.launch_execution("run_3", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_3",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
@@ -151,7 +168,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim1", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once()
@@ -178,7 +200,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim2", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim2",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             # Parser must receive the git YAML, not the filesystem YAML
@@ -201,7 +228,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim3", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim3",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             git_service.get_sha.assert_called_once()
@@ -229,7 +261,12 @@ class TestMainBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_main1", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_main1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
@@ -248,7 +285,12 @@ class TestMainBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_main2", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_main2",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
             mock_parse.assert_called_once()
@@ -280,7 +322,12 @@ class TestParserReceivesString:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_str1", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_str1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             mock_parse.assert_called_once()
@@ -328,7 +375,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -365,7 +417,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -402,7 +459,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -438,7 +500,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
