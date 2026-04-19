@@ -217,6 +217,79 @@ def test_context_audit_preview_redacts_every_exact_leaf_in_named_structured_inpu
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
+def test_context_audit_preview_redacts_each_registered_structured_input_recursively() -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {
+        "api_key": SENSITIVE_VALUE,
+        "nested": [SENSITIVE_VALUE, {"inner": SENSITIVE_VALUE}],
+    }
+    profile = {
+        "refresh_token": SENSITIVE_VALUE,
+        "nested": {"aliases": [PUBLIC_VALUE, SENSITIVE_VALUE]},
+    }
+    redactor.register_named("credentials", credentials)
+    redactor.register_named("profile", profile)
+    state = _state_with_redactor(
+        redactor=redactor,
+        workflow_inputs={
+            "credentials": credentials,
+            "profile": profile,
+        },
+    )
+
+    scoped = _resolver().resolve(
+        declaration=ContextDeclaration(
+            block_id="consumer",
+            block_type="linear",
+            declared_inputs={
+                "credentials": "workflow.credentials",
+                "profile": "workflow.profile",
+            },
+        ),
+        state=state,
+    )
+
+    previews = {record.input_name: record.preview for record in scoped.audit_event.records}
+
+    assert scoped.inputs == {
+        "credentials": credentials,
+        "profile": profile,
+    }
+    assert json.loads(previews["credentials"] or "") == {
+        "api_key": REDACTED,
+        "nested": [REDACTED, {"inner": REDACTED}],
+    }
+    assert json.loads(previews["profile"] or "") == {
+        "refresh_token": REDACTED,
+        "nested": {"aliases": [PUBLIC_VALUE, REDACTED]},
+    }
+    assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
+
+
+def test_explicit_sensitive_registration_redacts_leaves_under_public_paths() -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {
+        "public": {
+            "token": SENSITIVE_VALUE,
+            "nested": [SENSITIVE_VALUE, {"inner": SENSITIVE_VALUE}],
+        },
+        "private": {"inner": PUBLIC_VALUE},
+    }
+    redactor.register_named("credentials", credentials)
+
+    redacted = redactor.redact(credentials)
+
+    assert redacted["public"]["token"] == REDACTED
+    assert redacted["public"]["nested"][0] == REDACTED
+    assert redacted["public"]["nested"][1]["inner"] == REDACTED
+    assert redacted["private"]["inner"] == PUBLIC_VALUE
+    assert SENSITIVE_VALUE not in json.dumps(redacted)
+
+
 def test_logging_observer_redacts_registered_sensitive_value_in_error_details(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
