@@ -158,10 +158,87 @@ def _prepared_run_inputs(
     )
 
 
-def _split_prepared_inputs(inputs: Mapping[str, Any] | PreparedRunInputs) -> PreparedRunInputs:
+def _workflow_input_schema_from_yaml(
+    workflow_id: str,
+    yaml_content: str,
+) -> Mapping[str, WorkflowInputDef]:
+    data = yaml.safe_load(yaml_content)
+    if not isinstance(data, dict):
+        raise ValueError("YAML content is not a mapping")
+    try:
+        workflow_file = RunsightWorkflowFile.model_validate(data)
+    except ValidationError as exc:
+        _raise_workflow_schema_validation(workflow_id, exc)
+    return effective_workflow_input_schema(workflow_file) or {}
+
+
+def _prepare_run_inputs_from_schema(
+    workflow_id: str,
+    input_schema: Mapping[str, WorkflowInputDef],
+    inputs: Mapping[str, Any],
+    *,
+    allow_untyped_inputs: bool = False,
+) -> PreparedRunInputs:
+    raw_inputs = dict(inputs or {})
+    if allow_untyped_inputs and not input_schema:
+        return _prepared_run_inputs(input_schema, raw_inputs)
+
+    fields: list[dict[str, Any]] = []
+    normalized: Dict[str, Any] = {}
+
+    for name, value in raw_inputs.items():
+        if name not in input_schema:
+            fields.append(
+                _workflow_input_field_error(
+                    name,
+                    "unknown",
+                    f"Input '{name}' is not declared by this workflow.",
+                    expected_type=None,
+                    actual_type=_actual_input_type(value),
+                )
+            )
+
+    for name, input_def in input_schema.items():
+        if name not in raw_inputs:
+            if input_def.default is not None:
+                normalized[name] = copy.deepcopy(input_def.default)
+                continue
+            if input_def.required:
+                fields.append(
+                    _workflow_input_field_error(
+                        name,
+                        "required",
+                        f"Input '{name}' is required.",
+                        expected_type=input_def.type,
+                        actual_type=None,
+                    )
+                )
+            continue
+
+        value = raw_inputs[name]
+        if not _matches_input_type(value, input_def.type):
+            fields.append(
+                _workflow_input_field_error(
+                    name,
+                    "type_mismatch",
+                    f"Input '{name}' must be {_type_label(input_def)}.",
+                    expected_type=input_def.type,
+                    actual_type=_actual_input_type(value),
+                )
+            )
+            continue
+        normalized[name] = value
+
+    if fields:
+        _raise_workflow_input_validation(workflow_id, fields)
+
+    return _prepared_run_inputs(input_schema, normalized)
+
+
+def _split_prepared_inputs(inputs: PreparedRunInputs) -> PreparedRunInputs:
     if isinstance(inputs, PreparedRunInputs):
         return inputs
-    return PreparedRunInputs(normalized_inputs=dict(inputs or {}), input_redactor=RunRedactor())
+    raise TypeError("Workflow launch inputs must be PreparedRunInputs")
 
 
 class ExecutionService:
@@ -324,6 +401,17 @@ class ExecutionService:
                 yaml_content = wf_entity.yaml
                 commit_sha = self._get_workflow_commit_sha(workflow_path)
 
+            prepared_inputs = (
+                inputs
+                if isinstance(inputs, PreparedRunInputs)
+                else _prepare_run_inputs_from_schema(
+                    workflow_id,
+                    _workflow_input_schema_from_yaml(workflow_id, yaml_content),
+                    inputs,
+                    allow_untyped_inputs=True,
+                )
+            )
+
             # Resolve API keys: provider repo -> env var fallback
             api_keys = self._resolve_api_keys()
             workflow_definition, runner = self._prepare_runtime_workflow(
@@ -357,7 +445,7 @@ class ExecutionService:
             return
 
         # Schedule background execution (task starts on next event-loop iteration)
-        task = asyncio.create_task(self._run_workflow(run_id, wf, inputs))
+        task = asyncio.create_task(self._run_workflow(run_id, wf, prepared_inputs))
         self._running_tasks[run_id] = task
         task.add_done_callback(lambda t: self._running_tasks.pop(run_id, None))
 
@@ -378,70 +466,13 @@ class ExecutionService:
             if self.git_service
             else wf_entity.yaml
         )
-        data = yaml.safe_load(yaml_content)
-        if not isinstance(data, dict):
-            raise ValueError("YAML content is not a mapping")
-        try:
-            workflow_file = RunsightWorkflowFile.model_validate(data)
-        except ValidationError as exc:
-            _raise_workflow_schema_validation(workflow_id, exc)
-        input_schema = effective_workflow_input_schema(workflow_file) or {}
+        return _prepare_run_inputs_from_schema(
+            workflow_id,
+            _workflow_input_schema_from_yaml(workflow_id, yaml_content),
+            inputs,
+        )
 
-        raw_inputs = dict(inputs or {})
-        fields: list[dict[str, Any]] = []
-        normalized: Dict[str, Any] = {}
-
-        for name, value in raw_inputs.items():
-            if name not in input_schema:
-                fields.append(
-                    _workflow_input_field_error(
-                        name,
-                        "unknown",
-                        f"Input '{name}' is not declared by this workflow.",
-                        expected_type=None,
-                        actual_type=_actual_input_type(value),
-                    )
-                )
-
-        for name, input_def in input_schema.items():
-            if name not in raw_inputs:
-                if input_def.default is not None:
-                    normalized[name] = copy.deepcopy(input_def.default)
-                    continue
-                if input_def.required:
-                    fields.append(
-                        _workflow_input_field_error(
-                            name,
-                            "required",
-                            f"Input '{name}' is required.",
-                            expected_type=input_def.type,
-                            actual_type=None,
-                        )
-                    )
-                continue
-
-            value = raw_inputs[name]
-            if not _matches_input_type(value, input_def.type):
-                fields.append(
-                    _workflow_input_field_error(
-                        name,
-                        "type_mismatch",
-                        f"Input '{name}' must be {_type_label(input_def)}.",
-                        expected_type=input_def.type,
-                        actual_type=_actual_input_type(value),
-                    )
-                )
-                continue
-            normalized[name] = value
-
-        if fields:
-            _raise_workflow_input_validation(workflow_id, fields)
-
-        return _prepared_run_inputs(input_schema, normalized)
-
-    async def _run_workflow(
-        self, run_id: str, wf: Any, inputs: Mapping[str, Any] | PreparedRunInputs
-    ) -> None:
+    async def _run_workflow(self, run_id: str, wf: Any, inputs: PreparedRunInputs) -> None:
         """Execute the workflow with CompositeObserver for status management.
 
         Acquires the concurrency semaphore before running. Status stays

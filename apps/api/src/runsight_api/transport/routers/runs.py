@@ -1,13 +1,15 @@
 import inspect as _inspect
 import logging
+from collections.abc import Mapping
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from runsight_core.redaction import RedactionContext
 
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
 from ...logic.services.eval_service import EvalService
-from ...logic.services.execution_service import ExecutionService
+from ...logic.services.execution_service import ExecutionService, PreparedRunInputs
 from ...logic.services.run_service import RunService
 from ..context_audit import (
     context_audit_sort_key,
@@ -178,11 +180,16 @@ async def create_run(
         prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
         if inspect.isawaitable(prepared):
             prepared = await prepared
-        if hasattr(prepared, "normalized_inputs"):
+        if not isinstance(prepared, PreparedRunInputs):
+            if not isinstance(prepared, Mapping):
+                raise TypeError("prepare_run_inputs must return PreparedRunInputs")
+            normalized_inputs = dict(prepared)
+            launch_inputs = PreparedRunInputs(
+                normalized_inputs=normalized_inputs,
+                input_redactor=RedactionContext.from_values(normalized_inputs.values()).redactor,
+            )
+        else:
             normalized_inputs = dict(prepared.normalized_inputs)
-            launch_inputs = prepared
-        elif isinstance(prepared, dict):
-            normalized_inputs = prepared
             launch_inputs = prepared
 
     run = run_service.create_run(
