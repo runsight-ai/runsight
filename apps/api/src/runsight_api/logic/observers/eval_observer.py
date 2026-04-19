@@ -7,6 +7,7 @@ from runsight_core.assertions.base import AssertionContext
 from runsight_core.assertions.registry import run_assertions_sync
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
+from runsight_core.redaction import redact_runtime_value_for_state
 from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import Session, select
 
@@ -192,36 +193,32 @@ class EvalObserver:
                 for r in assertion_result.results
             ],
         }
+        redacted_eval_results_data = redact_runtime_value_for_state(eval_results_data, state)
 
         with Session(self.engine) as session:
             node = session.get(RunNode, f"{self.run_id}:{block_id}")
             if node:
                 node.eval_score = eval_score
                 node.eval_passed = eval_passed
-                node.eval_results = eval_results_data
+                node.eval_results = redacted_eval_results_data
                 session.add(node)
                 session.commit()
 
         # Emit SSE event
         self.sse_queue.put_nowait(
-            {
-                "event": "node_eval_complete",
-                "data": {
-                    "node_id": block_id,
-                    "eval_score": eval_score,
-                    "passed": eval_passed,
-                    "assertions": [
-                        {
-                            "type": r.assertion_type,
-                            "passed": r.passed,
-                            "score": r.score,
-                            "reason": r.reason,
-                        }
-                        for r in assertion_result.results
-                    ],
-                    "delta": delta,
+            redact_runtime_value_for_state(
+                {
+                    "event": "node_eval_complete",
+                    "data": {
+                        "node_id": block_id,
+                        "eval_score": eval_score,
+                        "passed": eval_passed,
+                        "assertions": eval_results_data["assertions"],
+                        "delta": delta,
+                    },
                 },
-            }
+                state,
+            )
         )
 
     # ------------------------------------------------------------------

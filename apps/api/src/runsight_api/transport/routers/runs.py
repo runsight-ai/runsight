@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from runsight_core.redaction import RedactionContext
+from runsight_core.redaction import RunRedactor
 
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
@@ -32,6 +32,17 @@ logger = logging.getLogger(__name__)
 inspect = _inspect
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
+
+_SENSITIVE_INPUT_NAME_MARKERS = (
+    "api_key",
+    "apikey",
+    "secret",
+    "password",
+    "passwd",
+    "token",
+    "credential",
+    "private",
+)
 
 
 def _run_response_field(run, field: str, default):
@@ -162,6 +173,14 @@ def _refresh_launch_run(run_service: RunService, run):
     return latest if isinstance(status, RunStatus | str) else run
 
 
+def _sensitive_input_name_present(inputs: Mapping[str, object]) -> bool:
+    for name in inputs:
+        normalized = name.lower().replace("-", "_")
+        if any(marker in normalized for marker in _SENSITIVE_INPUT_NAME_MARKERS):
+            return True
+    return False
+
+
 @router.post("", response_model=RunResponse)
 async def create_run(
     body: RunCreate,
@@ -181,12 +200,16 @@ async def create_run(
         if inspect.isawaitable(prepared):
             prepared = await prepared
         if not isinstance(prepared, PreparedRunInputs):
-            if not isinstance(prepared, Mapping):
+            if (
+                isinstance(execution_service, ExecutionService)
+                or not isinstance(prepared, Mapping)
+                or _sensitive_input_name_present(prepared)
+            ):
                 raise TypeError("prepare_run_inputs must return PreparedRunInputs")
             normalized_inputs = dict(prepared)
             launch_inputs = PreparedRunInputs(
                 normalized_inputs=normalized_inputs,
-                input_redactor=RedactionContext.from_values(normalized_inputs.values()).redactor,
+                input_redactor=RunRedactor(),
             )
         else:
             normalized_inputs = dict(prepared.normalized_inputs)

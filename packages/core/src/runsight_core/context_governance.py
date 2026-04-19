@@ -3,31 +3,19 @@
 from __future__ import annotations
 
 import json
-import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from enum import StrEnum
-from typing import Iterator, Literal, Self
+from typing import Iterator, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
-_REDACTED_PREVIEW = "[redacted]"
 _MAX_PREVIEW_LENGTH = 200
 _WHOLE_OUTPUT_ALIASES = {"output", "result"}
-_SECRET_REF_MARKERS = (
-    "api_key",
-    "apikey",
-    "secret",
-    "password",
-    "passwd",
-    "token",
-    "credential",
-    "private_key",
-)
 _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS: ContextVar[frozenset[str]] = ContextVar(
     "suppressed_declared_input_block_ids",
     default=frozenset(),
@@ -119,20 +107,6 @@ class ContextAuditRecordV1(BaseModel):
     preview: str | None = None
     reason: str | None = None
     internal: bool = False
-
-    @model_validator(mode="after")
-    def _redact_secret_like_preview(self) -> Self:
-        if self.preview is not None and (
-            _is_secret_like_ref(
-                self.input_name,
-                self.from_ref,
-                self.source,
-                self.field_path,
-            )
-            or _is_secret_like_value(self.preview)
-        ):
-            self.preview = _REDACTED_PREVIEW
-        return self
 
 
 class ContextAuditEventV1(BaseModel):
@@ -433,26 +407,6 @@ def _resolve_result_source(
     if parsed.source in state.results:
         return parsed.source, parsed.field_path
     return parsed.source, parsed.field_path
-
-
-def _is_secret_like_ref(*parts: str | None) -> bool:
-    normalized = ".".join(part.lower().replace("-", "_") for part in parts if part)
-    return any(marker in normalized for marker in _SECRET_REF_MARKERS)
-
-
-def _is_secret_like_value(value: str) -> bool:
-    normalized = value.strip().strip('"').lower()
-    if not normalized:
-        return False
-
-    secret_patterns = (
-        r"\bsk-[a-z0-9][a-z0-9._-]{6,}\b",
-        r"['\"]?[a-z0-9_]*(api[_-]?key|secret|token|credential|password)"
-        r"[a-z0-9_]*['\"]?\s*[:=]",
-        r"-----begin [a-z ]*private key-----",
-        r"\bakia[0-9a-z]{16}\b",
-    )
-    return any(re.search(pattern, normalized) for pattern in secret_patterns)
 
 
 def _iter_declared_and_internal_inputs(

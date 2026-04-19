@@ -13,6 +13,7 @@ from pydantic import model_validator
 
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow_contract_names import validate_workflow_contract_name
 
@@ -86,10 +87,11 @@ class WorkflowBlock(BaseBlock):
 
         # Step 3: Map parent values to public child invocation inputs.
         child_inputs = self._map_inputs_from_context(ctx.inputs)
+        child_redactor = self._register_child_sensitive_inputs(state.input_redactor, child_inputs)
         child_state = WorkflowState(
             workflow_inputs=dict(child_inputs),
             artifact_store=state.artifact_store,
-            input_redactor=state.input_redactor,
+            input_redactor=child_redactor,
         )
 
         # Step 4: Run child workflow
@@ -318,6 +320,20 @@ class WorkflowBlock(BaseBlock):
                 "context governance before execution."
             )
         return resolved_inputs[input_name]
+
+    def _register_child_sensitive_inputs(
+        self,
+        redactor: RunRedactor | None,
+        child_inputs: Dict[str, Any],
+    ) -> RunRedactor | None:
+        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        for name, input_def in input_schema.items():
+            if not getattr(input_def, "sensitive", False) or name not in child_inputs:
+                continue
+            if redactor is None:
+                redactor = RunRedactor()
+            redactor.register_named(name, child_inputs[name])
+        return redactor
 
     @staticmethod
     def _observer_has_terminal_hooks(observer: Any) -> bool:

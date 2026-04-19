@@ -13,6 +13,7 @@ class RunRedactor:
 
     def __init__(self, values: list[object] | None = None) -> None:
         self._values: set[str] = set()
+        self._named_values: dict[str, set[str]] = {}
         for value in values or []:
             self.register(value)
 
@@ -22,22 +23,36 @@ class RunRedactor:
             if item:
                 self._values.add(item)
 
+    def register_named(self, name: str, value: object) -> None:
+        """Register non-empty string leaves for one sensitive structured field."""
+        named_values = self._named_values.setdefault(name, set())
+        for item in self._iter_string_leaves(value):
+            if item:
+                named_values.add(item)
+
     def redact(self, value: object) -> Any:
         """Redact exact scalar matches while preserving nested container shape."""
+        return self._redact(value, field_name=None)
+
+    def _redact(self, value: object, *, field_name: str | None) -> Any:
         if isinstance(value, str):
-            return REDACTED_VALUE if value in self._values else value
+            scoped_values = self._named_values.get(field_name or "", set())
+            return REDACTED_VALUE if value in self._values or value in scoped_values else value
         if isinstance(value, dict):
-            return {key: self.redact(item) for key, item in value.items()}
+            return {
+                key: self._redact(item, field_name=key if isinstance(key, str) else None)
+                for key, item in value.items()
+            }
         if isinstance(value, list):
-            return [self.redact(item) for item in value]
+            return [self._redact(item, field_name=None) for item in value]
         if isinstance(value, tuple):
-            return tuple(self.redact(item) for item in value)
+            return tuple(self._redact(item, field_name=None) for item in value)
         return value
 
     def redact_text(self, value: str) -> str:
         """Redact registered values embedded inside runtime text surfaces."""
         redacted = value
-        for item in sorted(self._values, key=len, reverse=True):
+        for item in sorted(self._all_values(), key=len, reverse=True):
             redacted = redacted.replace(item, REDACTED_VALUE)
         return redacted
 
@@ -52,6 +67,12 @@ class RunRedactor:
         if isinstance(value, tuple):
             return tuple(self.redact_runtime_value(item) for item in value)
         return value
+
+    def _all_values(self) -> set[str]:
+        values = set(self._values)
+        for named_values in self._named_values.values():
+            values.update(named_values)
+        return values
 
     @staticmethod
     def _iter_string_leaves(value: object) -> list[str]:

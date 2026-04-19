@@ -81,3 +81,15 @@ class WorkflowState(BaseModel):
         exclude=True,
         description="Runtime-only redactor for sensitive workflow invocation inputs.",
     )
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        dumped = super().model_dump(*args, **kwargs)
+        if self.input_redactor is None:
+            return dumped
+        return self.input_redactor.redact_runtime_value(dumped)
+
+    def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
+        dumped = super().model_dump_json(*args, **kwargs)
+        if self.input_redactor is None:
+            return dumped
+        return self.input_redactor.redact_text(dumped)
