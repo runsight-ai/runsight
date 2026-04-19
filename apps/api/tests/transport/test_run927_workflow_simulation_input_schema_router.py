@@ -79,7 +79,7 @@ class TestWorkflowSimulationRouterInputSchema:
             yaml_path="custom/workflows/wf_927_dirty.yaml",
         )
 
-    def test_post_workflow_simulation_returns_null_input_schema_when_no_inputs_are_declared(self):
+    def test_post_workflow_simulation_returns_empty_input_schema_when_no_inputs_are_declared(self):
         git_service = Mock()
         git_service.create_sim_branch.return_value = Mock(
             branch="sim/wf_927_dirty/20260419/abc12",
@@ -114,7 +114,7 @@ workflow:
         payload = response.json()
         assert payload["branch"] == "sim/wf_927_dirty/20260419/abc12"
         assert payload["commit_sha"] == "1234567890abcdef1234567890abcdef12345678"
-        assert payload["input_schema"] is None
+        assert payload["input_schema"] == {}
 
     def test_post_workflow_simulation_rejects_invalid_input_types_with_structured_backend_validation_errors(
         self,
