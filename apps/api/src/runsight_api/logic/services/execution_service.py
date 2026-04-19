@@ -6,7 +6,7 @@ import logging
 import subprocess
 import time
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.identity import EntityKind, EntityRef
@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 class PreparedRunInputs(Mapping[str, Any]):
     normalized_inputs: Dict[str, Any]
     input_redactor: RunRedactor
+    workflow_inputs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    workflow_input_schema: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         return self.normalized_inputs[key]
@@ -146,6 +148,7 @@ def _raise_workflow_schema_validation(workflow_id: str, error: ValidationError) 
 def _prepared_run_inputs(
     input_schema: Mapping[str, WorkflowInputDef],
     normalized_inputs: Dict[str, Any],
+    sources: Mapping[str, str] | None = None,
 ) -> PreparedRunInputs:
     sensitive_values = [
         normalized_inputs[name]
@@ -155,6 +158,70 @@ def _prepared_run_inputs(
     return PreparedRunInputs(
         normalized_inputs=normalized_inputs,
         input_redactor=RedactionContext.from_values(sensitive_values).redactor,
+        workflow_inputs=_workflow_input_values_snapshot(input_schema, normalized_inputs, sources),
+        workflow_input_schema=_workflow_input_schema_snapshot(input_schema),
+    )
+
+
+def _workflow_input_schema_snapshot(
+    input_schema: Mapping[str, WorkflowInputDef],
+) -> Dict[str, Dict[str, Any]]:
+    return {
+        name: {
+            "type": input_def.type,
+            "required": input_def.required,
+            "default": copy.deepcopy(input_def.default),
+            "description": input_def.description,
+            "sensitive": input_def.sensitive,
+        }
+        for name, input_def in input_schema.items()
+    }
+
+
+def _workflow_input_source(
+    name: str,
+    value: Any,
+    input_def: WorkflowInputDef,
+    sources: Mapping[str, str] | None,
+) -> str:
+    if sources is not None and name in sources:
+        return sources[name]
+    if input_def.default is not None and value == input_def.default:
+        return "defaulted"
+    return "provided"
+
+
+def _workflow_input_values_snapshot(
+    input_schema: Mapping[str, WorkflowInputDef],
+    normalized_inputs: Mapping[str, Any],
+    sources: Mapping[str, str] | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    snapshot: Dict[str, Dict[str, Any]] = {}
+    for name, input_def in input_schema.items():
+        if name not in normalized_inputs:
+            continue
+
+        value = normalized_inputs[name]
+        item: Dict[str, Any] = {
+            "type": input_def.type,
+            "sensitive": input_def.sensitive,
+            "source": _workflow_input_source(name, value, input_def, sources),
+        }
+        if not input_def.sensitive:
+            item["value"] = copy.deepcopy(value)
+        snapshot[name] = item
+    return snapshot
+
+
+def workflow_input_snapshots_from_yaml(
+    workflow_id: str,
+    yaml_content: str,
+    normalized_inputs: Mapping[str, Any],
+) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    input_schema = _workflow_input_schema_from_yaml(workflow_id, yaml_content)
+    return (
+        _workflow_input_values_snapshot(input_schema, normalized_inputs),
+        _workflow_input_schema_snapshot(input_schema),
     )
 
 
@@ -181,6 +248,7 @@ def _prepare_run_inputs_from_schema(
 
     fields: list[dict[str, Any]] = []
     normalized: Dict[str, Any] = {}
+    sources: Dict[str, str] = {}
 
     for name, value in raw_inputs.items():
         if name not in input_schema:
@@ -198,6 +266,7 @@ def _prepare_run_inputs_from_schema(
         if name not in raw_inputs:
             if input_def.default is not None:
                 normalized[name] = copy.deepcopy(input_def.default)
+                sources[name] = "defaulted"
                 continue
             if input_def.required:
                 fields.append(
@@ -224,11 +293,12 @@ def _prepare_run_inputs_from_schema(
             )
             continue
         normalized[name] = value
+        sources[name] = "provided"
 
     if fields:
         _raise_workflow_input_validation(workflow_id, fields)
 
-    return _prepared_run_inputs(input_schema, normalized)
+    return _prepared_run_inputs(input_schema, normalized, sources)
 
 
 def _split_prepared_inputs(inputs: PreparedRunInputs) -> PreparedRunInputs:

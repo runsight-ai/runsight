@@ -528,6 +528,12 @@ class CompositeObserver:
                 child_observers.append(ChildObserverWrapper(obs))
         return CompositeObserver(*child_observers)
 
+    def record_workflow_input_snapshot(self, input_schema: Any, inputs: Any) -> None:
+        for obs in self.observers:
+            recorder = getattr(obs, "record_workflow_input_snapshot", None)
+            if callable(recorder):
+                self._safe_call(obs, "record_workflow_input_snapshot", input_schema, inputs)
+
     def _safe_call(
         self, obs: WorkflowObserver, method_name: str, *args: Any, **kwargs: Any
     ) -> None:

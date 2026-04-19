@@ -6,6 +6,7 @@ Co-located: runtime class + BlockDef schema + build() function.
 
 from __future__ import annotations
 
+import copy
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
@@ -87,6 +88,7 @@ class WorkflowBlock(BaseBlock):
 
         # Step 3: Map parent values to public child invocation inputs.
         child_inputs = self._map_inputs_from_context(ctx.inputs)
+        child_inputs = self._apply_child_input_defaults(child_inputs)
         child_redactor = self._register_child_sensitive_inputs(state.input_redactor, child_inputs)
         child_state = WorkflowState(
             workflow_inputs=dict(child_inputs),
@@ -106,6 +108,7 @@ class WorkflowBlock(BaseBlock):
                 )
             else:
                 child_observer = observer
+        self._record_child_workflow_input_snapshot(child_observer, child_inputs)
 
         start_time = time.monotonic()
         try:
@@ -308,6 +311,23 @@ class WorkflowBlock(BaseBlock):
             self._validate_child_invocation_input_name(input_name)
             child_inputs[input_name] = self._require_governed_input(resolved_inputs, input_name)
         return child_inputs
+
+    def _apply_child_input_defaults(self, child_inputs: Dict[str, Any]) -> Dict[str, Any]:
+        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        resolved_inputs = dict(child_inputs)
+        for name, input_def in input_schema.items():
+            if name not in resolved_inputs and getattr(input_def, "default", None) is not None:
+                resolved_inputs[name] = copy.deepcopy(input_def.default)
+        return resolved_inputs
+
+    def _record_child_workflow_input_snapshot(
+        self,
+        observer: Any,
+        child_inputs: Dict[str, Any],
+    ) -> None:
+        recorder = getattr(observer, "record_workflow_input_snapshot", None)
+        if callable(recorder):
+            recorder(getattr(self.child_workflow, "input_schema", None) or {}, child_inputs)
 
     def _validate_child_invocation_input_name(self, input_name: str) -> str:
         if "." in input_name:

@@ -48,6 +48,8 @@ class RunResponse(BaseModel):
     parent_run_id: Optional[str] = None
     root_run_id: Optional[str] = None
     depth: int = 0
+    workflow_inputs: Optional[Dict[str, Any]] = None
+    workflow_input_schema: Optional[Dict[str, Any]] = None
 
 
 class RunListResponse(BaseModel):

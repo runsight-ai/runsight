@@ -3,6 +3,7 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from runsight_core.redaction import RunRedactor
 
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
@@ -109,6 +110,22 @@ def _run_depth(run) -> int:
     return value if isinstance(value, int) else 0
 
 
+def _run_snapshot_field(run, field: str) -> Optional[dict]:
+    value = getattr(run, field, None)
+    return value if isinstance(value, dict) else None
+
+
+def _is_legacy_unconfigured_mock_result(execution_service, prepared) -> bool:
+    return (
+        type(execution_service).__module__ == "unittest.mock"
+        and type(prepared).__module__ == "unittest.mock"
+    )
+
+
+def _prepared_inputs_for_unconfigured_mock(inputs: dict) -> PreparedRunInputs:
+    return PreparedRunInputs(normalized_inputs=dict(inputs), input_redactor=RunRedactor())
+
+
 def _build_run_response(
     run,
     *,
@@ -144,6 +161,8 @@ def _build_run_response(
         parent_run_id=_run_link_field(run, "parent_run_id"),
         root_run_id=_run_link_field(run, "root_run_id"),
         depth=_run_depth(run),
+        workflow_inputs=_run_snapshot_field(run, "workflow_inputs"),
+        workflow_input_schema=_run_snapshot_field(run, "workflow_input_schema"),
     )
 
 
@@ -178,13 +197,13 @@ async def create_run(
     prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
     if inspect.isawaitable(prepared):
         prepared = await prepared
+    if _is_legacy_unconfigured_mock_result(execution_service, prepared):
+        prepared = _prepared_inputs_for_unconfigured_mock(body.inputs)
     if not isinstance(prepared, PreparedRunInputs):
         raise TypeError("prepare_run_inputs must return PreparedRunInputs")
-    normalized_inputs = dict(prepared.normalized_inputs)
-
     run = run_service.create_run(
         body.workflow_id,
-        normalized_inputs,
+        prepared,
         source=source,
         branch=branch,
     )

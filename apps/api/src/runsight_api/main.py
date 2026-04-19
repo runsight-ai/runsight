@@ -80,6 +80,8 @@ def _ensure_sqlite_columns(engine) -> None:
             "fail_reason": "VARCHAR",
             "fail_metadata": "JSON",
             "warnings_json": "JSON",
+            "workflow_inputs": "JSON",
+            "workflow_input_schema": "JSON",
             "deleted_at": "FLOAT",
         },
         "runnode": {

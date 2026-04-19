@@ -91,6 +91,30 @@ class ExecutionObserver:
     def clone_for_child_run(self, *, child_run_id: str) -> "ExecutionObserver":
         return ExecutionObserver(engine=self.engine, run_id=child_run_id)
 
+    def record_workflow_input_snapshot(self, input_schema: Any, inputs: Any) -> None:
+        try:
+            from runsight_api.logic.services.execution_service import (
+                _workflow_input_schema_snapshot,
+                _workflow_input_values_snapshot,
+            )
+
+            with Session(self.engine) as session:
+                run = session.get(Run, self.run_id)
+                if run:
+                    run.workflow_inputs = _workflow_input_values_snapshot(
+                        input_schema or {}, inputs
+                    )
+                    run.workflow_input_schema = _workflow_input_schema_snapshot(input_schema or {})
+                    run.updated_at = time.time()
+                    session.add(run)
+                session.commit()
+        except Exception:
+            logger.warning(
+                "ExecutionObserver.record_workflow_input_snapshot failed for run %s",
+                self.run_id,
+                exc_info=True,
+            )
+
     # ------------------------------------------------------------------
     # on_workflow_start
     # ------------------------------------------------------------------
