@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from unittest.mock import Mock
 
+import pytest
 from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from runsight_api.domain.errors import InputValidationError
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.domain.value_objects import WorkflowEntity
@@ -46,6 +48,31 @@ inputs:
     required: false
     default:
       mode: public
+blocks:
+  start:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: run928_inputs
+  entry: start
+  transitions:
+    - from: start
+      to: null
+"""
+
+
+def _workflow_yaml_with_sensitive_default_input() -> str:
+    return """
+id: run928_inputs
+kind: workflow
+version: "1.0"
+inputs:
+  private_note:
+    type: string
+    sensitive: true
+    default: orchid-928-sensitive-value
 blocks:
   start:
     type: code
@@ -163,6 +190,15 @@ def test_secret_like_names_are_not_registered_without_sensitive_true() -> None:
 
     assert redacted["private_note"] == REDACTED
     assert redacted["api_token"] == PUBLIC_VALUE
+
+
+def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
+    service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
+
+    with pytest.raises(
+        InputValidationError, match="sensitive workflow inputs cannot declare a default"
+    ):
+        service.prepare_run_inputs("run928_inputs", {}, branch="main")
 
 
 def test_execution_observer_redacts_node_output_and_execution_log_before_persisting() -> None:
