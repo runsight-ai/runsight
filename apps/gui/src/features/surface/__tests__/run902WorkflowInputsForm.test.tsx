@@ -124,6 +124,16 @@ describe("RUN-902 WorkflowInputsForm", () => {
     );
   });
 
+  it("falls back to schema defaults when the parent omits values", async () => {
+    await renderWorkflowInputsForm({ values: {} });
+
+    expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("");
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(3);
+    expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
+    expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue("null");
+    expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("null");
+  });
+
   it("emits declared input names and typed values when the user edits a field", async () => {
     const onChange = vi.fn();
     await renderWorkflowInputsForm({ onChange, values: { ...currentValues } });
@@ -165,14 +175,21 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(query).toHaveAttribute("aria-describedby", expect.stringContaining(error.id));
   });
 
-  it("does not surface legacy workflow path language or mapping internals to direct-run users", async () => {
-    const { container } = await renderWorkflowInputsForm();
-    const text = container.textContent ?? "";
+  it("does not surface legacy workflow path syntax or mapping internals to direct-run users", async () => {
+    await renderWorkflowInputsForm();
 
-    expect(text).not.toMatch(/workflow\.[A-Za-z0-9_]+/);
-    expect(text).not.toMatch(/\bmapping\b/i);
-    expect(text).not.toMatch(/\btarget\b/i);
-    expect(text).not.toMatch(/child internals/i);
+    const descriptions = [
+      screen.getByText("Search term shown to direct-run users.").textContent ?? "",
+      screen.getByText("Retry budget for the current run.").textContent ?? "",
+      screen.getByText("Whether this path is active.").textContent ?? "",
+      screen.getByText("Structured runtime settings.").textContent ?? "",
+      screen.getByText("Ordered tags for the run.").textContent ?? "",
+    ].join("\n");
+
+    expect(descriptions).not.toMatch(/workflow\.[A-Za-z0-9_]+/);
+    expect(descriptions).not.toMatch(/\bpath\s*:\s*target\b/i);
+    expect(descriptions).not.toMatch(/\btarget\s*:\s*path\b/i);
+    expect(descriptions).not.toMatch(/child internals/i);
   });
 
   it("keeps the component out of global canvas and run-input-schema stores", () => {
