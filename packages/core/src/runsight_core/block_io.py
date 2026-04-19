@@ -224,6 +224,7 @@ def _scoped_state_snapshot(
     """Build a state snapshot containing only resolver-scoped data."""
     return WorkflowState(
         execution_log=[],
+        workflow_inputs=dict(state.workflow_inputs),
         shared_memory=dict(scoped_context.scoped_shared_memory),
         results=dict(scoped_context.scoped_results),
         metadata=dict(scoped_context.scoped_metadata),
@@ -267,7 +268,7 @@ def build_block_context(
     Instruction and context are sourced from:
     - state.shared_memory["_resolved_inputs"] (populated by the Step wrapper)
     - The block soul's system_prompt (for LinearBlock instruction)
-    - state.results["workflow"] (virtual block result seeded by the API for external input)
+    - state.workflow_inputs for declared workflow invocation inputs
     - Block-type-specific logic (GateBlock, DispatchBlock, SynthesizeBlock, etc.)
 
     Args:

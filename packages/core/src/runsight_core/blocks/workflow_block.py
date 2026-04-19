@@ -86,7 +86,10 @@ class WorkflowBlock(BaseBlock):
 
         # Step 3: Map parent values to public child invocation inputs.
         child_inputs = self._map_inputs_from_context(ctx.inputs)
-        child_state = WorkflowState(artifact_store=state.artifact_store)
+        child_state = WorkflowState(
+            workflow_inputs=dict(child_inputs),
+            artifact_store=state.artifact_store,
+        )
 
         # Step 4: Run child workflow
         from runsight_core.observer import build_child_observer

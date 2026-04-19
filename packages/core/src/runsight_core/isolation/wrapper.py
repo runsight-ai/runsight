@@ -11,6 +11,7 @@ from runsight_core.context_governance import (
     ContextReadDeniedError,
     ContextResolver,
     collect_context_declaration,
+    suppress_declared_inputs_for_block,
 )
 from runsight_core.isolation.envelope import (
     ContextEnvelope,
@@ -114,14 +115,22 @@ def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, An
 def _scoped_context_for_envelope(
     block: BaseBlock,
     state: Any,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], str, list[Any]]:
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    str,
+    list[Any],
+]:
     access = str(getattr(block, "context_access", "declared"))
     if access != "declared":
         raise ContextReadDeniedError(
             f"Context access '{access}' is not implemented for {block.block_id}"
         )
     if state is None:
-        return {}, {}, {}, {}, access, []
+        return {}, {}, {}, {}, {}, access, []
 
     declaration = collect_context_declaration(block)
     resolver = ContextResolver(
@@ -131,6 +140,7 @@ def _scoped_context_for_envelope(
     scoped = resolver.resolve(declaration=declaration, state=state)
     return (
         dict(scoped.inputs),
+        dict(scoped.scoped_workflow_inputs),
         _serialize_scoped_results(scoped.scoped_results),
         dict(scoped.scoped_shared_memory),
         dict(scoped.scoped_metadata),
@@ -274,6 +284,7 @@ class IsolatedBlockWrapper(BaseBlock):
 
         (
             scoped_inputs,
+            scoped_workflow_inputs,
             scoped_results,
             scoped_shared_memory,
             scoped_metadata,
@@ -300,6 +311,7 @@ class IsolatedBlockWrapper(BaseBlock):
             tools=_build_tool_envelopes_from_tools(resolved_tools),
             prompt=task_envelope,
             inputs=envelope_inputs,
+            scoped_workflow_inputs=dict(scoped_workflow_inputs),
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             scoped_metadata=scoped_metadata,
@@ -310,7 +322,8 @@ class IsolatedBlockWrapper(BaseBlock):
             max_output_bytes=1_000_000,
         )
 
-        result = await self._run_in_subprocess(envelope)
+        with suppress_declared_inputs_for_block(self.inner_block.block_id):
+            result = await self._run_in_subprocess(envelope)
 
         # Handle errors from the subprocess
         if result.error is not None:

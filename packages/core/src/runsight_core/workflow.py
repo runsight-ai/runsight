@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-import json
 import logging
 import re
 import time
@@ -805,15 +804,8 @@ class Workflow:
         return await loop_coro
 
     def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
-        """Return a copy of state with inputs serialised into results['workflow']."""
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    "workflow": BlockResult(output=json.dumps(inputs or {})),
-                }
-            }
-        )
+        """Return a copy of state with invocation inputs available to workflow refs."""
+        return state.model_copy(update={"workflow_inputs": dict(inputs or {})})
 
     async def run(
         self,

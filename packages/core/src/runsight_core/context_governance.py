@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal, Self
+from typing import Iterator, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -25,6 +27,10 @@ _SECRET_REF_MARKERS = (
     "credential",
     "private_key",
 )
+_SUPPRESSED_DECLARED_INPUT_BLOCK_IDS: ContextVar[frozenset[str]] = ContextVar(
+    "suppressed_declared_input_block_ids",
+    default=frozenset(),
+)
 
 
 class ContextAccess(StrEnum):
@@ -36,6 +42,7 @@ class ContextAccess(StrEnum):
 class ContextAuditNamespace(StrEnum):
     """Supported namespaces for context audit records."""
 
+    WORKFLOW = "workflow"
     RESULTS = "results"
     SHARED_MEMORY = "shared_memory"
     METADATA = "metadata"
@@ -154,6 +161,7 @@ class ScopedContextData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     inputs: dict[str, object] = Field(default_factory=dict)
+    scoped_workflow_inputs: dict[str, object] = Field(default_factory=dict)
     scoped_results: dict[str, object] = Field(default_factory=dict)
     scoped_shared_memory: dict[str, object] = Field(default_factory=dict)
     scoped_metadata: dict[str, object] = Field(default_factory=dict)
@@ -198,6 +206,7 @@ class ContextResolver:
         state: WorkflowState,
     ) -> ScopedContextData:
         inputs: dict[str, object] = {}
+        scoped_workflow_inputs: dict[str, object] = {}
         scoped_results: dict[str, BlockResult] = {}
         scoped_shared_memory: dict[str, object] = {}
         scoped_metadata: dict[str, object] = {}
@@ -277,6 +286,7 @@ class ContextResolver:
                 parsed=parsed,
                 value=value,
                 whole_output_alias=_is_non_json_result_alias(parsed, state),
+                scoped_workflow_inputs=scoped_workflow_inputs,
                 scoped_results=scoped_results,
                 scoped_shared_memory=scoped_shared_memory,
                 scoped_metadata=scoped_metadata,
@@ -315,6 +325,7 @@ class ContextResolver:
         )
         return ScopedContextData(
             inputs=inputs,
+            scoped_workflow_inputs=scoped_workflow_inputs,
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             scoped_metadata=scoped_metadata,
@@ -356,6 +367,17 @@ def parse_context_ref(ref: str) -> ParsedContextRef:
     parts = ref.split(".")
     if not parts or any(part == "" for part in parts):
         raise ValueError("context ref must be a non-empty dot path")
+
+    if parts[0] == ContextAuditNamespace.WORKFLOW.value:
+        if len(parts) < 2:
+            raise ValueError("workflow context references must name an input")
+        source = parts[1]
+        field_path = ".".join(parts[2:]) or None
+        return ParsedContextRef(
+            namespace=ContextAuditNamespace.WORKFLOW,
+            source=source,
+            field_path=field_path,
+        )
 
     if parts[0] in {namespace.value for namespace in ContextAuditNamespace}:
         if len(parts) < 2:
@@ -435,12 +457,29 @@ def _iter_declared_and_internal_inputs(
     ]
 
 
+@contextmanager
+def suppress_declared_inputs_for_block(block_id: str) -> Iterator[None]:
+    """Temporarily skip user-declared input resolution for one block in this task."""
+    suppressed = _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.get()
+    token = _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.set(suppressed | {block_id})
+    try:
+        yield
+    finally:
+        _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.reset(token)
+
+
 def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:
+    block_id = str(getattr(block, "block_id", ""))
+    if block_id in _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.get():
+        return {}
     if step is not None and hasattr(step, "declared_inputs"):
         return dict(getattr(step, "declared_inputs") or {})
     declared_inputs = getattr(block, "declared_inputs", None)
     if declared_inputs:
-        return dict(declared_inputs)
+        inputs = dict(declared_inputs)
+        if inputs == {"workflow": "workflow"}:
+            return {}
+        return inputs
     workflow_inputs = getattr(block, "inputs", None)
     if isinstance(workflow_inputs, dict):
         return dict(workflow_inputs)
@@ -476,6 +515,14 @@ def _context_block_type(block: object) -> str:
 
 
 def _resolve_parsed_ref(parsed: ParsedContextRef, state: WorkflowState) -> object:
+    if parsed.namespace == ContextAuditNamespace.WORKFLOW.value:
+        if parsed.source not in state.workflow_inputs:
+            raise ContextResolutionError(f"Workflow input '{parsed.source}' field path missing")
+        value = state.workflow_inputs[parsed.source]
+        if parsed.field_path is None:
+            return value
+        return _resolve_field_path(value, parsed.field_path, parsed)
+
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
         if parsed.source not in state.results:
             raise ContextResolutionError(
@@ -552,10 +599,21 @@ def _scope_value(
     parsed: ParsedContextRef,
     value: object,
     whole_output_alias: bool,
+    scoped_workflow_inputs: dict[str, object],
     scoped_results: dict[str, BlockResult],
     scoped_shared_memory: dict[str, object],
     scoped_metadata: dict[str, object],
 ) -> None:
+    if parsed.namespace == ContextAuditNamespace.WORKFLOW.value:
+        if parsed.field_path is None:
+            scoped_workflow_inputs[parsed.source] = value
+        else:
+            scoped_workflow_inputs[parsed.source] = _merge_mapping_slice(
+                existing=scoped_workflow_inputs.get(parsed.source),
+                slice_value=_nest_field_path(parsed.field_path, value),
+            )
+        return
+
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
         if parsed.field_path is None or whole_output_alias:
             output = value if isinstance(value, str) else json.dumps(value)

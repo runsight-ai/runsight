@@ -743,6 +743,8 @@ def _context_ref_dependency_source_id(from_ref: str) -> str | None:
     if root in {"metadata", "shared_memory"}:
         return None
     if root == "workflow":
+        if len(parts) < 2:
+            raise ValueError("workflow context references must name an input")
         return None
     if root == "results":
         if len(parts) < 2:

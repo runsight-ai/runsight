@@ -51,6 +51,10 @@ class WorkflowState(BaseModel):
         default_factory=dict,
         description="Block outputs keyed by block_id. Values are BlockResult instances.",
     )
+    workflow_inputs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Validated workflow invocation inputs keyed by public input name.",
+    )
 
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
