@@ -24,7 +24,7 @@ class _EchoInvocationInputBlock:
         self.retry_config = None
         self.stateful = False
         self.context_access = "declared"
-        self.declared_inputs = {input_name: f"results.workflow.{input_name}"}
+        self.declared_inputs = {input_name: f"workflow.{input_name}"}
         self._input_name = input_name
 
     async def execute(self, ctx) -> BlockOutput:
@@ -150,7 +150,7 @@ async def test_nested_subflows_use_name_based_invocation_recursively() -> None:
     invoke_grandchild = WorkflowBlock(
         block_id="invoke_grandchild",
         child_workflow=grandchild_wf,
-        inputs={"msg": "results.workflow.topic"},
+        inputs={"msg": "workflow.topic"},
         outputs={"results.gc_output": "results.gc_echo"},
     )
     child_wf = _workflow("child_wf", invoke_grandchild)

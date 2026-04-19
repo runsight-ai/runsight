@@ -42,7 +42,7 @@ class _InvocationEchoBlock:
         self.retry_config = None
         self.stateful = False
         self.context_access = "declared"
-        self.declared_inputs = {input_name: f"results.workflow.{input_name}"}
+        self.declared_inputs = {input_name: f"workflow.{input_name}"}
         self._input_name = input_name
 
     async def execute(self, ctx: Any) -> BlockOutput:

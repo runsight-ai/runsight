@@ -263,7 +263,7 @@ class TestWorkflowBlockNameBasedInvocation:
         child_block = WorkflowBlock(
             block_id="invoke_grandchild",
             child_workflow=grandchild,
-            inputs={"query": "results.workflow.query"},
+            inputs={"query": "workflow.query"},
             outputs={},
         )
         child_workflow = Workflow(name="child_workflow")

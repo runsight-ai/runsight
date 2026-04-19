@@ -455,7 +455,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
                 type: code
                 inputs:
                   topic:
-                    from: results.workflow.topic
+                    from: workflow.topic
                 code: |
                   def main(data):
                       topic = data.get("topic", "unknown")

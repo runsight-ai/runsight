@@ -1,7 +1,7 @@
 """Tests for RUN-200: execution_service state flow — pass WorkflowState to Workflow.run().
 
 Updated for RUN-866: Task/current_task removed. Workflow.run() now receives
-inputs as a keyword argument, which seeds state.results["workflow"].
+inputs as a keyword argument, which seeds state.workflow_inputs.
 """
 
 import asyncio

@@ -37,18 +37,13 @@ def _state_with_parent_context() -> WorkflowState:
             "unrelated": "metadata leak",
         },
         results={
-            "workflow": BlockResult(
-                output=json.dumps(
-                    {
-                        "payload": {"id": "payload-1"},
-                        "other": "result leak",
-                    }
-                )
-            ),
             "draft": BlockResult(
                 output=json.dumps({"summary": "draft summary", "secret": "hidden"})
             ),
             "unrelated": BlockResult(output="result leak"),
+        },
+        workflow_inputs={
+            "payload": {"id": "payload-1"},
         },
         shared_memory={"unrelated": "shared leak"},
     )
@@ -58,7 +53,7 @@ def _state_with_parent_context() -> WorkflowState:
     ("public_name", "parent_ref", "expected_value"),
     [
         ("branch", "metadata.runtime.branch", "main"),
-        ("payload", "results.workflow.payload", {"id": "payload-1"}),
+        ("payload", "workflow.payload", {"id": "payload-1"}),
         ("summary", "draft.summary", "draft summary"),
     ],
 )
@@ -83,6 +78,7 @@ async def test_workflowblock_passes_governed_ctx_inputs_as_child_invocation_inpu
     assert child_workflow.received_state is not None
     assert child_workflow.received_kwargs is not None
     assert child_workflow.received_kwargs["inputs"] == {public_name: expected_value}
+    assert child_workflow.received_state.workflow_inputs == {public_name: expected_value}
     assert child_workflow.received_state.metadata == {}
     assert child_workflow.received_state.results == {}
     assert child_workflow.received_state.shared_memory == {}
