@@ -13,6 +13,7 @@ from runsight_core.context_governance import ContextAuditEventV1, ContextAuditSe
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
+from runsight_core.redaction import redact_runtime_value_for_state, redact_text_for_state
 from runsight_core.state import WorkflowState
 from sqlmodel import Session
 
@@ -64,6 +65,14 @@ class ExecutionObserver:
         if isinstance(value, (str, int, float, bool)) or value is None:
             return value
         return str(value)
+
+    @staticmethod
+    def _redact_for_state(value: Any, state: WorkflowState | None) -> Any:
+        return redact_runtime_value_for_state(value, state)
+
+    @staticmethod
+    def _redact_text(value: str, state: WorkflowState | None) -> str:
+        return redact_text_for_state(value, state)
 
     def get_child_run_id_for_block(self, block_id: str) -> Optional[str]:
         try:
@@ -247,7 +256,9 @@ class ExecutionObserver:
                     node.cost_usd = cost_delta
                     node.tokens = {"total": state.total_tokens}
                     result = state.results.get(block_id)
-                    node.output = result.output if result else None
+                    node.output = (
+                        self._redact_text(result.output, state) if result is not None else None
+                    )
                     if soul is not None:
                         node.prompt_hash = compute_prompt_hash(soul)
                         node.soul_version = compute_soul_version(soul)
@@ -284,9 +295,13 @@ class ExecutionObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
         try:
             tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+            error_message = self._redact_text(str(error), state)
+            tb_str = self._redact_text(tb_str, state)
 
             with Session(self.engine) as session:
                 node = session.get(RunNode, f"{self.run_id}:{block_id}")
@@ -294,7 +309,7 @@ class ExecutionObserver:
                     node.status = NodeStatus.failed
                     node.duration_s = duration_s
                     node.completed_at = time.time()
-                    node.error = str(error)
+                    node.error = error_message
                     node.error_traceback = tb_str
                     node.updated_at = time.time()
                     session.add(node)
@@ -303,14 +318,17 @@ class ExecutionObserver:
             self._insert_log(
                 "error",
                 json.dumps(
-                    {
-                        "event": "block_error",
-                        "block_id": block_id,
-                        "block_type": block_type,
-                        "duration_s": duration_s,
-                        "error_type": type(error).__name__,
-                        "error": str(error),
-                    }
+                    self._redact_for_state(
+                        {
+                            "event": "block_error",
+                            "block_id": block_id,
+                            "block_type": block_type,
+                            "duration_s": duration_s,
+                            "error_type": type(error).__name__,
+                            "error": str(error),
+                        },
+                        state,
+                    )
                 ),
             )
 
@@ -343,12 +361,11 @@ class ExecutionObserver:
                     run.duration_s = duration_s
                     run.total_cost_usd = state.total_cost_usd
                     run.total_tokens = state.total_tokens
-                    run.results_json = json.dumps(
-                        {
-                            key: self._serialize_result_value(value)
-                            for key, value in state.results.items()
-                        }
-                    )
+                    serialized_results = {
+                        key: self._serialize_result_value(value)
+                        for key, value in state.results.items()
+                    }
+                    run.results_json = json.dumps(self._redact_for_state(serialized_results, state))
                     run.updated_at = time.time()
                     session.add(run)
                 session.commit()
@@ -373,7 +390,14 @@ class ExecutionObserver:
     # on_workflow_error
     # ------------------------------------------------------------------
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         try:
             from runsight_core.budget_enforcement import BudgetKilledException
 
@@ -382,6 +406,8 @@ class ExecutionObserver:
             level = "warning" if is_cancelled else "error"
 
             tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+            error_message = self._redact_text(str(error), state)
+            tb_str = self._redact_text(tb_str, state)
 
             with Session(self.engine) as session:
                 run = session.get(Run, self.run_id)
@@ -399,7 +425,7 @@ class ExecutionObserver:
                     run.status = status
                     run.completed_at = time.time()
                     run.duration_s = duration_s
-                    run.error = str(error)
+                    run.error = error_message
                     run.error_traceback = tb_str
 
                     if isinstance(error, BudgetKilledException):
@@ -419,13 +445,16 @@ class ExecutionObserver:
             self._insert_log(
                 level,
                 json.dumps(
-                    {
-                        "event": "workflow_error",
-                        "workflow_name": workflow_name,
-                        "duration_s": duration_s,
-                        "error_type": type(error).__name__,
-                        "error": str(error),
-                    }
+                    self._redact_for_state(
+                        {
+                            "event": "workflow_error",
+                            "workflow_name": workflow_name,
+                            "duration_s": duration_s,
+                            "error_type": type(error).__name__,
+                            "error": str(error),
+                        },
+                        state,
+                    )
                 ),
             )
 
@@ -477,7 +506,7 @@ class ExecutionObserver:
                         run_id=self.run_id,
                         node_id=node_id,
                         level="trace",
-                        message=json.dumps(entry),
+                        message=json.dumps(self._redact_for_state(entry, state)),
                     )
                     session.add(log)
                 session.commit()

@@ -89,6 +89,7 @@ class WorkflowBlock(BaseBlock):
         child_state = WorkflowState(
             workflow_inputs=dict(child_inputs),
             artifact_store=state.artifact_store,
+            input_redactor=state.input_redactor,
         )
 
         # Step 4: Run child workflow

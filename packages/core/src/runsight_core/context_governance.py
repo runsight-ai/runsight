@@ -12,6 +12,7 @@ from typing import Iterator, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 _REDACTED_PREVIEW = "[redacted]"
@@ -211,6 +212,7 @@ class ContextResolver:
         scoped_shared_memory: dict[str, object] = {}
         scoped_metadata: dict[str, object] = {}
         records: list[ContextAuditRecordV1] = []
+        redactor = state.input_redactor
 
         if declaration.access != ContextAccess.DECLARED.value:
             raise ContextReadDeniedError(
@@ -235,6 +237,7 @@ class ContextResolver:
                             severity=ContextAuditSeverity.WARN,
                             reason=str(exc),
                             internal=internal,
+                            redactor=redactor,
                         )
                     )
                     continue
@@ -252,6 +255,7 @@ class ContextResolver:
                         severity=ContextAuditSeverity.ERROR,
                         reason=str(exc),
                         internal=internal,
+                        redactor=redactor,
                     )
                 )
                 raise ContextResolutionAuditError(
@@ -302,6 +306,7 @@ class ContextResolver:
                     severity=ContextAuditSeverity.ALLOW,
                     value=value,
                     internal=internal,
+                    redactor=redactor,
                 )
             )
 
@@ -716,7 +721,10 @@ def _audit_record(
     value: object | None = None,
     reason: str | None = None,
     internal: bool = False,
+    redactor: RunRedactor | None = None,
 ) -> ContextAuditRecordV1:
+    preview_value = redactor.redact(value) if redactor is not None else value
+    redacted_reason = redactor.redact_text(reason) if redactor is not None and reason else reason
     return ContextAuditRecordV1(
         input_name=input_name,
         from_ref=from_ref,
@@ -726,8 +734,8 @@ def _audit_record(
         status=status,
         severity=severity,
         value_type=None if value is None else type(value).__name__,
-        preview=None if value is None else bounded_context_preview(value),
-        reason=reason,
+        preview=None if value is None else bounded_context_preview(preview_value),
+        reason=redacted_reason,
         internal=internal,
     )
 

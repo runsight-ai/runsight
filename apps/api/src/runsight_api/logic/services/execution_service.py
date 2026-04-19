@@ -5,14 +5,18 @@ import copy
 import logging
 import subprocess
 import time
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
+from runsight_core.redaction import RedactionContext, RunRedactor
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInputDef
+from pydantic import ValidationError
 import yaml
 
 from ...core.secrets import SecretsEnvLoader
@@ -24,6 +28,31 @@ from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedRunInputs(Mapping[str, Any]):
+    normalized_inputs: Dict[str, Any]
+    input_redactor: RunRedactor
+
+    def __getitem__(self, key: str) -> Any:
+        return self.normalized_inputs[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.normalized_inputs)
+
+    def __len__(self) -> int:
+        return len(self.normalized_inputs)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, PreparedRunInputs):
+            return (
+                self.normalized_inputs == other.normalized_inputs
+                and self.input_redactor is other.input_redactor
+            )
+        if isinstance(other, Mapping):
+            return self.normalized_inputs == dict(other)
+        return False
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -98,6 +127,41 @@ def _raise_workflow_input_validation(workflow_id: str, fields: list[dict[str, An
             "fields": fields,
         },
     )
+
+
+def _raise_workflow_schema_validation(workflow_id: str, error: ValidationError) -> None:
+    message = str(error)
+    raise InputValidationError(
+        f"Workflow input validation failed: {message}",
+        error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+        status_code=422,
+        details={
+            "kind": "workflow_input_validation",
+            "workflow_id": workflow_id,
+            "fields": [],
+        },
+    ) from error
+
+
+def _prepared_run_inputs(
+    input_schema: Mapping[str, WorkflowInputDef],
+    normalized_inputs: Dict[str, Any],
+) -> PreparedRunInputs:
+    sensitive_values = [
+        normalized_inputs[name]
+        for name, input_def in input_schema.items()
+        if input_def.sensitive and name in normalized_inputs
+    ]
+    return PreparedRunInputs(
+        normalized_inputs=normalized_inputs,
+        input_redactor=RedactionContext.from_values(sensitive_values).redactor,
+    )
+
+
+def _split_prepared_inputs(inputs: Mapping[str, Any] | PreparedRunInputs) -> PreparedRunInputs:
+    if isinstance(inputs, PreparedRunInputs):
+        return inputs
+    return PreparedRunInputs(normalized_inputs=dict(inputs or {}), input_redactor=RunRedactor())
 
 
 class ExecutionService:
@@ -232,7 +296,11 @@ class ExecutionService:
             return None
 
     async def launch_execution(
-        self, run_id: str, workflow_id: str, inputs: Dict[str, Any], branch: str = "main"
+        self,
+        run_id: str,
+        workflow_id: str,
+        inputs: Mapping[str, Any] | PreparedRunInputs,
+        branch: str = "main",
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 
@@ -299,7 +367,7 @@ class ExecutionService:
         inputs: Dict[str, Any],
         *,
         branch: str = "main",
-    ) -> Dict[str, Any]:
+    ) -> PreparedRunInputs:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         if wf_entity is None:
             raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
@@ -313,7 +381,10 @@ class ExecutionService:
         data = yaml.safe_load(yaml_content)
         if not isinstance(data, dict):
             raise ValueError("YAML content is not a mapping")
-        workflow_file = RunsightWorkflowFile.model_validate(data)
+        try:
+            workflow_file = RunsightWorkflowFile.model_validate(data)
+        except ValidationError as exc:
+            _raise_workflow_schema_validation(workflow_id, exc)
         input_schema = effective_workflow_input_schema(workflow_file) or {}
 
         raw_inputs = dict(inputs or {})
@@ -366,9 +437,11 @@ class ExecutionService:
         if fields:
             _raise_workflow_input_validation(workflow_id, fields)
 
-        return normalized
+        return _prepared_run_inputs(input_schema, normalized)
 
-    async def _run_workflow(self, run_id: str, wf: Any, inputs: Dict[str, Any]) -> None:
+    async def _run_workflow(
+        self, run_id: str, wf: Any, inputs: Mapping[str, Any] | PreparedRunInputs
+    ) -> None:
         """Execute the workflow with CompositeObserver for status management.
 
         Acquires the concurrency semaphore before running. Status stays
@@ -404,10 +477,18 @@ class ExecutionService:
             from runsight_core.artifacts import InMemoryArtifactStore
 
             artifact_store = InMemoryArtifactStore(run_id=run_id)
-            state = WorkflowState(artifact_store=artifact_store)
+            prepared_inputs = _split_prepared_inputs(inputs)
+            state = WorkflowState(
+                artifact_store=artifact_store,
+                input_redactor=prepared_inputs.input_redactor,
+            )
 
             try:
-                state = await wf.run(state, observer=observer, inputs=inputs)
+                state = await wf.run(
+                    state,
+                    observer=observer,
+                    inputs=prepared_inputs.normalized_inputs,
+                )
             except Exception:
                 logger.exception("Workflow execution failed for run %s", run_id)
             finally:

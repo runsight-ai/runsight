@@ -7,6 +7,7 @@ from typing import Annotated, Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.redaction import RunRedactor
 
 
 class BlockResult(BaseModel):
@@ -74,4 +75,9 @@ class WorkflowState(BaseModel):
     )
     artifact_store: Optional[Annotated[ArtifactStore, SkipValidation]] = Field(
         default=None, exclude=True
+    )
+    input_redactor: Optional[Annotated[RunRedactor, SkipValidation]] = Field(
+        default=None,
+        exclude=True,
+        description="Runtime-only redactor for sensitive workflow invocation inputs.",
     )

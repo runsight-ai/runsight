@@ -232,6 +232,7 @@ def _scoped_state_snapshot(
         total_tokens=state.total_tokens,
         conversation_histories=_scoped_conversation_histories(state, block),
         artifact_store=state.artifact_store,
+        input_redactor=state.input_redactor,
     )
 
 

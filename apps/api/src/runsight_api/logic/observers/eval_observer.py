@@ -71,6 +71,8 @@ class EvalObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
         pass
 

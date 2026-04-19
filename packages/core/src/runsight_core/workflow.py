@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import inspect
 import logging
 import re
 import time
@@ -24,6 +25,19 @@ if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
 logger = logging.getLogger(__name__)
+
+
+def _call_observer_method(method: Any, *args: Any, **kwargs: Any) -> None:
+    try:
+        signature = inspect.signature(method)
+    except (TypeError, ValueError):
+        method(*args, **kwargs)
+        return
+    if not any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    ):
+        kwargs = {key: value for key, value in kwargs.items() if key in signature.parameters}
+    method(*args, **kwargs)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -249,8 +263,14 @@ async def execute_block(
         block_duration = time.time() - block_start_time
         if observer:
             try:
-                observer.on_block_error(
-                    ctx.workflow_name, block_id, block_type, block_duration, exc
+                _call_observer_method(
+                    observer.on_block_error,
+                    ctx.workflow_name,
+                    block_id,
+                    block_type,
+                    block_duration,
+                    exc,
+                    state=state,
                 )
             except Exception:
                 logger.warning("Observer.on_block_error failed", exc_info=True)
@@ -653,6 +673,7 @@ class Workflow:
         observer: Optional["WorkflowObserver"],
         event_name: str,
         *args: Any,
+        **kwargs: Any,
     ) -> None:
         """Call a named observer method, swallowing and logging any exception."""
         if observer is None:
@@ -661,7 +682,7 @@ class Workflow:
         if method is None:
             return
         try:
-            method(*args)
+            _call_observer_method(method, *args, **kwargs)
         except Exception:
             logger.warning("Observer.%s failed", event_name, exc_info=True)
 
@@ -863,7 +884,7 @@ class Workflow:
         except Exception as e:
             wf_duration = time.time() - wf_start_time
             self._notify_observers(
-                observer, "on_workflow_error", observer_workflow_name, e, wf_duration
+                observer, "on_workflow_error", observer_workflow_name, e, wf_duration, state=state
             )
             raise
         finally:
