@@ -25,6 +25,7 @@ from ..schemas.runs import (
     RunListResponse,
     RunNodeResponse,
     RunResponse,
+    WorkflowInputValidationErrorResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,7 +180,11 @@ def _refresh_launch_run(run_service: RunService, run):
     return latest if isinstance(status, RunStatus | str) else run
 
 
-@router.post("", response_model=RunResponse)
+@router.post(
+    "",
+    response_model=RunResponse,
+    responses={422: {"model": WorkflowInputValidationErrorResponse}},
+)
 async def create_run(
     body: RunCreate,
     run_service: RunService = Depends(get_run_service),

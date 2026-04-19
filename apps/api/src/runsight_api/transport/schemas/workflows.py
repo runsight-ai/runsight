@@ -37,10 +37,10 @@ class WorkflowInputSchemaItem(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     type: Literal["string", "number", "boolean", "json", "array"]
-    required: bool = True
+    required: Optional[bool] = None
     default: Any | None = None
     description: str | None = None
-    sensitive: bool = False
+    sensitive: Optional[bool] = None
 
 
 class WorkflowResponse(BaseModel):

@@ -5,6 +5,7 @@ class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -19,10 +20,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
+    const errorBody =
+      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    const code =
+      typeof errorBody.error_code === "string"
+        ? errorBody.error_code
+        : typeof errorBody.code === "string"
+          ? errorBody.code
+          : "UNKNOWN";
+    const message =
+      typeof errorBody.error === "string" ? errorBody.error : response.statusText;
     throw new ApiError(
       response.status,
-      body.code ?? "UNKNOWN",
-      body.error ?? response.statusText,
+      code,
+      message,
+      errorBody.details,
     );
   }
 

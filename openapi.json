@@ -118,14 +118,14 @@
             }
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/WorkflowInputValidationErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Unprocessable Content"
           }
         }
       },
@@ -2618,6 +2618,7 @@
       "ContextAuditNamespace": {
         "type": "string",
         "enum": [
+          "workflow",
           "results",
           "shared_memory",
           "metadata"
@@ -3452,7 +3453,8 @@
           "inputs": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Inputs"
+            "title": "Inputs",
+            "default": {}
           },
           "source": {
             "anyOf": [
@@ -3927,6 +3929,30 @@
             "type": "integer",
             "title": "Depth",
             "default": 0
+          },
+          "workflow_inputs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Inputs"
+          },
+          "workflow_input_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Input Schema"
           }
         },
         "type": "object",
@@ -5094,6 +5120,187 @@
         "type": "object",
         "title": "WorkflowHealthMetrics"
       },
+      "WorkflowInputSchemaItem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "json",
+              "array"
+            ],
+            "title": "Type"
+          },
+          "required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required"
+          },
+          "default": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sensitive": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensitive"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "WorkflowInputSchemaItem"
+      },
+      "WorkflowInputValidationErrorDetails": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "workflow_input_validation",
+            "title": "Kind"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowInputValidationFieldError"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "workflow_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Id"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "WorkflowInputValidationErrorDetails"
+      },
+      "WorkflowInputValidationErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "error_code": {
+            "type": "string",
+            "const": "WORKFLOW_INPUT_VALIDATION_ERROR",
+            "title": "Error Code"
+          },
+          "status_code": {
+            "type": "integer",
+            "const": 422,
+            "title": "Status Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/WorkflowInputValidationErrorDetails"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "error_code",
+          "status_code",
+          "details"
+        ],
+        "title": "WorkflowInputValidationErrorResponse"
+      },
+      "WorkflowInputValidationFieldError": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "input_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Input Path"
+          },
+          "expected_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Type"
+          },
+          "actual_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "code",
+          "message",
+          "input_path",
+          "expected_type",
+          "actual_type"
+        ],
+        "title": "WorkflowInputValidationFieldError"
+      },
       "WorkflowListResponse": {
         "properties": {
           "items": {
@@ -5227,6 +5434,20 @@
           },
           "health": {
             "$ref": "#/components/schemas/WorkflowHealthMetrics"
+          },
+          "input_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/WorkflowInputSchemaItem"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Schema"
           }
         },
         "type": "object",
