@@ -44,6 +44,7 @@ describe("RUN-901 ApiError workflow input validation details", () => {
       inputs: {},
     });
 
+    await expect(promise).rejects.toBeInstanceOf(ApiError);
     await expect(promise).rejects.toMatchObject({
       name: "ApiError",
       status: 422,

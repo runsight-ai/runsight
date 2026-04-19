@@ -4,20 +4,11 @@ import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
 
 const SHARED_SRC = resolve(__dirname, "..");
-const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
-const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
   shape: Record<string, unknown>;
-};
-
-type OpenApiSchema = {
-  properties?: Record<string, unknown>;
-  anyOf?: unknown[];
-  allOf?: unknown[];
-  oneOf?: unknown[];
 };
 
 function getSchema(name: string): ParseableSchema {
@@ -46,16 +37,6 @@ function extractComponentFieldNames(source: string, componentName: string): stri
       return fieldMatch?.[1] ?? null;
     })
     .filter((field): field is string => field !== null);
-}
-
-function findSchemaWithProperties(
-  schemas: Record<string, OpenApiSchema>,
-  requiredProperties: string[],
-): [string, OpenApiSchema] | undefined {
-  return Object.entries(schemas).find(([, schema]) => {
-    const properties = schema.properties ?? {};
-    return requiredProperties.every((property) => property in properties);
-  });
 }
 
 describe("RUN-901 shared workflow input contracts", () => {
@@ -217,26 +198,58 @@ describe("RUN-901 shared workflow input contracts", () => {
   });
 
   it("committed OpenAPI includes a workflow input validation error schema with structured fields", () => {
-    const schemas = (openapi.components?.schemas ?? {}) as Record<string, OpenApiSchema>;
-    const match = findSchemaWithProperties(schemas, [
-      "error",
-      "error_code",
-      "status_code",
-      "details",
-    ]);
-
-    expect(match, "Expected a schema with workflow input validation error fields").toBeDefined();
-    const [schemaName, schema] = match ?? [];
-
-    expect(schemaName).toBeTruthy();
-    expect(schema.properties).toBeDefined();
-    expect(schema.properties).toEqual(
-      expect.objectContaining({
-        error: expect.any(Object),
-        error_code: expect.any(Object),
-        status_code: expect.any(Object),
-        details: expect.any(Object),
-      }),
+    const legacyInvocationInputExports = Object.keys(sharedZod).filter((name) =>
+      /(?:Legacy|Interface).*(?:Input|Invocation)/i.test(name),
     );
+
+    expect(legacyInvocationInputExports).toEqual([]);
+
+    const schema = getSchema("WorkflowInputValidationErrorResponseSchema");
+
+    const parsed = schema.parse({
+      error: "Workflow input validation failed",
+      error_code: "WORKFLOW_INPUT_VALIDATION_ERROR",
+      status_code: 422,
+      details: {
+        kind: "workflow_input_validation",
+        fields: [
+          {
+            field: "query",
+            code: "required",
+            message: "Input 'query' is required.",
+            input_path: ["inputs", "query"],
+            expected_type: "string",
+            actual_type: null,
+          },
+        ],
+      },
+    }) as {
+      error: string;
+      error_code: string;
+      status_code: number;
+      details: {
+        kind: string;
+        fields: Array<{
+          field: string;
+          code: string;
+          message: string;
+          input_path: string[];
+          expected_type: string;
+          actual_type: string | null;
+        }>;
+      };
+    };
+
+    expect(parsed.error_code).toBe("WORKFLOW_INPUT_VALIDATION_ERROR");
+    expect(parsed.status_code).toBe(422);
+    expect(parsed.details.kind).toBe("workflow_input_validation");
+    expect(parsed.details.fields[0]).toEqual({
+      field: "query",
+      code: "required",
+      message: "Input 'query' is required.",
+      input_path: ["inputs", "query"],
+      expected_type: "string",
+      actual_type: null,
+    });
   });
 });
