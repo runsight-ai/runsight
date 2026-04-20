@@ -441,7 +441,11 @@ class WorkflowBlock(BaseBlock):
         return self._declared_child_input_schema() or {}
 
     def _declared_child_input_schema(self) -> Mapping[str, Any] | None:
-        input_schema = getattr(self.child_workflow, "input_schema", None)
+        if not hasattr(self.child_workflow, "input_schema"):
+            return None
+        input_schema = self.child_workflow.input_schema
+        if input_schema is None and getattr(self.child_workflow, "identity", None) is not None:
+            return {}
         return input_schema if isinstance(input_schema, Mapping) else None
 
     @staticmethod
