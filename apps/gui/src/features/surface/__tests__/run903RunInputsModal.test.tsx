@@ -213,6 +213,16 @@ describe("RUN-903 RunInputsModal", () => {
       onOpenChange,
     });
 
+    expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue(
+      initialValues.query,
+    );
+    expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
+      JSON.stringify(initialValues.config, null, 2),
+    );
+    expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue(
+      JSON.stringify(initialValues.tags, null, 2),
+    );
+
     fireEvent.change(screen.getByRole("textbox", { name: "Query" }), {
       target: { value: "edited rerun query" },
     });
