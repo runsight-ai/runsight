@@ -119,7 +119,7 @@ class RunRedactor:
     def redact_text(self, value: str) -> str:
         """Redact registered values embedded inside runtime text surfaces."""
         redacted = value
-        for item in sorted(self._all_values(), key=len, reverse=True):
+        for item in sorted(self._all_text_variants(), key=len, reverse=True):
             redacted = redacted.replace(item, REDACTED_VALUE)
         return redacted
 
@@ -141,6 +141,20 @@ class RunRedactor:
         for named_scalars in self._named_scalar_values.values():
             values.update(self._scalar_text_values(named_scalars))
         return values
+
+    def _all_text_variants(self) -> set[str]:
+        values: set[str] = set()
+        for value in self._all_values():
+            values.update(self._text_variants(value))
+        return values
+
+    @staticmethod
+    def _text_variants(value: str) -> set[str]:
+        variants = {value}
+        for ensure_ascii in (True, False):
+            serialized = json.dumps(value, ensure_ascii=ensure_ascii)
+            variants.add(serialized[1:-1])
+        return {variant for variant in variants if variant}
 
     def _structured_scope_for_value(self, value: object) -> str | None:
         if not isinstance(value, dict | list | tuple):
