@@ -22,6 +22,7 @@ import {
   shouldShowWarningBadge,
   WARNING_BADGE_CLASSES,
 } from "../workflows/warningBadge.utils";
+import { SurfaceRunInputsCell } from "./SurfaceRunInputsCell";
 
 function SurfaceWarningsCell({
   runId,
@@ -158,6 +159,13 @@ export function SurfaceRunRow({
           runId={run.id}
           regressionCount={run.regression_count}
           warnings={run.warnings}
+        />
+      </TableCell>
+      <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "max-w-[18rem]")}>
+        <SurfaceRunInputsCell
+          runId={run.id}
+          runNumber={run.run_number}
+          workflowInputs={run.workflow_inputs}
         />
       </TableCell>
     </TableRow>

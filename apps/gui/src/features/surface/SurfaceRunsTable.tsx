@@ -45,6 +45,7 @@ export function SurfaceRunsTable({
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Cost</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Eval</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Warnings</TableHead>
+            <TableHead className={cn(RUN_TABLE_HEAD_CLASS, "min-w-[12rem]")}>Inputs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
