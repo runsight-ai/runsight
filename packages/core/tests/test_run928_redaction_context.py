@@ -84,6 +84,19 @@ def test_sensitive_value_redactor_redacts_registered_exact_values_in_nested_json
     assert redacted["nested"]["items"][2] == f"{SENSITIVE_VALUE}-suffix"
 
 
+def test_sensitive_value_redactor_redacts_json_escaped_registered_text() -> None:
+    secret = 'alpha"beta\\gamma\nline2'
+    redactor = _redactor(secret)
+    serialized = json.dumps({"token": secret})
+    escaped_secret = json.dumps(secret)[1:-1]
+
+    redacted = redactor.redact_text(f"failed with {serialized}")
+
+    assert escaped_secret not in redacted
+    assert secret not in redacted
+    assert redacted == f'failed with {{"token": "{REDACTED}"}}'
+
+
 def test_empty_string_and_null_registrations_do_not_blanket_redact_values() -> None:
     redactor = _redactor("", None)
     payload = {
@@ -477,6 +490,31 @@ def test_logging_observer_redacts_registered_sensitive_value_in_error_details(
         )
 
     assert SENSITIVE_VALUE not in caplog.text
+    assert REDACTED in caplog.text
+    assert "leaky_block" in caplog.text
+
+
+def test_logging_observer_redacts_json_escaped_registered_sensitive_value_in_error_details(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    secret = 'alpha"beta\\gamma\nline2'
+    serialized = json.dumps({"token": secret})
+    escaped_secret = json.dumps(secret)[1:-1]
+    state = _state_with_redactor(redactor=_redactor(secret))
+    observer = LoggingObserver(level=logging.INFO)
+
+    with caplog.at_level(logging.ERROR, logger="runsight.workflow"):
+        observer.on_block_error(
+            "wf_redaction",
+            "leaky_block",
+            "CodeBlock",
+            0.5,
+            RuntimeError(f"failed with {serialized}"),
+            state=state,
+        )
+
+    assert escaped_secret not in caplog.text
+    assert secret not in caplog.text
     assert REDACTED in caplog.text
     assert "leaky_block" in caplog.text
 

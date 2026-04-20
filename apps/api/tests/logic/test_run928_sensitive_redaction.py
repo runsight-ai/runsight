@@ -359,6 +359,25 @@ def test_prepare_run_inputs_redacts_all_mixed_structured_sensitive_string_leaves
     )
 
 
+def test_prepare_run_inputs_redacts_json_escaped_sensitive_string_leaf_text() -> None:
+    service = _service(yaml=_workflow_yaml_with_mixed_structured_sensitive_input())
+    secret = 'alpha"beta\\gamma\nline2'
+    credentials = {"token": secret}
+    prepared = service.prepare_run_inputs(
+        "run928_inputs",
+        {"credentials": credentials},
+        branch="main",
+    )
+    serialized = json.dumps(credentials)
+    escaped_secret = json.dumps(secret)[1:-1]
+
+    redacted = prepared.input_redactor.redact_text(f"failed with {serialized}")
+
+    assert escaped_secret not in redacted
+    assert secret not in redacted
+    assert redacted == f'failed with {{"token": "{REDACTED}"}}'
+
+
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
@@ -557,6 +576,37 @@ def test_execution_observer_redacts_error_and_traceback_when_state_is_available(
     assert REDACTED in (node.error or "")
     assert REDACTED in (node.error_traceback or "")
     assert SENSITIVE_VALUE not in "\n".join(_log_messages(engine))
+
+
+def test_execution_observer_redacts_json_escaped_sensitive_value_in_error_surfaces() -> None:
+    secret = 'alpha"beta\\gamma\nline2'
+    serialized = json.dumps({"token": secret})
+    escaped_secret = json.dumps(secret)[1:-1]
+    engine = _db_engine()
+    _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id="run_928_api")
+    observer.on_block_start("wf", "fail_secret", "CodeBlock")
+    state = WorkflowState(input_redactor=_redactor(secret))
+
+    try:
+        raise RuntimeError(f"failed while handling {serialized}")
+    except RuntimeError as exc:
+        observer.on_block_error("wf", "fail_secret", "CodeBlock", 0.1, exc, state=state)
+
+    with Session(engine) as session:
+        node = session.get(RunNode, "run_928_api:fail_secret")
+    persisted = "\n".join(
+        [
+            node.error if node is not None else "",
+            node.error_traceback if node is not None else "",
+            *_log_messages(engine),
+        ]
+    )
+
+    assert node is not None
+    assert escaped_secret not in persisted
+    assert secret not in persisted
+    assert REDACTED in persisted
 
 
 def test_streaming_observer_redacts_error_sse_payload_when_state_is_available() -> None:
