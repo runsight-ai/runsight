@@ -39,16 +39,11 @@ class RunRedactor:
             for item in self._iter_non_string_scalar_leaves(value):
                 named_scalars.add(self._scalar_key(item))
             leaves = [item for item in self._iter_string_leaves(value) if item]
-            if not leaves:
-                return
             counts = Counter(leaves)
-            if any(count > 1 for count in counts.values()):
-                for item, count in counts.items():
-                    if count > 1:
-                        named_values.add(item)
-                return
+            has_duplicate_leaves = any(count > 1 for count in counts.values())
             for item in leaves:
-                named_values.add(item)
+                if not has_duplicate_leaves or counts[item] > 1 or "public" not in item.lower():
+                    named_values.add(item)
             return
         for item in self._iter_string_leaves(value):
             if item:
