@@ -61,6 +61,10 @@ class RunRedactor:
         scope_name = self._structured_scope_for_value(value)
         return self._redact(value, field_name=None, scope_name=scope_name)
 
+    def redact_named(self, name: str, value: object) -> Any:
+        """Redact a value using a sensitive workflow input name as its scope."""
+        return self._redact(value, field_name=name, scope_name=name)
+
     def _redact(
         self,
         value: object,

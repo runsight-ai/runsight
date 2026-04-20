@@ -714,7 +714,13 @@ def _audit_preview_value(
 
     workflow_inputs = state.workflow_inputs
     if len(workflow_inputs) <= 1:
-        return redactor.redact(value)
+        preview_value = redactor.redact_named(parsed.source, value)
+        if parsed.field_path is None:
+            return preview_value
+        try:
+            return _resolve_field_path(preview_value, parsed.field_path, parsed)
+        except ContextResolutionError:
+            return redactor.redact_named(parsed.source, value)
 
     redacted_workflow_inputs = redactor.redact(workflow_inputs)
     preview_value = redacted_workflow_inputs.get(parsed.source, value)
@@ -724,7 +730,7 @@ def _audit_preview_value(
     try:
         return _resolve_field_path(preview_value, parsed.field_path, parsed)
     except ContextResolutionError:
-        return redactor.redact(value)
+        return redactor.redact_named(parsed.source, value)
 
 
 def bounded_context_preview(value: object, *, max_length: int = _MAX_PREVIEW_LENGTH) -> str:
