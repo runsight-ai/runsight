@@ -154,7 +154,7 @@ function renderInputControl({
       return (
         <Input
           {...sharedProps}
-          type="text"
+          type={item.sensitive ? "password" : "text"}
           value={toStringValue(value)}
           error={invalid}
           onChange={(event) => onChange(name, event.target.value)}
@@ -170,7 +170,9 @@ function getInputValue(
 ) {
   return Object.hasOwn(values, name) && values[name] !== undefined
     ? values[name]
-    : item.default;
+    : item.sensitive === true
+      ? undefined
+      : item.default;
 }
 
 function humanizeInputName(name: string) {

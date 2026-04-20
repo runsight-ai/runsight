@@ -211,10 +211,12 @@ function getInitialInputValues(
   const values: WorkflowInputValues = {};
 
   for (const [name, item] of Object.entries(schema)) {
-    values[name] =
-      initialValues && Object.hasOwn(initialValues, name)
-        ? initialValues[name]
-        : item.default;
+    if (initialValues && Object.hasOwn(initialValues, name) && initialValues[name] !== undefined) {
+      values[name] = initialValues[name];
+      continue;
+    }
+
+    values[name] = item.sensitive === true ? undefined : item.default;
   }
 
   return values;
@@ -228,7 +230,11 @@ function validateInputValues(
   const errors: WorkflowInputErrors = {};
 
   for (const [name, item] of Object.entries(schema)) {
-    const value = Object.hasOwn(values, name) ? values[name] : item.default;
+    const value = Object.hasOwn(values, name)
+      ? values[name]
+      : item.sensitive === true
+        ? undefined
+        : item.default;
 
     if (item.required === true && isMissingValue(value)) {
       errors[name] = "This field is required.";

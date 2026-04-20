@@ -15,12 +15,14 @@ type SurfaceRunsTableProps = {
   runs: RunResponse[];
   currentRunId?: string;
   onRowClick: (runId: string) => void;
+  onRerun?: (run: RunResponse) => void;
 };
 
 export function SurfaceRunsTable({
   runs,
   currentRunId,
   onRowClick,
+  onRerun,
 }: SurfaceRunsTableProps) {
   if (runs.length === 0) {
     return (
@@ -55,6 +57,7 @@ export function SurfaceRunsTable({
               run={run}
               currentRunId={currentRunId}
               onSelect={onRowClick}
+              onRerun={onRerun}
             />
           ))}
         </TableBody>

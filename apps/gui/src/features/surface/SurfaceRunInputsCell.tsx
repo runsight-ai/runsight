@@ -14,9 +14,8 @@ type WorkflowInputSnapshotEntry = {
 };
 
 type SurfaceRunInputsCellProps = {
-  runId: string;
-  runNumber?: number | null;
-  workflowInputs: RunResponse["workflow_inputs"];
+  run: RunResponse;
+  onRerun?: (run: RunResponse) => void;
 };
 
 type WorkflowInputSummary = {
@@ -129,61 +128,83 @@ function InputSummaryChip({
 }
 
 export function SurfaceRunInputsCell({
-  runId,
-  runNumber,
-  workflowInputs,
+  run,
+  onRerun,
 }: SurfaceRunInputsCellProps) {
   const panelId = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const summaries = getWorkflowInputSummaries(workflowInputs);
-
-  if (summaries.length === 0) {
-    return <span className="text-muted">No inputs</span>;
-  }
+  const summaries = getWorkflowInputSummaries(run.workflow_inputs);
 
   const safeInputs = getSafeWorkflowInputs(summaries);
   const safeJson = stringifyJson(safeInputs);
   const previewSummaries = summaries.slice(0, 2);
   const remainingCount = summaries.length - previewSummaries.length;
-  const triggerLabel = runNumber != null ? `View inputs for run #${runNumber}` : `View inputs for run ${runId}`;
+  const triggerLabel =
+    run.run_number != null
+      ? `View inputs for run #${run.run_number}`
+      : `View inputs for run ${run.id}`;
+  const rerunLabel =
+    run.run_number != null ? `Rerun run #${run.run_number}` : `Rerun run ${run.id}`;
 
   return (
     <div className="space-y-2">
-      <Button
-        type="button"
-        variant="ghost"
-        size="xs"
-        aria-label={triggerLabel}
-        aria-expanded={isOpen}
-        aria-controls={panelId}
-        className={cn(
-          "h-6 max-w-full justify-start overflow-hidden px-0 text-left font-mono normal-case tracking-normal",
-          "hover:bg-transparent hover:text-primary",
+      <div className="flex flex-wrap items-center gap-2">
+        {summaries.length > 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label={triggerLabel}
+            aria-expanded={isOpen}
+            aria-controls={panelId}
+            className={cn(
+              "h-6 max-w-full justify-start overflow-hidden px-0 text-left font-mono normal-case tracking-normal",
+              "hover:bg-transparent hover:text-primary",
+            )}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsOpen((current) => !current);
+            }}
+          >
+            <span className="inline-flex max-w-full items-center gap-1 overflow-hidden">
+              {isOpen ? (
+                <span className="text-muted">Inputs open</span>
+              ) : (
+                <>
+                  {previewSummaries.map((summary) => (
+                    <InputSummaryChip
+                      key={summary.name}
+                      name={summary.name}
+                      preview={summary.preview}
+                    />
+                  ))}
+                  {remainingCount > 0 ? <span className="shrink-0 text-muted">+{remainingCount}</span> : null}
+                </>
+              )}
+            </span>
+          </Button>
+        ) : (
+          <span className="text-muted">No inputs</span>
         )}
-        onClick={(event) => {
-          event.stopPropagation();
-          setIsOpen((current) => !current);
-        }}
-      >
-        <span className="inline-flex max-w-full items-center gap-1 overflow-hidden">
-          {isOpen ? (
-            <span className="text-muted">Inputs open</span>
-          ) : (
-            <>
-              {previewSummaries.map((summary) => (
-                <InputSummaryChip
-                  key={summary.name}
-                  name={summary.name}
-                  preview={summary.preview}
-                />
-              ))}
-              {remainingCount > 0 ? <span className="shrink-0 text-muted">+{remainingCount}</span> : null}
-            </>
-          )}
-        </span>
-      </Button>
 
-      {isOpen ? (
+        {onRerun ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label={rerunLabel}
+            className="h-6 px-2 text-2xs font-medium uppercase tracking-wide"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRerun(run);
+            }}
+          >
+            Rerun
+          </Button>
+        ) : null}
+      </div>
+
+      {summaries.length > 0 && isOpen ? (
         <div
           id={panelId}
           role="region"

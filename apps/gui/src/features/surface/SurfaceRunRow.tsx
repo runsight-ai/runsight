@@ -107,12 +107,14 @@ export type SurfaceRunRowProps = {
   run: RunResponse;
   currentRunId?: string;
   onSelect: (runId: string) => void;
+  onRerun?: (run: RunResponse) => void;
 };
 
 export function SurfaceRunRow({
   run,
   currentRunId,
   onSelect,
+  onRerun,
 }: SurfaceRunRowProps) {
   const rowHasRegression = (run.regression_count ?? 0) > 0;
 
@@ -163,9 +165,8 @@ export function SurfaceRunRow({
       </TableCell>
       <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "max-w-[18rem]")}>
         <SurfaceRunInputsCell
-          runId={run.id}
-          runNumber={run.run_number}
-          workflowInputs={run.workflow_inputs}
+          run={run}
+          onRerun={onRerun}
         />
       </TableCell>
     </TableRow>
