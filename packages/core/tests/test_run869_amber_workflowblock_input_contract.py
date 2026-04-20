@@ -56,6 +56,24 @@ async def test_workflowblock_rejects_unknown_child_input_name_before_child_execu
 
 
 @pytest.mark.asyncio
+async def test_workflowblock_rejects_any_child_input_when_child_schema_is_empty() -> None:
+    child = ChildWorkflowSpy({})
+    block = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child,
+        inputs={"foo": "shared_memory.query"},
+        outputs={},
+    )
+    ctx = build_block_context(block, _parent_state())
+
+    with pytest.raises(ValueError, match="foo|not declared|unknown"):
+        await block.execute(ctx)
+
+    assert child.received_state is None
+    assert child.received_kwargs is None
+
+
+@pytest.mark.asyncio
 async def test_workflowblock_rejects_missing_required_child_input_before_child_execution() -> None:
     child = ChildWorkflowSpy(
         {
