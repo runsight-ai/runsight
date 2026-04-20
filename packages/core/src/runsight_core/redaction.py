@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -38,11 +37,8 @@ class RunRedactor:
             self._structured_named_values[name] = value
             for item in self._iter_non_string_scalar_leaves(value):
                 named_scalars.add(self._scalar_key(item))
-            leaves = [item for item in self._iter_string_leaves(value) if item]
-            counts = Counter(leaves)
-            has_duplicate_leaves = any(count > 1 for count in counts.values())
-            for item in leaves:
-                if not has_duplicate_leaves or counts[item] > 1 or "public" not in item.lower():
+            for item in self._iter_string_leaves(value):
+                if item:
                     named_values.add(item)
             return
         for item in self._iter_string_leaves(value):
