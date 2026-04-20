@@ -149,25 +149,24 @@ function RunButtonContent({
 
   function submitRun(inputs: Record<string, unknown>, source: RunSource, branch: string) {
     return new Promise<void>((resolve, reject) => {
-      try {
-        createRun.mutate(
-          {
-            workflow_id: workflowId,
-            inputs,
-            source,
-            branch,
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs,
+          source,
+          branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+            resolve();
           },
-          {
-            onSuccess: (result) => {
-              setActiveRunId(result.id);
-              navigate(`/runs/${result.id}`);
-              resolve();
-            },
+          onError: (error) => {
+            reject(error);
           },
-        );
-      } catch (error) {
-        reject(error);
-      }
+        },
+      );
     });
   }
 
@@ -196,11 +195,20 @@ function RunButtonContent({
         return;
       }
 
-      void submitRun({}, "manual", "main").catch((error) => {
-        toast.error("Unable to start run", {
-          description: error instanceof Error ? error.message : "Run failed.",
-        });
-      });
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs: {},
+          source: "manual",
+          branch: "main",
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
+      );
       return;
     }
 
@@ -229,7 +237,20 @@ function RunButtonContent({
         return;
       }
 
-      void submitRun({}, source, branch);
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs: {},
+          source,
+          branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
+      );
     } catch (error) {
       toast.error("Unable to start run", {
         description: error instanceof Error ? error.message : "Run failed.",
