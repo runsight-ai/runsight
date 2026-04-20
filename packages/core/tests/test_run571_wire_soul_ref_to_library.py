@@ -32,9 +32,17 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
     content = dedent(yaml_content)
     lines = content.lstrip().splitlines()
-    first_key = lines[0].split(":")[0].strip() if lines else ""
-    if first_key != "id":
-        content = "id: test-workflow\nkind: workflow\n" + content
+    top_level_keys = {
+        line.split(":", 1)[0].strip()
+        for line in lines
+        if line and not line.startswith((" ", "\t")) and ":" in line
+    }
+    prefix = ""
+    if "id" not in top_level_keys:
+        prefix += "id: test-workflow\n"
+    if "kind" not in top_level_keys:
+        prefix += "kind: workflow\n"
+    content = prefix + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 

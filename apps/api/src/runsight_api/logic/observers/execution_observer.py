@@ -9,7 +9,11 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from runsight_core.context_governance import ContextAuditEventV1, ContextAuditSeverity
+from runsight_core.context_governance import (
+    ContextAuditEventV1,
+    ContextAuditSeverity,
+    redact_context_audit_event_preview,
+)
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
@@ -514,6 +518,7 @@ class ExecutionObserver:
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
         try:
+            event = redact_context_audit_event_preview(event)
             self._insert_log(
                 self._context_audit_level(event),
                 event.model_dump_json(),

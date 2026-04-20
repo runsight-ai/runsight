@@ -58,8 +58,9 @@ def _write_yaml_file(base: Path, rel_path: str, yaml_text: str) -> Path:
 
 
 class _RecordingWorkflow:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, identity: str | None = None) -> None:
         self.name = name
+        self.identity = identity
         self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, object] | None = None
 
@@ -242,6 +243,50 @@ class TestDepthParityMaxDepth3:
             "workflow_a",
             "workflow_b",
             "workflow_c",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_allows_id_name_mixed_a_to_b_to_c_at_max_depth_3(
+        self,
+    ) -> None:
+        """Parsed workflows may have ids that differ from workflow.name."""
+
+        workflow_c = _RecordingWorkflow(name="workflow_c", identity="workflow-c-id")
+        block_bc = WorkflowBlock(
+            block_id="invoke_c",
+            child_workflow=workflow_c,
+            inputs={},
+            outputs={},
+            max_depth=3,
+        )
+        workflow_b = Workflow(name="workflow_b")
+        workflow_b.identity = "workflow-b-id"
+        workflow_b.add_block(block_bc)
+        workflow_b.set_entry("invoke_c")
+        workflow_b.add_transition("invoke_c", None)
+
+        block_ab = WorkflowBlock(
+            block_id="invoke_b",
+            child_workflow=workflow_b,
+            inputs={},
+            outputs={},
+            max_depth=3,
+        )
+        workflow_a = Workflow(name="workflow_a")
+        workflow_a.identity = "workflow-a-id"
+        workflow_a.add_block(block_ab)
+        workflow_a.set_entry("invoke_b")
+        workflow_a.add_transition("invoke_b", None)
+
+        final_state = await workflow_a.run(WorkflowState())
+
+        assert isinstance(final_state, WorkflowState)
+        assert workflow_c.received_state is not None
+        assert workflow_c.received_kwargs is not None
+        assert workflow_c.received_kwargs["call_stack"] == [
+            "workflow-a-id",
+            "workflow-b-id",
+            "workflow-c-id",
         ]
 
 

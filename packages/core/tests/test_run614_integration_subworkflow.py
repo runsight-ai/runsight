@@ -175,6 +175,7 @@ def test_parser_builds_workflowblock_without_child_interface() -> None:
             "version": "1.0",
             "id": "child_workflow",
             "kind": "workflow",
+            "inputs": {"topic": {"type": "string"}},
             "blocks": {
                 "child_step": {
                     "type": "code",

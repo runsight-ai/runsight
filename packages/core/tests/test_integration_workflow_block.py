@@ -16,9 +16,16 @@ from runsight_core.workflow import Workflow
 class SimpleBlock(BaseBlock):
     """Simple test block that records execution and can optionally modify state."""
 
-    def __init__(self, block_id: str, output: str = "default output"):
+    def __init__(
+        self,
+        block_id: str,
+        output: str = "default output",
+        declared_inputs: dict[str, str] | None = None,
+    ):
         super().__init__(block_id)
         self.output = output
+        self.context_access = "declared"
+        self.declared_inputs = dict(declared_inputs or {})
         self.seen_workflow_inputs = None
 
     async def execute(self, ctx):
@@ -52,7 +59,11 @@ async def test_parent_child_workflow_execution():
     """
     # ==== Setup: Create child workflow ====
     child_wf = Workflow(name="child_workflow")
-    child_step = SimpleBlock("child_step", "child output")
+    child_step = SimpleBlock(
+        "child_step",
+        "child output",
+        declared_inputs={"topic": "workflow.topic"},
+    )
     child_wf.add_block(child_step)
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)  # Terminal
@@ -417,7 +428,14 @@ async def test_workflow_block_input_output_mapping():
     """
     # Create child workflow
     child_wf = Workflow(name="child_wf")
-    child_step = SimpleBlock("child_step", "child result")
+    child_step = SimpleBlock(
+        "child_step",
+        "child result",
+        declared_inputs={
+            "input_key": "workflow.input_key",
+            "context": "workflow.context",
+        },
+    )
     child_wf.add_block(child_step)
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)

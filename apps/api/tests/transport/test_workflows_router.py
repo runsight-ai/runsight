@@ -355,6 +355,7 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     mock_service.create_simulation.return_value = {
         "branch": "sim/wf_123/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
+        "input_schema": {},
     }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
@@ -367,6 +368,7 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     assert response.json() == {
         "branch": "sim/wf_123/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
+        "input_schema": {},
     }
     mock_service.create_simulation.assert_called_once()
     args, kwargs = mock_service.create_simulation.call_args

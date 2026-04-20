@@ -15,10 +15,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from runsight_core.redaction import RunRedactor
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 
 
 def _write_warning_soul(base_dir: Path, soul_key: str) -> None:
@@ -39,6 +41,13 @@ def _write_warning_soul(base_dir: Path, soul_key: str) -> None:
             ]
         ),
         encoding="utf-8",
+    )
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
     )
 
 
@@ -281,6 +290,8 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
     warning_yaml = _warning_workflow_yaml(soul_key, declare_http=False)
     fixed_yaml = _warning_workflow_yaml(soul_key, declare_http=True)
     fake_execution = Mock()
+    prepared = _prepared_inputs({})
+    fake_execution.prepare_run_inputs.return_value = prepared
     fake_execution.launch_execution = AsyncMock()
     app_without_execution.dependency_overrides[get_execution_service] = (
         lambda request=None: fake_execution
@@ -331,7 +342,7 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
         fake_execution.launch_execution.assert_called_once_with(
             run_id,
             workflow_id,
-            {},
+            prepared,
             branch="main",
         )
 
@@ -395,7 +406,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
                 "/api/runs",
                 json={
                     "workflow_id": workflow_id,
-                    "inputs": {"instruction": "Run with warning-only tool metadata"},
+                    "inputs": {},
                 },
             )
 

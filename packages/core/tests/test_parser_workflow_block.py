@@ -155,6 +155,7 @@ class TestParseWorkflowBlock:
         child_yaml_dict = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
+            "inputs": {"topic": {"type": "string"}},
             "blocks": {
                 "child_step": {
                     "type": "linear",

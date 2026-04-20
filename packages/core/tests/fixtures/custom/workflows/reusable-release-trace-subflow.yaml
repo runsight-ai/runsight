@@ -1,6 +1,13 @@
 version: "1.0"
 id: reusable-release-trace-subflow
 kind: workflow
+inputs:
+  task:
+    type: string
+  manifest_json:
+    type: string
+  phase_payload:
+    type: string
 tools:
   - http
   - file_io

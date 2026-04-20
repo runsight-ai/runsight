@@ -33,6 +33,10 @@ def _child_workflow_file(name: str = "analysis_child") -> RunsightWorkflowFile:
             "id": name,
             "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
+            "inputs": {
+                "topic": {"type": "string", "required": False},
+                "input": {"type": "string", "required": False},
+            },
             "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": name,

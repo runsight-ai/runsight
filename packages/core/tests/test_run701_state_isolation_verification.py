@@ -136,8 +136,7 @@ async def test_empty_outputs_mapping_leaks_nothing():
     final_state = await parent_wf.run(initial_state)
 
     # Only the parent's original data + the WorkflowBlock's own summary should be present.
-    # "workflow" is a sentinel key seeded by Workflow.run() itself and is expected.
-    expected_keys = {"original", "wb_block", "workflow"}
+    expected_keys = {"original", "wb_block"}
     actual_keys = set(final_state.results.keys())
     unexpected = actual_keys - expected_keys
     assert not unexpected, (
@@ -167,8 +166,7 @@ async def test_parent_results_contain_only_expected_keys():
     # - parent_original: pre-existing parent data
     # - out: the mapped output
     # - invoke_child: the WorkflowBlock's own summary result
-    # - workflow: sentinel key seeded by Workflow.run() itself
-    expected_keys = {"parent_original", "out", "invoke_child", "workflow"}
+    expected_keys = {"parent_original", "out", "invoke_child"}
     actual_keys = set(final_state.results.keys())
     unexpected = actual_keys - expected_keys
     missing = expected_keys - actual_keys

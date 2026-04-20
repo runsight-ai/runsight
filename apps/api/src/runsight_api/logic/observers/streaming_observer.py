@@ -4,7 +4,10 @@ import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from runsight_core.context_governance import ContextAuditEventV1
+from runsight_core.context_governance import (
+    ContextAuditEventV1,
+    redact_context_audit_event_preview,
+)
 from runsight_core.primitives import Soul
 from runsight_core.redaction import redact_runtime_value_for_state, redact_text_for_state
 from runsight_core.state import WorkflowState
@@ -176,6 +179,7 @@ class StreamingObserver:
         self.is_done = True
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        event = redact_context_audit_event_preview(event)
         self.queue.put_nowait(
             {
                 "event": SSE_CONTEXT_RESOLUTION,

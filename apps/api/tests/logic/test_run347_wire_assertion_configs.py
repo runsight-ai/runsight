@@ -9,10 +9,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from pydantic import ValidationError
 from runsight_core.observer import compute_soul_version
+from runsight_core.redaction import RunRedactor
 from runsight_core.yaml.parser import parse_workflow_yaml
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 
 
 YAML_BLOCK_WITH_ASSERTIONS = """\
@@ -109,6 +111,13 @@ def _parse_block_assertion_workflow() -> object:
         workflow_file = base / "workflow.yaml"
         workflow_file.write_text(YAML_BLOCK_WITH_ASSERTIONS, encoding="utf-8")
         return parse_workflow_yaml(str(workflow_file))
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
 
 
 @pytest.fixture
@@ -241,7 +250,11 @@ class TestIntegrationEvalScoreViaService:
             new_callable=AsyncMock,
             return_value=_fake_result(),
         ):
-            await svc._run_workflow(run_id, wf, {"instruction": "Analyze the data"})
+            await svc._run_workflow(
+                run_id,
+                wf,
+                _prepared_inputs({"instruction": "Analyze the data"}),
+            )
 
         with Session(db_engine) as session:
             node = session.get(RunNode, f"{run_id}:analyze")
@@ -289,7 +302,11 @@ class TestIntegrationEvalScoreViaService:
             new_callable=AsyncMock,
             return_value=_fake_result(),
         ):
-            await svc._run_workflow(run_id, wf, {"instruction": "Analyze the data"})
+            await svc._run_workflow(
+                run_id,
+                wf,
+                _prepared_inputs({"instruction": "Analyze the data"}),
+            )
 
         observer = svc.get_observer(run_id)
         assert observer is not None

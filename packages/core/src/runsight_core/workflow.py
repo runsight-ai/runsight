@@ -185,7 +185,15 @@ async def execute_block(
         if isinstance(blk, WorkflowBlock):
             wf_block_ctx = build_block_context(blk, current_state, observer=observer)
             workflow_call_stack = list(ctx.call_stack)
-            if not workflow_call_stack or workflow_call_stack[-1] != ctx.workflow_name:
+            workflow_stack_refs = {ctx.workflow_name}
+            aliases = ctx.passthrough_kwargs.get("workflow_stack_aliases", ())
+            if isinstance(aliases, str):
+                workflow_stack_refs.add(aliases)
+            else:
+                workflow_stack_refs.update(
+                    alias for alias in aliases if isinstance(alias, str) and alias
+                )
+            if not workflow_call_stack or workflow_call_stack[-1] not in workflow_stack_refs:
                 workflow_call_stack.append(ctx.workflow_name)
             wf_block_ctx = wf_block_ctx.model_copy(
                 update={
@@ -954,6 +962,9 @@ class Workflow:
         wf_start_time = time.time()
         observer_workflow_name = self.identity or self.name
         self._notify_observers(observer, "on_workflow_start", observer_workflow_name, state)
+        workflow_stack_aliases = tuple(
+            dict.fromkeys(alias for alias in (observer_workflow_name, self.name) if alias)
+        )
 
         ctx = BlockExecutionContext(
             workflow_name=observer_workflow_name,
@@ -961,6 +972,7 @@ class Workflow:
             call_stack=call_stack,
             workflow_registry=workflow_registry,
             observer=observer,
+            passthrough_kwargs={"workflow_stack_aliases": workflow_stack_aliases},
         )
         try:
             state = await self._run_with_timeout(

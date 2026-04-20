@@ -34,10 +34,14 @@ class _RecordingBlock(BaseBlock):
     Used to verify WorkflowState.workflow_inputs is available before execution.
     """
 
-    def __init__(self, block_id: str) -> None:
+    def __init__(
+        self,
+        block_id: str,
+        declared_inputs: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(block_id)
         self.context_access = "declared"
-        self.declared_inputs = {}
+        self.declared_inputs = dict(declared_inputs or {})
         self.received_states: list[WorkflowState] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
@@ -126,7 +130,7 @@ class TestWorkflowInputsSeededBeforeFirstBlock:
     @pytest.mark.asyncio
     async def test_workflow_inputs_present_in_first_block_state(self):
         """Recording block sees WorkflowState.workflow_inputs before it executes."""
-        block = _RecordingBlock("step1")
+        block = _RecordingBlock("step1", declared_inputs={"name": "workflow.name"})
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 
@@ -142,7 +146,7 @@ class TestWorkflowInputsSeededBeforeFirstBlock:
     @pytest.mark.asyncio
     async def test_workflow_inputs_are_plain_dict(self):
         """WorkflowState.workflow_inputs must be a plain dict."""
-        block = _RecordingBlock("step1")
+        block = _RecordingBlock("step1", declared_inputs={"x": "workflow.x"})
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 
@@ -158,7 +162,14 @@ class TestWorkflowInputsSeededBeforeFirstBlock:
     async def test_workflow_inputs_preserve_nested_structures(self):
         """WorkflowState.workflow_inputs must preserve structured caller inputs."""
         inputs = {"name": "Alice", "count": 3, "filters": {"topic": "ml"}}
-        block = _RecordingBlock("step1")
+        block = _RecordingBlock(
+            "step1",
+            declared_inputs={
+                "name": "workflow.name",
+                "count": "workflow.count",
+                "filters": "workflow.filters",
+            },
+        )
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 

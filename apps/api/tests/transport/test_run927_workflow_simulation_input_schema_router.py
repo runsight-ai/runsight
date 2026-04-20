@@ -70,6 +70,30 @@ workflow:
 """
 
 
+def _dirty_workflow_yaml_with_sensitive_default() -> str:
+    return """version: "1.0"
+id: wf_927_dirty
+kind: workflow
+inputs:
+  api_key:
+    type: string
+    sensitive: true
+    default: SECRET_LEAKED=True
+blocks:
+  start:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: Dirty workflow
+  entry: start
+  transitions:
+    - from: start
+      to: null
+"""
+
+
 def _dirty_workflow_yaml_with_legacy_interface() -> str:
     return """version: "1.0"
 id: wf_927_dirty
@@ -187,6 +211,27 @@ workflow:
         assert field["input_path"] == ["inputs", "query"]
         assert field["expected_type"] == "string"
         assert field["actual_type"] == "integer"
+        git_service.create_sim_branch.assert_not_called()
+
+    def test_post_workflow_simulation_rejects_sensitive_default_without_echoing_secret(
+        self,
+    ):
+        git_service = Mock()
+        service = _service(git_service=git_service)
+        app.dependency_overrides[get_workflow_service] = lambda: service
+
+        response = client.post(
+            "/api/workflows/wf_927_dirty/simulations",
+            json={"yaml": _dirty_workflow_yaml_with_sensitive_default()},
+        )
+
+        assert response.status_code == 422
+        assert "SECRET_LEAKED=True" not in response.text
+        payload = response.json()
+        assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+        field = payload["details"]["fields"][0]
+        assert field["field"] == "api_key"
+        assert field["actual_type"] is None
         git_service.create_sim_branch.assert_not_called()
 
     def test_post_workflow_simulation_rejects_invalid_workflow_input_refs_with_structured_error(

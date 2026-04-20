@@ -729,31 +729,57 @@ def _audit_preview_value(
         return _redact_unregistered_secret_preview(value)
 
     if parsed.namespace != ContextAuditNamespace.WORKFLOW.value:
-        return redactor.redact(value)
+        return _redact_unregistered_secret_preview(redactor.redact(value))
 
     workflow_inputs = state.workflow_inputs
     if len(workflow_inputs) <= 1:
         preview_value = redactor.redact_named(parsed.source, value)
         if parsed.field_path is None:
-            return preview_value
+            return _redact_unregistered_secret_preview(preview_value)
         try:
-            return _resolve_field_path(preview_value, parsed.field_path, parsed)
+            return _redact_unregistered_secret_preview(
+                _resolve_field_path(preview_value, parsed.field_path, parsed)
+            )
         except ContextResolutionError:
-            return redactor.redact_named(parsed.source, value)
+            return _redact_unregistered_secret_preview(redactor.redact_named(parsed.source, value))
 
     redacted_workflow_inputs = redactor.redact(workflow_inputs)
     preview_value = redacted_workflow_inputs.get(parsed.source, value)
     if parsed.field_path is None:
-        return preview_value
+        return _redact_unregistered_secret_preview(preview_value)
 
     try:
-        return _resolve_field_path(preview_value, parsed.field_path, parsed)
+        return _redact_unregistered_secret_preview(
+            _resolve_field_path(preview_value, parsed.field_path, parsed)
+        )
     except ContextResolutionError:
-        return redactor.redact_named(parsed.source, value)
+        return _redact_unregistered_secret_preview(redactor.redact_named(parsed.source, value))
 
 
 def _redact_unregistered_secret_preview(value: object) -> object:
     return REDACTED_VALUE if _contains_secret_like_preview(value) else value
+
+
+def redact_context_audit_event_preview(event: ContextAuditEventV1) -> ContextAuditEventV1:
+    """Apply heuristic preview redaction before audit events leave core."""
+    records: list[ContextAuditRecordV1] = []
+    for record in event.records:
+        records.append(record.model_copy(update={"preview": _redact_audit_preview(record.preview)}))
+    return event.model_copy(update={"records": records})
+
+
+def _redact_audit_preview(preview: str | None) -> str | None:
+    if preview is None:
+        return None
+    preview_value: object = preview
+    try:
+        preview_value = json.loads(preview)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    redacted = _redact_unregistered_secret_preview(preview_value)
+    if redacted == preview_value:
+        return preview
+    return bounded_context_preview(redacted)
 
 
 def _contains_secret_like_preview(value: object) -> bool:
@@ -762,7 +788,8 @@ def _contains_secret_like_preview(value: object) -> bool:
         return any(marker in lowered for marker in _SECRET_VALUE_MARKERS)
     if isinstance(value, dict):
         return any(
-            _is_secret_like_key(key) or _contains_secret_like_preview(item)
+            (_is_secret_like_key(key) and item != REDACTED_VALUE)
+            or _contains_secret_like_preview(item)
             for key, item in value.items()
         )
     if isinstance(value, list | tuple):

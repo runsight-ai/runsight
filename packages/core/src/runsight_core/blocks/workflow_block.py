@@ -25,6 +25,21 @@ if TYPE_CHECKING:
     from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
+def _workflow_stack_ref(workflow: "Workflow") -> str:
+    identity = getattr(workflow, "identity", None)
+    if isinstance(identity, str) and identity:
+        return identity
+    return str(getattr(workflow, "name", ""))
+
+
+def _workflow_stack_aliases(workflow: "Workflow") -> set[str]:
+    aliases = {_workflow_stack_ref(workflow)}
+    name = getattr(workflow, "name", None)
+    if isinstance(name, str) and name:
+        aliases.add(name)
+    return {alias for alias in aliases if alias}
+
+
 class WorkflowBlock(BaseBlock):
     """
     Execute entire child workflow as a single block step.
@@ -69,13 +84,15 @@ class WorkflowBlock(BaseBlock):
         call_stack: List[str] = ctx.inputs.get("call_stack") or []
         workflow_registry = ctx.inputs.get("workflow_registry")
         observer = ctx.inputs.get("observer")
+        child_stack_ref = _workflow_stack_ref(self.child_workflow)
+        child_stack_aliases = _workflow_stack_aliases(self.child_workflow)
 
         # Step 1: Cycle detection
-        if self.child_workflow.name in call_stack:
+        if any(alias in call_stack for alias in child_stack_aliases):
             raise RecursionError(
                 f"WorkflowBlock '{self.block_id}': cycle detected. "
-                f"Workflow '{self.child_workflow.name}' is already in call stack. "
-                f"Call stack: {' -> '.join(call_stack)} -> {self.child_workflow.name}"
+                f"Workflow '{child_stack_ref}' is already in call stack. "
+                f"Call stack: {' -> '.join(call_stack)} -> {child_stack_ref}"
             )
 
         # Step 2: Depth check
@@ -115,7 +132,7 @@ class WorkflowBlock(BaseBlock):
         try:
             child_final_state = await self.child_workflow.run(
                 child_state,
-                call_stack=call_stack + [self.child_workflow.name],
+                call_stack=call_stack + [child_stack_ref],
                 workflow_registry=workflow_registry,
                 observer=child_observer,
                 inputs=child_inputs,

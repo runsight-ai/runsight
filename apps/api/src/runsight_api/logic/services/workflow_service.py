@@ -69,14 +69,20 @@ def _input_schema_field_errors(error: PydanticValidationError) -> list[dict[str,
 
         field = str(loc[1])
         invalid_input = item.get("input")
+        expected_type = "string" if len(loc) > 2 and loc[2] == "type" else None
+        actual_type = (
+            str(invalid_input)
+            if expected_type is not None and isinstance(invalid_input, str | int | float | bool)
+            else None
+        )
         fields.append(
             {
                 "field": field,
                 "code": "invalid",
                 "message": f"Input '{field}' is invalid.",
                 "input_path": ["inputs", field],
-                "expected_type": "string" if len(loc) > 2 and loc[2] == "type" else None,
-                "actual_type": str(invalid_input) if invalid_input is not None else None,
+                "expected_type": expected_type,
+                "actual_type": actual_type,
             }
         )
     return fields
