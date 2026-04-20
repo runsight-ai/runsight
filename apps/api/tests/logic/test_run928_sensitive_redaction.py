@@ -402,6 +402,31 @@ def test_workflow_input_snapshot_omits_public_child_value_when_runtime_redactor_
     }
 
 
+def test_workflow_input_snapshot_omits_runtime_sensitive_value_with_existing_redacted_leaf() -> (
+    None
+):
+    from runsight_core.redaction import RunRedactor
+    from runsight_core.yaml.schema import WorkflowInputDef
+
+    from runsight_api.logic.services.execution_service import _workflow_input_values_snapshot
+
+    redactor = RunRedactor()
+    redactor.register_named("api_token", SENSITIVE_VALUE)
+    child_payload = {"already_safe": REDACTED, "token": SENSITIVE_VALUE}
+
+    snapshot = _workflow_input_values_snapshot(
+        {"child_payload": WorkflowInputDef(type="json", sensitive=False)},
+        {"child_payload": child_payload},
+        redactor=redactor,
+    )
+
+    assert snapshot["child_payload"] == {
+        "type": "json",
+        "sensitive": True,
+        "source": "provided",
+    }
+
+
 def test_workflow_input_snapshot_preserves_non_sensitive_json_string_values() -> None:
     from runsight_core.redaction import RunRedactor
     from runsight_core.yaml.schema import WorkflowInputDef

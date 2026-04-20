@@ -234,7 +234,7 @@ def _contains_redacted_marker(value: Any) -> bool:
 
 def _redactor_marks_runtime_value_sensitive(redactor: RunRedactor, value: Any) -> bool:
     redacted = redactor.redact_runtime_value(value)
-    return _contains_redacted_marker(redacted) and not _contains_redacted_marker(value)
+    return redacted != value and _contains_redacted_marker(redacted)
 
 
 def _workflow_input_values_snapshot(
