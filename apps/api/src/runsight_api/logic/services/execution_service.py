@@ -12,7 +12,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
-from runsight_core.redaction import RunRedactor
+from runsight_core.redaction import REDACTED_VALUE, RunRedactor
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -222,6 +222,21 @@ def _workflow_input_source(
     return "provided"
 
 
+def _contains_redacted_marker(value: Any) -> bool:
+    if isinstance(value, str):
+        return value == REDACTED_VALUE
+    if isinstance(value, Mapping):
+        return any(_contains_redacted_marker(item) for item in value.values())
+    if isinstance(value, list | tuple):
+        return any(_contains_redacted_marker(item) for item in value)
+    return False
+
+
+def _redactor_marks_runtime_value_sensitive(redactor: RunRedactor, value: Any) -> bool:
+    redacted = redactor.redact_runtime_value(value)
+    return _contains_redacted_marker(redacted) and not _contains_redacted_marker(value)
+
+
 def _workflow_input_values_snapshot(
     input_schema: Mapping[str, WorkflowInputDef],
     normalized_inputs: Mapping[str, Any],
@@ -237,7 +252,7 @@ def _workflow_input_values_snapshot(
         value = normalized_inputs[name]
         runtime_sensitive = False
         if redactor is not None:
-            runtime_sensitive = redactor.redact_runtime_value(value) != value
+            runtime_sensitive = _redactor_marks_runtime_value_sensitive(redactor, value)
         sensitive = input_def.sensitive or runtime_sensitive
         item: Dict[str, Any] = {
             "type": input_def.type,

@@ -50,9 +50,13 @@ def _workflow_request_field_error(error: dict[str, Any]) -> dict[str, Any]:
     elif error_type == "extra_forbidden":
         code = "unknown"
 
-    input_path = ["inputs", field] if field not in {"__body__", "inputs"} else ["body", field]
     if field == "__body__":
         input_path = ["body"]
+    elif loc and str(loc[0]) == "inputs" and len(loc) > 1:
+        field = str(loc[1])
+        input_path = ["inputs", field]
+    else:
+        input_path = ["body", field]
 
     return {
         "field": field,

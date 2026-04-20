@@ -255,5 +255,19 @@ class TestRunInputValidationRouter:
         assert payload["details"]["workflow_id"] == "wf_inputs"
         assert payload["details"]["fields"][0]["field"] == "inputs"
         assert payload["details"]["fields"][0]["code"] == "type_mismatch"
+        assert payload["details"]["fields"][0]["input_path"] == ["body", "inputs"]
+        run_service.create_run.assert_not_called()
+        execution_service.launch_execution.assert_not_called()
+
+    def test_top_level_run_request_errors_keep_body_input_path(self):
+        run_service, execution_service = _services(normalized_inputs={})
+
+        response = client.post("/api/runs", json={"workflow_id": 123, "inputs": {}})
+
+        assert response.status_code == 422
+        payload = response.json()
+        assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+        assert payload["details"]["fields"][0]["field"] == "workflow_id"
+        assert payload["details"]["fields"][0]["input_path"] == ["body", "workflow_id"]
         run_service.create_run.assert_not_called()
         execution_service.launch_execution.assert_not_called()

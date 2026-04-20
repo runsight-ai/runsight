@@ -402,6 +402,30 @@ def test_workflow_input_snapshot_omits_public_child_value_when_runtime_redactor_
     }
 
 
+def test_workflow_input_snapshot_preserves_non_sensitive_json_string_values() -> None:
+    from runsight_core.redaction import RunRedactor
+    from runsight_core.yaml.schema import WorkflowInputDef
+
+    from runsight_api.logic.services.execution_service import _workflow_input_values_snapshot
+
+    redactor = RunRedactor()
+    redactor.register_named("private_note", SENSITIVE_VALUE)
+    public_json_string = '{"kind":"public","items":[1,2]}'
+
+    snapshot = _workflow_input_values_snapshot(
+        {"config": WorkflowInputDef(type="string", sensitive=False)},
+        {"config": public_json_string},
+        redactor=redactor,
+    )
+
+    assert snapshot["config"] == {
+        "type": "string",
+        "sensitive": False,
+        "source": "provided",
+        "value": public_json_string,
+    }
+
+
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
