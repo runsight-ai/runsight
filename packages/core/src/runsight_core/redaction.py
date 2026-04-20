@@ -133,6 +133,15 @@ class RunRedactor:
             strict=False,
         )
 
+    def contains_runtime_sensitive_value(self, value: object) -> bool:
+        """Return true when a value contains registered sensitive material."""
+        scope_name = self._structured_scope_for_value(value)
+        return self._contains_runtime_sensitive_value(
+            value,
+            field_name=None,
+            scope_name=scope_name,
+        )
+
     def _all_values(self) -> set[str]:
         values = set(self._values)
         values.update(self._scalar_text_values(self._scalar_values))
@@ -333,6 +342,79 @@ class RunRedactor:
         if self._is_sensitive_runtime_scalar(value, field_name=field_name, scope_name=scope_name):
             return REDACTED_VALUE
         return value
+
+    def _contains_runtime_sensitive_value(
+        self,
+        value: object,
+        *,
+        field_name: str | None,
+        scope_name: str | None,
+    ) -> bool:
+        if isinstance(value, str):
+            return self.redact_text(value) != value
+        if isinstance(value, dict):
+            return any(
+                self._runtime_dict_item_contains_sensitive_value(
+                    value,
+                    key,
+                    item,
+                    scope_name=scope_name,
+                )
+                for key, item in value.items()
+            )
+        if isinstance(value, list | tuple):
+            return any(
+                self._contains_runtime_sensitive_value(
+                    item,
+                    field_name=None,
+                    scope_name=scope_name,
+                )
+                for item in value
+            )
+        return self._is_sensitive_runtime_scalar(
+            value,
+            field_name=field_name,
+            scope_name=scope_name,
+        )
+
+    def _runtime_dict_item_contains_sensitive_value(
+        self,
+        value: dict[object, object],
+        key: object,
+        item: object,
+        *,
+        scope_name: str | None,
+    ) -> bool:
+        key_name = key if isinstance(key, str) else None
+        if (
+            key_name in self._structured_named_values
+            and len(value) > 1
+            and self._has_non_empty_runtime_value(item)
+        ):
+            return True
+        return self._contains_runtime_sensitive_value(
+            item,
+            field_name=key_name,
+            scope_name=(
+                key_name
+                if key_name in self._named_values
+                or key_name in self._named_scalar_values
+                or key_name in self._structured_named_values
+                else scope_name
+            ),
+        )
+
+    @staticmethod
+    def _has_non_empty_runtime_value(value: object) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return bool(value)
+        if isinstance(value, dict):
+            return any(RunRedactor._has_non_empty_runtime_value(item) for item in value.values())
+        if isinstance(value, list | tuple):
+            return any(RunRedactor._has_non_empty_runtime_value(item) for item in value)
+        return True
 
 
 SensitiveValueRedactor = RunRedactor

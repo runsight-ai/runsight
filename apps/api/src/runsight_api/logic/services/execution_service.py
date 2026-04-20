@@ -12,7 +12,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
-from runsight_core.redaction import REDACTED_VALUE, RunRedactor
+from runsight_core.redaction import RunRedactor
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -222,19 +222,8 @@ def _workflow_input_source(
     return "provided"
 
 
-def _contains_redacted_marker(value: Any) -> bool:
-    if isinstance(value, str):
-        return value == REDACTED_VALUE
-    if isinstance(value, Mapping):
-        return any(_contains_redacted_marker(item) for item in value.values())
-    if isinstance(value, list | tuple):
-        return any(_contains_redacted_marker(item) for item in value)
-    return False
-
-
 def _redactor_marks_runtime_value_sensitive(redactor: RunRedactor, value: Any) -> bool:
-    redacted = redactor.redact_runtime_value(value)
-    return redacted != value and _contains_redacted_marker(redacted)
+    return redactor.contains_runtime_sensitive_value(value)
 
 
 def _workflow_input_values_snapshot(
