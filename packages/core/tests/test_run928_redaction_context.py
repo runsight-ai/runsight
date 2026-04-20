@@ -441,6 +441,27 @@ def test_named_structured_sensitive_input_runtime_redaction_covers_unique_leaf_w
     )
 
 
+def test_runtime_sensitivity_detection_parses_stringified_json_for_structured_names() -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    redactor.register_named("credentials", {"token": SENSITIVE_VALUE})
+    serialized = json.dumps(
+        {
+            "credentials": {"token": "rotated-runtime-token"},
+            "public": PUBLIC_VALUE,
+        }
+    )
+
+    redacted = redactor.redact_runtime_value(serialized)
+
+    assert redacted == {
+        "credentials": {"token": REDACTED},
+        "public": PUBLIC_VALUE,
+    }
+    assert redactor.contains_runtime_sensitive_value(serialized) is True
+
+
 def test_logging_observer_redacts_unique_leaf_from_mixed_structured_sensitive_input_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

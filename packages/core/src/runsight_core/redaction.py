@@ -351,6 +351,17 @@ class RunRedactor:
         scope_name: str | None,
     ) -> bool:
         if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return self.redact_text(value) != value
+            if isinstance(parsed, dict | list | tuple):
+                parsed_scope = self._structured_scope_for_value(parsed)
+                return self._contains_runtime_sensitive_value(
+                    parsed,
+                    field_name=None,
+                    scope_name=parsed_scope if parsed_scope is not None else scope_name,
+                )
             return self.redact_text(value) != value
         if isinstance(value, dict):
             return any(

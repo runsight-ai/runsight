@@ -475,6 +475,34 @@ def test_workflow_input_snapshot_preserves_public_json_string_with_redacted_mark
     }
 
 
+def test_workflow_input_snapshot_omits_stringified_structured_sensitive_value() -> None:
+    from runsight_core.redaction import RunRedactor
+    from runsight_core.yaml.schema import WorkflowInputDef
+
+    from runsight_api.logic.services.execution_service import _workflow_input_values_snapshot
+
+    redactor = RunRedactor()
+    redactor.register_named("credentials", {"token": SENSITIVE_VALUE})
+    child_payload = json.dumps(
+        {
+            "credentials": {"token": "rotated-runtime-token"},
+            "public": PUBLIC_VALUE,
+        }
+    )
+
+    snapshot = _workflow_input_values_snapshot(
+        {"child_payload": WorkflowInputDef(type="string", sensitive=False)},
+        {"child_payload": child_payload},
+        redactor=redactor,
+    )
+
+    assert snapshot["child_payload"] == {
+        "type": "string",
+        "sensitive": True,
+        "source": "provided",
+    }
+
+
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
