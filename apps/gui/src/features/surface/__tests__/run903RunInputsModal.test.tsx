@@ -114,6 +114,41 @@ const requiredWorkflow = {
   },
 };
 
+const optionalBlankWorkflow = {
+  ...defaultWorkflow,
+  id: "wf-run-869-optional-blanks",
+  input_schema: {
+    query: {
+      type: "string",
+      required: true,
+      default: "alpha",
+      description: "Search term for the run.",
+      sensitive: false,
+    },
+    limit: {
+      type: "number",
+      required: false,
+      default: null,
+      description: "Optional result limit.",
+      sensitive: false,
+    },
+    config: {
+      type: "json",
+      required: false,
+      default: null,
+      description: "Optional structured settings.",
+      sensitive: false,
+    },
+    tags: {
+      type: "array",
+      required: false,
+      default: null,
+      description: "Optional tags.",
+      sensitive: false,
+    },
+  } satisfies Record<string, WorkflowInputSchemaItem>,
+} as const;
+
 const rerunWorkflow = {
   ...defaultWorkflow,
   id: "wf-run-903-rerun",
@@ -292,6 +327,51 @@ describe("RUN-903 RunInputsModal", () => {
     expect(screen.getByRole("textbox", { name: "Tags" })).toHaveAttribute("aria-invalid", "true");
     expect(getFieldError(screen.getByRole("textbox", { name: "Config" }))).toBeTruthy();
     expect(getFieldError(screen.getByRole("textbox", { name: "Tags" }))).toBeTruthy();
+  });
+
+  it("blocks submit when a json input is valid JSON but not an object", async () => {
+    const onSubmit = vi.fn();
+
+    renderModal({
+      workflow: defaultWorkflow,
+      onSubmit,
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Config" }), {
+      target: { value: JSON.stringify(["array", "is", "not", "a", "json-object"]) },
+    });
+
+    fireEvent.click(getPrimaryAction());
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Config" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(getFieldError(screen.getByRole("textbox", { name: "Config" }))).toBeTruthy();
+  });
+
+  it("omits blank optional structured and number inputs instead of submitting nulls", async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+
+    renderModal({
+      workflow: optionalBlankWorkflow,
+      onSubmit,
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Config" }), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Tags" }), {
+      target: { value: "" },
+    });
+
+    fireEvent.click(getPrimaryAction());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith({
+      query: "alpha",
+    });
   });
 
   it("maps workflow input validation errors to the query field and keeps the modal open", async () => {

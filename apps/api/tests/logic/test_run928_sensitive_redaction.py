@@ -92,6 +92,39 @@ workflow:
 """
 
 
+def _workflow_yaml_with_sensitive_non_string_inputs() -> str:
+    return """
+id: run928_inputs
+kind: workflow
+version: "1.0"
+inputs:
+  private_limit:
+    type: number
+    sensitive: true
+  private_enabled:
+    type: boolean
+    sensitive: true
+  private_payload:
+    type: json
+    sensitive: true
+  private_values:
+    type: array
+    sensitive: true
+blocks:
+  start:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: run928_inputs
+  entry: start
+  transitions:
+    - from: start
+      to: null
+"""
+
+
 def _service(yaml: str = "") -> ExecutionService:
     workflow_repo = Mock()
     workflow_repo.get_by_id.return_value = WorkflowEntity(
@@ -228,6 +261,52 @@ def test_secret_like_names_are_not_registered_without_sensitive_true() -> None:
 
     assert redacted["private_note"] == REDACTED
     assert redacted["api_token"] == PUBLIC_VALUE
+
+
+def test_prepare_run_inputs_redacts_sensitive_non_string_values_at_runtime_boundaries() -> None:
+    service = _service(yaml=_workflow_yaml_with_sensitive_non_string_inputs())
+
+    prepared = service.prepare_run_inputs(
+        "run928_inputs",
+        {
+            "private_limit": 481516,
+            "private_enabled": True,
+            "private_payload": {
+                "account_id": 23,
+                "enabled": False,
+            },
+            "private_values": [3.5, True],
+        },
+        branch="main",
+    )
+
+    expected_normalized = {
+        "private_limit": 481516,
+        "private_enabled": True,
+        "private_payload": {
+            "account_id": 23,
+            "enabled": False,
+        },
+        "private_values": [3.5, True],
+    }
+    payload = {
+        **expected_normalized,
+        "public": PUBLIC_VALUE,
+    }
+
+    assert prepared.normalized_inputs == expected_normalized
+    assert prepared.input_redactor.redact_runtime_value(payload) == {
+        "private_limit": REDACTED,
+        "private_enabled": REDACTED,
+        "private_payload": {
+            "account_id": REDACTED,
+            "enabled": REDACTED,
+        },
+        "private_values": [REDACTED, REDACTED],
+        "public": PUBLIC_VALUE,
+    }
+    assert "value" not in prepared.workflow_inputs["private_limit"]
+    assert "value" not in prepared.workflow_inputs["private_payload"]
 
 
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:

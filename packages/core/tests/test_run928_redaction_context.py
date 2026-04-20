@@ -17,7 +17,7 @@ from runsight_core.context_governance import (
 )
 from runsight_core.observer import LoggingObserver
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.workflow import Workflow
+from runsight_core.workflow import BlockExecutionContext, Workflow, execute_block
 from runsight_core.yaml.schema import WorkflowInputDef
 
 SENSITIVE_VALUE = "orchid-928-sensitive-value"
@@ -297,6 +297,49 @@ def test_context_audit_preview_redacts_each_registered_structured_input_recursiv
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
+def test_sensitive_structured_redaction_covers_non_string_leaves_in_runtime_dumps() -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {
+        "account_id": 481516,
+        "enabled": True,
+        "limits": [3.5, False],
+    }
+    redactor.register_named("credentials", credentials)
+    state = _state_with_redactor(
+        redactor=redactor,
+        workflow_inputs={"credentials": credentials},
+        results={
+            "echo": BlockResult(
+                output=json.dumps(
+                    {
+                        "credentials": credentials,
+                        "public": PUBLIC_VALUE,
+                    }
+                )
+            )
+        },
+    )
+
+    redacted_credentials = {
+        "account_id": REDACTED,
+        "enabled": REDACTED,
+        "limits": [REDACTED, REDACTED],
+    }
+
+    assert redactor.redact_runtime_value({"credentials": credentials}) == {
+        "credentials": redacted_credentials
+    }
+    assert state.model_dump()["workflow_inputs"]["credentials"] == redacted_credentials
+
+    dumped = state.model_dump_json()
+    assert "481516" not in dumped
+    assert "3.5" not in dumped
+    assert '"enabled":true' not in dumped
+    assert '"public":"orchid-928-public-value"' in dumped
+
+
 def test_named_structured_sensitive_input_redacts_duplicate_and_unique_leaves_without_over_redacting_public_siblings() -> (
     None
 ):
@@ -563,3 +606,81 @@ async def test_workflow_block_merges_child_sensitive_input_back_into_parent_reda
         "child_echo": REDACTED
     }
     assert SENSITIVE_VALUE not in merged_state.model_dump_json()
+
+
+class _ParentErrorObserver:
+    def __init__(self) -> None:
+        self.error: Exception | None = None
+        self.state: WorkflowState | None = None
+
+    def on_block_start(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        **kwargs: Any,
+    ) -> None:
+        return None
+
+    def on_block_error(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        error: Exception,
+        state: WorkflowState,
+    ) -> None:
+        self.error = error
+        self.state = state
+
+
+def _raising_sensitive_child_workflow() -> Workflow:
+    child = Workflow(
+        name="child_sensitive_raise_workflow",
+        input_schema={
+            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+        },
+    )
+
+    async def _run(state: WorkflowState, **kwargs: Any) -> WorkflowState:
+        child_secret = state.workflow_inputs["child_secret"]
+        raise RuntimeError(f"child failed with {child_secret}")
+
+    child.run = AsyncMock(side_effect=_run)
+    return child
+
+
+@pytest.mark.asyncio
+async def test_workflow_block_promotes_child_sensitive_redactor_before_raise_observer_surface() -> (
+    None
+):
+    child = _raising_sensitive_child_workflow()
+    block = WorkflowBlock(
+        block_id="invoke_sensitive_child",
+        child_workflow=child,
+        inputs={"child_secret": "shared_memory.topic"},
+        outputs={},
+        on_error="raise",
+    )
+    parent_state = _state_with_redactor(
+        shared_memory={"topic": SENSITIVE_VALUE},
+    )
+    observer = _ParentErrorObserver()
+    exec_ctx = BlockExecutionContext(
+        workflow_name="parent_workflow",
+        blocks={block.block_id: block},
+        call_stack=[],
+        workflow_registry=None,
+        observer=observer,
+    )
+
+    with pytest.raises(RuntimeError, match="child failed"):
+        await execute_block(block, parent_state, exec_ctx)
+
+    assert observer.error is not None
+    assert observer.state is not None
+    assert observer.state.input_redactor is not None
+    assert observer.state.input_redactor.redact_text(str(observer.error)) == (
+        f"child failed with {REDACTED}"
+    )

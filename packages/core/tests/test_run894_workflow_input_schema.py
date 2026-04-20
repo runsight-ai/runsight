@@ -77,7 +77,6 @@ class TestWorkflowInputSchemaContract:
             ("number", 3.5),
             ("boolean", False),
             ("json", {"topic": "climate", "limit": 2}),
-            ("json", "plain text is valid json data"),
             ("array", ["summary", "citations"]),
         ],
     )
@@ -98,6 +97,10 @@ class TestWorkflowInputSchemaContract:
             ("number", "10"),
             ("number", True),
             ("boolean", "false"),
+            ("json", ["not", "an", "object"]),
+            ("json", "plain text is valid json but not an object"),
+            ("json", 42),
+            ("json", False),
             ("array", {"not": "an array"}),
         ],
     )
