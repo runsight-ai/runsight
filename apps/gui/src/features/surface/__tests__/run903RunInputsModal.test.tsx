@@ -327,6 +327,18 @@ describe("RUN-903 RunInputsModal", () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
+  it("closes the modal on idle cancel without submitting", () => {
+    const onSubmit = vi.fn();
+    const onOpenChange = vi.fn();
+
+    renderModal({ onSubmit, onOpenChange });
+
+    fireEvent.click(getCancelAction());
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("keeps the modal open while submitting and ignores cancel and close requests until the promise settles", async () => {
     const deferred = createDeferred<void>();
     const onSubmit = vi.fn(() => deferred.promise);
