@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   apiDelete,
@@ -209,6 +209,21 @@ async function copiedText(page: Page) {
   });
 }
 
+async function expectInlineFieldError(
+  dialog: Locator,
+  label: string,
+  message: string,
+) {
+  const input = dialog.getByLabel(label);
+  await expect(input).toHaveAttribute("aria-describedby", /-error$/, {
+    timeout: 10_000,
+  });
+  const errorId = await input.getAttribute("aria-describedby");
+  expect(errorId).toBeTruthy();
+  await expect(dialog.locator(`[id="${errorId}"]`)).toHaveText(message);
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+}
+
 function requiredStringWorkflowYaml(id: string, name: string) {
   return [
     'version: "1.0"',
@@ -348,7 +363,7 @@ test("required string input opens the modal, validates, stores history, and reru
 
     await dialog.getByRole("button", { name: "Run" }).click();
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("This field is required.")).toBeVisible();
+    await expectInlineFieldError(dialog, "Query", "This field is required.");
 
     await dialog.getByLabel("Query").fill(firstQuery);
     await dialog.getByRole("button", { name: "Run" }).click();
@@ -407,7 +422,10 @@ test("dirty workflow run uses backend simulation input schema and snapshot", asy
 
   const workflowId = `${TEST_PREFIX}-dirty`;
   const workflowName = `${TEST_PREFIX} dirty input`;
+  const backendOnlyDescription = "Backend simulation response controls this description.";
+  const backendOnlyDefault = "backend returned default for modal";
   const dirtyValue = "value from backend prepared dirty schema";
+  let realSimulation: WorkflowSimulationResponse | null = null;
 
   const workflow = await createWorkflow(
     workflowId,
@@ -419,6 +437,27 @@ test("dirty workflow run uses backend simulation input schema and snapshot", asy
     await gotoWorkflowEditor(page, workflow.id);
     await setWorkflowYaml(page, dirtyRequiredWorkflowYaml(workflow.id, workflowName));
     await expect(page.getByTestId("workflow-save-button")).toBeEnabled({ timeout: 10_000 });
+
+    await page.route(`**/api/workflows/${workflow.id}/simulations`, async (route) => {
+      const response = await route.fetch();
+      const simulation = (await response.json()) as WorkflowSimulationResponse;
+      realSimulation = simulation;
+
+      await route.fulfill({
+        response,
+        json: {
+          ...simulation,
+          input_schema: {
+            dirty_query: {
+              ...simulation.input_schema.dirty_query,
+              required: false,
+              default: backendOnlyDefault,
+              description: backendOnlyDescription,
+            },
+          },
+        },
+      });
+    });
 
     const simulationResponsePromise = page.waitForResponse((response) => {
       return (
@@ -437,19 +476,29 @@ test("dirty workflow run uses backend simulation input schema and snapshot", asy
     expect(simulation.input_schema).toEqual({
       dirty_query: {
         type: "string",
-        required: true,
-        default: null,
-        description: null,
+        required: false,
+        default: backendOnlyDefault,
+        description: backendOnlyDescription,
         sensitive: false,
       },
+    });
+    expect(realSimulation?.input_schema.dirty_query).toEqual({
+      type: "string",
+      required: true,
+      default: null,
+      description: null,
+      sensitive: false,
     });
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByRole("textbox", { name: /^Dirty Query\b/ })).toBeVisible();
+    const dirtyInput = dialog.getByRole("textbox", { name: /^Dirty Query\b/ });
+    await expect(dirtyInput).toBeVisible();
+    await expect(dirtyInput).toHaveValue(backendOnlyDefault);
+    await expect(dialog.getByText(backendOnlyDescription)).toBeVisible();
     await expect(dialog.getByRole("textbox", { name: /^Query\b/ })).toHaveCount(0);
 
-    await dialog.getByRole("textbox", { name: /^Dirty Query\b/ }).fill(dirtyValue);
+    await dirtyInput.fill(dirtyValue);
     await dialog.getByRole("button", { name: "Run" }).click();
 
     const runId = await expectRunDetail(page);
@@ -459,8 +508,9 @@ test("dirty workflow run uses backend simulation input schema and snapshot", asy
     expect(run.commit_sha).toBe(simulation.commit_sha);
     expect(run.workflow_inputs?.dirty_query?.value).toBe(dirtyValue);
     expect(run.workflow_inputs).not.toHaveProperty("query");
-    expect(run.workflow_input_schema).toEqual(simulation.input_schema);
+    expect(run.workflow_input_schema).toEqual(realSimulation?.input_schema);
   } finally {
+    await page.unroute(`**/api/workflows/${workflow.id}/simulations`).catch(() => undefined);
     await deleteWorkflowIfPresent(workflow.id);
   }
 });
@@ -496,17 +546,7 @@ test("backend validation stays in the modal and sensitive values stay hidden acr
     await dialog.getByRole("button", { name: "Run" }).click();
 
     await expect(dialog).toBeVisible();
-    const configInput = dialog.getByLabel("Config");
-    await expect(configInput).toHaveAttribute("aria-describedby", /config-error$/, {
-      timeout: 10_000,
-    });
-    const configErrorId = await configInput.getAttribute("aria-describedby");
-    expect(configErrorId).toBeTruthy();
-    const configError = dialog.locator(`[id="${configErrorId}"]`);
-    await expect(configError).toHaveText("Input 'config' must be a json.", {
-      timeout: 10_000,
-    });
-    await expect(configInput).toHaveAttribute("aria-invalid", "true");
+    await expectInlineFieldError(dialog, "Config", "Input 'config' must be a json.");
     await expect(dialog.getByLabel("Query")).not.toHaveAttribute("aria-invalid", "true");
     await expect(dialog.getByLabel("Api Token")).not.toHaveAttribute("aria-invalid", "true");
     await expectNoVisibleSecret(page, firstSecret);
