@@ -125,6 +125,30 @@ workflow:
 """
 
 
+def _workflow_yaml_with_mixed_structured_sensitive_input() -> str:
+    return """
+id: run928_inputs
+kind: workflow
+version: "1.0"
+inputs:
+  credentials:
+    type: json
+    sensitive: true
+blocks:
+  start:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: run928_inputs
+  entry: start
+  transitions:
+    - from: start
+      to: null
+"""
+
+
 def _service(yaml: str = "") -> ExecutionService:
     workflow_repo = Mock()
     workflow_repo.get_by_id.return_value = WorkflowEntity(
@@ -309,6 +333,32 @@ def test_prepare_run_inputs_redacts_sensitive_non_string_values_at_runtime_bound
     assert "value" not in prepared.workflow_inputs["private_payload"]
 
 
+def test_prepare_run_inputs_redacts_all_mixed_structured_sensitive_string_leaves() -> None:
+    service = _service(yaml=_workflow_yaml_with_mixed_structured_sensitive_input())
+    credentials = {"token": "SECRET-UNIQUE", "a": "dup", "b": "dup"}
+
+    prepared = service.prepare_run_inputs(
+        "run928_inputs",
+        {"credentials": credentials},
+        branch="main",
+    )
+
+    expected_credentials = {
+        "token": REDACTED,
+        "a": REDACTED,
+        "b": REDACTED,
+    }
+
+    assert prepared.normalized_inputs == {"credentials": credentials}
+    assert prepared.input_redactor.redact_runtime_value(credentials) == expected_credentials
+    assert prepared.input_redactor.redact_runtime_value(json.dumps(credentials)) == (
+        expected_credentials
+    )
+    assert prepared.input_redactor.redact_text("failed with SECRET-UNIQUE and dup") == (
+        f"failed with {REDACTED} and {REDACTED}"
+    )
+
+
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
@@ -438,6 +488,53 @@ def test_execution_observer_redacts_results_serialization_before_run_persistence
     assert SENSITIVE_VALUE not in run.results_json
     assert REDACTED in run.results_json
     assert PUBLIC_VALUE in run.results_json
+
+
+def test_execution_observer_redacts_mixed_structured_sensitive_unique_leaf_in_runtime_surfaces() -> (
+    None
+):
+    service = _service(yaml=_workflow_yaml_with_mixed_structured_sensitive_input())
+    credentials = {"token": "SECRET-UNIQUE", "a": "dup", "b": "dup"}
+    prepared = service.prepare_run_inputs(
+        "run928_inputs",
+        {"credentials": credentials},
+        branch="main",
+    )
+    engine = _db_engine()
+    _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id="run_928_api")
+    observer.on_block_start("wf", "emit_secret", "CodeBlock")
+    state = WorkflowState(
+        input_redactor=prepared.input_redactor,
+        results={
+            "emit_secret": BlockResult(
+                output=json.dumps(
+                    {
+                        "raw_credentials": credentials,
+                        "text": "failed with SECRET-UNIQUE and dup",
+                        "public_note": PUBLIC_VALUE,
+                    }
+                )
+            )
+        },
+        execution_log=[
+            {
+                "role": "system",
+                "content": "raw execution detail: SECRET-UNIQUE and dup",
+            }
+        ],
+    )
+
+    observer.on_block_complete("wf", "emit_secret", "CodeBlock", 0.1, state)
+
+    with Session(engine) as session:
+        node = session.get(RunNode, "run_928_api:emit_secret")
+    assert node is not None
+    persisted = "\n".join([node.output or "", *_log_messages(engine)])
+    assert "SECRET-UNIQUE" not in persisted
+    assert "dup" not in persisted
+    assert REDACTED in persisted
+    assert PUBLIC_VALUE in persisted
 
 
 def test_execution_observer_redacts_error_and_traceback_when_state_is_available() -> None:

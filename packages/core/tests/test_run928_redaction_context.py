@@ -388,6 +388,55 @@ def test_named_structured_sensitive_input_redacts_duplicate_and_unique_leaves_wi
     assert previews["public"] == PUBLIC_VALUE
 
 
+def test_named_structured_sensitive_input_runtime_redaction_covers_unique_leaf_with_duplicate_leaves() -> (
+    None
+):
+    """Structured sensitive inputs with duplicates must still register unique leaves."""
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {"token": "SECRET-UNIQUE", "a": "dup", "b": "dup"}
+    redactor.register_named("credentials", credentials)
+
+    expected_credentials = {
+        "token": REDACTED,
+        "a": REDACTED,
+        "b": REDACTED,
+    }
+
+    assert redactor.redact_runtime_value(credentials) == expected_credentials
+    assert redactor.redact_runtime_value(json.dumps(credentials)) == expected_credentials
+    assert redactor.redact_text("failed with SECRET-UNIQUE and dup") == (
+        f"failed with {REDACTED} and {REDACTED}"
+    )
+
+
+def test_logging_observer_redacts_unique_leaf_from_mixed_structured_sensitive_input_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from runsight_core.redaction import RunRedactor
+
+    redactor = RunRedactor()
+    credentials = {"token": "SECRET-UNIQUE", "a": "dup", "b": "dup"}
+    redactor.register_named("credentials", credentials)
+    state = _state_with_redactor(redactor=redactor)
+    observer = LoggingObserver(level=logging.INFO)
+
+    with caplog.at_level(logging.ERROR, logger="runsight.workflow"):
+        observer.on_block_error(
+            "wf_redaction",
+            "leaky_block",
+            "CodeBlock",
+            0.5,
+            RuntimeError("failed with SECRET-UNIQUE and dup"),
+            state=state,
+        )
+
+    assert "SECRET-UNIQUE" not in caplog.text
+    assert "dup" not in caplog.text
+    assert REDACTED in caplog.text
+
+
 def test_explicit_sensitive_registration_redacts_leaves_under_public_paths() -> None:
     from runsight_core.redaction import RunRedactor
 
