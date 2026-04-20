@@ -117,6 +117,27 @@ def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
     execution_service.launch_execution.assert_not_called()
 
 
+def test_post_runs_fails_closed_when_mock_prepare_run_inputs_is_unconfigured() -> None:
+    run_service, execution_service = _services(prepared_result=Mock())
+
+    response = client.post(
+        "/api/runs",
+        json={
+            "workflow_id": "wf_inputs",
+            "inputs": {"undeclared_secret": SENSITIVE_VALUE},
+        },
+    )
+
+    assert response.status_code >= 400
+    execution_service.prepare_run_inputs.assert_called_once_with(
+        "wf_inputs",
+        {"undeclared_secret": SENSITIVE_VALUE},
+        branch="main",
+    )
+    run_service.create_run.assert_not_called()
+    execution_service.launch_execution.assert_not_called()
+
+
 def test_post_runs_fails_closed_when_prepare_run_inputs_is_missing() -> None:
     run_service = Mock()
     run_service.create_run.return_value = _mock_run("run_missing_prepare")
