@@ -4,7 +4,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-const FORM_IMPORT_PATH = "../WorkflowInputsForm";
+import { WorkflowInputsForm } from "../WorkflowInputsForm";
 
 const schema = {
   query: {
@@ -52,168 +52,8 @@ const currentValues = {
   tags: ["one", "two"],
 };
 
-type WorkflowInputsFormField = {
-  type: "string" | "number" | "boolean" | "json" | "array";
-  required: boolean;
-  default: unknown;
-  description: string;
-  sensitive: boolean;
-};
-
-type WorkflowInputsFormProps = {
-  schema: Record<string, WorkflowInputsFormField>;
-  values?: Record<string, unknown>;
-  errors?: Record<string, string>;
-  disabled?: boolean;
-  submitting?: boolean;
-  onChange?: (name: string, value: unknown) => void;
-};
-
-function formatFieldValue(field: WorkflowInputsFormField, value: unknown) {
-  if (field.type === "string") {
-    return typeof value === "string" ? value : "";
-  }
-
-  if (field.type === "number") {
-    return typeof value === "number" && Number.isFinite(value) ? String(value) : String(field.default ?? "");
-  }
-
-  if (field.type === "boolean") {
-    return value ? "true" : "false";
-  }
-
-  if (value == null) {
-    return "null";
-  }
-
-  return JSON.stringify(value, null, 2);
-}
-
-function WorkflowInputsFormMock({
-  schema,
-  values = {},
-  errors = {},
-  disabled = false,
-  submitting = false,
-  onChange,
-}: WorkflowInputsFormProps) {
-  return (
-    <form aria-label="workflow inputs">
-      {Object.entries(schema).map(([name, field]) => {
-        const label = name.charAt(0).toUpperCase() + name.slice(1);
-        const descriptionId = `${name}-description`;
-        const errorId = `${name}-error`;
-        const describedBy = [descriptionId, errors[name] ? errorId : null].filter(Boolean).join(" ");
-        const isDisabled = disabled || submitting;
-        const value = values[name] ?? field.default;
-
-        if (field.type === "boolean") {
-          const checked = Boolean(value);
-
-          return (
-            <div key={name}>
-              <label htmlFor={name}>
-                {label}
-                {field.required ? <span aria-hidden="true">*</span> : null}
-              </label>
-              <input
-                id={name}
-                aria-describedby={describedBy || undefined}
-                aria-invalid={errors[name] ? "true" : undefined}
-                aria-required={field.required ? "true" : undefined}
-                checked={checked}
-                disabled={isDisabled}
-                name={name}
-                type="checkbox"
-                onChange={(event) => onChange?.(name, event.currentTarget.checked)}
-              />
-              <p id={descriptionId}>{field.description}</p>
-              {errors[name] ? <p id={errorId}>{errors[name]}</p> : null}
-            </div>
-          );
-        }
-
-        const inputValue = formatFieldValue(field, value);
-
-        return (
-          <div key={name}>
-            <label htmlFor={name}>
-              {label}
-              {field.required ? <span aria-hidden="true">*</span> : null}
-            </label>
-            {field.type === "json" || field.type === "array" ? (
-              <textarea
-                id={name}
-                aria-describedby={describedBy || undefined}
-                aria-invalid={errors[name] ? "true" : undefined}
-                aria-required={field.required ? "true" : undefined}
-                disabled={isDisabled}
-                name={name}
-                value={inputValue}
-                onChange={(event) => {
-                  const nextValue = event.currentTarget.value;
-                  try {
-                    onChange?.(name, JSON.parse(nextValue));
-                  } catch {
-                    onChange?.(name, nextValue);
-                  }
-                }}
-              />
-            ) : (
-              <input
-                id={name}
-                aria-describedby={describedBy || undefined}
-                aria-invalid={errors[name] ? "true" : undefined}
-                aria-required={field.required ? "true" : undefined}
-                disabled={isDisabled}
-                name={name}
-                type={field.type === "number" ? "number" : "text"}
-                value={inputValue}
-                onChange={(event) => {
-                  const nextValue = event.currentTarget.value;
-                  onChange?.(name, field.type === "number" ? Number(nextValue) : nextValue);
-                }}
-              />
-            )}
-            <p id={descriptionId}>{field.description}</p>
-            {errors[name] ? <p id={errorId}>{errors[name]}</p> : null}
-          </div>
-        );
-      })}
-    </form>
-  );
-}
-
-vi.mock("../WorkflowInputsForm", () => ({
-  WorkflowInputsForm: WorkflowInputsFormMock,
-  default: WorkflowInputsFormMock,
-}));
-
-function loadWorkflowInputsForm() {
-  return import(FORM_IMPORT_PATH).then((mod) => mod.WorkflowInputsForm ?? mod.default);
-}
-
-async function renderWorkflowInputsForm(overrides: Record<string, unknown> = {}) {
-  const WorkflowInputsForm = await loadWorkflowInputsForm();
-
-  return render(
-    React.createElement(WorkflowInputsForm, {
-      schema,
-      values: currentValues,
-      errors: {},
-      disabled: false,
-      submitting: false,
-      onChange: vi.fn(),
-      ...overrides,
-    }),
-  );
-}
-
 function getBooleanControl(name: string) {
-  return (
-    screen.queryByRole("switch", { name }) ??
-    screen.getByRole("checkbox", { name })
-  );
+  return screen.queryByRole("switch", { name }) ?? screen.getByRole("checkbox", { name });
 }
 
 function isBooleanControlOn(control: HTMLElement) {
@@ -225,8 +65,17 @@ function isBooleanControlOn(control: HTMLElement) {
 }
 
 describe("RUN-902 WorkflowInputsForm", () => {
-  it("renders string, number, boolean, json, and array inputs with accessible labels and the right control surfaces", async () => {
-    await renderWorkflowInputsForm();
+  it("renders string, number, boolean, json, and array inputs with accessible labels and the right control surfaces", () => {
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={currentValues}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     const query = screen.getByRole("textbox", { name: "Query" });
     const retries = screen.getByRole("spinbutton", { name: "Retries" });
@@ -243,13 +92,20 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(tags).toBeInstanceOf(HTMLTextAreaElement);
   });
 
-  it("shows the current values provided by the parent, including pretty JSON and array text", async () => {
-    await renderWorkflowInputsForm();
+  it("shows the current values provided by the parent, including pretty JSON and array text", () => {
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={currentValues}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("alpha");
-    expect((screen.getByRole("spinbutton", { name: "Retries" }) as HTMLInputElement).value).toBe(
-      "7",
-    );
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(7);
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(true);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
       JSON.stringify(currentValues.config, null, 2),
@@ -259,21 +115,38 @@ describe("RUN-902 WorkflowInputsForm", () => {
     );
   });
 
-  it("falls back to schema defaults when the parent omits values", async () => {
-    await renderWorkflowInputsForm({ values: {} });
+  it("falls back to schema defaults when the parent omits values", () => {
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={{}}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("");
-    expect((screen.getByRole("spinbutton", { name: "Retries" }) as HTMLInputElement).value).toBe(
-      "3",
-    );
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(3);
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue("null");
     expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("null");
   });
 
-  it("emits declared input names and typed values when the user edits a field", async () => {
+  it("emits declared input names and typed values when the user edits a field", () => {
     const onChange = vi.fn();
-    await renderWorkflowInputsForm({ onChange, values: { ...currentValues } });
+
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={{ ...currentValues }}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={onChange}
+      />,
+    );
 
     fireEvent.change(screen.getByRole("textbox", { name: "Query" }), {
       target: { value: "beta" },
@@ -296,10 +169,17 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(onChange).toHaveBeenCalledWith("tags", ["x", "y"]);
   });
 
-  it("marks required fields, exposes descriptions, and wires inline errors through aria-describedby", async () => {
-    await renderWorkflowInputsForm({
-      errors: { query: "Query is required." },
-    });
+  it("marks required fields, exposes descriptions, and wires inline errors through aria-describedby", () => {
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={currentValues}
+        errors={{ query: "Query is required." }}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     const query = screen.getByRole("textbox", { name: "Query" });
     const error = screen.getByText("Query is required.");
@@ -312,8 +192,17 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(query.getAttribute("aria-describedby")).toContain(error.id);
   });
 
-  it("does not surface legacy workflow path syntax or mapping internals to direct-run users", async () => {
-    await renderWorkflowInputsForm();
+  it("does not surface legacy workflow path syntax or mapping internals to direct-run users", () => {
+    render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={currentValues}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     const descriptions = [
       screen.getByText("Search term shown to direct-run users.").textContent ?? "",
@@ -329,8 +218,17 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(descriptions).not.toMatch(/child internals/i);
   });
 
-  it("does not render run controls, rerun affordances, modal chrome, or redaction copy", async () => {
-    const { container } = await renderWorkflowInputsForm();
+  it("does not render run controls, rerun affordances, modal chrome, or redaction copy", () => {
+    const { container } = render(
+      <WorkflowInputsForm
+        schema={schema}
+        values={currentValues}
+        errors={{}}
+        disabled={false}
+        submitting={false}
+        onChange={vi.fn()}
+      />,
+    );
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("button", { name: /run/i })).toBeNull();
