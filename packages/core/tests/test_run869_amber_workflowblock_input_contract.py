@@ -8,7 +8,9 @@ import pytest
 from runsight_core.block_io import build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.schema import WorkflowInputDef
+from runsight_core.yaml.parser import parse_workflow_yaml
+from runsight_core.yaml.registry import WorkflowRegistry
+from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInputDef
 
 
 class ChildWorkflowSpy:
@@ -71,6 +73,63 @@ async def test_workflowblock_rejects_any_child_input_when_child_schema_is_empty(
 
     assert child.received_state is None
     assert child.received_kwargs is None
+
+
+@pytest.mark.asyncio
+async def test_parsed_workflowblock_rejects_mapped_input_for_child_with_no_parser_inputs() -> None:
+    child_file = RunsightWorkflowFile.model_validate(
+        {
+            "version": "1.0",
+            "id": "child_workflow",
+            "kind": "workflow",
+            "blocks": {
+                "start": {
+                    "type": "code",
+                    "code": "def main(data):\n    return {'ok': True}",
+                }
+            },
+            "workflow": {
+                "id": "child_workflow",
+                "kind": "workflow",
+                "name": "child_workflow",
+                "entry": "start",
+                "transitions": [{"from": "start", "to": None}],
+            },
+        }
+    )
+    registry = WorkflowRegistry()
+    registry.register("child_workflow", child_file)
+
+    parent_workflow = parse_workflow_yaml(
+        {
+            "version": "1.0",
+            "id": "parent_workflow",
+            "kind": "workflow",
+            "blocks": {
+                "invoke_child": {
+                    "type": "workflow",
+                    "workflow_ref": "child_workflow",
+                    "inputs": {"foo": "shared_memory.query"},
+                }
+            },
+            "workflow": {
+                "id": "parent_workflow",
+                "kind": "workflow",
+                "name": "parent_workflow",
+                "entry": "invoke_child",
+                "transitions": [{"from": "invoke_child", "to": None}],
+            },
+        },
+        workflow_registry=registry,
+    )
+
+    block = parent_workflow.blocks["invoke_child"]
+    assert isinstance(block, WorkflowBlock)
+    assert block.child_workflow.input_schema is None
+    ctx = build_block_context(block, _parent_state())
+
+    with pytest.raises(ValueError, match="foo|not declared|unknown"):
+        await block.execute(ctx)
 
 
 @pytest.mark.asyncio
