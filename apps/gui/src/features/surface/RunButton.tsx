@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@runsight/ui/button";
@@ -37,9 +38,43 @@ let runInputsModalPromise: Promise<{ RunInputsModal: RunInputsModalComponent }> 
 let runInputsModalComponentCache: RunInputsModalComponent | null = null;
 
 export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
+  if (typeof window === "undefined") {
+    return (
+      <RunButtonContent
+        workflowId={workflowId}
+        workflow={undefined}
+        isCommitted={isCommitted}
+        onAddApiKey={onAddApiKey}
+      />
+    );
+  }
+
+  return (
+    <WorkflowDataFetcher workflowId={workflowId}>
+      {(workflow) => (
+        <RunButtonContent
+          workflowId={workflowId}
+          workflow={workflow}
+          isCommitted={isCommitted}
+          onAddApiKey={onAddApiKey}
+        />
+      )}
+    </WorkflowDataFetcher>
+  );
+}
+
+function RunButtonContent({
+  workflowId,
+  workflow,
+  isCommitted = true,
+  onAddApiKey,
+}: {
+  workflowId: string;
+  workflow?: WorkflowResponse;
+  isCommitted?: boolean;
+  onAddApiKey?: () => void;
+}) {
   const navigate = useNavigate();
-  const workflowQuery = isMockedWorkflowQueryHook(useWorkflow) ? useWorkflow(workflowId) : undefined;
-  const workflow = workflowQuery?.data;
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const nodes = useCanvasStore((s) => s.nodes);
@@ -66,7 +101,6 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
   const isRunning = activeRunId && status === "running";
   const hasYamlContent = yamlContent.trim().length > 0;
 
-  // Clear activeRunId on terminal states: completed, failed, cancelled
   useEffect(() => {
     if (activeRunId && (status === "completed" || status === "failed" || status === "cancelled")) {
       setActiveRunId(null);
@@ -113,11 +147,7 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
     }
   }
 
-  function submitRun(
-    inputs: Record<string, unknown>,
-    source: RunSource,
-    branch: string,
-  ) {
+  function submitRun(inputs: Record<string, unknown>, source: RunSource, branch: string) {
     return new Promise<void>((resolve, reject) => {
       try {
         createRun.mutate(
@@ -389,8 +419,13 @@ function getRunInputsModalComponent(workflow?: WorkflowResponse) {
   }
 }
 
-function isMockedWorkflowQueryHook(
-  hook: typeof useWorkflow,
-): boolean {
-  return /workflowById/.test(Function.prototype.toString.call(hook));
+function WorkflowDataFetcher({
+  workflowId,
+  children,
+}: {
+  workflowId: string;
+  children: (workflow?: WorkflowResponse) => ReactNode;
+}) {
+  const workflowQuery = useWorkflow(workflowId);
+  return <>{children(workflowQuery.data)}</>;
 }
