@@ -927,6 +927,12 @@ class Workflow:
 
         return state.model_copy(update=updates)
 
+    def _workflow_stack_aliases(self, observer_workflow_name: str) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(alias for alias in (observer_workflow_name, self.name) if alias))
+
+    def _workflow_passthrough_kwargs(self, observer_workflow_name: str) -> Dict[str, Any]:
+        return {"workflow_stack_aliases": self._workflow_stack_aliases(observer_workflow_name)}
+
     async def run(
         self,
         initial_state: WorkflowState,
@@ -962,9 +968,6 @@ class Workflow:
         wf_start_time = time.time()
         observer_workflow_name = self.identity or self.name
         self._notify_observers(observer, "on_workflow_start", observer_workflow_name, state)
-        workflow_stack_aliases = tuple(
-            dict.fromkeys(alias for alias in (observer_workflow_name, self.name) if alias)
-        )
 
         ctx = BlockExecutionContext(
             workflow_name=observer_workflow_name,
@@ -972,7 +975,7 @@ class Workflow:
             call_stack=call_stack,
             workflow_registry=workflow_registry,
             observer=observer,
-            passthrough_kwargs={"workflow_stack_aliases": workflow_stack_aliases},
+            passthrough_kwargs=self._workflow_passthrough_kwargs(observer_workflow_name),
         )
         try:
             state = await self._run_with_timeout(
