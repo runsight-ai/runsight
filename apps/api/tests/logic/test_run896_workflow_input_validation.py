@@ -213,6 +213,43 @@ class TestWorkflowInputValidationPreparation:
             "tags": ["support", "vip"],
         }
 
+    @pytest.mark.parametrize(
+        ("payload_value", "actual_type", "submitted_value_text"),
+        [
+            (["not", "object"], "array", "not"),
+            ("plain json text", "string", "plain json text"),
+            (481516, "number", "481516"),
+            (True, "boolean", "True"),
+        ],
+    )
+    def test_json_input_rejects_arrays_and_scalars_without_echoing_submitted_value(
+        self,
+        payload_value,
+        actual_type,
+        submitted_value_text,
+    ):
+        service = _service(_workflow_yaml_with_inputs())
+
+        with pytest.raises(InputValidationError) as exc_info:
+            service.prepare_run_inputs(
+                "run896_inputs",
+                {"query": "search", "payload": payload_value},
+                branch="main",
+            )
+
+        payload = _error_payload(exc_info.value)
+        assert payload["details"]["fields"] == [
+            {
+                "field": "payload",
+                "code": "type_mismatch",
+                "message": "Input 'payload' must be a json.",
+                "input_path": ["inputs", "payload"],
+                "expected_type": "json",
+                "actual_type": actual_type,
+            }
+        ]
+        assert submitted_value_text not in str(payload)
+
     def test_branch_specific_yaml_snapshot_is_used_for_input_validation(self):
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = WorkflowEntity(
