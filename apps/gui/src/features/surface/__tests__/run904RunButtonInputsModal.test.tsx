@@ -345,6 +345,63 @@ describe("RUN-904 RunButton input modal wiring", () => {
     expect(harness.navigate).toHaveBeenCalledWith("/runs/run-904-success");
   });
 
+  it("prepares a simulation branch before opening the inputs modal for dirty uncommitted workflows", async () => {
+    const preparedBranch = "sim/wf_run_904_dirty_inputs/20260420/dirty-ab12";
+    const preparedCommitSha = "feedfacefeedfacefeedfacefeedfacefeedface";
+
+    harness.state.isDirty = true;
+    harness.workflowById.wf_run_904_dirty_inputs = {
+      id: "wf_run_904_dirty_inputs",
+      input_schema: null,
+    };
+    harness.createSimBranch.mockResolvedValue({
+      branch: preparedBranch,
+      commit_sha: preparedCommitSha,
+      input_schema: inputSchema,
+    });
+
+    renderRunButton({ workflowId: "wf_run_904_dirty_inputs", isCommitted: false });
+    fireEvent.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => {
+      expect(harness.createSimBranch).toHaveBeenCalledWith(
+        "wf_run_904_dirty_inputs",
+        "workflow:\n  name: Run 904\n",
+      );
+      expect(lastModalProps()).toEqual(
+        expect.objectContaining({
+          open: true,
+          workflow: expect.objectContaining({
+            id: "wf_run_904_dirty_inputs",
+            input_schema: inputSchema,
+            branch: preparedBranch,
+            commit_sha: preparedCommitSha,
+          }),
+        }),
+      );
+    });
+    expect(harness.createRunMutate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /confirm run/i }));
+
+    await waitFor(() => {
+      expect(harness.createRunMutate).toHaveBeenCalledWith(
+        {
+          workflow_id: "wf_run_904_dirty_inputs",
+          inputs: submittedInputs,
+          source: "simulation",
+          branch: preparedBranch,
+        },
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+    expect(harness.createSimBranch.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.createRunMutate.mock.invocationCallOrder[0],
+    );
+    expect(harness.navigate).toHaveBeenCalledWith("/runs/run-904-success");
+    expect(screen.queryByRole("dialog", { name: /run inputs/i })).toBeNull();
+  });
+
   it("keeps the modal open when createRun rejects workflow input validation", async () => {
     harness.submitMode = "validation-error";
     harness.workflowById.wf_run_904_inputs = {
