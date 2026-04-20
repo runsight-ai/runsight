@@ -132,6 +132,13 @@ const optionalBlankWorkflow = {
       description: "Optional result limit.",
       sensitive: false,
     },
+    note: {
+      type: "string",
+      required: false,
+      default: null,
+      description: "Optional plain text note.",
+      sensitive: false,
+    },
     config: {
       type: "json",
       required: false,
@@ -351,13 +358,15 @@ describe("RUN-903 RunInputsModal", () => {
     expect(getFieldError(screen.getByRole("textbox", { name: "Config" }))).toBeTruthy();
   });
 
-  it("omits blank optional structured and number inputs instead of submitting nulls", async () => {
+  it("omits blank optional string, structured, and number inputs instead of submitting nulls", async () => {
     const onSubmit = vi.fn(() => Promise.resolve());
 
     renderModal({
       workflow: optionalBlankWorkflow,
       onSubmit,
     });
+
+    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("");
 
     fireEvent.change(screen.getByRole("textbox", { name: "Config" }), {
       target: { value: "" },
