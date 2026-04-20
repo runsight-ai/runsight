@@ -11,11 +11,30 @@ from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from runsight_core.redaction import RunRedactor
+from runsight_core.redaction import REDACTED_VALUE, RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 _MAX_PREVIEW_LENGTH = 200
 _WHOLE_OUTPUT_ALIASES = {"output", "result"}
+_SECRET_KEY_FRAGMENTS = (
+    "api_key",
+    "apikey",
+    "access_token",
+    "auth_token",
+    "bearer_token",
+    "client_secret",
+    "credential",
+    "password",
+    "private_key",
+    "refresh_token",
+    "secret",
+)
+_SECRET_VALUE_MARKERS = (
+    "sk-",
+    "secret",
+    "bearer ",
+    "-----begin private key-----",
+)
 _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS: ContextVar[frozenset[str]] = ContextVar(
     "suppressed_declared_input_block_ids",
     default=frozenset(),
@@ -441,9 +460,6 @@ def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:
     declared_inputs = getattr(block, "declared_inputs", None)
     if declared_inputs:
         return dict(declared_inputs)
-    workflow_inputs = getattr(block, "inputs", None)
-    if isinstance(workflow_inputs, dict):
-        return dict(workflow_inputs)
     return {}
 
 
@@ -709,8 +725,11 @@ def _audit_preview_value(
     state: WorkflowState,
     redactor: RunRedactor | None,
 ) -> object:
-    if redactor is None or parsed.namespace != ContextAuditNamespace.WORKFLOW.value:
-        return redactor.redact(value) if redactor is not None else value
+    if redactor is None:
+        return _redact_unregistered_secret_preview(value)
+
+    if parsed.namespace != ContextAuditNamespace.WORKFLOW.value:
+        return redactor.redact(value)
 
     workflow_inputs = state.workflow_inputs
     if len(workflow_inputs) <= 1:
@@ -731,6 +750,31 @@ def _audit_preview_value(
         return _resolve_field_path(preview_value, parsed.field_path, parsed)
     except ContextResolutionError:
         return redactor.redact_named(parsed.source, value)
+
+
+def _redact_unregistered_secret_preview(value: object) -> object:
+    return REDACTED_VALUE if _contains_secret_like_preview(value) else value
+
+
+def _contains_secret_like_preview(value: object) -> bool:
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        return any(marker in lowered for marker in _SECRET_VALUE_MARKERS)
+    if isinstance(value, dict):
+        return any(
+            _is_secret_like_key(key) or _contains_secret_like_preview(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list | tuple):
+        return any(_contains_secret_like_preview(item) for item in value)
+    return False
+
+
+def _is_secret_like_key(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().lower().replace("-", "_")
+    return any(fragment in normalized for fragment in _SECRET_KEY_FRAGMENTS)
 
 
 def bounded_context_preview(value: object, *, max_length: int = _MAX_PREVIEW_LENGTH) -> str:

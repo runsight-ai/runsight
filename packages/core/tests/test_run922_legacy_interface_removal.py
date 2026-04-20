@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from typing import Any
 
@@ -115,6 +116,19 @@ class TestLegacyInterfaceDeclarationsAreUnsupported:
                 )
             )
 
+    def test_workflowblock_constructor_exposes_no_legacy_interface_surface(self) -> None:
+        signature = inspect.signature(WorkflowBlock.__init__)
+        assert "interface" not in signature.parameters
+
+        block = WorkflowBlock(
+            block_id="invoke_child",
+            child_workflow=CapturingWorkflow(),
+            inputs={},
+            outputs={},
+        )
+
+        assert not hasattr(block, "interface")
+
     def test_parser_rejects_legacy_interface_yaml_instead_of_translating_it(self) -> None:
         legacy_yaml = """
 version: "1.0"
@@ -201,7 +215,7 @@ class TestWorkflowBlockNameBasedInvocation:
         block = parent_workflow._blocks["invoke_child"]
         assert isinstance(block, WorkflowBlock)
         assert block.inputs == {"query": "shared_memory.topic"}
-        assert block.interface is None
+        assert not hasattr(block, "interface")
 
     @pytest.mark.asyncio
     async def test_workflowblock_passes_parent_mapping_as_child_invocation_inputs(self) -> None:

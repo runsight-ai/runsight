@@ -45,18 +45,15 @@ class WorkflowBlock(BaseBlock):
         outputs: Dict[str, str],
         workflow_ref: Optional[str] = None,
         max_depth: int = 10,
-        interface: Any = None,
         on_error: str = "raise",
     ):
         super().__init__(block_id)
-        if interface is not None:
-            raise ValueError("legacy workflow interface is unsupported")
         self.child_workflow = child_workflow
         self.inputs = inputs
+        self.declared_inputs = dict(inputs)
         self.outputs = outputs
         self.workflow_ref = workflow_ref
         self.max_depth = max_depth
-        self.interface = None
         self.on_error = on_error
 
         for binding_name in self.inputs:

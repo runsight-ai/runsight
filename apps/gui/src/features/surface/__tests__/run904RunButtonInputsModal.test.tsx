@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 
 import React from "react";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -281,6 +284,16 @@ beforeEach(() => {
 });
 
 describe("RUN-904 RunButton input modal wiring", () => {
+  it("does not use the legacy require shim when resolving RunInputsModal", () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../RunButton.tsx"),
+      "utf-8",
+    );
+
+    expect(source).not.toContain('Function("return require")()');
+    expect(source).not.toContain('requireFn?.("./RunInputsModal")');
+  });
+
   it("runs immediately when the resolved workflow has no inputs", async () => {
     harness.workflowById.wf_run_904_clean = {
       id: "wf_run_904_clean",

@@ -33,6 +33,7 @@ import yaml as yaml_mod
 from conftest import execute_block_for_test
 from runsight_core import WorkflowBlock
 from runsight_core.state import WorkflowState
+from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import validate_workflow_call_contracts
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
@@ -54,6 +55,22 @@ def _write_yaml_file(base: Path, rel_path: str, yaml_text: str) -> Path:
         content = "id: test-workflow\nkind: workflow\n" + content
     target.write_text(content, encoding="utf-8")
     return target
+
+
+class _RecordingWorkflow:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.received_state: WorkflowState | None = None
+        self.received_kwargs: dict[str, object] | None = None
+
+    async def run(self, state: WorkflowState, **kwargs: object) -> WorkflowState:
+        self.received_state = state
+        self.received_kwargs = kwargs
+        return WorkflowState(
+            artifact_store=state.artifact_store,
+            total_cost_usd=0.0,
+            total_tokens=0,
+        )
 
 
 class TestDepthParityMaxDepth3:
@@ -186,6 +203,46 @@ class TestDepthParityMaxDepth3:
                 f"parse-time rejected grandchild at max_depth=3, "
                 f"but runtime allows it. Parity broken. Error: {exc}"
             )
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_allows_a_to_b_to_c_at_max_depth_3(self) -> None:
+        """Workflow.run() must not double-count the middle workflow in call_stack."""
+
+        workflow_c = _RecordingWorkflow(name="workflow_c")
+        block_bc = WorkflowBlock(
+            block_id="invoke_c",
+            child_workflow=workflow_c,
+            inputs={},
+            outputs={},
+            max_depth=3,
+        )
+        workflow_b = Workflow(name="workflow_b")
+        workflow_b.add_block(block_bc)
+        workflow_b.set_entry("invoke_c")
+        workflow_b.add_transition("invoke_c", None)
+
+        block_ab = WorkflowBlock(
+            block_id="invoke_b",
+            child_workflow=workflow_b,
+            inputs={},
+            outputs={},
+            max_depth=3,
+        )
+        workflow_a = Workflow(name="workflow_a")
+        workflow_a.add_block(block_ab)
+        workflow_a.set_entry("invoke_b")
+        workflow_a.add_transition("invoke_b", None)
+
+        final_state = await workflow_a.run(WorkflowState())
+
+        assert isinstance(final_state, WorkflowState)
+        assert workflow_c.received_state is not None
+        assert workflow_c.received_kwargs is not None
+        assert workflow_c.received_kwargs["call_stack"] == [
+            "workflow_a",
+            "workflow_b",
+            "workflow_c",
+        ]
 
 
 class TestDepthParityMaxDepth2:

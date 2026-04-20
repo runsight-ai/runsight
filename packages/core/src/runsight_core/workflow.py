@@ -184,12 +184,15 @@ async def execute_block(
             )
         if isinstance(blk, WorkflowBlock):
             wf_block_ctx = build_block_context(blk, current_state, observer=observer)
+            workflow_call_stack = list(ctx.call_stack)
+            if not workflow_call_stack or workflow_call_stack[-1] != ctx.workflow_name:
+                workflow_call_stack.append(ctx.workflow_name)
             wf_block_ctx = wf_block_ctx.model_copy(
                 update={
                     "inputs": {
                         **(extra_inputs or {}),
                         **wf_block_ctx.inputs,
-                        "call_stack": ctx.call_stack + [ctx.workflow_name],
+                        "call_stack": workflow_call_stack,
                         "workflow_registry": ctx.workflow_registry,
                         "observer": observer,
                     }

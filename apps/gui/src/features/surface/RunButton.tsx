@@ -12,6 +12,7 @@ import { gitApi } from "@/api/git";
 import type { WorkflowResponse } from "@runsight/shared/zod";
 import { Play, X, Key } from "lucide-react";
 import { resolveRunInputSchemaDecision } from "./runInputSchemaPolicy";
+import { RunInputsModal } from "./RunInputsModal";
 
 interface RunButtonProps {
   workflowId: string;
@@ -21,7 +22,6 @@ interface RunButtonProps {
 
 type RunSource = "manual" | "simulation";
 type WorkflowInputSchema = NonNullable<WorkflowResponse["input_schema"]>;
-type RunInputsModalComponent = typeof import("./RunInputsModal")["RunInputsModal"];
 type PendingRun = {
   source: RunSource;
   branch: string;
@@ -33,9 +33,6 @@ type PendingRun = {
     input_schema: WorkflowInputSchema;
   };
 };
-
-let runInputsModalPromise: Promise<{ RunInputsModal: RunInputsModalComponent }> | null = null;
-let runInputsModalComponentCache: RunInputsModalComponent | null = null;
 
 export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
   if (typeof window === "undefined") {
@@ -88,7 +85,6 @@ function RunButtonContent({
 
   const createRun = useCreateRun();
   const cancelRun = useCancelRun();
-  const RunInputsModal = useRunInputsModal(workflow);
   const [isRunInputsModalOpen, setIsRunInputsModalOpen] = useState(false);
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [isPreparingRun, setIsPreparingRun] = useState(false);
@@ -304,28 +300,7 @@ function RunButtonContent({
             <TooltipContent>Add at least one block</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        {RunInputsModal ? (
-          <RunInputsModalSlot
-            RunInputsModal={RunInputsModal}
-            workflow={workflow}
-            workflowId={workflowId}
-            pendingRun={pendingRun}
-            open={isRunInputsModalOpen}
-            submitting={createRun.isPending}
-            onOpenChange={closeInputsModal}
-            onSubmit={submitRun}
-          />
-        ) : null}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {button}
-      {RunInputsModal ? (
         <RunInputsModalSlot
-          RunInputsModal={RunInputsModal}
           workflow={workflow}
           workflowId={workflowId}
           pendingRun={pendingRun}
@@ -334,13 +309,27 @@ function RunButtonContent({
           onOpenChange={closeInputsModal}
           onSubmit={submitRun}
         />
-      ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {button}
+      <RunInputsModalSlot
+        workflow={workflow}
+        workflowId={workflowId}
+        pendingRun={pendingRun}
+        open={isRunInputsModalOpen}
+        submitting={createRun.isPending}
+        onOpenChange={closeInputsModal}
+        onSubmit={submitRun}
+      />
     </>
   );
 }
 
 function RunInputsModalSlot({
-  RunInputsModal,
   workflow,
   workflowId,
   pendingRun,
@@ -349,7 +338,6 @@ function RunInputsModalSlot({
   onOpenChange,
   onSubmit,
 }: {
-  RunInputsModal: RunInputsModalComponent;
   workflow?: WorkflowResponse;
   workflowId: string;
   pendingRun: PendingRun | null;
@@ -383,61 +371,6 @@ function RunInputsModalSlot({
       }}
     />
   );
-}
-
-function useRunInputsModal(workflow?: WorkflowResponse) {
-  const [component, setComponent] = useState<RunInputsModalComponent | null>(() =>
-    getRunInputsModalComponent(workflow),
-  );
-
-  useEffect(() => {
-    if (!workflow || component) {
-      return;
-    }
-
-    let cancelled = false;
-    void getRunInputsModalPromise().then((module) => {
-      if (!cancelled) {
-        runInputsModalComponentCache = module.RunInputsModal;
-        setComponent(() => module.RunInputsModal);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [component, workflow]);
-
-  return component;
-}
-
-function getRunInputsModalPromise() {
-  if (!runInputsModalPromise) {
-    runInputsModalPromise = import("./RunInputsModal");
-  }
-
-  return runInputsModalPromise;
-}
-
-function getRunInputsModalComponent(workflow?: WorkflowResponse) {
-  if (!workflow) {
-    return null;
-  }
-
-  if (runInputsModalComponentCache) {
-    return runInputsModalComponentCache;
-  }
-
-  try {
-    const requireFn = Function("return require")() as
-      | ((id: string) => { RunInputsModal: RunInputsModalComponent })
-      | undefined;
-
-    runInputsModalComponentCache = requireFn?.("./RunInputsModal").RunInputsModal ?? null;
-    return runInputsModalComponentCache;
-  } catch {
-    return null;
-  }
 }
 
 function WorkflowDataFetcher({

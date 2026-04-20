@@ -251,6 +251,36 @@ def test_dev_mode_gate_missing_eval_key_does_not_keyerror() -> None:
     assert ctx.context == ""
 
 
+def test_build_block_context_does_not_grant_governed_context_from_plain_inputs_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A plain runtime object with inputs only must not inherit governed context."""
+
+    from runsight_core import block_io as block_io_module
+
+    monkeypatch.setattr(
+        block_io_module,
+        "fit_to_budget",
+        lambda request, counter: SimpleNamespace(
+            instruction=request.instruction,
+            context=request.context,
+            messages=list(request.conversation_history),
+        ),
+    )
+
+    block = SimpleNamespace(
+        block_id="review_block",
+        inputs={"secret": "shared_memory.secret"},
+        soul=None,
+        runner=None,
+    )
+    state = WorkflowState(shared_memory={"secret": "shared-value"})
+
+    ctx = build_block_context(block, state)
+
+    assert ctx.inputs == {}
+
+
 @pytest.mark.asyncio
 async def test_isolated_wrapper_preserves_ctx_inputs_when_state_snapshot_is_missing() -> None:
     """Legacy direct isolated execution still passes caller-provided inputs."""

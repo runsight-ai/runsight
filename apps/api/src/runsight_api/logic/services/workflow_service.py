@@ -266,7 +266,11 @@ class WorkflowService:
             fields = _input_schema_field_errors(exc)
             if fields:
                 _raise_workflow_input_validation(workflow_id, fields, exc)
-            raise InputValidationError(str(exc)) from exc
+            _raise_workflow_input_validation(
+                workflow_id,
+                [_schema_field_error("Workflow schema is invalid.")],
+                exc,
+            )
         if workflow_file.id != workflow_id:
             raise InputValidationError(
                 f"embedded workflow id '{workflow_file.id}' does not match requested "
