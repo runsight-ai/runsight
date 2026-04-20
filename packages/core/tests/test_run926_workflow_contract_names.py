@@ -114,6 +114,12 @@ class TestWorkflowContractNameValidator:
         with pytest.raises(ValueError, match="duplicate"):
             contract_names.validate_workflow_contract_names(["query", "query"])
 
+    def test_collection_validator_rejects_plain_string_argument(self) -> None:
+        contract_names = _contract_names_module()
+
+        with pytest.raises(TypeError):
+            contract_names.validate_workflow_contract_names("query")
+
 
 class TestWorkflowBlockBindingValidation:
     @pytest.mark.parametrize("name", ["UserId", "user-id", "user id", "workflow/input", "user[0]"])

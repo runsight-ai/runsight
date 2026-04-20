@@ -291,20 +291,36 @@ function shouldOmitOptionalBlankValue(
   item: WorkflowInputSchemaItem,
   value: unknown,
 ) {
-  if (item.required === true || hasActualDefault(item)) {
+  if (item.required === true) {
     return false;
   }
 
   if (item.type === "string") {
+    if (hasActualDefault(item)) {
+      return false;
+    }
+
     return isMissingValue(value);
   }
 
-  if (item.type === "number" || item.type === "boolean") {
+  if (item.type === "number") {
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "")
+    );
+  }
+
+  if (item.type === "boolean") {
     return value === null || value === undefined;
   }
 
   if (item.type === "json" || item.type === "array") {
-    return value === undefined || (typeof value === "string" && value.trim() === "");
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "")
+    );
   }
 
   return false;
@@ -370,10 +386,29 @@ function normalizeNumberValue(
     return { ok: true, value: null };
   }
 
-  const numberValue = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numberValue)
-    ? { ok: true, value: numberValue }
-    : { ok: false, message: "Enter a valid number." };
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? { ok: true, value }
+      : { ok: false, message: "Enter a valid number." };
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "" || !isCompleteNumberLiteral(trimmed)) {
+      return { ok: false, message: "Enter a valid number." };
+    }
+
+    const numberValue = Number(trimmed);
+    return Number.isFinite(numberValue)
+      ? { ok: true, value: numberValue }
+      : { ok: false, message: "Enter a valid number." };
+  }
+
+  return { ok: false, message: "Enter a valid number." };
+}
+
+function isCompleteNumberLiteral(value: string) {
+  return /^[+-]?(?:\d+|\d+\.\d+|\.\d+)(?:[eE][+-]?\d+)?$/.test(value);
 }
 
 function getBackendFieldErrors(

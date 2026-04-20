@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from runsight_api.domain.errors import InputValidationError
+from runsight_api.domain.errors import WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -124,6 +125,23 @@ def _error_payload(exc: InputValidationError) -> dict:
 
 
 class TestWorkflowInputValidationPreparation:
+    def test_missing_workflow_raises_domain_not_found_error_instead_of_value_error(self):
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = None
+        workflow_repo._get_path.return_value = "/custom/workflows/run896_inputs.yaml"
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=Mock(),
+        )
+
+        with pytest.raises(WorkflowNotFound) as exc_info:
+            service.prepare_run_inputs("run896_inputs", {}, branch="main")
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.error_code == "WORKFLOW_NOT_FOUND"
+        assert "run896_inputs" in str(exc_info.value)
+
     def test_missing_required_input_raises_canonical_field_error_without_values(self):
         service = _service(_workflow_yaml_with_inputs())
 

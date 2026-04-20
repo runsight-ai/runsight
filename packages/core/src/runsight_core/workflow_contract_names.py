@@ -37,6 +37,8 @@ def validate_workflow_contract_name(name: str) -> str:
 
 def validate_workflow_contract_names(names: Iterable[str]) -> list[str]:
     """Validate a collection of workflow contract names and reject duplicates."""
+    if isinstance(names, (str, bytes)):
+        raise TypeError("workflow contract names must be an iterable of strings")
     validated: list[str] = []
     seen: set[str] = set()
     for name in names:

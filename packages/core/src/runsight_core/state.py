@@ -90,11 +90,23 @@ class WorkflowState(BaseModel):
         return self.input_redactor.redact_runtime_value(dumped)
 
     def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
+        json_kwargs = {}
+        for key in (
+            "indent",
+            "ensure_ascii",
+            "separators",
+            "sort_keys",
+            "skipkeys",
+            "allow_nan",
+            "check_circular",
+            "default",
+            "cls",
+        ):
+            if key in kwargs:
+                json_kwargs[key] = kwargs.pop(key)
         dumped = super().model_dump(*args, mode="json", **kwargs)
+        json_kwargs.setdefault("separators", (",", ":"))
+        json_kwargs.setdefault("ensure_ascii", False)
         if self.input_redactor is None:
-            return json.dumps(dumped, separators=(",", ":"), ensure_ascii=False)
-        return json.dumps(
-            self.input_redactor.redact_runtime_value(dumped),
-            separators=(",", ":"),
-            ensure_ascii=False,
-        )
+            return json.dumps(dumped, **json_kwargs)
+        return json.dumps(self.input_redactor.redact_runtime_value(dumped), **json_kwargs)

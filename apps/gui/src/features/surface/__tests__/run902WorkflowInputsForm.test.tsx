@@ -86,7 +86,9 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(query).toBeInstanceOf(HTMLInputElement);
     expect(query).toHaveAttribute("type", "text");
     expect(retries).toBeInstanceOf(HTMLInputElement);
-    expect(retries).toHaveAttribute("type", "number");
+    expect(retries).toHaveAttribute("role", "spinbutton");
+    expect(retries).toHaveAttribute("inputMode", "decimal");
+    expect(retries).not.toHaveAttribute("type", "number");
     expect(enabled).toBeTruthy();
     expect(config).toBeInstanceOf(HTMLTextAreaElement);
     expect(tags).toBeInstanceOf(HTMLTextAreaElement);
@@ -167,6 +169,49 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(onChange).toHaveBeenCalledWith("enabled", false);
     expect(onChange).toHaveBeenCalledWith("config", { mode: "slow", retry: 2 });
     expect(onChange).toHaveBeenCalledWith("tags", ["x", "y"]);
+  });
+
+  it("preserves partial numeric text like '-' and '1.' instead of coercing to Number", () => {
+    const onChange = vi.fn();
+
+    function ControlledNumberField() {
+      const [values, setValues] = React.useState<Record<string, unknown>>({ retries: 7 });
+
+      return (
+        <WorkflowInputsForm
+          schema={{ retries: schema.retries }}
+          values={values}
+          errors={{}}
+          disabled={false}
+          submitting={false}
+          onChange={(name, value) => {
+            onChange(name, value);
+            setValues((current) => ({
+              ...current,
+              [name]: value,
+            }));
+          }}
+        />
+      );
+    }
+
+    render(<ControlledNumberField />);
+
+    const retries = screen.getByRole("spinbutton", { name: "Retries" }) as HTMLInputElement;
+
+    expect(retries.value).toBe("7");
+
+    fireEvent.change(retries, {
+      target: { value: "-" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith("retries", "-");
+    expect(retries.value).toBe("-");
+
+    fireEvent.change(retries, {
+      target: { value: "1." },
+    });
+    expect(onChange).toHaveBeenLastCalledWith("retries", "1.");
+    expect(retries.value).toBe("1.");
   });
 
   it("stays controlled by parent values across rerenders instead of keeping typed text locally", () => {

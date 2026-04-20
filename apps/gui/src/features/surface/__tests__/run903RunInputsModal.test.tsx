@@ -102,6 +102,35 @@ const defaultWorkflow = {
   } satisfies Record<string, WorkflowInputSchemaItem>,
 } as const;
 
+const defaultedOptionalWorkflow = {
+  ...defaultWorkflow,
+  id: "wf-run-869-defaulted-optionals",
+  input_schema: {
+    query: defaultWorkflow.input_schema.query,
+    limit: {
+      type: "number",
+      required: false,
+      default: 25,
+      description: "Optional result limit with a backend default.",
+      sensitive: false,
+    },
+    config: {
+      type: "json",
+      required: false,
+      default: { mode: "balanced", retries: 3 },
+      description: "Optional structured settings with a backend default.",
+      sensitive: false,
+    },
+    tags: {
+      type: "array",
+      required: false,
+      default: ["alpha", "beta"],
+      description: "Optional tags with a backend default.",
+      sensitive: false,
+    },
+  } satisfies Record<string, WorkflowInputSchemaItem>,
+} as const;
+
 const requiredWorkflow = {
   ...defaultWorkflow,
   id: "wf-run-903-required",
@@ -368,6 +397,40 @@ describe("RUN-903 RunInputsModal", () => {
 
     expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("");
 
+    fireEvent.change(screen.getByRole("textbox", { name: "Config" }), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Tags" }), {
+      target: { value: "" },
+    });
+
+    fireEvent.click(getPrimaryAction());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith({
+      query: "alpha",
+    });
+  });
+
+  it("omits cleared optional defaulted number, json, and array inputs so backend defaults can apply", async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+
+    renderModal({
+      workflow: defaultedOptionalWorkflow,
+      onSubmit,
+    });
+
+    expect(screen.getByRole("spinbutton", { name: "Limit" })).toHaveValue("25");
+    expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
+      JSON.stringify(defaultedOptionalWorkflow.input_schema.config.default, null, 2),
+    );
+    expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue(
+      JSON.stringify(defaultedOptionalWorkflow.input_schema.tags.default, null, 2),
+    );
+
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Limit" }), {
+      target: { value: "" },
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Config" }), {
       target: { value: "" },
     });

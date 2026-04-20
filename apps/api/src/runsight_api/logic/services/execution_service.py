@@ -22,7 +22,7 @@ import yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
-from ...domain.errors import InputValidationError
+from ...domain.errors import InputValidationError, WorkflowNotFound
 from ...domain.events import SSE_TERMINAL_EVENTS
 from ..observers.eval_observer import EvalObserver
 from ..observers.execution_observer import ExecutionObserver
@@ -559,7 +559,7 @@ class ExecutionService:
     ) -> PreparedRunInputs:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         if wf_entity is None:
-            raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
+            raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
 
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
         yaml_content = (

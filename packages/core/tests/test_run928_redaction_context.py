@@ -124,6 +124,23 @@ def test_workflow_state_carries_input_redactor_as_runtime_only_state() -> None:
     assert "input_redactor" not in state.model_dump_json()
 
 
+def test_workflow_state_model_dump_json_accepts_json_kwargs_and_keeps_redaction() -> None:
+    state = _state_with_redactor(
+        redactor=_redactor(SENSITIVE_VALUE),
+        workflow_inputs={
+            "private_note": SENSITIVE_VALUE,
+        },
+        metadata={"label": "café"},
+    )
+
+    dumped = state.model_dump_json(indent=2, ensure_ascii=True)
+
+    assert SENSITIVE_VALUE not in dumped
+    assert "[redacted]" in dumped
+    assert dumped.startswith("{\n  ")
+    assert "\\u00e9" in dumped
+
+
 def test_context_audit_redacts_runtime_registered_workflow_input_preview() -> None:
     state = _state_with_redactor(
         redactor=_redactor(SENSITIVE_VALUE),

@@ -4,7 +4,9 @@ import { Button } from "@runsight/ui/button";
 import { cn } from "@runsight/ui/utils";
 import type { RunResponse } from "@runsight/shared/zod";
 
-const clipboardWriteTextAtLoad = navigator.clipboard?.writeText;
+const clipboardAtLoad =
+  typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+const clipboardWriteTextAtLoad = clipboardAtLoad?.writeText;
 
 type WorkflowInputSnapshotEntry = {
   type?: string;
@@ -222,7 +224,7 @@ export function SurfaceRunInputsCell({
               className="inline-flex h-6 items-center justify-center gap-1 rounded-sm border border-transparent bg-surface-tertiary px-2 text-2xs font-medium leading-tight tracking-wide text-primary hover:bg-surface-hover hover:border-border-hover active:bg-surface-active"
               onClick={(event) => {
                 event.stopPropagation();
-                void clipboardWriteTextAtLoad?.call(navigator.clipboard, safeJson);
+                void clipboardWriteTextAtLoad?.call(clipboardAtLoad, safeJson);
               }}
             >
               Copy

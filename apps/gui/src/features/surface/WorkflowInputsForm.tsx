@@ -4,6 +4,7 @@ import { Input } from "@runsight/ui/input";
 import { Label } from "@runsight/ui/label";
 import { Switch } from "@runsight/ui/switch";
 import { Textarea } from "@runsight/ui/textarea";
+import { cn } from "@runsight/ui/utils";
 import type { WorkflowInputSchemaItem } from "@runsight/shared/zod";
 
 type WorkflowInputSchema = Record<string, WorkflowInputSchemaItem>;
@@ -108,16 +109,17 @@ function renderInputControl({
   };
 
   switch (item.type) {
-    case "number":
+    case "number": {
       return (
-        <Input
+        <NumberInput
           {...sharedProps}
-          type="number"
-          value={formatNumberValue(value)}
-          error={invalid}
+          labelId={labelId}
+          value={value}
+          invalid={invalid}
           onChange={(event) => onChange(name, parseNumberValue(event.target.value))}
         />
       );
+    }
     case "boolean":
       return (
         <Switch
@@ -212,7 +214,83 @@ function formatNumberValue(value: unknown) {
 }
 
 function parseNumberValue(value: string) {
-  return value === "" ? null : Number(value);
+  if (value === "") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return value;
+  }
+
+  return isCompleteNumberLiteral(trimmed) ? Number(trimmed) : value;
+}
+
+function isCompleteNumberLiteral(value: string) {
+  return /^[+-]?(?:\d+|\d+\.\d+|\.\d+)(?:[eE][+-]?\d+)?$/.test(value);
+}
+
+function getNumberValueForAria(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed !== "" && isCompleteNumberLiteral(trimmed)) {
+      return Number(trimmed);
+    }
+  }
+
+  return undefined;
+}
+
+function NumberInput({
+  id,
+  labelId,
+  value,
+  disabled,
+  required,
+  invalid,
+  describedBy,
+  onChange,
+}: {
+  id: string;
+  labelId: string;
+  value: unknown;
+  disabled: boolean;
+  required: boolean;
+  invalid: boolean;
+  describedBy: string | undefined;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const ariaValueNow = getNumberValueForAria(value);
+  const ariaValueText =
+    typeof value === "string" && value.trim() !== "" && !isCompleteNumberLiteral(value.trim())
+      ? value
+      : undefined;
+
+  return (
+    <input
+      id={id}
+      type="text"
+      role="spinbutton"
+      inputMode="decimal"
+      aria-labelledby={labelId}
+      aria-required={required || undefined}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      aria-valuenow={ariaValueNow}
+      aria-valuetext={ariaValueText}
+      disabled={disabled}
+      value={formatNumberValue(value)}
+      onChange={onChange}
+      className={cn(
+        "flex h-8 w-full items-center gap-2 rounded-md border border-border-default bg-surface-primary px-2.5 font-body text-md text-heading transition-[border-color,box-shadow] duration-100 ease-default placeholder:text-muted hover:border-border-hover focus:border-border-focus focus:outline-none focus:shadow-[0_0_0_var(--space-0-5)_var(--accent-3)] disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:opacity-50",
+        invalid && "border-danger-9 focus:shadow-[0_0_0_var(--space-0-5)_var(--danger-3)]",
+      )}
+    />
+  );
 }
 
 function toBooleanValue(value: unknown) {

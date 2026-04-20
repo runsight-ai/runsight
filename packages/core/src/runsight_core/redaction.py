@@ -332,12 +332,6 @@ class RunRedactor:
             )
         if self._is_sensitive_runtime_scalar(value, field_name=field_name, scope_name=scope_name):
             return REDACTED_VALUE
-        if strict and isinstance(value, str):
-            return REDACTED_VALUE if value else value
-        if isinstance(value, str):
-            scoped_values = set(self._named_values.get(field_name or "", set()))
-            scoped_values.update(self._named_values.get(scope_name or "", set()))
-            return REDACTED_VALUE if value in self._values or value in scoped_values else value
         return value
 
 
