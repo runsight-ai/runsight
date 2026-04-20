@@ -216,7 +216,7 @@ function getInitialInputValues(
       continue;
     }
 
-    values[name] = item.sensitive === true ? undefined : item.default;
+    values[name] = getDefaultInputValue(item);
   }
 
   return values;
@@ -232,12 +232,14 @@ function validateInputValues(
   for (const [name, item] of Object.entries(schema)) {
     const value = Object.hasOwn(values, name)
       ? values[name]
-      : item.sensitive === true
-        ? undefined
-        : item.default;
+      : getDefaultInputValue(item);
 
     if (item.required === true && isMissingValue(value)) {
       errors[name] = "This field is required.";
+      continue;
+    }
+
+    if (shouldOmitOptionalBlankValue(item, value)) {
       continue;
     }
 
@@ -270,6 +272,44 @@ function validateInputValues(
   return { payload, errors };
 }
 
+function getDefaultInputValue(item: WorkflowInputSchemaItem) {
+  if (item.sensitive === true) {
+    return undefined;
+  }
+
+  if (
+    !hasActualDefault(item) &&
+    (item.type === "json" || item.type === "array")
+  ) {
+    return "";
+  }
+
+  return item.default;
+}
+
+function shouldOmitOptionalBlankValue(
+  item: WorkflowInputSchemaItem,
+  value: unknown,
+) {
+  if (item.required === true || hasActualDefault(item)) {
+    return false;
+  }
+
+  if (item.type === "number" || item.type === "boolean") {
+    return value === null || value === undefined;
+  }
+
+  if (item.type === "json" || item.type === "array") {
+    return value === undefined || (typeof value === "string" && value.trim() === "");
+  }
+
+  return false;
+}
+
+function hasActualDefault(item: WorkflowInputSchemaItem) {
+  return item.default !== null && item.default !== undefined;
+}
+
 function isMissingValue(value: unknown) {
   return (
     value === null ||
@@ -284,7 +324,7 @@ function normalizeStructuredValue(
 ):
   | { ok: true; value: unknown }
   | { ok: false; message: string } {
-  if (isMissingValue(value)) {
+  if (value === undefined || (typeof value === "string" && value.trim() === "")) {
     return { ok: true, value: null };
   }
 
@@ -305,6 +345,13 @@ function normalizeStructuredValue(
 
   if (type === "array" && !Array.isArray(parsed)) {
     return { ok: false, message: "Enter a valid JSON array." };
+  }
+
+  if (
+    type === "json" &&
+    (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+  ) {
+    return { ok: false, message: "Enter a valid JSON object." };
   }
 
   return { ok: true, value: parsed };
