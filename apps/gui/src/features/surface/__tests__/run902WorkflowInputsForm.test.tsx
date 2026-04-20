@@ -105,7 +105,7 @@ describe("RUN-902 WorkflowInputsForm", () => {
     );
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("alpha");
-    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(7);
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue("7");
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(true);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
       JSON.stringify(currentValues.config, null, 2),
@@ -128,7 +128,7 @@ describe("RUN-902 WorkflowInputsForm", () => {
     );
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("");
-    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(3);
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue("3");
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue("null");
     expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("null");
@@ -208,7 +208,7 @@ describe("RUN-902 WorkflowInputsForm", () => {
     );
 
     expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("from parent");
-    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(11);
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue("11");
     expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
     expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
       JSON.stringify({ mode: "slow" }, null, 2),
