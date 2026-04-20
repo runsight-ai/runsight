@@ -4,6 +4,7 @@ import logging
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.identity import EntityKind, EntityRef
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -16,6 +17,103 @@ logger = logging.getLogger(__name__)
 
 def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
+
+
+def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | None:
+    if not raw_yaml:
+        return None
+    try:
+        from runsight_core.yaml.schema import RunsightWorkflowFile as WorkflowFileModel
+
+        data = yaml_mod.safe_load(raw_yaml)
+        if not isinstance(data, dict):
+            return None
+        file_def = WorkflowFileModel.model_validate(data)
+    except (yaml_mod.YAMLError, PydanticValidationError, ValueError):
+        return None
+
+    try:
+        inputs = effective_workflow_input_schema(file_def)
+    except ValueError:
+        return None
+    if not inputs:
+        return None
+
+    return {name: input_def.model_dump() for name, input_def in inputs.items()}
+
+
+def _workflow_input_schema_for_simulation(
+    file_def: RunsightWorkflowFile,
+    *,
+    workflow_id: str,
+) -> dict[str, dict[str, Any]]:
+    try:
+        inputs = effective_workflow_input_schema(file_def)
+    except ValueError as exc:
+        _raise_workflow_input_validation(
+            workflow_id,
+            [_schema_field_error()],
+            exc,
+        )
+    if not inputs:
+        return {}
+    return {name: input_def.model_dump() for name, input_def in inputs.items()}
+
+
+def _input_schema_field_errors(error: PydanticValidationError) -> list[dict[str, Any]]:
+    fields: list[dict[str, Any]] = []
+    for item in error.errors():
+        loc = item.get("loc", ())
+        if len(loc) < 2 or loc[0] != "inputs":
+            continue
+
+        field = str(loc[1])
+        invalid_input = item.get("input")
+        expected_type = "string" if len(loc) > 2 and loc[2] == "type" else None
+        actual_type = (
+            str(invalid_input)
+            if expected_type is not None and isinstance(invalid_input, str | int | float | bool)
+            else None
+        )
+        fields.append(
+            {
+                "field": field,
+                "code": "invalid",
+                "message": f"Input '{field}' is invalid.",
+                "input_path": ["inputs", field],
+                "expected_type": expected_type,
+                "actual_type": actual_type,
+            }
+        )
+    return fields
+
+
+def _schema_field_error(message: str = "Workflow input references are invalid.") -> dict[str, Any]:
+    return {
+        "field": "__schema__",
+        "code": "invalid",
+        "message": message,
+        "input_path": ["inputs"],
+        "expected_type": None,
+        "actual_type": None,
+    }
+
+
+def _raise_workflow_input_validation(
+    workflow_id: str,
+    fields: list[dict[str, Any]],
+    error: Exception,
+) -> None:
+    raise InputValidationError(
+        "Workflow input validation failed",
+        error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+        status_code=422,
+        details={
+            "kind": "workflow_input_validation",
+            "workflow_id": workflow_id,
+            "fields": fields,
+        },
+    ) from error
 
 
 class WorkflowService:
@@ -51,6 +149,7 @@ class WorkflowService:
                         "modified_at": self.workflow_repo.get_file_mtime(workflow.id),
                         "enabled": bool(getattr(workflow, "enabled", False)),
                         "commit_sha": self._get_workflow_commit_sha(yaml_path),
+                        "input_schema": _workflow_input_schema(workflow.yaml),
                         "health": health_by_workflow.get(
                             workflow.id,
                             {
@@ -79,6 +178,7 @@ class WorkflowService:
         return workflow.model_copy(
             update={
                 "commit_sha": self._get_workflow_commit_sha_on_main(yaml_path),
+                "input_schema": _workflow_input_schema(workflow.yaml),
             }
         )
 
@@ -133,11 +233,15 @@ class WorkflowService:
             raise
         return {"hash": commit_hash, "message": message}
 
-    def create_simulation(self, workflow_id: str, yaml: str) -> Dict[str, str]:
+    def create_simulation(self, workflow_id: str, yaml: str) -> Dict[str, Any]:
         if self.git_service is None:
             raise RuntimeError("Git service not configured")
 
-        self._validate_simulation_yaml_identity(workflow_id, yaml)
+        workflow_file = self._validate_simulation_yaml_identity(workflow_id, yaml)
+        input_schema = _workflow_input_schema_for_simulation(
+            workflow_file,
+            workflow_id=workflow_id,
+        )
 
         yaml_path = f"custom/workflows/{workflow_id}.yaml"
         result = self.git_service.create_sim_branch(
@@ -145,24 +249,40 @@ class WorkflowService:
             yaml_content=yaml,
             yaml_path=yaml_path,
         )
-        return {"branch": result.branch, "commit_sha": result.sha}
+        return {"branch": result.branch, "commit_sha": result.sha, "input_schema": input_schema}
 
-    def _validate_simulation_yaml_identity(self, workflow_id: str, raw_yaml: str) -> None:
+    def _validate_simulation_yaml_identity(
+        self, workflow_id: str, raw_yaml: str
+    ) -> RunsightWorkflowFile:
         try:
             data = yaml_mod.safe_load(raw_yaml)
         except yaml_mod.YAMLError as exc:
             raise InputValidationError("Malformed YAML") from exc
         if not isinstance(data, dict):
             raise InputValidationError("YAML content is not a mapping")
+        embedded_id = data.get("id")
+        if embedded_id is not None and embedded_id != workflow_id:
+            raise InputValidationError(
+                f"embedded workflow id '{embedded_id}' does not match requested "
+                f"{_workflow_ref(workflow_id)}"
+            )
         try:
             workflow_file = RunsightWorkflowFile.model_validate(data)
         except PydanticValidationError as exc:
-            raise InputValidationError(str(exc)) from exc
+            fields = _input_schema_field_errors(exc)
+            if fields:
+                _raise_workflow_input_validation(workflow_id, fields, exc)
+            _raise_workflow_input_validation(
+                workflow_id,
+                [_schema_field_error("Workflow schema is invalid.")],
+                exc,
+            )
         if workflow_file.id != workflow_id:
             raise InputValidationError(
                 f"embedded workflow id '{workflow_file.id}' does not match requested "
                 f"{_workflow_ref(workflow_id)}"
             )
+        return workflow_file
 
     def _auto_commit(self, message: str, files: list) -> None:
         if not self.git_service:

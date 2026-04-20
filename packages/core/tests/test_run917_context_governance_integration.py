@@ -108,10 +108,11 @@ def _state() -> WorkflowState:
             "draft": BlockResult(
                 output=json.dumps({"summary": "safe draft", "secret": "draft secret"})
             ),
-            "workflow": BlockResult(
-                output=json.dumps({"request": "external input", "secret": "workflow secret"})
-            ),
             "unrelated": BlockResult(output="top secret result"),
+        },
+        workflow_inputs={
+            "request": "external input",
+            "secret": "workflow secret",
         },
         shared_memory={
             "flags": {"safe": True, "secret": "flag sibling secret"},
@@ -149,7 +150,7 @@ def test_parser_to_resolver_block_context_observer_resolves_only_declared_namesp
     assert event.resolved_count == 4
     assert [record.namespace for record in event.records] == [
         "results",
-        "results",
+        "workflow",
         "shared_memory",
         "metadata",
     ]
@@ -170,11 +171,9 @@ def test_block_context_state_snapshot_is_scoped_to_declared_context() -> None:
     ctx = build_block_context(step.block, _state(), step=step)
 
     assert ctx.state_snapshot is not None
-    assert set(ctx.state_snapshot.results) == {"draft", "workflow"}
+    assert set(ctx.state_snapshot.results) == {"draft"}
     assert json.loads(ctx.state_snapshot.results["draft"].output) == {"summary": "safe draft"}
-    assert json.loads(ctx.state_snapshot.results["workflow"].output) == {
-        "request": "external input"
-    }
+    assert ctx.state_snapshot.workflow_inputs == {"request": "external input"}
     assert ctx.state_snapshot.shared_memory == {"flags": {"safe": True}}
     assert ctx.state_snapshot.metadata == {
         "runtime": {"branch": "codex/run-868-context-governance"}
@@ -182,7 +181,6 @@ def test_block_context_state_snapshot_is_scoped_to_declared_context() -> None:
 
     snapshot_json = ctx.state_snapshot.model_dump_json()
     assert "draft secret" not in snapshot_json
-    assert "workflow secret" not in snapshot_json
     assert "top secret result" not in snapshot_json
     assert "shared secret" not in snapshot_json
     assert "metadata secret" not in snapshot_json

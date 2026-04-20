@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import time
 import uuid
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from runsight_core.identity import EntityKind, EntityRef
@@ -18,6 +19,27 @@ if TYPE_CHECKING:
 
 def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
+
+
+def _snapshot_dict(value: Any) -> Optional[Dict[str, Any]]:
+    return copy.deepcopy(value) if isinstance(value, dict) else None
+
+
+def _workflow_input_snapshots(
+    workflow_id: str,
+    workflow: Any,
+    inputs: Mapping[str, Any],
+) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    from .execution_service import PreparedRunInputs
+
+    if not isinstance(inputs, PreparedRunInputs):
+        raise TypeError("RunService.create_run requires PreparedRunInputs")
+
+    workflow_inputs = _snapshot_dict(getattr(inputs, "workflow_inputs", None))
+    workflow_input_schema = _snapshot_dict(getattr(inputs, "workflow_input_schema", None))
+    if workflow_inputs is not None and workflow_input_schema is not None:
+        return workflow_inputs, workflow_input_schema
+    raise TypeError("PreparedRunInputs must include workflow input snapshots")
 
 
 class RunService:
@@ -60,7 +82,7 @@ class RunService:
     def create_run(
         self,
         workflow_id: str,
-        inputs: Dict[str, Any],
+        inputs: Mapping[str, Any],
         *,
         source: str = "manual",
         branch: str = "main",
@@ -74,6 +96,11 @@ class RunService:
         warnings_json: Optional[List[Dict[str, Any]]] = None
         if isinstance(workflow_warnings, list) and workflow_warnings:
             warnings_json = copy.deepcopy(workflow_warnings)
+        workflow_inputs, workflow_input_schema = _workflow_input_snapshots(
+            workflow_id,
+            workflow,
+            inputs,
+        )
 
         run = Run(
             id=run_id,
@@ -84,6 +111,8 @@ class RunService:
             branch=branch,
             source=source,
             warnings_json=warnings_json,
+            workflow_inputs=workflow_inputs,
+            workflow_input_schema=workflow_input_schema,
         )
         self.run_repo.create_run(run)
 

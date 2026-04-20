@@ -50,7 +50,12 @@ def openapi_type_to_zod(prop: dict, schemas: dict) -> str:
         base = f"z.union([{parts}])"
         return f"{base}.nullable()" if has_null else base
 
-    t = prop.get("type", "string")
+    t = prop.get("type")
+    if t is None:
+        if "properties" in prop or "additionalProperties" in prop:
+            t = "object"
+        else:
+            return "z.unknown()"
     if t == "string":
         return "z.string()"
     if t == "number":
@@ -67,8 +72,21 @@ def openapi_type_to_zod(prop: dict, schemas: dict) -> str:
     if t == "object":
         if "properties" in prop:
             return generate_object_schema(prop, schemas)
+        additional_properties = prop.get("additionalProperties")
+        if isinstance(additional_properties, dict):
+            value_schema = openapi_type_to_zod(additional_properties, schemas)
+            return f"z.record(z.string(), {value_schema})"
+        if additional_properties is False:
+            return "z.object({}).strict()"
         return "z.record(z.string(), z.unknown())"
     return "z.unknown()"
+
+
+def zod_default(default_val: object) -> str | None:
+    """Return a Zod default argument for JSON-serializable OpenAPI defaults."""
+    if default_val is None:
+        return None
+    return json.dumps(default_val)
 
 
 def generate_object_schema(schema: dict, schemas: dict) -> str:
@@ -81,20 +99,20 @@ def generate_object_schema(schema: dict, schemas: dict) -> str:
         if name not in required:
             zod_type = f"{zod_type}.optional()"
         if "default" in prop:
-            default_val = prop["default"]
-            if isinstance(default_val, bool):
-                zod_type = f"{zod_type}.default({str(default_val).lower()})"
-            elif isinstance(default_val, (int, float)):
-                zod_type = f"{zod_type}.default({default_val})"
-            elif isinstance(default_val, str):
-                zod_type = f"{zod_type}.default({json.dumps(default_val)})"
-            elif default_val is None:
-                pass  # nullable already handled
+            default_arg = zod_default(prop["default"])
+            if default_arg is not None:
+                zod_type = f"{zod_type}.default({default_arg})"
         fields.append(f"  {name}: {zod_type},")
     body = "\n".join(fields)
     zod_expr = f"z.object({{\n{body}\n}})"
-    if schema.get("additionalProperties") is False:
+    additional_properties = schema.get("additionalProperties")
+    if additional_properties is False:
         zod_expr += ".strict()"
+    elif additional_properties is True:
+        zod_expr += ".passthrough()"
+    elif isinstance(additional_properties, dict):
+        catchall_schema = openapi_type_to_zod(additional_properties, schemas)
+        zod_expr += f".catchall({catchall_schema})"
     return zod_expr
 
 

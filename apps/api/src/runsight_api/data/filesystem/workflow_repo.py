@@ -23,6 +23,7 @@ import yaml as yaml_mod
 from ruamel.yaml import YAML
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.discovery import SoulScanner, WorkflowScanner
 from runsight_core.yaml.parser import (
     _validate_declared_tool_definitions,
@@ -165,6 +166,7 @@ class WorkflowRepository:
             if not isinstance(data, dict):
                 return False, "YAML content is not a mapping", []
             file_def = RunsightWorkflowFile.model_validate(data)
+            effective_workflow_input_schema(file_def)
             souls_map = SoulScanner(self.base_path).scan().ids()
             validation_result = validate_tool_governance(file_def, souls_map)
             validation_result.merge(

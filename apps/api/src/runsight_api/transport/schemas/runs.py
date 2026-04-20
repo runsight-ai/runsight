@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 from runsight_core.context_governance import ContextAuditEventV1
@@ -6,11 +6,35 @@ from runsight_core.context_governance import ContextAuditEventV1
 from .workflows import WarningItem
 
 
+class WorkflowInputValidationFieldError(BaseModel):
+    field: str
+    code: str
+    message: str
+    input_path: List[str]
+    expected_type: Optional[str]
+    actual_type: Optional[str]
+
+
+class WorkflowInputValidationErrorDetails(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    kind: Literal["workflow_input_validation"]
+    fields: List[WorkflowInputValidationFieldError]
+    workflow_id: Optional[str] = None
+
+
+class WorkflowInputValidationErrorResponse(BaseModel):
+    error: str
+    error_code: Literal["WORKFLOW_INPUT_VALIDATION_ERROR"]
+    status_code: Literal[422]
+    details: WorkflowInputValidationErrorDetails
+
+
 class RunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workflow_id: str
-    inputs: Dict[str, Any] = Field(default_factory=dict)
+    inputs: Dict[str, Any] = Field(default_factory=dict, json_schema_extra={"default": {}})
     source: Optional[str] = "manual"
     branch: str = "main"
 
@@ -48,6 +72,8 @@ class RunResponse(BaseModel):
     parent_run_id: Optional[str] = None
     root_run_id: Optional[str] = None
     depth: int = 0
+    workflow_inputs: Optional[Dict[str, Any]] = None
+    workflow_input_schema: Optional[Dict[str, Any]] = None
 
 
 class RunListResponse(BaseModel):

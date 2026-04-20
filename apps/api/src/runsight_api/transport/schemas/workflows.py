@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class CanvasViewport(BaseModel):
@@ -33,6 +33,16 @@ class WarningItem(BaseModel):
     model_config = {"json_schema_extra": {"additionalProperties": False}}
 
 
+class WorkflowInputSchemaItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: Literal["string", "number", "boolean", "json", "array"]
+    required: Optional[bool] = None
+    default: Any | None = None
+    description: str | None = None
+    sensitive: Optional[bool] = None
+
+
 class WorkflowResponse(BaseModel):
     kind: Literal["workflow"]
     id: str
@@ -51,6 +61,7 @@ class WorkflowResponse(BaseModel):
     enabled: bool = False
     commit_sha: str | None = None
     health: WorkflowHealthMetrics = Field(default_factory=WorkflowHealthMetrics)
+    input_schema: Dict[str, WorkflowInputSchemaItem] | None = None
 
 
 class WorkflowListResponse(BaseModel):
@@ -93,6 +104,7 @@ class WorkflowSimulationCreate(BaseModel):
 class WorkflowSimulationResponse(BaseModel):
     branch: str
     commit_sha: str
+    input_schema: Dict[str, WorkflowInputSchemaItem]
 
 
 class WorkflowDeleteResponse(BaseModel):

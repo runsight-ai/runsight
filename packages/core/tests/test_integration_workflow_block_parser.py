@@ -76,7 +76,7 @@ transitions:
             "type": "workflow",
             "workflow_ref": "child_analysis",
             "inputs": {"topic": "shared_memory.research_topic"},
-            "outputs": {"results.analysis": "final"},
+            "outputs": {"results.analysis": "results.final"},
             "max_depth": 5,
         }
         _block_adapter = TypeAdapter(BlockDef)
@@ -84,7 +84,7 @@ transitions:
         assert block_def.type == "workflow"
         assert block_def.workflow_ref == "child_analysis"
         assert block_def.inputs == {"topic": "shared_memory.research_topic"}
-        assert block_def.outputs == {"results.analysis": "final"}
+        assert block_def.outputs == {"results.analysis": "results.final"}
         assert block_def.max_depth == 5
 
 
@@ -272,7 +272,7 @@ transitions:
         block = WorkflowBlock(
             block_id="sub_workflow",
             child_workflow=child_wf,
-            inputs={"shared_memory.data": "shared_memory.parent_data"},
+            inputs={"data": "shared_memory.parent_data"},
             outputs={"results.child_out": "results.child_result"},
         )
 
@@ -284,12 +284,11 @@ transitions:
         # Execute
         result = await _exec(block, parent_state)
 
-        # Verify child received isolated state
         call_args = child_wf.run.call_args
         child_state_arg = call_args[0][0]
 
-        # Child should only have mapped inputs
-        assert child_state_arg.shared_memory.get("data") == "important"
+        assert call_args.kwargs["inputs"] == {"data": "important"}
+        assert child_state_arg.shared_memory == {}
         # Child should not have parent's other data
         assert "existing" not in child_state_arg.results
 
@@ -472,14 +471,14 @@ transitions:
         block = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
-            inputs={"shared_memory.input": "shared_memory.source"},
+            inputs={"input": "shared_memory.source"},
             outputs={"results.output": "results.final"},
             max_depth=10,
         )
 
         assert block.block_id == "invoke_child"
         assert block.child_workflow.name == "child"
-        assert block.inputs == {"shared_memory.input": "shared_memory.source"}
+        assert block.inputs == {"input": "shared_memory.source"}
         assert block.outputs == {"results.output": "results.final"}
         assert block.max_depth == 10
 

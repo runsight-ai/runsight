@@ -267,10 +267,6 @@ class TestParserOnErrorWiring:
             "id": "child_wf",
             "kind": "workflow",
             "version": "1.0",
-            "interface": {
-                "inputs": [],
-                "outputs": [],
-            },
             "blocks": {
                 "step1": {
                     "type": "code",

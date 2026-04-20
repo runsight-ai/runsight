@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useRunContextAudit, useRunContextAuditStream, useRunLogs, useRunRegressions, useRuns } from "@/queries/runs";
-import { useWorkflowRegressions } from "@/queries/workflows";
+import { useRunContextAudit, useRunContextAuditStream, useRunLogs, useRunRegressions, useRuns, useCreateRun } from "@/queries/runs";
+import { useWorkflow, useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
 import { mapSSEEventToStoreAction } from "./useRunStream";
 import { useNavigate } from "react-router";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
+import { RunInputsModal } from "./RunInputsModal";
+import type { RunResponse, WorkflowInputSchemaItem } from "@runsight/shared/zod";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
 import { useContextAuditStore } from "@/store/contextAudit";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
@@ -37,6 +39,15 @@ type RegressionsData = {
 
 type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
   regressionsData?: RegressionsData;
+};
+
+type RerunModalState = {
+  workflow: {
+    id: string;
+    name?: unknown;
+    input_schema?: unknown;
+  };
+  initialValues: Record<string, unknown>;
 };
 
 type AuditPanelWithQueryProps = {
@@ -101,6 +112,7 @@ function SurfaceBottomPanelContent({
   const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
   const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
+  const [rerunModalState, setRerunModalState] = useState<RerunModalState | null>(null);
   const navigate = useNavigate();
 
   const activeRunId = useCanvasStore((s) => s.activeRunId);
@@ -108,6 +120,8 @@ function SurfaceBottomPanelContent({
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
   const setRunCost = useCanvasStore((s) => s.setRunCost);
   const replaceContextAuditEvents = useContextAuditStore((s) => s.replaceRunEvents);
+  const createRun = useCreateRun();
+  const { data: workflow } = useWorkflow(workflowId ?? "");
 
   const { data: runsData } = useRuns(
     workflowId ? { workflow_id: workflowId } : undefined,
@@ -217,6 +231,62 @@ function SurfaceBottomPanelContent({
     setSelectedRunId(runId);
     setActiveTab("logs");
   };
+
+  function openRerunModal(run: RunResponse) {
+    if (!workflow) {
+      return;
+    }
+
+    const workflowInputSchema = workflow.input_schema;
+    if (!hasWorkflowInputs(workflowInputSchema)) {
+      void createRunRequest({}).catch(() => undefined);
+      return;
+    }
+
+    setRerunModalState({
+      workflow: {
+        id: workflow.id,
+        name: workflow.name,
+        input_schema: workflowInputSchema,
+      },
+      initialValues: getRerunInitialValues(workflowInputSchema, run.workflow_inputs),
+    });
+  }
+
+  function closeRerunModal(nextOpen: boolean) {
+    if (!nextOpen) {
+      setRerunModalState(null);
+    }
+  }
+
+  function createRunRequest(inputs: Record<string, unknown>) {
+    const workflowIdToUse = workflow?.id ?? workflowId;
+
+    if (!workflowIdToUse) {
+      return Promise.reject(new Error("Workflow is unavailable."));
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      createRun.mutate(
+        {
+          workflow_id: workflowIdToUse,
+          inputs,
+          source: "manual",
+          branch: "main",
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        },
+      );
+    });
+  }
 
   return (
     <div
@@ -331,11 +401,16 @@ function SurfaceBottomPanelContent({
         </div>
       )}
       {isExpanded && activeTab === "runs" && (
-        <div data-testid="workflow-runs-panel" className="overflow-auto flex-1">
+        <div
+          data-testid="workflow-runs-panel"
+          aria-hidden={rerunModalState ? true : undefined}
+          className="overflow-auto flex-1"
+        >
           <SurfaceRunsTable
             runs={sortedRuns}
             currentRunId={currentRunId}
             onRowClick={onRunSelect}
+            onRerun={openRerunModal}
           />
         </div>
       )}
@@ -370,6 +445,20 @@ function SurfaceBottomPanelContent({
           />
         </div>
       )}
+      {rerunModalState ? (
+        <RunInputsModal
+          open
+          workflow={rerunModalState.workflow}
+          initialValues={rerunModalState.initialValues}
+          submitLabel="Rerun"
+          submitting={createRun.isPending}
+          onOpenChange={closeRerunModal}
+          onSubmit={async (inputs) => {
+            await createRunRequest(inputs);
+            setRerunModalState(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -410,4 +499,50 @@ export function SurfaceBottomPanel(props: SurfaceBottomPanelProps) {
   }
 
   return <WorkflowScopedSurfaceBottomPanel {...props} />;
+}
+
+type WorkflowInputSnapshotEntry = {
+  sensitive?: boolean;
+  value?: unknown;
+};
+
+function hasWorkflowInputs(
+  inputSchema: unknown,
+): inputSchema is Record<string, WorkflowInputSchemaItem> {
+  return inputSchema !== null && typeof inputSchema === "object" && !Array.isArray(inputSchema) && Object.keys(inputSchema).length > 0;
+}
+
+function getRerunInitialValues(
+  schema: Record<string, WorkflowInputSchemaItem>,
+  workflowInputs: RunResponse["workflow_inputs"],
+) {
+  if (!workflowInputs || typeof workflowInputs !== "object" || Array.isArray(workflowInputs)) {
+    return {};
+  }
+
+  const initialValues: Record<string, unknown> = {};
+  for (const [name, item] of Object.entries(schema)) {
+    if (item.sensitive === true) {
+      continue;
+    }
+
+    const snapshotEntry = workflowInputs[name];
+    if (!isWorkflowInputSnapshotEntry(snapshotEntry) || !Object.hasOwn(snapshotEntry, "value")) {
+      continue;
+    }
+
+    if (snapshotEntry.sensitive !== false) {
+      continue;
+    }
+
+    if (snapshotEntry.value !== undefined) {
+      initialValues[name] = snapshotEntry.value;
+    }
+  }
+
+  return initialValues;
+}
+
+function isWorkflowInputSnapshotEntry(value: unknown): value is WorkflowInputSnapshotEntry {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

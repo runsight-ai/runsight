@@ -30,6 +30,19 @@ def run_service(run_repo, workflow_repo):
     return RunService(run_repo, workflow_repo)
 
 
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
+
+
 # --- create_run ---
 
 
@@ -38,7 +51,7 @@ def test_create_run_happy_path(run_service, run_repo, workflow_repo):
     workflow_repo.get_by_id.return_value = Mock(id="wf_1")
     run_repo.create_run.return_value = None  # create_run mutates and passes run
 
-    run = run_service.create_run("wf_1", {"foo": "bar", "task_id": "t1"})
+    run = run_service.create_run("wf_1", _prepared({"foo": "bar", "task_id": "t1"}))
 
     assert run.workflow_id == "wf_1"
     assert run.workflow_name == "wf_1"
@@ -56,7 +69,7 @@ def test_create_run_workflow_not_found(run_service, workflow_repo):
     workflow_repo.get_by_id.return_value = None
 
     with pytest.raises(WorkflowNotFound) as exc_info:
-        run_service.create_run("non_existent", {"foo": "bar"})
+        run_service.create_run("non_existent", _prepared({"foo": "bar"}))
 
     assert "non_existent" in str(exc_info.value)
 
@@ -71,7 +84,7 @@ def test_create_run_accepts_branch_and_source(run_service, run_repo, workflow_re
 
     run = run_service.create_run(
         "wf_1",
-        {"instruction": "go"},
+        _prepared({"instruction": "go"}),
         source="simulation",
         branch="sim/wf_1/20260330/abc12",
     )
@@ -88,7 +101,7 @@ def test_create_run_empty_task_data(run_service, run_repo, workflow_repo):
     workflow_repo.get_by_id.return_value = Mock(id="wf_1")
     run_repo.create_run.return_value = None
 
-    run = run_service.create_run("wf_1", {})
+    run = run_service.create_run("wf_1", _prepared())
 
     assert run.task_json == "{}"
     assert run.workflow_id == "wf_1"

@@ -4,8 +4,12 @@ import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from runsight_core.context_governance import ContextAuditEventV1
+from runsight_core.context_governance import (
+    ContextAuditEventV1,
+    redact_context_audit_event_preview,
+)
 from runsight_core.primitives import Soul
+from runsight_core.redaction import redact_runtime_value_for_state, redact_text_for_state
 from runsight_core.state import WorkflowState
 
 from ...domain.events import (
@@ -84,17 +88,22 @@ class StreamingObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
         self.queue.put_nowait(
-            {
-                "event": SSE_NODE_FAILED,
-                "data": {
-                    "node_id": block_id,
-                    "block_type": block_type,
-                    "duration_s": duration_s,
-                    "error": str(error),
+            redact_runtime_value_for_state(
+                {
+                    "event": SSE_NODE_FAILED,
+                    "data": {
+                        "node_id": block_id,
+                        "block_type": block_type,
+                        "duration_s": duration_s,
+                        "error": str(error),
+                    },
                 },
-            }
+                state,
+            )
         )
 
     def on_workflow_complete(
@@ -149,13 +158,20 @@ class StreamingObserver:
             }
         )
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         self.queue.put_nowait(
             {
                 "event": SSE_RUN_FAILED,
                 "data": {
                     "run_id": self.run_id,
-                    "error": str(error),
+                    "error": redact_text_for_state(str(error), state),
                     "duration_s": duration_s,
                 },
             }
@@ -163,6 +179,7 @@ class StreamingObserver:
         self.is_done = True
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
+        event = redact_context_audit_event_preview(event)
         self.queue.put_nowait(
             {
                 "event": SSE_CONTEXT_RESOLUTION,

@@ -5,6 +5,22 @@
 3. Default model_name fallback to 'gpt-4o' when config.model_name is missing
 """
 
+from unittest.mock import Mock
+
+
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
+
+
 # ---------------------------------------------------------------------------
 # 1. WorkflowEntity.name from YAML
 # ---------------------------------------------------------------------------
@@ -142,8 +158,6 @@ class TestRunStartedAtDefault:
 class TestCreateRunStartedAt:
     def test_create_run_does_not_set_started_at(self):
         """RunService.create_run should leave started_at as None (pending, not yet running)."""
-        from unittest.mock import Mock
-
         from runsight_api.domain.entities.run import RunStatus
         from runsight_api.logic.services.run_service import RunService
 
@@ -153,7 +167,7 @@ class TestCreateRunStartedAt:
         run_repo.create_run.return_value = None
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("wf_1", {"instruction": "test"})
+        run = svc.create_run("wf_1", _prepared({"instruction": "test"}))
 
         # started_at should be None — execution hasn't started yet
         assert run.started_at is None

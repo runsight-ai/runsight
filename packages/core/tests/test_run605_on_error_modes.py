@@ -26,11 +26,6 @@ from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.workflow_block import WorkflowBlock, WorkflowBlockDef
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
-from runsight_core.yaml.schema import (
-    WorkflowInterfaceDef,
-    WorkflowInterfaceInputDef,
-    WorkflowInterfaceOutputDef,
-)
 
 
 async def _exec(block, state, **extra_inputs):
@@ -88,16 +83,6 @@ def _build_child_workflow(name: str, block: object) -> Workflow:
     return wf
 
 
-def _make_interface(
-    inputs: list[dict] | None = None,
-    outputs: list[dict] | None = None,
-) -> WorkflowInterfaceDef:
-    return WorkflowInterfaceDef(
-        inputs=[WorkflowInterfaceInputDef(**i) for i in (inputs or [])],
-        outputs=[WorkflowInterfaceOutputDef(**o) for o in (outputs or [])],
-    )
-
-
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -112,10 +97,6 @@ class TestOnErrorModes:
         AC1: With on_error="raise" (explicit), the child exception must
         propagate to the caller unchanged.
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         child_block = _FailingBlock("fail_block", error_msg="kaboom")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -124,7 +105,6 @@ class TestOnErrorModes:
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="raise",
         )
 
@@ -141,10 +121,6 @@ class TestOnErrorModes:
         Instead, execute() returns a WorkflowState where the BlockResult
         for this block has exit_handle="error".
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         child_block = _FailingBlock("fail_block", error_msg="child exploded")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -153,7 +129,6 @@ class TestOnErrorModes:
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="catch",
         )
 
@@ -176,10 +151,6 @@ class TestOnErrorModes:
         AC3: With on_error="catch", the BlockResult.metadata must include
         child_status="failed" so parent and child status are distinguishable.
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         child_block = _FailingBlock("fail_block")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -188,7 +159,6 @@ class TestOnErrorModes:
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="catch",
         )
 
@@ -209,10 +179,6 @@ class TestOnErrorModes:
         AC3 (extended): metadata should include the error message so the
         parent workflow can inspect what went wrong without re-raising.
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         child_block = _FailingBlock("fail_block", error_msg="timeout reached")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -221,7 +187,6 @@ class TestOnErrorModes:
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="catch",
         )
 
@@ -244,11 +209,6 @@ class TestOnErrorModes:
         happen (child state is incomplete/absent). The parent state should
         remain unchanged except for the WorkflowBlock's own BlockResult.
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "summary", "source": "results.writer"}],
-        )
-
         child_block = _FailingBlock("writer", error_msg="writer crashed")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -256,8 +216,7 @@ class TestOnErrorModes:
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.analysis": "summary"},
-            interface=interface,
+            outputs={"results.analysis": "results.writer"},
             on_error="catch",
         )
 
@@ -282,10 +241,6 @@ class TestOnErrorModes:
         When on_error is NOT specified, the default behavior must be
         identical to on_error="raise" — the child exception propagates.
         """
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         child_block = _FailingBlock("fail_block", error_msg="default should raise")
         child_wf = _build_child_workflow("child_wf", child_block)
 
@@ -295,7 +250,6 @@ class TestOnErrorModes:
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="raise",
         )
 

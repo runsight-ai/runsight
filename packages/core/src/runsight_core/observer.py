@@ -14,6 +14,7 @@ Usage:
 """
 
 import hashlib
+import inspect
 import json
 import logging
 import time
@@ -24,6 +25,7 @@ from typing import Any, Dict, Optional, Protocol, runtime_checkable
 from runsight_core.context_governance import ContextAuditEventV1
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.primitives import Soul
+from runsight_core.redaction import redact_text_for_state
 from runsight_core.state import WorkflowState
 
 
@@ -75,6 +77,8 @@ class WorkflowObserver(Protocol):
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None: ...
 
     def on_workflow_complete(
@@ -91,7 +95,12 @@ class WorkflowObserver(Protocol):
     ) -> None: ...
 
     def on_workflow_error(
-        self, workflow_name: str, error: Exception, duration_s: float
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
     ) -> None: ...
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None: ...
@@ -152,14 +161,17 @@ class LoggingObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
+        message = redact_text_for_state(str(error), state)
         self.logger.error(
             "[%s] Block error: %s (%.1fs) — %s: %s",
             workflow_name,
             block_id,
             duration_s,
             type(error).__name__,
-            error,
+            message,
         )
 
     def on_workflow_complete(
@@ -191,13 +203,21 @@ class LoggingObserver:
             detail,
         )
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
+        message = redact_text_for_state(str(error), state)
         self.logger.error(
             "[%s] Workflow failed (%.1fs) — %s: %s",
             workflow_name,
             duration_s,
             type(error).__name__,
-            error,
+            message,
         )
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
@@ -274,6 +294,8 @@ class FileObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
         self._write(
             "block_error",
@@ -282,7 +304,7 @@ class FileObserver:
                 "block_id": block_id,
                 "block_type": block_type,
                 "duration_s": round(duration_s, 2),
-                "error": f"{type(error).__name__}: {error}",
+                "error": f"{type(error).__name__}: {redact_text_for_state(str(error), state)}",
             },
         )
 
@@ -317,13 +339,20 @@ class FileObserver:
             },
         )
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         self._write(
             "workflow_error",
             {
                 "workflow": workflow_name,
                 "duration_s": round(duration_s, 2),
-                "error": f"{type(error).__name__}: {error}",
+                "error": f"{type(error).__name__}: {redact_text_for_state(str(error), state)}",
             },
         )
 
@@ -332,6 +361,20 @@ class FileObserver:
 
 
 _composite_logger = logging.getLogger("runsight.observer.composite")
+
+
+def _filtered_observer_kwargs(method: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        signature = inspect.signature(method)
+    except (TypeError, ValueError):
+        return kwargs
+    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
+        return kwargs
+    return {key: value for key, value in kwargs.items() if key in signature.parameters}
+
+
+def _call_observer_method(method: Any, *args: Any, **kwargs: Any) -> None:
+    method(*args, **_filtered_observer_kwargs(method, kwargs))
 
 
 class ChildObserverWrapper:
@@ -382,8 +425,21 @@ class ChildObserverWrapper:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
-        self._parent.on_block_error(workflow_name, block_id, block_type, duration_s, error)
+        kwargs: Dict[str, Any] = {}
+        if state is not None:
+            kwargs["state"] = state
+        _call_observer_method(
+            self._parent.on_block_error,
+            workflow_name,
+            block_id,
+            block_type,
+            duration_s,
+            error,
+            **kwargs,
+        )
 
     def on_block_heartbeat(
         self,
@@ -408,7 +464,14 @@ class ChildObserverWrapper:
     ) -> None:
         pass  # child completion is NOT terminal for parent
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         pass  # child error is NOT terminal for parent
 
 
@@ -465,12 +528,25 @@ class CompositeObserver:
                 child_observers.append(ChildObserverWrapper(obs))
         return CompositeObserver(*child_observers)
 
+    def record_workflow_input_snapshot(self, input_schema: Any, inputs: Any, **kwargs: Any) -> None:
+        for obs in self.observers:
+            recorder = getattr(obs, "record_workflow_input_snapshot", None)
+            if callable(recorder):
+                self._safe_call(
+                    obs,
+                    "record_workflow_input_snapshot",
+                    input_schema,
+                    inputs,
+                    **kwargs,
+                )
+
     def _safe_call(
         self, obs: WorkflowObserver, method_name: str, *args: Any, **kwargs: Any
     ) -> None:
         """Call a method on an observer, catching and logging any exception."""
         try:
-            getattr(obs, method_name)(*args, **kwargs)
+            method = getattr(obs, method_name)
+            _call_observer_method(method, *args, **kwargs)
         except Exception:
             _composite_logger.warning(
                 "Observer %s.%s failed", type(obs).__name__, method_name, exc_info=True
@@ -527,10 +603,22 @@ class CompositeObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
+        kwargs: Dict[str, Any] = {}
+        if state is not None:
+            kwargs["state"] = state
         for obs in self.observers:
             self._safe_call(
-                obs, "on_block_error", workflow_name, block_id, block_type, duration_s, error
+                obs,
+                "on_block_error",
+                workflow_name,
+                block_id,
+                block_type,
+                duration_s,
+                error,
+                **kwargs,
             )
 
     def on_workflow_complete(
@@ -558,9 +646,19 @@ class CompositeObserver:
                 timestamp,
             )
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
+        kwargs: Dict[str, Any] = {}
+        if state is not None:
+            kwargs["state"] = state
         for obs in self.observers:
-            self._safe_call(obs, "on_workflow_error", workflow_name, error, duration_s)
+            self._safe_call(obs, "on_workflow_error", workflow_name, error, duration_s, **kwargs)
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
         for obs in self.observers:

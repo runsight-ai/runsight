@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
 from pydantic import BaseModel
+from yaml.constructor import ConstructorError
 
 if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
@@ -27,6 +28,8 @@ from runsight_core.primitives import Soul, Step
 from runsight_core.runner import RunsightTeamRunner
 from runsight_core.tools._catalog import RESERVED_BUILTIN_TOOL_IDS, resolve_tool_id
 from runsight_core.workflow import Workflow
+from runsight_core.workflow_contract_names import RESERVED_WORKFLOW_CONTRACT_NAMES
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.discovery import (
     AssertionScanner,
     SoulScanner,
@@ -50,20 +53,41 @@ from runsight_core.yaml.validation import ValidationResult
 SUPPORTED_VERSIONS: frozenset[str] = frozenset({"1.0"})
 _UNSET_RUNNER_MODEL_NAME = "__runsight_explicit_model_required__"
 _RESERVED_CONTEXT_BLOCK_IDS = frozenset({"workflow", "results", "shared_memory", "metadata"})
-_RESERVED_BLOCK_INPUT_NAMES = frozenset(
-    {
-        "workflow",
-        "results",
-        "shared_memory",
-        "metadata",
-        "blocks",
-        "ctx",
-        "call_stack",
-        "workflow_registry",
-        "observer",
-    }
-)
+_RESERVED_BLOCK_INPUT_NAMES = RESERVED_WORKFLOW_CONTRACT_NAMES
 logger = logging.getLogger(__name__)
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def _construct_mapping_with_unique_keys(
+    loader: yaml.SafeLoader,
+    node: yaml.Node,
+    deep: bool = False,
+) -> dict[Any, Any]:
+    if not isinstance(node, yaml.MappingNode):
+        raise ConstructorError(
+            None, None, f"expected a mapping node, but found {node.id}", node.start_mark
+        )
+    loader.flatten_mapping(node)
+    seen: set[Any] = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise ValueError(f"duplicate YAML mapping key: {key!r}")
+        seen.add(key)
+    return yaml.SafeLoader.construct_mapping(loader, node, deep=deep)
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_mapping_with_unique_keys,
+)
+
+
+def _safe_load_unique_keys(raw_yaml: str) -> Any:
+    return yaml.load(raw_yaml, Loader=_UniqueKeySafeLoader)
 
 
 def _bootstrap_runner_model_name(souls_map: Dict[str, Soul]) -> str:
@@ -598,9 +622,9 @@ def _normalize_workflow_input(
             )
             require_custom_metadata = True
             with open(stripped, "r", encoding="utf-8") as f:
-                raw: Any = yaml.safe_load(f)
+                raw: Any = _safe_load_unique_keys(f.read())
         else:
-            raw = yaml.safe_load(yaml_str_or_dict)
+            raw = _safe_load_unique_keys(yaml_str_or_dict)
     else:
         raw = yaml_str_or_dict
 
@@ -719,6 +743,8 @@ def _context_ref_dependency_source_id(from_ref: str) -> str | None:
     if root in {"metadata", "shared_memory"}:
         return None
     if root == "workflow":
+        if len(parts) < 2:
+            raise ValueError("workflow context references must name an input")
         return None
     if root == "results":
         if len(parts) < 2:
@@ -897,7 +923,10 @@ def _assemble_workflow(
     built_blocks: Dict[str, Any],
 ) -> Workflow:
     """Assemble, wire, and validate the final Workflow object."""
-    wf = Workflow(name=file_def.workflow.name)
+    wf = Workflow(
+        name=file_def.workflow.name,
+        input_schema=effective_workflow_input_schema(file_def),
+    )
     wf.identity = file_def.id
     for block in built_blocks.values():
         wf.add_block(block)

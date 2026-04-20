@@ -330,10 +330,6 @@ class TestErrorRouteParserPlumbing:
                 "id": "child-workflow",
                 "kind": "workflow",
                 "version": "1.0",
-                "interface": {
-                    "inputs": [],
-                    "outputs": [],
-                },
                 "blocks": {
                     "child_step": {
                         "type": "code",

@@ -4,9 +4,9 @@ BlockContext and BlockOutput models, apply_block_output, and build_block_context
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, field_validator
 
 from runsight_core.artifacts import ArtifactStore
 from runsight_core.context_governance import (
@@ -19,6 +19,7 @@ from runsight_core.context_governance import (
 )
 from runsight_core.memory.budget import ContextBudgetRequest, fit_to_budget
 from runsight_core.primitives import Soul
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 if TYPE_CHECKING:
@@ -53,6 +54,8 @@ class BlockContext(BaseModel):
 class BlockOutput(BaseModel):
     """Output produced by a block after execution."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     output: str
     exit_handle: Optional[str] = None
     artifact_ref: Optional[str] = None
@@ -66,6 +69,10 @@ class BlockOutput(BaseModel):
     shared_memory_updates: Optional[Dict[str, Any]] = None
     extra_results: Optional[Dict[str, Any]] = None
     metadata_updates: Optional[Dict[str, Any]] = None
+    input_redactor: Optional[Annotated[RunRedactor, SkipValidation]] = Field(
+        default=None,
+        exclude=True,
+    )
 
 
 def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput) -> WorkflowState:
@@ -118,6 +125,8 @@ def apply_block_output(state: WorkflowState, block_id: str, output: BlockOutput)
         "conversation_histories": new_conversation_histories,
         "metadata": new_metadata,
     }
+    if output.input_redactor is not None:
+        state_updates["input_redactor"] = output.input_redactor
     return state.model_copy(update=state_updates)
 
 
@@ -224,6 +233,7 @@ def _scoped_state_snapshot(
     """Build a state snapshot containing only resolver-scoped data."""
     return WorkflowState(
         execution_log=[],
+        workflow_inputs=dict(scoped_context.scoped_workflow_inputs),
         shared_memory=dict(scoped_context.scoped_shared_memory),
         results=dict(scoped_context.scoped_results),
         metadata=dict(scoped_context.scoped_metadata),
@@ -231,6 +241,7 @@ def _scoped_state_snapshot(
         total_tokens=state.total_tokens,
         conversation_histories=_scoped_conversation_histories(state, block),
         artifact_store=state.artifact_store,
+        input_redactor=state.input_redactor,
     )
 
 
@@ -267,7 +278,7 @@ def build_block_context(
     Instruction and context are sourced from:
     - state.shared_memory["_resolved_inputs"] (populated by the Step wrapper)
     - The block soul's system_prompt (for LinearBlock instruction)
-    - state.results["workflow"] (virtual block result seeded by the API for external input)
+    - state.workflow_inputs for declared workflow invocation inputs
     - Block-type-specific logic (GateBlock, DispatchBlock, SynthesizeBlock, etc.)
 
     Args:

@@ -29,11 +29,6 @@ from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
-from runsight_core.yaml.schema import (
-    WorkflowInterfaceDef,
-    WorkflowInterfaceInputDef,
-    WorkflowInterfaceOutputDef,
-)
 
 
 async def _exec(block, state, **extra_inputs):
@@ -147,16 +142,6 @@ def _build_workflow(name: str, *blocks: BaseBlock, entry: str) -> Workflow:
     return wf
 
 
-def _make_interface(
-    inputs: list[dict] | None = None,
-    outputs: list[dict] | None = None,
-) -> WorkflowInterfaceDef:
-    return WorkflowInterfaceDef(
-        inputs=[WorkflowInterfaceInputDef(**i) for i in (inputs or [])],
-        outputs=[WorkflowInterfaceOutputDef(**o) for o in (outputs or [])],
-    )
-
-
 # ===========================================================================
 # AC1: WorkflowBlock on_error="catch" + error_route combination
 # ===========================================================================
@@ -186,16 +171,11 @@ class TestWorkflowBlockOnErrorCatchWithErrorRoute:
         child_fail = _FailingBlock("child_step", error_msg="child exploded")
         child_wf = _build_workflow("failing_child", child_fail, entry="child_step")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="catch",
         )
 
@@ -242,16 +222,11 @@ class TestWorkflowBlockOnErrorCatchWithErrorRoute:
         child_fail = _FailingBlock("child_step", error_msg="timeout reached")
         child_wf = _build_workflow("failing_child", child_fail, entry="child_step")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            interface=interface,
             on_error="catch",
         )
 
@@ -350,17 +325,11 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         child_block = _WriteBlock("child_writer", output="analysis complete")
         child_wf = _build_workflow("child_wf", child_block, entry="child_writer")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "summary", "source": "results.child_writer"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.mapped_summary": "summary"},
-            interface=interface,
+            outputs={"results.mapped_summary": "results.child_writer"},
         )
 
         parent_state = WorkflowState(
@@ -375,7 +344,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             "Output mapping must transfer child result to parent under mapped key"
         )
         # The mapped value should be the child's output
-        assert mapped == "analysis complete", (
+        assert mapped == BlockResult(output="analysis complete"), (
             f"Mapped output must match child's output, got {mapped!r}"
         )
 
@@ -391,18 +360,12 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         child_wf = _build_workflow("child_wf", writer_a, writer_b, entry="writer_a")
         child_wf.add_transition("writer_a", "writer_b")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "output_a", "source": "results.writer_a"}],
-        )
-
         # Only map writer_a's output; writer_b should NOT leak to parent
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.parent_a": "output_a"},
-            interface=interface,
+            outputs={"results.parent_a": "results.writer_a"},
         )
 
         parent_state = WorkflowState(
@@ -413,7 +376,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
 
         # Mapped key present
         assert "parent_a" in final_state.results, "Mapped child result must appear in parent"
-        assert final_state.results["parent_a"] == "result A"
+        assert final_state.results["parent_a"] == BlockResult(output="result A")
 
         # Unmapped keys absent — writer_b's result should NOT leak
         assert "writer_b" not in final_state.results, (
@@ -431,17 +394,11 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         child_block = _WriteBlock("child_writer", output="done")
         child_wf = _build_workflow("child_wf", child_block, entry="child_writer")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "out", "source": "results.child_writer"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.parent_out": "out"},
-            interface=interface,
+            outputs={"results.parent_out": "results.child_writer"},
         )
 
         parent_state = WorkflowState(
@@ -465,17 +422,11 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         child_block = _WriteBlock("child_writer", output="mapped_value")
         child_wf = _build_workflow("child_wf", child_block, entry="child_writer")
 
-        interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "out", "source": "results.child_writer"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"shared_memory.parent_output": "out"},
-            interface=interface,
+            outputs={"shared_memory.parent_output": "results.child_writer"},
         )
 
         parent_state = WorkflowState(
@@ -499,19 +450,12 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             "child_code.yaml",
             """\
             version: "1.0"
-            interface:
-              inputs:
-                - name: topic
-                  target: shared_memory.topic
-              outputs:
-                - name: analysis
-                  source: results.analyzer
             blocks:
               analyzer:
                 type: code
                 inputs:
                   topic:
-                    from: shared_memory.topic
+                    from: workflow.topic
                 code: |
                   def main(data):
                       topic = data.get("topic", "unknown")
@@ -523,19 +467,11 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         )
         child_wf = parse_workflow_yaml(child_yaml_path)
 
-        # Build interface manually (Workflow object doesn't store it;
-        # the parser reads it from RunsightWorkflowFile.interface)
-        child_interface = _make_interface(
-            inputs=[{"name": "topic", "target": "shared_memory.topic"}],
-            outputs=[{"name": "analysis", "source": "results.analyzer"}],
-        )
-
         wb = WorkflowBlock(
             block_id="invoke_child",
             child_workflow=child_wf,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.parent_analysis": "analysis"},
-            interface=child_interface,
+            outputs={"results.parent_analysis": "results.analyzer"},
         )
 
         parent_state = WorkflowState(
@@ -550,6 +486,8 @@ class TestWorkflowBlockOutputMappingOnSuccess:
             "CodeBlock child output must be mapped to parent results"
         )
         # CodeBlock returns JSON-serialized output
+        if isinstance(parent_analysis, BlockResult):
+            parent_analysis = parent_analysis.output
         parsed = (
             json.loads(parent_analysis) if isinstance(parent_analysis, str) else parent_analysis
         )

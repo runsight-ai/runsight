@@ -27,10 +27,6 @@ def _code_workflow(name: str, *, entry: str = "step") -> dict:
         "version": "1.0",
         "id": name,
         "kind": "workflow",
-        "interface": {
-            "inputs": [],
-            "outputs": [],
-        },
         "blocks": {
             entry: {
                 "type": "code",
@@ -139,10 +135,6 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
         "version": "1.0",
         "id": "child_workflow",
         "kind": "workflow",
-        "interface": {
-            "inputs": [],
-            "outputs": [],
-        },
         "blocks": {
             "invoke_grandchild": {
                 "type": "workflow",

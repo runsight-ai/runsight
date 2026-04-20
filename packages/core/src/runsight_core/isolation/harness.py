@@ -254,6 +254,7 @@ class SubprocessHarness:
             tools=[],
             prompt=PromptEnvelope(id="task-0", instruction="", context={}),
             inputs=dict(scoped.inputs),
+            scoped_workflow_inputs=dict(scoped.scoped_workflow_inputs),
             scoped_results=_serialize_scoped_results(scoped.scoped_results),
             scoped_shared_memory=dict(scoped.scoped_shared_memory),
             scoped_metadata=dict(scoped.scoped_metadata),

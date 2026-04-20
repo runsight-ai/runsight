@@ -15,7 +15,8 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
+from runsight_core.redaction import RunRedactor
 
 # ======================================================================
 # C1 — Single status writer (RUN-326)
@@ -75,6 +76,13 @@ class TestObserverWritesTerminalStatus:
 # ======================================================================
 
 
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
+
+
 class TestFreshSessionPerOperation:
     """ExecutionService.launch_execution must not rely on a long-lived
     run_repo for its error-path DB writes. It should create its own
@@ -113,7 +121,11 @@ class TestFreshSessionPerOperation:
             engine=db_engine,
         )
 
-        await svc.launch_execution(run_id, "wf_missing", {"instruction": "test"})
+        await svc.launch_execution(
+            run_id,
+            "wf_missing",
+            _prepared_inputs({"instruction": "test"}),
+        )
         await asyncio.sleep(0.05)
 
         # run_repo.get_run should NOT have been called (fresh session used instead)

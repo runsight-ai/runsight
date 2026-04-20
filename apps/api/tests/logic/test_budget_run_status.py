@@ -18,12 +18,21 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.budget_enforcement import BudgetKilledException
+from runsight_core.redaction import RunRedactor
 
 
 # ---------------------------------------------------------------------------
 # Part 1: Run model — fail_reason / fail_metadata fields
 # ---------------------------------------------------------------------------
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 class TestRunModelBudgetFields:
@@ -261,7 +270,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -309,7 +322,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -357,7 +374,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -411,7 +432,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -465,7 +490,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -511,7 +540,11 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:

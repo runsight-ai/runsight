@@ -48,6 +48,9 @@ def _create_run(
     root_run_id: str | None = None,
     depth: int = 0,
     warnings_json: list[dict[str, str | None]] | None = None,
+    branch: str = "main",
+    source: str = "manual",
+    commit_sha: str | None = None,
 ) -> Run:
     """Insert a Run record with optional parent-child fields."""
     run = Run(
@@ -61,6 +64,9 @@ def _create_run(
         root_run_id=root_run_id,
         depth=depth,
         warnings_json=warnings_json,
+        branch=branch,
+        source=source,
+        commit_sha=commit_sha,
     )
     session.add(run)
     session.commit()
@@ -245,6 +251,59 @@ class TestChildRunCreatedAsSeparateRecord:
             assert child.depth == 1
             assert child.parent_run_id == "parent_run"
             assert child.id != "parent_run"
+
+    def test_child_run_copies_parent_branch_source_and_commit_identity(self, db_engine):
+        """Child runs must preserve the invocation identity of branch/simulation parents."""
+        with Session(db_engine) as session:
+            _create_run(
+                session,
+                run_id="parent_sim_run",
+                workflow_id="wf_parent",
+                workflow_name="Parent",
+                depth=0,
+                branch="sim/wf_parent/20260420/abc12",
+                source="simulation",
+                commit_sha="abc123def456",
+            )
+
+        obs = ExecutionObserver(engine=db_engine, run_id="parent_sim_run")
+        obs.on_block_start("Parent", "call_child", "workflow")
+
+        with Session(db_engine) as session:
+            child = session.exec(select(Run).where(Run.parent_run_id == "parent_sim_run")).one()
+            assert child.branch == "sim/wf_parent/20260420/abc12"
+            assert child.source == "simulation"
+            assert child.commit_sha == "abc123def456"
+
+    def test_child_run_is_failed_when_workflow_block_validation_fails_after_start(self, db_engine):
+        """A child run allocated for a workflow block must not stay running after block failure."""
+        with Session(db_engine) as session:
+            _create_run(
+                session,
+                run_id="parent_validation_run",
+                workflow_id="wf_parent",
+                workflow_name="Parent",
+                depth=0,
+            )
+
+        obs = ExecutionObserver(engine=db_engine, run_id="parent_validation_run")
+        obs.on_block_start("Parent", "call_child", "workflow")
+        obs.on_block_error(
+            "Parent",
+            "call_child",
+            "workflow",
+            0.01,
+            ValueError("required child input 'query' is missing"),
+            state=WorkflowState(),
+        )
+
+        with Session(db_engine) as session:
+            child = session.exec(
+                select(Run).where(Run.parent_run_id == "parent_validation_run")
+            ).one()
+            assert child.status == RunStatus.failed
+            assert child.completed_at is not None
+            assert child.error == "required child input 'query' is missing"
 
     def test_child_run_does_not_inherit_parent_warnings(self, db_engine):
         """Child workflow runs must not inherit the parent's warning snapshot."""

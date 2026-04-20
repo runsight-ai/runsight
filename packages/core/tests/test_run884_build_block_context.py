@@ -451,7 +451,7 @@ class TestFitToBudgetIntegration:
         assert request.instruction == soul.system_prompt
 
     def test_fit_to_budget_receives_correct_context(self):
-        """fit_to_budget is called with context from state.results['workflow'] or empty string."""
+        """fit_to_budget is called with context from state.workflow_inputs or empty string."""
         block = make_linear_block()
         state = make_state()
 
@@ -461,7 +461,7 @@ class TestFitToBudgetIntegration:
 
         call_args = mock_fit.call_args
         request = call_args[0][0]
-        # No workflow result in state, so context defaults to ""
+        # No workflow input in state, so context defaults to ""
         assert request.context == ""
 
     def test_fit_to_budget_receives_conversation_history(self):
