@@ -295,6 +295,10 @@ function shouldOmitOptionalBlankValue(
     return false;
   }
 
+  if (item.type === "string") {
+    return isMissingValue(value);
+  }
+
   if (item.type === "number" || item.type === "boolean") {
     return value === null || value === undefined;
   }
