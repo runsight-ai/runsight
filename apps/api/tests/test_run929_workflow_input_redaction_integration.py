@@ -19,6 +19,8 @@ from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 DIRECT_QUERY = "run929-user-query"
 CHILD_QUERY = "run929-child-query"
+CONFLICT_QUERY = "run929-conflicting-results-workflow-query"
+CONFLICT_SUBMITTED_QUERY = "run929-workflow-state-source-query"
 SECRET = "run929-sensitive-plain-text-never-persist"
 REDACTED = "[redacted]"
 
@@ -196,6 +198,116 @@ workflow:
 """
 
 
+CONFLICTING_WORKFLOW_RESULT_YAML = """\
+id: run929-conflicting-workflow-result
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  api_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  seed_facade:
+    type: workflow
+    workflow_ref: run929-conflict-seed
+    outputs:
+      results.workflow: results.seed
+  consume:
+    type: code
+    timeout_seconds: 5
+    inputs:
+      query:
+        from: workflow.query
+    code: |
+      def main(data):
+          expected = "run929-workflow-state-source-query"
+          if data["query"] != expected:
+              return {
+                  "source": "synthetic_results_workflow",
+                  "observed": data["query"],
+              }
+          return {"source": "workflow_inputs", "observed": data["query"]}
+workflow:
+  name: run929_conflicting_workflow_result
+  entry: seed_facade
+  transitions:
+    - from: seed_facade
+      to: consume
+    - from: consume
+      to: null
+"""
+
+
+CONFLICT_SEED_WORKFLOW_YAML = """\
+id: run929-conflict-seed
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  seed:
+    type: code
+    timeout_seconds: 5
+    code: |
+      def main(data):
+          return {"query": "run929-conflicting-results-workflow-query"}
+workflow:
+  name: run929_conflict_seed
+  entry: seed
+  transitions:
+    - from: seed
+      to: null
+"""
+
+
+LEGACY_INTERFACE_TARGET_YAML = """\
+id: run929-legacy-interface
+kind: workflow
+version: "1.0"
+interface:
+  inputs:
+    - name: query
+      target: shared_memory.query
+inputs:
+  query:
+    type: string
+blocks:
+  expose:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: run929_legacy_interface
+  entry: expose
+  transitions:
+    - from: expose
+      to: null
+"""
+
+
 def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
     workflows_dir = base_dir / "custom" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
@@ -252,6 +364,12 @@ def base_dir():
         _write_workflow_file(base, "run929-failing", FAILING_WORKFLOW_YAML)
         _write_workflow_file(base, "run929-parent", PARENT_WORKFLOW_YAML)
         _write_workflow_file(base, "run929-child", CHILD_WORKFLOW_YAML)
+        _write_workflow_file(
+            base,
+            "run929-conflicting-workflow-result",
+            CONFLICTING_WORKFLOW_RESULT_YAML,
+        )
+        _write_workflow_file(base, "run929-conflict-seed", CONFLICT_SEED_WORKFLOW_YAML)
         _write_provider_file(base)
         _write_secrets_file(base)
         yield base
@@ -348,6 +466,10 @@ def _json(value: Any) -> str:
     return json.dumps(value, default=str, sort_keys=True)
 
 
+def _decoded_output(value: Any) -> Any:
+    return json.loads(value) if isinstance(value, str) else value
+
+
 def _assert_secret_absent(label: str, value: Any) -> None:
     payload = value if isinstance(value, str) else _json(value)
     assert SECRET not in payload, f"{label} leaked sensitive plaintext: {payload}"
@@ -422,6 +544,22 @@ def _assert_direct_snapshot(workflow_inputs: dict[str, Any]) -> None:
     assert "redacted" not in workflow_inputs["api_token"]
 
 
+def _assert_parent_snapshot(workflow_inputs: dict[str, Any]) -> None:
+    assert workflow_inputs["query"] == {
+        "type": "string",
+        "sensitive": False,
+        "source": "provided",
+        "value": CHILD_QUERY,
+    }
+    assert workflow_inputs["api_token"] == {
+        "type": "string",
+        "sensitive": True,
+        "source": "provided",
+    }
+    assert "value" not in workflow_inputs["api_token"]
+    assert "redacted" not in workflow_inputs["api_token"]
+
+
 @pytest.mark.asyncio
 async def test_direct_run_snapshots_inputs_without_persisting_or_streaming_plaintext(
     app_with_real_services,
@@ -441,17 +579,22 @@ async def test_direct_run_snapshots_inputs_without_persisting_or_streaming_plain
             },
         )
         assert response.status_code == 200, response.text
-        run_id = response.json()["id"]
+        create_payload = response.json()
+        run_id = create_payload["id"]
         stream_events = await _collect_stream_events(
             app_with_real_services.state.execution_service,
             run_id,
         )
         run = await _wait_for_run_terminal(db_engine, run_id)
-        public_payloads = await _api_payloads(client, run_id)
+        public_payloads = {
+            "create": create_payload,
+            **await _api_payloads(client, run_id),
+        }
 
     assert run.status == RunStatus.completed
     assert run.workflow_inputs is not None
     _assert_direct_snapshot(run.workflow_inputs)
+    _assert_direct_snapshot(public_payloads["create"]["workflow_inputs"])
     _assert_direct_snapshot(public_payloads["detail"]["workflow_inputs"])
 
     assert run.results_json is not None
@@ -500,13 +643,17 @@ async def test_failed_run_redacts_sensitive_input_across_error_surfaces(
                 },
             )
             assert response.status_code == 200, response.text
-            run_id = response.json()["id"]
+            create_payload = response.json()
+            run_id = create_payload["id"]
             stream_events = await _collect_stream_events(
                 app_with_real_services.state.execution_service,
                 run_id,
             )
             run = await _wait_for_run_terminal(db_engine, run_id)
-        public_payloads = await _api_payloads(client, run_id)
+        public_payloads = {
+            "create": create_payload,
+            **await _api_payloads(client, run_id),
+        }
 
     assert run.status == RunStatus.failed
     assert run.error is not None
@@ -552,7 +699,8 @@ async def test_child_run_records_own_safe_snapshot_and_inherits_redaction_contex
             },
         )
         assert response.status_code == 200, response.text
-        parent_run_id = response.json()["id"]
+        parent_create_payload = response.json()
+        parent_run_id = parent_create_payload["id"]
         stream_events = await _collect_stream_events(
             app_with_real_services.state.execution_service,
             parent_run_id,
@@ -566,10 +714,15 @@ async def test_child_run_records_own_safe_snapshot_and_inherits_redaction_contex
             assert child_run_id is not None
         child_run = await _wait_for_run_terminal(db_engine, child_run_id)
 
-        parent_payloads = await _api_payloads(client, parent_run_id)
+        parent_payloads = {
+            "create": parent_create_payload,
+            **await _api_payloads(client, parent_run_id),
+        }
         child_payloads = await _api_payloads(client, child_run_id)
 
     assert parent_run.status == RunStatus.completed
+    _assert_parent_snapshot(parent_payloads["create"]["workflow_inputs"])
+    _assert_parent_snapshot(parent_payloads["detail"]["workflow_inputs"])
     assert child_run.status == RunStatus.completed
     assert child_run.workflow_id == "run929-child"
     assert child_run.parent_run_id == parent_run_id
@@ -616,6 +769,94 @@ async def test_child_run_records_own_safe_snapshot_and_inherits_redaction_contex
         "stream events": stream_events,
     }.items():
         _assert_secret_absent(label, surface)
+
+
+@pytest.mark.asyncio
+async def test_workflow_input_resolution_ignores_conflicting_results_workflow_facade(
+    app_with_real_services,
+    db_engine,
+) -> None:
+    from httpx import ASGITransport, AsyncClient
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app_with_real_services),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/api/runs",
+            json={
+                "workflow_id": "run929-conflicting-workflow-result",
+                "inputs": {"query": CONFLICT_SUBMITTED_QUERY, "api_token": SECRET},
+            },
+        )
+        assert response.status_code == 200, response.text
+        create_payload = response.json()
+        run_id = create_payload["id"]
+        run = await _wait_for_run_terminal(db_engine, run_id)
+        public_payloads = {
+            "create": create_payload,
+            **await _api_payloads(client, run_id),
+        }
+
+    assert run.status == RunStatus.completed
+    assert run.results_json is not None
+    results = json.loads(run.results_json)
+
+    workflow_result = _decoded_output(results["workflow"]["output"])
+    assert workflow_result["query"] == CONFLICT_QUERY
+
+    consumed = _decoded_output(results["consume"]["output"])
+    assert consumed == {
+        "source": "workflow_inputs",
+        "observed": CONFLICT_SUBMITTED_QUERY,
+    }
+    assert consumed["observed"] != workflow_result["query"]
+
+    assert results["workflow"]["output"] != json.dumps(
+        {"query": CONFLICT_SUBMITTED_QUERY, "api_token": SECRET},
+        sort_keys=True,
+    )
+    for label, surface in {
+        "database persistence": _db_surfaces(db_engine, run_id),
+        "public API payloads": public_payloads,
+    }.items():
+        _assert_secret_absent(label, surface)
+
+
+@pytest.mark.asyncio
+async def test_legacy_interface_target_yaml_returns_422_before_run_creation(
+    app_with_real_services,
+    base_dir,
+    db_engine,
+) -> None:
+    from httpx import ASGITransport, AsyncClient
+
+    _write_workflow_file(base_dir, "run929-legacy-interface", LEGACY_INTERFACE_TARGET_YAML)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app_with_real_services),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/api/runs",
+            json={
+                "workflow_id": "run929-legacy-interface",
+                "inputs": {"query": DIRECT_QUERY, "api_token": SECRET},
+            },
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+    assert payload["details"]["workflow_id"] == "run929-legacy-interface"
+    assert "legacy workflow interface is unsupported" in _json(payload)
+    _assert_secret_absent("legacy interface rejection response", payload)
+    assert DIRECT_QUERY not in _json(payload)
+
+    with Session(db_engine) as session:
+        runs = list(session.exec(select(Run)).all())
+
+    assert runs == []
 
 
 @pytest.mark.asyncio
