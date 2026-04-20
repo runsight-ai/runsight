@@ -324,8 +324,8 @@ class WorkflowBlock(BaseBlock):
         return resolved_inputs
 
     def _validate_child_invocation_inputs(self, child_inputs: Dict[str, Any]) -> None:
-        input_schema = self._child_input_schema()
-        if not input_schema:
+        input_schema = self._declared_child_input_schema()
+        if input_schema is None:
             return
 
         for name in child_inputs:
@@ -438,8 +438,11 @@ class WorkflowBlock(BaseBlock):
         return redactor
 
     def _child_input_schema(self) -> Mapping[str, Any]:
+        return self._declared_child_input_schema() or {}
+
+    def _declared_child_input_schema(self) -> Mapping[str, Any] | None:
         input_schema = getattr(self.child_workflow, "input_schema", None)
-        return input_schema if isinstance(input_schema, Mapping) else {}
+        return input_schema if isinstance(input_schema, Mapping) else None
 
     @staticmethod
     def _observer_has_terminal_hooks(observer: Any) -> bool:
