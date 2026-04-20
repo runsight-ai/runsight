@@ -15,22 +15,29 @@ class RunRedactor:
 
     def __init__(self, values: list[object] | None = None) -> None:
         self._values: set[str] = set()
+        self._scalar_values: set[tuple[str, str]] = set()
         self._named_values: dict[str, set[str]] = {}
+        self._named_scalar_values: dict[str, set[tuple[str, str]]] = {}
         self._structured_named_values: dict[str, object] = {}
         for value in values or []:
             self.register(value)
 
     def register(self, value: object) -> None:
-        """Register non-empty string leaves from a JSON-compatible value."""
+        """Register non-empty scalar leaves from a JSON-compatible value."""
         for item in self._iter_string_leaves(value):
             if item:
                 self._values.add(item)
+        for item in self._iter_non_string_scalar_leaves(value):
+            self._scalar_values.add(self._scalar_key(item))
 
     def register_named(self, name: str, value: object) -> None:
-        """Register non-empty string leaves for one sensitive structured value."""
+        """Register non-empty scalar leaves for one sensitive structured value."""
         named_values = self._named_values.setdefault(name, set())
+        named_scalars = self._named_scalar_values.setdefault(name, set())
         if isinstance(value, dict | list | tuple):
             self._structured_named_values[name] = value
+            for item in self._iter_non_string_scalar_leaves(value):
+                named_scalars.add(self._scalar_key(item))
             leaves = [item for item in self._iter_string_leaves(value) if item]
             if not leaves:
                 return
@@ -46,6 +53,8 @@ class RunRedactor:
         for item in self._iter_string_leaves(value):
             if item:
                 named_values.add(item)
+        for item in self._iter_non_string_scalar_leaves(value):
+            named_scalars.add(self._scalar_key(item))
 
     def redact(self, value: object) -> Any:
         """Redact exact scalar matches while preserving nested container shape."""
@@ -108,6 +117,8 @@ class RunRedactor:
                 )
                 for item in value
             )
+        if self._is_sensitive_scalar(value, field_name=field_name, scope_name=scope_name):
+            return REDACTED_VALUE
         return value
 
     def redact_text(self, value: str) -> str:
@@ -129,8 +140,11 @@ class RunRedactor:
 
     def _all_values(self) -> set[str]:
         values = set(self._values)
+        values.update(self._scalar_text_values(self._scalar_values))
         for named_values in self._named_values.values():
             values.update(named_values)
+        for named_scalars in self._named_scalar_values.values():
+            values.update(self._scalar_text_values(named_scalars))
         return values
 
     def _structured_scope_for_value(self, value: object) -> str | None:
@@ -156,6 +170,59 @@ class RunRedactor:
                 leaves.extend(RunRedactor._iter_string_leaves(item))
             return leaves
         return []
+
+    @staticmethod
+    def _iter_non_string_scalar_leaves(value: object) -> list[object]:
+        if value is None or isinstance(value, str):
+            return []
+        if isinstance(value, bool | int | float):
+            return [value]
+        if isinstance(value, dict):
+            leaves: list[object] = []
+            for item in value.values():
+                leaves.extend(RunRedactor._iter_non_string_scalar_leaves(item))
+            return leaves
+        if isinstance(value, list | tuple):
+            leaves = []
+            for item in value:
+                leaves.extend(RunRedactor._iter_non_string_scalar_leaves(item))
+            return leaves
+        return []
+
+    @staticmethod
+    def _scalar_key(value: object) -> tuple[str, str]:
+        if isinstance(value, bool):
+            return ("boolean", "true" if value else "false")
+        if isinstance(value, int | float):
+            return ("number", repr(value))
+        return (type(value).__name__, repr(value))
+
+    @staticmethod
+    def _scalar_text_values(values: set[tuple[str, str]]) -> set[str]:
+        text_values: set[str] = set()
+        for value_type, raw_value in values:
+            if value_type == "boolean":
+                text_values.add("True" if raw_value == "true" else "False")
+                text_values.add(raw_value)
+                continue
+            text_values.add(raw_value)
+        return text_values
+
+    def _is_sensitive_scalar(
+        self,
+        value: object,
+        *,
+        field_name: str | None,
+        scope_name: str | None,
+    ) -> bool:
+        if value is None or isinstance(value, str | dict | list | tuple):
+            return False
+        scalar_key = self._scalar_key(value)
+        if scalar_key in self._scalar_values:
+            return True
+        scoped_values = set(self._named_scalar_values.get(field_name or "", set()))
+        scoped_values.update(self._named_scalar_values.get(scope_name or "", set()))
+        return scalar_key in scoped_values
 
     @staticmethod
     def _contains_redacted_marker(value: object) -> bool:
@@ -197,7 +264,9 @@ class RunRedactor:
                     field_name=key if isinstance(key, str) else None,
                     scope_name=(
                         key
-                        if key in self._named_values or key in self._structured_named_values
+                        if key in self._named_values
+                        or key in self._named_scalar_values
+                        or key in self._structured_named_values
                         else scope_name
                     ),
                     strict=(
@@ -236,6 +305,8 @@ class RunRedactor:
                 )
                 for item in value
             )
+        if self._is_sensitive_scalar(value, field_name=field_name, scope_name=scope_name):
+            return REDACTED_VALUE
         if strict and isinstance(value, str):
             return REDACTED_VALUE if value else value
         if isinstance(value, str):

@@ -183,6 +183,8 @@ class WorkflowInputDef(BaseModel):
             raise ValueError("default must match workflow input type 'number'")
         if self.type == "boolean" and not isinstance(self.default, bool):
             raise ValueError("default must match workflow input type 'boolean'")
+        if self.type == "json" and not isinstance(self.default, dict):
+            raise ValueError("default must match workflow input type 'json'")
         if self.type == "array" and not isinstance(self.default, list):
             raise ValueError("default must match workflow input type 'array'")
 

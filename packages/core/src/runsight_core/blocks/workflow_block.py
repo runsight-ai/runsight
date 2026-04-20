@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import time
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from pydantic import model_validator
@@ -89,6 +90,7 @@ class WorkflowBlock(BaseBlock):
         # Step 3: Map parent values to public child invocation inputs.
         child_inputs = self._map_inputs_from_context(ctx.inputs)
         child_inputs = self._apply_child_input_defaults(child_inputs)
+        self._validate_child_invocation_inputs(child_inputs)
         child_redactor = self._register_child_sensitive_inputs(state.input_redactor, child_inputs)
         child_state = WorkflowState(
             workflow_inputs=dict(child_inputs),
@@ -121,9 +123,10 @@ class WorkflowBlock(BaseBlock):
             )
         except Exception as exc:
             duration_s = time.monotonic() - start_time
+            child_redactor = self._promote_child_sensitive_inputs(child_redactor, child_inputs)
+            state.input_redactor = child_redactor
             if self.on_error != "catch":
                 raise
-            child_redactor = self._promote_child_sensitive_inputs(child_redactor, child_inputs)
             return BlockOutput(
                 output=f"WorkflowBlock '{self.child_workflow.name}' failed",
                 exit_handle="error",
@@ -313,12 +316,69 @@ class WorkflowBlock(BaseBlock):
         return child_inputs
 
     def _apply_child_input_defaults(self, child_inputs: Dict[str, Any]) -> Dict[str, Any]:
-        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        input_schema = self._child_input_schema()
         resolved_inputs = dict(child_inputs)
         for name, input_def in input_schema.items():
             if name not in resolved_inputs and getattr(input_def, "default", None) is not None:
                 resolved_inputs[name] = copy.deepcopy(input_def.default)
         return resolved_inputs
+
+    def _validate_child_invocation_inputs(self, child_inputs: Dict[str, Any]) -> None:
+        input_schema = self._child_input_schema()
+        if not input_schema:
+            return
+
+        for name in child_inputs:
+            if name not in input_schema:
+                raise ValueError(
+                    f"WorkflowBlock '{self.block_id}': input '{name}' is not declared by "
+                    f"child workflow '{self.child_workflow.name}'."
+                )
+
+        for name, input_def in input_schema.items():
+            if name not in child_inputs:
+                if getattr(input_def, "required", True):
+                    raise ValueError(
+                        f"WorkflowBlock '{self.block_id}': required child input '{name}' is missing."
+                    )
+                continue
+            value = child_inputs[name]
+            expected_type = getattr(input_def, "type", None)
+            if not self._matches_child_input_type(value, expected_type):
+                raise ValueError(
+                    f"WorkflowBlock '{self.block_id}': child input '{name}' has invalid type. "
+                    f"Expected {expected_type}, got {self._actual_child_input_type(value)}."
+                )
+
+    @staticmethod
+    def _matches_child_input_type(value: Any, expected_type: Any) -> bool:
+        if expected_type == "string":
+            return isinstance(value, str)
+        if expected_type == "number":
+            return not isinstance(value, bool) and isinstance(value, int | float)
+        if expected_type == "boolean":
+            return isinstance(value, bool)
+        if expected_type == "json":
+            return isinstance(value, dict)
+        if expected_type == "array":
+            return isinstance(value, list)
+        return True
+
+    @staticmethod
+    def _actual_child_input_type(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return "boolean"
+        if isinstance(value, str):
+            return "string"
+        if isinstance(value, int | float):
+            return "number"
+        if isinstance(value, list):
+            return "array"
+        if isinstance(value, dict):
+            return "json"
+        return type(value).__name__
 
     def _record_child_workflow_input_snapshot(
         self,
@@ -327,7 +387,7 @@ class WorkflowBlock(BaseBlock):
     ) -> None:
         recorder = getattr(observer, "record_workflow_input_snapshot", None)
         if callable(recorder):
-            recorder(getattr(self.child_workflow, "input_schema", None) or {}, child_inputs)
+            recorder(self._child_input_schema(), child_inputs)
 
     def _validate_child_invocation_input_name(self, input_name: str) -> str:
         if "." in input_name:
@@ -354,7 +414,7 @@ class WorkflowBlock(BaseBlock):
         redactor: RunRedactor | None,
         child_inputs: Dict[str, Any],
     ) -> RunRedactor | None:
-        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        input_schema = self._child_input_schema()
         for name, input_def in input_schema.items():
             if not getattr(input_def, "sensitive", False) or name not in child_inputs:
                 continue
@@ -368,7 +428,7 @@ class WorkflowBlock(BaseBlock):
         redactor: RunRedactor | None,
         child_inputs: Dict[str, Any],
     ) -> RunRedactor | None:
-        input_schema = getattr(self.child_workflow, "input_schema", None) or {}
+        input_schema = self._child_input_schema()
         for name, input_def in input_schema.items():
             if not getattr(input_def, "sensitive", False) or name not in child_inputs:
                 continue
@@ -376,6 +436,10 @@ class WorkflowBlock(BaseBlock):
                 redactor = RunRedactor()
             redactor.register(child_inputs[name])
         return redactor
+
+    def _child_input_schema(self) -> Mapping[str, Any]:
+        input_schema = getattr(self.child_workflow, "input_schema", None)
+        return input_schema if isinstance(input_schema, Mapping) else {}
 
     @staticmethod
     def _observer_has_terminal_hooks(observer: Any) -> bool:

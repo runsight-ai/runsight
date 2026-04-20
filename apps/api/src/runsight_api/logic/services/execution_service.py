@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.observer import CompositeObserver, LoggingObserver
-from runsight_core.redaction import RedactionContext, RunRedactor
+from runsight_core.redaction import RunRedactor
 from runsight_core.runner import FallbackRoute, RunsightTeamRunner
 from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.parser import parse_workflow_yaml
@@ -150,14 +150,13 @@ def _prepared_run_inputs(
     normalized_inputs: Dict[str, Any],
     sources: Mapping[str, str] | None = None,
 ) -> PreparedRunInputs:
-    sensitive_values = [
-        normalized_inputs[name]
-        for name, input_def in input_schema.items()
-        if input_def.sensitive and name in normalized_inputs
-    ]
+    input_redactor = RunRedactor()
+    for name, input_def in input_schema.items():
+        if input_def.sensitive and name in normalized_inputs:
+            input_redactor.register_named(name, normalized_inputs[name])
     return PreparedRunInputs(
         normalized_inputs=normalized_inputs,
-        input_redactor=RedactionContext.from_values(sensitive_values).redactor,
+        input_redactor=input_redactor,
         workflow_inputs=_workflow_input_values_snapshot(input_schema, normalized_inputs, sources),
         workflow_input_schema=_workflow_input_schema_snapshot(input_schema),
     )

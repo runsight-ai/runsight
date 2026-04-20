@@ -163,7 +163,12 @@ async def execute_block(
                     }
                 }
             )
-            wf_output = await blk.execute(wf_block_ctx)
+            try:
+                wf_output = await blk.execute(wf_block_ctx)
+            except Exception:
+                if wf_block_ctx.state_snapshot.input_redactor is not None:
+                    current_state.input_redactor = wf_block_ctx.state_snapshot.input_redactor
+                raise
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
             loop_ctx = build_block_context(blk, current_state, observer=observer)
