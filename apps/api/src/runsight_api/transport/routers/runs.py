@@ -3,7 +3,6 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from runsight_core.redaction import RunRedactor
 
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
@@ -116,17 +115,6 @@ def _run_snapshot_field(run, field: str) -> Optional[dict]:
     return value if isinstance(value, dict) else None
 
 
-def _is_legacy_unconfigured_mock_result(execution_service, prepared) -> bool:
-    return (
-        type(execution_service).__module__ == "unittest.mock"
-        and type(prepared).__module__ == "unittest.mock"
-    )
-
-
-def _prepared_inputs_for_unconfigured_mock(inputs: dict) -> PreparedRunInputs:
-    return PreparedRunInputs(normalized_inputs=dict(inputs), input_redactor=RunRedactor())
-
-
 def _build_run_response(
     run,
     *,
@@ -202,8 +190,6 @@ async def create_run(
     prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
     if inspect.isawaitable(prepared):
         prepared = await prepared
-    if _is_legacy_unconfigured_mock_result(execution_service, prepared):
-        prepared = _prepared_inputs_for_unconfigured_mock(body.inputs)
     if not isinstance(prepared, PreparedRunInputs):
         raise TypeError("prepare_run_inputs must return PreparedRunInputs")
     run = run_service.create_run(
