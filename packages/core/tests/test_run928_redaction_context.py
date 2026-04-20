@@ -241,8 +241,8 @@ def test_context_audit_preview_redacts_every_exact_leaf_in_named_structured_inpu
 
     assert scoped.inputs == {"credentials": credentials}
     assert SENSITIVE_VALUE not in preview
-    assert preview.count(REDACTED) >= 3
-    assert PUBLIC_VALUE in preview
+    assert preview.count(REDACTED) >= 4
+    assert PUBLIC_VALUE not in preview
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
 
@@ -292,7 +292,7 @@ def test_context_audit_preview_redacts_each_registered_structured_input_recursiv
     }
     assert json.loads(previews["profile"] or "") == {
         "refresh_token": REDACTED,
-        "nested": {"aliases": [PUBLIC_VALUE, REDACTED]},
+        "nested": {"aliases": [REDACTED, REDACTED]},
     }
     assert SENSITIVE_VALUE not in scoped.audit_event.model_dump_json()
 
@@ -340,10 +340,10 @@ def test_sensitive_structured_redaction_covers_non_string_leaves_in_runtime_dump
     assert '"public":"orchid-928-public-value"' in dumped
 
 
-def test_named_structured_sensitive_input_redacts_duplicate_and_unique_leaves_without_over_redacting_public_siblings() -> (
+def test_named_structured_sensitive_input_redacts_duplicate_and_unique_leaves_without_over_redacting_public_inputs() -> (
     None
 ):
-    """Mixed structured sensitive leaves must all redact while public siblings stay visible."""
+    """Mixed structured sensitive leaves redact while separate public inputs stay visible."""
     from runsight_core.redaction import RunRedactor
 
     redactor = RunRedactor()
@@ -455,8 +455,9 @@ def test_explicit_sensitive_registration_redacts_leaves_under_public_paths() -> 
     assert redacted["public"]["token"] == REDACTED
     assert redacted["public"]["nested"][0] == REDACTED
     assert redacted["public"]["nested"][1]["inner"] == REDACTED
-    assert redacted["private"]["inner"] == PUBLIC_VALUE
+    assert redacted["private"]["inner"] == REDACTED
     assert SENSITIVE_VALUE not in json.dumps(redacted)
+    assert PUBLIC_VALUE not in json.dumps(redacted)
 
 
 def test_logging_observer_redacts_registered_sensitive_value_in_error_details(
