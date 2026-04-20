@@ -224,6 +224,57 @@ async function expectInlineFieldError(
   await expect(input).toHaveAttribute("aria-invalid", "true");
 }
 
+async function interceptBackendConfigValidationError(page: Page, workflowId: string) {
+  let intercepted = false;
+  const routePattern = "**/api/runs";
+
+  await page.route(routePattern, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const body = request.postDataJSON() as { workflow_id?: unknown } | null;
+
+    if (
+      !intercepted &&
+      request.method() === "POST" &&
+      url.pathname === "/api/runs" &&
+      body?.workflow_id === workflowId
+    ) {
+      intercepted = true;
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        json: {
+          error: "Workflow input validation failed",
+          error_code: "WORKFLOW_INPUT_VALIDATION_ERROR",
+          status_code: 422,
+          details: {
+            kind: "workflow_input_validation",
+            workflow_id: workflowId,
+            fields: [
+              {
+                field: "config",
+                code: "type_mismatch",
+                message: "Input 'config' must be a json.",
+                input_path: ["inputs", "config"],
+                expected_type: "json",
+                actual_type: "array",
+              },
+            ],
+          },
+        },
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  return async () => {
+    await page.unroute(routePattern).catch(() => undefined);
+    expect(intercepted).toBe(true);
+  };
+}
+
 function requiredStringWorkflowYaml(id: string, name: string) {
   return [
     'version: "1.0"',
@@ -542,7 +593,21 @@ test("backend validation stays in the modal and sensitive values stay hidden acr
     await expect(dialog).toBeVisible({ timeout: 10_000 });
     await dialog.getByLabel("Query").fill(firstQuery);
     await dialog.getByLabel("Api Token").fill(firstSecret);
+
     await dialog.getByLabel("Config").fill("[1, 2]");
+    await dialog.getByRole("button", { name: "Run" }).click();
+
+    await expect(dialog).toBeVisible();
+    await expectInlineFieldError(dialog, "Config", "Enter a valid JSON object.");
+    await expect(dialog.getByLabel("Query")).not.toHaveAttribute("aria-invalid", "true");
+    await expect(dialog.getByLabel("Api Token")).not.toHaveAttribute("aria-invalid", "true");
+    await expectNoVisibleSecret(page, firstSecret);
+
+    const stopBackendValidationIntercept = await interceptBackendConfigValidationError(
+      page,
+      workflow.id,
+    );
+    await dialog.getByLabel("Config").fill('{"limit": 2}');
     await dialog.getByRole("button", { name: "Run" }).click();
 
     await expect(dialog).toBeVisible();
@@ -550,6 +615,7 @@ test("backend validation stays in the modal and sensitive values stay hidden acr
     await expect(dialog.getByLabel("Query")).not.toHaveAttribute("aria-invalid", "true");
     await expect(dialog.getByLabel("Api Token")).not.toHaveAttribute("aria-invalid", "true");
     await expectNoVisibleSecret(page, firstSecret);
+    await stopBackendValidationIntercept();
 
     await dialog.getByLabel("Config").fill('{"limit": 2}');
     await dialog.getByRole("button", { name: "Run" }).click();
