@@ -228,6 +228,22 @@ class RunRedactor:
         scoped_values.update(self._named_scalar_values.get(scope_name or "", set()))
         return scalar_key in scoped_values
 
+    def _is_sensitive_runtime_scalar(
+        self,
+        value: object,
+        *,
+        field_name: str | None,
+        scope_name: str | None,
+    ) -> bool:
+        if self._is_sensitive_scalar(value, field_name=field_name, scope_name=scope_name):
+            return True
+        if value is None or isinstance(value, str | dict | list | tuple):
+            return False
+        scalar_key = self._scalar_key(value)
+        return any(
+            scalar_key in named_values for named_values in self._named_scalar_values.values()
+        )
+
     @staticmethod
     def _contains_redacted_marker(value: object) -> bool:
         if isinstance(value, str):
@@ -309,7 +325,7 @@ class RunRedactor:
                 )
                 for item in value
             )
-        if self._is_sensitive_scalar(value, field_name=field_name, scope_name=scope_name):
+        if self._is_sensitive_runtime_scalar(value, field_name=field_name, scope_name=scope_name):
             return REDACTED_VALUE
         if strict and isinstance(value, str):
             return REDACTED_VALUE if value else value
