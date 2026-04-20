@@ -169,6 +169,55 @@ describe("RUN-902 WorkflowInputsForm", () => {
     expect(onChange).toHaveBeenCalledWith("tags", ["x", "y"]);
   });
 
+  it("stays controlled by parent values across rerenders instead of keeping typed text locally", () => {
+    const onChange = vi.fn();
+    const originalProps = {
+      schema,
+      values: { ...currentValues },
+      errors: {},
+      disabled: false,
+      submitting: false,
+      onChange,
+    };
+
+    const { rerender } = render(<WorkflowInputsForm {...originalProps} />);
+    const query = screen.getByRole("textbox", { name: "Query" }) as HTMLInputElement;
+
+    expect(query).toHaveValue("alpha");
+
+    fireEvent.change(query, {
+      target: { value: "typed text" },
+    });
+    expect(onChange).toHaveBeenCalledWith("query", "typed text");
+
+    rerender(<WorkflowInputsForm {...originalProps} />);
+    expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("alpha");
+
+    rerender(
+      <WorkflowInputsForm
+        {...originalProps}
+        values={{
+          ...currentValues,
+          query: "from parent",
+          retries: 11,
+          enabled: false,
+          config: { mode: "slow" },
+          tags: ["parent", "wins"],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Query" })).toHaveValue("from parent");
+    expect(screen.getByRole("spinbutton", { name: "Retries" })).toHaveValue(11);
+    expect(isBooleanControlOn(getBooleanControl("Enabled"))).toBe(false);
+    expect(screen.getByRole("textbox", { name: "Config" })).toHaveValue(
+      JSON.stringify({ mode: "slow" }, null, 2),
+    );
+    expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue(
+      JSON.stringify(["parent", "wins"], null, 2),
+    );
+  });
+
   it("marks required fields, exposes descriptions, and wires inline errors through aria-describedby", () => {
     render(
       <WorkflowInputsForm
