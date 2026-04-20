@@ -1131,19 +1131,19 @@ export interface components {
              * Inputs
              * @default {}
              */
-            inputs: {
+            inputs?: {
                 [key: string]: unknown;
             };
             /**
              * Source
              * @default manual
              */
-            source: string | null;
+            source?: string | null;
             /**
              * Branch
              * @default main
              */
-            branch: string;
+            branch?: string;
         };
         /** RunEvalResponse */
         RunEvalResponse: {

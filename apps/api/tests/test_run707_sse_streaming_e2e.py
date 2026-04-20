@@ -32,6 +32,8 @@ from runsight_api.domain.events import (
     SSE_NODE_STARTED,
     SSE_TERMINAL_EVENTS,
 )
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +46,9 @@ kind: workflow
 version: "1.0"
 config:
   model_name: gpt-4o
+inputs:
+  instruction:
+    type: string
 souls:
   analyst:
     id: analyst
@@ -57,6 +62,9 @@ blocks:
   analyze:
     type: linear
     soul_ref: analyst
+    inputs:
+      instruction:
+        from: workflow.instruction
 workflow:
   name: single_block_sse_test
   entry: analyze
@@ -133,9 +141,6 @@ CHILD_WORKFLOW_YAML = """\
 id: child-workflow
 kind: workflow
 version: "1.0"
-interface:
-  inputs: []
-  outputs: []
 config:
   model_name: gpt-4o
 souls:
@@ -357,7 +362,13 @@ async def _run_and_collect(
         ),
     ):
         # Start workflow in background (blocked on gate inside LLM mock)
-        run_task = asyncio.create_task(execution_service._run_workflow(run_id, wf, task_data))
+        prepared_inputs = PreparedRunInputs(
+            normalized_inputs=task_data,
+            input_redactor=RunRedactor(),
+            workflow_inputs={},
+            workflow_input_schema={},
+        )
+        run_task = asyncio.create_task(execution_service._run_workflow(run_id, wf, prepared_inputs))
 
         # Wait for observer registration (happens before LLM call)
         await _wait_for_observer(execution_service, run_id)

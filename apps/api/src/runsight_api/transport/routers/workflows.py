@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 from runsight_core.identity import EntityKind, EntityRef
 
 from ...logic.services.eval_service import EvalService
@@ -91,8 +90,6 @@ async def create_workflow_simulation(
     service: WorkflowService = Depends(get_workflow_service),
 ):
     result = service.create_simulation(workflow_id=id, yaml=body.yaml)
-    if "input_schema" not in result:
-        return JSONResponse(content=result)
     return WorkflowSimulationResponse(**result)
 
 

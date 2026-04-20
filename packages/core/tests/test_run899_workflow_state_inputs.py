@@ -15,7 +15,8 @@ import json
 from typing import Any
 
 import pytest
-from runsight_core.block_io import build_block_context
+from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
+from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.context_governance import (
     ContextDeclaration,
@@ -25,6 +26,8 @@ from runsight_core.context_governance import (
     ContextResolver,
 )
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import Workflow
+from runsight_core.yaml.schema import WorkflowInputDef
 
 
 class CapturingWorkflow:
@@ -43,6 +46,37 @@ class CapturingWorkflow:
             total_cost_usd=0.0,
             total_tokens=0,
         )
+
+
+class CapturingBlock(BaseBlock):
+    def __init__(self) -> None:
+        super().__init__("capture")
+        self.declared_inputs = {
+            "query": "workflow.query",
+            "mode": "workflow.mode",
+            "api_token": "workflow.api_token",
+        }
+        self.received_state: WorkflowState | None = None
+
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        self.received_state = ctx.state_snapshot
+        return BlockOutput(output="ok")
+
+
+def _workflow_with_input_schema() -> tuple[Workflow, CapturingBlock]:
+    block = CapturingBlock()
+    workflow = Workflow(
+        name="runtime_contract",
+        input_schema={
+            "query": WorkflowInputDef(type="string"),
+            "mode": WorkflowInputDef(type="string", required=False, default="summary"),
+            "api_token": WorkflowInputDef(type="string", sensitive=True),
+        },
+    )
+    workflow.add_block(block)
+    workflow.set_entry("capture")
+    workflow.add_transition("capture", None)
+    return workflow, block
 
 
 def _resolver() -> ContextResolver:
@@ -68,6 +102,47 @@ def _state(
     if workflow_inputs is not None:
         state = state.model_copy(update={"workflow_inputs": workflow_inputs})
     return state
+
+
+@pytest.mark.asyncio
+async def test_workflow_run_enforces_parsed_input_schema_and_applies_defaults() -> None:
+    workflow, block = _workflow_with_input_schema()
+
+    final_state = await workflow.run(
+        WorkflowState(),
+        inputs={"query": "refunds", "api_token": "secret-token-899"},
+    )
+
+    assert block.received_state is not None
+    assert block.received_state.workflow_inputs == {
+        "query": "refunds",
+        "mode": "summary",
+        "api_token": "secret-token-899",
+    }
+    assert final_state.workflow_inputs == block.received_state.workflow_inputs
+    assert final_state.input_redactor is not None
+    assert "secret-token-899" not in final_state.model_dump_json()
+
+
+@pytest.mark.asyncio
+async def test_workflow_run_rejects_unknown_required_and_type_invalid_inputs_before_execution() -> (
+    None
+):
+    workflow, block = _workflow_with_input_schema()
+
+    with pytest.raises(ValueError, match="unknown input 'debug'"):
+        await workflow.run(
+            WorkflowState(),
+            inputs={"query": "refunds", "api_token": "secret-token-899", "debug": True},
+        )
+
+    with pytest.raises(ValueError, match="required input 'query' is missing"):
+        await workflow.run(WorkflowState(), inputs={"api_token": "secret-token-899"})
+
+    with pytest.raises(ValueError, match="input 'query' has invalid type"):
+        await workflow.run(WorkflowState(), inputs={"query": 7, "api_token": "secret-token-899"})
+
+    assert block.received_state is None
 
 
 def test_context_resolver_reads_named_workflow_input_from_workflow_state() -> None:

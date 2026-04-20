@@ -233,7 +233,7 @@ def _scoped_state_snapshot(
     """Build a state snapshot containing only resolver-scoped data."""
     return WorkflowState(
         execution_log=[],
-        workflow_inputs=dict(state.workflow_inputs),
+        workflow_inputs=dict(scoped_context.scoped_workflow_inputs),
         shared_memory=dict(scoped_context.scoped_shared_memory),
         results=dict(scoped_context.scoped_results),
         metadata=dict(scoped_context.scoped_metadata),

@@ -32,7 +32,10 @@ def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | 
     except (yaml_mod.YAMLError, PydanticValidationError, ValueError):
         return None
 
-    inputs = effective_workflow_input_schema(file_def)
+    try:
+        inputs = effective_workflow_input_schema(file_def)
+    except ValueError:
+        return None
     if not inputs:
         return None
 
@@ -41,8 +44,17 @@ def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | 
 
 def _workflow_input_schema_for_simulation(
     file_def: RunsightWorkflowFile,
+    *,
+    workflow_id: str,
 ) -> dict[str, dict[str, Any]]:
-    inputs = effective_workflow_input_schema(file_def)
+    try:
+        inputs = effective_workflow_input_schema(file_def)
+    except ValueError as exc:
+        _raise_workflow_input_validation(
+            workflow_id,
+            [_schema_field_error()],
+            exc,
+        )
     if not inputs:
         return {}
     return {name: input_def.model_dump() for name, input_def in inputs.items()}
@@ -70,10 +82,21 @@ def _input_schema_field_errors(error: PydanticValidationError) -> list[dict[str,
     return fields
 
 
+def _schema_field_error(message: str = "Workflow input references are invalid.") -> dict[str, Any]:
+    return {
+        "field": "__schema__",
+        "code": "invalid",
+        "message": message,
+        "input_path": ["inputs"],
+        "expected_type": None,
+        "actual_type": None,
+    }
+
+
 def _raise_workflow_input_validation(
     workflow_id: str,
     fields: list[dict[str, Any]],
-    error: PydanticValidationError,
+    error: Exception,
 ) -> None:
     raise InputValidationError(
         "Workflow input validation failed",
@@ -209,7 +232,10 @@ class WorkflowService:
             raise RuntimeError("Git service not configured")
 
         workflow_file = self._validate_simulation_yaml_identity(workflow_id, yaml)
-        input_schema = _workflow_input_schema_for_simulation(workflow_file)
+        input_schema = _workflow_input_schema_for_simulation(
+            workflow_file,
+            workflow_id=workflow_id,
+        )
 
         yaml_path = f"custom/workflows/{workflow_id}.yaml"
         result = self.git_service.create_sim_branch(

@@ -11,7 +11,7 @@ from runsight_core.identity import EntityKind, EntityRef
 from ...data.repositories.run_repo import RunRepository
 from ...domain.entities.log import LogEntry
 from ...domain.entities.run import NodeStatus, Run, RunNode, RunStatus, validate_transition
-from ...domain.errors import InputValidationError, RunNotFound, WorkflowNotFound
+from ...domain.errors import RunNotFound, WorkflowNotFound
 
 if TYPE_CHECKING:
     from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -30,21 +30,16 @@ def _workflow_input_snapshots(
     workflow: Any,
     inputs: Mapping[str, Any],
 ) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    from .execution_service import PreparedRunInputs
+
+    if not isinstance(inputs, PreparedRunInputs):
+        raise TypeError("RunService.create_run requires PreparedRunInputs")
+
     workflow_inputs = _snapshot_dict(getattr(inputs, "workflow_inputs", None))
     workflow_input_schema = _snapshot_dict(getattr(inputs, "workflow_input_schema", None))
     if workflow_inputs is not None and workflow_input_schema is not None:
         return workflow_inputs, workflow_input_schema
-
-    yaml_content = getattr(workflow, "yaml", None)
-    if not isinstance(yaml_content, str):
-        return None, None
-
-    try:
-        from .execution_service import workflow_input_snapshots_from_yaml
-
-        return workflow_input_snapshots_from_yaml(workflow_id, yaml_content, dict(inputs))
-    except (InputValidationError, TypeError, ValueError):
-        return None, None
+    raise TypeError("PreparedRunInputs must include workflow input snapshots")
 
 
 class RunService:

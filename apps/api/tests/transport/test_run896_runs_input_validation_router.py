@@ -239,3 +239,21 @@ class TestRunInputValidationRouter:
             {},
             branch="main",
         )
+
+    def test_malformed_run_body_uses_workflow_input_error_shape(self):
+        run_service, execution_service = _services(normalized_inputs={})
+
+        response = client.post("/api/runs", json={"workflow_id": "wf_inputs", "inputs": []})
+
+        assert response.status_code == 422
+        payload = response.json()
+        assert "detail" not in payload
+        assert payload["error"] == "Workflow input validation failed"
+        assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+        assert payload["status_code"] == 422
+        assert payload["details"]["kind"] == "workflow_input_validation"
+        assert payload["details"]["workflow_id"] == "wf_inputs"
+        assert payload["details"]["fields"][0]["field"] == "inputs"
+        assert payload["details"]["fields"][0]["code"] == "type_mismatch"
+        run_service.create_run.assert_not_called()
+        execution_service.launch_execution.assert_not_called()

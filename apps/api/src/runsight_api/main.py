@@ -6,6 +6,7 @@ from pathlib import Path
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -26,7 +27,10 @@ from .domain.entities.run import Run, RunStatus
 from .domain.errors import RunsightError
 from .logic.services.execution_service import ExecutionService
 from .transport.middleware.access_log import AccessLogMiddleware
-from .transport.middleware.error_handler import global_exception_handler
+from .transport.middleware.error_handler import (
+    global_exception_handler,
+    request_validation_exception_handler,
+)
 from .transport.middleware.request_id import RequestIdMiddleware
 from .transport.routers import (
     dashboard,
@@ -163,6 +167,7 @@ def create_app() -> FastAPI:
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RunsightError, global_exception_handler)
+    app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Routers

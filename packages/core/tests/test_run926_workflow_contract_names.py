@@ -138,6 +138,13 @@ class TestWorkflowBlockBindingValidation:
 
         assert block_def.outputs == {"results.child": "results.summary"}
 
+    @pytest.mark.parametrize("target_path", ["metadata.child", "summary", "workflow.child"])
+    def test_workflow_block_rejects_invalid_parent_output_targets(self, target_path: str) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        with pytest.raises(ValidationError, match="parent target path|results|shared_memory"):
+            adapter.validate_python(_workflow_block(outputs={target_path: "results.summary"}))
+
     def test_parse_workflow_yaml_rejects_invalid_child_binding_before_runtime(self) -> None:
         child_file = _child_file_without_interface()
         registry = WorkflowRegistry()

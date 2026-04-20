@@ -5,6 +5,7 @@ Workflow state machine for orchestrating block execution.
 from __future__ import annotations
 
 import asyncio
+import copy
 import dataclasses
 import inspect
 import logging
@@ -16,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, O
 from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 if TYPE_CHECKING:
@@ -109,6 +111,36 @@ def _matches_exit_condition(cond: object, output: str) -> bool:
     if getattr(cond, "regex", None) is not None and re.search(cond.regex, output):
         return True
     return False
+
+
+def _actual_input_type(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "json"
+    return type(value).__name__
+
+
+def _matches_input_type(value: Any, expected_type: str | None) -> bool:
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "number":
+        return not isinstance(value, bool) and isinstance(value, int | float)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "json":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    return True
 
 
 async def execute_block(
@@ -829,9 +861,60 @@ class Workflow:
                 )
         return await loop_coro
 
+    def _normalize_runtime_inputs(self, inputs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        raw_inputs = dict(inputs or {})
+        input_schema = self.input_schema
+        if input_schema is None:
+            return raw_inputs
+
+        fields: list[str] = []
+        normalized: Dict[str, Any] = {}
+
+        for name, value in raw_inputs.items():
+            if name not in input_schema:
+                fields.append(f"unknown input '{name}'")
+
+        for name, input_def in input_schema.items():
+            if name not in raw_inputs:
+                default = getattr(input_def, "default", None)
+                if default is not None:
+                    normalized[name] = copy.deepcopy(default)
+                    continue
+                if getattr(input_def, "required", True):
+                    fields.append(f"required input '{name}' is missing")
+                continue
+
+            value = raw_inputs[name]
+            expected_type = getattr(input_def, "type", None)
+            if not _matches_input_type(value, expected_type):
+                actual_type = _actual_input_type(value)
+                fields.append(
+                    f"input '{name}' has invalid type: expected {expected_type}, got {actual_type}"
+                )
+                continue
+            normalized[name] = value
+
+        if fields:
+            raise ValueError("Workflow input validation failed: " + "; ".join(fields))
+        return normalized
+
     def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
         """Return a copy of state with invocation inputs available to workflow refs."""
-        return state.model_copy(update={"workflow_inputs": dict(inputs or {})})
+        normalized_inputs = self._normalize_runtime_inputs(inputs)
+        updates: Dict[str, Any] = {"workflow_inputs": normalized_inputs}
+
+        if self.input_schema is not None:
+            redactor = state.input_redactor
+            for name, input_def in self.input_schema.items():
+                if not getattr(input_def, "sensitive", False) or name not in normalized_inputs:
+                    continue
+                if redactor is None:
+                    redactor = RunRedactor()
+                redactor.register_named(name, normalized_inputs[name])
+            if redactor is not None:
+                updates["input_redactor"] = redactor
+
+        return state.model_copy(update=updates)
 
     async def run(
         self,

@@ -39,6 +39,22 @@ function extractComponentFieldNames(source: string, componentName: string): stri
     .filter((field): field is string => field !== null);
 }
 
+function extractComponentBlock(
+  source: string,
+  componentName: string,
+  nextComponentName: string,
+): string {
+  const startMarker = `/** ${componentName} */`;
+  const endMarker = `/** ${nextComponentName} */`;
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+
+  expect(start, `Expected generated api.ts to declare ${componentName}`).toBeGreaterThanOrEqual(0);
+  expect(end, `Expected generated api.ts to declare ${nextComponentName}`).toBeGreaterThan(start);
+
+  return source.slice(start, end);
+}
+
 describe("RUN-901 shared workflow input contracts", () => {
   it("RunCreateSchema defaults omitted inputs to an empty object", () => {
     const schema = getSchema("RunCreateSchema");
@@ -195,6 +211,14 @@ describe("RUN-901 shared workflow input contracts", () => {
       expect.arrayContaining(["workflow_inputs", "workflow_input_schema"]),
     );
     expect(workflowResponseFields).toEqual(expect.arrayContaining(["input_schema"]));
+  });
+
+  it("generated OpenAPI TS keeps defaulted RunCreate fields optional for callers", () => {
+    const runCreateBlock = extractComponentBlock(apiSource, "RunCreate", "RunEvalResponse");
+
+    expect(runCreateBlock).toMatch(/\binputs\?:/);
+    expect(runCreateBlock).toMatch(/\bsource\?:/);
+    expect(runCreateBlock).toMatch(/\bbranch\?:/);
   });
 
   it("committed OpenAPI includes a workflow input validation error schema with structured fields", () => {

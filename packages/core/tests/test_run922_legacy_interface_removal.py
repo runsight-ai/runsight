@@ -36,6 +36,11 @@ def _child_file_without_interface() -> RunsightWorkflowFile:
     return RunsightWorkflowFile.model_validate(
         _minimal_workflow(
             id="child-workflow",
+            inputs={
+                "query": {
+                    "type": "string",
+                }
+            },
             blocks={
                 "echo": {
                     "type": "code",

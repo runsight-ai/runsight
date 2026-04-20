@@ -378,13 +378,40 @@ def test_prepare_run_inputs_redacts_json_escaped_sensitive_string_leaf_text() ->
     assert redacted == f'failed with {{"token": "{REDACTED}"}}'
 
 
+def test_workflow_input_snapshot_omits_public_child_value_when_runtime_redactor_marks_it_sensitive() -> (
+    None
+):
+    from runsight_core.redaction import RunRedactor
+    from runsight_core.yaml.schema import WorkflowInputDef
+
+    from runsight_api.logic.services.execution_service import _workflow_input_values_snapshot
+
+    redactor = RunRedactor()
+    redactor.register_named("api_token", SENSITIVE_VALUE)
+
+    snapshot = _workflow_input_values_snapshot(
+        {"child_query": WorkflowInputDef(type="string", sensitive=False)},
+        {"child_query": SENSITIVE_VALUE},
+        redactor=redactor,
+    )
+
+    assert snapshot["child_query"] == {
+        "type": "string",
+        "sensitive": True,
+        "source": "provided",
+    }
+
+
 def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() -> None:
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
-    with pytest.raises(
-        InputValidationError, match="sensitive workflow inputs cannot declare a default"
-    ):
+    with pytest.raises(InputValidationError) as exc_info:
         service.prepare_run_inputs("run928_inputs", {}, branch="main")
+
+    payload = exc_info.value.to_dict()
+    assert payload["error"] == "Workflow input validation failed"
+    assert payload["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+    assert SENSITIVE_VALUE not in str(payload)
 
 
 @pytest.mark.asyncio

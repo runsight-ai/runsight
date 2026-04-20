@@ -61,6 +61,8 @@ class WorkflowBlock(BaseBlock):
 
         for binding_name in self.inputs:
             self._validate_child_invocation_input_name(binding_name)
+        for parent_target_path in self.outputs:
+            self._validate_parent_output_target_path(parent_target_path)
         for child_source_path in self.outputs.values():
             self._validate_child_output_source_path(child_source_path)
 
@@ -110,7 +112,7 @@ class WorkflowBlock(BaseBlock):
                 )
             else:
                 child_observer = observer
-        self._record_child_workflow_input_snapshot(child_observer, child_inputs)
+        self._record_child_workflow_input_snapshot(child_observer, child_inputs, child_redactor)
 
         start_time = time.monotonic()
         try:
@@ -384,10 +386,11 @@ class WorkflowBlock(BaseBlock):
         self,
         observer: Any,
         child_inputs: Dict[str, Any],
+        redactor: RunRedactor | None,
     ) -> None:
         recorder = getattr(observer, "record_workflow_input_snapshot", None)
         if callable(recorder):
-            recorder(self._child_input_schema(), child_inputs)
+            recorder(self._child_input_schema(), child_inputs, redactor=redactor)
 
     def _validate_child_invocation_input_name(self, input_name: str) -> str:
         if "." in input_name:
@@ -399,6 +402,9 @@ class WorkflowBlock(BaseBlock):
 
     def _validate_child_output_source_path(self, source_path: str) -> str:
         return _validate_child_output_source_path(source_path, block_id=self.block_id)
+
+    def _validate_parent_output_target_path(self, target_path: str) -> str:
+        return _validate_parent_output_target_path(target_path, block_id=self.block_id)
 
     def _require_governed_input(self, resolved_inputs: Dict[str, Any], input_name: str) -> Any:
         if input_name not in resolved_inputs:
@@ -474,6 +480,22 @@ def _validate_child_output_source_path(source_path: str, *, block_id: str | None
     return source_path
 
 
+def _validate_parent_output_target_path(target_path: str, *, block_id: str | None = None) -> str:
+    if not isinstance(target_path, str):
+        raise ValueError("workflow block output parent target path must be a string")
+
+    prefix = f"WorkflowBlock '{block_id}': " if block_id is not None else ""
+    field, sep, key = target_path.partition(".")
+    if not sep or not key:
+        raise ValueError(f"{prefix}workflow block outputs must use a dotted parent target path")
+    if field not in {"results", "shared_memory"}:
+        raise ValueError(
+            f"{prefix}workflow block output parent target path '{target_path}' must start "
+            "with results. or shared_memory."
+        )
+    return target_path
+
+
 # -- Schema definition (co-located) -----------------------------------------
 
 from runsight_core.yaml.schema import BaseBlockDef  # noqa: E402
@@ -504,8 +526,9 @@ class WorkflowBlockDef(BaseBlockDef):
                 )
             validate_workflow_contract_name(binding_name)
 
-        for binding_name in (self.outputs or {}).values():
-            _validate_child_output_source_path(binding_name)
+        for target_path, source_path in (self.outputs or {}).items():
+            _validate_parent_output_target_path(target_path)
+            _validate_child_output_source_path(source_path)
 
         return self
 
@@ -522,6 +545,9 @@ def _validate_workflow_block_contract(
     block_def: Any,
     child_file: "RunsightWorkflowFile",
 ) -> None:
+    from runsight_core.workflow_input_schema import effective_workflow_input_schema
+
+    child_input_schema = effective_workflow_input_schema(child_file) or {}
     for binding_name in (block_def.inputs or {}).keys():
         if "." in binding_name:
             raise ValueError(
@@ -529,9 +555,25 @@ def _validate_workflow_block_contract(
                 "private child state. Bind a child invocation input name instead."
             )
         validate_workflow_contract_name(binding_name)
+        if binding_name not in child_input_schema:
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': input '{binding_name}' is not declared by "
+                f"child workflow '{child_file.id}'."
+            )
 
-    for binding_name in (block_def.outputs or {}).values():
-        _validate_child_output_source_path(binding_name, block_id=block_id)
+    for name, input_def in child_input_schema.items():
+        if name in (block_def.inputs or {}):
+            continue
+        if getattr(input_def, "default", None) is not None:
+            continue
+        if getattr(input_def, "required", True):
+            raise ValueError(
+                f"WorkflowBlock '{block_id}': required child input '{name}' is missing."
+            )
+
+    for target_path, source_path in (block_def.outputs or {}).items():
+        _validate_parent_output_target_path(target_path, block_id=block_id)
+        _validate_child_output_source_path(source_path, block_id=block_id)
 
 
 def _resolve_workflow_block_max_depth(

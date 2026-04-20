@@ -91,7 +91,13 @@ class ExecutionObserver:
     def clone_for_child_run(self, *, child_run_id: str) -> "ExecutionObserver":
         return ExecutionObserver(engine=self.engine, run_id=child_run_id)
 
-    def record_workflow_input_snapshot(self, input_schema: Any, inputs: Any) -> None:
+    def record_workflow_input_snapshot(
+        self,
+        input_schema: Any,
+        inputs: Any,
+        *,
+        redactor: Any = None,
+    ) -> None:
         try:
             from runsight_api.logic.services.execution_service import (
                 _workflow_input_schema_snapshot,
@@ -102,7 +108,9 @@ class ExecutionObserver:
                 run = session.get(Run, self.run_id)
                 if run:
                     run.workflow_inputs = _workflow_input_values_snapshot(
-                        input_schema or {}, inputs
+                        input_schema or {},
+                        inputs,
+                        redactor=redactor,
                     )
                     run.workflow_input_schema = _workflow_input_schema_snapshot(input_schema or {})
                     run.updated_at = time.time()
@@ -200,6 +208,9 @@ class ExecutionObserver:
                     status=RunStatus.running,
                     task_json="{}",
                     warnings_json=None,
+                    branch=parent_run.branch if parent_run else "main",
+                    source=parent_run.source if parent_run else "manual",
+                    commit_sha=parent_run.commit_sha if parent_run else None,
                     parent_run_id=self.run_id,
                     parent_node_id=f"{self.run_id}:{block_id}",
                     root_run_id=root_run_id,
@@ -337,6 +348,21 @@ class ExecutionObserver:
                     node.error_traceback = tb_str
                     node.updated_at = time.time()
                     session.add(node)
+                    if node.child_run_id:
+                        child_run = session.get(Run, node.child_run_id)
+                        if child_run:
+                            try:
+                                validate_transition(child_run.status, RunStatus.failed)
+                            except InvalidStateTransition:
+                                pass
+                            else:
+                                child_run.status = RunStatus.failed
+                                child_run.completed_at = time.time()
+                                child_run.duration_s = duration_s
+                                child_run.error = error_message
+                                child_run.error_traceback = tb_str
+                                child_run.updated_at = time.time()
+                                session.add(child_run)
                 session.commit()
 
             self._insert_log(

@@ -377,6 +377,31 @@ describe("RUN-925 rerun workflow inputs from footer history", () => {
     expect(sensitiveField).toHaveValue("");
   });
 
+  it("does not prefill a historical snapshot value marked sensitive even if the current field is public", async () => {
+    const user = userEvent.setup();
+    harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
+    harness.runs = [
+      makeRun({
+        workflow_inputs: {
+          query: {
+            type: "string",
+            sensitive: true,
+            source: "provided",
+            value: "historical secret",
+          },
+        },
+      }),
+    ];
+
+    renderSurfaceBottomPanel();
+    await openRunsHistory(user);
+    await openRunInputsPanel(user);
+    await user.click(screen.getByRole("button", { name: /rerun/i }));
+
+    expect(screen.getByRole("textbox", { name: /query/i })).toHaveValue("");
+    expect(screen.queryByDisplayValue("historical secret")).toBeNull();
+  });
+
   it("submits edited rerun inputs under the current workflow field names and does not migrate legacy keys", async () => {
     const user = userEvent.setup();
     harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;

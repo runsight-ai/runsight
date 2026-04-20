@@ -5,6 +5,7 @@ import copy
 import logging
 import subprocess
 import time
+import traceback
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, Optional
@@ -131,16 +132,42 @@ def _raise_workflow_input_validation(workflow_id: str, fields: list[dict[str, An
     )
 
 
-def _raise_workflow_schema_validation(workflow_id: str, error: ValidationError) -> None:
-    message = str(error)
+def _workflow_schema_error_field(error: Exception) -> dict[str, Any]:
+    message = "Workflow input schema is invalid."
+    code = "invalid"
+    if isinstance(error, ValueError) and str(error) == "legacy workflow interface is unsupported":
+        message = str(error)
+        code = "unsupported"
+    elif isinstance(error, ValidationError):
+        for item in error.errors():
+            context_error = item.get("ctx", {}).get("error")
+            if (
+                isinstance(context_error, ValueError)
+                and str(context_error) == "legacy workflow interface is unsupported"
+            ):
+                message = str(context_error)
+                code = "unsupported"
+                break
+
+    return {
+        "field": "__schema__",
+        "code": code,
+        "message": message,
+        "input_path": ["inputs"],
+        "expected_type": None,
+        "actual_type": None,
+    }
+
+
+def _raise_workflow_schema_validation(workflow_id: str, error: Exception) -> None:
     raise InputValidationError(
-        f"Workflow input validation failed: {message}",
+        "Workflow input validation failed",
         error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
         status_code=422,
         details={
             "kind": "workflow_input_validation",
             "workflow_id": workflow_id,
-            "fields": [],
+            "fields": [_workflow_schema_error_field(error)],
         },
     ) from error
 
@@ -157,7 +184,12 @@ def _prepared_run_inputs(
     return PreparedRunInputs(
         normalized_inputs=normalized_inputs,
         input_redactor=input_redactor,
-        workflow_inputs=_workflow_input_values_snapshot(input_schema, normalized_inputs, sources),
+        workflow_inputs=_workflow_input_values_snapshot(
+            input_schema,
+            normalized_inputs,
+            sources,
+            redactor=input_redactor,
+        ),
         workflow_input_schema=_workflow_input_schema_snapshot(input_schema),
     )
 
@@ -194,6 +226,8 @@ def _workflow_input_values_snapshot(
     input_schema: Mapping[str, WorkflowInputDef],
     normalized_inputs: Mapping[str, Any],
     sources: Mapping[str, str] | None = None,
+    *,
+    redactor: RunRedactor | None = None,
 ) -> Dict[str, Dict[str, Any]]:
     snapshot: Dict[str, Dict[str, Any]] = {}
     for name, input_def in input_schema.items():
@@ -201,12 +235,16 @@ def _workflow_input_values_snapshot(
             continue
 
         value = normalized_inputs[name]
+        runtime_sensitive = False
+        if redactor is not None:
+            runtime_sensitive = redactor.redact_runtime_value(value) != value
+        sensitive = input_def.sensitive or runtime_sensitive
         item: Dict[str, Any] = {
             "type": input_def.type,
-            "sensitive": input_def.sensitive,
+            "sensitive": sensitive,
             "source": _workflow_input_source(name, value, input_def, sources),
         }
-        if not input_def.sensitive:
+        if not sensitive:
             item["value"] = copy.deepcopy(value)
         snapshot[name] = item
     return snapshot
@@ -228,14 +266,20 @@ def _workflow_input_schema_from_yaml(
     workflow_id: str,
     yaml_content: str,
 ) -> Mapping[str, WorkflowInputDef]:
-    data = yaml.safe_load(yaml_content)
+    try:
+        data = yaml.safe_load(yaml_content)
+    except yaml.YAMLError as exc:
+        _raise_workflow_schema_validation(workflow_id, exc)
     if not isinstance(data, dict):
-        raise ValueError("YAML content is not a mapping")
+        _raise_workflow_schema_validation(workflow_id, ValueError("YAML content is not a mapping"))
     try:
         workflow_file = RunsightWorkflowFile.model_validate(data)
     except ValidationError as exc:
         _raise_workflow_schema_validation(workflow_id, exc)
-    return effective_workflow_input_schema(workflow_file) or {}
+    try:
+        return effective_workflow_input_schema(workflow_file) or {}
+    except ValueError as exc:
+        _raise_workflow_schema_validation(workflow_id, exc)
 
 
 def _prepare_run_inputs_from_schema(
@@ -577,8 +621,13 @@ class ExecutionService:
                     observer=observer,
                     inputs=prepared_inputs.normalized_inputs,
                 )
-            except Exception:
-                logger.exception("Workflow execution failed for run %s", run_id)
+            except Exception as exc:
+                tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                logger.error(
+                    "Workflow execution failed for run %s\n%s",
+                    run_id,
+                    prepared_inputs.input_redactor.redact_text(tb_str),
+                )
             finally:
                 self.unregister_observer(run_id)
 

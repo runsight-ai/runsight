@@ -24,9 +24,6 @@ def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_parent:
         type: workflow
@@ -42,9 +39,6 @@ def test_update_rejects_circular_child_reference_chain(tmp_path) -> None:
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -72,9 +66,6 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -84,9 +75,6 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -102,9 +90,6 @@ def test_update_rejects_nested_child_chain_that_exceeds_max_depth(tmp_path) -> N
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -131,9 +116,6 @@ def test_update_rejects_child_chain_that_exceeds_inherited_workflow_max_depth(tm
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: child
       entry: finish
@@ -143,9 +125,6 @@ def test_update_rejects_child_chain_that_exceeds_inherited_workflow_max_depth(tm
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -176,9 +155,6 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -188,9 +164,6 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -207,9 +180,6 @@ def test_update_rejects_nested_child_block_max_depth_already_exceeded_at_call_si
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -236,9 +206,6 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -248,9 +215,6 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -267,9 +231,6 @@ def test_update_rejects_grandchild_when_propagated_call_depth_reaches_block_limi
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -302,14 +263,9 @@ def test_update_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs:
-        - name: topic
-          target: shared_memory.topic
-          required: true
-      outputs:
-        - name: summary
-          source: results.writer
+    inputs:
+      topic:
+        type: string
     workflow:
       name: child-by-name
       entry: finish
@@ -319,9 +275,6 @@ def test_update_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -329,7 +282,7 @@ def test_update_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
         inputs:
           topic: shared_memory.topic
         outputs:
-          results.summary: summary
+          results.summary: results.writer
     workflow:
       name: parent
       entry: call_child
@@ -353,11 +306,6 @@ def test_create_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs:
-        - name: summary
-          source: results.writer
     workflow:
       name: child-by-name
       entry: finish
@@ -367,9 +315,6 @@ def test_create_rejects_child_workflow_by_declared_name_alias(tmp_path) -> None:
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -421,9 +366,6 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -433,9 +375,6 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -453,9 +392,6 @@ def test_max_depth_3_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -490,9 +426,6 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -502,9 +435,6 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -522,9 +452,6 @@ def test_max_depth_1_rejects_grandchild_with_propagated_config(tmp_path) -> None
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -554,9 +481,6 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
 
     great_grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: great-grandchild
       entry: finish
@@ -566,9 +490,6 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_ggc:
         type: workflow
@@ -586,9 +507,6 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -606,9 +524,6 @@ def test_max_depth_2_rejects_great_grandchild_with_propagated_config(tmp_path) -
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow
@@ -639,9 +554,6 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     grandchild_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     workflow:
       name: grandchild
       entry: finish
@@ -651,9 +563,6 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     child_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_grandchild:
         type: workflow
@@ -671,9 +580,6 @@ def test_max_depth_2_allows_grandchild_with_propagated_config(tmp_path) -> None:
 
     parent_yaml = """
     version: "1.0"
-    interface:
-      inputs: []
-      outputs: []
     blocks:
       call_child:
         type: workflow

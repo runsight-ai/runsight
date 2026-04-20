@@ -70,6 +70,32 @@ workflow:
 """
 
 
+def _workflow_yaml_with_invalid_workflow_input_ref() -> str:
+    return """
+id: run896_inputs
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+blocks:
+  start:
+    type: code
+    inputs:
+      prompt:
+        from: workflow.missing
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: run896_inputs
+  entry: start
+  transitions:
+    - from: start
+      to: null
+"""
+
+
 def _service(yaml: str, *, workflow_id: str = "run896_inputs") -> ExecutionService:
     workflow_repo = Mock()
     workflow_repo.get_by_id.return_value = WorkflowEntity(
@@ -176,6 +202,22 @@ class TestWorkflowInputValidationPreparation:
                 "actual_type": "boolean",
             }
         ]
+
+    def test_invalid_workflow_input_reference_raises_canonical_422_error(self):
+        service = _service(_workflow_yaml_with_invalid_workflow_input_ref())
+
+        with pytest.raises(InputValidationError) as exc_info:
+            service.prepare_run_inputs(
+                "run896_inputs",
+                {"query": "search"},
+                branch="main",
+            )
+
+        payload = _error_payload(exc_info.value)
+        assert payload["details"]["workflow_id"] == "run896_inputs"
+        field = payload["details"]["fields"][0]
+        assert field["field"] == "__schema__"
+        assert field["code"] == "invalid"
 
     def test_optional_defaults_are_applied_to_normalized_inputs(self):
         service = _service(_workflow_yaml_with_inputs())

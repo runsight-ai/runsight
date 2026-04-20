@@ -531,6 +531,10 @@ function getRerunInitialValues(
       continue;
     }
 
+    if (snapshotEntry.sensitive !== false) {
+      continue;
+    }
+
     if (snapshotEntry.value !== undefined) {
       initialValues[name] = snapshotEntry.value;
     }

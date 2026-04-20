@@ -112,6 +112,7 @@ def _state() -> WorkflowState:
         },
         workflow_inputs={
             "request": "external input",
+            "secret": "workflow secret",
         },
         shared_memory={
             "flags": {"safe": True, "secret": "flag sibling secret"},
