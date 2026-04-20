@@ -22,6 +22,7 @@ CHILD_QUERY = "run929-child-query"
 CONFLICT_QUERY = "run929-conflicting-results-workflow-query"
 CONFLICT_SUBMITTED_QUERY = "run929-workflow-state-source-query"
 SECRET = "run929-sensitive-plain-text-never-persist"
+INVALID_QUERY_MARKER = "run929-invalid-query-echo"
 REDACTED = "[redacted]"
 
 
@@ -479,18 +480,12 @@ def _db_surfaces(engine, run_id: str) -> dict[str, Any]:
     with Session(engine) as session:
         run = session.get(Run, run_id)
         assert run is not None
+        run_surface = {field: getattr(run, field) for field in Run.model_fields}
         nodes = list(session.exec(select(RunNode).where(RunNode.run_id == run_id)).all())
         logs = list(session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all())
 
     return {
-        "run": {
-            "id": run.id,
-            "workflow_inputs": run.workflow_inputs,
-            "workflow_input_schema": run.workflow_input_schema,
-            "results_json": run.results_json,
-            "error": run.error,
-            "error_traceback": run.error_traceback,
-        },
+        "run": run_surface,
         "nodes": [
             {
                 "id": node.id,
@@ -874,7 +869,10 @@ async def test_invalid_workflow_input_returns_422_before_run_or_snapshot_creatio
             "/api/runs",
             json={
                 "workflow_id": "run929-direct",
-                "inputs": {"query": 123, "api_token": SECRET},
+                "inputs": {
+                    "query": {"marker": INVALID_QUERY_MARKER},
+                    "api_token": SECRET,
+                },
             },
         )
 
@@ -884,7 +882,11 @@ async def test_invalid_workflow_input_returns_422_before_run_or_snapshot_creatio
     assert payload["details"]["workflow_id"] == "run929-direct"
     assert payload["details"]["fields"][0]["field"] == "query"
     assert payload["details"]["fields"][0]["code"] == "type_mismatch"
-    _assert_secret_absent("validation response", payload)
+    assert payload["details"]["fields"][0]["expected_type"] == "string"
+    assert payload["details"]["fields"][0]["actual_type"] == "json"
+    validation_payload = _json(payload)
+    assert SECRET not in validation_payload
+    assert INVALID_QUERY_MARKER not in validation_payload
 
     with Session(db_engine) as session:
         runs = list(session.exec(select(Run)).all())
