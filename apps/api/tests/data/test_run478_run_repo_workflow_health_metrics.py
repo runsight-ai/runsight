@@ -39,6 +39,7 @@ def _seed_run(
         workflow_id=workflow_id,
         workflow_name=f"Workflow {workflow_id}",
         task_json="{}",
+        branch="main",
         source=source,
         total_cost_usd=total_cost_usd,
     )

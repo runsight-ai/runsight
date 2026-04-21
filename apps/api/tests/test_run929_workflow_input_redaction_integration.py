@@ -570,6 +570,7 @@ async def test_direct_run_snapshots_inputs_without_persisting_or_streaming_plain
             "/api/runs",
             json={
                 "workflow_id": "run929-direct",
+                "branch": "main",
                 "inputs": {"query": DIRECT_QUERY, "api_token": SECRET},
             },
         )
@@ -634,6 +635,7 @@ async def test_failed_run_redacts_sensitive_input_across_error_surfaces(
                 "/api/runs",
                 json={
                     "workflow_id": "run929-failing",
+                    "branch": "main",
                     "inputs": {"query": DIRECT_QUERY, "api_token": SECRET},
                 },
             )
@@ -690,6 +692,7 @@ async def test_child_run_records_own_safe_snapshot_and_inherits_redaction_contex
             "/api/runs",
             json={
                 "workflow_id": "run929-parent",
+                "branch": "main",
                 "inputs": {"query": CHILD_QUERY, "api_token": SECRET},
             },
         )
@@ -781,6 +784,7 @@ async def test_workflow_input_resolution_ignores_conflicting_results_workflow_fa
             "/api/runs",
             json={
                 "workflow_id": "run929-conflicting-workflow-result",
+                "branch": "main",
                 "inputs": {"query": CONFLICT_SUBMITTED_QUERY, "api_token": SECRET},
             },
         )
@@ -836,6 +840,7 @@ async def test_legacy_interface_target_yaml_returns_422_before_run_creation(
             "/api/runs",
             json={
                 "workflow_id": "run929-legacy-interface",
+                "branch": "main",
                 "inputs": {"query": DIRECT_QUERY, "api_token": SECRET},
             },
         )
@@ -869,6 +874,7 @@ async def test_invalid_workflow_input_returns_422_before_run_or_snapshot_creatio
             "/api/runs",
             json={
                 "workflow_id": "run929-direct",
+                "branch": "main",
                 "inputs": {
                     "query": {"marker": INVALID_QUERY_MARKER},
                     "api_token": SECRET,

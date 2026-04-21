@@ -88,7 +88,13 @@ def db_session_fixture():
 def seeded_run_fixture(db_session):
     """Create a run with mixed-status nodes."""
     repo = RunRepository(db_session)
-    run = Run(id="run-144", workflow_id="wf-1", workflow_name="Test WF", task_json="{}")
+    run = Run(
+        id="run-144",
+        workflow_id="wf-1",
+        workflow_name="Test WF",
+        task_json="{}",
+        branch="main",
+    )
     repo.create_run(run)
 
     # 2 completed, 1 running, 1 pending, 1 failed = 5 total
@@ -186,7 +192,13 @@ class TestGetNodeSummaryPerStatus:
     def test_zero_nodes_returns_all_zeros(self, db_session):
         """Run with zero nodes should return all-zero summary."""
         repo = RunRepository(db_session)
-        run = Run(id="run-empty", workflow_id="wf-1", workflow_name="Empty WF", task_json="{}")
+        run = Run(
+            id="run-empty",
+            workflow_id="wf-1",
+            workflow_name="Empty WF",
+            task_json="{}",
+            branch="main",
+        )
         repo.create_run(run)
 
         workflow_repo = Mock()

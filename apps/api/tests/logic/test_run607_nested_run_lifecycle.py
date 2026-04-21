@@ -90,6 +90,7 @@ class TestRunModelHasParentLinkageFields:
                 workflow_id="wf_1",
                 workflow_name="Test",
                 task_json="{}",
+                branch="main",
                 parent_run_id=None,
             )
             session.add(run)
@@ -106,6 +107,7 @@ class TestRunModelHasParentLinkageFields:
                 workflow_id="wf_1",
                 workflow_name="Test",
                 task_json="{}",
+                branch="main",
                 parent_node_id=None,
             )
             session.add(run)
@@ -122,6 +124,7 @@ class TestRunModelHasParentLinkageFields:
                 workflow_id="wf_1",
                 workflow_name="Test",
                 task_json="{}",
+                branch="main",
                 root_run_id=None,
             )
             session.add(run)
@@ -138,6 +141,7 @@ class TestRunModelHasParentLinkageFields:
                 workflow_id="wf_1",
                 workflow_name="Test",
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -536,6 +540,7 @@ class TestRootRunIdSetOnChild:
                 workflow_id="wf_1",
                 workflow_name="Root",
                 task_json="{}",
+                branch="main",
                 depth=0,
             )
             session.add(run)

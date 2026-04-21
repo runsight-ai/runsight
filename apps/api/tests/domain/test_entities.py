@@ -10,7 +10,13 @@ def test_run_status_enum():
 
 
 def test_run_creation():
-    run = Run(id="run-1", workflow_id="wf-1", workflow_name="WF 1", task_json='{"task": "do it"}')
+    run = Run(
+        id="run-1",
+        workflow_id="wf-1",
+        workflow_name="WF 1",
+        task_json='{"task": "do it"}',
+        branch="main",
+    )
     assert run.id == "run-1"
     assert run.status == RunStatus.pending
 

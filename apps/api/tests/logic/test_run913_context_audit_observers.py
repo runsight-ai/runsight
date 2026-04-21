@@ -37,6 +37,7 @@ def _seed_run(engine, run_id: str = "run_913") -> None:
                 workflow_name="context_audit_observer",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
         )
         session.commit()

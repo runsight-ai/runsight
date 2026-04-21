@@ -37,6 +37,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
         )
         assert not hasattr(run, "workflow_commit_sha")
 
@@ -49,6 +50,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
         )
         assert not hasattr(run, "effective_commit_sha")
 
@@ -62,6 +64,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
             commit_sha=sha,
         )
         assert run.commit_sha == sha
@@ -80,6 +83,7 @@ class TestRunCommitShaOnly:
                 workflow_id="wf-1",
                 workflow_name="WF 1",
                 task_json='{"instruction": "test"}',
+                branch="main",
                 commit_sha=sha,
             )
             session.add(run)
@@ -102,6 +106,7 @@ class TestRunCommitShaOnly:
                 workflow_id="wf-1",
                 workflow_name="WF 1",
                 task_json='{"instruction": "test"}',
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -207,6 +212,7 @@ class TestLaunchExecutionStoresSha:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -255,6 +261,7 @@ class TestLaunchExecutionStoresSha:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -281,6 +288,7 @@ class TestLaunchExecutionStoresSha:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -327,6 +335,7 @@ class TestLaunchExecutionStoresSha:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 

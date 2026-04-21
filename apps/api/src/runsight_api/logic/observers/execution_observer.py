@@ -202,8 +202,8 @@ class ExecutionObserver:
                     raise LookupError(
                         f"Parent run {self.run_id} not found for child workflow block {block_id}"
                     )
-                parent_depth = parent_run.depth if parent_run else 0
-                parent_root = parent_run.root_run_id if parent_run else None
+                parent_depth = parent_run.depth
+                parent_root = parent_run.root_run_id
                 # Root run has root_run_id=None; children point to the outermost ancestor
                 root_run_id = parent_root if parent_root is not None else self.run_id
                 child_workflow_id = kwargs.get("child_workflow_id") or f"wf_child_{block_id}"

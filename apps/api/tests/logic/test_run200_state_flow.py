@@ -189,7 +189,12 @@ class TestLaunchExecutionStateFlow:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_e2e", "wf_1", _prepared_inputs(inputs))
+            await svc.launch_execution(
+                "run_e2e",
+                "wf_1",
+                _prepared_inputs(inputs),
+                branch="main",
+            )
 
             # Wait for background task to complete
             await asyncio.sleep(0.1)

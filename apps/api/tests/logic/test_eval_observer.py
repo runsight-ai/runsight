@@ -60,6 +60,7 @@ def seed_run(db_engine):
             workflow_name="test_workflow",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         session.add(run)
         session.commit()
@@ -791,6 +792,7 @@ class TestEvalObserverWorkflowComplete:
                 workflow_name="test",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             # Two nodes with eval scores
@@ -844,6 +846,7 @@ class TestEvalObserverWorkflowComplete:
                 workflow_name="test",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             # Node without eval_score
@@ -880,6 +883,7 @@ class TestEvalObserverWorkflowComplete:
                 workflow_name="test",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             node = RunNode(

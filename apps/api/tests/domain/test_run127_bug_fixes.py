@@ -131,6 +131,7 @@ class TestRunStartedAtDefault:
             workflow_name="wf_1",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         # started_at should be None by default — it was previously defaulting to time.time()
         assert run.started_at is None
@@ -145,6 +146,7 @@ class TestRunStartedAtDefault:
             workflow_name="wf_1",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
             started_at=999.0,
         )
         assert run.started_at == 999.0
@@ -167,7 +169,7 @@ class TestCreateRunStartedAt:
         run_repo.create_run.return_value = None
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("wf_1", _prepared({"instruction": "test"}))
+        run = svc.create_run("wf_1", _prepared({"instruction": "test"}), branch="main")
 
         # started_at should be None — execution hasn't started yet
         assert run.started_at is None

@@ -322,7 +322,10 @@ def test_runs_post_422():
     mock_exec_service = Mock()
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
-    response = client.post("/api/runs", json={"workflow_id": 123})  # must be str
+    response = client.post(
+        "/api/runs",
+        json={"workflow_id": 123, "branch": TEST_BRANCH},
+    )  # workflow_id must be str
     assert response.status_code == 422
     app.dependency_overrides.clear()
 
