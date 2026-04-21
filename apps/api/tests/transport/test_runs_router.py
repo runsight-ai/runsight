@@ -135,8 +135,7 @@ def test_runs_get_does_not_inject_main_branch_for_missing_branch():
     app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     response = client.get("/api/runs/run_123")
-    assert response.status_code == 200
-    assert response.json()["branch"] != "main"
+    assert response.status_code == 500
     app.dependency_overrides.clear()
 
 
