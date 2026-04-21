@@ -1,5 +1,4 @@
 import os
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.responses import FileResponse
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from .core.config import ensure_project_dirs
 from .core.config import settings as app_settings
@@ -21,9 +20,8 @@ from .data.filesystem.provider_repo import FileSystemProviderRepo
 from .data.filesystem.settings_repo import FileSystemSettingsRepo
 from .data.filesystem.workflow_repo import WorkflowRepository
 from .data.repositories.run_repo import RunRepository
-from .logic.services.git_service import GitService
-from .domain.entities.run import Run, RunStatus
 from .domain.errors import RunsightError
+from .logic.services.git_service import GitService
 from .logic.services.execution_service import ExecutionService
 from .transport.middleware.access_log import AccessLogMiddleware
 from .transport.middleware.error_handler import global_exception_handler
@@ -43,17 +41,14 @@ from .transport.routers import (
 
 
 def _recover_stale_runs(engine):
-    """Mark any runs stuck in active startup states as failed after an API restart."""
+    """Route stale-run cleanup through the execution collaborator."""
     with Session(engine) as session:
-        stale_runs = session.exec(
-            select(Run).where(Run.status.in_([RunStatus.pending, RunStatus.running]))
-        ).all()
-        for run in stale_runs:
-            run.status = RunStatus.failed
-            run.error = "API process restarted during execution"
-            run.completed_at = time.time()
-            session.add(run)
-        session.commit()
+        ExecutionService(
+            RunRepository(session),
+            workflow_repo=None,
+            provider_repo=None,
+            engine=engine,
+        ).fail_ghost_runs()
 
 
 def _ensure_sqlite_columns(engine) -> None:
@@ -120,7 +115,6 @@ async def lifespan(app: FastAPI):
     alembic_cfg = _build_alembic_config()
     alembic_command.upgrade(alembic_cfg, "head")
     _ensure_sqlite_columns(engine)
-    _recover_stale_runs(engine)
 
     # Create singleton ExecutionService on app.state so _running_tasks persists
     session = Session(engine)
@@ -139,6 +133,7 @@ async def lifespan(app: FastAPI):
         settings_repo=settings_repo,
         git_service=git_service,
     )
+    app.state.execution_service.fail_ghost_runs()
 
     yield
 

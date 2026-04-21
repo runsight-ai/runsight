@@ -33,6 +33,8 @@ def _provider_ref(provider_id: str) -> str:
 class ExecutionService:
     """Wires POST /runs to workflow.run() with background execution."""
 
+    _OBSERVER_REGISTRATION_TIMEOUT_S = 0.25
+
     def __init__(
         self,
         run_repo,
@@ -54,6 +56,8 @@ class ExecutionService:
         self._running_tasks: Dict[str, asyncio.Task] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent_runs)
         self._observers: Dict[str, StreamingObserver] = {}
+        self._observer_events: Dict[str, asyncio.Event] = {}
+        self._completed_streams: set[str] = set()
 
     # ------------------------------------------------------------------
     # Ghost run detection
@@ -75,11 +79,43 @@ class ExecutionService:
         Called at server startup to clean up runs that were interrupted
         by a server restart.
         """
-        ghost_runs = self.run_repo.get_by_status(RunStatus.running)
-        for run in ghost_runs:
-            run.status = RunStatus.failed
-            run.error = "Ghost run: server restarted while running"
-            self.run_repo.update(run)
+        restart_error = "API process restarted during execution"
+
+        if self.engine is not None:
+            try:
+                from sqlmodel import Session, select
+
+                from ...domain.entities.run import Run
+
+                with Session(self.engine) as session:
+                    ghost_runs = session.exec(
+                        select(Run).where(Run.status.in_([RunStatus.pending, RunStatus.running]))
+                    ).all()
+                    completed_at = time.time()
+                    for run in ghost_runs:
+                        run.status = RunStatus.failed
+                        run.error = restart_error
+                        run.completed_at = completed_at
+                        run.updated_at = completed_at
+                        session.add(run)
+                    session.commit()
+                return
+            except Exception:
+                logger.exception("Failed to mark ghost runs via engine session")
+
+        get_by_status = getattr(self.run_repo, "get_by_status", None)
+        if callable(get_by_status):
+            stale_runs = list(get_by_status(RunStatus.pending)) + list(
+                get_by_status(RunStatus.running)
+            )
+            completed_at = time.time()
+            for run in stale_runs:
+                run.status = RunStatus.failed
+                run.error = restart_error
+                run.completed_at = completed_at
+                update_run = getattr(self.run_repo, "update_run", None)
+                if callable(update_run):
+                    update_run(run)
 
     # ------------------------------------------------------------------
     # Cancellation
@@ -104,6 +140,9 @@ class ExecutionService:
     def register_observer(self, run_id: str, observer: StreamingObserver) -> None:
         """Register a StreamingObserver for a given run_id."""
         self._observers[run_id] = observer
+        self._completed_streams.discard(run_id)
+        ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
+        ready_event.set()
 
     def get_observer(self, run_id: str) -> Optional[StreamingObserver]:
         """Return the observer for run_id, or None."""
@@ -111,13 +150,31 @@ class ExecutionService:
 
     def unregister_observer(self, run_id: str) -> None:
         """Remove the observer for run_id."""
-        self._observers.pop(run_id, None)
+        observer = self._observers.pop(run_id, None)
+        ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
+        if observer is not None and observer.is_done:
+            self._completed_streams.add(run_id)
+            ready_event.set()
+            return
+        ready_event.clear()
 
     async def subscribe_stream(self, run_id: str) -> AsyncGenerator[Dict[str, Any], None]:
         """Async generator that yields events from the observer's queue until done."""
         observer = self._observers.get(run_id)
         if observer is None:
-            return
+            if run_id in self._completed_streams:
+                return
+            ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
+            try:
+                await asyncio.wait_for(
+                    ready_event.wait(),
+                    timeout=self._OBSERVER_REGISTRATION_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                return
+            observer = self._observers.get(run_id)
+            if observer is None:
+                return
 
         while True:
             try:
@@ -170,11 +227,7 @@ class ExecutionService:
         then schedules the actual run as a background asyncio task.
         """
         try:
-            # Load workflow entity
             wf_entity = self.workflow_repo.get_by_id(workflow_id)
-            if wf_entity is None:
-                raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
-
             workflow_path = str(self.workflow_repo._get_path(workflow_id))
 
             # When Git is configured, always load the workflow from the requested
@@ -182,7 +235,14 @@ class ExecutionService:
             if self.git_service:
                 yaml_content = self.git_service.read_file(workflow_path, branch)
                 commit_sha = self.git_service.get_sha(branch, workflow_path)
+                if commit_sha is None:
+                    raise ValueError(
+                        f"Requested snapshot sha could not be resolved for workflow "
+                        f"{_workflow_ref(workflow_id)} on ref {branch!r}"
+                    )
             else:
+                if wf_entity is None:
+                    raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
                 yaml_content = wf_entity.yaml
                 commit_sha = self._get_workflow_commit_sha(workflow_path)
 
@@ -212,6 +272,11 @@ class ExecutionService:
 
             # Store branch + commit_sha on Run record
             self._store_branch_and_sha(run_id, branch, commit_sha)
+            if self._is_run_cancelled(run_id):
+                logger.info(
+                    "Run %s was cancelled during prepare; skipping execution launch", run_id
+                )
+                return
 
         except Exception as e:
             logger.exception("Failed to prepare workflow for run %s", run_id)
@@ -365,6 +430,32 @@ class ExecutionService:
                     session.commit()
         except Exception:
             logger.exception("Failed to store branch/commit_sha for run %s", run_id)
+
+    def _is_run_cancelled(self, run_id: str) -> bool:
+        """Return True when the run has already been cancelled during prepare."""
+        if self.engine is not None:
+            try:
+                from sqlmodel import Session
+
+                from ...domain.entities.run import Run
+
+                with Session(self.engine) as session:
+                    run = session.get(Run, run_id)
+                    return bool(run and run.status == RunStatus.cancelled)
+            except Exception:
+                logger.exception("Failed to read run %s cancellation state via engine", run_id)
+                return False
+
+        get_run = getattr(self.run_repo, "get_run", None)
+        if callable(get_run):
+            try:
+                run = get_run(run_id)
+            except Exception:
+                logger.exception("Failed to read run %s cancellation state via run_repo", run_id)
+                return False
+            return bool(run and run.status == RunStatus.cancelled)
+
+        return False
 
     def _resolve_api_keys(self) -> Dict[str, str]:
         """Resolve API keys from all providers, with env var fallback.
