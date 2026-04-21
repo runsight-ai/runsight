@@ -8,6 +8,7 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...data.repositories.run_repo import RunRepository
+from ...data.repositories.run_read_model import RunReadModel
 from ...domain.errors import InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
@@ -24,16 +25,12 @@ class WorkflowService:
         workflow_repo: WorkflowRepository,
         run_repo: RunRepository,
         git_service=None,
-        run_read_model=None,
+        run_read_model: RunReadModel | None = None,
     ):
         self.workflow_repo = workflow_repo
         self.run_repo = run_repo
         self.git_service = git_service
-        self.run_read_model = (
-            run_read_model
-            if run_read_model is not None
-            else getattr(run_repo, "read_model", run_repo)
-        )
+        self.run_read_model = run_read_model
 
     def list_workflows(self, query: Optional[str] = None) -> List[WorkflowEntity]:
         workflows = self.workflow_repo.list_all()
@@ -45,6 +42,10 @@ class WorkflowService:
                 if query in w.id.lower() or (getattr(w, "name", "") and query in w.name.lower())
             ]
 
+        if self.run_read_model is None:
+            raise RuntimeError(
+                "WorkflowService requires a run read model for workflow health queries"
+            )
         health_by_workflow = self.run_read_model.get_workflow_health_metrics(
             [w.id for w in workflows]
         )

@@ -1,13 +1,12 @@
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlmodel import Session, delete, select
 
 from runsight_core.identity import EntityKind, EntityRef
 
 from ...domain.entities.log import LogEntry
-from ...domain.entities.run import BaselineStats, Run, RunNode, RunStatus
+from ...domain.entities.run import Run, RunNode, RunStatus
 from ...domain.errors import RunHasActiveExecution, RunHasChildren, WorkflowHasActiveRuns
-from .run_read_model import RunReadModel
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -17,7 +16,6 @@ def _workflow_ref(workflow_id: str) -> str:
 class RunRepository:
     def __init__(self, session: Session):
         self.session = session
-        self.read_model = RunReadModel(session)
 
     def delete_runs_for_workflow(self, workflow_id: str, force: bool = False) -> int:
         run_ids = list(
@@ -99,37 +97,6 @@ class RunRepository:
         )
         return list(self.session.exec(statement).all())
 
-    def list_runs_paginated(
-        self,
-        offset: int,
-        limit: int,
-        status: list[str] | None = None,
-        workflow_id: str | None = None,
-        source: list[str] | None = None,
-        branch: str | None = None,
-    ) -> tuple:
-        return self.read_model.list_runs_paginated(
-            offset,
-            limit,
-            status=status,
-            workflow_id=workflow_id,
-            source=source,
-            branch=branch,
-        )
-
-    @staticmethod
-    def _eval_health(eval_pass_pct: float | None) -> str | None:
-        return RunReadModel._eval_health(eval_pass_pct)
-
-    def _count_regressions_for_workflow(self, workflow_id: str) -> int:
-        return self.read_model._count_regressions_for_workflow(workflow_id)
-
-    def get_workflow_health_metrics(self, workflow_ids: list[str]) -> dict[str, dict[str, Any]]:
-        return self.read_model.get_workflow_health_metrics(workflow_ids)
-
-    def _count_regressions_batch(self, workflow_ids: list[str]) -> dict[str, int]:
-        return self.read_model._count_regressions_batch(workflow_ids)
-
     def update_run(self, run: Run) -> Run:
         self.session.add(run)
         self.session.commit()
@@ -170,9 +137,3 @@ class RunRepository:
     def list_logs_for_run(self, run_id: str) -> List[LogEntry]:
         statement = select(LogEntry).where(LogEntry.run_id == run_id).order_by(LogEntry.timestamp)
         return list(self.session.exec(statement).all())
-
-    # Baseline
-    def get_baseline(
-        self, soul_id: str, soul_version: str, limit: int = 100
-    ) -> Optional[BaselineStats]:
-        return self.read_model.get_baseline(soul_id, soul_version, limit=limit)

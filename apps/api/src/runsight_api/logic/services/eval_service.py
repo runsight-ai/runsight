@@ -5,6 +5,7 @@ from statistics import mean
 import time
 
 from ...data.repositories.run_repo import RunRepository
+from ...data.repositories.run_read_model import RunReadModel
 from ...transport.schemas.dashboard import AttentionItem
 from ...transport.schemas.eval import (
     EvalDelta,
@@ -16,13 +17,13 @@ from ...transport.schemas.eval import (
 
 
 class EvalService:
-    def __init__(self, run_repo: RunRepository, run_read_model=None):
+    def __init__(
+        self,
+        run_repo: RunRepository,
+        run_read_model: RunReadModel | None = None,
+    ):
         self.run_repo = run_repo
-        self.run_read_model = (
-            run_read_model
-            if run_read_model is not None
-            else getattr(run_repo, "read_model", run_repo)
-        )
+        self.run_read_model = run_read_model
 
     def get_run_eval(self, run_id: str) -> RunEvalResponse | None:
         run = self.run_repo.get_run(run_id)
@@ -364,6 +365,9 @@ class EvalService:
     def _compute_delta(self, node) -> EvalDelta | None:
         if node.soul_id is None or node.soul_version is None:
             return None
+
+        if self.run_read_model is None:
+            raise RuntimeError("EvalService requires a run read model for baseline queries")
 
         baseline = self.run_read_model.get_baseline(node.soul_id, node.soul_version)
         if baseline is None:
