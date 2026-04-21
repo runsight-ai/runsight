@@ -1,265 +1,304 @@
-"""Red tests for RUN-953: workflow-engine collaborator contracts.
+"""Red tests for RUN-953 using facade-blackout ownership guards.
 
-These tests intentionally avoid line-count and AST-shape assertions. Instead
-they require reusable seams for the workflow engine's major responsibilities
-and verify that the public runtime path delegates through those seams.
-
-To keep the contract flexible, each seam may be exposed either as:
-- a module-level function, or
-- a collaborator class with a method.
-
-Any valid decomposition may satisfy either form.
+Each test reuses a workflow-runtime behavior already covered elsewhere, then
+poisons the current legacy ownership point inside ``runsight_core.workflow``.
+The public surface should keep working once those concerns are delegated out of
+the facade, but it fails today because the workflow module still owns them.
 """
 
 from __future__ import annotations
 
-from collections import deque
-from typing import Any
+import asyncio
+import inspect
+import json
 
 import pytest
 import runsight_core.workflow as workflow_module
-from runsight_core.block_io import BlockOutput
+from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.workflow import BlockExecutionContext, Workflow, execute_block
+from runsight_core.blocks.loop import LoopBlock
+from runsight_core.blocks.workflow_block import WorkflowBlock
+from runsight_core.budget_enforcement import BudgetKilledException
+from runsight_core.conditions.engine import Case, Condition, ConditionGroup
+from runsight_core.state import WorkflowState
+from runsight_core.workflow import Workflow
+from runsight_core.yaml.schema import WorkflowLimitsDef
 
 
-class ResultBlock(BaseBlock):
-    """Block double that writes a fixed output."""
+def _blackout_workflow_method(
+    monkeypatch: pytest.MonkeyPatch, method_name: str, message: str
+) -> None:
+    method = getattr(Workflow, method_name, None)
+    if method is None:
+        return
 
+    if inspect.iscoroutinefunction(method):
+
+        async def _poison(*args, **kwargs):
+            for value in list(args) + list(kwargs.values()):
+                if inspect.iscoroutine(value):
+                    value.close()
+            raise AssertionError(message)
+
+        monkeypatch.setattr(Workflow, method_name, _poison)
+        return
+
+    def _poison(*args, **kwargs):
+        raise AssertionError(message)
+
+    monkeypatch.setattr(Workflow, method_name, _poison)
+
+
+def _blackout_workflow_alias(
+    monkeypatch: pytest.MonkeyPatch, alias_name: str, message: str
+) -> None:
+    def _poison(*args, **kwargs):
+        raise AssertionError(message)
+
+    monkeypatch.setattr(workflow_module, alias_name, _poison)
+
+
+class _ResultBlock(BaseBlock):
     def __init__(self, block_id: str, output: str) -> None:
         super().__init__(block_id)
         self.output = output
         self.calls = 0
 
-    async def execute(self, ctx) -> BlockOutput:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
         return BlockOutput(output=self.output)
 
 
-class ExplodingBlock(BaseBlock):
-    """Block double that fails if the old centralized path still executes it."""
-
-    def __init__(self, block_id: str, message: str) -> None:
+class _JsonStatusBlock(BaseBlock):
+    def __init__(self, block_id: str, status: str) -> None:
         super().__init__(block_id)
-        self.message = message
+        self.status = status
         self.calls = 0
 
-    async def execute(self, ctx) -> BlockOutput:
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
-        raise AssertionError(self.message)
+        return BlockOutput(output=json.dumps({"status": self.status}))
 
 
-def _make_ctx(*, workflow_name: str = "parent_workflow") -> BlockExecutionContext:
-    return BlockExecutionContext(
-        workflow_name=workflow_name,
-        blocks={},
-        call_stack=["root_workflow"],
-        workflow_registry=None,
-        observer=None,
+class _SlowBlock(BaseBlock):
+    def __init__(self, block_id: str, sleep_seconds: float) -> None:
+        super().__init__(block_id)
+        self.sleep_seconds = sleep_seconds
+        self.calls = 0
+
+    async def execute(self, ctx: BlockContext) -> BlockOutput:
+        self.calls += 1
+        await asyncio.sleep(self.sleep_seconds)
+        return BlockOutput(output="slow done")
+
+
+class _RecordingObserver:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, ...]] = []
+
+    def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
+        self.events.append(("workflow_start", workflow_name))
+
+    def on_block_start(self, workflow_name: str, block_id: str, block_type: str, **kwargs) -> None:
+        self.events.append(("block_start", workflow_name, block_id, block_type))
+
+    def on_block_complete(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        state: WorkflowState,
+        **kwargs,
+    ) -> None:
+        self.events.append(("block_complete", workflow_name, block_id, block_type))
+
+    def on_block_error(
+        self,
+        workflow_name: str,
+        block_id: str,
+        block_type: str,
+        duration_s: float,
+        error: Exception,
+    ) -> None:
+        self.events.append(("block_error", workflow_name, block_id, block_type, str(error)))
+
+    def on_workflow_complete(
+        self, workflow_name: str, state: WorkflowState, duration_s: float
+    ) -> None:
+        self.events.append(("workflow_complete", workflow_name))
+
+    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+        self.events.append(("workflow_error", workflow_name, str(error)))
+
+
+def _make_cycle_workflow() -> Workflow:
+    workflow = Workflow("cyclic_wf")
+    workflow.add_block(_ResultBlock("a", "A"))
+    workflow.add_block(_ResultBlock("b", "B"))
+    workflow.add_block(_ResultBlock("c", "C"))
+    workflow.add_transition("a", "b")
+    workflow.add_transition("b", "c")
+    workflow.add_transition("c", "a")
+    workflow.set_entry("a")
+    return workflow
+
+
+def _make_nested_observer_workflow() -> Workflow:
+    child_workflow = Workflow("child_workflow")
+    child_step = _ResultBlock("child_step", "child output")
+    child_workflow.add_block(child_step)
+    child_workflow.set_entry("child_step")
+    child_workflow.add_transition("child_step", None)
+
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
     )
+    tail = _ResultBlock("tail", "tail output")
+
+    workflow = Workflow("parent_workflow")
+    loop_block = LoopBlock("loop_block", inner_block_refs=[invoke_child.block_id], max_rounds=1)
+    workflow.add_block(loop_block)
+    workflow.add_block(invoke_child)
+    workflow.add_block(tail)
+    workflow.set_entry("loop_block")
+    workflow.add_transition("loop_block", "tail")
+    workflow.add_transition("tail", None)
+    return workflow
 
 
-def _contains_identity(args: tuple[Any, ...], kwargs: dict[str, Any], needle: Any) -> bool:
-    return any(arg is needle for arg in args) or any(value is needle for value in kwargs.values())
-
-
-def _find_block_id(
-    args: tuple[Any, ...], kwargs: dict[str, Any], candidates: set[str]
-) -> str | None:
-    for value in list(args) + list(kwargs.values()):
-        if isinstance(value, str) and value in candidates:
-            return value
-    return None
-
-
-def _find_instance(
-    args: tuple[Any, ...], kwargs: dict[str, Any], instance_type: type[Any]
-) -> Any | None:
-    for value in list(args) + list(kwargs.values()):
-        if isinstance(value, instance_type):
-            return value
-    return None
-
-
-def _require_seam(
-    *,
-    function_name: str,
-    class_name: str,
-    method_name: str,
-    responsibility: str,
-) -> dict[str, Any]:
-    function = getattr(workflow_module, function_name, None)
-    if callable(function):
-        return {"kind": "function", "target": function_name}
-
-    collaborator_cls = getattr(workflow_module, class_name, None)
-    collaborator_method = getattr(collaborator_cls, method_name, None)
-    if callable(collaborator_method):
-        return {
-            "kind": "method",
-            "target": collaborator_cls,
-            "method_name": method_name,
-        }
-
-    pytest.fail(
-        "RUN-953 requires a reusable collaborator seam for "
-        f"{responsibility}. Expected either runsight_core.workflow.{function_name}(...) "
-        f"or runsight_core.workflow.{class_name}.{method_name}(...)."
+def test_validation_blackout_still_reports_cycle_via_public_validate(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _blackout_workflow_method(
+        monkeypatch,
+        "_detect_cycle",
+        "legacy validation ownership inside Workflow should be blacked out for RUN-953",
     )
+    workflow = _make_cycle_workflow()
 
-
-def _patch_seam(monkeypatch: pytest.MonkeyPatch, seam: dict[str, Any], replacement) -> None:
-    if seam["kind"] == "function":
-        monkeypatch.setattr(workflow_module, seam["target"], replacement)
-        return
-
-    monkeypatch.setattr(seam["target"], seam["method_name"], replacement)
-
-
-def test_workflow_validate_uses_graph_validation_collaborator(monkeypatch: pytest.MonkeyPatch):
-    seam = _require_seam(
-        function_name="validate_workflow_graph",
-        class_name="WorkflowGraphValidator",
-        method_name="validate",
-        responsibility="graph validation and transition integrity",
-    )
-    seen: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
-
-    def fake_validate(*args, **kwargs):
-        seen.append((args, kwargs))
-        return ["delegated validation result"]
-
-    _patch_seam(monkeypatch, seam, fake_validate)
-
-    workflow = Workflow("validation_facade")
     errors = workflow.validate()
 
-    assert errors == ["delegated validation result"]
-    assert seen, "Workflow.validate() must call the graph-validation collaborator"
-    assert _contains_identity(seen[0][0], seen[0][1], workflow)
+    assert len(errors) == 1
+    assert "Cycle detected" in errors[0]
 
 
 @pytest.mark.asyncio
-async def test_workflow_run_uses_next_step_resolver_collaborator(
+async def test_routing_blackout_still_takes_output_condition_branch(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    seam = _require_seam(
-        function_name="resolve_next_block",
-        class_name="NextStepResolver",
-        method_name="resolve",
-        responsibility="next-step resolution and output-condition routing",
+    _blackout_workflow_method(
+        monkeypatch,
+        "_resolve_next",
+        "legacy routing ownership inside Workflow should be blacked out for RUN-953",
     )
-    seen: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
 
-    def fake_resolve(*args, **kwargs):
-        seen.append((args, kwargs))
-        block_id = _find_block_id(args, kwargs, {"entry", "chosen", "fallback"})
-        if block_id == "entry":
-            return "chosen"
-        return None
+    router = _JsonStatusBlock("router", "ok")
+    approved = _ResultBlock("approved", "approved output")
+    fallback = _ResultBlock("fallback", "fallback output")
 
-    _patch_seam(monkeypatch, seam, fake_resolve)
-
-    entry = ResultBlock("entry", "entry output")
-    chosen = ResultBlock("chosen", "chosen output")
-    fallback = ResultBlock("fallback", "fallback output")
-
-    workflow = Workflow("routing_facade")
-    workflow.add_block(entry)
-    workflow.add_block(chosen)
+    workflow = Workflow("routing_blackout")
+    workflow.add_block(router)
+    workflow.add_block(approved)
     workflow.add_block(fallback)
-    workflow.set_entry("entry")
-    workflow.add_transition("entry", "fallback")
-    workflow.add_transition("chosen", None)
+    workflow.set_entry("router")
+    workflow.set_output_conditions(
+        "router",
+        [
+            Case(
+                case_id="approved",
+                condition_group=ConditionGroup(
+                    conditions=[
+                        Condition(eval_key="status", operator="equals", value="ok"),
+                    ],
+                    combinator="and",
+                ),
+            )
+        ],
+        default="fallback",
+    )
+    workflow.add_conditional_transition(
+        "router",
+        {
+            "approved": "approved",
+            "fallback": "fallback",
+            "default": "fallback",
+        },
+    )
+    workflow.add_transition("approved", None)
     workflow.add_transition("fallback", None)
 
     final_state = await workflow.run(WorkflowState())
 
-    assert seen, "Workflow.run() must delegate routing decisions to the resolver seam"
-    assert entry.calls == 1
-    assert chosen.calls == 1
+    assert router.calls == 1
+    assert final_state.results["router"].exit_handle == "approved"
+    assert approved.calls == 1
     assert fallback.calls == 0
-    assert final_state.results["chosen"].output == "chosen output"
+    assert final_state.results["approved"].output == "approved output"
 
 
 @pytest.mark.asyncio
-async def test_execute_block_uses_block_dispatch_collaborator(monkeypatch: pytest.MonkeyPatch):
-    seam = _require_seam(
-        function_name="dispatch_block",
-        class_name="BlockDispatcher",
-        method_name="execute",
-        responsibility="block dispatch and block-type-specific execution behavior",
+async def test_dispatch_and_observer_blackout_still_preserves_nested_event_order(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _blackout_workflow_alias(
+        monkeypatch,
+        "build_block_context",
+        "legacy dispatch ownership inside runsight_core.workflow should be blacked out",
     )
-    block = ExplodingBlock(
-        "dispatch_target",
-        "execute_block() should delegate through the block-dispatch collaborator",
+    _blackout_workflow_alias(
+        monkeypatch,
+        "apply_block_output",
+        "legacy dispatch ownership inside runsight_core.workflow should be blacked out",
     )
-    state = WorkflowState()
-    ctx = _make_ctx()
+    _blackout_workflow_method(
+        monkeypatch,
+        "_notify_observers",
+        "legacy observer ownership inside Workflow should be blacked out for RUN-953",
+    )
 
-    async def fake_dispatch(*args, **kwargs):
-        assert _contains_identity(args, kwargs, block)
-        assert _contains_identity(args, kwargs, state)
-        assert _contains_identity(args, kwargs, ctx)
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    block.block_id: BlockResult(output="delegated dispatch result"),
-                }
-            }
-        )
+    workflow = _make_nested_observer_workflow()
+    observer = _RecordingObserver()
 
-    _patch_seam(monkeypatch, seam, fake_dispatch)
+    final_state = await workflow.run(WorkflowState(), observer=observer)
 
-    result = await execute_block(block, state, ctx)
-
-    assert result.results[block.block_id].output == "delegated dispatch result"
-    assert block.calls == 0
+    assert final_state.results["tail"].output == "tail output"
+    assert observer.events == [
+        ("workflow_start", "parent_workflow"),
+        ("block_start", "parent_workflow", "loop_block", "LoopBlock"),
+        ("block_start", "parent_workflow", "invoke_child", "WorkflowBlock"),
+        ("block_start", "child_workflow", "child_step", "ResultBlock"),
+        ("block_complete", "child_workflow", "child_step", "ResultBlock"),
+        ("block_complete", "parent_workflow", "invoke_child", "WorkflowBlock"),
+        ("block_complete", "parent_workflow", "loop_block", "LoopBlock"),
+        ("block_start", "parent_workflow", "tail", "ResultBlock"),
+        ("block_complete", "parent_workflow", "tail", "ResultBlock"),
+        ("workflow_complete", "parent_workflow"),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_workflow_run_uses_runtime_loop_collaborator(monkeypatch: pytest.MonkeyPatch):
-    seam = _require_seam(
-        function_name="run_workflow_loop",
-        class_name="WorkflowRuntime",
-        method_name="run_loop",
-        responsibility="error-route handling, dynamic step injection, and workflow runtime control",
-    )
-    entry = ExplodingBlock(
-        "entry",
-        "Workflow.run() should delegate queue/error/injection flow to a runtime collaborator",
+async def test_timeout_blackout_still_raises_workflow_budget_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _blackout_workflow_method(
+        monkeypatch,
+        "_run_with_timeout",
+        "legacy timeout ownership inside Workflow should be blacked out for RUN-953",
     )
 
-    workflow = Workflow("runtime_facade_workflow")
-    workflow.add_block(entry)
-    workflow.set_entry("entry")
-    workflow.add_transition("entry", None)
+    workflow = Workflow("timeout_blackout")
+    workflow.add_block(_SlowBlock("slow", sleep_seconds=1.1))
+    workflow.set_entry("slow")
+    workflow.add_transition("slow", None)
+    workflow.limits = WorkflowLimitsDef(max_duration_seconds=1)
 
-    async def fake_run_loop(*args, **kwargs):
-        queue = _find_instance(args, kwargs, deque)
-        ctx = _find_instance(args, kwargs, BlockExecutionContext)
-        state = _find_instance(args, kwargs, WorkflowState)
+    with pytest.raises(BudgetKilledException) as exc_info:
+        await workflow.run(WorkflowState())
 
-        assert queue is not None, "runtime collaborator should receive the pending queue"
-        assert list(queue)[0][0] == "entry"
-        assert ctx is not None, "runtime collaborator should receive BlockExecutionContext"
-        assert ctx.workflow_name == "runtime_facade_workflow"
-        assert state is not None, "runtime collaborator should receive the evolving WorkflowState"
-
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    "runtime_seam": BlockResult(output="delegated runtime result"),
-                }
-            }
-        )
-
-    _patch_seam(monkeypatch, seam, fake_run_loop)
-
-    final_state = await workflow.run(WorkflowState())
-
-    assert final_state.results["runtime_seam"].output == "delegated runtime result"
-    assert entry.calls == 0
+    assert exc_info.value.scope == "workflow"
+    assert exc_info.value.limit_kind == "timeout"
+    assert exc_info.value.limit_value == 1
