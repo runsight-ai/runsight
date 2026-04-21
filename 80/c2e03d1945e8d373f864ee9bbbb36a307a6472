@@ -1,0 +1,124 @@
+apps/api/tests/test_stale_run_recovery.py
+  5befbb6dc555b2ae 28
+apps/api/tests/logic/test_run800_eval_observer_custom_assertion.py
+  5befbb6dc555b2ae 367,421,474
+apps/api/tests/logic/test_run699_eval_observer_transform.py
+  5befbb6dc555b2ae 49
+apps/api/tests/transport/test_run772_fail_closed_run_creation.py
+  5befbb6dc555b2ae 114-118,141-145,180-184
+apps/api/tests/logic/test_execution_service_concurrency.py
+  5befbb6dc555b2ae 135,197,247,287,294,336,345,394,409,439,458,509,537,546,594,634,642,692,702
+apps/api/tests/transport/test_run896_runs_input_validation_router.py
+  5befbb6dc555b2ae 109-112,134-138,162-166,181-185,241-244,264-267,286-289
+apps/api/tests/data/test_run849_n_plus_one_fix.py
+  5befbb6dc555b2ae 83
+apps/api/tests/logic/test_eval_observer.py
+  5befbb6dc555b2ae 63,795,849,886
+apps/api/tests/logic/test_run928_sensitive_redaction.py
+  5befbb6dc555b2ae 195,228
+apps/api/tests/logic/test_run180_observer_block_result.py
+  5befbb6dc555b2ae 54
+apps/api/tests/transport/test_runs_router.py
+  5befbb6dc555b2ae 325-328
+apps/api/tests/logic/test_budget_run_status.py
+  5befbb6dc555b2ae 48,60,72,91,116,143,259,284,307,338,361,392,421,452,481,512,539,564
+apps/api/tests/logic/test_run772_stale_run_recovery.py
+  5befbb6dc555b2ae 21
+apps/api/tests/data/test_run480_run_repo_delete_cascade.py
+  5befbb6dc555b2ae 40
+apps/api/tests/domain/test_run329_workflow_commit_sha.py
+  5befbb6dc555b2ae 40,53,67,86,109,215,264,291,338
+apps/api/tests/test_run707_sse_streaming_e2e.py
+  5befbb6dc555b2ae 201,836,904
+apps/api/tests/logic/test_single_writer_and_session.py
+  5befbb6dc555b2ae 46,108,130
+apps/api/src/runsight_api/logic/observers/execution_observer.py
+  5befbb6dc555b2ae 205-206
+apps/api/tests/logic/test_run200_state_flow.py
+  5befbb6dc555b2ae 192-197
+apps/api/tests/domain/test_run127_bug_fixes.py
+  5befbb6dc555b2ae 134,149,172
+apps/api/tests/logic/test_run141_execution_service_api_keys.py
+  5befbb6dc555b2ae 161
+apps/api/tests/logic/test_run208_double_observer.py
+  5befbb6dc555b2ae 56
+apps/api/tests/test_run706_api_e2e.py
+  5befbb6dc555b2ae 290,320,353,386,430,476,511,540
+apps/api/tests/test_run845_parser_warnings_e2e.py
+  5befbb6dc555b2ae 336,411,450
+apps/api/tests/transport/test_run928_runs_redaction_router.py
+  5befbb6dc555b2ae 90,108-112,132,199-203
+apps/api/tests/transport/test_run127_router_wiring.py
+  5befbb6dc555b2ae 75-79,114-118
+apps/api/tests/logic/test_run_service.py
+  5befbb6dc555b2ae 54-58,76,108,125,161-166,169-174,196,232
+apps/api/tests/logic/test_execution_observer.py
+  5befbb6dc555b2ae 78
+apps/api/tests/transport/test_run144_polling_and_node_summary.py
+  5befbb6dc555b2ae 91-97,195-201
+apps/api/tests/transport/test_run923_run_input_snapshots_router.py
+  5befbb6dc555b2ae 262
+apps/api/tests/data/test_run478_run_repo_workflow_health_metrics.py
+  5befbb6dc555b2ae 42
+apps/api/tests/logic/test_run347_wire_assertion_configs.py
+  5befbb6dc555b2ae 139
+apps/api/tests/test_execution_log_persistence.py
+  5befbb6dc555b2ae 40
+apps/api/tests/data/test_repositories.py
+  5befbb6dc555b2ae 18-24
+apps/api/tests/logic/test_run913_context_audit_observers.py
+  5befbb6dc555b2ae 40
+apps/api/tests/test_run832_identity_messages.py
+  5befbb6dc555b2ae 130
+apps/api/tests/test_run929_workflow_input_redaction_integration.py
+  5befbb6dc555b2ae 573,638,695,787,843,877
+apps/api/tests/transport/test_run917_context_audit_contract_integration.py
+  5befbb6dc555b2ae 38
+apps/api/tests/test_run705_assertions_fire_e2e.py
+  5befbb6dc555b2ae 264,309,366,408,452,509,555,601,657,721
+apps/api/tests/domain/test_run127_create_run_workflow_name.py
+  5befbb6dc555b2ae 39-43,63-67
+apps/api/tests/domain/test_run334_state_transition_guards.py
+  5befbb6dc555b2ae 37,284
+apps/api/tests/domain/test_entities.py
+  5befbb6dc555b2ae 13-19
+apps/api/tests/logic/test_execution_service.py
+  5befbb6dc555b2ae 166,214,365,392,415,445,502,522,542,574,616,642,685,710,751,816,872,931
+apps/api/tests/domain/test_node_status_enum.py
+  5befbb6dc555b2ae 221
+apps/api/tests/logic/test_run607_nested_run_lifecycle.py
+  5befbb6dc555b2ae 93,110,127,144,543
+apps/api/tests/logic/test_run404_workflow_id_filter.py
+  5befbb6dc555b2ae 47
+apps/api/tests/transport/test_run852_delete_run.py
+  5befbb6dc555b2ae 66,83
+apps/api/tests/transport/test_run881_api_task_removal.py
+  5befbb6dc555b2ae 196,230
+apps/api/tests/logic/test_execution_observer_soul.py
+  5befbb6dc555b2ae 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "80c2e03d1945e8d373f864ee9bbbb36a307a6472",
+  "prompts": {
+    "5befbb6dc555b2ae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019daf6c-001b-76f0-ac93-55e805d0b451",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 281,
+      "total_deletions": 30,
+      "accepted_lines": 6258,
+      "overriden_lines": 1
+    }
+  },
+  "humans": {
+    "h_218758dbd4c3b8": {
+      "author": "creynir"
+    }
+  }
+}
