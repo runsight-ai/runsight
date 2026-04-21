@@ -5,7 +5,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
+from ...domain.errors import (
+    InputValidationError,
+    RunFailed,
+    RunNotFound,
+    RunsightError,
+    ServiceUnavailable,
+)
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -43,8 +49,10 @@ def _run_response_field(run, field: str, default):
 
 
 def _run_branch_field(run) -> str:
-    value = getattr(run, "branch", "")
-    return value if isinstance(value, str) else str(value)
+    value = getattr(run, "branch", None)
+    if not isinstance(value, str):
+        raise RunsightError("Run branch is required")
+    return value
 
 
 def _run_metric_field(run, field: str):
