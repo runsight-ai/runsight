@@ -146,6 +146,7 @@ class TestRunResponseRegressionCount:
             total_cost_usd=0.0,
             total_tokens=0,
             created_at=100.0,
+            branch="main",
             regression_count=None,
         )
         assert resp.regression_count is None
@@ -165,6 +166,7 @@ class TestRunResponseRegressionCount:
             total_cost_usd=0.0,
             total_tokens=0,
             created_at=100.0,
+            branch="main",
             regression_count=3,
         )
         assert resp.regression_count == 3
