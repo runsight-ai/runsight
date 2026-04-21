@@ -108,27 +108,35 @@ def _cancel_run(engine, run_id: str) -> None:
 
 class TestRequestedSnapshotSourceOfTruth:
     @pytest.mark.asyncio
-    async def test_launch_execution_uses_requested_snapshot_even_when_working_tree_entity_is_missing(
+    async def test_launch_execution_keeps_parse_registry_and_commit_sha_bound_to_same_requested_snapshot(
         self,
     ):
         """A requested git snapshot must be sufficient to prepare a run.
+
+        This single launch asserts that:
+        - parse_workflow_yaml receives the requested snapshot YAML
+        - runnable-registry construction receives that same snapshot context
+        - the persisted commit metadata matches that same requested ref
 
         The working tree copy is not the source of truth once a branch/ref is
         explicitly requested.
         """
 
         engine = _db_engine()
-        run_id = "run_952_branch_only"
-        _seed_run(engine, run_id, workflow_id="wf_branch_only")
+        run_id = "run_952_snapshot_coherent"
+        workflow_id = "wf_prepare_parent"
+        requested_sha = "a" * 40
+        _seed_run(engine, run_id, workflow_id=workflow_id)
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = None
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_branch_only.yaml")
+        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_prepare_parent.yaml")
+        workflow_repo.build_runnable_workflow_registry.return_value = Mock()
         provider_repo = Mock()
-        provider_repo.list_all.return_value = [_provider()]
+        provider_repo.list_all.return_value = []
         git_service = Mock()
-        git_service.read_file.return_value = BRANCH_ONLY_YAML
-        git_service.get_sha.return_value = "a" * 40
+        git_service.read_file.return_value = PREP_REGISTRY_YAML
+        git_service.get_sha.return_value = requested_sha
 
         service = ExecutionService(
             run_repo=Mock(),
@@ -148,16 +156,29 @@ class TestRequestedSnapshotSourceOfTruth:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_branch_only",
+                workflow_id,
                 {"instruction": "use requested snapshot"},
                 branch="feature/sim",
             )
             await asyncio.sleep(0)
 
         mock_parse.assert_called_once()
+        assert mock_parse.call_args.args[0] == PREP_REGISTRY_YAML
+        workflow_repo.build_runnable_workflow_registry.assert_called_once_with(
+            workflow_id,
+            PREP_REGISTRY_YAML,
+            git_ref="feature/sim",
+            git_service=git_service,
+        )
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.branch == "feature/sim"
+            assert run.commit_sha == requested_sha
         assert run_workflow.await_count == 1, (
-            "launch_execution should prepare from the requested branch snapshot and "
-            "schedule execution even when the working tree entity lookup is missing."
+            "launch_execution should prepare from one coherent requested snapshot, "
+            "persist its commit metadata, and schedule execution even when the "
+            "working tree entity lookup is missing."
         )
 
     @pytest.mark.asyncio
