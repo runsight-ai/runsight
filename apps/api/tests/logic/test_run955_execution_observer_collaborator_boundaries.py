@@ -1,32 +1,96 @@
 """Red tests for RUN-955 execution observer collaborator boundaries.
 
-This suite pins an explicit public seam for the observer split:
+These tests stay on public observer callbacks and explicit persistence
+contracts:
 
-- workflow lifecycle writes delegate through an injected run writer
-- block lifecycle writes and child-run lookup/clone delegate through an
-  injected node writer
-- incremental execution-log persistence delegates through an injected log sink
-- context-audit persistence delegates through an injected audit sink
-
-It also makes the current best-effort failure contract explicit: a failure in
-one extracted collaborator must stay non-fatal and should not silently prevent
-other collaborator-owned writes that still have actionable data.
+- failures in one persistence responsibility stay non-fatal and do not block
+  other observable writes that still have actionable data
+- child workflow block start keeps its log path independent from child-run
+  persistence
+- context-audit persistence can consume serializer-produced payloads through a
+  configurable seam instead of forcing serialization to stay embedded in the
+  monolith
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
+import json
+import time
 from datetime import datetime, timezone
-from unittest.mock import Mock, call
+from types import SimpleNamespace
+from typing import Iterable
+from unittest.mock import patch
 
+import pytest
 from runsight_core.budget_enforcement import BudgetKilledException
 from runsight_core.context_governance import ContextAuditEventV1, ContextAuditRecordV1
 from runsight_core.state import BlockResult, WorkflowState
+from sqlmodel import Session, SQLModel, create_engine, select
 
+from runsight_api.domain.entities.log import LogEntry
+from runsight_api.domain.entities.run import NodeStatus, Run, RunNode, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 
+_REAL_SESSION = Session
 
-def _context_audit_event(*, node_id: str = "call_child") -> ContextAuditEventV1:
+
+def _db_engine():
+    engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+def _seed_run(engine, *, run_id: str = "run_955", status: RunStatus = RunStatus.running) -> str:
+    with Session(engine) as session:
+        session.add(
+            Run(
+                id=run_id,
+                workflow_id="wf_955",
+                workflow_name="Execution Observer",
+                status=status,
+                task_json="{}",
+                created_at=time.time(),
+                updated_at=time.time(),
+            )
+        )
+        session.commit()
+    return run_id
+
+
+def _seed_running_node(
+    engine,
+    *,
+    run_id: str,
+    block_id: str = "call_child",
+    block_type: str = "workflow",
+) -> None:
+    with Session(engine) as session:
+        session.add(
+            RunNode(
+                id=f"{run_id}:{block_id}",
+                run_id=run_id,
+                node_id=block_id,
+                block_type=block_type,
+                status=NodeStatus.running,
+                started_at=time.time(),
+                updated_at=time.time(),
+            )
+        )
+        session.commit()
+
+
+def _state_with_incremental_log() -> WorkflowState:
+    return WorkflowState(
+        total_cost_usd=1.25,
+        total_tokens=321,
+        execution_log=[{"role": "assistant", "content": "incremental tail"}],
+        results={"call_child": BlockResult(output="child completed")},
+    )
+
+
+def _context_audit_event(node_id: str = "call_child") -> ContextAuditEventV1:
     return ContextAuditEventV1(
         run_id="run_955",
         workflow_name="wf_955",
@@ -55,200 +119,297 @@ def _context_audit_event(*, node_id: str = "call_child") -> ContextAuditEventV1:
     )
 
 
-def _state_with_execution_log() -> WorkflowState:
-    return WorkflowState(
-        total_cost_usd=1.25,
-        total_tokens=321,
-        execution_log=[{"role": "assistant", "content": "incremental tail"}],
-        results={"call_child": BlockResult(output="child completed")},
+def _log_rows(engine, *, run_id: str) -> list[LogEntry]:
+    with Session(engine) as session:
+        return list(session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all())
+
+
+def _event_messages(rows: Iterable[LogEntry]) -> list[dict[str, object]]:
+    parsed: list[dict[str, object]] = []
+    for row in rows:
+        try:
+            parsed.append(json.loads(row.message))
+        except Exception:
+            continue
+    return parsed
+
+
+def _fail_on_session_indices(*indices: int):
+    counter = {"count": 0}
+
+    class SelectiveSession:
+        def __init__(self, engine):
+            counter["count"] += 1
+            self._wrapped = _REAL_SESSION(engine)
+            self._fail_commit = counter["count"] in indices
+
+        def __enter__(self):
+            self._wrapped.__enter__()
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return self._wrapped.__exit__(exc_type, exc, tb)
+
+        def commit(self):
+            if self._fail_commit:
+                self._fail_commit = False
+                raise RuntimeError("simulated observer persistence failure")
+            return self._wrapped.commit()
+
+        def __getattr__(self, name):
+            return getattr(self._wrapped, name)
+
+    return SelectiveSession
+
+
+class _SerializerDouble:
+    def __init__(self, payload: str):
+        self.payload = payload
+        self.calls: list[object] = []
+
+    def __call__(self, event) -> str:
+        self.calls.append(event)
+        return self.payload
+
+    def serialize(self, event) -> str:
+        self.calls.append(event)
+        return self.payload
+
+    def dump_json(self, event) -> str:
+        self.calls.append(event)
+        return self.payload
+
+
+class _ExplodingAuditEvent:
+    def __init__(self, *, node_id: str = "summarize"):
+        self.node_id = node_id
+        self.warning_count = 0
+        self.records = [SimpleNamespace(severity="allow")]
+
+    def model_dump_json(self) -> str:
+        raise AssertionError("raw event serialization should not be required here")
+
+
+def _observer_with_audit_serializer(engine, *, run_id: str, serializer):
+    init = inspect.signature(ExecutionObserver.__init__)
+    kwargs = {"engine": engine, "run_id": run_id}
+
+    constructor_names = (
+        "context_audit_serializer",
+        "audit_serializer",
+        "serializer",
+    )
+    for name in constructor_names:
+        if name in init.parameters:
+            kwargs[name] = serializer
+            return ExecutionObserver(**kwargs)
+
+    bundle_names = ("components", "collaborators", "persistence", "observer_components")
+    for name in bundle_names:
+        if name in init.parameters:
+            bundle = SimpleNamespace(
+                context_audit_serializer=serializer,
+                audit_serializer=serializer,
+                serializer=serializer,
+            )
+            kwargs[name] = bundle
+            return ExecutionObserver(**kwargs)
+
+    observer = ExecutionObserver(**kwargs)
+
+    setter_names = (
+        "set_context_audit_serializer",
+        "configure_context_audit_serializer",
+        "set_audit_serializer",
+        "configure_audit_serializer",
+    )
+    for name in setter_names:
+        setter = getattr(observer, name, None)
+        if callable(setter):
+            setter(serializer)
+            return observer
+
+    attr_names = (
+        "context_audit_serializer",
+        "_context_audit_serializer",
+        "audit_serializer",
+        "_audit_serializer",
+        "serializer",
+    )
+    for name in attr_names:
+        if hasattr(observer, name):
+            setattr(observer, name, serializer)
+            return observer
+
+    for bundle_name in bundle_names:
+        bundle = getattr(observer, bundle_name, None)
+        if bundle is None:
+            continue
+        for name in attr_names:
+            if hasattr(bundle, name):
+                setattr(bundle, name, serializer)
+                return observer
+
+    raise AssertionError(
+        "ExecutionObserver must expose a configurable context-audit serializer seam"
     )
 
 
-def _observer(
-    *,
-    run_writer: Mock | None = None,
-    node_writer: Mock | None = None,
-    execution_log_sink: Mock | None = None,
-    context_audit_sink: Mock | None = None,
-) -> ExecutionObserver:
-    return ExecutionObserver(
-        engine=Mock(name="engine"),
-        run_id="run_955",
-        run_lifecycle_writer=run_writer or Mock(name="run_writer"),
-        node_lifecycle_writer=node_writer or Mock(name="node_writer"),
-        execution_log_sink=execution_log_sink or Mock(name="execution_log_sink"),
-        context_audit_sink=context_audit_sink or Mock(name="context_audit_sink"),
-    )
+def test_workflow_start_run_write_failure_still_persists_workflow_start_log() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
+
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_workflow_start("wf_955", WorkflowState())
+
+    messages = _event_messages(_log_rows(engine, run_id=run_id))
+    assert any(message.get("event") == "workflow_start" for message in messages)
 
 
-def test_execution_observer_routes_lifecycle_events_through_injected_collaborators() -> None:
-    run_writer = Mock(name="run_writer")
-    node_writer = Mock(name="node_writer")
-    execution_log_sink = Mock(name="execution_log_sink")
-    context_audit_sink = Mock(name="context_audit_sink")
-    observer = _observer(
-        run_writer=run_writer,
-        node_writer=node_writer,
-        execution_log_sink=execution_log_sink,
-        context_audit_sink=context_audit_sink,
-    )
+def test_workflow_call_block_start_failure_still_persists_block_start_log() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
 
-    start_state = WorkflowState()
-    state = _state_with_execution_log()
-    block_error = RuntimeError("block failed")
-    cancelled = asyncio.CancelledError()
-    budget_error = BudgetKilledException(
-        scope="block",
-        block_id="call_child",
-        limit_kind="cost_usd",
-        limit_value=1.0,
-        actual_value=2.0,
-    )
-    audit_event = _context_audit_event()
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(2),
+    ):
+        observer.on_block_start(
+            "wf_955",
+            "call_child",
+            "workflow",
+            child_workflow_id="wf_child",
+            child_workflow_name="Child Workflow",
+        )
 
-    observer.on_workflow_start("wf_955", start_state)
-    observer.on_block_start(
-        "wf_955",
-        "call_child",
-        "workflow",
-        child_workflow_id="wf_child",
-        child_workflow_name="Child Workflow",
-    )
-    observer.on_block_complete("wf_955", "call_child", "workflow", 1.5, state)
-    observer.on_block_error("wf_955", "call_child", "workflow", 2.0, block_error)
-    observer.on_workflow_complete("wf_955", state, 8.5)
-    observer.on_workflow_error("wf_955", cancelled, 9.0)
-    observer.on_workflow_error("wf_955", budget_error, 10.0)
-    observer.on_context_resolution(audit_event)
+    rows = _log_rows(engine, run_id=run_id)
+    messages = _event_messages(rows)
+    assert any(message.get("event") == "block_start" for message in messages)
 
-    run_writer.on_workflow_start.assert_called_once_with("run_955", "wf_955", start_state)
-    run_writer.on_workflow_complete.assert_called_once_with("run_955", "wf_955", state, 8.5)
-    run_writer.on_workflow_error.assert_has_calls(
-        [
-            call("run_955", "wf_955", cancelled, 9.0),
-            call("run_955", "wf_955", budget_error, 10.0),
-        ]
-    )
-    node_writer.on_block_start.assert_called_once_with(
-        "run_955",
-        "wf_955",
-        "call_child",
-        "workflow",
-        soul=None,
-        child_workflow_id="wf_child",
-        child_workflow_name="Child Workflow",
-    )
-    node_writer.on_block_complete.assert_called_once_with(
-        "run_955",
-        "wf_955",
-        "call_child",
-        "workflow",
-        1.5,
-        state,
-        soul=None,
-    )
-    node_writer.on_block_error.assert_called_once_with(
-        "run_955",
-        "wf_955",
-        "call_child",
-        "workflow",
-        2.0,
-        block_error,
-    )
-    execution_log_sink.on_block_complete.assert_called_once_with("run_955", "call_child", state)
-    execution_log_sink.on_workflow_complete.assert_called_once_with("run_955", state)
-    context_audit_sink.on_context_resolution.assert_called_once_with("run_955", audit_event)
+    with Session(engine) as session:
+        children = list(session.exec(select(Run).where(Run.parent_run_id == run_id)).all())
+        assert children == []
 
 
-def test_child_run_lookup_and_clone_keep_using_the_injected_node_writer() -> None:
-    node_writer = Mock(name="node_writer")
-    node_writer.get_child_run_id_for_block.return_value = "run_955_child"
-    observer = _observer(node_writer=node_writer)
+def test_block_complete_node_write_failure_still_persists_logs_and_trace_tail() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    _seed_running_node(engine, run_id=run_id)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
+    state = _state_with_incremental_log()
 
-    assert observer.get_child_run_id_for_block("call_child") == "run_955_child"
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_block_complete("wf_955", "call_child", "workflow", 1.5, state)
 
-    child = observer.clone_for_child_run(child_run_id="run_955_child")
-    child.on_block_start(
-        "wf_child",
-        "nested_call",
-        "workflow",
-        child_workflow_id="wf_grandchild",
-        child_workflow_name="Grandchild Workflow",
-    )
-
-    node_writer.get_child_run_id_for_block.assert_called_once_with("run_955", "call_child")
-    node_writer.on_block_start.assert_called_once_with(
-        "run_955_child",
-        "wf_child",
-        "nested_call",
-        "workflow",
-        soul=None,
-        child_workflow_id="wf_grandchild",
-        child_workflow_name="Grandchild Workflow",
-    )
+    rows = _log_rows(engine, run_id=run_id)
+    messages = _event_messages(rows)
+    assert any(message.get("event") == "block_complete" for message in messages)
+    assert any(row.level == "trace" and "incremental tail" in row.message for row in rows)
 
 
-def test_workflow_complete_run_writer_failure_is_nonfatal_and_still_flushes_log_sink() -> None:
-    run_writer = Mock(name="run_writer")
-    run_writer.on_workflow_complete.side_effect = RuntimeError("run writer down")
-    execution_log_sink = Mock(name="execution_log_sink")
-    observer = _observer(run_writer=run_writer, execution_log_sink=execution_log_sink)
-    state = _state_with_execution_log()
+def test_block_error_node_write_failure_still_persists_block_error_log() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    _seed_running_node(engine, run_id=run_id)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
 
-    observer.on_workflow_complete("wf_955", state, 5.0)
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_block_error("wf_955", "call_child", "workflow", 2.0, RuntimeError("boom"))
 
-    run_writer.on_workflow_complete.assert_called_once_with("run_955", "wf_955", state, 5.0)
-    execution_log_sink.on_workflow_complete.assert_called_once_with("run_955", state)
-
-
-def test_block_complete_node_writer_failure_is_nonfatal_and_still_flushes_log_sink() -> None:
-    node_writer = Mock(name="node_writer")
-    node_writer.on_block_complete.side_effect = RuntimeError("node writer down")
-    execution_log_sink = Mock(name="execution_log_sink")
-    observer = _observer(node_writer=node_writer, execution_log_sink=execution_log_sink)
-    state = _state_with_execution_log()
-
-    observer.on_block_complete("wf_955", "call_child", "workflow", 0.75, state)
-
-    node_writer.on_block_complete.assert_called_once_with(
-        "run_955",
-        "wf_955",
-        "call_child",
-        "workflow",
-        0.75,
-        state,
-        soul=None,
-    )
-    execution_log_sink.on_block_complete.assert_called_once_with("run_955", "call_child", state)
+    rows = _log_rows(engine, run_id=run_id)
+    messages = _event_messages(rows)
+    assert any(message.get("event") == "block_error" for message in messages)
+    assert any(row.level == "error" for row in rows)
 
 
-def test_execution_log_sink_failures_are_nonfatal_after_the_node_write() -> None:
-    node_writer = Mock(name="node_writer")
-    execution_log_sink = Mock(name="execution_log_sink")
-    execution_log_sink.on_block_complete.side_effect = RuntimeError("log sink down")
-    observer = _observer(node_writer=node_writer, execution_log_sink=execution_log_sink)
-    state = _state_with_execution_log()
+def test_workflow_complete_run_write_failure_still_persists_logs_and_trace_tail() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
+    state = _state_with_incremental_log()
 
-    observer.on_block_complete("wf_955", "call_child", "workflow", 0.5, state)
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_workflow_complete("wf_955", state, 8.5)
 
-    node_writer.on_block_complete.assert_called_once_with(
-        "run_955",
-        "wf_955",
-        "call_child",
-        "workflow",
-        0.5,
-        state,
-        soul=None,
-    )
-    execution_log_sink.on_block_complete.assert_called_once_with("run_955", "call_child", state)
+    rows = _log_rows(engine, run_id=run_id)
+    messages = _event_messages(rows)
+    assert any(message.get("event") == "workflow_complete" for message in messages)
+    assert any(row.level == "trace" and "incremental tail" in row.message for row in rows)
 
 
-def test_context_audit_sink_failures_are_nonfatal_best_effort() -> None:
-    context_audit_sink = Mock(name="context_audit_sink")
-    context_audit_sink.on_context_resolution.side_effect = RuntimeError("audit sink down")
-    observer = _observer(context_audit_sink=context_audit_sink)
+@pytest.mark.parametrize(
+    ("error", "expected_level"),
+    [
+        (asyncio.CancelledError(), "warning"),
+        (
+            BudgetKilledException(
+                scope="block",
+                block_id="call_child",
+                limit_kind="cost_usd",
+                limit_value=1.0,
+                actual_value=2.0,
+            ),
+            "error",
+        ),
+    ],
+)
+def test_workflow_error_run_write_failure_still_persists_terminal_log(
+    error: Exception, expected_level: str
+) -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
+
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_workflow_error("wf_955", error, 9.0)
+
+    rows = _log_rows(engine, run_id=run_id)
+    messages = _event_messages(rows)
+    assert any(message.get("event") == "workflow_error" for message in messages)
+    assert any(row.level == expected_level for row in rows)
+
+
+def test_context_audit_uses_configured_serializer_payload_when_available() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    serializer = _SerializerDouble('{"event":"context_resolution","source":"serializer"}')
+    observer = _observer_with_audit_serializer(engine, run_id=run_id, serializer=serializer)
+
+    observer.on_context_resolution(_ExplodingAuditEvent())
+
+    rows = _log_rows(engine, run_id=run_id)
+    assert any(row.message == serializer.payload for row in rows)
+    assert serializer.calls, "Expected the configured serializer seam to be exercised"
+
+
+def test_context_audit_sink_failure_is_best_effort_nonfatal() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    observer = ExecutionObserver(engine=engine, run_id=run_id)
     event = _context_audit_event(node_id="summarize")
 
-    observer.on_context_resolution(event)
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        _fail_on_session_indices(1),
+    ):
+        observer.on_context_resolution(event)
 
-    context_audit_sink.on_context_resolution.assert_called_once_with("run_955", event)
+    rows = _log_rows(engine, run_id=run_id)
+    assert rows == []
