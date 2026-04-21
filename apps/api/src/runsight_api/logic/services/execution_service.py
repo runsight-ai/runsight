@@ -162,7 +162,7 @@ class ExecutionService:
             return None
 
     async def launch_execution(
-        self, run_id: str, workflow_id: str, inputs: Dict[str, Any], branch: str = "main"
+        self, run_id: str, workflow_id: str, inputs: Dict[str, Any], branch: str
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 

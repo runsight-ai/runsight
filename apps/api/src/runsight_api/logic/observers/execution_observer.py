@@ -153,6 +153,10 @@ class ExecutionObserver:
             if self._is_workflow_block_type(block_type):
                 child_run_id = f"{self.run_id}:child:{block_id}:{uuid.uuid4().hex[:8]}"
                 parent_run = self._get_run()
+                if parent_run is None:
+                    raise LookupError(
+                        f"Parent run {self.run_id} not found for child workflow block {block_id}"
+                    )
                 parent_depth = parent_run.depth if parent_run else 0
                 parent_root = parent_run.root_run_id if parent_run else None
                 # Root run has root_run_id=None; children point to the outermost ancestor
@@ -166,6 +170,7 @@ class ExecutionObserver:
                     workflow_name=child_workflow_name,
                     status=RunStatus.running,
                     task_json="{}",
+                    branch=parent_run.branch,
                     warnings_json=None,
                     parent_run_id=self.run_id,
                     parent_node_id=f"{self.run_id}:{block_id}",

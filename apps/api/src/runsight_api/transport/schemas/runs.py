@@ -12,7 +12,7 @@ class RunCreate(BaseModel):
     workflow_id: str
     inputs: Dict[str, Any] = Field(default_factory=dict)
     source: Optional[str] = "manual"
-    branch: str = "main"
+    branch: str
 
 
 class NodeSummary(BaseModel):
@@ -35,7 +35,7 @@ class RunResponse(BaseModel):
     total_cost_usd: float
     total_tokens: int
     created_at: float
-    branch: str = "main"
+    branch: str
     source: str = "manual"
     commit_sha: Optional[str] = None
     run_number: Optional[int] = None
