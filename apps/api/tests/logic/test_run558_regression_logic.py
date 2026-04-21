@@ -123,6 +123,44 @@ class TestGetRunRegressions:
         types = {i["type"] for i in result["issues"]}
         assert "assertion_regression" in types
 
+    def test_missing_branch_run_is_not_treated_as_production_main(self):
+        """A run without branch must not become the baseline production run."""
+        repo = Mock()
+
+        previous_run = _make_mock_run("run_001", created_at=100.0)
+        delattr(previous_run, "branch")
+        current_run = _make_mock_run("run_002", created_at=200.0, branch="main")
+
+        prev_node = _make_mock_node(
+            node_id="analyze",
+            run_id="run_001",
+            eval_passed=True,
+            eval_score=0.95,
+            cost_usd=0.005,
+            created_at=100.0,
+        )
+        curr_node = _make_mock_node(
+            node_id="analyze",
+            run_id="run_002",
+            eval_passed=False,
+            eval_score=0.30,
+            cost_usd=0.005,
+            created_at=200.0,
+        )
+
+        repo.get_run.return_value = current_run
+        repo.list_runs.return_value = [current_run, previous_run]
+        repo.list_nodes_for_run.side_effect = lambda run_id: (
+            [curr_node] if run_id == "run_002" else [prev_node]
+        )
+
+        service = EvalService(repo)
+        result = service.get_run_regressions("run_002")
+
+        assert result is not None
+        assert result["count"] == 0
+        assert result["issues"] == []
+
     def test_no_regression_when_both_runs_fail(self):
         """A node that failed on both runs is NOT a regression (was already broken)."""
         repo = Mock()
@@ -425,6 +463,7 @@ def _seed_run(
     run_id: str,
     *,
     workflow_id: str,
+    branch: str,
     source: str = "manual",
     total_cost_usd: float = 0.0,
 ) -> None:
@@ -433,6 +472,7 @@ def _seed_run(
         workflow_id=workflow_id,
         workflow_name=f"Workflow {workflow_id}",
         task_json="{}",
+        branch=branch,
         source=source,
         total_cost_usd=total_cost_usd,
     )
@@ -482,7 +522,7 @@ class TestHealthMetricsProperRegressionLogic:
         """
         from runsight_api.data.repositories.run_repo import RunRepository
 
-        _seed_run(db_session, "run_001", workflow_id="wf_1")
+        _seed_run(db_session, "run_001", workflow_id="wf_1", branch="main")
         _seed_node(
             db_session,
             "run_001",
@@ -491,7 +531,7 @@ class TestHealthMetricsProperRegressionLogic:
             soul_version="sha256:v1",
         )
 
-        _seed_run(db_session, "run_002", workflow_id="wf_1")
+        _seed_run(db_session, "run_002", workflow_id="wf_1", branch="main")
         _seed_node(
             db_session,
             "run_002",
@@ -500,7 +540,7 @@ class TestHealthMetricsProperRegressionLogic:
             soul_version="sha256:v1",
         )
 
-        _seed_run(db_session, "run_003", workflow_id="wf_1")
+        _seed_run(db_session, "run_003", workflow_id="wf_1", branch="main")
         _seed_node(
             db_session,
             "run_003",
@@ -522,7 +562,7 @@ class TestHealthMetricsProperRegressionLogic:
         """First run with eval_passed=False is NOT a regression (no baseline)."""
         from runsight_api.data.repositories.run_repo import RunRepository
 
-        _seed_run(db_session, "run_001", workflow_id="wf_first")
+        _seed_run(db_session, "run_001", workflow_id="wf_first", branch="main")
         _seed_node(
             db_session,
             "run_001",
@@ -542,7 +582,7 @@ class TestHealthMetricsProperRegressionLogic:
         """A fail after a pass is only a regression if soul_version matches."""
         from runsight_api.data.repositories.run_repo import RunRepository
 
-        _seed_run(db_session, "run_001", workflow_id="wf_ver")
+        _seed_run(db_session, "run_001", workflow_id="wf_ver", branch="main")
         _seed_node(
             db_session,
             "run_001",
@@ -551,7 +591,7 @@ class TestHealthMetricsProperRegressionLogic:
             soul_version="sha256:v1",
         )
 
-        _seed_run(db_session, "run_002", workflow_id="wf_ver")
+        _seed_run(db_session, "run_002", workflow_id="wf_ver", branch="main")
         _seed_node(
             db_session,
             "run_002",

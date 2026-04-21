@@ -63,6 +63,7 @@ def _create_run_via_repo(db_engine) -> str:
             workflow_name="Test Workflow",
             status=RunStatus.completed,
             task_json="{}",
+            branch="main",
         )
         session.add(run)
         session.commit()
@@ -79,6 +80,7 @@ def _create_active_run_via_repo(db_engine, status: RunStatus = RunStatus.running
             workflow_name="Test Workflow",
             status=status,
             task_json="{}",
+            branch="main",
         )
         session.add(run)
         session.commit()

@@ -1,7 +1,7 @@
 """Regression tests for RUN-380 branch-aware execution behavior.
 
 ExecutionService.launch_execution must:
-1. Accept a ``branch`` parameter (default "main")
+1. Accept a ``branch`` parameter explicitly
 2. When Git is configured, read YAML via GitService.read_file(path, branch)
 3. ``branch="main"`` must load committed main content, not mutable working-tree YAML
 4. Pass YAML *string* (not file path) to parse_workflow_yaml
@@ -9,6 +9,7 @@ ExecutionService.launch_execution must:
 """
 
 import asyncio
+import subprocess
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -123,8 +124,8 @@ class TestLaunchAcceptsBranch:
             )
 
     @pytest.mark.asyncio
-    async def test_branch_defaults_to_main(self):
-        """When branch is omitted, it defaults to 'main'."""
+    async def test_branch_is_required(self):
+        """Omitting branch should raise a TypeError."""
         svc, _, _, _, git_service = _make_service()
 
         with patch(
@@ -134,15 +135,8 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            # Call without branch — should load committed main from git
-            await svc.launch_execution(
-                "run_3",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
-            )
-            await asyncio.sleep(0.05)
-
-            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
+            with pytest.raises(TypeError):
+                await svc.launch_execution("run_3", "wf_1", _prepared_inputs({"instruction": "go"}))
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +293,41 @@ class TestMainBranchReadsViaGit:
             assert yaml_arg != workflow_repo.get_by_id.return_value.yaml
 
 
+class TestGitFallbacks:
+    """Fallback behavior when git snapshots are unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_non_git_repo_falls_back_to_working_tree_yaml(self):
+        """Missing git repo should still run the working-tree workflow definition."""
+        svc, _, workflow_repo, _, git_service = _make_service()
+        working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        workflow_repo.get_by_id.return_value.yaml = working_tree_yaml
+        git_service.read_file.side_effect = subprocess.CalledProcessError(
+            128,
+            ["git", "show"],
+            stderr="fatal: not a git repository (or any of the parent directories): .git",
+        )
+
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
+            mock_wf = AsyncMock()
+            mock_wf.run = AsyncMock()
+            mock_parse.return_value = mock_wf
+
+            await svc.launch_execution(
+                "run_local1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
+            await asyncio.sleep(0.05)
+
+            mock_parse.assert_called_once()
+            yaml_arg = mock_parse.call_args[0][0]
+            assert yaml_arg == working_tree_yaml
+
+
 # ---------------------------------------------------------------------------
 # 4. Parser receives YAML string content
 # ---------------------------------------------------------------------------
@@ -361,6 +390,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -403,6 +433,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -446,6 +477,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -486,6 +518,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()

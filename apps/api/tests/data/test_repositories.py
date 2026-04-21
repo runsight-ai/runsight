@@ -15,7 +15,13 @@ def session_fixture():
 
 def test_run_repository(session: Session):
     repo = RunRepository(session)
-    run = Run(id="run-1", workflow_id="wf-1", workflow_name="WF", task_json="{}")
+    run = Run(
+        id="run-1",
+        workflow_id="wf-1",
+        workflow_name="WF",
+        task_json="{}",
+        branch="main",
+    )
     repo.create_run(run)
 
     fetched_run = repo.get_run("run-1")

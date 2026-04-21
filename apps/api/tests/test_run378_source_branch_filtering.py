@@ -591,6 +591,37 @@ class TestDashboardExcludesSimulations:
             f"Expected $0.00 (all simulations), got {data['cost_today_usd']}"
         )
 
+    def test_dashboard_missing_branch_is_not_treated_as_main(self):
+        """A run without branch must not be counted as production main."""
+        now = time.time()
+        run_main = _make_mock_run(
+            "run_main", source="manual", total_cost_usd=1.0, created_at=now - 3600
+        )
+        run_missing = _make_mock_run(
+            "run_missing", source="manual", total_cost_usd=2.0, created_at=now - 3600
+        )
+        delattr(run_missing, "branch")
+        run_sim = _make_mock_run(
+            "run_sim", source="simulation", total_cost_usd=3.0, created_at=now - 3600
+        )
+        runs = [run_main, run_missing, run_sim]
+        mock_service = Mock()
+        mock_service.list_runs.return_value = runs
+        mock_service.get_run_nodes.return_value = []
+        app.dependency_overrides[get_run_service] = lambda: mock_service
+        app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
+
+        client = TestClient(app)
+        response = client.get("/api/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["runs_today"] == 1, (
+            f"Expected only explicit main runs to count, got {data['runs_today']}"
+        )
+        assert data["cost_today_usd"] == 1.0, (
+            f"Expected only main-branch cost to count, got {data['cost_today_usd']}"
+        )
+
 
 # ===========================================================================
 # 9. Service layer: source and branch params accepted

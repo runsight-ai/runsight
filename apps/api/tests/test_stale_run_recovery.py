@@ -25,6 +25,7 @@ def _make_run(*, status: RunStatus, **overrides) -> Run:
         workflow_id="wf_test",
         workflow_name="Test Workflow",
         task_json="{}",
+        branch="main",
         created_at=time.time(),
         updated_at=time.time(),
     )

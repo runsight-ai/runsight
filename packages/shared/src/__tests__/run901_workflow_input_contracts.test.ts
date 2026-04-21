@@ -56,14 +56,16 @@ function extractComponentBlock(
 }
 
 describe("RUN-901 shared workflow input contracts", () => {
-  it("RunCreateSchema defaults omitted inputs to an empty object", () => {
+  it("RunCreateSchema requires branch and defaults omitted inputs to an empty object", () => {
     const schema = getSchema("RunCreateSchema");
 
     const parsed = schema.parse({
       workflow_id: "wf_901",
-    }) as { workflow_id: string; inputs?: Record<string, unknown> };
+      branch: "main",
+    }) as { workflow_id: string; branch: string; inputs?: Record<string, unknown> };
 
     expect(parsed.workflow_id).toBe("wf_901");
+    expect(parsed.branch).toBe("main");
     expect(parsed.inputs).toEqual({});
   });
 
@@ -111,6 +113,7 @@ describe("RUN-901 shared workflow input contracts", () => {
       id: "run_901",
       workflow_id: "wf_901",
       workflow_name: "Workflow 901",
+      branch: "main",
       status: "completed",
       started_at: 1711900000,
       completed_at: 1711900010,
@@ -213,12 +216,12 @@ describe("RUN-901 shared workflow input contracts", () => {
     expect(workflowResponseFields).toEqual(expect.arrayContaining(["input_schema"]));
   });
 
-  it("generated OpenAPI TS keeps defaulted RunCreate fields optional for callers", () => {
+  it("generated OpenAPI TS keeps only defaulted RunCreate fields optional for callers", () => {
     const runCreateBlock = extractComponentBlock(apiSource, "RunCreate", "RunEvalResponse");
 
     expect(runCreateBlock).toMatch(/\binputs\?:/);
     expect(runCreateBlock).toMatch(/\bsource\?:/);
-    expect(runCreateBlock).toMatch(/\bbranch\?:/);
+    expect(runCreateBlock).toMatch(/\bbranch:/);
   });
 
   it("committed OpenAPI includes a workflow input validation error schema with structured fields", () => {

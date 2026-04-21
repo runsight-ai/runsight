@@ -259,6 +259,7 @@ class TestRunInputValidationSnapshots:
                 "/api/runs",
                 json={
                     "workflow_id": "run923_inputs",
+                    "branch": "main",
                     "inputs": {
                         "query": "audit runs",
                         "api_token": "secret-token-923",

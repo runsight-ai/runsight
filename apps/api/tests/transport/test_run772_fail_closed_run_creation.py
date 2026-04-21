@@ -111,7 +111,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 503)
@@ -134,7 +138,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 500)
@@ -169,7 +177,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 500)

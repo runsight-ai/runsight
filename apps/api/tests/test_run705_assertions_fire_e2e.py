@@ -261,6 +261,7 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -305,6 +306,7 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -361,6 +363,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -402,6 +405,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -445,6 +449,7 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -501,6 +506,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -546,6 +552,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -591,6 +598,7 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -646,6 +654,7 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -709,6 +718,7 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )

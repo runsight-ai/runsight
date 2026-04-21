@@ -21,6 +21,7 @@ from pydantic import ValidationError
 import yaml
 
 from ...core.secrets import SecretsEnvLoader
+from ...domain.errors import ServiceUnavailable
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, WorkflowNotFound
 from ...domain.events import SSE_TERMINAL_EVENTS
@@ -485,12 +486,26 @@ class ExecutionService:
         except Exception:
             return None
 
+    @staticmethod
+    def _can_fallback_to_working_tree(error: Exception) -> bool:
+        if isinstance(error, ServiceUnavailable):
+            return True
+        if not isinstance(error, subprocess.CalledProcessError):
+            return False
+
+        detail = (error.stderr or "").lower()
+        return (
+            "not a git repository" in detail
+            or "ambiguous argument 'head'" in detail
+            or "needed a single revision" in detail
+        )
+
     async def launch_execution(
         self,
         run_id: str,
         workflow_id: str,
         inputs: PreparedRunInputs,
-        branch: str = "main",
+        branch: str,
     ) -> None:
         """Launch workflow execution as a background asyncio task.
 
@@ -507,12 +522,27 @@ class ExecutionService:
                 raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
 
             workflow_path = str(self.workflow_repo._get_path(workflow_id))
+            workflow_registry_git_ref = branch if self.git_service else None
+            workflow_registry_git_service = self.git_service
 
             # When Git is configured, always load the workflow from the requested
             # branch snapshot instead of the working tree copy.
             if self.git_service:
-                yaml_content = self.git_service.read_file(workflow_path, branch)
-                commit_sha = self.git_service.get_sha(branch, workflow_path)
+                try:
+                    yaml_content = self.git_service.read_file(workflow_path, branch)
+                    commit_sha = self.git_service.get_sha(branch, workflow_path)
+                except Exception as exc:
+                    if not self._can_fallback_to_working_tree(exc):
+                        raise
+                    logger.warning(
+                        "Git workflow snapshot unavailable; falling back to working tree YAML",
+                        extra={"run_id": run_id, "workflow_id": workflow_id, "branch": branch},
+                        exc_info=True,
+                    )
+                    yaml_content = wf_entity.yaml
+                    commit_sha = self._get_workflow_commit_sha(workflow_path)
+                    workflow_registry_git_ref = None
+                    workflow_registry_git_service = None
             else:
                 yaml_content = wf_entity.yaml
                 commit_sha = self._get_workflow_commit_sha(workflow_path)
@@ -528,8 +558,8 @@ class ExecutionService:
                 workflow_registry = self.workflow_repo.build_runnable_workflow_registry(
                     workflow_id,
                     yaml_content,
-                    git_ref=branch if self.git_service else None,
-                    git_service=self.git_service,
+                    git_ref=workflow_registry_git_ref,
+                    git_service=workflow_registry_git_service,
                 )
 
             # Parse workflow YAML into runnable Workflow

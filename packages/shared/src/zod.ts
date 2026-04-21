@@ -274,7 +274,7 @@ export const RunCreateSchema = z.object({
   workflow_id: z.string(),
   inputs: z.record(z.string(), z.unknown()).optional().default({}),
   source: z.string().nullable().optional().default("manual"),
-  branch: z.string().optional().default("main"),
+  branch: z.string(),
 }).strict();
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
@@ -305,7 +305,7 @@ export const RunResponseSchema = z.object({
   total_cost_usd: z.number(),
   total_tokens: z.number(),
   created_at: z.number(),
-  branch: z.string().optional().default("main"),
+  branch: z.string(),
   source: z.string().optional().default("manual"),
   commit_sha: z.string().nullable().optional(),
   run_number: z.number().nullable().optional(),

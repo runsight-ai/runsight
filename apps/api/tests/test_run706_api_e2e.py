@@ -287,6 +287,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "simple-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -316,6 +317,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "simple-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -348,6 +350,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "simple-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -380,6 +383,7 @@ class TestSuccessfulRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "simple-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -423,6 +427,7 @@ class TestSuccessfulRunE2E:
                         "/api/runs",
                         json={
                             "workflow_id": "simple-workflow",
+                            "branch": "main",
                             "inputs": {},
                         },
                     )
@@ -468,6 +473,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -502,6 +508,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )
@@ -530,6 +537,7 @@ class TestFailingRunE2E:
                     "/api/runs",
                     json={
                         "workflow_id": "failing-workflow",
+                        "branch": "main",
                         "inputs": {},
                     },
                 )

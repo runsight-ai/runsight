@@ -87,6 +87,7 @@ def _post_run_payload_with_service(execution_service: object, run_service: Mock)
             "/api/runs",
             json={
                 "workflow_id": "wf_inputs",
+                "branch": "main",
                 "inputs": {"private_note": SENSITIVE_VALUE},
             },
         )
@@ -104,7 +105,11 @@ def test_post_runs_rejects_plain_mapping_prepare_run_inputs_result() -> None:
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_inputs", "inputs": {"private_note": SENSITIVE_VALUE}},
+        json={
+            "workflow_id": "wf_inputs",
+            "branch": "main",
+            "inputs": {"private_note": SENSITIVE_VALUE},
+        },
     )
 
     assert response.status_code >= 400
@@ -124,6 +129,7 @@ def test_post_runs_fails_closed_when_mock_prepare_run_inputs_is_unconfigured() -
         "/api/runs",
         json={
             "workflow_id": "wf_inputs",
+            "branch": "main",
             "inputs": {"undeclared_secret": SENSITIVE_VALUE},
         },
     )
@@ -190,7 +196,11 @@ def test_post_runs_rejects_public_only_plain_mapping_prepare_run_inputs_result()
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_inputs", "inputs": {"summary": PUBLIC_VALUE}},
+        json={
+            "workflow_id": "wf_inputs",
+            "branch": "main",
+            "inputs": {"summary": PUBLIC_VALUE},
+        },
     )
 
     assert response.status_code >= 400

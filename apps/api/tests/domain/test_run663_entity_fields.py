@@ -171,6 +171,9 @@ class TestSqliteBackfillColumns:
             assert "warnings_json" in run_columns, (
                 "Expected _ensure_sqlite_columns to add warnings_json to legacy run table"
             )
+            assert "branch" not in run_columns, (
+                "Expected _ensure_sqlite_columns to leave branch out of legacy run table backfill"
+            )
 
 
 class TestAlembicMigrationAddsRunWarningsJson:

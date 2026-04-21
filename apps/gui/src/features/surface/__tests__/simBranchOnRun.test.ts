@@ -2,6 +2,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/client";
+
 const mocks = vi.hoisted(() => {
   const persistedCanvasState = {
     nodes: [
@@ -37,9 +39,11 @@ const mocks = vi.hoisted(() => {
 
   return {
     buttonProps: [] as Array<{ onClick?: () => Promise<void> | void }>,
+    getGitStatus: vi.fn(),
     createSimulationSnapshot: vi.fn(),
     createRunMutate: vi.fn(),
     cancelRunMutate: vi.fn(),
+    toastError: vi.fn(),
     persistedCanvasState,
     state,
     useCanvasStore,
@@ -68,6 +72,7 @@ vi.mock("lucide-react", () => ({
   Key: () => React.createElement("span", null, "key"),
   Play: () => React.createElement("span", null, "play"),
   X: () => React.createElement("span", null, "x"),
+  XIcon: () => React.createElement("span", null, "x"),
 }));
 
 vi.mock("@/queries/runs", () => ({
@@ -94,12 +99,19 @@ vi.mock("@/store/canvas", () => ({
 
 vi.mock("@/api/git", () => ({
   gitApi: {
+    getStatus: mocks.getGitStatus,
     createSimBranch: mocks.createSimulationSnapshot,
   },
 }));
 
 vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: mocks.toastError,
+  },
 }));
 
 import { RunButton } from "../RunButton";
@@ -122,9 +134,16 @@ beforeEach(() => {
   mocks.state.yamlContent = "workflow:\n  name: Test Flow\n";
   mocks.state.toPersistedState.mockReset();
   mocks.state.toPersistedState.mockReturnValue(mocks.persistedCanvasState);
+  mocks.getGitStatus.mockReset();
+  mocks.getGitStatus.mockResolvedValue({
+    branch: "main",
+    is_clean: true,
+    uncommitted_files: [],
+  });
   mocks.createSimulationSnapshot.mockReset();
   mocks.createRunMutate.mockReset();
   mocks.cancelRunMutate.mockReset();
+  mocks.toastError.mockReset();
 });
 
 describe("RunButton simulation behavior (RUN-423)", () => {
@@ -176,5 +195,37 @@ describe("RunButton simulation behavior (RUN-423)", () => {
       },
       { onSuccess: expect.any(Function) },
     );
+  });
+
+  it("blocks the run when simulation snapshot preparation reports a git repository error", async () => {
+    mocks.state.isDirty = true;
+    mocks.createSimulationSnapshot.mockRejectedValue(
+      new ApiError(409, "GIT_ERROR", "Simulation runs require a git repository"),
+    );
+
+    const click = renderButton("wf_local_only");
+    await click();
+
+    expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
+      "wf_local_only",
+      mocks.state.yamlContent,
+    );
+    expect(mocks.createRunMutate).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith("Unable to start run", {
+      description: "Simulation runs require a git repository",
+    });
+  });
+
+  it("shows a toast when simulation snapshot creation throws unexpectedly", async () => {
+    mocks.state.isDirty = true;
+    mocks.createSimulationSnapshot.mockRejectedValue(new Error("Simulation snapshot failed"));
+
+    const click = renderButton("wf_sim_fail");
+    await click();
+
+    expect(mocks.createRunMutate).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith("Unable to start run", {
+      description: "Simulation snapshot failed",
+    });
   });
 });

@@ -106,7 +106,10 @@ class TestRunInputValidationRouter:
             )
         )
 
-        response = client.post("/api/runs", json={"workflow_id": "wf_inputs", "inputs": {}})
+        response = client.post(
+            "/api/runs",
+            json={"workflow_id": "wf_inputs", "branch": "main", "inputs": {}},
+        )
 
         assert response.status_code == 422
         payload = response.json()
@@ -128,7 +131,11 @@ class TestRunInputValidationRouter:
 
         response = client.post(
             "/api/runs",
-            json={"workflow_id": "wf_inputs", "inputs": {"query": "search", "max_results": "ten"}},
+            json={
+                "workflow_id": "wf_inputs",
+                "branch": "main",
+                "inputs": {"query": "search", "max_results": "ten"},
+            },
         )
 
         assert response.status_code == 422
@@ -152,7 +159,11 @@ class TestRunInputValidationRouter:
 
         response = client.post(
             "/api/runs",
-            json={"workflow_id": "wf_inputs", "inputs": {"query": "search", "debug": True}},
+            json={
+                "workflow_id": "wf_inputs",
+                "branch": "main",
+                "inputs": {"query": "search", "debug": True},
+            },
         )
 
         assert response.status_code == 422
@@ -167,7 +178,11 @@ class TestRunInputValidationRouter:
 
         response = client.post(
             "/api/runs",
-            json={"workflow_id": "wf_inputs", "inputs": {"query": "search"}},
+            json={
+                "workflow_id": "wf_inputs",
+                "branch": "main",
+                "inputs": {"query": "search"},
+            },
         )
 
         assert response.status_code == 200
@@ -223,7 +238,10 @@ class TestRunInputValidationRouter:
     def test_no_schema_no_inputs_still_uses_immediate_no_input_path(self):
         run_service, execution_service = _services(normalized_inputs={})
 
-        response = client.post("/api/runs", json={"workflow_id": "wf_inputs"})
+        response = client.post(
+            "/api/runs",
+            json={"workflow_id": "wf_inputs", "branch": "main"},
+        )
 
         assert response.status_code == 200
         execution_service.prepare_run_inputs.assert_called_once_with("wf_inputs", {}, branch="main")
@@ -243,7 +261,10 @@ class TestRunInputValidationRouter:
     def test_malformed_run_body_uses_workflow_input_error_shape(self):
         run_service, execution_service = _services(normalized_inputs={})
 
-        response = client.post("/api/runs", json={"workflow_id": "wf_inputs", "inputs": []})
+        response = client.post(
+            "/api/runs",
+            json={"workflow_id": "wf_inputs", "branch": "main", "inputs": []},
+        )
 
         assert response.status_code == 422
         payload = response.json()
@@ -262,7 +283,10 @@ class TestRunInputValidationRouter:
     def test_top_level_run_request_errors_keep_body_input_path(self):
         run_service, execution_service = _services(normalized_inputs={})
 
-        response = client.post("/api/runs", json={"workflow_id": 123, "inputs": {}})
+        response = client.post(
+            "/api/runs",
+            json={"workflow_id": 123, "branch": "main", "inputs": {}},
+        )
 
         assert response.status_code == 422
         payload = response.json()

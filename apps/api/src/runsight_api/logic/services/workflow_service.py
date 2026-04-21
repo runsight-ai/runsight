@@ -1,5 +1,6 @@
-from typing import Any, Dict, List, Optional
 import logging
+import subprocess
+from typing import Any, Dict, List, Optional
 
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
@@ -9,7 +10,7 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...data.repositories.run_repo import RunRepository
-from ...domain.errors import InputValidationError, WorkflowNotFound
+from ...domain.errors import GitError, InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
 logger = logging.getLogger(__name__)
@@ -235,7 +236,7 @@ class WorkflowService:
 
     def create_simulation(self, workflow_id: str, yaml: str) -> Dict[str, Any]:
         if self.git_service is None:
-            raise RuntimeError("Git service not configured")
+            raise GitError("Simulation runs require a git repository")
 
         workflow_file = self._validate_simulation_yaml_identity(workflow_id, yaml)
         input_schema = _workflow_input_schema_for_simulation(
@@ -244,11 +245,17 @@ class WorkflowService:
         )
 
         yaml_path = f"custom/workflows/{workflow_id}.yaml"
-        result = self.git_service.create_sim_branch(
-            workflow_slug=workflow_id,
-            yaml_content=yaml,
-            yaml_path=yaml_path,
-        )
+        try:
+            result = self.git_service.create_sim_branch(
+                workflow_slug=workflow_id,
+                yaml_content=yaml,
+                yaml_path=yaml_path,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or "").strip()
+            if "not a git repository" in detail.lower():
+                raise GitError("Simulation runs require a git repository") from exc
+            raise GitError(detail or "Failed to create simulation branch") from exc
         return {"branch": result.branch, "commit_sha": result.sha, "input_schema": input_schema}
 
     def _validate_simulation_yaml_identity(
@@ -302,7 +309,12 @@ class WorkflowService:
         try:
             branch = self.git_service.current_branch()
         except Exception:
-            branch = "main"
+            return None
+        if not isinstance(branch, str):
+            return None
+        branch = branch.strip()
+        if not branch or branch == "HEAD":
+            return None
         return self.git_service.get_sha(branch, path)
 
     def _get_workflow_commit_sha_on_main(self, path: str) -> str | None:

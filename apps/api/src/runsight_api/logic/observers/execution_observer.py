@@ -198,8 +198,12 @@ class ExecutionObserver:
             if self._is_workflow_block_type(block_type):
                 child_run_id = f"{self.run_id}:child:{block_id}:{uuid.uuid4().hex[:8]}"
                 parent_run = self._get_run()
-                parent_depth = parent_run.depth if parent_run else 0
-                parent_root = parent_run.root_run_id if parent_run else None
+                if parent_run is None:
+                    raise LookupError(
+                        f"Parent run {self.run_id} not found for child workflow block {block_id}"
+                    )
+                parent_depth = parent_run.depth
+                parent_root = parent_run.root_run_id
                 # Root run has root_run_id=None; children point to the outermost ancestor
                 root_run_id = parent_root if parent_root is not None else self.run_id
                 child_workflow_id = kwargs.get("child_workflow_id") or f"wf_child_{block_id}"
@@ -211,8 +215,8 @@ class ExecutionObserver:
                     workflow_name=child_workflow_name,
                     status=RunStatus.running,
                     task_json="{}",
+                    branch=parent_run.branch,
                     warnings_json=None,
-                    branch=parent_run.branch if parent_run else "main",
                     source=parent_run.source if parent_run else "manual",
                     commit_sha=parent_run.commit_sha if parent_run else None,
                     parent_run_id=self.run_id,

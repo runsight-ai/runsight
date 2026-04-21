@@ -37,6 +37,7 @@ def _seed_run(
             workflow_name=workflow_name,
             status=status,
             task_json="{}",
+            branch="main",
             created_at=created_at,
             updated_at=created_at,
         )

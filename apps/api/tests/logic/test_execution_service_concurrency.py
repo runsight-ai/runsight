@@ -132,6 +132,7 @@ class TestConcurrencyLimit:
                     f"run_{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
+                    branch="main",
                 )
 
             # Wait for the semaphore-permitted tasks to enter tracked_run
@@ -193,6 +194,7 @@ class TestConcurrencyLimit:
                     f"run_d{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
+                    branch="main",
                 )
 
             # Wait for 5 to enter
@@ -242,6 +244,7 @@ class TestConcurrencyLimit:
                     f"run_q{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
+                    branch="main",
                 )
 
             # Release gate — all queued runs should eventually complete
@@ -281,12 +284,14 @@ class TestConcurrencyLimit:
                 "run_a",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             # Second run should NOT raise — it queues
             await svc.launch_execution(
                 "run_b",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
 
             # Both should be in _running_tasks (one active, one waiting)
@@ -328,6 +333,7 @@ class TestSemaphoreRelease:
                 "run_fail",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)  # Let the failure happen
 
@@ -336,6 +342,7 @@ class TestSemaphoreRelease:
                 "run_ok",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
 
             # Give it time to complete
@@ -384,6 +391,7 @@ class TestSemaphoreRelease:
                 "run_cancel",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await run_started.wait()
 
@@ -398,6 +406,7 @@ class TestSemaphoreRelease:
                 "run_after_cancel",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
 
             # Should complete within a reasonable time (not deadlocked)
@@ -427,6 +436,7 @@ class TestSemaphoreRelease:
                     f"run_fail_{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
+                    branch="main",
                 )
             await asyncio.sleep(0.2)  # Let all fail
 
@@ -445,6 +455,7 @@ class TestSemaphoreRelease:
                 "run_after_fails",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             try:
                 await asyncio.wait_for(success_event.wait(), timeout=2.0)
@@ -495,6 +506,7 @@ class TestPendingUntilAcquired:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
                 session.add(run)
             session.commit()
@@ -522,6 +534,7 @@ class TestPendingUntilAcquired:
                 "run_active",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -530,6 +543,7 @@ class TestPendingUntilAcquired:
                 "run_queued",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -577,6 +591,7 @@ class TestPendingUntilAcquired:
                         workflow_name="wf_1",
                         status=RunStatus.pending,
                         task_json="{}",
+                        branch="main",
                     )
                 )
             session.commit()
@@ -616,6 +631,7 @@ class TestPendingUntilAcquired:
                 "run_first",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -623,6 +639,7 @@ class TestPendingUntilAcquired:
                 "run_second",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -672,6 +689,7 @@ class TestImmediateReturn:
                 "run_fill",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
 
             # This should return within a short time, NOT block
@@ -681,6 +699,7 @@ class TestImmediateReturn:
                         "run_queued",
                         "wf_1",
                         _prepared_inputs({"instruction": "go"}),
+                        branch="main",
                     ),
                     timeout=0.5,
                 )

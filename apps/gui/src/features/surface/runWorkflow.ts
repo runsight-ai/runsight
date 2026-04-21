@@ -2,6 +2,7 @@ import type { RunCreate } from "@runsight/shared/zod";
 
 export interface RunWorkflowOptions {
   workflowId: string;
+  branch: string;
   save: () => Promise<void>;
   createRun: (data: RunCreate) => Promise<{ id: string; workflow_id: string }>;
   navigate?: (path: string) => void;
@@ -17,7 +18,8 @@ export interface RunWorkflowResult {
 export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<RunWorkflowResult | null> {
-  const { workflowId, save, createRun, navigate, onError, isRunning, inputs } = options;
+  const { workflowId, branch, save, createRun, navigate, onError, isRunning, inputs } =
+    options;
 
   if (isRunning) {
     return null;
@@ -37,6 +39,7 @@ export async function runWorkflow(
     result = await createRun({
       workflow_id: workflowId,
       inputs: inputs ?? {},
+      branch: branch,
     });
   } catch (error) {
     if (onError && error instanceof Error) {

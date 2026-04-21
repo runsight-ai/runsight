@@ -192,6 +192,7 @@ def _seed_run(engine, run_id: str = "run_928_api") -> None:
                 workflow_name="redaction_api",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
         )
         session.commit()
@@ -224,6 +225,7 @@ def _seed_eval_run(engine, run_id: str = "run_928_eval", block_id: str = "block_
                 workflow_name="redaction_api",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
         )
         session.add(

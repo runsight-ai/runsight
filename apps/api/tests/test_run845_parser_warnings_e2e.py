@@ -333,6 +333,7 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
             json={
                 "workflow_id": workflow_id,
                 "inputs": {},
+                "branch": "main",
             },
         )
         assert create_run.status_code == 200
@@ -407,6 +408,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
                 json={
                     "workflow_id": workflow_id,
                     "inputs": {},
+                    "branch": "main",
                 },
             )
 
@@ -445,6 +447,7 @@ async def test_child_run_warnings_do_not_inherit_parent_snapshot(app_without_exe
                 workflow_name="Parent workflow",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
                 warnings_json=[parent_warning],
             )
         )

@@ -163,6 +163,7 @@ class TestLaunchExecution:
                 "run_1",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
             )
 
             # Task should be tracked
@@ -210,6 +211,7 @@ class TestLaunchExecution:
                 "run_2",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
+                branch="main",
             )
 
             # The method returned but workflow hasn't completed
@@ -360,6 +362,7 @@ class TestAutoCleanup:
                 "run_cleanup",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
+                branch="main",
             )
 
             # Wait for background task to finish and cleanup callback to fire
@@ -386,6 +389,7 @@ class TestLaunchExecutionErrors:
             workflow_name="wf_bad",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         run_repo = Mock()
         run_repo.get_run.return_value = run
@@ -408,6 +412,7 @@ class TestLaunchExecutionErrors:
             "run_err1",
             "wf_bad",
             _prepared_inputs({"instruction": "test"}),
+            branch="main",
         )
 
         # Wait for background task to fail
@@ -437,6 +442,7 @@ class TestLaunchExecutionErrors:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -493,6 +499,7 @@ config: {}
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -512,6 +519,7 @@ config: {}
             workflow_name="wf_missing",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         run_repo = Mock()
         run_repo.get_run.return_value = run
@@ -531,6 +539,7 @@ config: {}
             "run_prefail",
             "wf_missing",
             _prepared_inputs({"instruction": "x"}),
+            branch="main",
         )
         await asyncio.sleep(0.05)
 
@@ -562,6 +571,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -603,6 +613,7 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
@@ -628,6 +639,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -670,6 +682,7 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -694,6 +707,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -734,6 +748,7 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -798,6 +813,7 @@ config: {}
                 "run_code_only",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
             )
 
         mock_fail.assert_not_called()
@@ -853,6 +869,7 @@ config: {}
                 "run_missing_model",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
             )
 
         mock_fail.assert_called_once()
@@ -911,6 +928,7 @@ config: {}
                 "run_missing_model_name",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
             )
 
         mock_fail.assert_called_once()

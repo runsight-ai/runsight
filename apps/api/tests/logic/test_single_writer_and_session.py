@@ -43,6 +43,7 @@ class TestObserverWritesTerminalStatus:
                 workflow_name="wf_1",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -104,6 +105,7 @@ class TestFreshSessionPerOperation:
                 workflow_name="wf_missing",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -125,6 +127,7 @@ class TestFreshSessionPerOperation:
             run_id,
             "wf_missing",
             _prepared_inputs({"instruction": "test"}),
+            branch="main",
         )
         await asyncio.sleep(0.05)
 

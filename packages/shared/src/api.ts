@@ -1139,11 +1139,8 @@ export interface components {
              * @default manual
              */
             source?: string | null;
-            /**
-             * Branch
-             * @default main
-             */
-            branch?: string;
+            /** Branch */
+            branch: string;
         };
         /** RunEvalResponse */
         RunEvalResponse: {
@@ -1236,10 +1233,7 @@ export interface components {
             total_tokens: number;
             /** Created At */
             created_at: number;
-            /**
-             * Branch
-             * @default main
-             */
+            /** Branch */
             branch: string;
             /**
              * Source

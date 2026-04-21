@@ -53,6 +53,7 @@ def seed_run(db_engine):
             workflow_name="test_workflow",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         session.add(run)
         session.commit()

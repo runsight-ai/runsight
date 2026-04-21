@@ -45,6 +45,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
         )
         assert hasattr(run, "fail_reason"), "Run model missing 'fail_reason' field"
         assert run.fail_reason is None, "fail_reason default must be None"
@@ -56,6 +57,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
         )
         assert hasattr(run, "fail_metadata"), "Run model missing 'fail_metadata' field"
         assert run.fail_metadata is None, "fail_metadata default must be None"
@@ -67,6 +69,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
             fail_reason="budget_exceeded",
         )
         assert run.fail_reason == "budget_exceeded"
@@ -85,6 +88,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
             fail_metadata=metadata,
         )
         assert run.fail_metadata == metadata
@@ -109,6 +113,7 @@ class TestRunModelBudgetFields:
                 workflow_id="wf_1",
                 workflow_name="wf_1",
                 task_json="{}",
+                branch="main",
                 fail_reason="budget_exceeded",
                 fail_metadata=metadata,
             )
@@ -135,6 +140,7 @@ class TestRunModelBudgetFields:
                 workflow_id="wf_1",
                 workflow_name="wf_1",
                 task_json="{}",
+                branch="main",
                 status=RunStatus.failed,
                 error="Budget limit exceeded on block 'b1': cost_usd=0.75 > cap=0.50",
                 error_traceback="Traceback (most recent call last):\n  ...",
@@ -250,6 +256,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -274,6 +281,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -296,6 +304,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -326,6 +335,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -348,6 +358,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -378,6 +389,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -406,6 +418,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -436,6 +449,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -464,6 +478,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -494,6 +509,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 
@@ -520,6 +536,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -544,6 +561,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
+                branch="main",
             )
             await asyncio.sleep(0.15)
 

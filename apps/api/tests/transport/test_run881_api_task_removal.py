@@ -193,6 +193,7 @@ def test_post_runs_passes_inputs_to_service():
             "/api/runs",
             json={
                 "workflow_id": "wf_1",
+                "branch": "main",
                 "inputs": payload,
             },
         )
@@ -226,6 +227,7 @@ def test_post_runs_rejects_task_data_field():
         "/api/runs",
         json={
             "workflow_id": "wf_1",
+            "branch": "main",
             "task_data": {"instruction": "should fail"},
         },
     )

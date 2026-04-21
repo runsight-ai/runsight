@@ -14,11 +14,11 @@ PRODUCTION_SOURCES = {"manual", "webhook", "schedule"}
 
 
 def _is_production_main_run(run) -> bool:
-    branch = getattr(run, "branch", "main")
-    source = getattr(run, "source", "manual")
-    branch_value = branch if isinstance(branch, str) else "main"
-    source_value = source if isinstance(source, str) else "manual"
-    return branch_value == "main" and source_value in PRODUCTION_SOURCES
+    branch = getattr(run, "branch", None)
+    source = getattr(run, "source", None)
+    if not isinstance(branch, str) or not isinstance(source, str):
+        return False
+    return branch == "main" and source in PRODUCTION_SOURCES
 
 
 def _window_metrics(

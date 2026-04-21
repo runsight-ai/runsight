@@ -198,6 +198,7 @@ def _seed_run(engine, run_id: str, workflow_name: str) -> None:
                 id=run_id,
                 workflow_id="wf_test",
                 workflow_name=workflow_name,
+                branch="main",
                 status=RunStatus.pending,
                 task_json="{}",
             )
@@ -832,6 +833,7 @@ class TestSSEEndpointHTTPChunks:
                     "/api/runs",
                     json={
                         "workflow_id": "single-block",
+                        "branch": "main",
                         "inputs": {"instruction": "Analyze"},
                     },
                 )
@@ -899,6 +901,7 @@ class TestSSEEndpointHTTPChunks:
                     "/api/runs",
                     json={
                         "workflow_id": "single-block",
+                        "branch": "main",
                         "inputs": {"instruction": "Analyze"},
                     },
                 )

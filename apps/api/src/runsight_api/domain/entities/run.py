@@ -43,6 +43,10 @@ class InvalidStateTransition(ValueError):
         super().__init__(f"Invalid state transition: {current.value} -> {target.value}")
 
 
+class _RunCreationValidator(BaseModel):
+    branch: str
+
+
 def validate_transition(current: RunStatus, target: RunStatus) -> None:
     """Raise InvalidStateTransition if *current* -> *target* is not allowed.
 
@@ -57,6 +61,10 @@ def validate_transition(current: RunStatus, target: RunStatus) -> None:
 
 
 class Run(SQLModel, table=True):
+    def __init__(self, **data: Any):
+        _RunCreationValidator.model_validate(data)
+        super().__init__(**data)
+
     id: str = Field(primary_key=True)
     workflow_id: str
     workflow_name: str
@@ -71,7 +79,7 @@ class Run(SQLModel, table=True):
     error: Optional[str] = None
     error_traceback: Optional[str] = None
     cancelled_reason: Optional[str] = None
-    branch: str = Field(default="main")
+    branch: str
     source: str = Field(default="manual")
     commit_sha: Optional[str] = Field(default=None)
     created_at: float = Field(default_factory=time.time)

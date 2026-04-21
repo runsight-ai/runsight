@@ -84,8 +84,8 @@ class RunService:
         workflow_id: str,
         inputs: Mapping[str, Any],
         *,
+        branch: str,
         source: str = "manual",
-        branch: str = "main",
     ) -> Run:
         workflow = self.workflow_repo.get_by_id(workflow_id)
         if not workflow:

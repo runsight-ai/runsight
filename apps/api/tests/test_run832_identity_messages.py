@@ -127,6 +127,7 @@ def test_execution_observer_workflow_start_persists_raw_display_name_ref() -> No
                 workflow_name="Research & Review",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
         )
         session.commit()

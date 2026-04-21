@@ -158,6 +158,7 @@ config: {}
                 "run_1",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
+                branch="main",
             )
 
             mock_parse.assert_called_once()

@@ -44,6 +44,7 @@ def _make_run(run_id: str, workflow_id: str) -> Run:
         workflow_name=workflow_id,
         status=RunStatus.pending,
         task_json="{}",
+        branch="main",
     )
 
 

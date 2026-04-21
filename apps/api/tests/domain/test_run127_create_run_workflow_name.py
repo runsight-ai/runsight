@@ -36,7 +36,11 @@ class TestCreateRunUsesWorkflowName:
         workflow_repo.get_by_id.return_value = workflow_entity
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("my-workflow-k8x3m", _prepared({"instruction": "test"}))
+        run = svc.create_run(
+            "my-workflow-k8x3m",
+            _prepared({"instruction": "test"}),
+            branch="main",
+        )
 
         # workflow_name should be the human-readable name, not the id
         assert run.workflow_name == "My Research Pipeline"
@@ -56,7 +60,11 @@ class TestCreateRunUsesWorkflowName:
         workflow_repo.get_by_id.return_value = workflow_entity
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("research-pipeline-k8x3m", _prepared({"instruction": "test"}))
+        run = svc.create_run(
+            "research-pipeline-k8x3m",
+            _prepared({"instruction": "test"}),
+            branch="main",
+        )
 
         # The bug: current code does workflow_name=workflow.id
         # It should do workflow_name=workflow.name (or fallback to id)

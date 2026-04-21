@@ -136,6 +136,7 @@ def _seed_run(engine, run_id: str, workflow_name: str) -> None:
                 workflow_name=workflow_name,
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
         )
         session.commit()
