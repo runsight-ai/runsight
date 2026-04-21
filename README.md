@@ -54,129 +54,36 @@ docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 | **Provider management** | CRUD for providers, model catalog, per-provider fallback targets, strict soul resolution. |
 | **Sub-workflow composition** | `workflow` blocks execute child workflows with parent-child run linkage, on_error modes, and output mapping. |
 
-## YAML examples
+## YAML example
 
-### Inline souls + custom tool wiring
-
-Souls can be defined inline or as reusable library files. Tools are YAML files — workflows control which tools each soul can access:
+For more complete workflow examples, see the [Quickstart workflow examples](https://runsight.ai/docs/getting-started/quickstart/#create-a-workflow-file).
 
 ```yaml
-# custom/tools/slack_webhook.yaml — custom HTTP tool
-version: "1.0"
-type: custom
-executor: request
-name: Slack Webhook
-description: Send a message to a Slack channel.
-parameters:
-  type: object
-  properties:
-    payload_json:
-      type: string
-  required: [payload_json]
-request:
-  method: POST
-  url: "${SLACK_WEBHOOK_URL}"
-  headers:
-    Content-type: application/json
-  body_template: "{{ payload_json }}"
-```
-
-```yaml
-# custom/tools/slack_payload_builder.yaml — custom Python tool
-version: "1.0"
-type: custom
-executor: python
-name: Slack Payload Builder
-description: Build a JSON payload string for the Slack incoming webhook.
-parameters:
-  type: object
-  properties:
-    text:
-      type: string
-  required: [text]
-code: |
-  import json
-  def main(args):
-      return {"payload_json": json.dumps({"text": args["text"]})}
-```
-
-```yaml
-# Workflow with inline soul + tool governance
 version: "1.0"
 souls:
-  notifier:
-    id: notifier_1
-    role: Slack Reporter
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Technical Writer
     system_prompt: >
-      Summarize the input and post it to Slack.
-    tools:
-      - slack_payload_builder
-      - slack_webhook       # workflow must also enable these tools
+      Summarize the input into a short release note.
     provider: openai
     model_name: gpt-4.1-mini
 blocks:
-  notify:
+  summarize:
     type: linear
-    soul_ref: notifier
+    soul_ref: writer
 workflow:
-  name: Slack Notification
-  entry: notify
-  transitions:
-    - from: notify
-      to: null
+  name: Summarize
+  entry: summarize
 ```
 
-## How it works
+## Development and contributing
 
-1. **Define** — Write workflows, souls, and tools as YAML files in `custom/workflows/`, `custom/souls/`, and `custom/tools/`. The engine discovers them by convention.
-2. **Parse** — The engine validates YAML against Pydantic schemas, resolves `soul_ref` to library souls, discovers tools by canonical ID, and enforces tool governance (souls only get tools enabled at the workflow level).
-3. **Execute** — `execute_block()` runs each block through a unified lifecycle: observer events, retry handling, exit handle routing, budget enforcement via `contextvars`.
-4. **Observe** — Assertions evaluate per-block. `BudgetSession` tracks cost/tokens/time with parent propagation. SSE streams node completion status to the GUI. `[WIP: canvas live updates]`
-5. **Version** — Every save writes to disk. Commits go to main. Simulation runs create branches. Run detail shows the exact YAML that executed.
+Contributors are welcome. Questions and ideas go to [Discussions](https://github.com/runsight-ai/runsight/discussions), and open work lives on [Issues](https://github.com/runsight-ai/runsight/issues).
 
-## Architecture
-
-```
-runsight/
-├── packages/core/          # Pure Python engine — asyncio, Pydantic
-│   └── src/runsight_core/
-│       ├── blocks/         # Linear, Gate, Code, Loop, Workflow, Dispatch
-│       ├── yaml/           # Schema models, parser, validator
-│       ├── budget_enforcement.py
-│       └── eval/           # Assertions, eval runner, transforms
-├── apps/api/               # FastAPI server — SQLModel, SSE streaming
-│   └── src/runsight_api/
-└── apps/gui/               # React 19 + Vite + ReactFlow + Monaco
-    └── src/
-        ├── features/       # Canvas, flows, runs, settings, souls
-        └── store/          # Zustand stores
-```
-
-**Core engine** has zero web dependencies — import `runsight_core` and run workflows from Python:
-
-```python
-from runsight_core.yaml.parser import parse_workflow_yaml
-from runsight_core.workflow import Workflow
-
-workflow = parse_workflow_yaml("path/to/workflow.yaml")
-result = await workflow.run(initial_state)
-```
-
-## Roadmap
-
-Runsight is a **single-soul-per-step** workflow engine with sub-workflow composition. Next up: triggers (webhook, cron), MCP integration, runtime controls (pause/resume/kill), and OpenTelemetry export. See the [full roadmap](https://runsight.ai/docs) for details.
-
-## Tech stack
-
-| Layer | Stack |
-|---|---|
-| **Core engine** | Python 3.11+, asyncio, Pydantic, LiteLLM |
-| **API server** | FastAPI, SQLModel, SSE |
-| **Frontend** | React 19, Vite (build + dev server), ReactFlow (XY Flow), Monaco Editor, Zustand, shadcn/ui, Tailwind |
-| **Storage** | Filesystem (YAML) for workflows/souls/tools, SQLite for settings |
-| **Testing** | Playwright (E2E), Vitest (unit), pytest-asyncio (engine) |
-
-## Development
+Local setup:
 
 ```bash
 git clone https://github.com/runsight-ai/runsight.git
@@ -191,9 +98,7 @@ uv run runsight                        # http://localhost:8000
 pnpm -C apps/gui dev                   # http://localhost:5173
 ```
 
-## Contributing
-
-Issues and PRs welcome. See the [issues page](https://github.com/runsight-ai/runsight/issues) for open work. Questions and ideas go to [Discussions](https://github.com/runsight-ai/runsight/discussions).
+Targeted checks:
 
 ```bash
 # Run frontend unit tests
@@ -206,13 +111,11 @@ uv run python -m pytest packages/core/tests/test_specific_file.py -v
 pnpm run lint
 ```
 
-## Releasing
+Release process:
 
-Version is controlled by a single field: `version` in the root `pyproject.toml`. To publish a new release:
-
-1. Bump `version` in `pyproject.toml` (e.g., `0.1.7` → `0.1.8`)
-2. Merge to main
-3. CI detects the version change → publishes PyPI + Docker → creates git tag `v0.1.8`
+1. Bump `version` in the root `pyproject.toml`
+2. Merge to `main`
+3. CI publishes PyPI and Docker artifacts, then creates the git tag automatically
 
 No manual tagging needed. Every PR that changes behavior should include a version bump.
 
