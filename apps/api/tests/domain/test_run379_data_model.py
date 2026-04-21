@@ -343,6 +343,7 @@ class TestRunResponseWarningsField:
             total_cost_usd=0.0,
             total_tokens=0,
             created_at=1711699200.0,
+            branch=EXPLICIT_BRANCH,
             warnings=[warning],
         )
         assert resp.warnings == [warning]

@@ -311,6 +311,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -348,6 +349,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -386,6 +388,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -421,6 +424,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()

@@ -115,6 +115,31 @@ def test_runs_get():
     app.dependency_overrides.clear()
 
 
+def test_runs_get_does_not_inject_main_branch_for_missing_branch():
+    mock_service = Mock()
+    mock_run = _make_mock_run(branch=TEST_BRANCH)
+    delattr(mock_run, "branch")
+    mock_run.warnings_json = None
+    mock_service.get_run.return_value = mock_run
+    mock_service.get_node_summary.return_value = {
+        "total_cost_usd": 0.0,
+        "total_tokens": 0,
+        "nodes_count": 0,
+        "total": 0,
+        "completed": 0,
+        "running": 0,
+        "pending": 0,
+        "failed": 0,
+    }
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
+
+    response = client.get("/api/runs/run_123")
+    assert response.status_code == 200
+    assert response.json()["branch"] != "main"
+    app.dependency_overrides.clear()
+
+
 def test_runs_get_wires_non_empty_warnings():
     mock_service = Mock()
     mock_run = _make_mock_run("run_warned_detail", branch=TEST_BRANCH)
