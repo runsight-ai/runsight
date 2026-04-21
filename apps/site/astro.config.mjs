@@ -2,22 +2,32 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import { siteIdentity, withSiteUrl } from './src/config/site.mjs';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://runsight.ai',
+	site: siteIdentity.siteUrl,
 	integrations: [
 		starlight({
-			title: 'Runsight',
+			title: siteIdentity.name,
 			logo: {
 				src: './src/assets/logo.svg',
 			},
-			description: 'YAML-first workflow engine for AI agents.',
+			description: siteIdentity.docsDescription,
 			social: [
 				{
 					icon: 'github',
 					label: 'GitHub',
-					href: 'https://github.com/runsight-ai/runsight',
+					href: siteIdentity.links.github,
+				},
+			],
+			head: [
+				{
+					tag: 'link',
+					attrs: {
+						rel: 'sitemap',
+						href: '/sitemap.xml',
+					},
 				},
 			],
 			editLink: {
@@ -120,7 +130,33 @@ export default defineConfig({
 			],
 			customCss: ['./src/styles/custom.css'],
 			plugins: [
-				starlightLlmsTxt(),
+				starlightLlmsTxt({
+					projectName: siteIdentity.name,
+					description: siteIdentity.llms.summary,
+					details: siteIdentity.llms.details,
+					optionalLinks: [
+						{
+							label: 'Homepage',
+							url: withSiteUrl(siteIdentity.links.homepage),
+							description: 'Product overview and positioning',
+						},
+						{
+							label: 'Documentation',
+							url: withSiteUrl(siteIdentity.links.docs),
+							description: 'Complete product documentation',
+						},
+						{
+							label: 'Quickstart',
+							url: withSiteUrl(siteIdentity.links.quickstart),
+							description: 'Fastest path to install and run Runsight',
+						},
+						{
+							label: 'GitHub',
+							url: siteIdentity.links.github,
+							description: 'Source code, issues, and contribution context',
+						},
+					],
+				}),
 			],
 		}),
 	],
