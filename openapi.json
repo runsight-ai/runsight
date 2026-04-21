@@ -3468,14 +3468,14 @@
           },
           "branch": {
             "type": "string",
-            "title": "Branch",
-            "default": "main"
+            "title": "Branch"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "workflow_id"
+          "workflow_id",
+          "branch"
         ],
         "title": "RunCreate"
       },
@@ -3812,8 +3812,7 @@
           },
           "branch": {
             "type": "string",
-            "title": "Branch",
-            "default": "main"
+            "title": "Branch"
           },
           "source": {
             "type": "string",
@@ -3940,7 +3939,8 @@
           "duration_seconds",
           "total_cost_usd",
           "total_tokens",
-          "created_at"
+          "created_at",
+          "branch"
         ],
         "title": "RunResponse"
       },

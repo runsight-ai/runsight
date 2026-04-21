@@ -70,7 +70,6 @@ def _ensure_sqlite_columns(engine) -> None:
     additive_columns = {
         "run": {
             "error_traceback": "VARCHAR",
-            "branch": "VARCHAR NOT NULL DEFAULT 'main'",
             "source": "VARCHAR NOT NULL DEFAULT 'manual'",
             "commit_sha": "VARCHAR",
             "parent_run_id": "TEXT",

@@ -5,7 +5,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
+from ...domain.errors import (
+    InputValidationError,
+    RunFailed,
+    RunNotFound,
+    RunsightError,
+    ServiceUnavailable,
+)
 from ...logic.services.eval_service import EvalService
 from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
@@ -35,10 +41,17 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 def _run_response_field(run, field: str, default):
     """Read a response field from a run-like object with a safe default."""
     value = getattr(run, field, default)
-    if field in {"branch", "source"}:
+    if field == "source":
         return value if isinstance(value, str) else default
     if field == "commit_sha":
         return value if value is None or isinstance(value, str) else None
+    return value
+
+
+def _run_branch_field(run) -> str:
+    value = getattr(run, "branch", None)
+    if not isinstance(value, str):
+        raise RunsightError("Run branch is required")
     return value
 
 
@@ -131,7 +144,7 @@ def _build_run_response(
         total_cost_usd=total_cost_usd,
         total_tokens=total_tokens,
         created_at=run.created_at,
-        branch=_run_response_field(run, "branch", "main"),
+        branch=_run_branch_field(run),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
@@ -167,22 +180,21 @@ async def create_run(
     execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     source = body.source or "manual"
-    branch = body.branch or "main"
     if execution_service is None:
         raise ServiceUnavailable("Execution runtime is unavailable")
 
     run = run_service.create_run(
         body.workflow_id,
         body.inputs,
+        branch=body.branch,
         source=source,
-        branch=branch,
     )
     try:
         await execution_service.launch_execution(
             run.id,
             run.workflow_id,
             body.inputs,
-            branch=branch,
+            branch=body.branch,
         )
     except Exception as exc:
         logger.exception("Failed to launch execution for run %s", run.id)
