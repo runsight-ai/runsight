@@ -110,6 +110,8 @@ class SoulService:
         branch = current_branch.strip()
         if not branch:
             raise GitError("Unable to determine current branch for soul auto-commit")
+        if branch.upper() == "HEAD":
+            raise GitError("Unable to determine current branch for soul auto-commit")
 
         return branch
 
