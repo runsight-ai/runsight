@@ -20,9 +20,13 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from runsight_core.state import WorkflowState
+from runsight_core.redaction import RedactionContext
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import (
+    ExecutionService,
+    PreparedRunInputs,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -36,6 +40,13 @@ def _make_service(**overrides):
         workflow_repo=overrides.get("workflow_repo", Mock()),
         provider_repo=overrides.get("provider_repo", Mock()),
         engine=overrides.get("engine", None),
+    )
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RedactionContext.from_values(inputs.values()).redactor,
     )
 
 
@@ -68,7 +79,11 @@ class TestStreamingObserverCreatedAndRegistered:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow("run_reg", mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            "run_reg",
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert captured_observer is not None, (
             "get_observer('run_reg') returned None during wf.run() — "
@@ -97,7 +112,11 @@ class TestStreamingObserverCreatedAndRegistered:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            run_id,
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert captured_observer is not None, (
             "StreamingObserver not registered — cannot check run_id"
@@ -139,7 +158,11 @@ class TestStreamingObserverInCompositeChain:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow("run_chain", mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            "run_chain",
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert composite_observers is not None, (
             "wf.run() did not receive a CompositeObserver (no .observers attribute)"
@@ -172,7 +195,11 @@ class TestStreamingObserverInCompositeChain:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow("run_events", mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            "run_events",
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         # After run, the observer would have been registered (and cleaned up).
         # We need to capture events during the run, not after cleanup.
@@ -194,7 +221,11 @@ class TestStreamingObserverInCompositeChain:
         mock_wf2 = Mock()
         mock_wf2.run = fake_wf_run_capture
 
-        await svc2._run_workflow("run_events2", mock_wf2, {"instruction": "test"})
+        await svc2._run_workflow(
+            "run_events2",
+            mock_wf2,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert len(events) >= 1, (
             f"Expected at least 1 event in StreamingObserver queue after on_workflow_start, "
@@ -235,7 +266,11 @@ class TestStreamingObserverCleanupOnSuccess:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow("run_clean_ok", mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            "run_clean_ok",
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         # Must have been registered during execution
         assert was_registered, "StreamingObserver was not registered during execution"
@@ -275,7 +310,11 @@ class TestStreamingObserverCleanupOnFailure:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow("run_clean_fail", mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            "run_clean_fail",
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         # Must have been registered during execution
         assert was_registered, "StreamingObserver was not registered during execution"
@@ -332,7 +371,13 @@ class TestSubscribeStreamYieldsEvents:
         # allow time for it to be registered before consuming.
 
         # Start execution as a task
-        exec_task = asyncio.create_task(svc._run_workflow(run_id, mock_wf, {"instruction": "test"}))
+        exec_task = asyncio.create_task(
+            svc._run_workflow(
+                run_id,
+                mock_wf,
+                _prepared_inputs({"instruction": "test"}),
+            )
+        )
         # Small delay to let _run_workflow register the observer
         await asyncio.sleep(0.005)
 
@@ -371,7 +416,11 @@ class TestSubscribeStreamYieldsEvents:
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            run_id,
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         # After the run, try subscribe_stream — should NOT be empty if wired
         events = []
@@ -410,7 +459,11 @@ class TestSubscribeStreamYieldsEvents:
         mock_wf2 = Mock()
         mock_wf2.run = capture_run
 
-        await svc2._run_workflow(run_id2, mock_wf2, {"instruction": "test"})
+        await svc2._run_workflow(
+            run_id2,
+            mock_wf2,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert obs_during_run is not None, (
             "StreamingObserver was not auto-registered during _run_workflow — "
@@ -455,7 +508,13 @@ class TestEndToEndEventPipeline:
             async for event in svc.subscribe_stream(run_id):
                 collected.append(event)
 
-        exec_task = asyncio.create_task(svc._run_workflow(run_id, mock_wf, {"instruction": "test"}))
+        exec_task = asyncio.create_task(
+            svc._run_workflow(
+                run_id,
+                mock_wf,
+                _prepared_inputs({"instruction": "test"}),
+            )
+        )
         await asyncio.sleep(0.005)
         consumer_task = asyncio.create_task(consume())
 
@@ -505,7 +564,13 @@ class TestEndToEndEventPipeline:
             async for event in svc.subscribe_stream(run_id):
                 collected.append(event)
 
-        exec_task = asyncio.create_task(svc._run_workflow(run_id, mock_wf, {"instruction": "test"}))
+        exec_task = asyncio.create_task(
+            svc._run_workflow(
+                run_id,
+                mock_wf,
+                _prepared_inputs({"instruction": "test"}),
+            )
+        )
         await asyncio.sleep(0.005)
         consumer_task = asyncio.create_task(consume())
 
@@ -551,7 +616,11 @@ class TestEndToEndEventPipeline:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(
+            run_id,
+            mock_wf,
+            _prepared_inputs({"instruction": "test"}),
+        )
 
         assert len(events_before_cleanup) >= 2, (
             f"Expected at least 2 events queued before cleanup, got "

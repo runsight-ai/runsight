@@ -18,20 +18,12 @@ from pydantic import (
 )
 
 from runsight_core.identity import EntityKind, validate_entity_id
-
-_RESERVED_BLOCK_INPUT_NAMES = frozenset(
-    {
-        "workflow",
-        "results",
-        "shared_memory",
-        "metadata",
-        "blocks",
-        "ctx",
-        "call_stack",
-        "workflow_registry",
-        "observer",
-    }
+from runsight_core.workflow_contract_names import (
+    RESERVED_WORKFLOW_CONTRACT_NAMES,
+    validate_workflow_contract_name,
 )
+
+_RESERVED_BLOCK_INPUT_NAMES = RESERVED_WORKFLOW_CONTRACT_NAMES
 
 # -- Soul / Tool definitions ------------------------------------------------
 
@@ -164,61 +156,45 @@ class InputRef(BaseModel):
     from_ref: str = Field(alias="from")  # "step_id.output_field" dot-notation
 
 
-class WorkflowInterfaceInputDef(BaseModel):
-    """Child-owned public input contract for callable workflows."""
+class WorkflowInputDef(BaseModel):
+    """Top-level workflow input contract definition."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
-    target: str
-    type: Optional[str] = None
+    type: Literal["string", "number", "boolean", "json", "array"]
     required: bool = True
     default: Optional[Any] = None
     description: Optional[str] = None
+    sensitive: bool = False
+
+    @model_validator(mode="after")
+    def _validate_default(self) -> "WorkflowInputDef":
+        if self.default is None:
+            return self
+
+        if self.sensitive:
+            raise ValueError("sensitive workflow inputs cannot declare a default")
+
+        if self.type == "string" and not isinstance(self.default, str):
+            raise ValueError("default must match workflow input type 'string'")
+        if self.type == "number" and (
+            isinstance(self.default, bool) or not isinstance(self.default, int | float)
+        ):
+            raise ValueError("default must match workflow input type 'number'")
+        if self.type == "boolean" and not isinstance(self.default, bool):
+            raise ValueError("default must match workflow input type 'boolean'")
+        if self.type == "json" and not isinstance(self.default, dict):
+            raise ValueError("default must match workflow input type 'json'")
+        if self.type == "array" and not isinstance(self.default, list):
+            raise ValueError("default must match workflow input type 'array'")
+
+        return self
 
 
-class WorkflowInterfaceOutputDef(BaseModel):
-    """Child-owned public output contract for callable workflows."""
+class InferredWorkflowInputDef(WorkflowInputDef):
+    """Workflow input contract inferred from explicit workflow.* references."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    source: str
-    type: Optional[str] = None
-    description: Optional[str] = None
-
-
-class WorkflowInterfaceDef(BaseModel):
-    """Public callable contract exposed by a child workflow."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    inputs: List[WorkflowInterfaceInputDef] = Field(default_factory=list)
-    outputs: List[WorkflowInterfaceOutputDef] = Field(default_factory=list)
-
-    @field_validator("inputs")
-    @classmethod
-    def _validate_unique_input_names(
-        cls, items: List[WorkflowInterfaceInputDef]
-    ) -> List[WorkflowInterfaceInputDef]:
-        seen: set[str] = set()
-        for item in items:
-            if item.name in seen:
-                raise ValueError(f"duplicate workflow interface input name: {item.name}")
-            seen.add(item.name)
-        return items
-
-    @field_validator("outputs")
-    @classmethod
-    def _validate_unique_output_names(
-        cls, items: List[WorkflowInterfaceOutputDef]
-    ) -> List[WorkflowInterfaceOutputDef]:
-        seen: set[str] = set()
-        for item in items:
-            if item.name in seen:
-                raise ValueError(f"duplicate workflow interface output name: {item.name}")
-            seen.add(item.name)
-        return items
+    source: Literal["inferred"] = "inferred"
 
 
 # -- Retry configuration ---------------------------------------------------
@@ -485,13 +461,20 @@ class RunsightWorkflowFile(BaseModel):
     version: str = "1.0"
     enabled: bool = False
     config: Dict[str, Any] = Field(default_factory=dict)
-    interface: Optional[WorkflowInterfaceDef] = None
     tools: List[str] = Field(default_factory=list)
     souls: Dict[str, SoulDef] = Field(default_factory=dict)
+    inputs: Optional[Dict[str, WorkflowInputDef]] = None
     blocks: Dict[str, BlockDef] = Field(default_factory=dict)
     workflow: WorkflowDef  # required — no default; Pydantic raises ValidationError if absent
     limits: Optional[WorkflowLimitsDef] = None
     eval: Optional[EvalSectionDef] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_interface(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "interface" in value:
+            raise ValueError("legacy workflow interface is unsupported")
+        return value
 
     @field_validator("id")
     @classmethod
@@ -514,6 +497,17 @@ class RunsightWorkflowFile(BaseModel):
             raise ValueError(f"duplicate workflow tool ids are not allowed: {joined}")
 
         return tool_ids
+
+    @field_validator("inputs")
+    @classmethod
+    def _validate_input_names(
+        cls, value: Optional[Dict[str, WorkflowInputDef]]
+    ) -> Optional[Dict[str, WorkflowInputDef]]:
+        if value is None:
+            return value
+        for name in value:
+            validate_workflow_contract_name(name)
+        return value
 
     @model_validator(mode="after")
     def _validate_inline_soul_ids(self) -> "RunsightWorkflowFile":

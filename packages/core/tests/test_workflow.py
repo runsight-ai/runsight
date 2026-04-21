@@ -95,11 +95,11 @@ async def test_workflow_linear_execution():
     assert block_b.executed
     assert block_c.executed
 
-    # Verify results accumulated (workflow seed key is always present)
+    # Verify results accumulated without synthetic workflow input material.
     assert final_state.results["a"] == BlockResult(output="Output A")
     assert final_state.results["b"] == BlockResult(output="Output B")
     assert final_state.results["c"] == BlockResult(output="Output C")
-    assert "workflow" in final_state.results
+    assert "workflow" not in final_state.results
 
     # Verify messages appended
     assert len(final_state.execution_log) == 3
@@ -528,7 +528,7 @@ async def test_run_backward_compatible_without_registry():
     assert block_b.executed
     assert final_state.results["a"] == BlockResult(output="Output A")
     assert final_state.results["b"] == BlockResult(output="Output B")
-    assert "workflow" in final_state.results
+    assert "workflow" not in final_state.results
 
 
 @pytest.mark.asyncio

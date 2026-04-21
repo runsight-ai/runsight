@@ -67,6 +67,7 @@ vi.mock("lucide-react", () => ({
   Key: () => React.createElement("span", null, "key"),
   Play: () => React.createElement("span", null, "play"),
   X: () => React.createElement("span", null, "x"),
+  XIcon: () => React.createElement("span", null, "x"),
 }));
 
 vi.mock("@/queries/runs", () => ({

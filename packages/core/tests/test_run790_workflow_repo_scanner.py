@@ -21,7 +21,6 @@ def _workflow_file(name: str, *, child_ref: str | None = None) -> RunsightWorkfl
             "version": "1.0",
             "id": name,
             "kind": "workflow",
-            "interface": {"inputs": [], "outputs": []},
             "blocks": blocks,
             "workflow": {"name": name, "entry": entry, "transitions": transitions},
         }
@@ -46,9 +45,6 @@ def test_workflow_repository_uses_workflow_scanner_for_registry_build(
         version: "1.0"
         id: parent
         kind: workflow
-        interface:
-          inputs: []
-          outputs: []
         blocks:
           call_child:
             type: workflow

@@ -1,13 +1,22 @@
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
+from runsight_core.redaction import RunRedactor
 
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service, get_execution_service, get_run_service
 
 client = TestClient(app)
 TEST_BRANCH = "sim/test/20260330/abc12"
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
 
 
 def _mock_eval_svc():
@@ -227,6 +236,8 @@ def test_runs_post():
     ]
     mock_service.create_run.return_value = mock_run
     mock_exec_service = Mock()
+    prepared = _prepared_inputs({})
+    mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -249,6 +260,8 @@ def test_runs_post_passes_source_and_branch_to_services():
     mock_run.source = "simulation"
     mock_service.create_run.return_value = mock_run
     mock_exec_service = Mock()
+    prepared = _prepared_inputs({"instruction": "go"})
+    mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -267,14 +280,14 @@ def test_runs_post_passes_source_and_branch_to_services():
     assert response.json()["source"] == "simulation"
     mock_service.create_run.assert_called_once_with(
         "wf_1",
-        {"instruction": "go"},
+        prepared,
         source="simulation",
         branch=TEST_BRANCH,
     )
     mock_exec_service.launch_execution.assert_called_once_with(
         "run_branch_source",
         "wf_1",
-        {"instruction": "go"},
+        prepared,
         branch=TEST_BRANCH,
     )
     app.dependency_overrides.clear()
@@ -288,6 +301,8 @@ def test_runs_post_rejects_missing_branch():
         branch=TEST_BRANCH,
     )
     mock_exec_service = Mock()
+    prepared = _prepared_inputs({"instruction": "go"})
+    mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -356,6 +371,8 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     mock_service.create_run.return_value = mock_run
 
     mock_exec_service = Mock()
+    prepared = _prepared_inputs({"instruction": "go"})
+    mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
 
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -372,14 +389,14 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     assert response.status_code == 200
     mock_service.create_run.assert_called_once_with(
         "wf_1",
-        {"instruction": "go"},
+        prepared,
         branch=TEST_BRANCH,
         source="simulation",
     )
     mock_exec_service.launch_execution.assert_awaited_once_with(
         "run_sim",
         "wf_1",
-        {"instruction": "go"},
+        prepared,
         branch=TEST_BRANCH,
     )
     app.dependency_overrides.clear()

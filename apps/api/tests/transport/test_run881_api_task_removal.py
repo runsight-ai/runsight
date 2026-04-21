@@ -9,6 +9,10 @@ import ast
 import inspect
 from pathlib import Path
 
+from runsight_core.redaction import RunRedactor
+
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -19,6 +23,13 @@ API_SRC = Path(__file__).parents[2] / "src" / "runsight_api"
 
 def _source_path(*parts: str) -> Path:
     return API_SRC.joinpath(*parts)
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +178,15 @@ def test_post_runs_passes_inputs_to_service():
     mock_run_svc.create_run.return_value = mock_run
     mock_run_svc.refresh_run.return_value = mock_run
 
+    payload = {"instruction": "test run"}
     mock_exec_svc = AsyncMock()
+    prepared = _prepared_inputs(payload)
+    mock_exec_svc.prepare_run_inputs.return_value = prepared
     mock_exec_svc.launch_execution = AsyncMock()
 
     app.dependency_overrides[get_run_service] = lambda: mock_run_svc
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_svc
 
-    payload = {"instruction": "test run"}
     try:
         client = TestClient(app, raise_server_exceptions=True)
         response = client.post(
@@ -191,10 +204,11 @@ def test_post_runs_passes_inputs_to_service():
         # create_run(workflow_id, inputs, source=..., branch=...)
         # inputs should be the second positional arg or the 'inputs' kwarg
         actual_inputs = kwargs.get("inputs") or (args[1] if len(args) > 1 else None)
-        assert actual_inputs == payload, (
-            f"run_service.create_run must be called with inputs={payload!r}, "
+        assert actual_inputs is prepared
+        assert actual_inputs.normalized_inputs == payload, (
+            f"run_service.create_run must be called with prepared inputs={payload!r}, "
             f"but got inputs={actual_inputs!r}. "
-            "The router must pass body.inputs (not body.task_data) to create_run."
+            "The router must prepare body.inputs (not body.task_data) before create_run."
         )
     finally:
         app.dependency_overrides.pop(get_run_service, None)

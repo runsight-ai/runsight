@@ -14,12 +14,13 @@ All tests should FAIL until the manual observer calls are removed.
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import WorkflowState
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunStatus
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -55,6 +56,13 @@ def _seed_run(engine, run_id: str) -> None:
         )
         session.add(run)
         session.commit()
+
+
+def _prepared_inputs(inputs: dict[str, object] | None = None) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs or {"instruction": "test"}),
+        input_redactor=RunRedactor(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +102,7 @@ class TestOnWorkflowStartCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_1", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_1", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_start.call_count == 1, (
                 f"on_workflow_start called {mock_observer.on_workflow_start.call_count} times, "
@@ -134,7 +142,7 @@ class TestOnWorkflowCompleteCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_2", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_2", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_complete.call_count == 1, (
                 f"on_workflow_complete called {mock_observer.on_workflow_complete.call_count} times, "
@@ -176,7 +184,7 @@ class TestOnWorkflowErrorCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_3", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_3", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_error.call_count == 1, (
                 f"on_workflow_error called {mock_observer.on_workflow_error.call_count} times, "
@@ -214,7 +222,7 @@ class TestNoDuplicateLogEntries:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(run_id, mock_wf, _prepared_inputs())
 
         with Session(engine) as session:
             logs = session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all()
@@ -245,7 +253,7 @@ class TestNoDuplicateLogEntries:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(run_id, mock_wf, _prepared_inputs())
 
         with Session(engine) as session:
             logs = session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all()
@@ -277,7 +285,7 @@ class TestNoDuplicateLogEntries:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(run_id, mock_wf, _prepared_inputs())
 
         with Session(engine) as session:
             logs = session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all()
@@ -320,7 +328,7 @@ class TestNoDuplicateRunStatusUpdates:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(run_id, mock_wf, _prepared_inputs())
 
         with Session(engine) as session:
             logs = session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all()
@@ -352,7 +360,7 @@ class TestNoDuplicateRunStatusUpdates:
         mock_wf = Mock()
         mock_wf.run = fake_wf_run
 
-        await svc._run_workflow(run_id, mock_wf, {"instruction": "test"})
+        await svc._run_workflow(run_id, mock_wf, _prepared_inputs())
 
         with Session(engine) as session:
             logs = session.exec(select(LogEntry).where(LogEntry.run_id == run_id)).all()
@@ -394,7 +402,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_no_manual", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_no_manual", mock_wf, _prepared_inputs())
 
             # wf.run() was a plain AsyncMock (no observer calls inside).
             # If on_workflow_start was called, it must have been by _run_workflow itself.
@@ -417,7 +425,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_no_manual_c", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_no_manual_c", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_complete.call_count == 0, (
                 f"execution_service called on_workflow_complete {mock_observer.on_workflow_complete.call_count} "
@@ -438,7 +446,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_no_manual_e", mock_wf, {"instruction": "test"})
+            await svc._run_workflow("run_no_manual_e", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_error.call_count == 0, (
                 f"execution_service called on_workflow_error {mock_observer.on_workflow_error.call_count} "

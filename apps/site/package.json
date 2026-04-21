@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node ../../tools/site/postbuild-discoverability.mjs && node ../../tools/site/check-discoverability.mjs dist",
+    "check:discoverability:dist": "node ../../tools/site/check-discoverability.mjs dist",
+    "check:discoverability:live": "node ../../tools/site/check-discoverability.mjs live https://runsight.ai",
     "preview": "astro preview"
   },
   "dependencies": {

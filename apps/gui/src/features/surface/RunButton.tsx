@@ -1,13 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import { Button } from "@runsight/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@runsight/ui/tooltip";
 import { useCreateRun, useCancelRun, useRun } from "@/queries/runs";
+import { useWorkflow } from "@/queries/workflows";
 import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";
 import { gitApi } from "@/api/git";
+import type { WorkflowResponse } from "@runsight/shared/zod";
 import { Play, X, Key } from "lucide-react";
-import { toast } from "sonner";
+import { resolveRunInputSchemaDecision } from "./runInputSchemaPolicy";
+import { RunInputsModal } from "./RunInputsModal";
 
 interface RunButtonProps {
   workflowId: string;
@@ -15,7 +20,57 @@ interface RunButtonProps {
   onAddApiKey?: () => void;
 }
 
+type RunSource = "manual" | "simulation";
+type WorkflowInputSchema = NonNullable<WorkflowResponse["input_schema"]>;
+type PendingRun = {
+  source: RunSource;
+  branch: string;
+  workflow: {
+    id: string;
+    name?: WorkflowResponse["name"];
+    commit_sha?: WorkflowResponse["commit_sha"];
+    branch?: string;
+    input_schema: WorkflowInputSchema;
+  };
+};
+
 export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunButtonProps) {
+  if (typeof window === "undefined") {
+    return (
+      <RunButtonContent
+        workflowId={workflowId}
+        workflow={undefined}
+        isCommitted={isCommitted}
+        onAddApiKey={onAddApiKey}
+      />
+    );
+  }
+
+  return (
+    <WorkflowDataFetcher workflowId={workflowId}>
+      {(workflow) => (
+        <RunButtonContent
+          workflowId={workflowId}
+          workflow={workflow}
+          isCommitted={isCommitted}
+          onAddApiKey={onAddApiKey}
+        />
+      )}
+    </WorkflowDataFetcher>
+  );
+}
+
+function RunButtonContent({
+  workflowId,
+  workflow,
+  isCommitted = true,
+  onAddApiKey,
+}: {
+  workflowId: string;
+  workflow?: WorkflowResponse;
+  isCommitted?: boolean;
+  onAddApiKey?: () => void;
+}) {
   const navigate = useNavigate();
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
@@ -30,6 +85,9 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
 
   const createRun = useCreateRun();
   const cancelRun = useCancelRun();
+  const [isRunInputsModalOpen, setIsRunInputsModalOpen] = useState(false);
+  const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
+  const [isPreparingRun, setIsPreparingRun] = useState(false);
 
   const { data: run } = useRun(activeRunId ?? "", {
     refetchInterval: activeRunId ? 2000 : false,
@@ -39,7 +97,6 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
   const isRunning = activeRunId && status === "running";
   const hasYamlContent = yamlContent.trim().length > 0;
 
-  // Clear activeRunId on terminal states: completed, failed, cancelled
   useEffect(() => {
     if (activeRunId && (status === "completed" || status === "failed" || status === "cancelled")) {
       setActiveRunId(null);
@@ -47,40 +104,66 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
   }, [activeRunId, status, setActiveRunId]);
 
   const isEmpty = !hasYamlContent && !nodes.length && !blockCount;
-  const isPending = createRun.isPending || cancelRun.isPending;
+  const isPending = createRun.isPending || cancelRun.isPending || isPreparingRun;
   const shouldRunOnSimulation = isDirty || !isCommitted;
 
-  function startManualRun() {
-    createRun.mutate(
-      { workflow_id: workflowId, inputs: {}, source: "manual", branch: "main" },
-      {
-        onSuccess: (result) => {
-          setActiveRunId(result.id);
-          navigate(`/runs/${result.id}`);
-        },
-      },
-    );
+  function getRunWorkflowSchema() {
+    if (workflow && workflow.id === workflowId) {
+      return workflow.input_schema ?? null;
+    }
+
+    return null;
   }
 
-  function startSimulationRun(branch: string) {
-    createRun.mutate(
-      {
-        workflow_id: workflowId,
-        inputs: {},
-        source: "simulation",
-        branch,
+  function openInputsModal(
+    decision: Extract<
+      Awaited<ReturnType<typeof resolveRunInputSchemaDecision>>,
+      { kind: "needs_inputs" }
+    >,
+    source: RunSource,
+  ) {
+    setPendingRun({
+      source,
+      branch: decision.branch ?? "main",
+      workflow: {
+        id: workflow?.id ?? workflowId,
+        name: workflow?.name,
+        commit_sha: decision.commit_sha,
+        branch: decision.branch ?? "main",
+        input_schema: decision.input_schema,
       },
-      {
-        onSuccess: (result) => {
-          setActiveRunId(result.id);
-          navigate(`/runs/${result.id}`);
-        },
-      },
-    );
+    });
+    setIsRunInputsModalOpen(true);
   }
 
-  function isMissingGitRepo(error: unknown) {
-    return error instanceof Error && /not a git repository/i.test(error.message);
+  function closeInputsModal(nextOpen: boolean) {
+    setIsRunInputsModalOpen(nextOpen);
+    if (!nextOpen) {
+      setPendingRun(null);
+    }
+  }
+
+  function submitRun(inputs: Record<string, unknown>, source: RunSource, branch: string) {
+    return new Promise<void>((resolve, reject) => {
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs,
+          source,
+          branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        },
+      );
+    });
   }
 
   async function handleClick() {
@@ -89,32 +172,87 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
       return;
     }
 
-    if (!shouldRunOnSimulation) {
-      startManualRun();
-      return;
-    }
+    const workflowInputSchema = getRunWorkflowSchema();
 
-    try {
-      await gitApi.getStatus();
-    } catch (error) {
-      if (isMissingGitRepo(error)) {
-        startManualRun();
+    if (!shouldRunOnSimulation) {
+      if (workflowInputSchema && Object.keys(workflowInputSchema).length > 0) {
+        setPendingRun({
+          source: "manual",
+          branch: "main",
+          workflow: {
+            id: workflow?.id ?? workflowId,
+            name: workflow?.name,
+            commit_sha: workflow?.commit_sha,
+            branch: "main",
+            input_schema: workflowInputSchema,
+          },
+        });
+        setIsRunInputsModalOpen(true);
         return;
       }
 
-      toast.error("Failed to prepare run", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs: {},
+          source: "manual",
+          branch: "main",
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
+      );
       return;
     }
 
+    setIsPreparingRun(true);
     try {
-      const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
-      startSimulationRun(simResult.branch);
-    } catch (error) {
-      toast.error("Failed to prepare simulation run", {
-        description: error instanceof Error ? error.message : "Unknown error",
+      const decision = await resolveRunInputSchemaDecision({
+        workflow: {
+          id: workflow?.id ?? workflowId,
+          input_schema: workflowInputSchema,
+        },
+        isDirty: true,
+        yamlContent,
+        prepareSimulation: gitApi.createSimBranch,
       });
+
+      if (decision.kind === "blocked") {
+        toast.error("Unable to start run", { description: decision.error.message });
+        return;
+      }
+
+      const source: RunSource = decision.branch ? "simulation" : "manual";
+      const branch = decision.branch ?? "main";
+
+      if (decision.kind === "needs_inputs") {
+        openInputsModal(decision, source);
+        return;
+      }
+
+      createRun.mutate(
+        {
+          workflow_id: workflowId,
+          inputs: {},
+          source,
+          branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+          },
+        },
+      );
+    } catch (error) {
+      toast.error("Unable to start run", {
+        description: error instanceof Error ? error.message : "Run failed.",
+      });
+    } finally {
+      setIsPreparingRun(false);
     }
   }
 
@@ -155,14 +293,93 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
 
   if (isEmpty && !isRunning) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger render={button} />
-          <TooltipContent>Add at least one block</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={button} />
+            <TooltipContent>Add at least one block</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <RunInputsModalSlot
+          workflow={workflow}
+          workflowId={workflowId}
+          pendingRun={pendingRun}
+          open={isRunInputsModalOpen}
+          submitting={createRun.isPending}
+          onOpenChange={closeInputsModal}
+          onSubmit={submitRun}
+        />
+      </>
     );
   }
 
-  return button;
+  return (
+    <>
+      {button}
+      <RunInputsModalSlot
+        workflow={workflow}
+        workflowId={workflowId}
+        pendingRun={pendingRun}
+        open={isRunInputsModalOpen}
+        submitting={createRun.isPending}
+        onOpenChange={closeInputsModal}
+        onSubmit={submitRun}
+      />
+    </>
+  );
+}
+
+function RunInputsModalSlot({
+  workflow,
+  workflowId,
+  pendingRun,
+  open,
+  submitting,
+  onOpenChange,
+  onSubmit,
+}: {
+  workflow?: WorkflowResponse;
+  workflowId: string;
+  pendingRun: PendingRun | null;
+  open: boolean;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (
+    inputs: Record<string, unknown>,
+    source: RunSource,
+    branch: string,
+  ) => Promise<void>;
+}) {
+  return (
+    <RunInputsModal
+      open={open}
+      workflow={
+        pendingRun?.workflow ?? {
+          id: workflow?.id ?? workflowId,
+          name: workflow?.name,
+          input_schema: workflow?.input_schema ?? null,
+        }
+      }
+      submitting={submitting}
+      onOpenChange={onOpenChange}
+      onSubmit={(inputs) => {
+        if (!pendingRun) {
+          return Promise.reject(new Error("Run inputs are unavailable."));
+        }
+
+        return onSubmit(inputs, pendingRun.source, pendingRun.branch);
+      }}
+    />
+  );
+}
+
+function WorkflowDataFetcher({
+  workflowId,
+  children,
+}: {
+  workflowId: string;
+  children: (workflow?: WorkflowResponse) => ReactNode;
+}) {
+  const workflowQuery = useWorkflow(workflowId);
+  return <>{children(workflowQuery.data)}</>;
 }

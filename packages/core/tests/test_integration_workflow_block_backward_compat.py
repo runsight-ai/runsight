@@ -236,7 +236,7 @@ async def test_invalid_input_mapping_raises_clear_error():
         block_id="invoke_child",
         child_workflow=child_wf,
         inputs={
-            "shared_memory.input": "shared_memory.nonexistent_key",  # Key doesn't exist
+            "input": "shared_memory.nonexistent_key",  # Key doesn't exist
         },
         outputs={},
         max_depth=10,
@@ -385,7 +385,13 @@ async def test_workflow_block_with_kwargs_in_chain():
     original_run = child_wf.run
 
     async def mock_run(
-        state, *, registry=None, call_stack=None, workflow_registry=None, observer=None
+        state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
     ):
         captured_call_stack.append(call_stack if call_stack is not None else [])
         return await original_run(

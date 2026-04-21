@@ -22,6 +22,7 @@ import {
   shouldShowWarningBadge,
   WARNING_BADGE_CLASSES,
 } from "../workflows/warningBadge.utils";
+import { SurfaceRunInputsCell } from "./SurfaceRunInputsCell";
 
 function SurfaceWarningsCell({
   runId,
@@ -106,12 +107,14 @@ export type SurfaceRunRowProps = {
   run: RunResponse;
   currentRunId?: string;
   onSelect: (runId: string) => void;
+  onRerun?: (run: RunResponse) => void;
 };
 
 export function SurfaceRunRow({
   run,
   currentRunId,
   onSelect,
+  onRerun,
 }: SurfaceRunRowProps) {
   const rowHasRegression = (run.regression_count ?? 0) > 0;
 
@@ -158,6 +161,12 @@ export function SurfaceRunRow({
           runId={run.id}
           regressionCount={run.regression_count}
           warnings={run.warnings}
+        />
+      </TableCell>
+      <TableCell data-type="data" className={cn(RUN_TABLE_CELL_CLASS, "max-w-[18rem]")}>
+        <SurfaceRunInputsCell
+          run={run}
+          onRerun={onRerun}
         />
       </TableCell>
     </TableRow>

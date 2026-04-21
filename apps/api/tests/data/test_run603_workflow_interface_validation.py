@@ -12,21 +12,45 @@ def _write_child_workflow(base_path, *, filename: str, yaml_text: str) -> str:
     return f"custom/workflows/{filename}"
 
 
-def test_create_rejects_callable_subworkflow_without_public_interface(tmp_path) -> None:
+def test_create_rejects_legacy_workflow_interface_through_api_save(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    parent_yaml = """
+    version: "1.0"
+    id: parent
+    kind: workflow
+    interface:
+      inputs: []
+      outputs: []
+    workflow:
+      name: parent
+      entry: start
+      transitions: []
+    """
+
+    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
+
+    assert entity.valid is False
+    assert entity.validation_error is not None
+    assert "legacy workflow interface is unsupported" in entity.validation_error.lower()
+
+
+def test_create_rejects_public_output_name_without_child_source_path(tmp_path) -> None:
     _write_child_workflow(
         tmp_path,
-        filename="child-no-interface.yaml",
+        filename="child-contract.yaml",
         yaml_text="""
         version: "1.0"
-        id: child-no-interface
+        id: child-contract
         kind: workflow
+        blocks: {}
         workflow:
-          name: child-no-interface
+          name: child-contract
           entry: start
           transitions: []
         """,
     )
-    child_ref = "child-no-interface"
+    child_ref = "child-contract"
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     parent_yaml = f"""
@@ -53,7 +77,7 @@ def test_create_rejects_callable_subworkflow_without_public_interface(tmp_path) 
 
     assert entity.valid is False
     assert entity.validation_error is not None
-    assert "interface" in entity.validation_error.lower()
+    assert "child source path" in entity.validation_error.lower()
 
 
 def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> None:
@@ -64,14 +88,9 @@ def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> No
         version: "1.0"
         id: child-contract
         kind: workflow
-        interface:
-          inputs:
-            - name: topic
-              target: shared_memory.topic
-              required: true
-          outputs:
-            - name: summary
-              source: results.writer
+        inputs:
+          topic:
+            type: string
         workflow:
           name: child-contract
           entry: start
@@ -92,7 +111,7 @@ def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> No
         inputs:
           question: shared_memory.topic
         outputs:
-          results.summary: summary
+          results.summary: results.writer
     workflow:
       name: parent
       entry: call_child
@@ -116,14 +135,6 @@ def test_create_rejects_undeclared_child_output_binding(tmp_path) -> None:
         version: "1.0"
         id: child-contract
         kind: workflow
-        interface:
-          inputs:
-            - name: topic
-              target: shared_memory.topic
-              required: true
-          outputs:
-            - name: summary
-              source: results.writer
         workflow:
           name: child-contract
           entry: start
@@ -183,14 +194,6 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
         version: "1.0"
         id: child-contract
         kind: workflow
-        interface:
-          inputs:
-            - name: topic
-              target: shared_memory.topic
-              required: true
-          outputs:
-            - name: summary
-              source: results.writer
         workflow:
           name: child-contract
           entry: start
@@ -211,7 +214,7 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
         inputs:
           shared_memory.topic: shared_memory.parent_topic
         outputs:
-          results.summary: summary
+          results.summary: results.writer
     workflow:
       name: parent
       entry: call_child
@@ -227,8 +230,7 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
         "through the full API save path"
     )
     assert entity.validation_error is not None
-    # The error message should mention interface binding issue
     assert (
-        "interface" in entity.validation_error.lower()
+        "workflow block inputs must bind child interface names" in entity.validation_error.lower()
         or "dotted" in entity.validation_error.lower()
     )

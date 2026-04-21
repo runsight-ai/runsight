@@ -22,15 +22,12 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
-_EMPTY_INTERFACE = {"inputs": [], "outputs": []}
-
 
 def _child_workflow_file() -> RunsightWorkflowFile:
     child_dict = {
         "id": "child-workflow",
         "kind": "workflow",
         "version": "1.0",
-        "interface": _EMPTY_INTERFACE,
         "blocks": {
             "child_step": {
                 "type": "code",
@@ -123,7 +120,6 @@ def test_parse_workflow_yaml_routes_workflow_blocks_through_registered_builder_e
             outputs=block_def.outputs or {},
             workflow_ref=block_def.workflow_ref,
             max_depth=max_depth,
-            interface=child_file.interface,
             on_error=block_def.on_error,
         )
 

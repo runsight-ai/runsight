@@ -23,6 +23,7 @@ from runsight_core.isolation.harness import _serialize_scoped_results
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 from runsight_core.observer import CompositeObserver
 from runsight_core.primitives import Step
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 
@@ -199,6 +200,40 @@ def test_context_audit_redacts_secret_json_key_under_neutral_names() -> None:
     assert secret not in scoped.audit_event.model_dump_json()
 
 
+def test_context_audit_redacts_secret_looking_value_with_empty_redactor() -> None:
+    """An existing redactor must not bypass heuristic preview redaction."""
+    secret = "sk-secret-value"
+    scoped = _resolver().resolve(
+        declaration=_declaration({"value": "metadata.config.value"}),
+        state=WorkflowState(
+            metadata={"config": {"value": secret}},
+            input_redactor=RunRedactor(),
+        ),
+    )
+
+    record = scoped.audit_event.records[0]
+    assert scoped.inputs == {"value": secret}
+    assert record.preview == "[redacted]"
+    assert secret not in scoped.audit_event.model_dump_json()
+
+
+def test_context_audit_redacts_secret_json_key_with_empty_redactor() -> None:
+    """Secret-looking object keys remain hidden even before exact values register."""
+    secret = "plain-secret-value"
+    scoped = _resolver().resolve(
+        declaration=_declaration({"config": "metadata.config"}),
+        state=WorkflowState(
+            metadata={"config": {"api_key": secret}},
+            input_redactor=RunRedactor(),
+        ),
+    )
+
+    record = scoped.audit_event.records[0]
+    assert scoped.inputs == {"config": {"api_key": secret}}
+    assert record.preview == "[redacted]"
+    assert secret not in scoped.audit_event.model_dump_json()
+
+
 def test_context_audit_keeps_neutral_non_secret_preview() -> None:
     """Value-based redaction must not suppress every neutral preview."""
     scoped = _resolver().resolve(
@@ -249,6 +284,36 @@ def test_dev_mode_gate_missing_eval_key_does_not_keyerror() -> None:
 
     assert ctx.inputs == {}
     assert ctx.context == ""
+
+
+def test_build_block_context_does_not_grant_governed_context_from_plain_inputs_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A plain runtime object with inputs only must not inherit governed context."""
+
+    from runsight_core import block_io as block_io_module
+
+    monkeypatch.setattr(
+        block_io_module,
+        "fit_to_budget",
+        lambda request, counter: SimpleNamespace(
+            instruction=request.instruction,
+            context=request.context,
+            messages=list(request.conversation_history),
+        ),
+    )
+
+    block = SimpleNamespace(
+        block_id="review_block",
+        inputs={"secret": "shared_memory.secret"},
+        soul=None,
+        runner=None,
+    )
+    state = WorkflowState(shared_memory={"secret": "shared-value"})
+
+    ctx = build_block_context(block, state)
+
+    assert ctx.inputs == {}
 
 
 @pytest.mark.asyncio

@@ -44,6 +44,19 @@ def _in_memory_engine():
     return engine
 
 
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
+
+
 # ---------------------------------------------------------------------------
 # 1. Run entity — branch field
 # ---------------------------------------------------------------------------
@@ -416,7 +429,7 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         with pytest.raises(TypeError):
-            svc.create_run("wf-1", {"instruction": "go"})
+            svc.create_run("wf-1", _prepared({"instruction": "go"}))
 
     def test_create_run_sets_source_default(self):
         """create_run() sets source='manual' by default."""
@@ -432,7 +445,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
+        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
 
         assert run.source == "manual"
 
@@ -452,7 +465,7 @@ class TestCreateRunPopulatesNewFields:
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
             "wf-1",
-            {"instruction": "go"},
+            _prepared({"instruction": "go"}),
             branch=EXPLICIT_BRANCH,
             source="webhook",
         )
@@ -481,7 +494,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
+        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json == mock_workflow.warnings
         assert run.warnings_json is not mock_workflow.warnings
@@ -504,7 +517,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
+        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 
@@ -523,7 +536,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
+        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 
@@ -542,7 +555,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
+        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 

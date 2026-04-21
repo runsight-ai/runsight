@@ -9,6 +9,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 
 def _make_service(max_concurrent_runs=None):
     """Create an ExecutionService with mock dependencies.
@@ -54,6 +57,13 @@ def _patch_parse_workflow(slow_run_coro):
     return patch(
         "runsight_api.logic.services.execution_service.parse_workflow_yaml",
         return_value=mock_wf,
+    )
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
     )
 
 
@@ -118,7 +128,11 @@ class TestConcurrencyLimit:
         p1 = _patch_parse_workflow(tracked_run)
         with p1:
             for i in range(total_runs):
-                await svc.launch_execution(f"run_{i}", "wf_1", {"instruction": "go"})
+                await svc.launch_execution(
+                    f"run_{i}",
+                    "wf_1",
+                    _prepared_inputs({"instruction": "go"}),
+                )
 
             # Wait for the semaphore-permitted tasks to enter tracked_run
             try:
@@ -175,7 +189,11 @@ class TestConcurrencyLimit:
         p1 = _patch_parse_workflow(tracked_run)
         with p1:
             for i in range(total_runs):
-                await svc.launch_execution(f"run_d{i}", "wf_1", {"instruction": "go"})
+                await svc.launch_execution(
+                    f"run_d{i}",
+                    "wf_1",
+                    _prepared_inputs({"instruction": "go"}),
+                )
 
             # Wait for 5 to enter
             try:
@@ -220,7 +238,11 @@ class TestConcurrencyLimit:
         p1 = _patch_parse_workflow(gated_run)
         with p1:
             for i in range(total_runs):
-                await svc.launch_execution(f"run_q{i}", "wf_1", {"instruction": "go"})
+                await svc.launch_execution(
+                    f"run_q{i}",
+                    "wf_1",
+                    _prepared_inputs({"instruction": "go"}),
+                )
 
             # Release gate — all queued runs should eventually complete
             gate.set()
@@ -255,9 +277,17 @@ class TestConcurrencyLimit:
         p1 = _patch_parse_workflow(blocking_run)
         with p1:
             # First run occupies the semaphore
-            await svc.launch_execution("run_a", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_a",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             # Second run should NOT raise — it queues
-            await svc.launch_execution("run_b", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_b",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
 
             # Both should be in _running_tasks (one active, one waiting)
             assert "run_a" in svc._running_tasks
@@ -294,11 +324,19 @@ class TestSemaphoreRelease:
 
         p1 = _patch_parse_workflow(failing_then_ok)
         with p1:
-            await svc.launch_execution("run_fail", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_fail",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.1)  # Let the failure happen
 
             # Now launch a second run — it should NOT deadlock
-            await svc.launch_execution("run_ok", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_ok",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
 
             # Give it time to complete
             await asyncio.sleep(0.2)
@@ -342,7 +380,11 @@ class TestSemaphoreRelease:
 
         p1 = _patch_parse_workflow(dispatch_run)
         with p1:
-            await svc.launch_execution("run_cancel", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_cancel",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await run_started.wait()
 
             # Cancel the first task
@@ -352,7 +394,11 @@ class TestSemaphoreRelease:
             await asyncio.sleep(0.1)
 
             # Launch second run — should acquire released semaphore
-            await svc.launch_execution("run_after_cancel", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_after_cancel",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
 
             # Should complete within a reasonable time (not deadlocked)
             try:
@@ -377,7 +423,11 @@ class TestSemaphoreRelease:
         with p1:
             # Fill all semaphore slots with failing runs
             for i in range(limit):
-                await svc.launch_execution(f"run_fail_{i}", "wf_1", {"instruction": "go"})
+                await svc.launch_execution(
+                    f"run_fail_{i}",
+                    "wf_1",
+                    _prepared_inputs({"instruction": "go"}),
+                )
             await asyncio.sleep(0.2)  # Let all fail
 
         # Now launch one more — should succeed if semaphore was properly released
@@ -391,7 +441,11 @@ class TestSemaphoreRelease:
 
         p1c = _patch_parse_workflow(success_run)
         with p1c:
-            await svc.launch_execution("run_after_fails", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_after_fails",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             try:
                 await asyncio.wait_for(success_event.wait(), timeout=2.0)
             except asyncio.TimeoutError:
@@ -464,11 +518,19 @@ class TestPendingUntilAcquired:
         p1 = _patch_parse_workflow(blocking_run)
         with p1:
             # First run occupies the semaphore
-            await svc.launch_execution("run_active", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_active",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.1)
 
             # Second run should be queued
-            await svc.launch_execution("run_queued", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_queued",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.1)
 
             # run_queued should still be pending (blocked on semaphore)
@@ -550,10 +612,18 @@ class TestPendingUntilAcquired:
 
         p1 = _patch_parse_workflow(dispatch_run)
         with p1:
-            await svc.launch_execution("run_first", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_first",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.1)
 
-            await svc.launch_execution("run_second", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_second",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
             await asyncio.sleep(0.1)
 
             # Release first — second should then acquire and transition to running
@@ -598,12 +668,20 @@ class TestImmediateReturn:
         p1 = _patch_parse_workflow(blocking_run)
         with p1:
             # Fill the semaphore
-            await svc.launch_execution("run_fill", "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                "run_fill",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+            )
 
             # This should return within a short time, NOT block
             try:
                 await asyncio.wait_for(
-                    svc.launch_execution("run_queued", "wf_1", {"instruction": "go"}),
+                    svc.launch_execution(
+                        "run_queued",
+                        "wf_1",
+                        _prepared_inputs({"instruction": "go"}),
+                    ),
                     timeout=0.5,
                 )
             except asyncio.TimeoutError:

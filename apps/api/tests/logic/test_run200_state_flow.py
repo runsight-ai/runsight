@@ -1,7 +1,7 @@
 """Tests for RUN-200: execution_service state flow — pass WorkflowState to Workflow.run().
 
 Updated for RUN-866: Task/current_task removed. Workflow.run() now receives
-inputs as a keyword argument, which seeds state.results["workflow"].
+inputs as a keyword argument, which seeds state.workflow_inputs.
 """
 
 import asyncio
@@ -10,11 +10,19 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from runsight_core.state import WorkflowState
 
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
+from runsight_core.redaction import RunRedactor
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 def _make_service(**overrides):
@@ -45,7 +53,7 @@ class TestRunReceivesWorkflowState:
 
         inputs = {"topic": "Summarize the document"}
 
-        await svc._run_workflow("run_1", mock_wf, inputs)
+        await svc._run_workflow("run_1", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -63,7 +71,7 @@ class TestRunReceivesWorkflowState:
 
         inputs = {"topic": "Analyze this data"}
 
-        await svc._run_workflow("run_2", mock_wf, inputs)
+        await svc._run_workflow("run_2", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -88,7 +96,7 @@ class TestInputsPassedToWorkflowRun:
 
         inputs = {"customer_id": "123", "reason": "defective"}
 
-        await svc._run_workflow("run_3", mock_wf, inputs)
+        await svc._run_workflow("run_3", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         call_kwargs = mock_wf.run.call_args[1]
@@ -103,7 +111,7 @@ class TestInputsPassedToWorkflowRun:
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        await svc._run_workflow("run_4", mock_wf, {})
+        await svc._run_workflow("run_4", mock_wf, _prepared_inputs({}))
 
         call_kwargs = mock_wf.run.call_args[1]
         assert call_kwargs["inputs"] == {}
@@ -133,7 +141,7 @@ class TestObserverReceivesRealState:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_5", mock_wf, inputs)
+            await svc._run_workflow("run_5", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -181,7 +189,7 @@ class TestLaunchExecutionStateFlow:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_e2e", "wf_1", inputs)
+            await svc.launch_execution("run_e2e", "wf_1", _prepared_inputs(inputs))
 
             # Wait for background task to complete
             await asyncio.sleep(0.1)

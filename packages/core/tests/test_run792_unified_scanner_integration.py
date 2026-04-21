@@ -69,7 +69,6 @@ def _code_workflow(name: str) -> dict:
         "id": "child-impl",
         "kind": "workflow",
         "config": {"model_name": "gpt-4o"},
-        "interface": {"inputs": [], "outputs": []},
         "blocks": {
             "finish": {
                 "type": "code",

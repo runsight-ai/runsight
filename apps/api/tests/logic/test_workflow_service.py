@@ -28,6 +28,7 @@ _STUBBED_KEYS = [
     "runsight_api.data.filesystem.workflow_repo",
     "runsight_api.data.repositories",
     "runsight_api.data.repositories.run_repo",
+    "runsight_api.logic.services.workflow_service",
 ]
 _originals = {k: sys.modules.get(k) for k in _STUBBED_KEYS}
 

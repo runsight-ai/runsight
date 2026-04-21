@@ -15,12 +15,14 @@ type SurfaceRunsTableProps = {
   runs: RunResponse[];
   currentRunId?: string;
   onRowClick: (runId: string) => void;
+  onRerun?: (run: RunResponse) => void;
 };
 
 export function SurfaceRunsTable({
   runs,
   currentRunId,
   onRowClick,
+  onRerun,
 }: SurfaceRunsTableProps) {
   if (runs.length === 0) {
     return (
@@ -45,6 +47,7 @@ export function SurfaceRunsTable({
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Cost</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Eval</TableHead>
             <TableHead className={RUN_TABLE_HEAD_CLASS}>Warnings</TableHead>
+            <TableHead className={cn(RUN_TABLE_HEAD_CLASS, "min-w-[12rem]")}>Inputs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -54,6 +57,7 @@ export function SurfaceRunsTable({
               run={run}
               currentRunId={currentRunId}
               onSelect={onRowClick}
+              onRerun={onRerun}
             />
           ))}
         </TableBody>
