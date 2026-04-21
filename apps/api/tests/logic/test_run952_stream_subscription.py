@@ -79,6 +79,65 @@ class TestLateStreamSubscribers:
         )
 
     @pytest.mark.asyncio
+    async def test_subscribe_stream_terminates_when_queued_run_is_cancelled_before_start(self):
+        """Cancelling a queued run must not leave an attached stream hanging forever."""
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+            max_concurrent_runs=1,
+        )
+        run_id = "run_952_stream_cancelled_queued"
+
+        await service._semaphore.acquire()
+
+        async def fake_run(state, observer=None, **kwargs):
+            if observer is not None:
+                observer.on_workflow_complete("queued_workflow", state, 0.01)
+            return state
+
+        wf = Mock()
+        wf.run = fake_run
+
+        events = []
+
+        async def consume() -> None:
+            async for event in service.subscribe_stream(run_id):
+                events.append(event)
+
+        queued_run = asyncio.create_task(service._run_workflow(run_id, wf, {"instruction": "wait"}))
+        await asyncio.sleep(0)
+
+        consumer = asyncio.create_task(consume())
+
+        await asyncio.sleep(0.05)
+        assert not consumer.done(), "Stream should still be attached while the run is queued"
+
+        queued_run.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await queued_run
+
+        try:
+            await asyncio.wait_for(consumer, timeout=0.5)
+        finally:
+            if service._semaphore.locked():
+                service._semaphore.release()
+
+        assert consumer.done(), (
+            "A subscriber attached to a queued run should terminate promptly after that run "
+            "is cancelled before task start."
+        )
+        assert events == [] or events[-1]["event"] in {
+            "run_cancelled",
+            "run_failed",
+            "run_completed",
+        }, (
+            "Queued-cancel stream should either close cleanly or yield a terminal event, "
+            "but it must not hang indefinitely on an empty queue."
+        )
+
+    @pytest.mark.asyncio
     async def test_subscribe_stream_waits_for_late_observer_registration(self):
         """Subscribers that connect before launch completes should not be dropped."""
 
