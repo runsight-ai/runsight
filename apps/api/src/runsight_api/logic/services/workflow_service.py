@@ -189,7 +189,12 @@ class WorkflowService:
         try:
             branch = self.git_service.current_branch()
         except Exception:
-            branch = "main"
+            return None
+        if not isinstance(branch, str):
+            return None
+        branch = branch.strip()
+        if not branch or branch == "HEAD":
+            return None
         return self.git_service.get_sha(branch, path)
 
     def _get_workflow_commit_sha_on_main(self, path: str) -> str | None:
