@@ -24,10 +24,16 @@ class WorkflowService:
         workflow_repo: WorkflowRepository,
         run_repo: RunRepository,
         git_service=None,
+        run_read_model=None,
     ):
         self.workflow_repo = workflow_repo
         self.run_repo = run_repo
         self.git_service = git_service
+        self.run_read_model = (
+            run_read_model
+            if run_read_model is not None
+            else getattr(run_repo, "read_model", run_repo)
+        )
 
     def list_workflows(self, query: Optional[str] = None) -> List[WorkflowEntity]:
         workflows = self.workflow_repo.list_all()
@@ -39,7 +45,9 @@ class WorkflowService:
                 if query in w.id.lower() or (getattr(w, "name", "") and query in w.name.lower())
             ]
 
-        health_by_workflow = self.run_repo.get_workflow_health_metrics([w.id for w in workflows])
+        health_by_workflow = self.run_read_model.get_workflow_health_metrics(
+            [w.id for w in workflows]
+        )
         enriched_workflows: list[WorkflowEntity] = []
 
         for workflow in workflows:

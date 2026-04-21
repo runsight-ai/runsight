@@ -16,8 +16,13 @@ from ...transport.schemas.eval import (
 
 
 class EvalService:
-    def __init__(self, run_repo: RunRepository):
+    def __init__(self, run_repo: RunRepository, run_read_model=None):
         self.run_repo = run_repo
+        self.run_read_model = (
+            run_read_model
+            if run_read_model is not None
+            else getattr(run_repo, "read_model", run_repo)
+        )
 
     def get_run_eval(self, run_id: str) -> RunEvalResponse | None:
         run = self.run_repo.get_run(run_id)
@@ -360,7 +365,7 @@ class EvalService:
         if node.soul_id is None or node.soul_version is None:
             return None
 
-        baseline = self.run_repo.get_baseline(node.soul_id, node.soul_version)
+        baseline = self.run_read_model.get_baseline(node.soul_id, node.soul_version)
         if baseline is None:
             return None
 

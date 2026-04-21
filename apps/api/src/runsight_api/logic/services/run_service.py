@@ -21,9 +21,19 @@ def _workflow_ref(workflow_id: str) -> str:
 
 
 class RunService:
-    def __init__(self, run_repo: RunRepository, workflow_repo: WorkflowRepository):
+    def __init__(
+        self,
+        run_repo: RunRepository,
+        workflow_repo: WorkflowRepository,
+        run_read_model=None,
+    ):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
+        self.run_read_model = (
+            run_read_model
+            if run_read_model is not None
+            else getattr(run_repo, "read_model", run_repo)
+        )
 
     def get_run(self, run_id: str) -> Optional[Run]:
         return self.run_repo.get_run(run_id)
@@ -47,7 +57,7 @@ class RunService:
         branch: Optional[str] = None,
     ) -> Tuple[List[Run], int]:
         """Return a page of runs and total count via SQL pagination."""
-        return self.run_repo.list_runs_paginated(
+        return self.run_read_model.list_runs_paginated(
             offset, limit, status=status, workflow_id=workflow_id, source=source, branch=branch
         )
 
