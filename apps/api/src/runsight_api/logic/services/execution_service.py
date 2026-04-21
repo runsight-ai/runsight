@@ -34,6 +34,7 @@ class ExecutionService:
     """Wires POST /runs to workflow.run() with background execution."""
 
     _OBSERVER_REGISTRATION_TIMEOUT_S = 0.25
+    _STREAM_CLOSED_EVENT = "__stream_closed__"
 
     def __init__(
         self,
@@ -182,6 +183,8 @@ class ExecutionService:
             except asyncio.TimeoutError:
                 # Send keepalive or just continue
                 continue
+            if event["event"] == self._STREAM_CLOSED_EVENT:
+                break
 
             yield event
 
@@ -304,35 +307,46 @@ class ExecutionService:
         self.register_observer(run_id, streaming_obs)
 
         try:
-            async with self._semaphore:
-                # Transition status from pending -> running now that we have a slot
-                self._set_run_status(run_id, RunStatus.running)
+            try:
+                async with self._semaphore:
+                    # Transition status from pending -> running now that we have a slot
+                    self._set_run_status(run_id, RunStatus.running)
 
-                # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
-                # + StreamingObserver (SSE event streaming)
-                observers = [LoggingObserver(), streaming_obs]
-                if self.engine:
-                    observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
-                    assertion_configs = self._build_assertion_configs(wf)
-                    observers.append(
-                        EvalObserver(
-                            engine=self.engine,
-                            run_id=run_id,
-                            sse_queue=streaming_obs.queue,
-                            assertion_configs=assertion_configs,
+                    # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
+                    # + StreamingObserver (SSE event streaming)
+                    observers = [LoggingObserver(), streaming_obs]
+                    if self.engine:
+                        observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
+                        assertion_configs = self._build_assertion_configs(wf)
+                        observers.append(
+                            EvalObserver(
+                                engine=self.engine,
+                                run_id=run_id,
+                                sse_queue=streaming_obs.queue,
+                                assertion_configs=assertion_configs,
+                            )
                         )
+                    observer = CompositeObserver(*observers)
+
+                    from runsight_core.artifacts import InMemoryArtifactStore
+
+                    artifact_store = InMemoryArtifactStore(run_id=run_id)
+                    state = WorkflowState(artifact_store=artifact_store)
+
+                    try:
+                        state = await wf.run(state, observer=observer, inputs=inputs)
+                    except Exception:
+                        logger.exception("Workflow execution failed for run %s", run_id)
+            except asyncio.CancelledError:
+                if not streaming_obs.is_done:
+                    streaming_obs.is_done = True
+                    streaming_obs.queue.put_nowait(
+                        {
+                            "event": self._STREAM_CLOSED_EVENT,
+                            "data": {"run_id": run_id},
+                        }
                     )
-                observer = CompositeObserver(*observers)
-
-                from runsight_core.artifacts import InMemoryArtifactStore
-
-                artifact_store = InMemoryArtifactStore(run_id=run_id)
-                state = WorkflowState(artifact_store=artifact_store)
-
-                try:
-                    state = await wf.run(state, observer=observer, inputs=inputs)
-                except Exception:
-                    logger.exception("Workflow execution failed for run %s", run_id)
+                raise
         finally:
             self.unregister_observer(run_id)
 
