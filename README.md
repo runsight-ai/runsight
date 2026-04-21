@@ -1,19 +1,22 @@
 # runsight
 
-**YAML-first workflow engine for AI agents.** Your workflows are files. Your repo is the database. Git is your version control.
+**YAML-first workflow engine for AI agents.** Build multi-step agent workflows as files, run them locally, and inspect every run in a GUI.
 
-[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/runsight)](https://pypi.org/project/runsight/)
-[![python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
 [![docs](https://img.shields.io/badge/docs-runsight.ai-orange)](https://runsight.ai/docs)
+[![GitHub stars](https://img.shields.io/github/stars/runsight-ai/runsight)](https://github.com/runsight-ai/runsight)
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Powered by cubic.dev](https://img.shields.io/badge/powered%20by-cubic.dev-111111)](https://www.cubic.dev/)
 
 <p align="center">
   <img src="assets/demo.gif" alt="Runsight — visual workflow builder for AI agents" width="640">
 </p>
 
-Runsight runs AI agent workflows defined in plain YAML files on your filesystem. Every workflow, soul (agent identity), and tool definition is a diffable file in your repo. Save writes to disk. Commit pushes to git. Runs track which commit produced them. No database for workflow definitions — just files and git.
+Runsight keeps workflow definitions in your repo instead of a hosted database. Workflows, souls, and tools live as YAML files on disk, while the app gives you a visual canvas, a YAML editor, reusable agent identities, custom tools, assertions, and run history tied to the workflow version that produced each result.
 
-## Quick start
+**[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
+
+## Install
 
 ```bash
 uvx runsight
@@ -29,15 +32,26 @@ Or use Docker:
 docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 ```
 
-**[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
+## Quick start
 
-## Why Runsight
+```bash
+# Start Runsight in the current repo
+uvx runsight
+```
 
-- Workflows are YAML files in your repo, so they stay diffable, reviewable, and versioned in Git.
-- The GUI gives you a visual canvas and YAML editor over the same workflow state.
-- Runs are traceable back to the workflow and commit that produced them.
-- Built-in assertions, evals, and budget limits help you catch bad outputs and overspend early.
-- Runsight is self-hosted and uses your keys, models, and infrastructure.
+Open [http://localhost:8000](http://localhost:8000). Your workflow files live in `custom/workflows/`, `custom/souls/`, and `custom/tools/`.
+
+## What it does
+
+| Capability | What you get |
+|---|---|
+| **Repo-native workflows** | Review workflows as `.yaml` files in PRs instead of chasing state hidden in a hosted builder or database. |
+| **Visual canvas + YAML editor** | Move between drag-and-drop editing and raw YAML without splitting the source of truth. |
+| **Souls and tool governance** | Reuse agent identities, lock workflows to approved tools, and keep model/provider choices explicit. |
+| **Assertions and evals** | Catch missing sections, regex failures, fixture regressions, and output drift close to the workflow itself. |
+| **Git-aware execution** | Tie runs back to the workflow version and commit that produced them, including simulation-branch flows when the repo is dirty. |
+| **Budget and limits** | Warn or stop runs when they exceed spend or timeout thresholds instead of discovering it after the fact. |
+| **Dispatch and sub-workflows** | Route across exits with model decisions and compose larger systems from smaller workflows. |
 
 ## Example workflow
 
@@ -63,6 +77,13 @@ workflow:
   name: Summarize
   entry: summarize
 ```
+
+## How it works
+
+1. **Define** — Write workflows, souls, and tools as YAML files under `custom/`.
+2. **Edit** — Use the GUI canvas or the YAML editor against the same workflow state on disk.
+3. **Execute** — Run the workflow locally with provider/model settings, tool access, assertions, and limits applied.
+4. **Inspect** — Review outputs, costs, regressions, and the exact workflow version and commit that produced a run.
 
 ## Contributing
 
