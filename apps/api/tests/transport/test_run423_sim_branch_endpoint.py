@@ -1,9 +1,9 @@
-"""Red-phase tests for RUN-423: sim-branch endpoint + RunCreate branch field.
+"""Red-phase tests for RUN-423: sim-branch endpoint + explicit RunCreate branch.
 
 ADR-001 requires: dirty state → create sim branch, commit YAML there, then run
 from the sim branch.  These tests verify:
 
-1. RunCreate schema accepts an optional `branch` field
+1. RunCreate schema requires an explicit `branch` field
 2. POST /api/git/sim-branch route exists in the git router
 3. The sim-branch endpoint accepts workflow_id + yaml_content and returns
    branch + commit_sha
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from runsight_api.core.config import settings
 from runsight_api.main import app
@@ -74,7 +75,7 @@ client = TestClient(app)
 
 
 class TestRunCreateBranchField:
-    """RunCreate should accept an optional branch field defaulting to 'main'."""
+    """RunCreate should require an explicit branch field."""
 
     def test_branch_field_accepted(self):
         """RunCreate should accept branch without raising ValidationError."""
@@ -85,14 +86,16 @@ class TestRunCreateBranchField:
         )
         assert payload.branch == "sim/my-workflow/20260330/abc12"
 
-    def test_branch_defaults_to_main(self):
-        """When branch is omitted, it should default to 'main'."""
-        payload = RunCreate(workflow_id="wf_test")
-        assert payload.branch == "main"
+    def test_branch_is_required(self):
+        """Omitting branch should raise a validation error."""
+        with pytest.raises(ValidationError):
+            RunCreate(workflow_id="wf_test")
 
     def test_branch_in_model_fields(self):
         """The branch field must be declared in the schema's model_fields."""
-        assert "branch" in RunCreate.model_fields
+        field = RunCreate.model_fields.get("branch")
+        assert field is not None
+        assert field.is_required()
 
     def test_branch_serializes_to_dict(self):
         """branch should appear in .model_dump() output."""

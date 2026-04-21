@@ -1,26 +1,29 @@
 """Red tests for RUN-379: Run data model — add branch + source fields (ADR-001).
 
 Tests cover:
-1. Run entity has `branch` field (default "main")
+1. Run entity has `branch` field and requires it explicitly
 2. Run entity has `source` field (default "manual")
 3. Run entity has `commit_sha` field (optional, default None)
-4. `workflow_commit_sha` still exists (deprecated, backward compat)
 5. RunResponse exposes branch, source, commit_sha
-6. RunCreate accepts source (optional)
-7. create_run() populates branch and source
-8. commit_sha falls back to workflow_commit_sha for old runs
+6. RunCreate requires branch and accepts source (optional)
+7. create_run() requires branch and stores it explicitly
+8. commit_sha stays independent from workflow_commit_sha
 """
 
 from unittest.mock import Mock
 
+import pytest
+from pydantic import ValidationError
 from sqlmodel import Session, SQLModel, create_engine
+
+EXPLICIT_BRANCH = "sim/test/20260330/abc12"
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_run(**overrides):
+def _make_run(*, branch: str, **overrides):
     """Create a Run with minimal required fields, applying overrides."""
     from runsight_api.domain.entities.run import Run
 
@@ -29,6 +32,7 @@ def _make_run(**overrides):
         workflow_id="wf-1",
         workflow_name="Test WF",
         task_json='{"instruction": "go"}',
+        branch=branch,
     )
     defaults.update(overrides)
     return Run(**defaults)
@@ -48,13 +52,20 @@ def _in_memory_engine():
 class TestRunBranchField:
     def test_run_has_branch_attribute(self):
         """Run entity exposes a `branch` attribute."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert hasattr(run, "branch")
 
-    def test_branch_defaults_to_main(self):
-        """branch defaults to 'main' when not provided."""
-        run = _make_run()
-        assert run.branch == "main"
+    def test_branch_requires_explicit_value(self):
+        """Constructing Run without branch should raise validation error."""
+        from runsight_api.domain.entities.run import Run
+
+        with pytest.raises(ValidationError):
+            Run(
+                id="run-branch-required",
+                workflow_id="wf-1",
+                workflow_name="Test WF",
+                task_json='{"instruction": "go"}',
+            )
 
     def test_branch_accepts_custom_value(self):
         """branch can be set to a custom string."""
@@ -65,7 +76,12 @@ class TestRunBranchField:
         """branch round-trips through SQLite."""
         engine = _in_memory_engine()
         with Session(engine) as session:
-            session.add(_make_run(id="run-branch-db", branch="sim/test/20260329/abc"))
+            session.add(
+                _make_run(
+                    branch="sim/test/20260329/abc",
+                    id="run-branch-db",
+                )
+            )
             session.commit()
         with Session(engine) as session:
             from runsight_api.domain.entities.run import Run
@@ -73,17 +89,18 @@ class TestRunBranchField:
             loaded = session.get(Run, "run-branch-db")
             assert loaded.branch == "sim/test/20260329/abc"
 
-    def test_branch_default_persists_in_db(self):
-        """Default branch='main' round-trips through SQLite."""
-        engine = _in_memory_engine()
-        with Session(engine) as session:
-            session.add(_make_run(id="run-branch-default-db"))
-            session.commit()
-        with Session(engine) as session:
-            from runsight_api.domain.entities.run import Run
+    def test_branch_missing_is_rejected_by_model(self):
+        """Run should not silently backfill a branch when one is omitted."""
+        from runsight_api.domain.entities.run import Run
 
-            loaded = session.get(Run, "run-branch-default-db")
-            assert loaded.branch == "main"
+        with pytest.raises(ValidationError):
+            Run(
+                id="run-branch-missing",
+                workflow_id="wf-1",
+                workflow_name="Test WF",
+                task_json='{"instruction": "go"}',
+                source="manual",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -94,31 +111,37 @@ class TestRunBranchField:
 class TestRunSourceField:
     def test_run_has_source_attribute(self):
         """Run entity exposes a `source` attribute."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert hasattr(run, "source")
 
     def test_source_defaults_to_manual(self):
         """source defaults to 'manual' when not provided."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert run.source == "manual"
 
     def test_source_accepts_simulation(self):
-        run = _make_run(source="simulation")
+        run = _make_run(branch=EXPLICIT_BRANCH, source="simulation")
         assert run.source == "simulation"
 
     def test_source_accepts_webhook(self):
-        run = _make_run(source="webhook")
+        run = _make_run(branch=EXPLICIT_BRANCH, source="webhook")
         assert run.source == "webhook"
 
     def test_source_accepts_schedule(self):
-        run = _make_run(source="schedule")
+        run = _make_run(branch=EXPLICIT_BRANCH, source="schedule")
         assert run.source == "schedule"
 
     def test_source_persists_in_db(self):
         """source round-trips through SQLite."""
         engine = _in_memory_engine()
         with Session(engine) as session:
-            session.add(_make_run(id="run-source-db", source="webhook"))
+            session.add(
+                _make_run(
+                    branch=EXPLICIT_BRANCH,
+                    id="run-source-db",
+                    source="webhook",
+                )
+            )
             session.commit()
         with Session(engine) as session:
             from runsight_api.domain.entities.run import Run
@@ -135,17 +158,17 @@ class TestRunSourceField:
 class TestRunCommitShaField:
     def test_run_has_commit_sha_attribute(self):
         """Run entity exposes a `commit_sha` attribute."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert hasattr(run, "commit_sha")
 
     def test_commit_sha_defaults_to_none(self):
         """commit_sha defaults to None when not provided."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert run.commit_sha is None
 
     def test_commit_sha_accepts_string(self):
         sha = "abc123def456789012345678901234567890abcd"
-        run = _make_run(commit_sha=sha)
+        run = _make_run(branch=EXPLICIT_BRANCH, commit_sha=sha)
         assert run.commit_sha == sha
 
     def test_commit_sha_persists_in_db(self):
@@ -153,7 +176,13 @@ class TestRunCommitShaField:
         engine = _in_memory_engine()
         sha = "abc123def456789012345678901234567890abcd"
         with Session(engine) as session:
-            session.add(_make_run(id="run-csha-db", commit_sha=sha))
+            session.add(
+                _make_run(
+                    branch=EXPLICIT_BRANCH,
+                    id="run-csha-db",
+                    commit_sha=sha,
+                )
+            )
             session.commit()
         with Session(engine) as session:
             from runsight_api.domain.entities.run import Run
@@ -165,7 +194,7 @@ class TestRunCommitShaField:
 class TestRunWarningsJsonField:
     def test_run_has_warnings_json_attribute(self):
         """Run entity exposes a `warnings_json` attribute."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert hasattr(run, "warnings_json")
 
     def test_warnings_json_accepts_and_round_trips_in_db(self):
@@ -179,7 +208,13 @@ class TestRunWarningsJsonField:
             }
         ]
         with Session(engine) as session:
-            session.add(_make_run(id="run-warnings-db", warnings_json=warnings))
+            session.add(
+                _make_run(
+                    branch=EXPLICIT_BRANCH,
+                    id="run-warnings-db",
+                    warnings_json=warnings,
+                )
+            )
             session.commit()
         with Session(engine) as session:
             from runsight_api.domain.entities.run import Run
@@ -198,13 +233,13 @@ class TestWorkflowCommitShaRemoved:
         """Run no longer exposes a workflow_commit_sha field."""
         from runsight_api.domain.entities.run import Run
 
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert "workflow_commit_sha" not in Run.model_fields
         assert not hasattr(run, "workflow_commit_sha")
 
     def test_workflow_commit_sha_accessor_is_removed(self):
         """Run no longer exposes an effective_commit_sha compatibility accessor."""
-        run = _make_run()
+        run = _make_run(branch=EXPLICIT_BRANCH)
         assert not hasattr(run, "effective_commit_sha")
 
 
@@ -234,6 +269,26 @@ class TestRunResponseNewFields:
 
         fields = RunResponse.model_fields
         assert "commit_sha" in fields, "RunResponse must have a 'commit_sha' field"
+
+    def test_run_response_requires_branch(self):
+        """RunResponse should not backfill branch when omitted."""
+        from runsight_api.transport.schemas.runs import RunResponse
+
+        with pytest.raises(ValidationError):
+            RunResponse(
+                id="run-1",
+                workflow_id="wf-1",
+                workflow_name="Test",
+                status="pending",
+                started_at=None,
+                completed_at=None,
+                duration_seconds=None,
+                total_cost_usd=0.0,
+                total_tokens=0,
+                created_at=1711699200.0,
+                source="simulation",
+                commit_sha="abc123",
+            )
 
     def test_run_response_serializes_new_fields(self):
         """RunResponse can be instantiated with branch, source, commit_sha."""
@@ -310,7 +365,7 @@ class TestRunCreateSourceField:
         """RunCreate.source defaults when not provided."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        body = RunCreate(workflow_id="wf-1")
+        body = RunCreate(workflow_id="wf-1", branch=EXPLICIT_BRANCH)
         # Should default to "manual" or None — either way, the field must exist
         assert hasattr(body, "source")
 
@@ -318,8 +373,25 @@ class TestRunCreateSourceField:
         """RunCreate.source can be set explicitly."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        body = RunCreate(workflow_id="wf-1", source="webhook")
+        body = RunCreate(workflow_id="wf-1", branch=EXPLICIT_BRANCH, source="webhook")
         assert body.source == "webhook"
+
+
+class TestRunCreateBranchField:
+    def test_run_create_has_branch_field(self):
+        """RunCreate schema includes an explicit branch field."""
+        from runsight_api.transport.schemas.runs import RunCreate
+
+        field = RunCreate.model_fields.get("branch")
+        assert field is not None
+        assert field.is_required()
+
+    def test_run_create_requires_branch(self):
+        """RunCreate should reject payloads that omit branch."""
+        from runsight_api.transport.schemas.runs import RunCreate
+
+        with pytest.raises(ValidationError):
+            RunCreate(workflow_id="wf-1")
 
 
 # ---------------------------------------------------------------------------
@@ -328,8 +400,8 @@ class TestRunCreateSourceField:
 
 
 class TestCreateRunPopulatesNewFields:
-    def test_create_run_sets_branch_default(self):
-        """create_run() sets branch='main' on the new Run."""
+    def test_create_run_requires_branch_argument(self):
+        """create_run() should require branch instead of defaulting it."""
         from runsight_api.logic.services.run_service import RunService
 
         mock_run_repo = Mock()
@@ -342,9 +414,8 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
-
-        assert run.branch == "main"
+        with pytest.raises(TypeError):
+            svc.create_run("wf-1", {"instruction": "go"})
 
     def test_create_run_sets_source_default(self):
         """create_run() sets source='manual' by default."""
@@ -360,7 +431,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
+        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
 
         assert run.source == "manual"
 
@@ -378,8 +449,14 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"}, source="webhook")
+        run = svc.create_run(
+            "wf-1",
+            {"instruction": "go"},
+            branch=EXPLICIT_BRANCH,
+            source="webhook",
+        )
 
+        assert run.branch == EXPLICIT_BRANCH
         assert run.source == "webhook"
 
     def test_create_run_snapshots_workflow_warnings(self):
@@ -403,7 +480,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
+        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json == mock_workflow.warnings
         assert run.warnings_json is not mock_workflow.warnings
@@ -426,7 +503,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
+        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 
@@ -445,7 +522,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
+        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 
@@ -464,7 +541,7 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", {"instruction": "go"})
+        run = svc.create_run("wf-1", {"instruction": "go"}, branch=EXPLICIT_BRANCH)
 
         assert run.warnings_json is None
 
@@ -477,7 +554,11 @@ class TestCreateRunPopulatesNewFields:
 class TestCommitShaFallback:
     def test_commit_sha_does_not_fall_back_to_workflow_commit_sha(self):
         """Run no longer derives a commit SHA from workflow_commit_sha."""
-        run = _make_run(commit_sha=None, workflow_commit_sha="old_sha_fallback")
+        run = _make_run(
+            branch=EXPLICIT_BRANCH,
+            commit_sha=None,
+            workflow_commit_sha="old_sha_fallback",
+        )
         assert run.commit_sha is None
         assert not hasattr(run, "workflow_commit_sha")
         assert not hasattr(run, "effective_commit_sha")

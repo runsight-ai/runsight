@@ -1,7 +1,7 @@
 """Regression tests for RUN-380 branch-aware execution behavior.
 
 ExecutionService.launch_execution must:
-1. Accept a ``branch`` parameter (default "main")
+1. Accept a ``branch`` parameter explicitly
 2. When Git is configured, read YAML via GitService.read_file(path, branch)
 3. ``branch="main"`` must load committed main content, not mutable working-tree YAML
 4. Pass YAML *string* (not file path) to parse_workflow_yaml
@@ -110,8 +110,8 @@ class TestLaunchAcceptsBranch:
             )
 
     @pytest.mark.asyncio
-    async def test_branch_defaults_to_main(self):
-        """When branch is omitted, it defaults to 'main'."""
+    async def test_branch_is_required(self):
+        """Omitting branch should raise a TypeError."""
         svc, _, _, _, git_service = _make_service()
 
         with patch(
@@ -121,11 +121,8 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            # Call without branch — should load committed main from git
-            await svc.launch_execution("run_3", "wf_1", {"instruction": "go"})
-            await asyncio.sleep(0.05)
-
-            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
+            with pytest.raises(TypeError):
+                await svc.launch_execution("run_3", "wf_1", {"instruction": "go"})
 
 
 # ---------------------------------------------------------------------------
