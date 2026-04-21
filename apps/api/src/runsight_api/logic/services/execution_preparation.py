@@ -65,12 +65,14 @@ class ExecutionPreparationService:
         git_service=None,
         secrets=None,
         settings_repo=None,
+        workflow_registry_builder=None,
     ):
         self.workflow_repo = workflow_repo
         self.provider_repo = provider_repo
         self.git_service = git_service
         self.secrets = secrets
         self.settings_repo = settings_repo
+        self.workflow_registry_builder = workflow_registry_builder
 
     def prepare_for_launch(
         self,
@@ -106,7 +108,10 @@ class ExecutionPreparationService:
 
         workflow_registry = None
         if has_workflow_blocks(workflow_definition):
-            workflow_registry = self.workflow_repo.build_runnable_workflow_registry(
+            registry_builder = self.workflow_registry_builder
+            if registry_builder is None:
+                registry_builder = self.workflow_repo.build_runnable_workflow_registry
+            workflow_registry = registry_builder(
                 workflow_id,
                 yaml_content,
                 git_ref=branch if self.git_service else None,
