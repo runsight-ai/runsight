@@ -21,6 +21,64 @@ def _make_service() -> ExecutionService:
 
 class TestLateStreamSubscribers:
     @pytest.mark.asyncio
+    async def test_subscribe_stream_stays_attached_while_run_is_queued_before_task_start(self):
+        """Queue delay must not close the stream before observer registration.
+
+        A run that is valid but blocked behind the execution semaphore has not
+        created its StreamingObserver yet. A subscriber connecting during that
+        queue window must stay attached until execution starts and a terminal
+        event can be delivered.
+        """
+
+        from runsight_api.domain.events import SSE_TERMINAL_EVENTS
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+            max_concurrent_runs=1,
+        )
+        run_id = "run_952_stream_queued"
+        events = []
+
+        await service._semaphore.acquire()
+
+        async def fake_run(state, observer=None, **kwargs):
+            if observer is not None:
+                observer.on_workflow_complete("queued_workflow", state, 0.01)
+            return state
+
+        wf = Mock()
+        wf.run = fake_run
+
+        async def consume() -> None:
+            async for event in service.subscribe_stream(run_id):
+                events.append(event)
+
+        queued_run = asyncio.create_task(service._run_workflow(run_id, wf, {"instruction": "wait"}))
+        await asyncio.sleep(0)
+
+        consumer = asyncio.create_task(consume())
+
+        await asyncio.sleep(service._OBSERVER_REGISTRATION_TIMEOUT_S + 0.1)
+
+        assert not consumer.done(), (
+            "A stream subscriber for a queued run should remain attached while the run "
+            "is still waiting for a semaphore slot."
+        )
+
+        service._semaphore.release()
+
+        await asyncio.wait_for(queued_run, timeout=1)
+        await asyncio.wait_for(consumer, timeout=1)
+
+        assert events, "Queued stream subscriber should eventually receive live events"
+        assert events[-1]["event"] in SSE_TERMINAL_EVENTS, (
+            "Queued stream subscriber should receive the eventual terminal event once "
+            "observer registration happens after the queue delay."
+        )
+
+    @pytest.mark.asyncio
     async def test_subscribe_stream_waits_for_late_observer_registration(self):
         """Subscribers that connect before launch completes should not be dropped."""
 
