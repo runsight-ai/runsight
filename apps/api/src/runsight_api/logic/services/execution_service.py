@@ -298,40 +298,43 @@ class ExecutionService:
         """
         from runsight_core.state import WorkflowState
 
-        async with self._semaphore:
-            # Transition status from pending -> running now that we have a slot
-            self._set_run_status(run_id, RunStatus.running)
+        # Register the stream immediately so subscribers stay attached while this
+        # run is queued behind the execution semaphore.
+        streaming_obs = StreamingObserver(run_id=run_id)
+        self.register_observer(run_id, streaming_obs)
 
-            # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
-            # + StreamingObserver (SSE event streaming)
-            streaming_obs = StreamingObserver(run_id=run_id)
-            self.register_observer(run_id, streaming_obs)
+        try:
+            async with self._semaphore:
+                # Transition status from pending -> running now that we have a slot
+                self._set_run_status(run_id, RunStatus.running)
 
-            observers = [LoggingObserver(), streaming_obs]
-            if self.engine:
-                observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
-                assertion_configs = self._build_assertion_configs(wf)
-                observers.append(
-                    EvalObserver(
-                        engine=self.engine,
-                        run_id=run_id,
-                        sse_queue=streaming_obs.queue,
-                        assertion_configs=assertion_configs,
+                # Build observer chain: LoggingObserver + ExecutionObserver (DB persistence)
+                # + StreamingObserver (SSE event streaming)
+                observers = [LoggingObserver(), streaming_obs]
+                if self.engine:
+                    observers.append(ExecutionObserver(engine=self.engine, run_id=run_id))
+                    assertion_configs = self._build_assertion_configs(wf)
+                    observers.append(
+                        EvalObserver(
+                            engine=self.engine,
+                            run_id=run_id,
+                            sse_queue=streaming_obs.queue,
+                            assertion_configs=assertion_configs,
+                        )
                     )
-                )
-            observer = CompositeObserver(*observers)
+                observer = CompositeObserver(*observers)
 
-            from runsight_core.artifacts import InMemoryArtifactStore
+                from runsight_core.artifacts import InMemoryArtifactStore
 
-            artifact_store = InMemoryArtifactStore(run_id=run_id)
-            state = WorkflowState(artifact_store=artifact_store)
+                artifact_store = InMemoryArtifactStore(run_id=run_id)
+                state = WorkflowState(artifact_store=artifact_store)
 
-            try:
-                state = await wf.run(state, observer=observer, inputs=inputs)
-            except Exception:
-                logger.exception("Workflow execution failed for run %s", run_id)
-            finally:
-                self.unregister_observer(run_id)
+                try:
+                    state = await wf.run(state, observer=observer, inputs=inputs)
+                except Exception:
+                    logger.exception("Workflow execution failed for run %s", run_id)
+        finally:
+            self.unregister_observer(run_id)
 
         # Eagerly remove from running tasks after semaphore is released.
         # The done_callback is a safety net for cancellation paths.
