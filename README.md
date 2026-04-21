@@ -54,76 +54,29 @@ docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 | **Provider management** | CRUD for providers, model catalog, per-provider fallback targets, strict soul resolution. |
 | **Sub-workflow composition** | `workflow` blocks execute child workflows with parent-child run linkage, on_error modes, and output mapping. |
 
-## YAML examples
+## YAML example
 
-### Inline souls + custom tool wiring
-
-Souls can be defined inline or as reusable library files. Tools are YAML files — workflows control which tools each soul can access:
+For more complete workflow examples, see the [Quickstart workflow examples](https://runsight.ai/docs/getting-started/quickstart/#create-a-workflow-file).
 
 ```yaml
-# custom/tools/slack_webhook.yaml — custom HTTP tool
-version: "1.0"
-type: custom
-executor: request
-name: Slack Webhook
-description: Send a message to a Slack channel.
-parameters:
-  type: object
-  properties:
-    payload_json:
-      type: string
-  required: [payload_json]
-request:
-  method: POST
-  url: "${SLACK_WEBHOOK_URL}"
-  headers:
-    Content-type: application/json
-  body_template: "{{ payload_json }}"
-```
-
-```yaml
-# custom/tools/slack_payload_builder.yaml — custom Python tool
-version: "1.0"
-type: custom
-executor: python
-name: Slack Payload Builder
-description: Build a JSON payload string for the Slack incoming webhook.
-parameters:
-  type: object
-  properties:
-    text:
-      type: string
-  required: [text]
-code: |
-  import json
-  def main(args):
-      return {"payload_json": json.dumps({"text": args["text"]})}
-```
-
-```yaml
-# Workflow with inline soul + tool governance
 version: "1.0"
 souls:
-  notifier:
-    id: notifier_1
-    role: Slack Reporter
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Technical Writer
     system_prompt: >
-      Summarize the input and post it to Slack.
-    tools:
-      - slack_payload_builder
-      - slack_webhook       # workflow must also enable these tools
+      Summarize the input into a short release note.
     provider: openai
     model_name: gpt-4.1-mini
 blocks:
-  notify:
+  summarize:
     type: linear
-    soul_ref: notifier
+    soul_ref: writer
 workflow:
-  name: Slack Notification
-  entry: notify
-  transitions:
-    - from: notify
-      to: null
+  name: Summarize
+  entry: summarize
 ```
 
 ## Development and contributing
