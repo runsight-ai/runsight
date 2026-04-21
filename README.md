@@ -1,22 +1,23 @@
 # runsight
 
-**YAML-first workflow engine for AI agents.** Build multi-step agent workflows as files, run them locally, and inspect every run in a GUI.
+**YAML-first workflow engine for AI agents.** Your workflows are files. Your repo is the database. Git is your version control.
 
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/runsight)](https://pypi.org/project/runsight/)
+[![python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org)
 [![docs](https://img.shields.io/badge/docs-runsight.ai-orange)](https://runsight.ai/docs)
 [![GitHub stars](https://img.shields.io/github/stars/runsight-ai/runsight)](https://github.com/runsight-ai/runsight)
-[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Powered by cubic.dev](https://img.shields.io/badge/powered%20by-cubic.dev-111111)](https://www.cubic.dev/)
 
 <p align="center">
   <img src="assets/demo.gif" alt="Runsight — visual workflow builder for AI agents" width="640">
 </p>
 
-Runsight keeps workflow definitions in your repo instead of a hosted database. Workflows, souls, and tools live as YAML files on disk, while the app gives you a visual canvas, a YAML editor, reusable agent identities, custom tools, assertions, and run history tied to the workflow version that produced each result.
+Runsight runs AI agent workflows defined in plain YAML files on your filesystem. Every workflow, soul (agent identity), and tool definition is a diffable file in your repo. Save writes to disk. Commit pushes to git. Runs track which commit produced them. No database for workflow definitions — just files and git.
 
-**[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
+32 shipped epics, 215+ tickets, 6 block types, built-in eval, and per-run budget enforcement.
 
-## Install
+## Quick start
 
 ```bash
 uvx runsight
@@ -32,62 +33,102 @@ Or use Docker:
 docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 ```
 
-## Quick start
-
-```bash
-# Start Runsight in the current repo
-uvx runsight
-```
-
-Open [http://localhost:8000](http://localhost:8000). Your workflow files live in `custom/workflows/`, `custom/souls/`, and `custom/tools/`.
+**[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
 
 ## What it does
 
-| Capability | What you get |
+| Feature | What you get |
 |---|---|
-| **Repo-native workflows** | Review workflows as `.yaml` files in PRs instead of chasing state hidden in a hosted builder or database. |
-| **Visual canvas + YAML editor** | Move between drag-and-drop editing and raw YAML without splitting the source of truth. |
-| **Souls and tool governance** | Reuse agent identities, lock workflows to approved tools, and keep model/provider choices explicit. |
-| **Assertions and evals** | Catch missing sections, regex failures, fixture regressions, and output drift close to the workflow itself. |
-| **Git-aware execution** | Tie runs back to the workflow version and commit that produced them, including simulation-branch flows when the repo is dirty. |
-| **Budget and limits** | Warn or stop runs when they exceed spend or timeout thresholds instead of discovering it after the fact. |
-| **Dispatch and sub-workflows** | Route across exits with model decisions and compose larger systems from smaller workflows. |
+| **YAML workflows** | Workflows are `.yaml` files on disk. Edit in any editor, diff in any tool, review in any PR. |
+| **Git-native execution** | Save = write to disk. Commit = git commit to main. Dirty runs create simulation branches automatically. |
+| **6 block types** | `linear` (LLM call), `gate` (LLM quality gate), `code` (Python), `loop` (iteration), `workflow` (sub-flow composition), `dispatch` (parallel branching) |
+| **Dispatch branching** | The soul calls a `delegate` tool to pick an exit port — LLM-driven routing on any block with `exits` |
+| **Soul library** | Agent identities as reusable YAML files or inline in the workflow. Role, system_prompt, provider, model, temperature, tools. Referenced by `soul_ref`. |
+| **Custom tools** | Define tools as YAML files in `custom/tools/`. Canonical IDs are filename stems (e.g., `slack_payload_builder`). Discovered automatically. Workflows declare which tools are available — souls only get tools enabled at the workflow level. |
+| **Visual canvas** | ReactFlow-based editor with bi-directional YAML sync. `[alpha]` |
+| **Monaco YAML editor** | Syntax highlighting, live YAML validation — side by side with the canvas. |
+| **Block-level eval** | Assertions on any block: `contains`, `regex`, `contains-json`, `word-count`. Transform hooks extract fields before asserting. |
+| **Offline eval runner** | Define test cases in an `eval:` YAML section. Run them offline with fixture mode — no LLM calls needed. |
+| **Budget enforcement** | `limits:` section on workflows and blocks. Cost caps (USD), timeouts (seconds), warn or kill modes. Enforced per LLM call. |
+| **Run inspection** | Full run history with regressions. Fork recovery from failed runs. Historical YAML snapshot per run. |
+| **Provider management** | CRUD for providers, model catalog, per-provider fallback targets, strict soul resolution. |
+| **Sub-workflow composition** | `workflow` blocks execute child workflows with parent-child run linkage, on_error modes, and output mapping. |
 
-## Example workflow
+## YAML examples
+
+### Inline souls + custom tool wiring
+
+Souls can be defined inline or as reusable library files. Tools are YAML files — workflows control which tools each soul can access:
 
 ```yaml
+# custom/tools/slack_webhook.yaml — custom HTTP tool
 version: "1.0"
-id: summarize
-kind: workflow
+type: custom
+executor: request
+name: Slack Webhook
+description: Send a message to a Slack channel.
+parameters:
+  type: object
+  properties:
+    payload_json:
+      type: string
+  required: [payload_json]
+request:
+  method: POST
+  url: "${SLACK_WEBHOOK_URL}"
+  headers:
+    Content-type: application/json
+  body_template: "{{ payload_json }}"
+```
+
+```yaml
+# custom/tools/slack_payload_builder.yaml — custom Python tool
+version: "1.0"
+type: custom
+executor: python
+name: Slack Payload Builder
+description: Build a JSON payload string for the Slack incoming webhook.
+parameters:
+  type: object
+  properties:
+    text:
+      type: string
+  required: [text]
+code: |
+  import json
+  def main(args):
+      return {"payload_json": json.dumps({"text": args["text"]})}
+```
+
+```yaml
+# Workflow with inline soul + tool governance
+version: "1.0"
 souls:
-  writer:
-    id: writer
-    kind: soul
-    name: Writer
-    role: Technical Writer
+  notifier:
+    id: notifier_1
+    role: Slack Reporter
     system_prompt: >
-      Summarize the input into a short release note.
+      Summarize the input and post it to Slack.
+    tools:
+      - slack_payload_builder
+      - slack_webhook       # workflow must also enable these tools
     provider: openai
     model_name: gpt-4.1-mini
 blocks:
-  summarize:
+  notify:
     type: linear
-    soul_ref: writer
+    soul_ref: notifier
 workflow:
-  name: Summarize
-  entry: summarize
+  name: Slack Notification
+  entry: notify
+  transitions:
+    - from: notify
+      to: null
 ```
 
-## How it works
+## Development and contributing
 
-1. **Define** — Write workflows, souls, and tools as YAML files under `custom/`.
-2. **Edit** — Use the GUI canvas or the YAML editor against the same workflow state on disk.
-3. **Execute** — Run the workflow locally with provider/model settings, tool access, assertions, and limits applied.
-4. **Inspect** — Review outputs, costs, regressions, and the exact workflow version and commit that produced a run.
-
-## Contributing
-
-New contributors are welcome. Questions and ideas go to [Discussions](https://github.com/runsight-ai/runsight/discussions), and open work lives on [Issues](https://github.com/runsight-ai/runsight/issues).
+Contributors are welcome. Questions and ideas go to [Discussions](https://github.com/runsight-ai/runsight/discussions), and open work lives on [Issues](https://github.com/runsight-ai/runsight/issues).
 
 Local setup:
 
@@ -95,9 +136,11 @@ Local setup:
 git clone https://github.com/runsight-ai/runsight.git
 cd runsight
 
+# Install dependencies
 uv sync              # Python 3.11+
-pnpm install         # Node 20+
+pnpm install         # Node 20+ (installs all workspace packages)
 
+# Start API server + GUI (two terminals)
 uv run runsight                        # http://localhost:8000
 pnpm -C apps/gui dev                   # http://localhost:5173
 ```
@@ -105,12 +148,23 @@ pnpm -C apps/gui dev                   # http://localhost:5173
 Targeted checks:
 
 ```bash
+# Run frontend unit tests
 pnpm -C apps/gui test:unit
+
+# Run engine tests (target specific files — full suite is heavy)
 uv run python -m pytest packages/core/tests/test_specific_file.py -v
+
+# Lint
 pnpm run lint
 ```
 
-If your PR changes behavior, bump the root `pyproject.toml` version. CI handles publishing and tagging after merge to `main`.
+Release process:
+
+1. Bump `version` in the root `pyproject.toml`
+2. Merge to `main`
+3. CI publishes PyPI and Docker artifacts, then creates the git tag automatically
+
+No manual tagging needed. Every PR that changes behavior should include a version bump.
 
 ## License
 
