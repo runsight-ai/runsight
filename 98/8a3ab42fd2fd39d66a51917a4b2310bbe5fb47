@@ -1,0 +1,23 @@
+README.md
+  c3655ecfa62f3794 57,59,64-68,70,74,76,78-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "988a3ab42fd2fd39d66a51917a4b2310bbe5fb47",
+  "prompts": {
+    "c3655ecfa62f3794": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019daf6c-b847-7d50-b788-99ec0db06c0b",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 59,
+      "accepted_lines": 84,
+      "overriden_lines": 9
+    }
+  }
+}
