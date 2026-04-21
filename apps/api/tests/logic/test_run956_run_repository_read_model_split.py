@@ -24,6 +24,7 @@ from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.eval_service import EvalService
 from runsight_api.logic.services.run_service import RunService
 from runsight_api.logic.services.workflow_service import WorkflowService
+from runsight_api.transport import deps as transport_deps
 
 
 def _make_run(
@@ -155,6 +156,74 @@ def _configure_read_model(service_cls, *, read_model, **kwargs):
     raise AssertionError(
         f"{service_cls.__name__} must expose a configurable analytics/read-model seam"
     )
+
+
+def _build_service_via_dependency_factory(factory, *, read_model, **kwargs):
+    init = inspect.signature(factory)
+    call_kwargs = {}
+    read_model_bound = False
+
+    token_groups = (
+        "analytics",
+        "query",
+        "queries",
+        "reader",
+        "read_model",
+        "readmodel",
+        "report",
+        "projection",
+        "metrics",
+    )
+    bundle_names = (
+        "components",
+        "collaborators",
+        "dependencies",
+        "deps",
+        "ports",
+        "repositories",
+        "services",
+    )
+
+    for name, parameter in init.parameters.items():
+        if name in kwargs:
+            call_kwargs[name] = kwargs[name]
+            continue
+
+        lowered = name.lower()
+        if any(token in lowered for token in token_groups):
+            call_kwargs[name] = read_model
+            read_model_bound = True
+            continue
+
+        if name in bundle_names:
+            call_kwargs[name] = SimpleNamespace(
+                run_repo=kwargs.get("run_repo"),
+                workflow_repo=kwargs.get("workflow_repo"),
+                git_service=kwargs.get("git_service"),
+                analytics=read_model,
+                analytics_repo=read_model,
+                query_repo=read_model,
+                read_model=read_model,
+                run_queries=read_model,
+                reporting=read_model,
+                metrics=read_model,
+            )
+            read_model_bound = True
+            continue
+
+        if parameter.default is inspect._empty:
+            raise AssertionError(
+                f"{factory.__name__} dependency wiring must accept a distinct "
+                "analytics/read-model owner"
+            )
+
+    if not read_model_bound:
+        raise AssertionError(
+            f"{factory.__name__} dependency wiring must accept a distinct "
+            "analytics/read-model owner"
+        )
+
+    return factory(**call_kwargs)
 
 
 class _RunWriteRepositoryDouble:
@@ -385,3 +454,124 @@ def test_eval_service_uses_separate_baseline_reader_without_changing_delta_behav
     assert delta.tokens_pct == pytest.approx(50.0)
     assert delta.score_delta == pytest.approx(0.2)
     assert delta.baseline_run_count == 4
+
+
+def test_dependency_factories_wire_distinct_read_model_owner_for_read_paths() -> None:
+    visible = _make_run("run_visible", run_number=7, eval_pass_pct=66.67)
+    deleted = _make_run("run_deleted")
+    run_write_repo = _RunWriteRepositoryDouble([visible, deleted])
+
+    eval_run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
+    eval_node = RunNode(
+        id="run_eval:draft",
+        run_id="run_eval",
+        node_id="draft",
+        block_type="llm",
+        status=NodeStatus.completed,
+        soul_id="writer",
+        soul_version="sha:v1",
+        eval_score=0.9,
+        eval_passed=True,
+        cost_usd=0.3,
+        tokens={"prompt": 120, "completion": 180, "total": 300},
+    )
+    eval_write_repo = SimpleNamespace(
+        get_run=lambda run_id: eval_run if run_id == "run_eval" else None,
+        list_nodes_for_run=lambda run_id: [eval_node] if run_id == "run_eval" else [],
+    )
+
+    workflow_repo = _WorkflowRepositoryDouble(
+        [
+            WorkflowEntity(kind="workflow", id="wf_alpha", name="Alpha", enabled=True),
+            WorkflowEntity(kind="workflow", id="wf_beta", name="Beta", enabled=False),
+        ]
+    )
+    git_service = Mock()
+    git_service.current_branch.return_value = "main"
+    git_service.get_sha.side_effect = lambda branch, path: {
+        "custom/workflows/wf_alpha.yaml": "alpha_sha",
+        "custom/workflows/wf_beta.yaml": "beta_sha",
+    }[path]
+
+    read_model = _RunReadModelDouble(
+        paginated_result=([visible], 1),
+        workflow_health={
+            "wf_alpha": {
+                "run_count": 3,
+                "eval_pass_pct": 50.0,
+                "eval_health": "danger",
+                "total_cost_usd": 2.75,
+                "regression_count": 2,
+            }
+        },
+        baselines={
+            ("writer", "sha:v1"): BaselineStats(
+                avg_cost=0.2,
+                avg_tokens=200.0,
+                avg_score=0.7,
+                run_count=4,
+            )
+        },
+    )
+
+    issues: list[str] = []
+    services: dict[str, object] = {}
+
+    try:
+        services["run_service"] = _build_service_via_dependency_factory(
+            transport_deps.get_run_service,
+            run_repo=run_write_repo,
+            workflow_repo=Mock(),
+            read_model=read_model,
+        )
+    except AssertionError as exc:
+        issues.append(str(exc))
+
+    try:
+        services["workflow_service"] = _build_service_via_dependency_factory(
+            transport_deps.get_workflow_service,
+            workflow_repo=workflow_repo,
+            run_repo=Mock(),
+            git_service=git_service,
+            read_model=read_model,
+        )
+    except AssertionError as exc:
+        issues.append(str(exc))
+
+    try:
+        services["eval_service"] = _build_service_via_dependency_factory(
+            transport_deps.get_eval_service,
+            run_repo=eval_write_repo,
+            read_model=read_model,
+        )
+    except AssertionError as exc:
+        issues.append(str(exc))
+
+    if issues:
+        pytest.fail("\n".join(issues))
+
+    run_service = services["run_service"]
+    items, total = run_service.list_runs_paginated(
+        offset=10,
+        limit=5,
+        status=["completed"],
+        workflow_id="wf_956",
+        source=["manual"],
+        branch="main",
+    )
+    assert total == 1
+    assert [run.id for run in items] == ["run_visible"]
+    assert run_service.delete_run("run_deleted") == "run_deleted"
+    assert run_service.get_run("run_deleted") is None
+
+    workflow_service = services["workflow_service"]
+    workflows = workflow_service.list_workflows()
+    assert [workflow.id for workflow in workflows] == ["wf_alpha", "wf_beta"]
+    assert workflows[0].health["regression_count"] == 2
+    assert workflows[1].health["regression_count"] == 0
+
+    eval_service = services["eval_service"]
+    eval_result = eval_service.get_run_eval("run_eval")
+    assert eval_result is not None
+    assert eval_result.nodes[0].delta is not None
+    assert eval_result.nodes[0].delta.baseline_run_count == 4
