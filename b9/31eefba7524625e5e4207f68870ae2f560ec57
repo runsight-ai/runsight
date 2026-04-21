@@ -1,0 +1,363 @@
+apps/api/tests/test_run706_api_e2e.py
+  5befbb6dc555b2ae 290,319,351,383,426,471,505,533
+apps/api/tests/logic/test_workflow_service.py
+  5befbb6dc555b2ae 31
+apps/api/tests/transport/test_run896_runs_input_validation_router.py
+  5befbb6dc555b2ae 1-273
+packages/shared/src/__tests__/run901_workflow_input_contracts.test.ts
+  5befbb6dc555b2ae 1-58,60-63,66-67,69-115,117-218,220-223,225-282
+  ddc8e2eb2a3c7fe6 59,64-65,68,116,219,224
+apps/api/src/runsight_api/transport/schemas/workflows.py
+  5befbb6dc555b2ae 3,36-45,64,107
+packages/core/src/runsight_core/block_io.py
+  5befbb6dc555b2ae 7,9,22,57-58,72-75,128-129,236,244,281
+packages/core/tests/test_run928_redaction_context.py
+  5befbb6dc555b2ae 1-812
+apps/api/tests/logic/test_single_writer_and_session.py
+  5befbb6dc555b2ae 18-19,79-85,124-128
+packages/core/src/runsight_core/isolation/wrapper.py
+  5befbb6dc555b2ae 14,118-126,133,143,287,314,325-326
+apps/api/tests/transport/test_run127_router_wiring.py
+  5befbb6dc555b2ae 12,15,46-52,67-69,102-104
+apps/api/tests/logic/test_run141_execution_service_api_keys.py
+  5befbb6dc555b2ae 13-21,157-161
+packages/shared/src/zod.ts
+  5befbb6dc555b2ae 67,159,257,275,316,321-322,382,566-599,609,615,633
+apps/api/tests/logic/test_execution_service_concurrency.py
+  5befbb6dc555b2ae 12-14,63-69,131-135,192-196,241-245,280-284,286-290,327-331,335-339,383-387,397-401,426-430,444-448,521-525,529-533,615-619,622-626,671-675,680-684
+packages/core/src/runsight_core/workflow_contract_names.py
+  5befbb6dc555b2ae 1-50
+apps/api/tests/transport/test_runs_router.py
+  5befbb6dc555b2ae 4,7,15-21,239-240,263-264,283,290,304-305,374-375,392,399
+packages/core/src/runsight_core/observer.py
+  5befbb6dc555b2ae 17,28,80-81,98-103,164-165,167,174,206-214,220,297-298,307,342-349,355,366-379,428-429,431-442,467-474,531-542,548-549,606-607,609-611,614-621,649-659,661
+packages/core/src/runsight_core/yaml/parser.py
+  5befbb6dc555b2ae 15,31-32,56,60-92,625,627,746-747,926-929
+apps/api/tests/test_run845_parser_warnings_e2e.py
+  5befbb6dc555b2ae 18,23,47-53,293-294,345,409
+apps/gui/src/api/git.ts
+  5befbb6dc555b2ae 9,17,64,66
+apps/gui/src/features/surface/WorkflowInputsForm.tsx
+  5befbb6dc555b2ae 1-320
+apps/gui/src/features/surface/__tests__/simBranchOnRun.test.ts
+  5befbb6dc555b2ae 5-6,75,200,202-204,209-211,213-216,219,221,227-228
+apps/api/src/runsight_api/logic/services/execution_service.py
+  5befbb6dc555b2ae 4,8-10,15,17,19-20,26,35-61,70-357,504-508,515-517,587-610,646-650,653-664
+packages/core/tests/test_run704_error_route_output_mapping_e2e.py
+  5befbb6dc555b2ae 332,347,368,379,401,429,458,474,489-490
+apps/api/tests/logic/test_execution_service.py
+  5befbb6dc555b2ae 15-17,89-95,162-166,209-213,310,359-363,407-411,492-496,530-534,602-606,669-673,733-737,797-801,852-856,911-913
+apps/gui/src/features/surface/SurfaceRunsTable.tsx
+  5befbb6dc555b2ae 18,25,50,60
+packages/shared/src/api.ts
+  5befbb6dc555b2ae 857,1130-1133,1141,1273-1280,1655-1717,1768-1771,1784-1787,1948,1954,2438,2444
+apps/gui/src/features/surface/__tests__/run869SurfaceRunInputsCellImport.test.tsx
+  5befbb6dc555b2ae 1-19
+apps/gui/src/features/surface/__tests__/run925RerunWorkflowInputs.test.tsx
+  5befbb6dc555b2ae 1-519
+apps/gui/src/features/surface/SurfaceBottomPanel.tsx
+  5befbb6dc555b2ae 2-3,10-11,44-52,115,123-124,235-290,404-408,413,448-461,503-547
+packages/core/tests/fixtures/custom/workflows/multi-provider-release-digest-orchestrator.yaml
+  5befbb6dc555b2ae 114-116,195-197
+packages/core/tests/test_run898_workflow_input_inference.py
+  5befbb6dc555b2ae 1-178
+apps/api/src/runsight_api/transport/routers/runs.py
+  5befbb6dc555b2ae 16,33,126-130,166-167,184-188,199-207,210-211,218-219
+  ddc8e2eb2a3c7fe6 195
+apps/api/tests/test_run707_sse_streaming_e2e.py
+  5befbb6dc555b2ae 35-36,49-51,65-67,365-371
+packages/core/tests/test_run926_workflow_contract_names.py
+  5befbb6dc555b2ae 1-209
+packages/core/runsight-workflow-schema.json
+  5befbb6dc555b2ae 2279,2281,2284-2289,2291-2292,2321-2324,2328,2330,2438-2451
+apps/api/tests/data/test_run603_workflow_interface_validation.py
+  5befbb6dc555b2ae 15-38,41,44,46,48,53,80,91-93,114,217,234
+apps/gui/src/api/__tests__/run900SimulationSchemaClient.test.ts
+  5befbb6dc555b2ae 1-80
+packages/core/tests/test_run701_state_isolation_verification.py
+  5befbb6dc555b2ae 139,169
+tools/site/check-discoverability.mjs
+  5befbb6dc555b2ae 1-121
+packages/core/tests/test_run894_workflow_input_schema.py
+  5befbb6dc555b2ae 1-214
+packages/core/src/runsight_core/workflow.py
+  5befbb6dc555b2ae 8,10,20,26,32-44,116-145,187-197,203,209-214,314-321,350-354,365,724,733,875-911,913-934,978,993
+apps/api/tests/transport/test_run927_workflow_simulation_input_schema_router.py
+  5befbb6dc555b2ae 1-275
+packages/core/tests/test_run880_workflow_input_seeding.py
+  5befbb6dc555b2ae 2,6,8-10,23,34,37-41,44,48,123,127-128,131-133,141-143,147-149,156-158,162-172,179-181,186,191,195,203-204,209,217-218,223,231-232,244,251,257,262-263,285-288,318-319,321,323-324,433,465,488-489,501,565-567
+apps/api/tests/logic/test_run898_workflow_input_inference_service.py
+  5befbb6dc555b2ae 1-95
+apps/gui/src/features/surface/__tests__/run902WorkflowInputsForm.test.tsx
+  5befbb6dc555b2ae 1-335
+apps/api/tests/logic/test_run208_double_observer.py
+  5befbb6dc555b2ae 17,23,61-67,105,145,187,225,256,288,331,363,405,428,449
+packages/shared/src/__tests__/run927_workflow_simulation_contract.test.ts
+  5befbb6dc555b2ae 1-70
+apps/api/tests/transport/test_run923_run_input_snapshots_router.py
+  5befbb6dc555b2ae 1-281
+apps/api/src/runsight_api/transport/routers/workflows.py
+  5befbb6dc555b2ae 9,82-86
+packages/core/tests/test_run606_runtime_depth_parity.py
+  5befbb6dc555b2ae 36,60-76,208-290
+apps/api/tests/test_run705_assertions_fire_e2e.py
+  5befbb6dc555b2ae 264,308,364,405,448,504,549,594,649,712
+apps/api/tests/logic/test_run200_state_flow.py
+  5befbb6dc555b2ae 4,13-14,21-27,56,74,99,114,144,192
+apps/gui/src/api/__tests__/run901ApiErrorWorkflowInputs.test.ts
+  5befbb6dc555b2ae 1-69
+apps/api/tests/transport/test_run881_api_task_removal.py
+  5befbb6dc555b2ae 12-15,28-34,181,183-184,207-209,211
+openapi.json
+  5befbb6dc555b2ae 124,127-128,999,1002-1003,2621,3456-3457,3931-3954,5123-5303,5437-5450,5482-5488,5494-5495
+apps/gui/src/features/surface/RunButton.tsx
+  f56d66e81f9d1ebb 1-2,4,8,12,14-15,23-36,38-73,88-90,107,110-115,118-133,135-136,139-166,175-176,178-207,211,213-224,228-229,231-249,251-252,254-255,296-312,316-384
+apps/api/tests/logic/test_run_service.py
+  5befbb6dc555b2ae 33-45,54,72,87,104
+packages/core/tests/test_integration_workflow_block_e2e.py
+  5befbb6dc555b2ae 1,3,10,29-47,50-52,54-55,57-58,60,65,73,76-77,79-86,90,95,103-104,106-107,119-120,136-137,141-142,144,151,160,162-163,165,172,181,186-187,189,198-199,211,215,221,256,266,283
+packages/core/tests/test_run603_workflow_interface_schema.py
+  5befbb6dc555b2ae 8-9,14,19-20,23-25,27-42,45-46,48-55,66-69,79-95,98,104
+packages/core/tests/test_workflow_block_execute.py
+  5befbb6dc555b2ae 46,58,68-71,95-106
+apps/api/tests/logic/test_run928_sensitive_redaction.py
+  5befbb6dc555b2ae 1-818
+apps/api/tests/logic/test_run897_workflow_input_schema_service.py
+  5befbb6dc555b2ae 1-187
+apps/gui/src/features/surface/__tests__/run780BottomPanelConsolidation.test.tsx
+  5befbb6dc555b2ae 223,225,234-238
+apps/site/public/robots.txt
+  5befbb6dc555b2ae 1-10
+apps/api/tests/transport/test_run928_runs_redaction_router.py
+  5befbb6dc555b2ae 1-203
+apps/api/tests/data/test_run606_snapshot_validation.py
+  5befbb6dc555b2ae 266-268,285
+packages/core/src/runsight_core/isolation/envelope.py
+  5befbb6dc555b2ae 64
+apps/api/tests/logic/test_run896_workflow_input_validation.py
+  5befbb6dc555b2ae 1-354
+packages/core/tests/test_run604_interface_execution.py
+  5befbb6dc555b2ae 1,5-6,14,22-26,28-36,39-40,45-46,48-49,52-55,60-62,66-67,70,72-78,80-81,85-86,89,91-92,94-98,103-104,107,109,111-112,116,120,124-127,133-134,136-137,143-145
+apps/api/src/runsight_api/logic/services/workflow_service.py
+  5befbb6dc555b2ae 8,23-119,153,182,237,241-245,259,261-263,270-275,279-286,292
+apps/api/src/runsight_api/main.py
+  5befbb6dc555b2ae 9,30-33,86-87,169
+apps/api/tests/logic/test_artifact_store_injection.py
+  5befbb6dc555b2ae 13,23-31,61-65,94-98,124-128,154-155
+apps/api/tests/domain/test_run127_create_run_workflow_name.py
+  5befbb6dc555b2ae 10-22,39,59
+apps/api/tests/transport/test_run897_workflow_input_schema_router.py
+  5befbb6dc555b2ae 1-116
+packages/core/tests/test_integration_workflow_block_parser.py
+  5befbb6dc555b2ae 79,87,275,290-291,474,481
+apps/api/src/runsight_api/alembic/versions/003_add_run_workflow_input_snapshots.py
+  5befbb6dc555b2ae 1-42
+apps/site/src/config/site.mjs
+  5befbb6dc555b2ae 1-35
+packages/core/tests/test_run899_workflow_state_inputs.py
+  5befbb6dc555b2ae 1-262
+apps/api/src/runsight_api/logic/observers/eval_observer.py
+  5befbb6dc555b2ae 10,75-76,196,203,209-218,220-221
+packages/core/tests/test_run869_amber_workflowblock_input_contract.py
+  5befbb6dc555b2ae 1-200
+apps/api/src/runsight_api/logic/services/run_service.py
+  5befbb6dc555b2ae 6,24-44,85,99-103,114-115
+apps/site/src/pages/index.astro
+  5befbb6dc555b2ae 4-39,47-64,67
+apps/site/package.json
+  5befbb6dc555b2ae 8-10,20
+packages/core/src/runsight_core/blocks/workflow_block.py
+  5befbb6dc555b2ae 9,11,18,20,25-40,68,74-79,87-88,91,94-95,106-115,129,135,138,142-143,168,171-174,203,210-218,246,314-322,327-356,358,360-367,369-421,432-470,478-512,539,541,543-545,562,564,566,568-575,578-583,585,588-590
+apps/api/tests/domain/test_run379_data_model.py
+  5befbb6dc555b2ae 47-59,432,448,468,497,520,539,558
+apps/api/tests/logic/test_execution_service_main_branch_loading.py
+  5befbb6dc555b2ae 9-11,47-53,113
+apps/gui/src/features/surface/SurfaceRunInputsCell.tsx
+  5befbb6dc555b2ae 1-272
+apps/gui/src/features/surface/__tests__/run903RunInputsModal.test.tsx
+  5befbb6dc555b2ae 1-525
+apps/gui/src/features/surface/SurfaceRunRow.tsx
+  5befbb6dc555b2ae 25,110,117,166-169
+packages/core/tests/test_integration_workflow_block.py
+  5befbb6dc555b2ae 19-24,27-29,34,62-67,79-80,123,175,178-184,187,191,195-198,216,298-304,306,318-321,374-380,383,385,388,408,431-439,450-451,480-483,513-519,523
+apps/api/tests/test_run834_identity_verification.py
+  5befbb6dc555b2ae 21-33,260,277
+apps/gui/src/features/surface/__tests__/runCommitGate.test.ts
+  5befbb6dc555b2ae 70
+apps/api/tests/domain/test_run127_bug_fixes.py
+  5befbb6dc555b2ae 8-23,170
+apps/api/tests/transport/test_run898_workflow_input_inference_router.py
+  5befbb6dc555b2ae 1-70
+apps/api/tests/logic/test_run207_streaming_observer.py
+  5befbb6dc555b2ae 23,26-29,46-52,82-86,115-119,161-165,198-202,224-228,269-273,313-317,374-380,419-423,462-466,511-517,567-573,619-623
+apps/gui/src/features/surface/__tests__/run904RunButtonInputsModal.test.tsx
+  5befbb6dc555b2ae 1-472
+packages/core/tests/test_run910_special_context_governance.py
+  5befbb6dc555b2ae 225,280,284
+apps/api/src/runsight_api/logic/observers/execution_observer.py
+  5befbb6dc555b2ae 12-16,20,73-80,98-129,220-221,302-304,341-342,346-347,355,359-373,379-389,422-426,451-458,467-468,486,506-515,525,568
+apps/api/tests/logic/test_run800_eval_observer_custom_assertion.py
+  5befbb6dc555b2ae 367,420,472
+packages/core/tests/test_run907_context_governance_contract.py
+  5befbb6dc555b2ae 8,10,86,118,126-129,131-134,136-146,152-154,179-181,403-405,407-411,413,415-420
+packages/core/tests/test_parser_workflow_block.py
+  5befbb6dc555b2ae 158,188,222,224
+apps/api/tests/logic/test_run347_wire_assertion_configs.py
+  5befbb6dc555b2ae 12,17,116-122,253-257,305-309
+apps/api/src/runsight_api/logic/observers/streaming_observer.py
+  5befbb6dc555b2ae 7-10,12,91-92,95-103,105-106,161-168,174,182
+apps/gui/src/features/surface/__tests__/run900RunInputSchemaPolicy.test.ts
+  5befbb6dc555b2ae 1-168
+packages/core/tests/test_parser_inputs_outputs.py
+  5befbb6dc555b2ae 837-838,846,857,859-860,872,884
+apps/api/tests/logic/test_budget_run_status.py
+  5befbb6dc555b2ae 21,23,31-37,273-277,325-329,377-381,435-439,493-497,543-547
+apps/api/tests/transport/test_run772_fail_closed_run_creation.py
+  5befbb6dc555b2ae 20,24,29-35,127,164
+packages/core/tests/test_run908_context_resolver.py
+  5befbb6dc555b2ae 57,61,66-68,427
+testing/gui-e2e/tests/run905-typed-workflow-inputs.spec.ts
+  5befbb6dc555b2ae 1-683
+tools/generate-types.sh
+  5befbb6dc555b2ae 26-51
+packages/core/tests/test_run917_context_governance_integration.py
+  5befbb6dc555b2ae 113-116,153,174,176
+packages/core/tests/test_run868_workflowblock_governed_inputs.py
+  5befbb6dc555b2ae 1,16,45-47,53,55-57,61-62,70,74,79-84,88,95,113,123-128,131-139,141,150,164-165
+tools/site/postbuild-discoverability.mjs
+  5befbb6dc555b2ae 1-15
+tools/generate-zod-schemas.py
+  5befbb6dc555b2ae 53-58,75-80,85-91,102-104,108-109,111-115
+apps/gui/src/features/surface/__tests__/run924SurfaceRunInputsHistory.test.tsx
+  5befbb6dc555b2ae 1-236
+packages/core/tests/test_run922_legacy_interface_removal.py
+  5befbb6dc555b2ae 1-305
+packages/core/tests/test_run614_integration_subworkflow.py
+  5befbb6dc555b2ae 1,7,10-12,15,21-22,27-28,30-31,35,42,46,54-61,63-65,67-69,71-72,76-83,85,87-89,93-110,112,114-116,120-121,123,127,130,134-141,143-144,148-162,164-167,169-223
+packages/core/tests/test_run605_on_error_modes.py
+  5befbb6dc555b2ae 219
+apps/api/tests/transport/test_workflows_router.py
+  5befbb6dc555b2ae 358,371
+packages/core/src/runsight_core/context_governance.py
+  5befbb6dc555b2ae 6-7,10,12,14,19,22-25,27,29-40,53,158,203,208,221-222,233-234,252-253,290,303,305,331,374-384,443-453,455-457,495-502,579,584-593,695,698,700,710-717,722-804
+packages/core/tests/test_integration_workflow_block_backward_compat.py
+  5befbb6dc555b2ae 239,388-394
+packages/core/tests/fixtures/custom/workflows/mockup_pipeline.yaml
+  5befbb6dc555b2ae 15
+apps/api/src/runsight_api/domain/entities/run.py
+  5befbb6dc555b2ae 92-93
+apps/api/src/runsight_api/transport/middleware/error_handler.py
+  5befbb6dc555b2ae 2,5-8,35-94
+apps/api/tests/logic/test_run607_nested_run_lifecycle.py
+  5befbb6dc555b2ae 51-53,67-69,255-306
+packages/core/src/runsight_core/state.py
+  5befbb6dc555b2ae 5,11,56-59,80-112
+apps/site/public/social/runsight-preview.svg
+  5befbb6dc555b2ae 1-26
+packages/core/tests/test_run868_review_regressions.py
+  5befbb6dc555b2ae 26,203-236,289-316
+packages/core/tests/test_artifact_store_wiring.py
+  5befbb6dc555b2ae 179,183-188,206-207,214,242-243
+packages/core/tests/test_run884_build_block_context.py
+  5befbb6dc555b2ae 454,464
+packages/core/src/runsight_core/isolation/worker_support.py
+  5befbb6dc555b2ae 96
+packages/core/tests/test_run891_workflowblock_migration.py
+  5befbb6dc555b2ae 6,232,237,241,245,253,262-265,295
+packages/core/src/runsight_core/yaml/schema.py
+  5befbb6dc555b2ae 21-23,26-27,159-160,164,168,170-173,175-189,191,194-195,197,466,472-478,501-510
+apps/gui/src/api/client.ts
+  5befbb6dc555b2ae 8,23-32,35-37
+apps/api/tests/test_run929_workflow_input_redaction_integration.py
+  5befbb6dc555b2ae 1-894
+apps/gui/src/features/surface/__tests__/run782ReadonlySurfaceIntegration.test.tsx
+  5befbb6dc555b2ae 166-170
+packages/core/src/runsight_core/isolation/harness.py
+  5befbb6dc555b2ae 257
+packages/core/src/runsight_core/redaction.py
+  5befbb6dc555b2ae 1-460
+packages/core/tests/test_run895_parse_workflow_inputs.py
+  5befbb6dc555b2ae 1-246
+testing/gui-e2e/tests/subflows-e2e.spec.ts
+  5befbb6dc555b2ae 309-311,317,337-339,380,385
+apps/site/astro.config.mjs
+  5befbb6dc555b2ae 5,9,12,16,21-30,133-159
+apps/api/tests/logic/test_run606_execution_service_snapshot_resolution.py
+  5befbb6dc555b2ae 12-14,66-72,83-86,91-92,103-115,119-121,125-137,141-143,177-180,196,206,215-218,224,235-247,251-253,257-269,273-275,311,313,321-322,336-339,344-345,392,406,415-418,424,435-447,451-453,485,487,495-496,517-520,525-526,538-550,554-556,653
+packages/core/tests/test_run571_wire_soul_ref_to_library.py
+  5befbb6dc555b2ae 35-45
+apps/api/src/runsight_api/transport/schemas/runs.py
+  5befbb6dc555b2ae 1,9-32,37,75-76
+packages/core/tests/test_workflow.py
+  5befbb6dc555b2ae 98,102,531
+README.md
+  5befbb6dc555b2ae 57,59,64-68,70,74,76,78-79,82,84,86,101,114,116-118
+apps/api/tests/domain/test_run329_workflow_commit_sha.py
+  5befbb6dc555b2ae 15-17,23-29,254-258,326-330
+apps/api/tests/logic/test_run923_workflow_input_snapshots.py
+  5befbb6dc555b2ae 1-281
+apps/api/tests/logic/test_run380_branch_aware_exec.py
+  ddc8e2eb2a3c7fe6 318-323
+  5befbb6dc555b2ae 19-20,42-48,100-105,122,139,165-170,197-202,225-230,258-263,282-287,354-359,408-413,451-456,494-499,536-541
+apps/api/src/runsight_api/data/filesystem/workflow_repo.py
+  5befbb6dc555b2ae 26,169
+apps/gui/src/features/surface/runInputSchemaPolicy.ts
+  5befbb6dc555b2ae 1-84
+apps/gui/src/features/surface/RunInputsModal.tsx
+  5befbb6dc555b2ae 1-459
+packages/core/src/runsight_core/workflow_input_schema.py
+  5befbb6dc555b2ae 1-80
+packages/core/tests/fixtures/custom/workflows/reusable-release-trace-subflow.yaml
+  5befbb6dc555b2ae 4-10,61,63,148,177,254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "b931eefba7524625e5e4207f68870ae2f560ec57",
+  "prompts": {
+    "5befbb6dc555b2ae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019daf6c-001b-76f0-ac93-55e805d0b451",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 22202,
+      "total_deletions": 3693,
+      "accepted_lines": 22025,
+      "overriden_lines": 0
+    },
+    "ddc8e2eb2a3c7fe6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db103-158d-7bc1-9e22-43333f9227e8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 6,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    },
+    "f56d66e81f9d1ebb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db103-fe84-7ff2-8f02-799e2a22f052",
+        "model": "unknown"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 269,
+      "total_deletions": 52,
+      "accepted_lines": 269,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_218758dbd4c3b8": {
+      "author": "creynir"
+    }
+  }
+}
