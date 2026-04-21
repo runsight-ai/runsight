@@ -399,17 +399,18 @@ def test_context_audit_uses_configured_serializer_payload_when_available() -> No
     assert serializer.calls, "Expected the configured serializer seam to be exercised"
 
 
-def test_context_audit_sink_failure_is_best_effort_nonfatal() -> None:
+def test_context_audit_sink_failure_is_best_effort_after_serializer_delegation() -> None:
     engine = _db_engine()
     run_id = _seed_run(engine)
-    observer = ExecutionObserver(engine=engine, run_id=run_id)
-    event = _context_audit_event(node_id="summarize")
+    serializer = _SerializerDouble('{"event":"context_resolution","source":"serializer"}')
+    observer = _observer_with_audit_serializer(engine, run_id=run_id, serializer=serializer)
 
     with patch(
         "runsight_api.logic.observers.execution_observer.Session",
         _fail_on_session_indices(1),
     ):
-        observer.on_context_resolution(event)
+        observer.on_context_resolution(_ExplodingAuditEvent())
 
     rows = _log_rows(engine, run_id=run_id)
+    assert serializer.calls, "Expected the configured serializer seam to be exercised"
     assert rows == []
