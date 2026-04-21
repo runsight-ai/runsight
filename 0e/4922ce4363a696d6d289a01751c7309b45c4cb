@@ -1,0 +1,23 @@
+apps/api/tests/test_run834_identity_verification.py
+  5befbb6dc555b2ae 259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "0e4922ce4363a696d6d289a01751c7309b45c4cb",
+  "prompts": {
+    "5befbb6dc555b2ae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019daf6c-001b-76f0-ac93-55e805d0b451",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 484,
+      "total_deletions": 1,
+      "accepted_lines": 484,
+      "overriden_lines": 0
+    }
+  }
+}
