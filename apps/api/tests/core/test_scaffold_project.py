@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from runsight_api.core.config import Settings, ensure_project_dirs
 from runsight_api.core.project import MARKER_FILE, scaffold_project
 
 
@@ -191,3 +192,18 @@ class TestScaffoldLogging:
             "Found" in msg or "found" in msg.lower() or "existing" in msg.lower()
             for msg in caplog.messages
         ), "Expected a log message indicating existing project was found"
+
+
+class TestEnsureProjectDirsUsesScaffold:
+    """Application startup should use the same project scaffolding path."""
+
+    def test_startup_scaffolds_marker_gitignore_and_git_repo(self, tmp_path: Path):
+        settings = Settings(base_path=str(tmp_path))
+
+        ensure_project_dirs(settings)
+
+        assert (tmp_path / MARKER_FILE).is_file()
+        assert (tmp_path / ".gitignore").is_file()
+        assert (tmp_path / ".git").is_dir()
+        assert (tmp_path / "custom" / "workflows" / ".canvas").is_dir()
+        assert (tmp_path / ".runsight").is_dir()

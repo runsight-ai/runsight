@@ -7,6 +7,7 @@ import { useProviders } from "@/queries/settings";
 import { useCanvasStore } from "@/store/canvas";
 import { gitApi } from "@/api/git";
 import { Play, X, Key } from "lucide-react";
+import { toast } from "sonner";
 
 interface RunButtonProps {
   workflowId: string;
@@ -49,35 +50,71 @@ export function RunButton({ workflowId, isCommitted = true, onAddApiKey }: RunBu
   const isPending = createRun.isPending || cancelRun.isPending;
   const shouldRunOnSimulation = isDirty || !isCommitted;
 
+  function startManualRun() {
+    createRun.mutate(
+      { workflow_id: workflowId, inputs: {}, source: "manual", branch: "main" },
+      {
+        onSuccess: (result) => {
+          setActiveRunId(result.id);
+          navigate(`/runs/${result.id}`);
+        },
+      },
+    );
+  }
+
+  function startSimulationRun(branch: string) {
+    createRun.mutate(
+      {
+        workflow_id: workflowId,
+        inputs: {},
+        source: "simulation",
+        branch,
+      },
+      {
+        onSuccess: (result) => {
+          setActiveRunId(result.id);
+          navigate(`/runs/${result.id}`);
+        },
+      },
+    );
+  }
+
+  function isMissingGitRepo(error: unknown) {
+    return error instanceof Error && /not a git repository/i.test(error.message);
+  }
+
   async function handleClick() {
     if (isRunning) {
       cancelRun.mutate(activeRunId);
-    } else if (shouldRunOnSimulation) {
+      return;
+    }
+
+    if (!shouldRunOnSimulation) {
+      startManualRun();
+      return;
+    }
+
+    try {
+      await gitApi.getStatus();
+    } catch (error) {
+      if (isMissingGitRepo(error)) {
+        startManualRun();
+        return;
+      }
+
+      toast.error("Failed to prepare run", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+      return;
+    }
+
+    try {
       const simResult = await gitApi.createSimBranch(workflowId, yamlContent);
-      createRun.mutate(
-        {
-          workflow_id: workflowId,
-          inputs: {},
-          source: "simulation",
-          branch: simResult.branch,
-        },
-        {
-          onSuccess: (result) => {
-            setActiveRunId(result.id);
-            navigate(`/runs/${result.id}`);
-          },
-        },
-      );
-    } else {
-      createRun.mutate(
-        { workflow_id: workflowId, inputs: {}, source: "manual", branch: "main" },
-        {
-          onSuccess: (result) => {
-            setActiveRunId(result.id);
-            navigate(`/runs/${result.id}`);
-          },
-        },
-      );
+      startSimulationRun(simResult.branch);
+    } catch (error) {
+      toast.error("Failed to prepare simulation run", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 

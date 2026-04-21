@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 from textwrap import dedent
 from unittest.mock import Mock
 
@@ -9,7 +10,7 @@ import pytest
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
-from runsight_api.domain.errors import InputValidationError
+from runsight_api.domain.errors import GitError, InputValidationError
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.provider_service import ProviderService
 from runsight_api.logic.services.run_service import RunService
@@ -295,3 +296,30 @@ def test_workflow_service_create_simulation_rejects_mutated_workflow_id() -> Non
         service.create_simulation("research-review", yaml_text)
 
     git_service.create_sim_branch.assert_not_called()
+
+
+def test_workflow_service_create_simulation_requires_git_repository() -> None:
+    workflow_repo = Mock()
+    run_repo = Mock()
+    service = WorkflowService(workflow_repo, run_repo, git_service=None)
+    yaml_text = _workflow_yaml(workflow_id="research-review", workflow_name="Research Review")
+
+    with pytest.raises(GitError, match="Simulation runs require a git repository"):
+        service.create_simulation("research-review", yaml_text)
+
+
+def test_workflow_service_create_simulation_translates_non_git_repo_error() -> None:
+    workflow_repo = Mock()
+    run_repo = Mock()
+    git_service = Mock()
+    git_service.create_sim_branch.side_effect = subprocess.CalledProcessError(
+        128,
+        ["git", "rev-parse", "HEAD"],
+        stderr="fatal: not a git repository (or any of the parent directories): .git",
+    )
+
+    service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    yaml_text = _workflow_yaml(workflow_id="research-review", workflow_name="Research Review")
+
+    with pytest.raises(GitError, match="Simulation runs require a git repository"):
+        service.create_simulation("research-review", yaml_text)

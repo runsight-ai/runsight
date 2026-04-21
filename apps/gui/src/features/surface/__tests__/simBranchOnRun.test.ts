@@ -37,9 +37,11 @@ const mocks = vi.hoisted(() => {
 
   return {
     buttonProps: [] as Array<{ onClick?: () => Promise<void> | void }>,
+    getGitStatus: vi.fn(),
     createSimulationSnapshot: vi.fn(),
     createRunMutate: vi.fn(),
     cancelRunMutate: vi.fn(),
+    toastError: vi.fn(),
     persistedCanvasState,
     state,
     useCanvasStore,
@@ -94,12 +96,19 @@ vi.mock("@/store/canvas", () => ({
 
 vi.mock("@/api/git", () => ({
   gitApi: {
+    getStatus: mocks.getGitStatus,
     createSimBranch: mocks.createSimulationSnapshot,
   },
 }));
 
 vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: mocks.toastError,
+  },
 }));
 
 import { RunButton } from "../RunButton";
@@ -122,9 +131,16 @@ beforeEach(() => {
   mocks.state.yamlContent = "workflow:\n  name: Test Flow\n";
   mocks.state.toPersistedState.mockReset();
   mocks.state.toPersistedState.mockReturnValue(mocks.persistedCanvasState);
+  mocks.getGitStatus.mockReset();
+  mocks.getGitStatus.mockResolvedValue({
+    branch: "main",
+    is_clean: true,
+    uncommitted_files: [],
+  });
   mocks.createSimulationSnapshot.mockReset();
   mocks.createRunMutate.mockReset();
   mocks.cancelRunMutate.mockReset();
+  mocks.toastError.mockReset();
 });
 
 describe("RunButton simulation behavior (RUN-423)", () => {
@@ -176,5 +192,38 @@ describe("RunButton simulation behavior (RUN-423)", () => {
       },
       { onSuccess: expect.any(Function) },
     );
+  });
+
+  it("falls back to a manual run when the workspace is not a git repository", async () => {
+    mocks.state.isDirty = true;
+    mocks.getGitStatus.mockRejectedValue(new Error("Not a git repository"));
+
+    const click = renderButton("wf_local_only");
+    await click();
+
+    expect(mocks.createSimulationSnapshot).not.toHaveBeenCalled();
+    expect(mocks.createRunMutate).toHaveBeenCalledWith(
+      {
+        workflow_id: "wf_local_only",
+        inputs: {},
+        source: "manual",
+        branch: "main",
+      },
+      { onSuccess: expect.any(Function) },
+    );
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("shows a toast when simulation snapshot creation fails", async () => {
+    mocks.state.isDirty = true;
+    mocks.createSimulationSnapshot.mockRejectedValue(new Error("Simulation runs require a git repository"));
+
+    const click = renderButton("wf_sim_fail");
+    await click();
+
+    expect(mocks.createRunMutate).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith("Failed to prepare simulation run", {
+      description: "Simulation runs require a git repository",
+    });
   });
 });

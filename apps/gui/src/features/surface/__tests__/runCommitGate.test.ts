@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     buttonProps: [] as Array<{ onClick?: () => Promise<void> | void }>,
+    getGitStatus: vi.fn(),
     createSimulationSnapshot: vi.fn(),
     createRunMutate: vi.fn(),
     cancelRunMutate: vi.fn(),
@@ -92,6 +93,7 @@ vi.mock("@/store/canvas", () => ({
 
 vi.mock("@/api/git", () => ({
   gitApi: {
+    getStatus: mocks.getGitStatus,
     createSimBranch: mocks.createSimulationSnapshot,
   },
 }));
@@ -133,6 +135,12 @@ beforeEach(() => {
   mocks.state.blockCount = 1;
   mocks.state.isDirty = false;
   mocks.state.yamlContent = "workflow:\n  name: Test Flow\n";
+  mocks.getGitStatus.mockReset();
+  mocks.getGitStatus.mockResolvedValue({
+    branch: "main",
+    is_clean: true,
+    uncommitted_files: [],
+  });
   mocks.createSimulationSnapshot.mockReset();
   mocks.createRunMutate.mockReset();
   mocks.cancelRunMutate.mockReset();

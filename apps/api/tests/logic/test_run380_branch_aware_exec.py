@@ -9,6 +9,7 @@ ExecutionService.launch_execution must:
 """
 
 import asyncio
+import subprocess
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -255,6 +256,36 @@ class TestMainBranchReadsViaGit:
             yaml_arg = mock_parse.call_args[0][0]
             assert yaml_arg == VALID_YAML
             assert yaml_arg != workflow_repo.get_by_id.return_value.yaml
+
+
+class TestGitFallbacks:
+    """Fallback behavior when git snapshots are unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_non_git_repo_falls_back_to_working_tree_yaml(self):
+        """Missing git repo should still run the working-tree workflow definition."""
+        svc, _, workflow_repo, _, git_service = _make_service()
+        working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        workflow_repo.get_by_id.return_value.yaml = working_tree_yaml
+        git_service.read_file.side_effect = subprocess.CalledProcessError(
+            128,
+            ["git", "show"],
+            stderr="fatal: not a git repository (or any of the parent directories): .git",
+        )
+
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
+            mock_wf = AsyncMock()
+            mock_wf.run = AsyncMock()
+            mock_parse.return_value = mock_wf
+
+            await svc.launch_execution("run_local1", "wf_1", {"instruction": "go"}, branch="main")
+            await asyncio.sleep(0.05)
+
+            mock_parse.assert_called_once()
+            yaml_arg = mock_parse.call_args[0][0]
+            assert yaml_arg == working_tree_yaml
 
 
 # ---------------------------------------------------------------------------

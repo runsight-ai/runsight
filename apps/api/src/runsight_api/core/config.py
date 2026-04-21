@@ -5,7 +5,7 @@ from typing import List
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .project import resolve_base_path
+from .project import resolve_base_path, scaffold_project
 
 _DB_URL_SENTINEL = "__auto__"
 
@@ -55,13 +55,16 @@ class Settings(BaseSettings):
 
 
 def ensure_project_dirs(settings: Settings) -> None:
-    """Ensure the custom/workflows/, .canvas/, and .runsight/ directories exist.
+    """Ensure the project skeleton, .canvas/, and .runsight/ directories exist.
 
     Called once at application startup. Resolves base_path to an absolute
-    path and logs the result.  Creates missing directories as needed.
+    path, scaffolds the project skeleton when needed, and creates remaining
+    runtime directories as needed.
     """
     resolved = Path(settings.base_path).resolve()
     logger.info("Runsight base_path resolved to: %s", resolved)
+    resolved.mkdir(parents=True, exist_ok=True)
+    scaffold_project(resolved)
 
     workflows_dir = resolved / "custom" / "workflows"
     canvas_dir = workflows_dir / ".canvas"
