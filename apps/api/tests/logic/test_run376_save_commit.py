@@ -225,6 +225,28 @@ class TestSoulCreateCommit:
         soul_repo.create.assert_not_called()
         git_service.commit_to_branch.assert_not_called()
 
+    def test_create_soul_detached_head_raises_and_does_not_persist(self, soul_repo, git_service):
+        from runsight_api.logic.services.soul_service import SoulService
+
+        git_service.current_branch.return_value = "HEAD"
+        soul_repo.get_by_id.return_value = None
+        soul_repo.create.return_value = SoulEntity(
+            id="soul_abc123",
+            kind="soul",
+            name="Reviewer",
+            role="Reviewer",
+        )
+
+        svc = SoulService(soul_repo, git_service=git_service)
+
+        with pytest.raises(GitError, match="branch"):
+            svc.create_soul(
+                {"id": "soul_abc123", "kind": "soul", "name": "Reviewer", "role": "Reviewer"}
+            )
+
+        soul_repo.create.assert_not_called()
+        git_service.commit_to_branch.assert_not_called()
+
 
 class TestSoulUpdateCommit:
     """Soul update must be committed with correct message."""
@@ -283,6 +305,22 @@ class TestSoulUpdateCommit:
         soul_repo.update.assert_not_called()
         git_service.commit_to_branch.assert_not_called()
 
+    def test_update_soul_detached_head_raises_and_does_not_persist(self, soul_repo, git_service):
+        from runsight_api.logic.services.soul_service import SoulService
+
+        git_service.current_branch.return_value = "HEAD"
+        existing = SoulEntity(id="soul_x", kind="soul", name="Old", role="Old")
+        soul_repo.get_by_id.return_value = existing
+        soul_repo.update.return_value = SoulEntity(id="soul_x", kind="soul", name="New", role="New")
+
+        svc = SoulService(soul_repo, git_service=git_service)
+
+        with pytest.raises(GitError, match="branch"):
+            svc.update_soul("soul_x", {"role": "New"})
+
+        soul_repo.update.assert_not_called()
+        git_service.commit_to_branch.assert_not_called()
+
 
 class TestSoulDeleteCommit:
     """Soul deletion must be committed with correct message."""
@@ -329,6 +367,26 @@ class TestSoulDeleteCommit:
         from runsight_api.logic.services.soul_service import SoulService
 
         git_service.current_branch.return_value = None
+        soul_repo.get_by_id.return_value = SoulEntity(
+            id="soul_gone",
+            kind="soul",
+            name="Gone",
+            role="Gone",
+        )
+        soul_repo.delete.return_value = True
+
+        svc = SoulService(soul_repo, git_service=git_service)
+
+        with pytest.raises(GitError, match="branch"):
+            svc.delete_soul("soul_gone")
+
+        soul_repo.delete.assert_not_called()
+        git_service.commit_to_branch.assert_not_called()
+
+    def test_delete_soul_detached_head_raises_and_does_not_delete(self, soul_repo, git_service):
+        from runsight_api.logic.services.soul_service import SoulService
+
+        git_service.current_branch.return_value = "HEAD"
         soul_repo.get_by_id.return_value = SoulEntity(
             id="soul_gone",
             kind="soul",
