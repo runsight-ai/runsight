@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../utils/helpers"
@@ -54,16 +54,59 @@ export function CodeBlock({
   ...props
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
+  const codeContentRef = useRef<HTMLElement | null>(null)
+  const copiedResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function handleCopy() {
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimeoutRef.current !== null) {
+        clearTimeout(copiedResetTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  function clearCopiedState() {
+    if (copiedResetTimeoutRef.current !== null) {
+      clearTimeout(copiedResetTimeoutRef.current)
+      copiedResetTimeoutRef.current = null
+    }
+
+    setCopied(false)
+  }
+
+  function scheduleCopiedReset() {
+    if (copiedResetTimeoutRef.current !== null) {
+      clearTimeout(copiedResetTimeoutRef.current)
+    }
+
+    copiedResetTimeoutRef.current = setTimeout(() => {
+      copiedResetTimeoutRef.current = null
+      setCopied(false)
+    }, 2000)
+  }
+
+  async function handleCopy() {
     const text =
       typeof children === "string"
         ? children
-        : (document.querySelector("[data-slot='code-block-content']")?.textContent ?? "")
-    navigator.clipboard.writeText(text).then(() => {
+        : (codeContentRef.current?.textContent ?? "")
+
+    const writeText =
+      typeof navigator === "undefined" ? undefined : navigator.clipboard?.writeText?.bind(navigator.clipboard)
+
+    if (!writeText) {
+      clearCopiedState()
+      return
+    }
+
+    try {
+      await writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+      scheduleCopiedReset()
+    } catch {
+      // Clipboard access can be unavailable in unsupported or denied contexts.
+      clearCopiedState()
+    }
   }
 
   return (
@@ -111,7 +154,7 @@ export function CodeBlock({
         data-slot="code-block-content"
         className="overflow-x-auto"
       >
-        <code>
+        <code ref={codeContentRef}>
           {numbered && typeof children === "string"
             ? children.split("\n").map((line, i) => (
                 <span
