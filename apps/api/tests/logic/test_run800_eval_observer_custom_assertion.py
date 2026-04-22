@@ -275,9 +275,10 @@ def app_with_real_services(db_engine, base_dir):
 
     mock_secrets = Mock()
     mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    execution_session = Session(db_engine)
 
     execution_service = ExecutionService(
-        run_repo=None,
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
@@ -306,6 +307,7 @@ def app_with_real_services(db_engine, base_dir):
     yield app
 
     app.dependency_overrides.clear()
+    execution_session.close()
 
 
 @pytest.fixture

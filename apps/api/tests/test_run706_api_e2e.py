@@ -199,6 +199,7 @@ def app_with_real_services(db_engine, base_dir):
     The execution service is fully real — only LLM calls are mocked externally.
     """
     from fastapi import FastAPI
+    from sqlmodel import Session
 
     from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
@@ -223,10 +224,11 @@ def app_with_real_services(db_engine, base_dir):
 
     # Real secrets loader — reads sk-fake-test-key-for-e2e from .runsight/secrets.env
     secrets = SecretsEnvLoader(base_path=str(base_dir))
+    execution_session = Session(db_engine)
 
     # Build the real execution service
     execution_service = ExecutionService(
-        run_repo=None,  # not used by launch_execution (uses engine sessions)
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
@@ -256,6 +258,7 @@ def app_with_real_services(db_engine, base_dir):
     yield app
 
     app.dependency_overrides.clear()
+    execution_session.close()
 
 
 # ---------------------------------------------------------------------------

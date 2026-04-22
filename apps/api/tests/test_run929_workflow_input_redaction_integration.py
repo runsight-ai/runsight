@@ -402,8 +402,9 @@ def app_with_real_services(db_engine, base_dir):
     app.include_router(runs.router, prefix="/api")
 
     workflow_repo = WorkflowRepository(str(base_dir))
+    execution_session = Session(db_engine)
     execution_service = ExecutionService(
-        run_repo=None,
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=FileSystemProviderRepo(base_path=str(base_dir)),
         engine=db_engine,
@@ -428,6 +429,7 @@ def app_with_real_services(db_engine, base_dir):
     yield app
 
     app.dependency_overrides.clear()
+    execution_session.close()
 
 
 async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 5.0) -> Run:
@@ -448,7 +450,7 @@ async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 5.0) -> R
 
 async def _collect_stream_events(execution_service: Any, run_id: str) -> list[dict[str, Any]]:
     deadline = asyncio.get_event_loop().time() + 2.0
-    while run_id not in getattr(execution_service, "_observers", {}):
+    while execution_service._streams.get(run_id) is None:
         if asyncio.get_event_loop().time() >= deadline:
             return []
         await asyncio.sleep(0.01)

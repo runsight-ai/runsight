@@ -283,22 +283,26 @@ def execution_service(db_engine, base_dir):
     """Build a real ExecutionService backed by in-memory DB and temp filesystem."""
     from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+    from runsight_api.data.repositories.run_repo import RunRepository
     from runsight_api.logic.services.execution_service import ExecutionService
+    from sqlmodel import Session
 
     workflow_repo = WorkflowRepository(str(base_dir))
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
 
     mock_secrets = Mock()
     mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    execution_session = Session(db_engine)
 
-    return ExecutionService(
-        run_repo=None,
+    yield ExecutionService(
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
         secrets=mock_secrets,
         settings_repo=None,
     )
+    execution_session.close()
 
 
 def _parse_workflow(yaml_content: str):
@@ -315,7 +319,7 @@ async def _wait_for_observer(execution_service, run_id: str, timeout: float = 5.
     """Wait until the observer for run_id is registered."""
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
-        if execution_service.get_observer(run_id) is not None:
+        if execution_service._streams.get(run_id) is not None:
             return
         await asyncio.sleep(0.005)
     raise TimeoutError(f"Observer for {run_id} was never registered")

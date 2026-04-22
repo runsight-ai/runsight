@@ -14,6 +14,7 @@ import json
 import tempfile
 from pathlib import Path
 from threading import Event
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -124,8 +125,9 @@ def _build_app(*, db_engine, base_dir: Path, git_service=None):
     workflow_repo = WorkflowRepository(str(base_dir))
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
     secrets = SecretsEnvLoader(base_path=str(base_dir))
+    execution_session = Session(db_engine)
     execution_service = ExecutionService(
-        run_repo=None,
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
@@ -133,6 +135,7 @@ def _build_app(*, db_engine, base_dir: Path, git_service=None):
         git_service=git_service,
     )
     app.state.execution_service = execution_service
+    app.state.execution_session = execution_session
 
     def _get_run_service():
         session = Session(db_engine)
@@ -154,6 +157,37 @@ def _build_app(*, db_engine, base_dir: Path, git_service=None):
     app.dependency_overrides[get_eval_service] = _get_eval_service
 
     return app, execution_service
+
+
+def test_execution_service_uses_supplied_persistence_repo_without_reconstructing_from_engine(
+    db_engine,
+):
+    run = SimpleNamespace(
+        id="run_ctor",
+        status=RunStatus.pending,
+        branch=None,
+        commit_sha=None,
+        updated_at=None,
+    )
+    updated_runs: list[object] = []
+    supplied_repo = SimpleNamespace(
+        list_runs=lambda: [],
+        get_run=lambda run_id: run if run_id == "run_ctor" else None,
+        update_run=lambda updated: updated_runs.append(updated),
+    )
+
+    service = ExecutionService(
+        run_repo=supplied_repo,
+        workflow_repo=Mock(),
+        provider_repo=Mock(),
+        engine=db_engine,
+    )
+
+    service._store_branch_and_sha("run_ctor", "feature/run958", "abc123")
+
+    assert run.branch == "feature/run958"
+    assert run.commit_sha == "abc123"
+    assert updated_runs == [run]
 
 
 def _parse_sse_events(raw: str) -> list[dict[str, object]]:

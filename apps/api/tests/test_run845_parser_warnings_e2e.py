@@ -238,8 +238,9 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
         provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
         mock_secrets = Mock()
         mock_secrets.resolve = Mock(return_value="sk-fake-run845")
+        execution_session = Session(db_engine)
         execution_service = ExecutionService(
-            run_repo=None,
+            run_repo=RunRepository(execution_session),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=db_engine,
@@ -247,6 +248,7 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
             settings_repo=None,
         )
         app.state.execution_service = execution_service
+        app.state.execution_session = execution_session
 
         def _get_execution_service(request=None):
             return execution_service
@@ -275,6 +277,9 @@ def app_with_execution(db_engine, base_dir):
     app = _build_app(db_engine, base_dir, include_execution=True)
     yield app
     app.dependency_overrides.clear()
+    execution_session = getattr(app.state, "execution_session", None)
+    if execution_session is not None:
+        execution_session.close()
 
 
 @pytest.mark.asyncio
