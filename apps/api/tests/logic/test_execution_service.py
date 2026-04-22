@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
@@ -93,6 +94,10 @@ def _prepared_inputs(inputs):
     )
 
 
+def _run_repo(engine):
+    return RunRepository(Session(engine))
+
+
 # ---------------------------------------------------------------------------
 # 1. ExecutionService instantiation
 # ---------------------------------------------------------------------------
@@ -163,7 +168,6 @@ class TestLaunchExecution:
                 "run_1",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
             # Task should be tracked
@@ -211,7 +215,6 @@ class TestLaunchExecution:
                 "run_2",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
 
             # The method returned but workflow hasn't completed
@@ -362,7 +365,6 @@ class TestAutoCleanup:
                 "run_cleanup",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
 
             # Wait for background task to finish and cleanup callback to fire
@@ -412,7 +414,6 @@ class TestLaunchExecutionErrors:
             "run_err1",
             "wf_bad",
             _prepared_inputs({"instruction": "test"}),
-            branch="main",
         )
 
         # Wait for background task to fail
@@ -447,7 +448,7 @@ class TestLaunchExecutionErrors:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -499,7 +500,6 @@ config: {}
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -539,7 +539,6 @@ config: {}
             "run_prefail",
             "wf_missing",
             _prepared_inputs({"instruction": "x"}),
-            branch="main",
         )
         await asyncio.sleep(0.05)
 
@@ -576,7 +575,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -613,7 +612,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
@@ -644,7 +642,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -682,7 +680,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -712,7 +709,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -748,7 +745,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -813,7 +809,6 @@ config: {}
                 "run_code_only",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_not_called()
@@ -869,7 +864,6 @@ config: {}
                 "run_missing_model",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_called_once()
@@ -928,7 +922,6 @@ config: {}
                 "run_missing_model_name",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_called_once()

@@ -16,7 +16,7 @@ These tests exercise that full path with:
 import asyncio
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -130,6 +130,15 @@ def _write_secrets_file(base_dir: Path) -> None:
     )
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
+        encoding="utf-8"
+    )
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "6" * 40
+    return git_service
+
+
 def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: int = 100):
     """Build a dict matching LiteLLMClient.achat return shape."""
     return {
@@ -224,6 +233,7 @@ def app_with_real_services(db_engine, base_dir):
 
     # Real secrets loader — reads sk-fake-test-key-for-e2e from .runsight/secrets.env
     secrets = SecretsEnvLoader(base_path=str(base_dir))
+    git_service = _git_service_for(base_dir)
     execution_session = Session(db_engine)
 
     # Build the real execution service
@@ -233,6 +243,7 @@ def app_with_real_services(db_engine, base_dir):
         provider_repo=provider_repo,
         engine=db_engine,
         secrets=secrets,
+        git_service=git_service,
         settings_repo=None,
     )
     app.state.execution_service = execution_service

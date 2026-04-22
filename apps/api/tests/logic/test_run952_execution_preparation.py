@@ -116,6 +116,10 @@ def _cancel_run(engine, run_id: str) -> None:
         session.close()
 
 
+def _run_repo(engine):
+    return RunRepository(Session(engine))
+
+
 class TestRequestedSnapshotSourceOfTruth:
     @pytest.mark.asyncio
     async def test_launch_execution_keeps_parse_registry_and_commit_sha_bound_to_same_requested_snapshot(
@@ -149,7 +153,7 @@ class TestRequestedSnapshotSourceOfTruth:
         git_service.get_sha.return_value = requested_sha
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -213,7 +217,7 @@ class TestRequestedSnapshotSourceOfTruth:
         git_service.get_sha.return_value = None
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -249,8 +253,10 @@ class TestRequestedSnapshotSourceOfTruth:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("branch", ["feature/sim", "main"])
     async def test_launch_execution_fails_closed_when_git_snapshot_read_hits_old_fallback_error(
         self,
+        branch: str,
     ):
         """Fallback-eligible git snapshot read errors must still fail closed."""
 
@@ -271,7 +277,7 @@ class TestRequestedSnapshotSourceOfTruth:
         )
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -290,13 +296,53 @@ class TestRequestedSnapshotSourceOfTruth:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "require git snapshot"}),
-                branch="feature/sim",
+                branch=branch,
             )
             await asyncio.sleep(0)
 
         assert run_workflow.await_count == 0, (
             "launch_execution must fail instead of silently degrading to the working tree "
             "when the requested git snapshot cannot be read."
+        )
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_explicit_main_snapshot_requires_git_service(self):
+        engine = _db_engine()
+        run_id = "run_952_main_snapshot_requires_git"
+        _seed_run(engine, run_id)
+
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = Mock(yaml=BRANCH_ONLY_YAML)
+        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        provider_repo = Mock()
+        provider_repo.list_all.return_value = [_provider()]
+
+        service = ExecutionService(
+            run_repo=_run_repo(engine),
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            engine=engine,
+        )
+
+        run_workflow = AsyncMock()
+        with (
+            patch(
+                "runsight_api.logic.services.execution_service.parse_workflow_yaml",
+                return_value=Mock(),
+            ),
+            patch.object(service, "_run_workflow", run_workflow),
+        ):
+            await service.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "require explicit main snapshot"}),
+                branch="main",
+            )
+            await asyncio.sleep(0)
+
+        assert run_workflow.await_count == 0, (
+            "An explicit branch='main' request must still be treated as a git snapshot request "
+            "and fail closed when git_service is unavailable."
         )
 
 
@@ -338,7 +384,7 @@ class TestPrepareTimeCancellation:
         git_service.get_sha.return_value = "b" * 40
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -413,7 +459,7 @@ class TestPrepareTimeCancellation:
         git_service.get_sha.return_value = "c" * 40
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -485,7 +531,7 @@ class TestPrepareTimeCancellation:
         git_service.read_file.side_effect = blocked_read_file
 
         service = ExecutionService(
-            run_repo=Mock(),
+            run_repo=_run_repo(engine),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=engine,
@@ -529,7 +575,7 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
     provider_repo.list_all.return_value = [_provider()]
 
     service = ExecutionService(
-        run_repo=Mock(),
+        run_repo=_run_repo(engine),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=engine,
@@ -549,7 +595,6 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
             run_id,
             "wf_1",
             _prepared_inputs({"instruction": "queued cancel should win"}),
-            branch="main",
         )
         await asyncio.sleep(0)
 

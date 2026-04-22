@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -346,6 +347,44 @@ def _write_secrets_file(base_dir: Path) -> None:
     )
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.repo_path = str(base_dir)
+
+    def _read_file(workflow_path: str, branch: str) -> str:
+        path = Path(workflow_path)
+        if not path.is_absolute():
+            path = base_dir / workflow_path
+        return path.read_text(encoding="utf-8")
+
+    git_service.read_file.side_effect = _read_file
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "9" * 40
+    return git_service
+
+
+def _init_git_repo(base_dir: Path) -> None:
+    subprocess.run(["git", "init", "-b", "main"], cwd=base_dir, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@runsight.dev"],
+        cwd=base_dir,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Runsight Tests"],
+        cwd=base_dir,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "."], cwd=base_dir, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "seed workflows"],
+        cwd=base_dir,
+        check=True,
+        capture_output=True,
+    )
+
+
 @pytest.fixture
 def db_engine():
     engine = create_engine(
@@ -373,6 +412,7 @@ def base_dir():
         _write_workflow_file(base, "run929-conflict-seed", CONFLICT_SEED_WORKFLOW_YAML)
         _write_provider_file(base)
         _write_secrets_file(base)
+        _init_git_repo(base)
         yield base
 
 
@@ -402,6 +442,7 @@ def app_with_real_services(db_engine, base_dir):
     app.include_router(runs.router, prefix="/api")
 
     workflow_repo = WorkflowRepository(str(base_dir))
+    git_service = _git_service_for(base_dir)
     execution_session = Session(db_engine)
     execution_service = ExecutionService(
         run_repo=RunRepository(execution_session),
@@ -409,6 +450,7 @@ def app_with_real_services(db_engine, base_dir):
         provider_repo=FileSystemProviderRepo(base_path=str(base_dir)),
         engine=db_engine,
         secrets=SecretsEnvLoader(base_path=str(base_dir)),
+        git_service=git_service,
         settings_repo=None,
     )
     app.state.execution_service = execution_service

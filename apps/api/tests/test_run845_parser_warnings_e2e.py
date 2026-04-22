@@ -72,6 +72,15 @@ def _write_openai_provider(base_dir: Path) -> None:
     )
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
+        encoding="utf-8"
+    )
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "8" * 40
+    return git_service
+
+
 def _write_corrupt_custom_tool(base_dir: Path, tool_id: str) -> None:
     tools_dir = base_dir / "custom" / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
@@ -238,6 +247,7 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
         provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
         mock_secrets = Mock()
         mock_secrets.resolve = Mock(return_value="sk-fake-run845")
+        git_service = _git_service_for(base_dir)
         execution_session = Session(db_engine)
         execution_service = ExecutionService(
             run_repo=RunRepository(execution_session),
@@ -245,6 +255,7 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
             provider_repo=provider_repo,
             engine=db_engine,
             secrets=mock_secrets,
+            git_service=git_service,
             settings_repo=None,
         )
         app.state.execution_service = execution_service
@@ -337,20 +348,17 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
             "/api/runs",
             json={
                 "workflow_id": workflow_id,
-                "inputs": {},
                 "branch": "main",
+                "inputs": {},
             },
         )
         assert create_run.status_code == 200
         run_data = create_run.json()
         run_id = run_data["id"]
         assert run_data["warnings"] == warnings
-        fake_execution.launch_execution.assert_called_once_with(
-            run_id,
-            workflow_id,
-            prepared,
-            branch="main",
-        )
+        fake_execution.launch_execution.assert_called_once()
+        args = fake_execution.launch_execution.call_args.args
+        assert args[:3] == (run_id, workflow_id, prepared)
 
         run_detail_before_fix = await client.get(f"/api/runs/{run_id}")
         assert run_detail_before_fix.status_code == 200
@@ -412,8 +420,8 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
                 "/api/runs",
                 json={
                     "workflow_id": workflow_id,
-                    "inputs": {},
                     "branch": "main",
+                    "inputs": {},
                 },
             )
 

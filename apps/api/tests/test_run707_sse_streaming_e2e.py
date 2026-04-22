@@ -191,6 +191,15 @@ def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: in
     }
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
+        encoding="utf-8"
+    )
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "7" * 40
+    return git_service
+
+
 def _seed_run(engine, run_id: str, workflow_name: str) -> None:
     with Session(engine) as session:
         session.add(
@@ -289,6 +298,7 @@ def execution_service(db_engine, base_dir):
 
     workflow_repo = WorkflowRepository(str(base_dir))
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
+    git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
     mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
@@ -300,6 +310,7 @@ def execution_service(db_engine, base_dir):
         provider_repo=provider_repo,
         engine=db_engine,
         secrets=mock_secrets,
+        git_service=git_service,
         settings_repo=None,
     )
     execution_session.close()
