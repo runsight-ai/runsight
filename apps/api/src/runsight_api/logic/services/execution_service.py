@@ -2,7 +2,6 @@
 
 import copy
 import logging
-import subprocess
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, Optional
@@ -17,7 +16,7 @@ import yaml
 
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
-from ...domain.errors import InputValidationError, ServiceUnavailable, WorkflowNotFound
+from ...domain.errors import InputValidationError, WorkflowNotFound
 from .execution_persistence import ExecutionRunStore
 from .execution_preparation import (
     ExecutionPreparationService,
@@ -412,20 +411,6 @@ class ExecutionService:
     def _get_workflow_commit_sha(workflow_path: str) -> Optional[str]:
         return get_workflow_commit_sha(workflow_path)
 
-    @staticmethod
-    def _can_fallback_to_working_tree(error: Exception) -> bool:
-        if isinstance(error, ServiceUnavailable):
-            return True
-        if not isinstance(error, subprocess.CalledProcessError):
-            return False
-
-        detail = (error.stderr or "").lower()
-        return (
-            "not a git repository" in detail
-            or "ambiguous argument 'head'" in detail
-            or "needed a single revision" in detail
-        )
-
     async def launch_execution(
         self,
         run_id: str,
@@ -444,7 +429,6 @@ class ExecutionService:
                 parser=parse_workflow_yaml,
                 prepare_runtime_workflow=self._prepare_runtime_workflow,
                 get_workflow_commit_sha=self._get_workflow_commit_sha,
-                can_fallback_to_working_tree=self._can_fallback_to_working_tree,
             )
             self._store_branch_and_sha(run_id, branch, prepared.commit_sha)
             if self._is_run_cancelled(run_id):
@@ -470,19 +454,9 @@ class ExecutionService:
     ) -> PreparedRunInputs:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
-        yaml_content: str | None = None
         if self.git_service:
-            try:
-                yaml_content = self.git_service.read_file(workflow_path, branch)
-            except Exception as exc:
-                if not self._can_fallback_to_working_tree(exc):
-                    raise
-                logger.warning(
-                    "Git workflow snapshot unavailable; falling back to working tree YAML",
-                    extra={"workflow_id": workflow_id, "branch": branch},
-                    exc_info=True,
-                )
-        if yaml_content is None:
+            yaml_content = self.git_service.read_file(workflow_path, branch)
+        else:
             if wf_entity is None:
                 raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
             yaml_content = wf_entity.yaml
