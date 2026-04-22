@@ -56,3 +56,13 @@ def test_completed_stream_marker_still_allows_immediate_terminal_shutdown() -> N
     observed = asyncio.run(_drain_completed_subscription(registry, run_id))
 
     assert observed == []
+
+
+def test_subscribe_timeout_cleans_placeholder_ready_event() -> None:
+    registry = ExecutionStreamRegistry()
+    registry.OBSERVER_REGISTRATION_TIMEOUT_S = 0.01
+
+    observed = asyncio.run(_drain_completed_subscription(registry, "run_never_registered"))
+
+    assert observed == []
+    assert "run_never_registered" not in registry._observer_events

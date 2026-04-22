@@ -295,6 +295,26 @@ def test_patch_round_trips_comments_and_embedded_id(tmp_path: Path) -> None:
     assert "enabled: true" in saved_yaml.lower()
 
 
+def test_patch_rejects_existing_yaml_with_mismatched_embedded_id(tmp_path: Path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+    workflow_path = repo._get_path("parent")
+    workflow_path.write_text(
+        _workflow_yaml(workflow_id="child", workflow_name="Child"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        InputValidationError,
+        match="embedded id 'child' does not match filename stem 'parent'",
+    ):
+        repo.patch_yaml_field("parent", "enabled", True)
+
+    assert workflow_path.read_text(encoding="utf-8") == _workflow_yaml(
+        workflow_id="child",
+        workflow_name="Child",
+    )
+
+
 @pytest.mark.parametrize("operation", ["create", "update"])
 def test_canvas_sidecar_write_failure_rolls_back_yaml_and_fails_the_save(
     tmp_path: Path,

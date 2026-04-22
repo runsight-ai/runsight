@@ -124,15 +124,23 @@ function SurfaceBottomPanelContent({
     let commitSha = workflow.commit_sha;
 
     if (shouldRunOnSimulation) {
-      const decision = await resolveRunInputSchemaDecision({
-        workflow: {
-          id: workflow.id,
-          input_schema: workflow.input_schema,
-        },
-        isDirty: true,
-        yamlContent,
-        prepareSimulation: gitApi.createSimBranch,
-      });
+      let decision;
+      try {
+        decision = await resolveRunInputSchemaDecision({
+          workflow: {
+            id: workflow.id,
+            input_schema: workflow.input_schema,
+          },
+          isDirty: true,
+          yamlContent,
+          prepareSimulation: gitApi.createSimBranch,
+        });
+      } catch (error) {
+        const description =
+          error instanceof Error ? error.message : "Failed to prepare simulation snapshot.";
+        toast.error("Unable to start run", { description });
+        return;
+      }
 
       if (decision.kind === "blocked") {
         toast.error("Unable to start run", { description: decision.error.message });

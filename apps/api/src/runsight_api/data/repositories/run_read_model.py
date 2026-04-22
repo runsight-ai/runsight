@@ -106,7 +106,11 @@ class RunReadModel:
         """
         runs_stmt = (
             select(Run)
-            .where(Run.workflow_id == workflow_id, Run.source != "simulation")
+            .where(
+                Run.workflow_id == workflow_id,
+                Run.source != "simulation",
+                Run.deleted_at.is_(None),
+            )
             .order_by(Run.created_at.asc())
         )
         runs = list(self.session.exec(runs_stmt).all())
@@ -155,7 +159,11 @@ class RunReadModel:
                 func.count(Run.id).label("run_count"),
                 func.coalesce(func.sum(Run.total_cost_usd), 0.0).label("total_cost_usd"),
             )
-            .where(Run.workflow_id.in_(workflow_ids), Run.source != "simulation")
+            .where(
+                Run.workflow_id.in_(workflow_ids),
+                Run.source != "simulation",
+                Run.deleted_at.is_(None),
+            )
             .group_by(Run.workflow_id)
             .subquery()
         )
@@ -173,7 +181,11 @@ class RunReadModel:
             )
             .select_from(Run)
             .join(RunNode, RunNode.run_id == Run.id, isouter=True)
-            .where(Run.workflow_id.in_(workflow_ids), Run.source != "simulation")
+            .where(
+                Run.workflow_id.in_(workflow_ids),
+                Run.source != "simulation",
+                Run.deleted_at.is_(None),
+            )
             .group_by(Run.workflow_id)
             .subquery()
         )
@@ -213,7 +225,11 @@ class RunReadModel:
 
         runs_stmt = (
             select(Run)
-            .where(Run.workflow_id.in_(workflow_ids), Run.source != "simulation")
+            .where(
+                Run.workflow_id.in_(workflow_ids),
+                Run.source != "simulation",
+                Run.deleted_at.is_(None),
+            )
             .order_by(Run.workflow_id, Run.created_at.asc())
         )
         all_runs = list(self.session.exec(runs_stmt).all())

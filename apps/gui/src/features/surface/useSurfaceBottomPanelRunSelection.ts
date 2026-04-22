@@ -29,13 +29,23 @@ export function useSurfaceBottomPanelRunSelection({
   }, [runsData?.items]);
 
   useEffect(() => {
-    const fallbackRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-    if (fallbackRunId && fallbackRunId !== selectedRunId) {
+    setSelectedRunId(initialRunId);
+  }, [initialRunId, workflowId]);
+
+  const hasSelectedRun = useMemo(
+    () => (selectedRunId ? sortedRuns.some((run) => run.id === selectedRunId) : false),
+    [selectedRunId, sortedRuns],
+  );
+
+  useEffect(() => {
+    const fallbackRunId = activeRunId ?? (hasSelectedRun ? selectedRunId : undefined) ?? initialRunId ?? sortedRuns[0]?.id;
+    if (fallbackRunId !== selectedRunId) {
       setSelectedRunId(fallbackRunId);
     }
-  }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
+  }, [activeRunId, hasSelectedRun, initialRunId, selectedRunId, sortedRuns]);
 
-  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
+  const currentRunId =
+    activeRunId ?? (hasSelectedRun ? selectedRunId : undefined) ?? initialRunId ?? sortedRuns[0]?.id;
 
   const selectRun = (runId: string) => {
     setSelectedRunId(runId);

@@ -37,3 +37,27 @@ def test_fail_ghost_runs_without_engine_uses_run_repo_list_runs() -> None:
     assert pending_run.completed_at is not None
     assert running_run.completed_at is not None
     assert updated_ids == ["run_pending", "run_running"]
+
+
+def test_store_branch_and_sha_without_engine_uses_run_repo_get_and_update() -> None:
+    run = SimpleNamespace(
+        id="run_branch_sha",
+        branch="main",
+        commit_sha=None,
+        updated_at=None,
+    )
+    updated_runs = []
+
+    run_repo = SimpleNamespace(
+        get_run=lambda run_id: run if run_id == "run_branch_sha" else None,
+        update_run=lambda updated_run: updated_runs.append(updated_run),
+    )
+
+    store = ExecutionRunStore(run_repo=run_repo, engine=None)
+
+    store.store_branch_and_sha("run_branch_sha", "feature/review-fix", "abc123def456")
+
+    assert run.branch == "feature/review-fix"
+    assert run.commit_sha == "abc123def456"
+    assert run.updated_at is not None
+    assert updated_runs == [run]

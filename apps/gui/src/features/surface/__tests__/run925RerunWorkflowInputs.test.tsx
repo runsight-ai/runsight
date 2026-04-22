@@ -49,6 +49,7 @@ const harness = vi.hoisted(() => {
     workflows: {} as Record<string, WorkflowRecord>,
     createRunRequest: vi.fn(),
     prepareSimulation: vi.fn(),
+    toastError: vi.fn(),
     navigate: vi.fn(),
     canvasState,
     contextAuditState,
@@ -209,6 +210,12 @@ vi.mock("@/api/git", () => ({
   },
 }));
 
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => harness.toastError(...args),
+  },
+}));
+
 const { SurfaceBottomPanel } = await import("../SurfaceBottomPanel");
 
 const CURRENT_WORKFLOW_ID = "wf_run_925_current";
@@ -329,6 +336,7 @@ beforeEach(() => {
     commit_sha: "simulated-commit-sha",
     input_schema: SIMPLE_WORKFLOW.input_schema,
   });
+  harness.toastError.mockReset();
   harness.navigate.mockReset();
   harness.canvasState.activeRunId = null;
   harness.canvasState.isDirty = false;
@@ -574,6 +582,36 @@ describe("RUN-925 rerun workflow inputs from footer history", () => {
         },
       }),
     );
+  });
+
+  it("shows a toast when simulation preparation throws unexpectedly during rerun", async () => {
+    const user = userEvent.setup();
+    harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
+    harness.canvasState.isDirty = true;
+    harness.prepareSimulation.mockRejectedValueOnce(new Error("git exploded"));
+    harness.runs = [
+      makeRun({
+        workflow_inputs: {
+          query: {
+            type: "string",
+            sensitive: false,
+            source: "provided",
+            value: "refunds",
+          },
+        },
+      }),
+    ];
+
+    renderSurfaceBottomPanel();
+    await openRunsHistory(user);
+    await openRunInputsPanel(user);
+    await user.click(screen.getByRole("button", { name: /rerun/i }));
+
+    await waitFor(() => expect(harness.prepareSimulation).toHaveBeenCalledTimes(1));
+    expect(harness.createRunRequest).not.toHaveBeenCalled();
+    expect(harness.toastError).toHaveBeenCalledWith("Unable to start run", {
+      description: "git exploded",
+    });
   });
 
   it("skips the rerun modal when the dirty simulation snapshot no longer has inputs", async () => {

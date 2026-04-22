@@ -419,7 +419,11 @@ function parseStructuredLogPayload(message: string): Record<string, unknown> | n
 }
 
 function normalizeTimestamp(timestamp: TimestampLike): string {
-  return typeof timestamp === "string" ? timestamp : new Date(timestamp).toISOString();
+  if (typeof timestamp === "string") {
+    return timestamp;
+  }
+  const normalized = Math.abs(timestamp) < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+  return new Date(normalized).toISOString();
 }
 
 function resolveTimestamp(timestamp: unknown): string {

@@ -396,6 +396,7 @@ class ExecutionService:
         )
 
         # Compatibility aliases used directly by existing tests and call sites.
+        self._observers = self._streams._observers
         self._running_tasks = self._runtime.running_tasks
         self._semaphore = self._runtime.semaphore
 

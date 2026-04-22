@@ -16,10 +16,14 @@ def read_canvas_sidecar(path: Path) -> Optional[dict[str, Any]]:
         return None
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
     except Exception as exc:
         logger.warning("Failed to read canvas sidecar %s: %s", path, exc)
         return None
+    if not isinstance(data, dict):
+        logger.warning("Failed to read canvas sidecar %s: JSON root must be an object", path)
+        return None
+    return data
 
 
 def write_canvas_sidecar(

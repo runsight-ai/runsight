@@ -27,6 +27,10 @@ def build_runnable_workflow_registry(
         raise ValueError("YAML content is not a mapping")
 
     root_file = RunsightWorkflowFile.model_validate(data)
+    if root_file.id != workflow_id:
+        raise ValueError(
+            f"embedded workflow id {root_file.id!r} does not match requested workflow:{workflow_id}"
+        )
     registry = WorkflowRegistry()
     workflow_index = WorkflowScanner(base_path).scan(git_ref=git_ref, git_service=git_service)
     workflow_results_by_id = {

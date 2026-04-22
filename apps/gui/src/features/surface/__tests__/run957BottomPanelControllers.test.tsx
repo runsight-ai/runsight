@@ -28,7 +28,7 @@ type RunRecord = {
 
 type LogEntry = {
   id?: number;
-  timestamp: string;
+  timestamp: string | number;
   level: string;
   message: string;
 };
@@ -94,8 +94,12 @@ class MockEventSource {
 }
 
 vi.mock("@/queries/runs", () => ({
-  useRuns: () => ({
-    data: { items: harness.runs },
+  useRuns: (filters?: { workflow_id?: string }) => ({
+    data: {
+      items: filters?.workflow_id
+        ? harness.runs.filter((run) => run.workflow_id === filters.workflow_id)
+        : harness.runs,
+    },
     isLoading: false,
     isError: false,
   }),
@@ -177,14 +181,16 @@ function makeRun(
   {
     createdAt,
     runNumber,
+    workflowId = "wf_957",
   }: {
     createdAt: number;
     runNumber: number;
+    workflowId?: string;
   },
 ): RunRecord {
   return {
     id,
-    workflow_id: "wf_957",
+    workflow_id: workflowId,
     workflow_name: "Bottom Panel Workflow",
     status: "completed",
     commit_sha: `${id}_sha`,
@@ -203,12 +209,18 @@ function makeRun(
   };
 }
 
-function renderPanel() {
+function renderPanel({
+  runId = "run_live",
+  workflowId = "wf_957",
+}: {
+  runId?: string;
+  workflowId?: string;
+} = {}) {
   return render(
     <MemoryRouter>
       <SurfaceBottomPanel
-        runId="run_live"
-        workflowId="wf_957"
+        runId={runId}
+        workflowId={workflowId}
         defaultState="expanded"
       />
     </MemoryRouter>,
@@ -271,6 +283,39 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenLastCalledWith("run_other", []);
   });
 
+  it("resets selection when the workflow context switches to a different run set", async () => {
+    harness.runs = [
+      makeRun("run_live", { createdAt: 200, runNumber: 1, workflowId: "wf_957" }),
+      makeRun("run_other", { createdAt: 100, runNumber: 2, workflowId: "wf_957" }),
+      makeRun("run_fresh", { createdAt: 300, runNumber: 1, workflowId: "wf_958" }),
+    ];
+
+    const view = renderPanel({ runId: "run_live", workflowId: "wf_957" });
+
+    await selectRunFromRunsTab("#2");
+    expect(harness.auditCalls.at(-1)).toMatchObject({
+      runId: "run_other",
+      params: { page_size: 100 },
+    });
+
+    view.rerender(
+      <MemoryRouter>
+        <SurfaceBottomPanel
+          runId="run_fresh"
+          workflowId="wf_958"
+          defaultState="expanded"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(harness.auditCalls.at(-1)).toMatchObject({
+      runId: "run_fresh",
+      params: { page_size: 100 },
+    });
+    expect(harness.auditStreamCalls.at(-1)).toBe("run_fresh");
+    expect(eventSources.at(-1)?.url).toBe("/api/runs/run_fresh/stream");
+  });
+
   it("clears run-scoped live log buffers when the selected run changes", async () => {
     renderPanel();
 
@@ -309,6 +354,28 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     act(() => {
       eventSources[0].emit("log_entry", {
         timestamp: "2026-04-22T13:00:00.000Z",
+        level: "info",
+        message: "Node draft started",
+      });
+    });
+
+    expect(screen.getAllByText("Node draft started")).toHaveLength(1);
+  });
+
+  it("normalizes numeric epoch-second log timestamps before deduping live entries", () => {
+    harness.runLogsById.run_live = [
+      {
+        timestamp: 1713790800,
+        level: "info",
+        message: "Node draft started",
+      },
+    ];
+
+    renderPanel();
+
+    act(() => {
+      eventSources[0].emit("log_entry", {
+        timestamp: "2024-04-22T13:00:00.000Z",
         level: "info",
         message: "Node draft started",
       });

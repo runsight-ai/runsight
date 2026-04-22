@@ -491,6 +491,19 @@ class TestObserverRegistry:
 
         assert exec_service.get_observer("run_reg_2") is None
 
+    @pytest.mark.asyncio
+    async def test_execution_service_exposes_observer_registry_compat_alias(self):
+        """Legacy callers that read _observers directly should still see the live registry."""
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        exec_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+
+        assert exec_service._observers is exec_service._streams._observers
+
 
 # ---------------------------------------------------------------------------
 # 9. RUN-410 replay failure logging
@@ -537,3 +550,47 @@ class TestReplayFailureLogging:
         source = SSE_STREAM_PATH.read_text()
 
         assert "except Exception:\n            pass" not in source
+
+    def test_replay_payload_serialization_failure_degrades_to_message_event(self):
+        """Unexpected replay serializer failures should fall back to the raw log message."""
+        from runsight_api.transport.routers import sse_stream
+
+        mock_run_service = Mock()
+        mock_run_service.get_run.return_value = _make_mock_run()
+        mock_log = Mock()
+        mock_log.id = 7
+        mock_log.message = "payload raw"
+        mock_log.timestamp = 1713790800.0
+        mock_run_service.get_run_logs.return_value = [mock_log]
+
+        mock_exec_service = Mock()
+
+        async def _fake_stream(run_id):
+            yield {"event": "run_completed", "data": {"run_id": run_id}}
+
+        mock_exec_service.subscribe_stream = _fake_stream
+
+        app.dependency_overrides[get_run_service] = lambda: mock_run_service
+        app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+        try:
+            with patch.object(
+                sse_stream,
+                "_replay_payload",
+                side_effect=RuntimeError("payload exploded"),
+            ):
+                with patch.object(sse_stream, "logger", create=True) as mock_logger:
+                    with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
+                        body = response.read().decode()
+
+            events = _parse_sse_events(body)
+
+            assert response.status_code == 200
+            assert events[0] == {"event": "replay", "data": {"message": "payload raw"}}
+            assert events[-1]["event"] == "run_completed"
+            mock_logger.warning.assert_any_call(
+                "SSE replay payload serialization failed",
+                exc_info=True,
+            )
+        finally:
+            app.dependency_overrides.clear()

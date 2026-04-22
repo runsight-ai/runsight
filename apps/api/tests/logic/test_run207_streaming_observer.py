@@ -630,3 +630,37 @@ class TestEndToEndEventPipeline:
         event_types = [e["event"] for e in events_before_cleanup]
         assert "run_started" in event_types
         assert "run_completed" in event_types
+
+    @pytest.mark.asyncio
+    async def test_unhandled_runtime_exception_still_closes_stream(self):
+        """Unexpected wf.run() exceptions must still unblock stream subscribers."""
+        svc = _make_service()
+        run_id = "run_e2e_unhandled_close"
+        collected = []
+
+        async def fake_wf_run(state, observer=None, **kwargs):
+            await asyncio.sleep(0.02)
+            raise RuntimeError("unexpected boom")
+
+        mock_wf = Mock()
+        mock_wf.run = fake_wf_run
+
+        async def consume():
+            async for event in svc.subscribe_stream(run_id):
+                collected.append(event)
+
+        exec_task = asyncio.create_task(
+            svc._run_workflow(
+                run_id,
+                mock_wf,
+                _prepared_inputs({"instruction": "test"}),
+            )
+        )
+        await asyncio.sleep(0.005)
+        consumer_task = asyncio.create_task(consume())
+
+        await exec_task
+        await asyncio.wait_for(consumer_task, timeout=1.0)
+
+        assert collected == []
+        assert svc.get_observer(run_id) is None

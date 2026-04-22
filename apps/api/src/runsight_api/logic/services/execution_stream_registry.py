@@ -57,6 +57,7 @@ class ExecutionStreamRegistry:
         if observer is None:
             if run_id in self._completed_streams:
                 return
+            created_ready_event = run_id not in self._observer_events
             ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
             try:
                 await asyncio.wait_for(
@@ -64,11 +65,19 @@ class ExecutionStreamRegistry:
                     timeout=self.OBSERVER_REGISTRATION_TIMEOUT_S,
                 )
             except asyncio.TimeoutError:
+                if (
+                    created_ready_event
+                    and run_id not in self._observers
+                    and run_id not in self._completed_streams
+                ):
+                    self._observer_events.pop(run_id, None)
                 return
             observer = self._observers.get(run_id)
             if observer is None:
                 if run_id in self._completed_streams:
                     return
+                if created_ready_event:
+                    self._observer_events.pop(run_id, None)
                 return
 
         while True:

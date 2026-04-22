@@ -118,6 +118,7 @@ class ExecutionRuntimeCoordinator:
                                 run_id,
                                 input_redactor.redact_text(tb_str),
                             )
+                        self.streams.close_stream(run_id, observer=streaming_obs)
             except asyncio.CancelledError:
                 self.streams.close_stream(run_id, observer=streaming_obs)
                 raise

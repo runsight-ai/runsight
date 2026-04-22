@@ -197,23 +197,38 @@ class ExecutionRunStore:
 
     def store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
         """Persist the branch and canonical commit SHA used for execution."""
-        if self.engine is None:
+        if self.engine is not None:
+            try:
+                from sqlmodel import Session
+
+                from ...domain.entities.run import Run
+
+                with Session(self.engine) as session:
+                    run = session.get(Run, run_id)
+                    if run:
+                        run.branch = branch
+                        run.commit_sha = commit_sha
+                        run.updated_at = time.time()
+                        session.add(run)
+                        session.commit()
+                return
+            except Exception:
+                logger.exception("Failed to store branch/commit_sha for run %s via engine", run_id)
+
+        get_run = getattr(self.run_repo, "get_run", None)
+        update_run = getattr(self.run_repo, "update_run", None)
+        if not callable(get_run) or not callable(update_run):
             return
         try:
-            from sqlmodel import Session
-
-            from ...domain.entities.run import Run
-
-            with Session(self.engine) as session:
-                run = session.get(Run, run_id)
-                if run:
-                    run.branch = branch
-                    run.commit_sha = commit_sha
-                    run.updated_at = time.time()
-                    session.add(run)
-                    session.commit()
+            run = get_run(run_id)
+            if run is None:
+                return
+            run.branch = branch
+            run.commit_sha = commit_sha
+            run.updated_at = time.time()
+            update_run(run)
         except Exception:
-            logger.exception("Failed to store branch/commit_sha for run %s", run_id)
+            logger.exception("Failed to store branch/commit_sha for run %s via run_repo", run_id)
 
     def is_run_cancelled(self, run_id: str) -> bool:
         """Return True when the run has already been cancelled."""

@@ -164,7 +164,7 @@ class WorkflowRepository:
             return
         existing_id = existing_data.get("id")
         if isinstance(existing_id, str) and existing_id != workflow_id:
-            raise ValueError(
+            raise InputValidationError(
                 f"{workflow_id}.yaml: embedded id '{existing_id}' does not match filename stem "
                 f"'{workflow_id}'"
             )
