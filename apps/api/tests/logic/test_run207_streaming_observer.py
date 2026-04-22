@@ -16,6 +16,7 @@ All tests should FAIL until the StreamingObserver is wired in.
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -23,6 +24,7 @@ from runsight_core.state import WorkflowState
 from runsight_core.redaction import RedactionContext
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
+from runsight_api.logic.services.execution_runtime import ExecutionRuntimeCoordinator
 from runsight_api.logic.services.execution_service import (
     ExecutionService,
     PreparedRunInputs,
@@ -31,6 +33,54 @@ from runsight_api.logic.services.execution_service import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_execution_runtime_registers_observers_directly_via_streams() -> None:
+    register_calls: list[str] = []
+    unregister_calls: list[str] = []
+
+    class _Streams:
+        def register(self, run_id, observer):
+            register_calls.append(run_id)
+
+        def unregister(self, run_id):
+            unregister_calls.append(run_id)
+
+        def close_stream(self, run_id, observer=None):
+            return None
+
+    persistence = Mock()
+    persistence.is_run_cancelled.return_value = False
+    persistence.set_status.return_value = True
+    runtime = ExecutionRuntimeCoordinator(engine=None, persistence=persistence, streams=_Streams())
+
+    class _Service:
+        def register_observer(self, run_id, observer):
+            raise AssertionError(
+                "ExecutionRuntimeCoordinator must not use service.register_observer facade"
+            )
+
+        def unregister_observer(self, run_id):
+            raise AssertionError(
+                "ExecutionRuntimeCoordinator must not use service.unregister_observer facade"
+            )
+
+    runtime.service = _Service()
+
+    async def _run(state, observer=None, inputs=None):
+        return state
+
+    workflow = SimpleNamespace(run=_run)
+
+    await runtime.run_workflow(
+        "run_direct_streams",
+        workflow,
+        _prepared_inputs({"instruction": "test"}),
+    )
+
+    assert register_calls == ["run_direct_streams"]
+    assert unregister_calls == ["run_direct_streams"]
 
 
 def _make_service(**overrides):
