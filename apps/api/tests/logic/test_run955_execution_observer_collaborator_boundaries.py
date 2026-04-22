@@ -190,6 +190,30 @@ class _ExplodingAuditEvent:
         raise AssertionError("raw event serialization should not be required here")
 
 
+class _ExplodingExecutionLogSink:
+    def __init__(self):
+        self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def _explode(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        raise RuntimeError("simulated execution-log sink failure")
+
+    def __call__(self, *args, **kwargs):
+        return self._explode(*args, **kwargs)
+
+    def on_block_complete(self, *args, **kwargs):
+        return self._explode(*args, **kwargs)
+
+    def persist_execution_log(self, *args, **kwargs):
+        return self._explode(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        return self._explode(*args, **kwargs)
+
+    def persist(self, *args, **kwargs):
+        return self._explode(*args, **kwargs)
+
+
 def _observer_with_audit_serializer(engine, *, run_id: str, serializer):
     init = inspect.signature(ExecutionObserver.__init__)
     kwargs = {"engine": engine, "run_id": run_id}
@@ -253,6 +277,72 @@ def _observer_with_audit_serializer(engine, *, run_id: str, serializer):
     raise AssertionError(
         "ExecutionObserver must expose a configurable context-audit serializer seam"
     )
+
+
+def _observer_with_execution_log_sink(engine, *, run_id: str, sink):
+    init = inspect.signature(ExecutionObserver.__init__)
+    kwargs = {"engine": engine, "run_id": run_id}
+
+    constructor_names = (
+        "execution_log_sink",
+        "log_sink",
+        "logs",
+        "execution_logs",
+    )
+    for name in constructor_names:
+        if name in init.parameters:
+            kwargs[name] = sink
+            return ExecutionObserver(**kwargs)
+
+    bundle_names = ("components", "collaborators", "persistence", "observer_components")
+    for name in bundle_names:
+        if name in init.parameters:
+            bundle = SimpleNamespace(
+                execution_log_sink=sink,
+                log_sink=sink,
+                logs=sink,
+                execution_logs=sink,
+            )
+            kwargs[name] = bundle
+            return ExecutionObserver(**kwargs)
+
+    observer = ExecutionObserver(**kwargs)
+
+    setter_names = (
+        "set_execution_log_sink",
+        "configure_execution_log_sink",
+        "set_log_sink",
+        "configure_log_sink",
+    )
+    for name in setter_names:
+        setter = getattr(observer, name, None)
+        if callable(setter):
+            setter(sink)
+            return observer
+
+    attr_names = (
+        "execution_log_sink",
+        "_execution_log_sink",
+        "log_sink",
+        "_log_sink",
+        "logs",
+        "execution_logs",
+    )
+    for name in attr_names:
+        if hasattr(observer, name):
+            setattr(observer, name, sink)
+            return observer
+
+    for bundle_name in bundle_names:
+        bundle = getattr(observer, bundle_name, None)
+        if bundle is None:
+            continue
+        for name in attr_names:
+            if hasattr(bundle, name):
+                setattr(bundle, name, sink)
+                return observer
+
+    raise AssertionError("ExecutionObserver must expose a configurable execution-log sink seam")
 
 
 def test_workflow_start_run_write_failure_still_persists_workflow_start_log() -> None:
@@ -384,6 +474,25 @@ def test_workflow_error_run_write_failure_still_persists_terminal_log(
     messages = _event_messages(rows)
     assert any(message.get("event") == "workflow_error" for message in messages)
     assert any(row.level == expected_level for row in rows)
+
+
+def test_block_complete_lifecycle_write_survives_execution_log_sink_failure() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    _seed_running_node(engine, run_id=run_id)
+    sink = _ExplodingExecutionLogSink()
+    observer = _observer_with_execution_log_sink(engine, run_id=run_id, sink=sink)
+    state = _state_with_incremental_log()
+
+    observer.on_block_complete("wf_955", "call_child", "workflow", 1.5, state)
+
+    with Session(engine) as session:
+        node = session.get(RunNode, f"{run_id}:call_child")
+        assert node is not None
+        assert node.status == NodeStatus.completed
+        assert node.output == "child completed"
+
+    assert sink.calls, "Expected the configured execution-log sink seam to be exercised"
 
 
 def test_context_audit_uses_configured_serializer_payload_when_available() -> None:
