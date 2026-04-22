@@ -1,4 +1,3 @@
-import inspect as _inspect
 import logging
 from typing import List, Optional
 
@@ -13,7 +12,7 @@ from ...domain.errors import (
     ServiceUnavailable,
 )
 from ...logic.services.eval_service import EvalService
-from ...logic.services.execution_service import ExecutionService, PreparedRunInputs
+from ...logic.services.execution_service import ExecutionService
 from ...logic.services.run_service import RunService
 from ..context_audit import (
     context_audit_sort_key,
@@ -34,7 +33,6 @@ from ..schemas.runs import (
 )
 
 logger = logging.getLogger(__name__)
-inspect = _inspect
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
@@ -169,16 +167,11 @@ def _build_run_response(
 
 
 def _refresh_launch_run(run_service: RunService, run):
-    """Read the post-launch run state when the service exposes a real repository-backed run."""
-    if not isinstance(run_service, RunService):
-        return run
-
+    """Read post-launch run state from the canonical run service contract."""
     latest = run_service.refresh_run(run.id)
-    if latest is None or getattr(latest, "id", None) != run.id:
+    if latest is None:
         return run
-
-    status = getattr(latest, "status", None)
-    return latest if isinstance(status, RunStatus | str) else run
+    return latest
 
 
 @router.post(
@@ -197,15 +190,7 @@ async def create_run(
     if execution_service is None:
         raise ServiceUnavailable("Execution runtime is unavailable")
 
-    prepare_run_inputs = getattr(execution_service, "prepare_run_inputs", None)
-    if not callable(prepare_run_inputs):
-        raise TypeError("Execution service must expose callable prepare_run_inputs")
-
-    prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
-    if inspect.isawaitable(prepared):
-        prepared = await prepared
-    if not isinstance(prepared, PreparedRunInputs):
-        raise TypeError("prepare_run_inputs must return PreparedRunInputs")
+    prepared = execution_service.prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
     run = run_service.create_run(
         body.workflow_id,
         prepared,

@@ -56,6 +56,7 @@ class TestPostRunsTriggersExecution:
         mock_run_service = Mock()
         mock_run = _make_mock_run("run_exec_1")
         mock_run_service.create_run.return_value = mock_run
+        mock_run_service.refresh_run.return_value = mock_run
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
 
@@ -96,6 +97,7 @@ class TestPostRunsTriggersExecution:
         mock_run_service = Mock()
         mock_run = _make_mock_run("run_pending_1")
         mock_run_service.create_run.return_value = mock_run
+        mock_run_service.refresh_run.return_value = mock_run
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
 

@@ -179,7 +179,7 @@ def test_post_runs_passes_inputs_to_service():
     mock_run_svc.refresh_run.return_value = mock_run
 
     payload = {"instruction": "test run"}
-    mock_exec_svc = AsyncMock()
+    mock_exec_svc = Mock()
     prepared = _prepared_inputs(payload)
     mock_exec_svc.prepare_run_inputs.return_value = prepared
     mock_exec_svc.launch_execution = AsyncMock()

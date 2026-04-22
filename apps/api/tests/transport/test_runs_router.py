@@ -355,6 +355,7 @@ def test_runs_post():
         }
     ]
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -379,6 +380,7 @@ def test_runs_post_passes_source_and_branch_to_services():
     mock_run = _make_mock_run("run_branch_source", branch=TEST_BRANCH)
     mock_run.source = "simulation"
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -413,13 +415,12 @@ def test_runs_post_passes_source_and_branch_to_services():
     app.dependency_overrides.clear()
 
 
-def test_runs_post_rejects_missing_branch():
-    """POST /api/runs must reject requests that omit branch."""
+def test_runs_post_allows_omitted_branch_and_persists_main():
+    """POST /api/runs should use the working tree when branch is omitted."""
     mock_service = Mock()
-    mock_service.create_run.return_value = _make_mock_run(
-        "run_missing_branch",
-        branch=TEST_BRANCH,
-    )
+    mock_run = _make_mock_run("run_missing_branch", branch="main")
+    mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -432,9 +433,24 @@ def test_runs_post_rejects_missing_branch():
         json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
     )
 
-    assert response.status_code == 422
-    mock_service.create_run.assert_not_called()
-    mock_exec_service.launch_execution.assert_not_called()
+    assert response.status_code == 200
+    mock_exec_service.prepare_run_inputs.assert_called_once_with(
+        "wf_1",
+        {"instruction": "go"},
+        branch=None,
+    )
+    mock_service.create_run.assert_called_once_with(
+        "wf_1",
+        prepared,
+        branch="main",
+        source="manual",
+    )
+    mock_exec_service.launch_execution.assert_awaited_once_with(
+        "run_missing_branch",
+        "wf_1",
+        prepared,
+        branch=None,
+    )
     app.dependency_overrides.clear()
 
 
@@ -492,6 +508,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     mock_run = _make_mock_run("run_sim", branch=TEST_BRANCH)
     mock_run.source = "simulation"
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
 
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})
