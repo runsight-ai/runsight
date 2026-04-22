@@ -282,6 +282,25 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     expect(screen.getAllByText("Node draft started")).toHaveLength(1);
   });
 
+  it("shows the existing no-log empty state after switching to a run with no history", async () => {
+    renderPanel();
+
+    act(() => {
+      eventSources[0].emit("log_entry", {
+        timestamp: "2026-04-22T13:05:00.000Z",
+        level: "info",
+        message: "stale streamed entry",
+      });
+    });
+
+    expect(screen.getByText("stale streamed entry")).toBeTruthy();
+
+    await selectRunFromRunsTab("#2");
+
+    expect(screen.getByText("No logs captured for this run yet.")).toBeTruthy();
+    expect(screen.queryByText("stale streamed entry")).toBeNull();
+  });
+
   it("retargets the audit tab to the new run without keeping terminal log entries from the old run", async () => {
     const user = userEvent.setup();
     renderPanel();
