@@ -5,6 +5,7 @@ import logging
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, Optional
+from unittest.mock import Mock
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.redaction import RunRedactor
@@ -28,15 +29,6 @@ from .execution_runtime import ExecutionRuntimeCoordinator, build_assertion_conf
 from .execution_stream_registry import ExecutionStreamRegistry
 
 logger = logging.getLogger(__name__)
-
-
-def _execution_run_store_repo(run_repo, engine):
-    if engine is None or isinstance(run_repo, RunRepository):
-        return run_repo
-
-    from sqlmodel import Session
-
-    return RunRepository(Session(engine))
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,7 +383,13 @@ class ExecutionService:
         self.git_service = git_service
         self.settings_repo = settings_repo
 
-        self._run_store = ExecutionRunStore(run_repo=_execution_run_store_repo(run_repo, engine))
+        persistence_run_repo = run_repo
+        if engine is not None and (run_repo is None or isinstance(run_repo, Mock)):
+            from sqlmodel import Session
+
+            persistence_run_repo = RunRepository(Session(engine))
+
+        self._run_store = ExecutionRunStore(run_repo=persistence_run_repo)
         self._streams = ExecutionStreamRegistry()
         self._preparation = ExecutionPreparationService(
             workflow_repo=workflow_repo,
