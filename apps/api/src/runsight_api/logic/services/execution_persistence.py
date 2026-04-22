@@ -42,19 +42,20 @@ class ExecutionRunStore:
             except Exception:
                 logger.exception("Failed to mark ghost runs via engine session")
 
-        get_by_status = getattr(self.run_repo, "get_by_status", None)
-        if callable(get_by_status):
-            stale_runs = list(get_by_status(RunStatus.pending)) + list(
-                get_by_status(RunStatus.running)
-            )
+        try:
+            stale_runs = [
+                run
+                for run in self.run_repo.list_runs()
+                if run.status in {RunStatus.pending, RunStatus.running}
+            ]
             completed_at = time.time()
             for run in stale_runs:
                 run.status = RunStatus.failed
                 run.error = restart_error
                 run.completed_at = completed_at
-                update_run = getattr(self.run_repo, "update_run", None)
-                if callable(update_run):
-                    update_run(run)
+                self.run_repo.update_run(run)
+        except Exception:
+            logger.exception("Failed to mark ghost runs via run_repo")
 
     def fail_prepare(self, run_id: str, error: Exception) -> None:
         """Persist a prepare-time failure before any task starts."""

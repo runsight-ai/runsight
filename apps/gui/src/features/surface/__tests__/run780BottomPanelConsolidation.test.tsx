@@ -74,6 +74,7 @@ function installCanvasBottomPanelMock() {
     useCancelRun: () => ({ mutate: vi.fn(), isPending: false }),
     useRunNodes: () => ({ data: [], isLoading: false, isError: false, error: null, refetch: vi.fn() }),
     useRunLogs: () => ({ data: { items: [] }, isLoading: false, isError: false }),
+    useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
     useRunContextAuditStream: () => undefined,
     useRunRegressions: (runId: string) => {
       harness.runRegressionsCalls.push(runId);
@@ -221,6 +222,7 @@ async function loadCanvasBottomPanel() {
   vi.doMock("@/queries/runs", () => ({
     useRuns: () => ({ data: { items: [] }, isLoading: false, isError: false }),
     useRunLogs: () => ({ data: { items: [] }, isLoading: false, isError: false }),
+    useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
     useRunContextAuditStream: () => undefined,
     useRunRegressions: (runId: string) => {
       harness.runRegressionsCalls.push(runId);

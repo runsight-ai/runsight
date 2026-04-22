@@ -1,6 +1,7 @@
 """Stream-registry collaborator for live execution observers."""
 
 import asyncio
+from collections import OrderedDict
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from ...domain.events import SSE_TERMINAL_EVENTS
@@ -11,16 +12,17 @@ class ExecutionStreamRegistry:
     """Owns stream observer registration and subscriber coordination."""
 
     OBSERVER_REGISTRATION_TIMEOUT_S = 0.25
+    COMPLETED_STREAM_CACHE_SIZE = 256
     STREAM_CLOSED_EVENT = "__stream_closed__"
 
     def __init__(self):
         self._observers: Dict[str, StreamingObserver] = {}
         self._observer_events: Dict[str, asyncio.Event] = {}
-        self._completed_streams: set[str] = set()
+        self._completed_streams: "OrderedDict[str, None]" = OrderedDict()
 
     def register(self, run_id: str, observer: StreamingObserver) -> None:
         self._observers[run_id] = observer
-        self._completed_streams.discard(run_id)
+        self._completed_streams.pop(run_id, None)
         ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
         ready_event.set()
 
@@ -29,12 +31,14 @@ class ExecutionStreamRegistry:
 
     def unregister(self, run_id: str) -> None:
         observer = self._observers.pop(run_id, None)
-        ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
+        ready_event = self._observer_events.pop(run_id, None)
         if observer is not None and observer.is_done:
-            self._completed_streams.add(run_id)
-            ready_event.set()
+            self._mark_completed(run_id)
+            if ready_event is not None:
+                ready_event.set()
             return
-        ready_event.clear()
+        if ready_event is not None:
+            ready_event.clear()
 
     def close_stream(self, run_id: str, observer: Optional[StreamingObserver] = None) -> None:
         target = observer or self._observers.get(run_id)
@@ -63,6 +67,8 @@ class ExecutionStreamRegistry:
                 return
             observer = self._observers.get(run_id)
             if observer is None:
+                if run_id in self._completed_streams:
+                    return
                 return
 
         while True:
@@ -78,3 +84,9 @@ class ExecutionStreamRegistry:
 
             if event["event"] in SSE_TERMINAL_EVENTS:
                 break
+
+    def _mark_completed(self, run_id: str) -> None:
+        self._completed_streams.pop(run_id, None)
+        self._completed_streams[run_id] = None
+        while len(self._completed_streams) > self.COMPLETED_STREAM_CACHE_SIZE:
+            self._completed_streams.popitem(last=False)

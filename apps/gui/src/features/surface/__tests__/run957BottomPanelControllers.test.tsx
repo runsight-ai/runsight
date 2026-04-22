@@ -236,6 +236,26 @@ afterEach(() => {
 });
 
 describe("RUN-957 bottom panel controller boundaries", () => {
+  it("keeps audit hydration attached to the selected run even when the Audit tab is closed", async () => {
+    renderPanel();
+
+    expect(harness.auditCalls.at(-1)).toMatchObject({
+      runId: "run_live",
+      params: { page_size: 100 },
+    });
+    expect(harness.auditStreamCalls.at(-1)).toBe("run_live");
+    expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenCalledWith("run_live", []);
+
+    await selectRunFromRunsTab("#2");
+
+    expect(harness.auditCalls.at(-1)).toMatchObject({
+      runId: "run_other",
+      params: { page_size: 100 },
+    });
+    expect(harness.auditStreamCalls.at(-1)).toBe("run_other");
+    expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenLastCalledWith("run_other", []);
+  });
+
   it("clears run-scoped live log buffers when the selected run changes", async () => {
     renderPanel();
 

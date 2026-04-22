@@ -6,8 +6,8 @@ import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
-import { useContextAuditStore } from "@/store/contextAudit";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
+import { useSurfaceBottomPanelAudit } from "./useSurfaceBottomPanelAudit";
 import { useSurfaceBottomPanelLogs } from "./useSurfaceBottomPanelLogs";
 import { useSurfaceBottomPanelRunSelection } from "./useSurfaceBottomPanelRunSelection";
 import { useSurfaceBottomPanelTabs } from "./useSurfaceBottomPanelTabs";
@@ -37,6 +37,8 @@ type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
 type AuditPanelWithQueryProps = {
   runId: string | undefined;
   selectedNodeId: string | null;
+  fetchNextPage?: () => Promise<unknown>;
+  hasNextPage?: boolean;
   onSelectNode: (nodeId: string, runId?: string) => void;
 };
 
@@ -61,6 +63,11 @@ function SurfaceBottomPanelContent({
     workflowId,
   });
   const { entries } = useSurfaceBottomPanelLogs({ runId: currentRunId });
+  const contextAuditQuery = useSurfaceBottomPanelAudit({
+    runId: currentRunId,
+    useRunContextAudit,
+    useRunContextAuditStream,
+  });
 
   const count = regressionsData?.count ?? 0;
   const regressionsItems = regressionsData?.issues ?? [];
@@ -213,6 +220,8 @@ function SurfaceBottomPanelContent({
           <SurfaceBottomPanelAuditController
             runId={currentRunId}
             selectedNodeId={selectedNodeId ?? null}
+            fetchNextPage={contextAuditQuery.fetchNextPage}
+            hasNextPage={contextAuditQuery.hasNextPage}
             onSelectNode={(nodeId) => {
               onAuditNodeSelect?.(nodeId, currentRunId);
             }}
@@ -226,27 +235,17 @@ function SurfaceBottomPanelContent({
 function SurfaceBottomPanelAuditController({
   runId,
   selectedNodeId,
+  fetchNextPage,
+  hasNextPage,
   onSelectNode,
 }: AuditPanelWithQueryProps) {
-  const replaceContextAuditEvents = useContextAuditStore((state) => state.replaceRunEvents);
-  const contextAuditQuery = useRunContextAudit(runId ?? "", { page_size: 100 });
-  useRunContextAuditStream(runId);
-
-  useEffect(() => {
-    if (!runId) {
-      return;
-    }
-    const currentEvents = useContextAuditStore.getState().eventsByRun[runId] ?? [];
-    replaceContextAuditEvents(runId, currentEvents);
-  }, [replaceContextAuditEvents, runId]);
-
   return (
     <ContextAuditPanel
       runId={runId}
       selectedNodeId={selectedNodeId}
       onSelectNode={(nodeId) => onSelectNode(nodeId, runId)}
-      fetchNextPage={contextAuditQuery.fetchNextPage}
-      hasNextPage={contextAuditQuery.hasNextPage}
+      fetchNextPage={fetchNextPage}
+      hasNextPage={hasNextPage}
     />
   );
 }

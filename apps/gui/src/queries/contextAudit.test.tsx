@@ -179,11 +179,13 @@ describe("RUN-915 context audit query layer", () => {
       await result.current.fetchNextPage();
     });
 
-    const events = store.selectRunEvents("run_915")(store.useContextAuditStore.getState());
-    expect(events.map((item) => `${item.node_id}:${item.sequence}`)).toEqual([
-      "draft:1",
-      "review:2",
-    ]);
+    await waitFor(() => {
+      const events = store.selectRunEvents("run_915")(store.useContextAuditStore.getState());
+      expect(events.map((item) => `${item.node_id}:${item.sequence}`)).toEqual([
+        "draft:1",
+        "review:2",
+      ]);
+    });
     expect(runsApi.getRunContextAudit).toHaveBeenLastCalledWith("run_915", {
       cursor: "cursor-1",
       page_size: 1,
