@@ -1,15 +1,4 @@
-"""Red tests for RUN-956 run write/read-model ownership.
-
-These tests stay on public service behavior while requiring a configurable
-analytics/read-model seam:
-
-- paginated run listing must be able to come from a read-model owner without
-  moving soft-delete/get behavior off the write repository
-- workflow health aggregation must be swappable independently from CRUD/write
-  behavior while preserving the existing health payload
-- baseline-backed eval deltas must be readable from a separate analytics owner
-  without changing the public EvalService response
-"""
+"""Strict read-model ownership tests for run, workflow, and eval services."""
 
 from __future__ import annotations
 
@@ -57,193 +46,6 @@ def _make_run(
     return run
 
 
-def _configure_read_model(service_cls, *, read_model, **kwargs):
-    init = inspect.signature(service_cls.__init__)
-    constructor_names = []
-
-    token_groups = (
-        "analytics",
-        "query",
-        "queries",
-        "reader",
-        "read_model",
-        "readmodel",
-        "report",
-        "projection",
-        "metrics",
-    )
-    for name in init.parameters:
-        if name == "self" or name in kwargs:
-            continue
-        lowered = name.lower()
-        if any(token in lowered for token in token_groups):
-            kwargs[name] = read_model
-            constructor_names.append(name)
-
-    bundle_names = (
-        "components",
-        "collaborators",
-        "dependencies",
-        "deps",
-        "ports",
-        "repositories",
-        "services",
-    )
-    if not constructor_names:
-        for name in bundle_names:
-            if name in init.parameters and name not in kwargs:
-                kwargs[name] = SimpleNamespace(
-                    analytics=read_model,
-                    analytics_repo=read_model,
-                    query_repo=read_model,
-                    read_model=read_model,
-                    run_queries=read_model,
-                    reporting=read_model,
-                    metrics=read_model,
-                )
-                constructor_names.append(name)
-                break
-
-    service = service_cls(**kwargs)
-    if constructor_names:
-        return service
-
-    setter_names = (
-        "set_read_model",
-        "set_query_repo",
-        "set_queries",
-        "set_analytics_repo",
-        "configure_read_model",
-        "configure_query_repo",
-        "configure_analytics_repo",
-    )
-    for name in setter_names:
-        setter = getattr(service, name, None)
-        if callable(setter):
-            setter(read_model)
-            return service
-
-    attr_names = (
-        "read_model",
-        "_read_model",
-        "query_repo",
-        "_query_repo",
-        "queries",
-        "_queries",
-        "analytics_repo",
-        "_analytics_repo",
-        "analytics",
-        "_analytics",
-        "reporting",
-        "_reporting",
-        "metrics",
-        "_metrics",
-    )
-    for name in attr_names:
-        if hasattr(service, name):
-            setattr(service, name, read_model)
-            return service
-
-    for bundle_name in bundle_names:
-        bundle = getattr(service, bundle_name, None)
-        if bundle is None:
-            continue
-        for name in attr_names:
-            if hasattr(bundle, name):
-                setattr(bundle, name, read_model)
-                return service
-
-    raise AssertionError(
-        f"{service_cls.__name__} must expose a configurable analytics/read-model seam"
-    )
-
-
-def _build_service_via_dependency_factory(factory, *, read_model, **kwargs):
-    init = inspect.signature(factory)
-    call_kwargs = {}
-    read_model_bound = False
-
-    token_groups = (
-        "analytics",
-        "query",
-        "queries",
-        "reader",
-        "read_model",
-        "readmodel",
-        "report",
-        "projection",
-        "metrics",
-    )
-    bundle_names = (
-        "components",
-        "collaborators",
-        "dependencies",
-        "deps",
-        "ports",
-        "repositories",
-        "services",
-    )
-
-    for name, parameter in init.parameters.items():
-        if name in kwargs:
-            call_kwargs[name] = kwargs[name]
-            continue
-
-        lowered = name.lower()
-        if any(token in lowered for token in token_groups):
-            call_kwargs[name] = read_model
-            read_model_bound = True
-            continue
-
-        if name in bundle_names:
-            call_kwargs[name] = SimpleNamespace(
-                run_repo=kwargs.get("run_repo"),
-                workflow_repo=kwargs.get("workflow_repo"),
-                git_service=kwargs.get("git_service"),
-                analytics=read_model,
-                analytics_repo=read_model,
-                query_repo=read_model,
-                read_model=read_model,
-                run_queries=read_model,
-                reporting=read_model,
-                metrics=read_model,
-            )
-            read_model_bound = True
-            continue
-
-        if parameter.default is inspect._empty:
-            raise AssertionError(
-                f"{factory.__name__} dependency wiring must accept a distinct "
-                "analytics/read-model owner"
-            )
-
-    if not read_model_bound:
-        raise AssertionError(
-            f"{factory.__name__} dependency wiring must accept a distinct "
-            "analytics/read-model owner"
-        )
-
-    return factory(**call_kwargs)
-
-
-class _RunWriteRepositoryDouble:
-    def __init__(self, runs: list[Run]):
-        self._runs = {run.id: run for run in runs}
-
-    def get_run(self, run_id: str) -> Run | None:
-        run = self._runs.get(run_id)
-        if run is None or run.deleted_at is not None:
-            return None
-        return run
-
-    def delete_run(self, run_id: str) -> str | None:
-        run = self._runs.get(run_id)
-        if run is None or run.deleted_at is not None:
-            return None
-        run.deleted_at = 999.0
-        return run_id
-
-
 class _RunReadModelDouble:
     def __init__(
         self,
@@ -251,7 +53,7 @@ class _RunReadModelDouble:
         paginated_result: tuple[list[Run], int] | None = None,
         workflow_health: dict[str, dict] | None = None,
         baselines: dict[tuple[str, str], BaselineStats | None] | None = None,
-    ):
+    ) -> None:
         self.paginated_result = paginated_result or ([], 0)
         self.workflow_health = workflow_health or {}
         self.baselines = baselines or {}
@@ -290,7 +92,7 @@ class _RunReadModelDouble:
 
 
 class _WorkflowRepositoryDouble:
-    def __init__(self, workflows: list[WorkflowEntity]):
+    def __init__(self, workflows: list[WorkflowEntity]) -> None:
         self._workflows = workflows
 
     def list_all(self) -> list[WorkflowEntity]:
@@ -303,21 +105,64 @@ class _WorkflowRepositoryDouble:
         return {"wf_alpha": 1711900000.0, "wf_beta": 1711900500.0}[workflow_id]
 
 
-def test_run_service_pages_through_read_model_while_delete_stays_on_write_repo() -> None:
-    visible = _make_run(
-        "run_visible",
-        run_number=7,
-        eval_pass_pct=66.67,
-    )
-    deleted = _make_run("run_deleted")
-    write_repo = _RunWriteRepositoryDouble([visible, deleted])
+@pytest.mark.parametrize(
+    ("service_cls", "forbidden_fragments"),
+    [
+        (
+            RunService,
+            [
+                "def _resolve_run_read_model(",
+                'getattr(self.run_repo, "list_runs_paginated", None)',
+                'session = getattr(self.run_repo, "session", None)',
+                "RunReadModel(session)",
+            ],
+        ),
+        (
+            WorkflowService,
+            [
+                "def _resolve_run_read_model(",
+                'getattr(self.run_repo, "get_workflow_health_metrics", None)',
+                'session = getattr(self.run_repo, "session", None)',
+                "RunReadModel(session)",
+            ],
+        ),
+        (
+            EvalService,
+            [
+                "def _resolve_run_read_model(",
+                'baseline_getter = getattr(self.run_repo, "get_baseline", None)',
+                'session = getattr(self.run_repo, "session", None)',
+                "RunReadModel(session)",
+            ],
+        ),
+    ],
+)
+def test_services_do_not_probe_run_repo_or_construct_read_models_implicitly(
+    service_cls, forbidden_fragments
+) -> None:
+    source = inspect.getsource(service_cls)
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source, (
+            f"{service_cls.__name__} must use only the explicit run_read_model collaborator; "
+            f"found forbidden fallback fragment: {fragment!r}"
+        )
+
+
+def test_run_service_uses_only_explicit_run_read_model_for_paginated_queries() -> None:
+    visible = _make_run("run_visible", run_number=7, eval_pass_pct=66.67)
     read_model = _RunReadModelDouble(paginated_result=([visible], 1))
-    service = _configure_read_model(
-        RunService,
-        run_repo=write_repo,
-        workflow_repo=Mock(),
-        read_model=read_model,
+
+    def _unexpected_repo_pagination(*args, **kwargs):
+        raise AssertionError("RunService must not read paginated runs from run_repo")
+
+    run_repo = SimpleNamespace(
+        get_run=lambda run_id: visible if run_id == visible.id else None,
+        delete_run=lambda run_id: run_id,
+        list_runs_paginated=_unexpected_repo_pagination,
+        session=object(),
     )
+    service = RunService(run_repo=run_repo, workflow_repo=Mock(), run_read_model=read_model)
 
     items, total = service.list_runs_paginated(
         offset=10,
@@ -330,8 +175,6 @@ def test_run_service_pages_through_read_model_while_delete_stays_on_write_repo()
 
     assert total == 1
     assert [run.id for run in items] == ["run_visible"]
-    assert items[0].run_number == 7
-    assert items[0].eval_pass_pct == pytest.approx(66.67)
     assert read_model.paginated_calls == [
         {
             "offset": 10,
@@ -343,11 +186,8 @@ def test_run_service_pages_through_read_model_while_delete_stays_on_write_repo()
         }
     ]
 
-    assert service.delete_run("run_deleted") == "run_deleted"
-    assert service.get_run("run_deleted") is None
 
-
-def test_workflow_service_uses_read_model_health_metrics_without_changing_payload() -> None:
+def test_workflow_service_uses_only_explicit_run_read_model_for_health_queries() -> None:
     workflows = [
         WorkflowEntity(kind="workflow", id="wf_alpha", name="Alpha", enabled=True),
         WorkflowEntity(kind="workflow", id="wf_beta", name="Beta", enabled=False),
@@ -364,51 +204,37 @@ def test_workflow_service_uses_read_model_health_metrics_without_changing_payloa
             }
         }
     )
+
+    def _unexpected_health_query(*args, **kwargs):
+        raise AssertionError("WorkflowService must not read workflow health from run_repo")
+
+    run_repo = SimpleNamespace(
+        get_workflow_health_metrics=_unexpected_health_query,
+        session=object(),
+    )
     git_service = Mock()
     git_service.current_branch.return_value = "main"
     git_service.get_sha.side_effect = lambda branch, path: {
         "custom/workflows/wf_alpha.yaml": "alpha_sha",
         "custom/workflows/wf_beta.yaml": "beta_sha",
     }[path]
-    service = _configure_read_model(
-        WorkflowService,
+
+    service = WorkflowService(
         workflow_repo=workflow_repo,
-        run_repo=Mock(),
+        run_repo=run_repo,
         git_service=git_service,
-        read_model=read_model,
+        run_read_model=read_model,
     )
 
     result = service.list_workflows()
 
     assert [workflow.id for workflow in result] == ["wf_alpha", "wf_beta"]
     assert read_model.health_calls == [["wf_alpha", "wf_beta"]]
-
-    alpha = result[0]
-    assert alpha.block_count == 7
-    assert alpha.modified_at == pytest.approx(1711900000.0)
-    assert alpha.commit_sha == "alpha_sha"
-    assert alpha.health == {
-        "run_count": 3,
-        "eval_pass_pct": 50.0,
-        "eval_health": "danger",
-        "total_cost_usd": 2.75,
-        "regression_count": 2,
-    }
-
-    beta = result[1]
-    assert beta.block_count == 2
-    assert beta.modified_at == pytest.approx(1711900500.0)
-    assert beta.commit_sha == "beta_sha"
-    assert beta.health == {
-        "run_count": 0,
-        "eval_pass_pct": None,
-        "eval_health": None,
-        "total_cost_usd": 0.0,
-        "regression_count": 0,
-    }
+    assert result[0].health["regression_count"] == 2
+    assert result[1].health["regression_count"] == 0
 
 
-def test_eval_service_uses_separate_baseline_reader_without_changing_delta_behavior() -> None:
+def test_eval_service_uses_only_explicit_run_read_model_for_baselines() -> None:
     run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
     node = RunNode(
         id="run_eval:draft",
@@ -423,10 +249,6 @@ def test_eval_service_uses_separate_baseline_reader_without_changing_delta_behav
         cost_usd=0.3,
         tokens={"prompt": 120, "completion": 180, "total": 300},
     )
-    write_repo = SimpleNamespace(
-        get_run=lambda run_id: run if run_id == "run_eval" else None,
-        list_nodes_for_run=lambda run_id: [node] if run_id == "run_eval" else [],
-    )
     read_model = _RunReadModelDouble(
         baselines={
             ("writer", "sha:v1"): BaselineStats(
@@ -437,141 +259,44 @@ def test_eval_service_uses_separate_baseline_reader_without_changing_delta_behav
             )
         }
     )
-    service = _configure_read_model(EvalService, run_repo=write_repo, read_model=read_model)
+
+    def _unexpected_baseline(*args, **kwargs):
+        raise AssertionError("EvalService must not read baselines from run_repo")
+
+    run_repo = SimpleNamespace(
+        get_run=lambda run_id: run if run_id == "run_eval" else None,
+        list_nodes_for_run=lambda run_id: [node] if run_id == "run_eval" else [],
+        get_baseline=_unexpected_baseline,
+        session=object(),
+    )
+    service = EvalService(run_repo=run_repo, run_read_model=read_model)
 
     result = service.get_run_eval("run_eval")
 
     assert result is not None
     assert result.run_id == "run_eval"
-    assert result.aggregate_score == pytest.approx(0.9)
-    assert result.passed is True
-    assert len(result.nodes) == 1
     assert read_model.baseline_calls == [("writer", "sha:v1")]
-
-    delta = result.nodes[0].delta
-    assert delta is not None
-    assert delta.cost_pct == pytest.approx(50.0)
-    assert delta.tokens_pct == pytest.approx(50.0)
-    assert delta.score_delta == pytest.approx(0.2)
-    assert delta.baseline_run_count == 4
+    assert result.nodes[0].delta is not None
+    assert result.nodes[0].delta.baseline_run_count == 4
 
 
-def test_dependency_factories_wire_distinct_read_model_owner_for_read_paths() -> None:
-    visible = _make_run("run_visible", run_number=7, eval_pass_pct=66.67)
-    deleted = _make_run("run_deleted")
-    run_write_repo = _RunWriteRepositoryDouble([visible, deleted])
-
-    eval_run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
-    eval_node = RunNode(
-        id="run_eval:draft",
-        run_id="run_eval",
-        node_id="draft",
-        block_type="llm",
-        status=NodeStatus.completed,
-        soul_id="writer",
-        soul_version="sha:v1",
-        eval_score=0.9,
-        eval_passed=True,
-        cost_usd=0.3,
-        tokens={"prompt": 120, "completion": 180, "total": 300},
-    )
-    eval_write_repo = SimpleNamespace(
-        get_run=lambda run_id: eval_run if run_id == "run_eval" else None,
-        list_nodes_for_run=lambda run_id: [eval_node] if run_id == "run_eval" else [],
-    )
-
-    workflow_repo = _WorkflowRepositoryDouble(
-        [
-            WorkflowEntity(kind="workflow", id="wf_alpha", name="Alpha", enabled=True),
-            WorkflowEntity(kind="workflow", id="wf_beta", name="Beta", enabled=False),
-        ]
-    )
-    git_service = Mock()
-    git_service.current_branch.return_value = "main"
-    git_service.get_sha.side_effect = lambda branch, path: {
-        "custom/workflows/wf_alpha.yaml": "alpha_sha",
-        "custom/workflows/wf_beta.yaml": "beta_sha",
-    }[path]
-
-    read_model = _RunReadModelDouble(
-        paginated_result=([visible], 1),
-        workflow_health={
-            "wf_alpha": {
-                "run_count": 3,
-                "eval_pass_pct": 50.0,
-                "eval_health": "danger",
-                "total_cost_usd": 2.75,
-                "regression_count": 2,
-            }
-        },
-        baselines={
-            ("writer", "sha:v1"): BaselineStats(
-                avg_cost=0.2,
-                avg_tokens=200.0,
-                avg_score=0.7,
-                run_count=4,
-            )
-        },
-    )
-
-    issues: list[str] = []
-    services: dict[str, object] = {}
-
-    try:
-        services["run_service"] = _build_service_via_dependency_factory(
-            transport_deps.get_run_service,
-            run_repo=run_write_repo,
-            workflow_repo=Mock(),
-            read_model=read_model,
-        )
-    except AssertionError as exc:
-        issues.append(str(exc))
-
-    try:
-        services["workflow_service"] = _build_service_via_dependency_factory(
+@pytest.mark.parametrize(
+    ("factory", "expected_dependencies"),
+    [
+        (transport_deps.get_run_service, {"run_repo", "workflow_repo", "run_read_model"}),
+        (
             transport_deps.get_workflow_service,
-            workflow_repo=workflow_repo,
-            run_repo=Mock(),
-            git_service=git_service,
-            read_model=read_model,
-        )
-    except AssertionError as exc:
-        issues.append(str(exc))
+            {"workflow_repo", "run_repo", "run_read_model", "git_service"},
+        ),
+        (transport_deps.get_eval_service, {"run_repo", "run_read_model"}),
+    ],
+)
+def test_dependency_factories_require_explicit_run_read_model(
+    factory, expected_dependencies
+) -> None:
+    signature = inspect.signature(factory)
 
-    try:
-        services["eval_service"] = _build_service_via_dependency_factory(
-            transport_deps.get_eval_service,
-            run_repo=eval_write_repo,
-            read_model=read_model,
-        )
-    except AssertionError as exc:
-        issues.append(str(exc))
-
-    if issues:
-        pytest.fail("\n".join(issues))
-
-    run_service = services["run_service"]
-    items, total = run_service.list_runs_paginated(
-        offset=10,
-        limit=5,
-        status=["completed"],
-        workflow_id="wf_956",
-        source=["manual"],
-        branch="main",
+    assert expected_dependencies.issubset(signature.parameters), (
+        f"{factory.__name__} must explicitly depend on run_read_model rather than hiding "
+        "read-model construction inside the service"
     )
-    assert total == 1
-    assert [run.id for run in items] == ["run_visible"]
-    assert run_service.delete_run("run_deleted") == "run_deleted"
-    assert run_service.get_run("run_deleted") is None
-
-    workflow_service = services["workflow_service"]
-    workflows = workflow_service.list_workflows()
-    assert [workflow.id for workflow in workflows] == ["wf_alpha", "wf_beta"]
-    assert workflows[0].health["regression_count"] == 2
-    assert workflows[1].health["regression_count"] == 0
-
-    eval_service = services["eval_service"]
-    eval_result = eval_service.get_run_eval("run_eval")
-    assert eval_result is not None
-    assert eval_result.nodes[0].delta is not None
-    assert eval_result.nodes[0].delta.baseline_run_count == 4

@@ -20,6 +20,7 @@ AC:
 import pytest
 
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_api.data.filesystem.workflow_yaml_validation import assert_valid_yaml_for_write
 from runsight_api.domain.errors import InputValidationError
 
 
@@ -129,6 +130,41 @@ class TestNoYamlFieldCreate:
             repo.create({"name": "Explicit None", "yaml": None})
 
         assert list(workflows_dir.glob("*.yaml")) == []
+
+
+class TestInvalidDraftYamlWrites:
+    """Partial or invalid drafts must fail closed instead of preserving old leniency."""
+
+    def test_write_validator_rejects_partial_draft_yaml(self):
+        partial_draft = "id: invalid-draft\nkind: workflow\nversion: '1.0'\n"
+
+        with pytest.raises(InputValidationError):
+            assert_valid_yaml_for_write("invalid-draft", partial_draft)
+
+    def test_create_rejects_partial_draft_yaml_without_writing_file(self, repo, workflows_dir):
+        partial_draft = "id: invalid-create\nkind: workflow\nversion: '1.0'\n"
+
+        with pytest.raises(InputValidationError):
+            repo.create({"name": "Invalid Create", "yaml": partial_draft})
+
+        assert list(workflows_dir.glob("invalid-create.yaml")) == []
+
+    def test_update_rejects_partial_draft_yaml_and_preserves_existing_file(
+        self, repo, workflows_dir
+    ):
+        valid_yaml = (
+            "id: strict-update\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Strict\n"
+            "  entry: done\n  transitions:\n    - from: done\n      to: null\nblocks:\n"
+            "  done:\n    type: code\n    code: |\n      def main(data):\n          return {}\n"
+        )
+        entity = repo.create({"name": "Strict Update", "yaml": valid_yaml})
+        yaml_path = workflows_dir / f"{entity.id}.yaml"
+        partial_draft = "id: strict-update\nkind: workflow\nversion: '1.0'\n"
+
+        with pytest.raises(InputValidationError):
+            repo.update(entity.id, {"yaml": partial_draft})
+
+        assert yaml_path.read_text() == valid_yaml
 
 
 # ===========================================================================

@@ -16,6 +16,7 @@ All tests should FAIL until the StreamingObserver is wired in.
 """
 
 import asyncio
+import inspect
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -23,6 +24,7 @@ from runsight_core.state import WorkflowState
 from runsight_core.redaction import RedactionContext
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
+from runsight_api.logic.services.execution_runtime import ExecutionRuntimeCoordinator
 from runsight_api.logic.services.execution_service import (
     ExecutionService,
     PreparedRunInputs,
@@ -31,6 +33,15 @@ from runsight_api.logic.services.execution_service import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def test_execution_runtime_observer_registration_has_one_canonical_path() -> None:
+    source = inspect.getsource(ExecutionRuntimeCoordinator.run_workflow)
+
+    assert 'getattr(self.service, "register_observer", None)' not in source
+    assert 'getattr(self.service, "unregister_observer", None)' not in source
+    assert "if callable(register_observer):" not in source
+    assert "if callable(unregister_observer):" not in source
 
 
 def _make_service(**overrides):
