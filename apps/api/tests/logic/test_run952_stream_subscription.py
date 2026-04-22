@@ -41,7 +41,7 @@ class TestLateStreamSubscribers:
         run_id = "run_952_stream_queued"
         events = []
 
-        await service._semaphore.acquire()
+        await service._runtime.semaphore.acquire()
 
         async def fake_run(state, observer=None, **kwargs):
             if observer is not None:
@@ -67,7 +67,7 @@ class TestLateStreamSubscribers:
             "is still waiting for a semaphore slot."
         )
 
-        service._semaphore.release()
+        service._runtime.semaphore.release()
 
         await asyncio.wait_for(queued_run, timeout=1)
         await asyncio.wait_for(consumer, timeout=1)
@@ -90,7 +90,7 @@ class TestLateStreamSubscribers:
         )
         run_id = "run_952_stream_cancelled_queued"
 
-        await service._semaphore.acquire()
+        await service._runtime.semaphore.acquire()
 
         async def fake_run(state, observer=None, **kwargs):
             if observer is not None:
@@ -121,8 +121,8 @@ class TestLateStreamSubscribers:
         try:
             await asyncio.wait_for(consumer, timeout=0.5)
         finally:
-            if service._semaphore.locked():
-                service._semaphore.release()
+            if service._runtime.semaphore.locked():
+                service._runtime.semaphore.release()
 
         assert consumer.done(), (
             "A subscriber attached to a queued run should terminate promptly after that run "
@@ -158,7 +158,7 @@ class TestLateStreamSubscribers:
         )
 
         observer = StreamingObserver(run_id=run_id)
-        service.register_observer(run_id, observer)
+        service._streams.register(run_id, observer)
         observer.queue.put_nowait({"event": "run_completed", "data": {"run_id": run_id}})
 
         await asyncio.wait_for(consumer, timeout=1)
@@ -186,7 +186,7 @@ class TestLateStreamSubscribers:
         async def publish_terminal_event() -> None:
             await asyncio.sleep(0.05)
             observer = StreamingObserver(run_id=run_id)
-            service.register_observer(run_id, observer)
+            service._streams.register(run_id, observer)
             observer.queue.put_nowait({"event": "run_completed", "data": {"run_id": run_id}})
 
         publisher = asyncio.create_task(publish_terminal_event())
@@ -213,3 +213,31 @@ class TestLateStreamSubscribers:
             "The SSE endpoint should wait for the stream registry to attach and "
             "then deliver the terminal event to an already-connected subscriber."
         )
+
+
+@pytest.mark.parametrize(
+    "attr",
+    [
+        "register_observer",
+        "get_observer",
+        "unregister_observer",
+    ],
+)
+def test_execution_service_no_longer_exposes_observer_facade_methods(attr):
+    service = _make_service()
+
+    assert not hasattr(service, attr), f"ExecutionService should not expose compat seam {attr}"
+
+
+@pytest.mark.parametrize(
+    "attr",
+    [
+        "_observers",
+        "_running_tasks",
+        "_semaphore",
+    ],
+)
+def test_execution_service_no_longer_exposes_runtime_compat_aliases(attr):
+    service = _make_service()
+
+    assert not hasattr(service, attr), f"ExecutionService should not expose compat seam {attr}"

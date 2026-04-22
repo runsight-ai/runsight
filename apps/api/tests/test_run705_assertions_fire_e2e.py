@@ -687,16 +687,16 @@ class TestAssertionsFireDuringExecution:
 
         # Capture SSE events before unregister cleans up the observer
         captured_events: list = []
-        original_unregister = execution_service.unregister_observer
+        original_unregister = execution_service._streams.unregister
 
         def _capture_then_unregister(rid):
-            obs = execution_service.get_observer(rid)
+            obs = execution_service._streams.get(rid)
             if obs:
                 while not obs.queue.empty():
                     captured_events.append(obs.queue.get_nowait())
             original_unregister(rid)
 
-        execution_service.unregister_observer = _capture_then_unregister
+        execution_service._streams.unregister = _capture_then_unregister
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),

@@ -437,8 +437,8 @@ class TestStreamingObserver:
 
 class TestObserverRegistry:
     @pytest.mark.asyncio
-    async def test_execution_service_registers_observer_for_run_id(self):
-        """ExecutionService should store a StreamingObserver per run_id and allow retrieval."""
+    async def test_execution_service_stream_registry_stores_observer_for_run_id(self):
+        """ExecutionService should delegate stream observer storage to its registry collaborator."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -450,16 +450,14 @@ class TestObserverRegistry:
 
         observer = StreamingObserver(run_id="run_reg_1")
 
-        # Register observer for a run_id
-        exec_service.register_observer("run_reg_1", observer)
+        exec_service._streams.register("run_reg_1", observer)
 
-        # Retrieve it back
-        retrieved = exec_service.get_observer("run_reg_1")
+        retrieved = exec_service._streams.get("run_reg_1")
         assert retrieved is observer
 
     @pytest.mark.asyncio
-    async def test_execution_service_returns_none_for_unknown_run_id(self):
-        """ExecutionService.get_observer should return None for unregistered run_ids."""
+    async def test_execution_service_stream_registry_returns_none_for_unknown_run_id(self):
+        """The stream registry should return None for unregistered run ids."""
         from runsight_api.logic.services.execution_service import ExecutionService
 
         exec_service = ExecutionService(
@@ -468,12 +466,12 @@ class TestObserverRegistry:
             provider_repo=Mock(),
         )
 
-        result = exec_service.get_observer("nonexistent_run")
+        result = exec_service._streams.get("nonexistent_run")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_execution_service_unregisters_observer(self):
-        """ExecutionService should allow removing an observer after run completion."""
+    async def test_execution_service_stream_registry_unregisters_observer(self):
+        """The stream registry should allow removing an observer after run completion."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -484,25 +482,11 @@ class TestObserverRegistry:
         )
 
         observer = StreamingObserver(run_id="run_reg_2")
-        exec_service.register_observer("run_reg_2", observer)
+        exec_service._streams.register("run_reg_2", observer)
 
-        # Unregister after completion
-        exec_service.unregister_observer("run_reg_2")
+        exec_service._streams.unregister("run_reg_2")
 
-        assert exec_service.get_observer("run_reg_2") is None
-
-    @pytest.mark.asyncio
-    async def test_execution_service_exposes_observer_registry_compat_alias(self):
-        """Legacy callers that read _observers directly should still see the live registry."""
-        from runsight_api.logic.services.execution_service import ExecutionService
-
-        exec_service = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=Mock(),
-        )
-
-        assert exec_service._observers is exec_service._streams._observers
+        assert exec_service._streams.get("run_reg_2") is None
 
 
 # ---------------------------------------------------------------------------

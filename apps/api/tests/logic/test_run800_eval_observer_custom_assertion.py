@@ -321,16 +321,16 @@ def mock_provider():
 
 def _capture_eval_events(execution_service):
     captured_events: list[dict] = []
-    original_unregister = execution_service.unregister_observer
+    original_unregister = execution_service._streams.unregister
 
     def _capture_then_unregister(rid):
-        obs = execution_service.get_observer(rid)
+        obs = execution_service._streams.get(rid)
         if obs:
             while not obs.queue.empty():
                 captured_events.append(obs.queue.get_nowait())
         original_unregister(rid)
 
-    execution_service.unregister_observer = _capture_then_unregister
+    execution_service._streams.unregister = _capture_then_unregister
     return captured_events
 
 

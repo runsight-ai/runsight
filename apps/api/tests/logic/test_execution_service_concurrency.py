@@ -258,9 +258,10 @@ class TestConcurrencyLimit:
                     f"queued runs did not execute"
                 )
 
-            # All tasks should have completed (removed from _running_tasks)
-            assert len(svc._running_tasks) == 0, (
-                f"Expected all runs to complete, but {len(svc._running_tasks)} are still tracked"
+            # All tasks should have completed (removed from runtime.running_tasks)
+            assert len(svc._runtime.running_tasks) == 0, (
+                "Expected all runs to complete, but "
+                f"{len(svc._runtime.running_tasks)} are still tracked"
             )
 
     @pytest.mark.asyncio
@@ -294,9 +295,9 @@ class TestConcurrencyLimit:
                 branch="main",
             )
 
-            # Both should be in _running_tasks (one active, one waiting)
-            assert "run_a" in svc._running_tasks
-            assert "run_b" in svc._running_tasks
+            # Both should be in runtime.running_tasks (one active, one waiting)
+            assert "run_a" in svc._runtime.running_tasks
+            assert "run_b" in svc._runtime.running_tasks
 
             gate.set()
             await asyncio.sleep(0.3)
@@ -396,8 +397,8 @@ class TestSemaphoreRelease:
             await run_started.wait()
 
             # Cancel the first task
-            task = svc._running_tasks.get("run_cancel")
-            assert task is not None, "run_cancel should be in _running_tasks"
+            task = svc._runtime.running_tasks.get("run_cancel")
+            assert task is not None, "run_cancel should be in runtime.running_tasks"
             task.cancel()
             await asyncio.sleep(0.1)
 

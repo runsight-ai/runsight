@@ -4,7 +4,7 @@ The cancel endpoint currently only sets DB status via RunService.cancel_run()
 but never actually stops the running asyncio task. These tests verify:
 
 1. ExecutionService.cancel_execution(run_id) method exists
-2. It calls task.cancel() when the task is in _running_tasks
+2. It calls task.cancel() when the task is in the runtime task registry
 3. It returns True when a task was found and cancelled
 4. It returns False when no task is found (already finished)
 5. After cancel, task.cancel() was actually invoked
@@ -65,11 +65,11 @@ class TestCancelExecutionExists:
 
 class TestCancelExecutionCallsTaskCancel:
     def test_calls_task_cancel_when_task_exists(self):
-        """When run_id is in _running_tasks, cancel_execution must call
+        """When run_id is in the runtime task registry, cancel_execution must call
         task.cancel() on the corresponding asyncio.Task."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._running_tasks["run_1"] = mock_task
+        svc._runtime.running_tasks["run_1"] = mock_task
 
         svc.cancel_execution("run_1")
 
@@ -79,7 +79,7 @@ class TestCancelExecutionCallsTaskCancel:
         """task.cancel() should be called without arguments (standard usage)."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._running_tasks["run_2"] = mock_task
+        svc._runtime.running_tasks["run_2"] = mock_task
 
         svc.cancel_execution("run_2")
 
@@ -94,10 +94,10 @@ class TestCancelExecutionCallsTaskCancel:
 class TestCancelExecutionReturnsTrue:
     def test_returns_true_when_task_found_and_cancelled(self):
         """cancel_execution returns True when the task was found in
-        _running_tasks and cancel() was called."""
+        the runtime task registry and cancel() was called."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._running_tasks["run_active"] = mock_task
+        svc._runtime.running_tasks["run_active"] = mock_task
 
         result = svc.cancel_execution("run_active")
 
@@ -111,10 +111,10 @@ class TestCancelExecutionReturnsTrue:
 
 class TestCancelExecutionReturnsFalse:
     def test_returns_false_when_task_not_in_running_tasks(self):
-        """cancel_execution returns False when run_id is not in _running_tasks
+        """cancel_execution returns False when run_id is not in the runtime task registry
         (task already finished or never existed)."""
         svc = _make_service()
-        # _running_tasks is empty — no task for this run_id
+        # running_tasks is empty — no task for this run_id
 
         result = svc.cancel_execution("run_finished")
 
@@ -123,7 +123,7 @@ class TestCancelExecutionReturnsFalse:
     def test_returns_false_for_unknown_run_id(self):
         """cancel_execution returns False for a completely unknown run_id."""
         svc = _make_service()
-        svc._running_tasks["run_other"] = _make_mock_task()
+        svc._runtime.running_tasks["run_other"] = _make_mock_task()
 
         result = svc.cancel_execution("run_nonexistent")
 
@@ -142,8 +142,8 @@ class TestCancelActuallyCancelsTask:
         svc = _make_service()
         task_a = _make_mock_task()
         task_b = _make_mock_task()
-        svc._running_tasks["run_a"] = task_a
-        svc._running_tasks["run_b"] = task_b
+        svc._runtime.running_tasks["run_a"] = task_a
+        svc._runtime.running_tasks["run_b"] = task_b
 
         svc.cancel_execution("run_a")
 
@@ -155,14 +155,14 @@ class TestCancelActuallyCancelsTask:
         done_callback handles cleanup when CancelledError propagates."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._running_tasks["run_x"] = mock_task
+        svc._runtime.running_tasks["run_x"] = mock_task
 
         svc.cancel_execution("run_x")
 
         # Task removal is handled by done_callback, not cancel_execution itself.
-        # The task should still be in _running_tasks after cancel_execution returns.
-        assert "run_x" in svc._running_tasks, (
-            "cancel_execution should not remove the task from _running_tasks"
+        # The task should still be in running_tasks after cancel_execution returns.
+        assert "run_x" in svc._runtime.running_tasks, (
+            "cancel_execution should not remove the task from runtime.running_tasks"
         )
 
 

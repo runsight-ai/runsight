@@ -292,7 +292,7 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
     assert run is not None
     assert run.status == RunStatus.cancelled
     assert run.commit_sha == "a" * 40
-    assert run_id not in execution_service._running_tasks
+    assert run_id not in execution_service._runtime.running_tasks
 
 
 @pytest.mark.asyncio
