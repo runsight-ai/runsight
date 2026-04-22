@@ -18,7 +18,6 @@ import yaml
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, ServiceUnavailable, WorkflowNotFound
-from ..observers.streaming_observer import StreamingObserver
 from .execution_persistence import ExecutionRunStore
 from .execution_preparation import (
     ExecutionPreparationService,
@@ -395,11 +394,6 @@ class ExecutionService:
             max_concurrent_runs=max_concurrent_runs,
         )
 
-        # Compatibility aliases used directly by existing tests and call sites.
-        self._observers = self._streams._observers
-        self._running_tasks = self._runtime.running_tasks
-        self._semaphore = self._runtime.semaphore
-
     @staticmethod
     def _has_workflow_blocks(workflow_definition: Dict[str, Any]) -> bool:
         return has_workflow_blocks(workflow_definition)
@@ -409,15 +403,6 @@ class ExecutionService:
 
     def cancel_execution(self, run_id: str) -> bool:
         return self._runtime.cancel(run_id)
-
-    def register_observer(self, run_id: str, observer: StreamingObserver) -> None:
-        self._streams.register(run_id, observer)
-
-    def get_observer(self, run_id: str) -> Optional[StreamingObserver]:
-        return self._streams.get(run_id)
-
-    def unregister_observer(self, run_id: str) -> None:
-        self._streams.unregister(run_id)
 
     async def subscribe_stream(self, run_id: str) -> AsyncGenerator[Dict[str, Any], None]:
         async for event in self._streams.subscribe(run_id):
