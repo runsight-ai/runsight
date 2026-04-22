@@ -31,7 +31,6 @@ class ExecutionRunStore:
 
     def __init__(self, run_repo, engine=None):
         self.run_repo = run_repo
-        self.engine = engine
 
     def fail_ghost_runs(self) -> None:
         """Mark active runs as failed after an API restart."""
@@ -55,38 +54,10 @@ class ExecutionRunStore:
 
     def fail_prepare(self, run_id: str, error: Exception) -> None:
         """Persist a prepare-time failure before any task starts."""
-        if self.engine is not None:
-            try:
-                from sqlmodel import Session
-
-                from ...domain.entities.run import Run
-
-                with Session(self.engine) as session:
-                    run = session.get(Run, run_id)
-                    if run:
-                        current_status = _coerce_run_status(run.status)
-                        if current_status is not None:
-                            try:
-                                validate_transition(current_status, RunStatus.failed)
-                            except InvalidStateTransition:
-                                logger.warning(
-                                    "Skipping invalid prepare failure transition: %s -> %s for run %s",
-                                    current_status.value,
-                                    RunStatus.failed.value,
-                                    run_id,
-                                )
-                                return
-                        run.status = RunStatus.failed
-                        run.error = str(error)
-                        run.completed_at = time.time()
-                        session.add(run)
-                        session.commit()
-                return
-            except Exception:
-                logger.exception("Failed to mark run %s as failed via engine session", run_id)
-
+        get_run = self.run_repo.get_run
+        update_run = self.run_repo.update_run
         try:
-            run = self.run_repo.get_run(run_id)
+            run = get_run(run_id)
             if run:
                 current_status = _coerce_run_status(run.status)
                 if current_status is not None:
@@ -103,7 +74,7 @@ class ExecutionRunStore:
                 run.status = RunStatus.failed
                 run.error = str(error)
                 run.completed_at = time.time()
-                self.run_repo.update_run(run)
+                update_run(run)
         except Exception:
             logger.exception("Failed to mark run %s as failed via run_repo", run_id)
 
@@ -111,43 +82,8 @@ class ExecutionRunStore:
         self, run_id: str, status: RunStatus, *, error: Optional[Exception] = None
     ) -> bool:
         """Persist a non-terminal execution status transition."""
-        if self.engine is not None:
-            try:
-                from sqlmodel import Session
-
-                from ...domain.entities.run import Run
-
-                with Session(self.engine) as session:
-                    run = session.get(Run, run_id)
-                    if run is None:
-                        return False
-                    current_status = _coerce_run_status(run.status)
-                    if current_status is not None:
-                        try:
-                            validate_transition(current_status, status)
-                        except InvalidStateTransition:
-                            logger.warning(
-                                "Skipping invalid state transition: %s -> %s for run %s",
-                                current_status.value,
-                                status.value,
-                                run_id,
-                            )
-                            return False
-                    run.status = status
-                    run.updated_at = time.time()
-                    if error is not None:
-                        run.error = str(error)
-                    session.add(run)
-                    session.commit()
-                    return True
-            except Exception:
-                logger.exception("Failed to update run %s status to %s", run_id, status)
-                return False
-
-        get_run = getattr(self.run_repo, "get_run", None)
-        update_run = getattr(self.run_repo, "update_run", None)
-        if not callable(get_run) or not callable(update_run):
-            return False
+        get_run = self.run_repo.get_run
+        update_run = self.run_repo.update_run
         try:
             run = get_run(run_id)
             if run is None:
@@ -176,28 +112,8 @@ class ExecutionRunStore:
 
     def store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
         """Persist the branch and canonical commit SHA used for execution."""
-        if self.engine is not None:
-            try:
-                from sqlmodel import Session
-
-                from ...domain.entities.run import Run
-
-                with Session(self.engine) as session:
-                    run = session.get(Run, run_id)
-                    if run:
-                        run.branch = branch
-                        run.commit_sha = commit_sha
-                        run.updated_at = time.time()
-                        session.add(run)
-                        session.commit()
-                return
-            except Exception:
-                logger.exception("Failed to store branch/commit_sha for run %s via engine", run_id)
-
-        get_run = getattr(self.run_repo, "get_run", None)
-        update_run = getattr(self.run_repo, "update_run", None)
-        if not callable(get_run) or not callable(update_run):
-            return
+        get_run = self.run_repo.get_run
+        update_run = self.run_repo.update_run
         try:
             run = get_run(run_id)
             if run is None:
@@ -211,26 +127,10 @@ class ExecutionRunStore:
 
     def is_run_cancelled(self, run_id: str) -> bool:
         """Return True when the run has already been cancelled."""
-        if self.engine is not None:
-            try:
-                from sqlmodel import Session
-
-                from ...domain.entities.run import Run
-
-                with Session(self.engine) as session:
-                    run = session.get(Run, run_id)
-                    return bool(run and run.status == RunStatus.cancelled)
-            except Exception:
-                logger.exception("Failed to read run %s cancellation state via engine", run_id)
-                return False
-
-        get_run = getattr(self.run_repo, "get_run", None)
-        if callable(get_run):
-            try:
-                run = get_run(run_id)
-            except Exception:
-                logger.exception("Failed to read run %s cancellation state via run_repo", run_id)
-                return False
-            return bool(run and run.status == RunStatus.cancelled)
-
-        return False
+        get_run = self.run_repo.get_run
+        try:
+            run = get_run(run_id)
+        except Exception:
+            logger.exception("Failed to read run %s cancellation state via run_repo", run_id)
+            return False
+        return bool(run and run.status == RunStatus.cancelled)
