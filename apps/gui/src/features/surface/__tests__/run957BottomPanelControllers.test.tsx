@@ -301,6 +301,56 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     expect(screen.queryByText("stale streamed entry")).toBeNull();
   });
 
+  it("keeps historical logs scoped to the selected run after stale live streams are torn down", async () => {
+    harness.runLogsById.run_other = [
+      {
+        timestamp: "2026-04-22T13:10:00.000Z",
+        level: "info",
+        message: "historical entry from run_other",
+      },
+    ];
+
+    renderPanel();
+
+    act(() => {
+      eventSources[0].emit("log_entry", {
+        timestamp: "2026-04-22T13:09:00.000Z",
+        level: "info",
+        message: "live only from run_live",
+      });
+    });
+
+    expect(screen.getByText("live only from run_live")).toBeTruthy();
+
+    const staleSource = eventSources[0];
+    await selectRunFromRunsTab("#2");
+
+    expect(staleSource.closed).toBe(true);
+    expect(screen.getByText("historical entry from run_other")).toBeTruthy();
+    expect(screen.queryByText("live only from run_live")).toBeNull();
+
+    act(() => {
+      staleSource.emit("log_entry", {
+        timestamp: "2026-04-22T13:11:00.000Z",
+        level: "error",
+        message: "stale event after switch",
+      });
+    });
+
+    expect(screen.queryByText("stale event after switch")).toBeNull();
+
+    act(() => {
+      eventSources.at(-1)?.emit("log_entry", {
+        timestamp: "2026-04-22T13:12:00.000Z",
+        level: "info",
+        message: "live only from run_other",
+      });
+    });
+
+    expect(screen.getByText("historical entry from run_other")).toBeTruthy();
+    expect(screen.getByText("live only from run_other")).toBeTruthy();
+  });
+
   it("retargets the audit tab to the new run without keeping terminal log entries from the old run", async () => {
     const user = userEvent.setup();
     renderPanel();

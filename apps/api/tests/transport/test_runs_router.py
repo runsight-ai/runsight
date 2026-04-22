@@ -1,8 +1,17 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
+import pytest
+from sqlmodel import SQLModel, Session, create_engine
 
+from runsight_api.data.repositories.run_read_model import RunReadModel
+from runsight_api.data.repositories.run_repo import RunRepository
+from runsight_api.domain.entities.run import Run, RunNode
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.logic.services.eval_service import EvalService
+from runsight_api.logic.services.run_service import RunService
 from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service, get_execution_service, get_run_service
 
@@ -86,6 +95,117 @@ def test_runs_list():
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == "run_123"
     assert data["items"][0]["warnings"] == mock_run.warnings_json
+    app.dependency_overrides.clear()
+
+
+def test_runs_list_with_real_read_model_preserves_enriched_metrics_contract():
+    db_path = Path(tempfile.mkdtemp(prefix="run958-runs-router-")) / "runsight.db"
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+    )
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        session.add(
+            Run(
+                id="run_old",
+                workflow_id="wf_metrics",
+                workflow_name="Metrics Flow",
+                status=RunStatus.completed,
+                task_json="{}",
+                created_at=100.0,
+                updated_at=100.0,
+                source="manual",
+                branch="main",
+                total_cost_usd=0.1,
+                total_tokens=10,
+            )
+        )
+        session.add(
+            Run(
+                id="run_new",
+                workflow_id="wf_metrics",
+                workflow_name="Metrics Flow",
+                status=RunStatus.completed,
+                task_json="{}",
+                created_at=200.0,
+                updated_at=200.0,
+                source="manual",
+                branch="main",
+                total_cost_usd=0.3,
+                total_tokens=30,
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_old:node_a",
+                run_id="run_old",
+                node_id="node_a",
+                block_type="llm",
+                status="completed",
+                eval_passed=True,
+                cost_usd=0.1,
+                tokens={"total": 10},
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_old:node_b",
+                run_id="run_old",
+                node_id="node_b",
+                block_type="llm",
+                status="completed",
+                eval_passed=False,
+                cost_usd=0.2,
+                tokens={"total": 20},
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_new:node_a",
+                run_id="run_new",
+                node_id="node_a",
+                block_type="llm",
+                status="completed",
+                eval_passed=True,
+                cost_usd=0.3,
+                tokens={"total": 30},
+            )
+        )
+        session.commit()
+
+    def _get_run_service():
+        session = Session(engine)
+        return RunService(
+            RunRepository(session),
+            workflow_repo=Mock(),
+            run_read_model=RunReadModel(session),
+        )
+
+    def _get_eval_service():
+        session = Session(engine)
+        return EvalService(
+            RunRepository(session),
+            run_read_model=RunReadModel(session),
+        )
+
+    app.dependency_overrides[get_run_service] = _get_run_service
+    app.dependency_overrides[get_eval_service] = _get_eval_service
+
+    response = client.get("/api/runs?workflow_id=wf_metrics")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["id"] for item in items] == ["run_new", "run_old"]
+    assert items[0]["run_number"] == 2
+    assert items[0]["eval_pass_pct"] == 100.0
+    assert items[0]["node_summary"]["completed"] == 1
+    assert items[0]["total_tokens"] == 30
+    assert items[1]["run_number"] == 1
+    assert items[1]["eval_pass_pct"] == 50.0
+    assert items[1]["node_summary"]["completed"] == 2
+    assert items[1]["total_cost_usd"] == pytest.approx(0.3)
     app.dependency_overrides.clear()
 
 
