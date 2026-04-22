@@ -17,8 +17,12 @@ def _requires_git_snapshot(branch: str | None) -> bool:
     return branch is not None
 
 
-def _resolved_branch(branch: str | None) -> str:
-    return branch or "main"
+def _explicit_branch(branch: str | None) -> str | None:
+    if branch is None:
+        return None
+    if branch == "":
+        raise ValueError("Branch ref must not be empty")
+    return branch
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -93,25 +97,25 @@ class ExecutionPreparationService:
     ) -> PreparedWorkflow:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
-        resolved_branch = _resolved_branch(branch)
-        registry_git_ref = resolved_branch if _requires_git_snapshot(branch) else None
-        registry_git_service = self.git_service if _requires_git_snapshot(branch) else None
+        explicit_branch = _explicit_branch(branch)
+        registry_git_ref = explicit_branch if _requires_git_snapshot(explicit_branch) else None
+        registry_git_service = self.git_service if _requires_git_snapshot(explicit_branch) else None
 
-        if _requires_git_snapshot(branch):
+        if _requires_git_snapshot(explicit_branch):
             if self.git_service is None:
                 raise ValueError(
                     f"Requested snapshot could not be loaded for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {resolved_branch!r}: git service unavailable"
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: git service unavailable"
                 )
             try:
-                yaml_content = self.git_service.read_file(workflow_path, resolved_branch)
-                commit_sha = self.git_service.get_sha(resolved_branch, workflow_path)
+                yaml_content = self.git_service.read_file(workflow_path, explicit_branch)
+                commit_sha = self.git_service.get_sha(explicit_branch, workflow_path)
             except Exception:
                 raise
             if commit_sha is None:
                 raise ValueError(
                     f"Requested snapshot sha could not be resolved for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {resolved_branch!r}"
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}"
                 )
         else:
             if wf_entity is None:

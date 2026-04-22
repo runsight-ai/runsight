@@ -36,7 +36,7 @@ class RunCreate(BaseModel):
     workflow_id: str
     inputs: Dict[str, Any] = Field(default_factory=dict, json_schema_extra={"default": {}})
     source: Optional[str] = "manual"
-    branch: str
+    branch: Optional[str] = Field(default=None, min_length=1)
 
 
 class NodeSummary(BaseModel):

@@ -193,6 +193,7 @@ async def create_run(
 ):
     source = body.source or "manual"
     branch = body.branch
+    persisted_branch = "main" if branch is None else branch
     if execution_service is None:
         raise ServiceUnavailable("Execution runtime is unavailable")
 
@@ -208,7 +209,7 @@ async def create_run(
     run = run_service.create_run(
         body.workflow_id,
         prepared,
-        branch=branch,
+        branch=persisted_branch,
         source=source,
     )
     try:

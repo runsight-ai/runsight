@@ -68,8 +68,17 @@ def _requires_git_snapshot(branch: str | None) -> bool:
     return branch is not None
 
 
-def _resolved_branch(branch: str | None) -> str:
-    return branch or "main"
+def _explicit_branch(branch: str | None) -> str | None:
+    if branch is None:
+        return None
+    if branch == "":
+        raise ValueError("Branch ref must not be empty")
+    return branch
+
+
+def _stored_branch(branch: str | None) -> str:
+    explicit_branch = _explicit_branch(branch)
+    return "main" if explicit_branch is None else explicit_branch
 
 
 def _actual_input_type(value: Any) -> str | None:
@@ -430,16 +439,16 @@ class ExecutionService:
         if not isinstance(inputs, PreparedRunInputs):
             raise TypeError("launch_execution inputs must be PreparedRunInputs")
 
-        resolved_branch = _resolved_branch(branch)
+        explicit_branch = _explicit_branch(branch)
         try:
             prepared = self._preparation.prepare_for_launch(
                 workflow_id=workflow_id,
-                branch=branch,
+                branch=explicit_branch,
                 parser=parse_workflow_yaml,
                 prepare_runtime_workflow=self._prepare_runtime_workflow,
                 get_workflow_commit_sha=self._get_workflow_commit_sha,
             )
-            self._store_branch_and_sha(run_id, resolved_branch, prepared.commit_sha)
+            self._store_branch_and_sha(run_id, _stored_branch(explicit_branch), prepared.commit_sha)
             if self._is_run_cancelled(run_id):
                 logger.info(
                     "Run %s was cancelled during prepare; skipping execution launch", run_id
@@ -463,14 +472,14 @@ class ExecutionService:
     ) -> PreparedRunInputs:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
-        resolved_branch = _resolved_branch(branch)
-        if _requires_git_snapshot(branch):
+        explicit_branch = _explicit_branch(branch)
+        if _requires_git_snapshot(explicit_branch):
             if self.git_service is None:
                 raise ValueError(
                     f"Requested snapshot could not be loaded for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {resolved_branch!r}: git service unavailable"
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: git service unavailable"
                 )
-            yaml_content = self.git_service.read_file(workflow_path, resolved_branch)
+            yaml_content = self.git_service.read_file(workflow_path, explicit_branch)
         else:
             if wf_entity is None:
                 raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
