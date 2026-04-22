@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import Mock
 
 import pytest
 
 from runsight_api.domain.errors import InputValidationError
+from runsight_api.domain.errors import ServiceUnavailable
 from runsight_api.domain.errors import WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.execution_service import ExecutionService
@@ -347,6 +349,45 @@ class TestWorkflowInputValidationPreparation:
         git_service.read_file.assert_called_once_with(
             "/custom/workflows/run896_inputs.yaml", "feature-x"
         )
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ServiceUnavailable("git snapshot unavailable"),
+            subprocess.CalledProcessError(
+                128, ["git", "show"], stderr="fatal: not a git repository"
+            ),
+        ],
+    )
+    def test_branch_specific_input_preparation_fails_closed_when_git_snapshot_read_fails(
+        self, error
+    ):
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = WorkflowEntity(
+            kind="workflow",
+            id="run896_inputs",
+            name="run896_inputs",
+            yaml=_workflow_yaml_with_inputs(),
+            valid=True,
+            validation_error=None,
+        )
+        workflow_repo._get_path.return_value = "/custom/workflows/run896_inputs.yaml"
+        git_service = Mock()
+        git_service.read_file.side_effect = error
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=Mock(),
+            git_service=git_service,
+        )
+
+        with pytest.raises(type(error)):
+            service.prepare_run_inputs(
+                "run896_inputs",
+                {"query": "search"},
+                branch="feature-x",
+            )
 
     def test_no_schema_no_inputs_keeps_no_input_path_empty(self):
         service = _service(_workflow_yaml_without_inputs(), workflow_id="run896_no_inputs")

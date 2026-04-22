@@ -10,6 +10,7 @@ All tests in this file should fail on the pre-split implementation.
 """
 
 import asyncio
+import subprocess
 import threading
 import tempfile
 from pathlib import Path
@@ -245,6 +246,57 @@ class TestRequestedSnapshotSourceOfTruth:
         assert run_workflow.await_count == 0, (
             "launch_execution must not schedule execution when the requested "
             "snapshot SHA cannot be resolved."
+        )
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_fails_closed_when_git_snapshot_read_hits_old_fallback_error(
+        self,
+    ):
+        """Fallback-eligible git snapshot read errors must still fail closed."""
+
+        engine = _db_engine()
+        run_id = "run_952_no_working_tree_fallback"
+        _seed_run(engine, run_id)
+
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = Mock(yaml=BRANCH_ONLY_YAML)
+        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        provider_repo = Mock()
+        provider_repo.list_all.return_value = [_provider()]
+        git_service = Mock()
+        git_service.read_file.side_effect = subprocess.CalledProcessError(
+            128,
+            ["git", "show"],
+            stderr="fatal: not a git repository",
+        )
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            engine=engine,
+            git_service=git_service,
+        )
+
+        run_workflow = AsyncMock()
+        with (
+            patch(
+                "runsight_api.logic.services.execution_service.parse_workflow_yaml",
+                return_value=Mock(),
+            ),
+            patch.object(service, "_run_workflow", run_workflow),
+        ):
+            await service.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "require git snapshot"}),
+                branch="feature/sim",
+            )
+            await asyncio.sleep(0)
+
+        assert run_workflow.await_count == 0, (
+            "launch_execution must fail instead of silently degrading to the working tree "
+            "when the requested git snapshot cannot be read."
         )
 
 
@@ -484,7 +536,7 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
         max_concurrent_runs=1,
     )
 
-    await service._semaphore.acquire()
+    await service._runtime.semaphore.acquire()
 
     mock_wf = Mock()
     mock_wf.run = AsyncMock()
@@ -501,9 +553,9 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
         )
         await asyncio.sleep(0)
 
-    queued_task = service._running_tasks[run_id]
+    queued_task = service._runtime.running_tasks[run_id]
     _cancel_run(engine, run_id)
-    service._semaphore.release()
+    service._runtime.semaphore.release()
     await queued_task
 
     with Session(engine) as session:

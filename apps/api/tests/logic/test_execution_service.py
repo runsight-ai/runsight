@@ -132,7 +132,7 @@ class TestLaunchExecution:
 
     @pytest.mark.asyncio
     async def test_launch_execution_registers_task(self):
-        """launch_execution adds run_id to _running_tasks."""
+        """launch_execution adds run_id to the runtime task registry."""
         ExecutionService = _import_execution_service()
         run_repo = Mock()
         workflow_repo = Mock()
@@ -167,7 +167,7 @@ class TestLaunchExecution:
             )
 
             # Task should be tracked
-            assert "run_1" in svc._running_tasks
+            assert "run_1" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_returns_immediately(self):
@@ -215,7 +215,7 @@ class TestLaunchExecution:
             )
 
             # The method returned but workflow hasn't completed
-            assert "run_2" in svc._running_tasks
+            assert "run_2" in svc._runtime.running_tasks
 
             # Let the background task finish
             execution_finish.set()
@@ -330,7 +330,7 @@ config: {}
 class TestAutoCleanup:
     @pytest.mark.asyncio
     async def test_task_removed_after_completion(self):
-        """After background task completes, run_id is removed from _running_tasks."""
+        """After background task completes, run_id is removed from runtime.running_tasks."""
         ExecutionService = _import_execution_service()
         run_repo = Mock()
         run_repo.update_run = Mock()
@@ -368,7 +368,7 @@ class TestAutoCleanup:
             # Wait for background task to finish and cleanup callback to fire
             await asyncio.sleep(0.1)
 
-            assert "run_cleanup" not in svc._running_tasks
+            assert "run_cleanup" not in svc._runtime.running_tasks
 
 
 # ---------------------------------------------------------------------------
@@ -817,7 +817,7 @@ config: {}
             )
 
         mock_fail.assert_not_called()
-        assert "run_code_only" in svc._running_tasks
+        assert "run_code_only" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_rejects_providerless_modeless_soul_without_workflow_model(self):
