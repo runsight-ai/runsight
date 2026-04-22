@@ -1,8 +1,6 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useRunContextAudit, useRunContextAuditStream, useRunLogs, useRunRegressions, useRuns } from "@/queries/runs";
+import { useEffect, useRef } from "react";
+import { useRunContextAudit, useRunContextAuditStream, useRunRegressions } from "@/queries/runs";
 import { useWorkflowRegressions } from "@/queries/workflows";
-import { useCanvasStore } from "@/store/canvas";
-import { mapSSEEventToStoreAction } from "./useRunStream";
 import { useNavigate } from "react-router";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
@@ -10,12 +8,9 @@ import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
 import { useContextAuditStore } from "@/store/contextAudit";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
-
-interface LogEntry {
-  timestamp: string | number;
-  level: string;
-  message: string;
-}
+import { useSurfaceBottomPanelLogs } from "./useSurfaceBottomPanelLogs";
+import { useSurfaceBottomPanelRunSelection } from "./useSurfaceBottomPanelRunSelection";
+import { useSurfaceBottomPanelTabs } from "./useSurfaceBottomPanelTabs";
 
 interface SurfaceBottomPanelProps {
   runId?: string;
@@ -45,47 +40,6 @@ type AuditPanelWithQueryProps = {
   onSelectNode: (nodeId: string, runId?: string) => void;
 };
 
-function sseEventToLogEntry(
-  eventType: string,
-  data: Record<string, unknown>,
-): LogEntry | null {
-  const ts = new Date().toISOString();
-  switch (eventType) {
-    case "node_started":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Node ${data.node_id as string} started`,
-      };
-    case "node_completed":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Node ${data.node_id as string} completed${data.cost_usd != null ? ` ($${(data.cost_usd as number).toFixed(4)})` : ""}`,
-      };
-    case "node_failed":
-      return {
-        timestamp: ts,
-        level: "error",
-        message: `Node ${data.node_id as string} failed: ${(data.error as string) ?? "unknown error"}`,
-      };
-    case "run_completed":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Run completed. Total cost: $${((data.total_cost_usd as number) ?? 0).toFixed(4)}`,
-      };
-    case "run_failed":
-      return {
-        timestamp: ts,
-        level: "error",
-        message: `Run failed: ${(data.error as string) ?? "unknown error"}`,
-      };
-    default:
-      return null;
-  }
-}
-
 function SurfaceBottomPanelContent({
   runId: initialRunId,
   workflowId,
@@ -96,115 +50,23 @@ function SurfaceBottomPanelContent({
   onAuditNodeSelect,
   onAuditOpen,
 }: SurfaceBottomPanelContentProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
-  const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions" | "audit">("logs");
-  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
-  const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
   const navigate = useNavigate();
-
-  const activeRunId = useCanvasStore((s) => s.activeRunId);
-  const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
-  const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
-  const setRunCost = useCanvasStore((s) => s.setRunCost);
-  const replaceContextAuditEvents = useContextAuditStore((s) => s.replaceRunEvents);
-
-  const { data: runsData } = useRuns(
-    workflowId ? { workflow_id: workflowId } : undefined,
-  );
-  const sortedRuns = useMemo(() => {
-    const items = runsData?.items ?? [];
-    return [...items].sort((left, right) => {
-      const leftTime = left.started_at ?? left.created_at ?? 0;
-      const rightTime = right.started_at ?? right.created_at ?? 0;
-      return rightTime - leftTime;
-    });
-  }, [runsData?.items]);
-
-  useEffect(() => {
-    const fallbackRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-    if (fallbackRunId && fallbackRunId !== selectedRunId) {
-      setSelectedRunId(fallbackRunId);
-    }
-  }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
-
-  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-  useRunContextAuditStream(currentRunId);
-
-  useEffect(() => {
-    if (!currentRunId) return;
-    const currentEvents = useContextAuditStore.getState().eventsByRun[currentRunId] ?? [];
-    replaceContextAuditEvents(currentRunId, currentEvents);
-  }, [currentRunId, replaceContextAuditEvents]);
-
-  const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
-    refetchInterval: undefined,
+  const { activeTab, isExpanded, openTab, toggleExpanded } = useSurfaceBottomPanelTabs({
+    defaultState,
+    onAuditOpen,
   });
+  const { currentRunId, sortedRuns, selectRun } = useSurfaceBottomPanelRunSelection({
+    initialRunId,
+    workflowId,
+  });
+  const { entries } = useSurfaceBottomPanelLogs({ runId: currentRunId });
 
   const count = regressionsData?.count ?? 0;
   const regressionsItems = regressionsData?.issues ?? [];
   const regressionEmptyMessage = initialRunId
     ? "No regressions detected for this run."
     : "No regressions detected for this workflow.";
-
-  const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
-
-  // SSE: EventSource connection to /api/runs/${runId}/stream for real-time log events
-  useEffect(() => {
-    if (!currentRunId) return;
-    const source = new EventSource(`/api/runs/${currentRunId}/stream`);
-
-    const EVENT_TYPES = [
-      "log_entry",
-      "node_started",
-      "node_completed",
-      "node_failed",
-      "run_completed",
-      "run_failed",
-    ] as const;
-
-    for (const eventType of EVENT_TYPES) {
-      source.addEventListener(eventType, (event) => {
-        const data = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
-
-        if (eventType === "log_entry") {
-          const entry = data as unknown as LogEntry;
-          setSseEntries((prev) => [...prev, entry]);
-          return;
-        }
-
-        // Map SSE event to store action for canvas node status updates
-        const storeAction = mapSSEEventToStoreAction(eventType, data);
-        if (storeAction) {
-          switch (storeAction.action) {
-            case "setNodeStatus":
-              setNodeStatus(storeAction.nodeId, storeAction.status);
-              break;
-            case "runCompleted":
-              setRunCost(storeAction.totalCost);
-              setActiveRunId(null);
-              break;
-            case "runFailed":
-              setActiveRunId(null);
-              break;
-          }
-        }
-
-        // Convert node lifecycle events to log entries
-        const logEntry = sseEventToLogEntry(eventType, data);
-        if (logEntry) {
-          setSseEntries((prev) => [...prev, logEntry]);
-        }
-
-        // Close EventSource on terminal events
-        if (eventType === "run_completed" || eventType === "run_failed") {
-          source.close();
-        }
-      });
-    }
-
-    return () => source.close();
-  }, [currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
 
   // Auto-scroll when new entries arrive
   useEffect(() => {
@@ -214,8 +76,8 @@ function SurfaceBottomPanelContent({
   }, [entries.length]);
 
   const onRunSelect = (runId: string) => {
-    setSelectedRunId(runId);
-    setActiveTab("logs");
+    selectRun(runId);
+    openTab("logs");
   };
 
   return (
@@ -235,10 +97,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand logs panel"
           aria-selected={activeTab === "logs"}
-          onClick={() => {
-            setActiveTab("logs");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("logs")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "logs" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Logs
@@ -248,10 +107,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand runs panel"
           aria-selected={activeTab === "runs"}
-          onClick={() => {
-            setActiveTab("runs");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("runs")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "runs" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Runs
@@ -261,10 +117,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand regressions panel"
           aria-selected={activeTab === "regressions"}
-          onClick={() => {
-            setActiveTab("regressions");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("regressions")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "regressions" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Regressions{count > 0 ? ` (${count})` : ""}
@@ -274,11 +127,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand audit panel"
           aria-selected={activeTab === "audit"}
-          onClick={() => {
-            setActiveTab("audit");
-            setIsExpanded(true);
-            onAuditOpen?.();
-          }}
+          onClick={() => openTab("audit")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "audit" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Audit
@@ -287,7 +136,7 @@ function SurfaceBottomPanelContent({
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
           data-testid="workflow-bottom-panel-toggle"
-          onClick={() => setIsExpanded((prev) => !prev)}
+          onClick={toggleExpanded}
           className="ml-auto bg-transparent border-none text-muted cursor-pointer text-sm hover:text-primary"
         >
           {isExpanded ? "\u25BC" : "\u25B2"}
@@ -361,7 +210,7 @@ function SurfaceBottomPanelContent({
       )}
       {isExpanded && activeTab === "audit" && (
         <div data-testid="workflow-audit-panel" className="overflow-hidden flex-1">
-          <AuditPanelWithQuery
+          <SurfaceBottomPanelAuditController
             runId={currentRunId}
             selectedNodeId={selectedNodeId ?? null}
             onSelectNode={(nodeId) => {
@@ -374,12 +223,22 @@ function SurfaceBottomPanelContent({
   );
 }
 
-function AuditPanelWithQuery({
+function SurfaceBottomPanelAuditController({
   runId,
   selectedNodeId,
   onSelectNode,
 }: AuditPanelWithQueryProps) {
+  const replaceContextAuditEvents = useContextAuditStore((state) => state.replaceRunEvents);
   const contextAuditQuery = useRunContextAudit(runId ?? "", { page_size: 100 });
+  useRunContextAuditStream(runId);
+
+  useEffect(() => {
+    if (!runId) {
+      return;
+    }
+    const currentEvents = useContextAuditStore.getState().eventsByRun[runId] ?? [];
+    replaceContextAuditEvents(runId, currentEvents);
+  }, [replaceContextAuditEvents, runId]);
 
   return (
     <ContextAuditPanel
