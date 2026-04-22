@@ -333,7 +333,15 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
 async def test_post_run_then_stream_replays_persisted_execution_logs(db_engine, base_dir: Path):
     from httpx import ASGITransport, AsyncClient
 
-    app, _execution_service = _build_app(db_engine=db_engine, base_dir=base_dir)
+    git_service = Mock()
+    git_service.read_file.return_value = SIMPLE_WORKFLOW_YAML
+    git_service.get_sha.return_value = "a" * 40
+
+    app, _execution_service = _build_app(
+        db_engine=db_engine,
+        base_dir=base_dir,
+        git_service=git_service,
+    )
 
     async with AsyncClient(
         transport=ASGITransport(app=app),

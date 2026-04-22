@@ -5,7 +5,6 @@ import logging
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Dict, Optional
-from unittest.mock import Mock
 
 from runsight_core.identity import EntityKind, EntityRef
 from runsight_core.redaction import RunRedactor
@@ -16,7 +15,6 @@ from pydantic import ValidationError
 import yaml
 
 from ...core.secrets import SecretsEnvLoader
-from ...data.repositories.run_repo import RunRepository
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, WorkflowNotFound
 from .execution_persistence import ExecutionRunStore
@@ -66,8 +64,12 @@ def _provider_ref(provider_id: str) -> str:
     return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
-def _requires_git_snapshot(branch: str) -> bool:
-    return branch != "main"
+def _requires_git_snapshot(branch: str | None) -> bool:
+    return branch is not None
+
+
+def _resolved_branch(branch: str | None) -> str:
+    return branch or "main"
 
 
 def _actual_input_type(value: Any) -> str | None:
@@ -383,13 +385,7 @@ class ExecutionService:
         self.git_service = git_service
         self.settings_repo = settings_repo
 
-        persistence_run_repo = run_repo
-        if engine is not None and (run_repo is None or isinstance(run_repo, Mock)):
-            from sqlmodel import Session
-
-            persistence_run_repo = RunRepository(Session(engine))
-
-        self._run_store = ExecutionRunStore(run_repo=persistence_run_repo)
+        self._run_store = ExecutionRunStore(run_repo=run_repo)
         self._streams = ExecutionStreamRegistry()
         self._preparation = ExecutionPreparationService(
             workflow_repo=workflow_repo,
@@ -428,12 +424,13 @@ class ExecutionService:
         run_id: str,
         workflow_id: str,
         inputs: PreparedRunInputs,
-        branch: str = "main",
+        branch: str | None = None,
     ) -> None:
         """Prepare a workflow snapshot, then schedule background execution."""
         if not isinstance(inputs, PreparedRunInputs):
             raise TypeError("launch_execution inputs must be PreparedRunInputs")
 
+        resolved_branch = _resolved_branch(branch)
         try:
             prepared = self._preparation.prepare_for_launch(
                 workflow_id=workflow_id,
@@ -442,7 +439,7 @@ class ExecutionService:
                 prepare_runtime_workflow=self._prepare_runtime_workflow,
                 get_workflow_commit_sha=self._get_workflow_commit_sha,
             )
-            self._store_branch_and_sha(run_id, branch, prepared.commit_sha)
+            self._store_branch_and_sha(run_id, resolved_branch, prepared.commit_sha)
             if self._is_run_cancelled(run_id):
                 logger.info(
                     "Run %s was cancelled during prepare; skipping execution launch", run_id
@@ -462,18 +459,19 @@ class ExecutionService:
         workflow_id: str,
         inputs: Dict[str, Any],
         *,
-        branch: str = "main",
+        branch: str | None = None,
     ) -> PreparedRunInputs:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
-        if self.git_service:
-            yaml_content = self.git_service.read_file(workflow_path, branch)
-        else:
-            if _requires_git_snapshot(branch):
+        resolved_branch = _resolved_branch(branch)
+        if _requires_git_snapshot(branch):
+            if self.git_service is None:
                 raise ValueError(
                     f"Requested snapshot could not be loaded for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {branch!r}: git service unavailable"
+                    f"{_workflow_ref(workflow_id)} on ref {resolved_branch!r}: git service unavailable"
                 )
+            yaml_content = self.git_service.read_file(workflow_path, resolved_branch)
+        else:
             if wf_entity is None:
                 raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
             yaml_content = wf_entity.yaml
