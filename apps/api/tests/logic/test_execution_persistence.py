@@ -1,4 +1,3 @@
-import inspect
 from types import SimpleNamespace
 
 from runsight_api.domain.entities.run import RunStatus
@@ -39,13 +38,3 @@ def test_fail_ghost_runs_uses_canonical_list_runs_path_without_legacy_status_pro
     assert running_run.status == RunStatus.failed
     assert completed_run.status == RunStatus.completed
     assert updated_ids == ["run_pending", "run_running"]
-
-
-def test_execution_run_store_source_has_no_ghost_run_compatibility_fallbacks() -> None:
-    fail_ghost_runs_source = inspect.getsource(ExecutionRunStore.fail_ghost_runs)
-    store_branch_source = inspect.getsource(ExecutionRunStore.store_branch_and_sha)
-
-    assert "get_by_status" not in fail_ghost_runs_source
-    assert 'getattr(self.run_repo, "update_run", None)' not in fail_ghost_runs_source
-    assert 'getattr(self.run_repo, "get_run", None)' not in store_branch_source
-    assert 'getattr(self.run_repo, "update_run", None)' not in store_branch_source

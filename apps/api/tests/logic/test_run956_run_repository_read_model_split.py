@@ -105,50 +105,6 @@ class _WorkflowRepositoryDouble:
         return {"wf_alpha": 1711900000.0, "wf_beta": 1711900500.0}[workflow_id]
 
 
-@pytest.mark.parametrize(
-    ("service_cls", "forbidden_fragments"),
-    [
-        (
-            RunService,
-            [
-                "def _resolve_run_read_model(",
-                'getattr(self.run_repo, "list_runs_paginated", None)',
-                'session = getattr(self.run_repo, "session", None)',
-                "RunReadModel(session)",
-            ],
-        ),
-        (
-            WorkflowService,
-            [
-                "def _resolve_run_read_model(",
-                'getattr(self.run_repo, "get_workflow_health_metrics", None)',
-                'session = getattr(self.run_repo, "session", None)',
-                "RunReadModel(session)",
-            ],
-        ),
-        (
-            EvalService,
-            [
-                "def _resolve_run_read_model(",
-                'baseline_getter = getattr(self.run_repo, "get_baseline", None)',
-                'session = getattr(self.run_repo, "session", None)',
-                "RunReadModel(session)",
-            ],
-        ),
-    ],
-)
-def test_services_do_not_probe_run_repo_or_construct_read_models_implicitly(
-    service_cls, forbidden_fragments
-) -> None:
-    source = inspect.getsource(service_cls)
-
-    for fragment in forbidden_fragments:
-        assert fragment not in source, (
-            f"{service_cls.__name__} must use only the explicit run_read_model collaborator; "
-            f"found forbidden fallback fragment: {fragment!r}"
-        )
-
-
 def test_run_service_uses_only_explicit_run_read_model_for_paginated_queries() -> None:
     visible = _make_run("run_visible", run_number=7, eval_pass_pct=66.67)
     read_model = _RunReadModelDouble(paginated_result=([visible], 1))
@@ -185,6 +141,28 @@ def test_run_service_uses_only_explicit_run_read_model_for_paginated_queries() -
             "branch": "main",
         }
     ]
+
+
+def test_run_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+    visible = _make_run("run_visible")
+
+    def _unexpected_run_read_model(session):
+        raise AssertionError("RunService must not construct RunReadModel from run_repo.session")
+
+    monkeypatch.setattr(
+        "runsight_api.data.repositories.run_read_model.RunReadModel",
+        _unexpected_run_read_model,
+    )
+
+    run_repo = SimpleNamespace(
+        get_run=lambda run_id: visible if run_id == visible.id else None,
+        delete_run=lambda run_id: run_id,
+        session=object(),
+    )
+    service = RunService(run_repo=run_repo, workflow_repo=Mock())
+
+    with pytest.raises(RuntimeError, match="requires a run read model"):
+        service.list_runs_paginated(offset=0, limit=20)
 
 
 def test_workflow_service_uses_only_explicit_run_read_model_for_health_queries() -> None:
@@ -234,6 +212,27 @@ def test_workflow_service_uses_only_explicit_run_read_model_for_health_queries()
     assert result[1].health["regression_count"] == 0
 
 
+def test_workflow_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+    workflows = [WorkflowEntity(kind="workflow", id="wf_alpha", name="Alpha", enabled=True)]
+    workflow_repo = _WorkflowRepositoryDouble(workflows)
+
+    def _unexpected_run_read_model(session):
+        raise AssertionError(
+            "WorkflowService must not construct RunReadModel from run_repo.session"
+        )
+
+    monkeypatch.setattr(
+        "runsight_api.data.repositories.run_read_model.RunReadModel",
+        _unexpected_run_read_model,
+    )
+
+    run_repo = SimpleNamespace(session=object())
+    service = WorkflowService(workflow_repo=workflow_repo, run_repo=run_repo, git_service=Mock())
+
+    with pytest.raises(RuntimeError, match="requires a run read model"):
+        service.list_workflows()
+
+
 def test_eval_service_uses_only_explicit_run_read_model_for_baselines() -> None:
     run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
     node = RunNode(
@@ -278,6 +277,41 @@ def test_eval_service_uses_only_explicit_run_read_model_for_baselines() -> None:
     assert read_model.baseline_calls == [("writer", "sha:v1")]
     assert result.nodes[0].delta is not None
     assert result.nodes[0].delta.baseline_run_count == 4
+
+
+def test_eval_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+    run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
+    node = RunNode(
+        id="run_eval:draft",
+        run_id="run_eval",
+        node_id="draft",
+        block_type="llm",
+        status=NodeStatus.completed,
+        soul_id="writer",
+        soul_version="sha:v1",
+        eval_score=0.9,
+        eval_passed=True,
+        cost_usd=0.3,
+        tokens={"prompt": 120, "completion": 180, "total": 300},
+    )
+
+    def _unexpected_run_read_model(session):
+        raise AssertionError("EvalService must not construct RunReadModel from run_repo.session")
+
+    monkeypatch.setattr(
+        "runsight_api.data.repositories.run_read_model.RunReadModel",
+        _unexpected_run_read_model,
+    )
+
+    run_repo = SimpleNamespace(
+        get_run=lambda run_id: run if run_id == "run_eval" else None,
+        list_nodes_for_run=lambda run_id: [node] if run_id == "run_eval" else [],
+        session=object(),
+    )
+    service = EvalService(run_repo=run_repo)
+
+    with pytest.raises(RuntimeError, match="requires a run read model"):
+        service.get_run_eval("run_eval")
 
 
 @pytest.mark.parametrize(

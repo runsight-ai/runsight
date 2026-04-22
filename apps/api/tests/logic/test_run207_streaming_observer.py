@@ -16,7 +16,7 @@ All tests should FAIL until the StreamingObserver is wired in.
 """
 
 import asyncio
-import inspect
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -35,13 +35,48 @@ from runsight_api.logic.services.execution_service import (
 # ---------------------------------------------------------------------------
 
 
-def test_execution_runtime_observer_registration_has_one_canonical_path() -> None:
-    source = inspect.getsource(ExecutionRuntimeCoordinator.run_workflow)
+@pytest.mark.asyncio
+async def test_execution_runtime_uses_stream_registry_not_service_fallback_methods() -> None:
+    register_calls: list[str] = []
+    unregister_calls: list[str] = []
 
-    assert 'getattr(self.service, "register_observer", None)' not in source
-    assert 'getattr(self.service, "unregister_observer", None)' not in source
-    assert "if callable(register_observer):" not in source
-    assert "if callable(unregister_observer):" not in source
+    class _Streams:
+        def register(self, run_id, observer):
+            register_calls.append(run_id)
+
+        def unregister(self, run_id):
+            unregister_calls.append(run_id)
+
+        def close_stream(self, run_id, observer=None):
+            return None
+
+    persistence = Mock()
+    persistence.is_run_cancelled.return_value = False
+    persistence.set_status.return_value = True
+    runtime = ExecutionRuntimeCoordinator(engine=None, persistence=persistence, streams=_Streams())
+
+    class _Service:
+        def register_observer(self, run_id, observer):
+            raise AssertionError("Runtime must not use service.register_observer fallback")
+
+        def unregister_observer(self, run_id):
+            raise AssertionError("Runtime must not use service.unregister_observer fallback")
+
+    runtime.service = _Service()
+
+    async def _run(state, observer=None, inputs=None):
+        return state
+
+    workflow = SimpleNamespace(run=_run)
+
+    await runtime.run_workflow(
+        "run_direct_streams",
+        workflow,
+        _prepared_inputs({"instruction": "test"}),
+    )
+
+    assert register_calls == ["run_direct_streams"]
+    assert unregister_calls == ["run_direct_streams"]
 
 
 def _make_service(**overrides):
