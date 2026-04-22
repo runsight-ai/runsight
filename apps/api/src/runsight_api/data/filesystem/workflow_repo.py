@@ -18,7 +18,9 @@ from urllib.parse import unquote
 import yaml as yaml_mod
 from ruamel.yaml import YAML
 from runsight_core.identity import EntityKind, EntityRef
+from runsight_core.yaml.discovery import SoulScanner, WorkflowScanner
 from runsight_core.yaml.parser import _validate_declared_tool_definitions, validate_tool_governance
+from runsight_core.yaml.parser import validate_workflow_call_contracts
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...domain.errors import InputValidationError, WorkflowNotFound
@@ -81,6 +83,8 @@ class WorkflowRepository:
             root_path=self._get_path(workflow_id),
             git_ref=git_ref,
             git_service=git_service,
+            workflow_scanner_cls=WorkflowScanner,
+            workflow_call_contracts_validator=validate_workflow_call_contracts,
         )
 
     def _validate_yaml_content(
@@ -94,6 +98,7 @@ class WorkflowRepository:
             declared_tool_definitions_validator=_validate_declared_tool_definitions,
             tool_governance_validator=validate_tool_governance,
             has_workflow_blocks=self._has_workflow_blocks,
+            soul_scanner_cls=SoulScanner,
         )
 
     def _read_canvas_sidecar(self, stem: str) -> Optional[dict[str, Any]]:

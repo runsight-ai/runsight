@@ -78,7 +78,7 @@ class TestStartupGhostRunCleanupOwnership:
                     for run in stale_runs:
                         stored = session.get(Run, run.id)
                         stored.status = RunStatus.failed
-                        stored.error = "API process restarted during execution"
+                        stored.error = "API server restarted during execution"
                         stored.completed_at = time.time()
                         session.add(stored)
                     session.commit()
@@ -103,5 +103,5 @@ class TestStartupGhostRunCleanupOwnership:
             for run in stale_runs:
                 recovered = session.get(Run, run.id)
                 assert recovered.status == RunStatus.failed
-                assert recovered.error == "API process restarted during execution"
+                assert recovered.error == "API server restarted during execution"
                 assert recovered.completed_at is not None

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 from runsight_core.yaml.discovery import WorkflowScanner
@@ -20,6 +20,8 @@ def build_runnable_workflow_registry(
     root_path: Path,
     git_ref: str | None = None,
     git_service: Any = None,
+    workflow_scanner_cls: Callable[..., Any] = WorkflowScanner,
+    workflow_call_contracts_validator: Callable[..., Any] = validate_workflow_call_contracts,
 ) -> WorkflowRegistry:
     """Build a registry for nested workflow execution from a root YAML snapshot."""
     data = yaml.safe_load(raw_yaml)
@@ -32,7 +34,10 @@ def build_runnable_workflow_registry(
             f"embedded workflow id {root_file.id!r} does not match requested workflow:{workflow_id}"
         )
     registry = WorkflowRegistry()
-    workflow_index = WorkflowScanner(base_path).scan(git_ref=git_ref, git_service=git_service)
+    workflow_index = workflow_scanner_cls(base_path).scan(
+        git_ref=git_ref,
+        git_service=git_service,
+    )
     workflow_results_by_id = {
         result.entity_id: result
         for result in workflow_index.get_all()
@@ -69,7 +74,7 @@ def build_runnable_workflow_registry(
             validation_index[child_id] = (child_path, resolved_child.item)
             pending.append(resolved_child.item)
 
-    validate_workflow_call_contracts(
+    workflow_call_contracts_validator(
         root_file,
         base_dir=str(base_path),
         validation_index=validation_index,

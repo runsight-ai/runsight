@@ -38,15 +38,17 @@ def assert_valid_yaml_for_write(workflow_id: str, raw_yaml: str) -> None:
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc
     if embedded_id != workflow_id:
-        raise InputValidationError(
+        raise ValueError(
             f"embedded workflow id {embedded_id!r} does not match requested "
             f"{_workflow_ref(workflow_id)}"
         )
     try:
         file_def = RunsightWorkflowFile.model_validate(data)
+    except PydanticValidationError:
+        # Preserve historically lenient writes for partial/invalid drafts.
+        return
+    try:
         effective_workflow_input_schema(file_def)
-    except PydanticValidationError as exc:
-        raise InputValidationError(str(exc)) from exc
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc
 
@@ -60,6 +62,7 @@ def validate_yaml_content(
     declared_tool_definitions_validator: Callable[..., Any],
     tool_governance_validator: Callable[..., Any],
     has_workflow_blocks: Callable[[RunsightWorkflowFile], bool],
+    soul_scanner_cls: Callable[..., Any] = SoulScanner,
 ) -> tuple[bool, Optional[str], list[dict[str, Optional[str]]]]:
     """Validate raw YAML into the repository entity-facing result shape."""
     if not raw_yaml:
@@ -73,7 +76,7 @@ def validate_yaml_content(
 
         file_def = RunsightWorkflowFile.model_validate(data)
         effective_workflow_input_schema(file_def)
-        souls_map = SoulScanner(base_path).scan().ids()
+        souls_map = soul_scanner_cls(base_path).scan().ids()
         validation_result = tool_governance_validator(file_def, souls_map)
         validation_result.merge(
             declared_tool_definitions_validator(

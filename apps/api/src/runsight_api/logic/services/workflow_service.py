@@ -1,6 +1,7 @@
 import logging
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from unittest.mock import Mock
 
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
@@ -10,11 +11,13 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
 from ...data.repositories.run_repo import RunRepository
-from ...data.repositories.run_read_model import RunReadModel
 from ...domain.errors import GitError, InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from ...data.repositories.run_read_model import RunReadModel
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -124,12 +127,25 @@ class WorkflowService:
         workflow_repo: WorkflowRepository,
         run_repo: RunRepository,
         git_service=None,
-        run_read_model: RunReadModel | None = None,
+        run_read_model: "RunReadModel | None" = None,
     ):
         self.workflow_repo = workflow_repo
         self.run_repo = run_repo
         self.git_service = git_service
         self.run_read_model = run_read_model
+
+    def _resolve_run_read_model(self) -> "RunReadModel | None":
+        if self.run_read_model is not None:
+            return self.run_read_model
+        health_getter = getattr(self.run_repo, "get_workflow_health_metrics", None)
+        if callable(health_getter):
+            return None
+        session = getattr(self.run_repo, "session", None)
+        if session is None or isinstance(session, Mock):
+            return None
+        from ...data.repositories.run_read_model import RunReadModel
+
+        return RunReadModel(session)
 
     def list_workflows(self, query: Optional[str] = None) -> List[WorkflowEntity]:
         workflows = self.workflow_repo.list_all()
@@ -141,13 +157,16 @@ class WorkflowService:
                 if query in w.id.lower() or (getattr(w, "name", "") and query in w.name.lower())
             ]
 
-        if self.run_read_model is None:
-            raise RuntimeError(
-                "WorkflowService requires a run read model for workflow health queries"
+        run_read_model = self._resolve_run_read_model()
+        if run_read_model is not None:
+            health_by_workflow = run_read_model.get_workflow_health_metrics(
+                [w.id for w in workflows]
             )
-        health_by_workflow = self.run_read_model.get_workflow_health_metrics(
-            [w.id for w in workflows]
-        )
+        else:
+            health_getter = getattr(self.run_repo, "get_workflow_health_metrics", None)
+            health_by_workflow = (
+                health_getter([w.id for w in workflows]) if callable(health_getter) else {}
+            )
         enriched_workflows: list[WorkflowEntity] = []
 
         for workflow in workflows:

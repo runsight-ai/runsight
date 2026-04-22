@@ -32,8 +32,8 @@ def test_fail_ghost_runs_without_engine_uses_run_repo_list_runs() -> None:
     assert pending_run.status == RunStatus.failed
     assert running_run.status == RunStatus.failed
     assert completed_run.status == RunStatus.completed
-    assert pending_run.error == "API process restarted during execution"
-    assert running_run.error == "API process restarted during execution"
+    assert pending_run.error == "API server restarted during execution"
+    assert running_run.error == "API server restarted during execution"
     assert pending_run.completed_at is not None
     assert running_run.completed_at is not None
     assert updated_ids == ["run_pending", "run_running"]

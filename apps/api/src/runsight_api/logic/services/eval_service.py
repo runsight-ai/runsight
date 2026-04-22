@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections import defaultdict
 from statistics import mean
 import time
+from typing import TYPE_CHECKING
 
 from ...data.repositories.run_repo import RunRepository
-from ...data.repositories.run_read_model import RunReadModel
 from ...transport.schemas.dashboard import AttentionItem
 from ...transport.schemas.eval import (
     EvalDelta,
@@ -15,15 +15,28 @@ from ...transport.schemas.eval import (
     SoulVersionEntry,
 )
 
+if TYPE_CHECKING:
+    from ...data.repositories.run_read_model import RunReadModel
+
 
 class EvalService:
     def __init__(
         self,
         run_repo: RunRepository,
-        run_read_model: RunReadModel | None = None,
+        run_read_model: "RunReadModel | None" = None,
     ):
         self.run_repo = run_repo
         self.run_read_model = run_read_model
+
+    def _resolve_run_read_model(self) -> "RunReadModel | None":
+        if self.run_read_model is not None:
+            return self.run_read_model
+        session = getattr(self.run_repo, "session", None)
+        if session is None:
+            return None
+        from ...data.repositories.run_read_model import RunReadModel
+
+        return RunReadModel(session)
 
     def get_run_eval(self, run_id: str) -> RunEvalResponse | None:
         run = self.run_repo.get_run(run_id)
@@ -349,10 +362,14 @@ class EvalService:
         if node.soul_id is None or node.soul_version is None:
             return None
 
-        if self.run_read_model is None:
-            raise RuntimeError("EvalService requires a run read model for baseline queries")
-
-        baseline = self.run_read_model.get_baseline(node.soul_id, node.soul_version)
+        baseline_getter = getattr(self.run_repo, "get_baseline", None)
+        if callable(baseline_getter):
+            baseline = baseline_getter(node.soul_id, node.soul_version)
+        else:
+            run_read_model = self._resolve_run_read_model()
+            if run_read_model is None:
+                raise RuntimeError("EvalService requires a run read model for baseline queries")
+            baseline = run_read_model.get_baseline(node.soul_id, node.soul_version)
         if baseline is None:
             return None
 

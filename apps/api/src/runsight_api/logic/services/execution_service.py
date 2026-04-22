@@ -394,6 +394,7 @@ class ExecutionService:
             streams=self._streams,
             max_concurrent_runs=max_concurrent_runs,
         )
+        self._runtime.service = self
 
         # Compatibility aliases used directly by existing tests and call sites.
         self._observers = self._streams._observers

@@ -72,6 +72,6 @@ class TestRun772StaleRunRecovery:
             for run in runs:
                 recovered = session.get(Run, run.id)
                 assert recovered.status == RunStatus.failed
-                assert recovered.error == "API process restarted during execution"
+                assert recovered.error == "API server restarted during execution"
                 assert recovered.completed_at is not None
                 assert abs(recovered.completed_at - time.time()) < 10
