@@ -47,7 +47,6 @@ class ExecutionRuntimeCoordinator:
         self.streams = streams
         self.running_tasks: Dict[str, asyncio.Task] = {}
         self.semaphore = asyncio.Semaphore(max_concurrent_runs)
-        self.service = None
 
     def track_background_task(self, run_id: str, coroutine) -> None:
         task = asyncio.create_task(coroutine)
@@ -66,11 +65,7 @@ class ExecutionRuntimeCoordinator:
         from runsight_core.state import WorkflowState
 
         streaming_obs = StreamingObserver(run_id=run_id)
-        register_observer = getattr(self.service, "register_observer", None)
-        if callable(register_observer):
-            register_observer(run_id, streaming_obs)
-        else:
-            self.streams.register(run_id, streaming_obs)
+        self.streams.register(run_id, streaming_obs)
 
         try:
             normalized_inputs, input_redactor = _split_runtime_inputs(inputs)
@@ -128,9 +123,5 @@ class ExecutionRuntimeCoordinator:
                 self.streams.close_stream(run_id, observer=streaming_obs)
                 raise
         finally:
-            unregister_observer = getattr(self.service, "unregister_observer", None)
-            if callable(unregister_observer):
-                unregister_observer(run_id)
-            else:
-                self.streams.unregister(run_id)
+            self.streams.unregister(run_id)
             self.running_tasks.pop(run_id, None)

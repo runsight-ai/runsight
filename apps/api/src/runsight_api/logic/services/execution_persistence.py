@@ -3,7 +3,6 @@
 import logging
 import time
 from typing import Optional
-from unittest.mock import Mock
 
 from ...domain.entities.run import InvalidStateTransition, RunStatus, validate_transition
 
@@ -38,51 +37,19 @@ class ExecutionRunStore:
         """Mark active runs as failed after an API restart."""
         restart_error = "API server restarted during execution"
 
-        if self.engine is not None and not isinstance(self.engine, Mock):
-            try:
-                from sqlmodel import Session, select
-
-                from ...domain.entities.run import Run
-
-                with Session(self.engine) as session:
-                    ghost_runs = session.exec(
-                        select(Run).where(Run.status.in_([RunStatus.pending, RunStatus.running]))
-                    ).all()
-                    completed_at = time.time()
-                    for run in ghost_runs:
-                        run.status = RunStatus.failed
-                        run.error = restart_error
-                        run.completed_at = completed_at
-                        run.updated_at = completed_at
-                        session.add(run)
-                    session.commit()
-                return
-            except Exception:
-                logger.exception("Failed to mark ghost runs via engine session")
-
         try:
-            get_by_status = getattr(self.run_repo, "get_by_status", None)
-            if callable(get_by_status):
-                stale_runs = []
-                for status in (RunStatus.pending, RunStatus.running):
-                    result = get_by_status(status)
-                    if isinstance(result, list):
-                        stale_runs.extend(result)
-            else:
-                stale_runs = [
-                    run
-                    for run in self.run_repo.list_runs()
-                    if run.status in {RunStatus.pending, RunStatus.running}
-                ]
+            stale_runs = [
+                run
+                for run in self.run_repo.list_runs()
+                if run.status in {RunStatus.pending, RunStatus.running}
+            ]
             completed_at = time.time()
             for run in stale_runs:
                 run.status = RunStatus.failed
                 run.error = restart_error
                 run.completed_at = completed_at
                 run.updated_at = completed_at
-                update_run = getattr(self.run_repo, "update_run", None)
-                if callable(update_run):
-                    update_run(run)
+                self.run_repo.update_run(run)
         except Exception:
             logger.exception("Failed to mark ghost runs via run_repo")
 

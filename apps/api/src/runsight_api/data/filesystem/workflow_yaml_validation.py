@@ -44,9 +44,8 @@ def assert_valid_yaml_for_write(workflow_id: str, raw_yaml: str) -> None:
         )
     try:
         file_def = RunsightWorkflowFile.model_validate(data)
-    except PydanticValidationError:
-        # Preserve historically lenient writes for partial/invalid drafts.
-        return
+    except PydanticValidationError as exc:
+        raise InputValidationError(str(exc)) from exc
     try:
         effective_workflow_input_schema(file_def)
     except ValueError as exc:

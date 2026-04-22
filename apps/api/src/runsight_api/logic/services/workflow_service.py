@@ -1,7 +1,6 @@
 import logging
 import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
-from unittest.mock import Mock
 
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
@@ -134,19 +133,6 @@ class WorkflowService:
         self.git_service = git_service
         self.run_read_model = run_read_model
 
-    def _resolve_run_read_model(self) -> "RunReadModel | None":
-        if self.run_read_model is not None:
-            return self.run_read_model
-        health_getter = getattr(self.run_repo, "get_workflow_health_metrics", None)
-        if callable(health_getter):
-            return None
-        session = getattr(self.run_repo, "session", None)
-        if session is None or isinstance(session, Mock):
-            return None
-        from ...data.repositories.run_read_model import RunReadModel
-
-        return RunReadModel(session)
-
     def list_workflows(self, query: Optional[str] = None) -> List[WorkflowEntity]:
         workflows = self.workflow_repo.list_all()
         if query:
@@ -157,16 +143,15 @@ class WorkflowService:
                 if query in w.id.lower() or (getattr(w, "name", "") and query in w.name.lower())
             ]
 
-        run_read_model = self._resolve_run_read_model()
-        if run_read_model is not None:
-            health_by_workflow = run_read_model.get_workflow_health_metrics(
-                [w.id for w in workflows]
+        if workflows and self.run_read_model is None:
+            raise RuntimeError(
+                "WorkflowService requires a run read model for workflow health queries"
             )
-        else:
-            health_getter = getattr(self.run_repo, "get_workflow_health_metrics", None)
-            health_by_workflow = (
-                health_getter([w.id for w in workflows]) if callable(health_getter) else {}
-            )
+        health_by_workflow = (
+            self.run_read_model.get_workflow_health_metrics([w.id for w in workflows])
+            if self.run_read_model is not None
+            else {}
+        )
         enriched_workflows: list[WorkflowEntity] = []
 
         for workflow in workflows:
