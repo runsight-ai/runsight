@@ -13,6 +13,10 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def _requires_git_snapshot(branch: str) -> bool:
+    return branch != "main"
+
+
 def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
@@ -100,6 +104,11 @@ class ExecutionPreparationService:
                     f"{_workflow_ref(workflow_id)} on ref {branch!r}"
                 )
         else:
+            if _requires_git_snapshot(branch):
+                raise ValueError(
+                    f"Requested snapshot could not be loaded for workflow "
+                    f"{_workflow_ref(workflow_id)} on ref {branch!r}: git service unavailable"
+                )
             if wf_entity is None:
                 raise ValueError(f"Workflow {_workflow_ref(workflow_id)} not found")
             yaml_content = wf_entity.yaml

@@ -6,6 +6,7 @@ import logging
 import time
 import traceback
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Optional
 
@@ -28,6 +29,7 @@ from runsight_api.core.context import (
     clear_block_context,
     clear_execution_context,
 )
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import (
     InvalidStateTransition,
@@ -39,6 +41,12 @@ from runsight_api.domain.entities.run import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _run_repo(engine):
+    with Session(engine) as session:
+        yield RunRepository(session)
 
 
 def _is_workflow_block_type(block_type: str) -> bool:
@@ -83,8 +91,8 @@ class DatabaseRunLifecycleWriter:
         self.run_id = run_id
 
     def start(self) -> bool:
-        with Session(self.engine) as session:
-            run = session.get(Run, self.run_id)
+        with _run_repo(self.engine) as repo:
+            run = repo.get_run(self.run_id)
             if run:
                 try:
                     validate_transition(run.status, RunStatus.running)
@@ -99,13 +107,12 @@ class DatabaseRunLifecycleWriter:
                 run.status = RunStatus.running
                 run.started_at = now
                 run.updated_at = now
-                session.add(run)
-            session.commit()
+                repo.update_run(run)
         return True
 
     def complete(self, state: WorkflowState, duration_s: float) -> bool:
-        with Session(self.engine) as session:
-            run = session.get(Run, self.run_id)
+        with _run_repo(self.engine) as repo:
+            run = repo.get_run(self.run_id)
             if run:
                 try:
                     validate_transition(run.status, RunStatus.completed)
@@ -127,8 +134,7 @@ class DatabaseRunLifecycleWriter:
                 }
                 run.results_json = json.dumps(_redact_for_state(serialized_results, state))
                 run.updated_at = now
-                session.add(run)
-            session.commit()
+                repo.update_run(run)
         return True
 
     def error(
@@ -144,8 +150,8 @@ class DatabaseRunLifecycleWriter:
         error_message = _redact_text(str(error), state)
         tb_str = _redact_text(tb_str, state)
 
-        with Session(self.engine) as session:
-            run = session.get(Run, self.run_id)
+        with _run_repo(self.engine) as repo:
+            run = repo.get_run(self.run_id)
             if run:
                 try:
                     validate_transition(run.status, status)
@@ -175,8 +181,7 @@ class DatabaseRunLifecycleWriter:
                     }
 
                 run.updated_at = now
-                session.add(run)
-            session.commit()
+                repo.update_run(run)
         return True
 
 
@@ -191,8 +196,8 @@ class DatabaseNodeLifecycleWriter:
 
     def get_child_run_id(self, block_id: str) -> Optional[str]:
         try:
-            with Session(self.engine) as session:
-                node = session.get(RunNode, f"{self.run_id}:{block_id}")
+            with _run_repo(self.engine) as repo:
+                node = repo.get_node(f"{self.run_id}:{block_id}")
                 return node.child_run_id if node else None
         except Exception:
             logger.warning(
@@ -250,24 +255,21 @@ class DatabaseNodeLifecycleWriter:
             )
             node.child_run_id = child_run_id
 
-            with Session(self.engine) as session:
-                session.add(node)
-                session.add(child_run)
-                session.commit()
+            with _run_repo(self.engine) as repo:
+                repo.create_node(node)
+                repo.create_run(child_run)
             return
 
-        with Session(self.engine) as session:
-            session.add(node)
-            session.commit()
+        with _run_repo(self.engine) as repo:
+            repo.create_node(node)
 
     def heartbeat(self, block_id: str, phase: str) -> None:
-        with Session(self.engine) as session:
-            node = session.get(RunNode, f"{self.run_id}:{block_id}")
+        with _run_repo(self.engine) as repo:
+            node = repo.get_node(f"{self.run_id}:{block_id}")
             if node:
                 node.last_phase = phase
                 node.updated_at = time.time()
-                session.add(node)
-            session.commit()
+                repo.update_node(node)
 
     def complete(
         self,
@@ -281,8 +283,8 @@ class DatabaseNodeLifecycleWriter:
         self._last_cumulative_cost = state.total_cost_usd
         self._last_cost_delta = cost_delta
 
-        with Session(self.engine) as session:
-            node = session.get(RunNode, f"{self.run_id}:{block_id}")
+        with _run_repo(self.engine) as repo:
+            node = repo.get_node(f"{self.run_id}:{block_id}")
             if node:
                 now = time.time()
                 node.status = NodeStatus.completed
@@ -296,8 +298,7 @@ class DatabaseNodeLifecycleWriter:
                     node.prompt_hash = compute_prompt_hash(soul)
                     node.soul_version = compute_soul_version(soul)
                 node.updated_at = now
-                session.add(node)
-            session.commit()
+                repo.update_node(node)
 
         return cost_delta
 
@@ -313,8 +314,8 @@ class DatabaseNodeLifecycleWriter:
         error_message = _redact_text(str(error), state)
         tb_str = _redact_text(tb_str, state)
 
-        with Session(self.engine) as session:
-            node = session.get(RunNode, f"{self.run_id}:{block_id}")
+        with _run_repo(self.engine) as repo:
+            node = repo.get_node(f"{self.run_id}:{block_id}")
             if node:
                 now = time.time()
                 node.status = NodeStatus.failed
@@ -323,9 +324,9 @@ class DatabaseNodeLifecycleWriter:
                 node.error = error_message
                 node.error_traceback = tb_str
                 node.updated_at = now
-                session.add(node)
+                repo.update_node(node)
                 if node.child_run_id:
-                    child_run = session.get(Run, node.child_run_id)
+                    child_run = repo.get_run(node.child_run_id)
                     if child_run:
                         try:
                             validate_transition(child_run.status, RunStatus.failed)
@@ -338,13 +339,12 @@ class DatabaseNodeLifecycleWriter:
                             child_run.error = error_message
                             child_run.error_traceback = tb_str
                             child_run.updated_at = now
-                            session.add(child_run)
-            session.commit()
+                            repo.update_run(child_run)
 
     def _get_run(self) -> Optional[Run]:
         try:
-            with Session(self.engine) as session:
-                return session.get(Run, self.run_id)
+            with _run_repo(self.engine) as repo:
+                return repo.get_run(self.run_id)
         except Exception:
             logger.warning("ExecutionObserver._get_run failed", exc_info=True)
             return None
@@ -364,9 +364,8 @@ class DatabaseEventLogSink:
             level=level,
             message=message,
         )
-        with Session(self.engine) as session:
-            session.add(entry)
-            session.commit()
+        with _run_repo(self.engine) as repo:
+            repo.create_log(entry)
 
 
 class DatabaseExecutionLogSink:
@@ -382,7 +381,7 @@ class DatabaseExecutionLogSink:
         if not new_entries:
             return
 
-        with Session(self.engine) as session:
+        with _run_repo(self.engine) as repo:
             for entry in new_entries:
                 log = LogEntry(
                     run_id=self.run_id,
@@ -390,8 +389,7 @@ class DatabaseExecutionLogSink:
                     level="trace",
                     message=json.dumps(_redact_for_state(entry, state)),
                 )
-                session.add(log)
-            session.commit()
+                repo.create_log(log)
 
         self.high_water_mark = len(state.execution_log)
 
@@ -487,8 +485,8 @@ class ExecutionObserver:
                 _workflow_input_values_snapshot,
             )
 
-            with Session(self.engine) as session:
-                run = session.get(Run, self.run_id)
+            with _run_repo(self.engine) as repo:
+                run = repo.get_run(self.run_id)
                 if run:
                     run.workflow_inputs = _workflow_input_values_snapshot(
                         input_schema or {},
@@ -497,8 +495,7 @@ class ExecutionObserver:
                     )
                     run.workflow_input_schema = _workflow_input_schema_snapshot(input_schema or {})
                     run.updated_at = time.time()
-                    session.add(run)
-                session.commit()
+                    repo.update_run(run)
         except Exception:
             logger.warning(
                 "ExecutionObserver.record_workflow_input_snapshot failed for run %s",

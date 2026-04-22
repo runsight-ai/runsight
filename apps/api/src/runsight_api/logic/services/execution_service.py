@@ -74,6 +74,10 @@ def _provider_ref(provider_id: str) -> str:
     return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
+def _requires_git_snapshot(branch: str) -> bool:
+    return branch != "main"
+
+
 def _actual_input_type(value: Any) -> str | None:
     if value is None:
         return None
@@ -467,6 +471,11 @@ class ExecutionService:
         if self.git_service:
             yaml_content = self.git_service.read_file(workflow_path, branch)
         else:
+            if _requires_git_snapshot(branch):
+                raise ValueError(
+                    f"Requested snapshot could not be loaded for workflow "
+                    f"{_workflow_ref(workflow_id)} on ref {branch!r}: git service unavailable"
+                )
             if wf_entity is None:
                 raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
             yaml_content = wf_entity.yaml
