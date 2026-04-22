@@ -34,6 +34,7 @@ def _make_run(*, status: RunStatus, **overrides) -> Run:
         workflow_id="wf_test",
         workflow_name="Test Workflow",
         task_json="{}",
+        branch="main",
         created_at=time.time(),
         updated_at=time.time(),
     )
@@ -280,6 +281,7 @@ def _seed_run(engine, *, status: RunStatus) -> str:
             workflow_name="Test Workflow",
             status=status,
             task_json="{}",
+            branch="main",
         )
         session.add(run)
         session.commit()

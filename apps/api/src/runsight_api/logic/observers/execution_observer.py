@@ -10,10 +10,15 @@ from datetime import datetime
 from typing import Any, Optional
 
 from runsight_core.budget_enforcement import BudgetKilledException
-from runsight_core.context_governance import ContextAuditEventV1, ContextAuditSeverity
+from runsight_core.context_governance import (
+    ContextAuditEventV1,
+    ContextAuditSeverity,
+    redact_context_audit_event_preview,
+)
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
+from runsight_core.redaction import redact_runtime_value_for_state, redact_text_for_state
 from runsight_core.state import WorkflowState
 from sqlmodel import Session
 
@@ -60,6 +65,14 @@ def _context_audit_level(event: ContextAuditEventV1) -> str:
     if event.warning_count > 0 or ContextAuditSeverity.WARN.value in severities:
         return "warning"
     return "trace"
+
+
+def _redact_for_state(value: Any, state: WorkflowState | None) -> Any:
+    return redact_runtime_value_for_state(value, state)
+
+
+def _redact_text(value: str, state: WorkflowState | None) -> str:
+    return redact_text_for_state(value, state)
 
 
 class DatabaseRunLifecycleWriter:
@@ -109,18 +122,27 @@ class DatabaseRunLifecycleWriter:
                 run.duration_s = duration_s
                 run.total_cost_usd = state.total_cost_usd
                 run.total_tokens = state.total_tokens
-                run.results_json = json.dumps(
-                    {key: _serialize_result_value(value) for key, value in state.results.items()}
-                )
+                serialized_results = {
+                    key: _serialize_result_value(value) for key, value in state.results.items()
+                }
+                run.results_json = json.dumps(_redact_for_state(serialized_results, state))
                 run.updated_at = now
                 session.add(run)
             session.commit()
         return True
 
-    def error(self, error: Exception, duration_s: float) -> bool:
+    def error(
+        self,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> bool:
         is_cancelled = isinstance(error, asyncio.CancelledError)
         status = RunStatus.cancelled if is_cancelled else RunStatus.failed
         tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        error_message = _redact_text(str(error), state)
+        tb_str = _redact_text(tb_str, state)
 
         with Session(self.engine) as session:
             run = session.get(Run, self.run_id)
@@ -139,7 +161,7 @@ class DatabaseRunLifecycleWriter:
                 run.status = status
                 run.completed_at = now
                 run.duration_s = duration_s
-                run.error = str(error)
+                run.error = error_message
                 run.error_traceback = tb_str
 
                 if isinstance(error, BudgetKilledException):
@@ -216,7 +238,10 @@ class DatabaseNodeLifecycleWriter:
                 workflow_name=child_workflow_name,
                 status=RunStatus.running,
                 task_json="{}",
+                branch=parent_run.branch if parent_run else "main",
                 warnings_json=None,
+                source=parent_run.source if parent_run else "manual",
+                commit_sha=parent_run.commit_sha if parent_run else None,
                 parent_run_id=self.run_id,
                 parent_node_id=f"{self.run_id}:{block_id}",
                 root_run_id=root_run_id,
@@ -266,7 +291,7 @@ class DatabaseNodeLifecycleWriter:
                 node.cost_usd = cost_delta
                 node.tokens = {"total": state.total_tokens}
                 result = state.results.get(block_id)
-                node.output = result.output if result else None
+                node.output = _redact_text(result.output, state) if result else None
                 if soul is not None:
                     node.prompt_hash = compute_prompt_hash(soul)
                     node.soul_version = compute_soul_version(soul)
@@ -276,8 +301,17 @@ class DatabaseNodeLifecycleWriter:
 
         return cost_delta
 
-    def error(self, block_id: str, duration_s: float, error: Exception) -> None:
+    def error(
+        self,
+        block_id: str,
+        duration_s: float,
+        error: Exception,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        error_message = _redact_text(str(error), state)
+        tb_str = _redact_text(tb_str, state)
 
         with Session(self.engine) as session:
             node = session.get(RunNode, f"{self.run_id}:{block_id}")
@@ -286,10 +320,25 @@ class DatabaseNodeLifecycleWriter:
                 node.status = NodeStatus.failed
                 node.duration_s = duration_s
                 node.completed_at = now
-                node.error = str(error)
+                node.error = error_message
                 node.error_traceback = tb_str
                 node.updated_at = now
                 session.add(node)
+                if node.child_run_id:
+                    child_run = session.get(Run, node.child_run_id)
+                    if child_run:
+                        try:
+                            validate_transition(child_run.status, RunStatus.failed)
+                        except InvalidStateTransition:
+                            pass
+                        else:
+                            child_run.status = RunStatus.failed
+                            child_run.completed_at = now
+                            child_run.duration_s = duration_s
+                            child_run.error = error_message
+                            child_run.error_traceback = tb_str
+                            child_run.updated_at = now
+                            session.add(child_run)
             session.commit()
 
     def _get_run(self) -> Optional[Run]:
@@ -339,7 +388,7 @@ class DatabaseExecutionLogSink:
                     run_id=self.run_id,
                     node_id=node_id,
                     level="trace",
-                    message=json.dumps(entry),
+                    message=json.dumps(_redact_for_state(entry, state)),
                 )
                 session.add(log)
             session.commit()
@@ -351,7 +400,7 @@ class DefaultContextAuditSerializer:
     """Owns context-audit payload shaping before persistence."""
 
     def serialize(self, event: ContextAuditEventV1) -> str:
-        return event.model_dump_json()
+        return redact_context_audit_event_preview(event).model_dump_json()
 
 
 class DatabaseContextAuditSink:
@@ -425,6 +474,38 @@ class ExecutionObserver:
             context_audit_serializer=self.context_audit_serializer,
         )
 
+    def record_workflow_input_snapshot(
+        self,
+        input_schema: Any,
+        inputs: Any,
+        *,
+        redactor: Any = None,
+    ) -> None:
+        try:
+            from runsight_api.logic.services.execution_service import (
+                _workflow_input_schema_snapshot,
+                _workflow_input_values_snapshot,
+            )
+
+            with Session(self.engine) as session:
+                run = session.get(Run, self.run_id)
+                if run:
+                    run.workflow_inputs = _workflow_input_values_snapshot(
+                        input_schema or {},
+                        inputs,
+                        redactor=redactor,
+                    )
+                    run.workflow_input_schema = _workflow_input_schema_snapshot(input_schema or {})
+                    run.updated_at = time.time()
+                    session.add(run)
+                session.commit()
+        except Exception:
+            logger.warning(
+                "ExecutionObserver.record_workflow_input_snapshot failed for run %s",
+                self.run_id,
+                exc_info=True,
+            )
+
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         del state
         try:
@@ -462,7 +543,6 @@ class ExecutionObserver:
     ) -> None:
         try:
             bind_block_context(block_id)
-
             try:
                 self.node_lifecycle_writer.start(
                     workflow_name,
@@ -551,25 +631,35 @@ class ExecutionObserver:
         block_type: str,
         duration_s: float,
         error: Exception,
+        *,
+        state: WorkflowState | None = None,
     ) -> None:
         del workflow_name
         try:
             try:
-                self.node_lifecycle_writer.error(block_id, duration_s, error)
+                self.node_lifecycle_writer.error(
+                    block_id,
+                    duration_s,
+                    error,
+                    state=state,
+                )
             except Exception:
                 logger.warning("ExecutionObserver.on_block_error failed", exc_info=True)
 
             self._insert_log(
                 "error",
                 json.dumps(
-                    {
-                        "event": "block_error",
-                        "block_id": block_id,
-                        "block_type": block_type,
-                        "duration_s": duration_s,
-                        "error_type": type(error).__name__,
-                        "error": str(error),
-                    }
+                    _redact_for_state(
+                        {
+                            "event": "block_error",
+                            "block_id": block_id,
+                            "block_type": block_type,
+                            "duration_s": duration_s,
+                            "error_type": type(error).__name__,
+                            "error": str(error),
+                        },
+                        state,
+                    )
                 ),
             )
         finally:
@@ -612,11 +702,22 @@ class ExecutionObserver:
             except Exception:
                 logger.warning("ExecutionObserver.on_workflow_complete failed", exc_info=True)
 
-    def on_workflow_error(self, workflow_name: str, error: Exception, duration_s: float) -> None:
+    def on_workflow_error(
+        self,
+        workflow_name: str,
+        error: Exception,
+        duration_s: float,
+        *,
+        state: WorkflowState | None = None,
+    ) -> None:
         try:
             should_continue = True
             try:
-                should_continue = self.run_lifecycle_writer.error(error, duration_s)
+                should_continue = self.run_lifecycle_writer.error(
+                    error,
+                    duration_s,
+                    state=state,
+                )
             except Exception:
                 logger.warning("ExecutionObserver.on_workflow_error failed", exc_info=True)
 
@@ -627,13 +728,16 @@ class ExecutionObserver:
             self._insert_log(
                 level,
                 json.dumps(
-                    {
-                        "event": "workflow_error",
-                        "workflow_name": workflow_name,
-                        "duration_s": duration_s,
-                        "error_type": type(error).__name__,
-                        "error": str(error),
-                    }
+                    _redact_for_state(
+                        {
+                            "event": "workflow_error",
+                            "workflow_name": workflow_name,
+                            "duration_s": duration_s,
+                            "error_type": type(error).__name__,
+                            "error": str(error),
+                        },
+                        state,
+                    )
                 ),
             )
         finally:

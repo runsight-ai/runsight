@@ -12,9 +12,19 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 # ---------------------------------------------------------------------------
 # 1. Run model — commit_sha only
 # ---------------------------------------------------------------------------
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 class TestRunCommitShaOnly:
@@ -27,6 +37,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
         )
         assert not hasattr(run, "workflow_commit_sha")
 
@@ -39,6 +50,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
         )
         assert not hasattr(run, "effective_commit_sha")
 
@@ -52,6 +64,7 @@ class TestRunCommitShaOnly:
             workflow_id="wf-1",
             workflow_name="WF 1",
             task_json='{"instruction": "test"}',
+            branch="main",
             commit_sha=sha,
         )
         assert run.commit_sha == sha
@@ -70,6 +83,7 @@ class TestRunCommitShaOnly:
                 workflow_id="wf-1",
                 workflow_name="WF 1",
                 task_json='{"instruction": "test"}',
+                branch="main",
                 commit_sha=sha,
             )
             session.add(run)
@@ -92,6 +106,7 @@ class TestRunCommitShaOnly:
                 workflow_id="wf-1",
                 workflow_name="WF 1",
                 task_json='{"instruction": "test"}',
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -197,6 +212,7 @@ class TestLaunchExecutionStoresSha:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -241,7 +257,12 @@ class TestLaunchExecutionStoresSha:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(db_engine) as session:
@@ -267,6 +288,7 @@ class TestLaunchExecutionStoresSha:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -309,7 +331,12 @@ class TestLaunchExecutionStoresSha:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(db_engine) as session:

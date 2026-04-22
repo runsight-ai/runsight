@@ -2276,51 +2276,20 @@
       "title": "WorkflowDef",
       "type": "object"
     },
-    "WorkflowInterfaceDef": {
+    "WorkflowInputDef": {
       "additionalProperties": false,
-      "description": "Public callable contract exposed by a child workflow.",
+      "description": "Top-level workflow input contract definition.",
       "properties": {
-        "inputs": {
-          "items": {
-            "$ref": "#/$defs/WorkflowInterfaceInputDef"
-          },
-          "title": "Inputs",
-          "type": "array"
-        },
-        "outputs": {
-          "items": {
-            "$ref": "#/$defs/WorkflowInterfaceOutputDef"
-          },
-          "title": "Outputs",
-          "type": "array"
-        }
-      },
-      "title": "WorkflowInterfaceDef",
-      "type": "object"
-    },
-    "WorkflowInterfaceInputDef": {
-      "additionalProperties": false,
-      "description": "Child-owned public input contract for callable workflows.",
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "target": {
-          "title": "Target",
-          "type": "string"
-        },
         "type": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "json",
+            "array"
           ],
-          "default": null,
-          "title": "Type"
+          "title": "Type",
+          "type": "string"
         },
         "required": {
           "default": true,
@@ -2348,57 +2317,17 @@
           ],
           "default": null,
           "title": "Description"
+        },
+        "sensitive": {
+          "default": false,
+          "title": "Sensitive",
+          "type": "boolean"
         }
       },
       "required": [
-        "name",
-        "target"
+        "type"
       ],
-      "title": "WorkflowInterfaceInputDef",
-      "type": "object"
-    },
-    "WorkflowInterfaceOutputDef": {
-      "additionalProperties": false,
-      "description": "Child-owned public output contract for callable workflows.",
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "source": {
-          "title": "Source",
-          "type": "string"
-        },
-        "type": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Type"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Description"
-        }
-      },
-      "required": [
-        "name",
-        "source"
-      ],
-      "title": "WorkflowInterfaceOutputDef",
+      "title": "WorkflowInputDef",
       "type": "object"
     },
     "WorkflowLimitsDef": {
@@ -2492,17 +2421,6 @@
       "title": "Config",
       "type": "object"
     },
-    "interface": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/WorkflowInterfaceDef"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
     "tools": {
       "items": {
         "type": "string"
@@ -2516,6 +2434,21 @@
       },
       "title": "Souls",
       "type": "object"
+    },
+    "inputs": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/WorkflowInputDef"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Inputs"
     },
     "blocks": {
       "additionalProperties": {

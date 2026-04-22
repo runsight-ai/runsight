@@ -82,14 +82,36 @@ class ExecutionPreparationService:
         parser: Callable[..., Any],
         prepare_runtime_workflow: Callable[..., tuple[dict[str, Any], RunsightTeamRunner | None]],
         get_workflow_commit_sha: Callable[[str], Optional[str]],
+        can_fallback_to_working_tree: Callable[[Exception], bool] | None = None,
     ) -> PreparedWorkflow:
         wf_entity = self.workflow_repo.get_by_id(workflow_id)
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
+        registry_git_ref = branch if self.git_service else None
+        registry_git_service = self.git_service
+        used_working_tree_fallback = False
 
         if self.git_service:
-            yaml_content = self.git_service.read_file(workflow_path, branch)
-            commit_sha = self.git_service.get_sha(branch, workflow_path)
-            if commit_sha is None:
+            try:
+                yaml_content = self.git_service.read_file(workflow_path, branch)
+                commit_sha = self.git_service.get_sha(branch, workflow_path)
+            except Exception as exc:
+                if (
+                    can_fallback_to_working_tree is None
+                    or not can_fallback_to_working_tree(exc)
+                    or wf_entity is None
+                ):
+                    raise
+                logger.warning(
+                    "Git workflow snapshot unavailable; falling back to working tree YAML",
+                    extra={"workflow_id": workflow_id, "branch": branch},
+                    exc_info=True,
+                )
+                yaml_content = wf_entity.yaml
+                commit_sha = get_workflow_commit_sha(workflow_path)
+                registry_git_ref = None
+                registry_git_service = None
+                used_working_tree_fallback = True
+            if commit_sha is None and not used_working_tree_fallback:
                 raise ValueError(
                     f"Requested snapshot sha could not be resolved for workflow "
                     f"{_workflow_ref(workflow_id)} on ref {branch!r}"
@@ -114,8 +136,8 @@ class ExecutionPreparationService:
             workflow_registry = registry_builder(
                 workflow_id,
                 yaml_content,
-                git_ref=branch if self.git_service else None,
-                git_service=self.git_service,
+                git_ref=registry_git_ref,
+                git_service=registry_git_service,
             )
 
         workflow = parser(

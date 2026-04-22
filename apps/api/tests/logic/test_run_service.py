@@ -30,6 +30,19 @@ def run_service(run_repo, workflow_repo):
     return RunService(run_repo, workflow_repo)
 
 
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
+
+
 # --- create_run ---
 
 
@@ -38,7 +51,11 @@ def test_create_run_happy_path(run_service, run_repo, workflow_repo):
     workflow_repo.get_by_id.return_value = Mock(id="wf_1")
     run_repo.create_run.return_value = None  # create_run mutates and passes run
 
-    run = run_service.create_run("wf_1", {"foo": "bar", "task_id": "t1"})
+    run = run_service.create_run(
+        "wf_1",
+        _prepared({"foo": "bar", "task_id": "t1"}),
+        branch="main",
+    )
 
     assert run.workflow_id == "wf_1"
     assert run.workflow_name == "wf_1"
@@ -56,7 +73,7 @@ def test_create_run_workflow_not_found(run_service, workflow_repo):
     workflow_repo.get_by_id.return_value = None
 
     with pytest.raises(WorkflowNotFound) as exc_info:
-        run_service.create_run("non_existent", {"foo": "bar"})
+        run_service.create_run("non_existent", _prepared({"foo": "bar"}), branch="main")
 
     assert "non_existent" in str(exc_info.value)
 
@@ -71,7 +88,7 @@ def test_create_run_accepts_branch_and_source(run_service, run_repo, workflow_re
 
     run = run_service.create_run(
         "wf_1",
-        {"instruction": "go"},
+        _prepared({"instruction": "go"}),
         source="simulation",
         branch="sim/wf_1/20260330/abc12",
     )
@@ -88,7 +105,7 @@ def test_create_run_empty_task_data(run_service, run_repo, workflow_repo):
     workflow_repo.get_by_id.return_value = Mock(id="wf_1")
     run_repo.create_run.return_value = None
 
-    run = run_service.create_run("wf_1", {})
+    run = run_service.create_run("wf_1", _prepared(), branch="main")
 
     assert run.task_json == "{}"
     assert run.workflow_id == "wf_1"
@@ -105,6 +122,7 @@ def test_get_run_exists(run_service, run_repo):
         workflow_name="wf_1",
         status=RunStatus.completed,
         task_json="{}",
+        branch="main",
     )
     run_repo.get_run.return_value = expected
 
@@ -140,10 +158,20 @@ def test_list_runs_empty(run_service, run_repo):
 def test_list_runs_multiple(run_service, run_repo):
     """list_runs returns all runs in repo order."""
     r1 = Run(
-        id="r1", workflow_id="wf", workflow_name="wf", status=RunStatus.pending, task_json="{}"
+        id="r1",
+        workflow_id="wf",
+        workflow_name="wf",
+        status=RunStatus.pending,
+        task_json="{}",
+        branch="main",
     )
     r2 = Run(
-        id="r2", workflow_id="wf", workflow_name="wf", status=RunStatus.completed, task_json="{}"
+        id="r2",
+        workflow_id="wf",
+        workflow_name="wf",
+        status=RunStatus.completed,
+        task_json="{}",
+        branch="main",
     )
     run_repo.list_runs.return_value = [r1, r2]
 
@@ -165,6 +193,7 @@ def test_cancel_run_happy_path(run_service, run_repo):
         workflow_name="wf_1",
         status=RunStatus.running,
         task_json="{}",
+        branch="main",
         started_at=100.0,
     )
     run_repo.get_run.return_value = run
@@ -200,6 +229,7 @@ def test_cancel_run_already_cancelled(run_service, run_repo):
         workflow_name="wf_1",
         status=RunStatus.cancelled,
         task_json="{}",
+        branch="main",
     )
     run_repo.get_run.return_value = run
     run_repo.update_run.return_value = run

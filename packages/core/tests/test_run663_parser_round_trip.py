@@ -40,10 +40,6 @@ class TestParserRoundTripOnErrorCatch:
             "version": "1.0",
             "id": "child_wf",
             "kind": "workflow",
-            "interface": {
-                "inputs": [],
-                "outputs": [],
-            },
             "blocks": {
                 "step1": {
                     "type": "code",

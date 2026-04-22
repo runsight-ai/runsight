@@ -107,6 +107,32 @@ class WorkflowRepository:
             atomic_write=self._atomic_write,
         )
 
+    @staticmethod
+    def _raise_sidecar_write_failure(
+        warnings: list[dict[str, Optional[str]]],
+        *,
+        workflow_id: str,
+    ) -> None:
+        if not warnings:
+            return
+        message = next(
+            (
+                warning.get("message")
+                for warning in warnings
+                if isinstance(warning.get("message"), str) and warning.get("message")
+            ),
+            None,
+        )
+        raise InputValidationError(
+            message or f"Failed to persist canvas sidecar for workflow {_workflow_ref(workflow_id)}"
+        )
+
+    def _write_canvas_sidecar_or_raise(self, stem: str, canvas_state: Any) -> None:
+        self._raise_sidecar_write_failure(
+            self._write_canvas_sidecar(stem, canvas_state),
+            workflow_id=stem,
+        )
+
     def _build_entity(
         self,
         data: Dict[str, Any],
@@ -239,17 +265,23 @@ class WorkflowRepository:
         self._assert_valid_yaml_for_write(stem, raw_yaml)
         self._atomic_write(yaml_path, raw_yaml)
 
-        sidecar_warnings: list[dict[str, Optional[str]]] = []
         canvas_state_input = data.get("canvas_state")
-        if canvas_state_input is not None:
-            sidecar_warnings = self._write_canvas_sidecar(stem, canvas_state_input)
+        try:
+            if canvas_state_input is not None:
+                self._write_canvas_sidecar_or_raise(stem, canvas_state_input)
+        except Exception:
+            try:
+                if yaml_path.exists():
+                    yaml_path.unlink()
+            except Exception:
+                logger.warning("Failed to roll back workflow YAML after sidecar failure: %s", stem)
+            raise
 
         return self._build_entity(
             parsed_data,
             stem,
             self._read_canvas_sidecar(stem),
             raw_yaml=raw_yaml,
-            extra_warnings=sidecar_warnings,
         )
 
     def update(self, workflow_id: str, data: Dict[str, Any]) -> WorkflowEntity:
@@ -294,19 +326,27 @@ class WorkflowRepository:
         if not isinstance(parsed_data, dict):
             raise InputValidationError("YAML content is not a mapping")
 
+        previous_yaml = yaml_path.read_text(encoding="utf-8")
         self._atomic_write(yaml_path, yaml_content)
 
-        sidecar_warnings: list[dict[str, Optional[str]]] = []
         canvas_state_update = data.get("canvas_state")
-        if canvas_state_update is not None:
-            sidecar_warnings = self._write_canvas_sidecar(workflow_id, canvas_state_update)
+        try:
+            if canvas_state_update is not None:
+                self._write_canvas_sidecar_or_raise(workflow_id, canvas_state_update)
+        except Exception:
+            try:
+                self._atomic_write(yaml_path, previous_yaml)
+            except Exception:
+                logger.warning(
+                    "Failed to restore workflow YAML after sidecar failure: %s", workflow_id
+                )
+            raise
 
         return self._build_entity(
             parsed_data,
             workflow_id,
             self._read_canvas_sidecar(workflow_id),
             raw_yaml=yaml_content,
-            extra_warnings=sidecar_warnings,
         )
 
     def delete(self, workflow_id: str) -> bool:

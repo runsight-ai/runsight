@@ -834,8 +834,8 @@ class TestCodeBlockResolvedInputs:
 class TestWorkflowBlockDefFields:
     """Tests that WorkflowBlock inputs/outputs fields don't collide with BaseBlockDef."""
 
-    def test_workflow_block_inputs_outputs_bind_interface_names(self):
-        """WorkflowBlockDef callsites bind public interface names, not child dotted paths."""
+    def test_workflow_block_inputs_bind_public_names_outputs_bind_child_source_paths(self):
+        """WorkflowBlockDef inputs bind public names; outputs bind child source paths."""
         from pydantic import TypeAdapter
         from runsight_core.yaml.schema import BlockDef
 
@@ -843,7 +843,7 @@ class TestWorkflowBlockDefFields:
             "type": "workflow",
             "workflow_ref": "child_workflow",
             "inputs": {"topic": "parent_step.result"},
-            "outputs": {"parent_key": "summary"},
+            "outputs": {"results.parent_key": "results.summary"},
         }
         adapter = TypeAdapter(BlockDef)
         block_def = adapter.validate_python(block_data)
@@ -854,10 +854,10 @@ class TestWorkflowBlockDefFields:
 
         assert block_def.outputs is not None
         assert isinstance(block_def.outputs, dict)
-        assert block_def.outputs["parent_key"] == "summary"
+        assert block_def.outputs["results.parent_key"] == "results.summary"
 
-    def test_workflow_block_yaml_with_interface_name_bindings(self):
-        """YAML with interface-name bindings on a workflow block parses correctly."""
+    def test_workflow_block_yaml_with_name_based_input_and_source_path_output_bindings(self):
+        """YAML with invocation input names and child source path outputs parses."""
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
         yaml_data = {
@@ -869,7 +869,7 @@ class TestWorkflowBlockDefFields:
                     "type": "workflow",
                     "workflow_ref": "analysis_pipeline",
                     "inputs": {"topic": "fetcher.result"},
-                    "outputs": {"results.summary": "summary"},
+                    "outputs": {"results.summary": "results.summary"},
                 },
             },
             "workflow": {
@@ -881,7 +881,7 @@ class TestWorkflowBlockDefFields:
         file_def = RunsightWorkflowFile.model_validate(yaml_data)
         block = file_def.blocks["child_runner"]
         assert block.inputs == {"topic": "fetcher.result"}
-        assert block.outputs == {"results.summary": "summary"}
+        assert block.outputs == {"results.summary": "results.summary"}
 
     def test_non_workflow_block_inputs_are_inputref_type(self):
         """Non-workflow blocks should have inputs parsed as InputRef (dict with 'from' key),

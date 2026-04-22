@@ -7,6 +7,19 @@ It should use workflow.name (populated from YAML workflow.name field).
 from unittest.mock import Mock
 
 
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
+
+
 class TestCreateRunUsesWorkflowName:
     def test_create_run_sets_workflow_name_from_entity(self):
         """RunService.create_run() should set workflow_name from workflow entity's name."""
@@ -23,7 +36,11 @@ class TestCreateRunUsesWorkflowName:
         workflow_repo.get_by_id.return_value = workflow_entity
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("my-workflow-k8x3m", {"instruction": "test"})
+        run = svc.create_run(
+            "my-workflow-k8x3m",
+            _prepared({"instruction": "test"}),
+            branch="main",
+        )
 
         # workflow_name should be the human-readable name, not the id
         assert run.workflow_name == "My Research Pipeline"
@@ -43,7 +60,11 @@ class TestCreateRunUsesWorkflowName:
         workflow_repo.get_by_id.return_value = workflow_entity
 
         svc = RunService(run_repo, workflow_repo)
-        run = svc.create_run("research-pipeline-k8x3m", {"instruction": "test"})
+        run = svc.create_run(
+            "research-pipeline-k8x3m",
+            _prepared({"instruction": "test"}),
+            branch="main",
+        )
 
         # The bug: current code does workflow_name=workflow.id
         # It should do workflow_name=workflow.name (or fallback to id)

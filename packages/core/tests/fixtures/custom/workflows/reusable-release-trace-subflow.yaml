@@ -1,24 +1,16 @@
 version: "1.0"
 id: reusable-release-trace-subflow
 kind: workflow
+inputs:
+  task:
+    type: string
+  manifest_json:
+    type: string
+  phase_payload:
+    type: string
 tools:
   - http
   - file_io
-interface:
-  inputs:
-    - name: task
-      target: shared_memory.task
-    - name: manifest_json
-      target: shared_memory.manifest_json
-    - name: phase_payload
-      target: shared_memory.phase_payload
-  outputs:
-    - name: packaged_result
-      source: results.package_child_result
-    - name: trace_path
-      source: results.trace_path_value
-    - name: quality_status
-      source: results.child_quality_gate
 blocks:
   dispatch_child_views:
     type: dispatch
@@ -66,9 +58,9 @@ blocks:
     timeout_seconds: 15
     inputs:
       manifest_payload:
-        from: shared_memory.manifest_json
+        from: workflow.manifest_json
       phase_payload:
-        from: shared_memory.phase_payload
+        from: workflow.phase_payload
     assertions:
       - type: contains-json
         value:
@@ -153,7 +145,7 @@ blocks:
     timeout_seconds: 10
     inputs:
       phase_payload:
-        from: shared_memory.phase_payload
+        from: workflow.phase_payload
     assertions:
       - type: regex
         value: \S
@@ -182,7 +174,7 @@ blocks:
     timeout_seconds: 10
     inputs:
       phase_payload:
-        from: shared_memory.phase_payload
+        from: workflow.phase_payload
     assertions:
       - type: contains-json
         value:
@@ -259,7 +251,7 @@ blocks:
     timeout_seconds: 15
     inputs:
       phase_payload:
-        from: shared_memory.phase_payload
+        from: workflow.phase_payload
       child_summary:
         from: draft_child_summary
       quality_gate_result:

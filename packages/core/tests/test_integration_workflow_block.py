@@ -16,13 +16,22 @@ from runsight_core.workflow import Workflow
 class SimpleBlock(BaseBlock):
     """Simple test block that records execution and can optionally modify state."""
 
-    def __init__(self, block_id: str, output: str = "default output"):
+    def __init__(
+        self,
+        block_id: str,
+        output: str = "default output",
+        declared_inputs: dict[str, str] | None = None,
+    ):
         super().__init__(block_id)
         self.output = output
+        self.context_access = "declared"
+        self.declared_inputs = dict(declared_inputs or {})
+        self.seen_workflow_inputs = None
 
     async def execute(self, ctx):
         """Execute by recording output in results."""
         state = ctx.state_snapshot
+        self.seen_workflow_inputs = dict(state.workflow_inputs)
         next_state = state.model_copy(
             update={
                 "results": {**state.results, self.block_id: BlockResult(output=self.output)},
@@ -50,7 +59,12 @@ async def test_parent_child_workflow_execution():
     """
     # ==== Setup: Create child workflow ====
     child_wf = Workflow(name="child_workflow")
-    child_wf.add_block(SimpleBlock("child_step", "child output"))
+    child_step = SimpleBlock(
+        "child_step",
+        "child output",
+        declared_inputs={"topic": "workflow.topic"},
+    )
+    child_wf.add_block(child_step)
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)  # Terminal
 
@@ -62,8 +76,8 @@ async def test_parent_child_workflow_execution():
         block_id="invoke_child",
         child_workflow=child_wf,
         inputs={
-            # Child receives a shared memory value from parent
-            "shared_memory.topic": "shared_memory.research_topic"
+            # Child receives a public invocation input from parent shared memory
+            "topic": "shared_memory.research_topic"
         },
         outputs={
             # Child result is mapped back to parent
@@ -106,6 +120,7 @@ async def test_parent_child_workflow_execution():
     # ==== Verify: Output mapping (child results → parent state) ====
     assert "analysis" in final_state.results
     assert final_state.results["analysis"].output == "child output"
+    assert child_step.seen_workflow_inputs == {"topic": "quantum computing"}
 
     # ==== Verify: Existing parent data preserved ====
     assert final_state.results["existing"].output == "value"
@@ -157,18 +172,30 @@ async def test_workflow_block_call_stack_propagation():
 
     # Mock the child_wf.run() to capture the call_stack
     captured_call_stacks = []
+    captured_inputs = []
 
     async def mock_run(
-        initial_state, *, registry=None, call_stack=[], workflow_registry=None, observer=None
+        initial_state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
     ):
         # Capture the call_stack passed to child
+        call_stack = call_stack or []
         captured_call_stacks.append(
             call_stack.copy() if isinstance(call_stack, list) else list(call_stack)
         )
+        captured_inputs.append(dict(inputs or {}))
         # Return a final state
         return initial_state.model_copy(
             update={
-                "results": {**initial_state.results, "child_step": "child_output"},
+                "results": {
+                    **initial_state.results,
+                    "child_step": BlockResult(output="child_output"),
+                },
                 "total_cost_usd": 0.0,
                 "total_tokens": 0,
             }
@@ -186,6 +213,7 @@ async def test_workflow_block_call_stack_propagation():
     assert "parent_wf" in child_call_stack, (
         f"Expected 'parent_wf' in call_stack, got {child_call_stack}"
     )
+    assert captured_inputs == [{}]
 
 
 @pytest.mark.asyncio
@@ -267,8 +295,15 @@ async def test_workflow_block_depth_limit():
 
     # Mock wf_b.run() to simulate nested call (increase depth)
     async def mock_run_b(
-        initial_state, *, registry=None, call_stack=[], workflow_registry=None, observer=None
+        initial_state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
     ):
+        call_stack = call_stack or []
         # Simulate that we're being called at depth 1
         # If call_stack already has elements, we're nested
         if len(call_stack) > 0:
@@ -280,7 +315,10 @@ async def test_workflow_block_depth_limit():
             )
         return initial_state.model_copy(
             update={
-                "results": {**initial_state.results, "step_b": "output_b"},
+                "results": {
+                    **initial_state.results,
+                    "step_b": BlockResult(output="output_b"),
+                },
                 "total_cost_usd": 0.0,
                 "total_tokens": 0,
             }
@@ -333,14 +371,21 @@ async def test_workflow_registry_parameter_passthrough():
     captured_kwargs = {}
 
     async def mock_child_run(
-        initial_state, *, registry=None, call_stack=[], workflow_registry=None, observer=None
+        initial_state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
     ):
         captured_kwargs["registry"] = registry
-        captured_kwargs["call_stack"] = call_stack
+        captured_kwargs["call_stack"] = call_stack or []
         captured_kwargs["workflow_registry"] = workflow_registry
+        captured_kwargs["inputs"] = dict(inputs or {})
         return initial_state.model_copy(
             update={
-                "results": {**initial_state.results, "step": "output"},
+                "results": {**initial_state.results, "step": BlockResult(output="output")},
                 "total_cost_usd": 0.0,
                 "total_tokens": 0,
             }
@@ -360,6 +405,7 @@ async def test_workflow_registry_parameter_passthrough():
     # Verify: child received workflow_registry
     assert "workflow_registry" in captured_kwargs
     assert captured_kwargs["workflow_registry"] is mock_registry
+    assert captured_kwargs["inputs"] == {}
 
     # Verify: call_stack was also passed (extended with parent name, then child name)
     # When WorkflowBlock.execute() is called, it receives call_stack + [self.name]
@@ -382,7 +428,15 @@ async def test_workflow_block_input_output_mapping():
     """
     # Create child workflow
     child_wf = Workflow(name="child_wf")
-    child_wf.add_block(SimpleBlock("child_step", "child result"))
+    child_step = SimpleBlock(
+        "child_step",
+        "child result",
+        declared_inputs={
+            "input_key": "workflow.input_key",
+            "context": "workflow.context",
+        },
+    )
+    child_wf.add_block(child_step)
     child_wf.set_entry("child_step")
     child_wf.add_transition("child_step", None)
 
@@ -393,8 +447,8 @@ async def test_workflow_block_input_output_mapping():
             block_id="mapped_invoke",
             child_workflow=child_wf,
             inputs={
-                "shared_memory.input_key": "shared_memory.parent_key",
-                "results.context": "results.parent_context",
+                "input_key": "shared_memory.parent_key",
+                "context": "results.parent_context",
             },
             outputs={
                 "results.output_key": "results.child_step",
@@ -423,6 +477,10 @@ async def test_workflow_block_input_output_mapping():
     # This should be mapped to results.output_key in parent
     assert "output_key" in final_state.results
     assert final_state.results["output_key"].output == "child result"
+    assert child_step.seen_workflow_inputs == {
+        "input_key": "parent_shared_value",
+        "context": "context_data",
+    }
 
     # Verify: Preserved parent data
     assert final_state.results["existing"].output == "data"
@@ -452,11 +510,17 @@ async def test_workflow_block_with_cost_accumulation():
 
     # Mock child run to return costs
     async def mock_child_run(
-        initial_state, *, registry=None, call_stack=[], workflow_registry=None, observer=None
+        initial_state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
     ):
         return initial_state.model_copy(
             update={
-                "results": {**initial_state.results, "step": "output"},
+                "results": {**initial_state.results, "step": BlockResult(output="output")},
                 "total_cost_usd": 0.15,  # Child cost
                 "total_tokens": 200,  # Child tokens
                 "execution_log": initial_state.execution_log

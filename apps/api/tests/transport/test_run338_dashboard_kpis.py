@@ -48,6 +48,8 @@ def _make_mock_run(
     mock_run.total_tokens = 100
     mock_run.created_at = created_at or time.time()
     mock_run.updated_at = created_at or time.time()
+    mock_run.source = "manual"
+    mock_run.branch = "main"
     return mock_run
 
 

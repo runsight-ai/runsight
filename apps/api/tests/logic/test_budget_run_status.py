@@ -18,12 +18,21 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.budget_enforcement import BudgetKilledException
+from runsight_core.redaction import RunRedactor
 
 
 # ---------------------------------------------------------------------------
 # Part 1: Run model — fail_reason / fail_metadata fields
 # ---------------------------------------------------------------------------
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 class TestRunModelBudgetFields:
@@ -36,6 +45,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
         )
         assert hasattr(run, "fail_reason"), "Run model missing 'fail_reason' field"
         assert run.fail_reason is None, "fail_reason default must be None"
@@ -47,6 +57,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
         )
         assert hasattr(run, "fail_metadata"), "Run model missing 'fail_metadata' field"
         assert run.fail_metadata is None, "fail_metadata default must be None"
@@ -58,6 +69,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
             fail_reason="budget_exceeded",
         )
         assert run.fail_reason == "budget_exceeded"
@@ -76,6 +88,7 @@ class TestRunModelBudgetFields:
             workflow_id="wf_1",
             workflow_name="wf_1",
             task_json="{}",
+            branch="main",
             fail_metadata=metadata,
         )
         assert run.fail_metadata == metadata
@@ -100,6 +113,7 @@ class TestRunModelBudgetFields:
                 workflow_id="wf_1",
                 workflow_name="wf_1",
                 task_json="{}",
+                branch="main",
                 fail_reason="budget_exceeded",
                 fail_metadata=metadata,
             )
@@ -126,6 +140,7 @@ class TestRunModelBudgetFields:
                 workflow_id="wf_1",
                 workflow_name="wf_1",
                 task_json="{}",
+                branch="main",
                 status=RunStatus.failed,
                 error="Budget limit exceeded on block 'b1': cost_usd=0.75 > cap=0.50",
                 error_traceback="Traceback (most recent call last):\n  ...",
@@ -241,6 +256,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -261,7 +277,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -283,6 +304,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -309,7 +331,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -331,6 +358,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -357,7 +385,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -385,6 +418,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -411,7 +445,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -439,6 +478,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -465,7 +505,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:
@@ -491,6 +536,7 @@ class TestBudgetExceptionSetsFailReason:
                     workflow_name="wf_1",
                     status=RunStatus.pending,
                     task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
@@ -511,7 +557,12 @@ class TestBudgetExceptionSetsFailReason:
             mock_wf.run = _exploding_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.15)
 
         with Session(engine) as session:

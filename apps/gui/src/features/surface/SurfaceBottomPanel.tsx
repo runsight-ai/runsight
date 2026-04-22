@@ -1,12 +1,18 @@
-import { useEffect, useRef } from "react";
-import { useRunContextAudit, useRunContextAuditStream, useRunRegressions } from "@/queries/runs";
-import { useWorkflowRegressions } from "@/queries/workflows";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useCreateRun, useRunContextAudit, useRunContextAuditStream, useRunRegressions } from "@/queries/runs";
+import { useWorkflow, useWorkflowRegressions } from "@/queries/workflows";
+import { useCanvasStore } from "@/store/canvas";
+import { gitApi } from "@/api/git";
 import { useNavigate } from "react-router";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
+import { RunInputsModal } from "./RunInputsModal";
+import type { RunResponse, WorkflowInputSchemaItem } from "@runsight/shared/zod";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
+import { resolveRunInputSchemaDecision } from "./runInputSchemaPolicy";
 import { useSurfaceBottomPanelAudit } from "./useSurfaceBottomPanelAudit";
 import { useSurfaceBottomPanelLogs } from "./useSurfaceBottomPanelLogs";
 import { useSurfaceBottomPanelRunSelection } from "./useSurfaceBottomPanelRunSelection";
@@ -34,6 +40,19 @@ type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
   regressionsData?: RegressionsData;
 };
 
+type RerunModalState = {
+  source: "manual" | "simulation";
+  branch: string;
+  workflow: {
+    id: string;
+    name?: unknown;
+    commit_sha?: unknown;
+    branch?: string;
+    input_schema?: unknown;
+  };
+  initialValues: Record<string, unknown>;
+};
+
 type AuditPanelWithQueryProps = {
   runId: string | undefined;
   selectedNodeId: string | null;
@@ -53,7 +72,13 @@ function SurfaceBottomPanelContent({
   onAuditOpen,
 }: SurfaceBottomPanelContentProps) {
   const logsRef = useRef<HTMLDivElement>(null);
+  const [rerunModalState, setRerunModalState] = useState<RerunModalState | null>(null);
   const navigate = useNavigate();
+  const setActiveRunId = useCanvasStore((state) => state.setActiveRunId);
+  const isDirty = useCanvasStore((state) => state.isDirty);
+  const yamlContent = useCanvasStore((state) => state.yamlContent);
+  const createRun = useCreateRun();
+  const { data: workflow } = useWorkflow(workflowId ?? "");
   const { activeTab, isExpanded, openTab, toggleExpanded } = useSurfaceBottomPanelTabs({
     defaultState,
     onAuditOpen,
@@ -86,6 +111,99 @@ function SurfaceBottomPanelContent({
     selectRun(runId);
     openTab("logs");
   };
+
+  async function openRerunModal(run: RunResponse) {
+    if (!workflow) {
+      return;
+    }
+
+    const shouldRunOnSimulation = isDirty || !workflow.commit_sha;
+    let workflowInputSchema = workflow.input_schema;
+    let source: "manual" | "simulation" = "manual";
+    let branch = "main";
+    let commitSha = workflow.commit_sha;
+
+    if (shouldRunOnSimulation) {
+      const decision = await resolveRunInputSchemaDecision({
+        workflow: {
+          id: workflow.id,
+          input_schema: workflow.input_schema,
+        },
+        isDirty: true,
+        yamlContent,
+        prepareSimulation: gitApi.createSimBranch,
+      });
+
+      if (decision.kind === "blocked") {
+        toast.error("Unable to start run", { description: decision.error.message });
+        return;
+      }
+
+      workflowInputSchema = decision.kind === "needs_inputs" ? decision.input_schema : null;
+      source = decision.branch ? "simulation" : "manual";
+      branch = decision.branch ?? "main";
+      commitSha = decision.commit_sha ?? commitSha;
+    }
+
+    if (!hasWorkflowInputs(workflowInputSchema)) {
+      void createRunRequest({}, { source, branch }).catch(() => undefined);
+      return;
+    }
+
+    setRerunModalState({
+      source,
+      branch,
+      workflow: {
+        id: workflow.id,
+        name: workflow.name,
+        commit_sha: commitSha,
+        branch,
+        input_schema: workflowInputSchema,
+      },
+      initialValues: getRerunInitialValues(workflowInputSchema, run.workflow_inputs),
+    });
+  }
+
+  function closeRerunModal(nextOpen: boolean) {
+    if (!nextOpen) {
+      setRerunModalState(null);
+    }
+  }
+
+  function createRunRequest(
+    inputs: Record<string, unknown>,
+    options: { source: "manual" | "simulation"; branch: string } = {
+      source: "manual",
+      branch: "main",
+    },
+  ) {
+    const workflowIdToUse = workflow?.id ?? workflowId;
+
+    if (!workflowIdToUse) {
+      return Promise.reject(new Error("Workflow is unavailable."));
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      createRun.mutate(
+        {
+          workflow_id: workflowIdToUse,
+          inputs,
+          source: options.source,
+          branch: options.branch,
+        },
+        {
+          onSuccess: (result) => {
+            setActiveRunId(result.id);
+            navigate(`/runs/${result.id}`);
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        },
+      );
+    });
+  }
 
   return (
     <div
@@ -187,11 +305,18 @@ function SurfaceBottomPanelContent({
         </div>
       )}
       {isExpanded && activeTab === "runs" && (
-        <div data-testid="workflow-runs-panel" className="overflow-auto flex-1">
+        <div
+          data-testid="workflow-runs-panel"
+          aria-hidden={rerunModalState ? true : undefined}
+          className="overflow-auto flex-1"
+        >
           <SurfaceRunsTable
             runs={sortedRuns}
             currentRunId={currentRunId}
             onRowClick={onRunSelect}
+            onRerun={(run) => {
+              void openRerunModal(run);
+            }}
           />
         </div>
       )}
@@ -228,6 +353,23 @@ function SurfaceBottomPanelContent({
           />
         </div>
       )}
+      {rerunModalState ? (
+        <RunInputsModal
+          open
+          workflow={rerunModalState.workflow}
+          initialValues={rerunModalState.initialValues}
+          submitLabel="Rerun"
+          submitting={createRun.isPending}
+          onOpenChange={closeRerunModal}
+          onSubmit={async (inputs) => {
+            await createRunRequest(inputs, {
+              source: rerunModalState.source,
+              branch: rerunModalState.branch,
+            });
+            setRerunModalState(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -268,4 +410,50 @@ export function SurfaceBottomPanel(props: SurfaceBottomPanelProps) {
   }
 
   return <WorkflowScopedSurfaceBottomPanel {...props} />;
+}
+
+type WorkflowInputSnapshotEntry = {
+  sensitive?: boolean;
+  value?: unknown;
+};
+
+function hasWorkflowInputs(
+  inputSchema: unknown,
+): inputSchema is Record<string, WorkflowInputSchemaItem> {
+  return inputSchema !== null && typeof inputSchema === "object" && !Array.isArray(inputSchema) && Object.keys(inputSchema).length > 0;
+}
+
+function getRerunInitialValues(
+  schema: Record<string, WorkflowInputSchemaItem>,
+  workflowInputs: RunResponse["workflow_inputs"],
+) {
+  if (!workflowInputs || typeof workflowInputs !== "object" || Array.isArray(workflowInputs)) {
+    return {};
+  }
+
+  const initialValues: Record<string, unknown> = {};
+  for (const [name, item] of Object.entries(schema)) {
+    if (item.sensitive === true) {
+      continue;
+    }
+
+    const snapshotEntry = workflowInputs[name];
+    if (!isWorkflowInputSnapshotEntry(snapshotEntry) || !Object.hasOwn(snapshotEntry, "value")) {
+      continue;
+    }
+
+    if (snapshotEntry.sensitive !== false) {
+      continue;
+    }
+
+    if (snapshotEntry.value !== undefined) {
+      initialValues[name] = snapshotEntry.value;
+    }
+  }
+
+  return initialValues;
+}
+
+function isWorkflowInputSnapshotEntry(value: unknown): value is WorkflowInputSnapshotEntry {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

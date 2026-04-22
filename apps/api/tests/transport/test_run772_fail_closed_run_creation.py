@@ -17,11 +17,20 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import Run, RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_api.logic.services.run_service import RunService
 from runsight_api.main import app
 from runsight_api.transport.deps import get_execution_service, get_run_service
+from runsight_core.redaction import RunRedactor
 
 client = TestClient(app)
+
+
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
 
 
 def assert_runsight_error_shape(response, expected_status: int):
@@ -102,7 +111,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 503)
@@ -115,6 +128,7 @@ class TestFailClosedRunCreation:
         """A launch exception must not leave the created run pending."""
 
         mock_exec_service = Mock()
+        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
         mock_exec_service.launch_execution = AsyncMock(
             side_effect=RuntimeError("launch failed after run creation")
         )
@@ -124,7 +138,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 500)
@@ -151,6 +169,7 @@ class TestFailClosedRunCreation:
                 session.commit()
 
         mock_exec_service = Mock()
+        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
         mock_exec_service.launch_execution = AsyncMock(side_effect=_mark_failed)
 
         app.dependency_overrides[get_run_service] = lambda: run_service
@@ -158,7 +177,11 @@ class TestFailClosedRunCreation:
         try:
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             body = assert_runsight_error_shape(response, 500)

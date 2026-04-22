@@ -273,11 +273,15 @@ class TestLateJoinReplay:
 
         # Simulate prior events already persisted in DB
         mock_log_1 = Mock()
+        mock_log_1.id = 1
         mock_log_1.message = json.dumps({"event": "block_start", "block_id": "b1"})
         mock_log_1.level = "info"
+        mock_log_1.timestamp = 1713790800.0
         mock_log_2 = Mock()
+        mock_log_2.id = 2
         mock_log_2.message = json.dumps({"event": "block_complete", "block_id": "b1"})
         mock_log_2.level = "info"
+        mock_log_2.timestamp = 1713790801.0
         mock_run_service.get_run_logs.return_value = [mock_log_1, mock_log_2]
 
         mock_exec_service = Mock()
@@ -303,10 +307,14 @@ class TestLateJoinReplay:
             assert events[0]["event"] == "replay"
             assert events[0]["data"]["event"] == "block_start"
             assert events[0]["data"]["block_id"] == "b1"
+            assert events[0]["data"]["id"] == 1
+            assert events[0]["data"]["timestamp"] == "2024-04-22T13:00:00+00:00"
 
             assert events[1]["event"] == "replay"
             assert events[1]["data"]["event"] == "block_complete"
             assert events[1]["data"]["block_id"] == "b1"
+            assert events[1]["data"]["id"] == 2
+            assert events[1]["data"]["timestamp"] == "2024-04-22T13:00:01+00:00"
 
             # Live events follow after all replays
             assert events[2]["event"] == "node_started"

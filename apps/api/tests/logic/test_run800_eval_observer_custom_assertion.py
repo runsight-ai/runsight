@@ -364,7 +364,8 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-promptfoo",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -417,7 +418,8 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-negated-custom",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -469,7 +471,8 @@ class TestRun800LiveCustomAssertionPath:
                     "/api/runs",
                     json={
                         "workflow_id": "run800-invalid-config",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200

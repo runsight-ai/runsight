@@ -27,6 +27,7 @@ type RunRecord = {
 };
 
 type LogEntry = {
+  id?: number;
   timestamp: string;
   level: string;
   message: string;
@@ -37,6 +38,7 @@ type EventSourceListener = (event: MessageEvent) => void;
 const harness = vi.hoisted(() => ({
   runs: [] as RunRecord[],
   runLogsById: {} as Record<string, LogEntry[]>,
+  runLogTotalsById: {} as Record<string, number>,
   runRegressions: { count: 0, issues: [] as Array<Record<string, unknown>> },
   workflowRegressions: { count: 0, issues: [] as Array<Record<string, unknown>> },
   auditCalls: [] as Array<{ runId: string; params?: { page_size?: number; node_id?: string } }>,
@@ -98,7 +100,10 @@ vi.mock("@/queries/runs", () => ({
     isError: false,
   }),
   useRunLogs: (runId: string) => ({
-    data: { items: harness.runLogsById[runId] ?? [] },
+    data: {
+      items: harness.runLogsById[runId] ?? [],
+      total: harness.runLogTotalsById[runId] ?? (harness.runLogsById[runId] ?? []).length,
+    },
     isLoading: false,
     isError: false,
   }),
@@ -120,9 +125,18 @@ vi.mock("@/queries/runs", () => ({
     isLoading: false,
     isError: false,
   }),
+  useCreateRun: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/queries/workflows", () => ({
+  useWorkflow: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+  }),
   useWorkflowRegressions: () => ({
     data: harness.workflowRegressions,
     isLoading: false,
@@ -214,6 +228,7 @@ beforeEach(() => {
     makeRun("run_other", { createdAt: 100, runNumber: 2 }),
   ];
   harness.runLogsById = {};
+  harness.runLogTotalsById = {};
   harness.runRegressions = { count: 0, issues: [] };
   harness.workflowRegressions = { count: 0, issues: [] };
   harness.auditCalls = [];
@@ -300,6 +315,147 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     });
 
     expect(screen.getAllByText("Node draft started")).toHaveLength(1);
+  });
+
+  it("renders replay-only lifecycle payloads when fetched history is empty", () => {
+    renderPanel();
+
+    act(() => {
+      eventSources[0].emit("replay", {
+        event: "block_start",
+        block_id: "draft",
+      });
+    });
+
+    expect(screen.getByText("Node draft started")).toBeTruthy();
+  });
+
+  it("drops replay placeholders once canonical log history arrives", () => {
+    const view = renderPanel();
+
+    act(() => {
+      eventSources[0].emit("replay", {
+        id: 1,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        event: "block_start",
+        block_id: "draft",
+      });
+    });
+
+    expect(screen.getByText("Node draft started")).toBeTruthy();
+
+    harness.runLogsById.run_live = [
+      {
+        id: 1,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        level: "info",
+        message: '{"event":"block_start","block_id":"draft"}',
+      },
+    ];
+    harness.runLogTotalsById.run_live = 1;
+
+    view.rerender(
+      <MemoryRouter>
+        <SurfaceBottomPanel
+          runId="run_live"
+          workflowId="wf_957"
+          defaultState="expanded"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("Node draft started")).toHaveLength(1);
+  });
+
+  it("keeps unmatched replay history visible when the fetched log page is partial", () => {
+    const view = renderPanel();
+
+    act(() => {
+      eventSources[0].emit("replay", {
+        id: 1,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        event: "block_start",
+        block_id: "draft",
+      });
+      eventSources[0].emit("replay", {
+        id: 2,
+        timestamp: "2026-04-22T13:02:00.000Z",
+        event: "block_complete",
+        block_id: "review",
+      });
+    });
+
+    harness.runLogsById.run_live = [
+      {
+        id: 1,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        level: "info",
+        message: '{"event":"block_start","block_id":"draft"}',
+      },
+    ];
+    harness.runLogTotalsById.run_live = 2;
+
+    view.rerender(
+      <MemoryRouter>
+        <SurfaceBottomPanel
+          runId="run_live"
+          workflowId="wf_957"
+          defaultState="expanded"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("Node draft started")).toHaveLength(1);
+    expect(screen.getByText("Node review completed")).toBeTruthy();
+  });
+
+  it("keeps repeated lifecycle occurrences for the same block distinct", () => {
+    const view = renderPanel();
+
+    act(() => {
+      eventSources[0].emit("replay", {
+        id: 11,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        event: "block_start",
+        block_id: "draft",
+      });
+      eventSources[0].emit("replay", {
+        id: 12,
+        timestamp: "2026-04-22T13:02:00.000Z",
+        event: "block_start",
+        block_id: "draft",
+      });
+    });
+
+    expect(screen.getAllByText("Node draft started")).toHaveLength(2);
+
+    harness.runLogsById.run_live = [
+      {
+        id: 11,
+        timestamp: "2026-04-22T13:01:00.000Z",
+        level: "info",
+        message: '{"event":"block_start","block_id":"draft"}',
+      },
+      {
+        id: 12,
+        timestamp: "2026-04-22T13:02:00.000Z",
+        level: "info",
+        message: '{"event":"block_start","block_id":"draft"}',
+      },
+    ];
+    harness.runLogTotalsById.run_live = 2;
+
+    view.rerender(
+      <MemoryRouter>
+        <SurfaceBottomPanel
+          runId="run_live"
+          workflowId="wf_957"
+          defaultState="expanded"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("Node draft started")).toHaveLength(2);
   });
 
   it("shows the existing no-log empty state after switching to a run with no history", async () => {

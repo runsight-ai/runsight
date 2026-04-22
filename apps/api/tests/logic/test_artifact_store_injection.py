@@ -10,6 +10,7 @@ Tests cover:
 from unittest.mock import Mock
 
 import pytest
+from runsight_core.redaction import RunRedactor
 
 
 def _import_execution_service():
@@ -17,6 +18,15 @@ def _import_execution_service():
     from runsight_api.logic.services.execution_service import ExecutionService
 
     return ExecutionService
+
+
+def _prepared_inputs(inputs: dict[str, object]):
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
 
 
 # ==============================================================================
@@ -48,7 +58,11 @@ class TestArtifactStoreInjection:
             engine=None,
         )
 
-        await svc._run_workflow("run-42", mock_wf, {"instruction": "do something"})
+        await svc._run_workflow(
+            "run-42",
+            mock_wf,
+            _prepared_inputs({"instruction": "do something"}),
+        )
 
         assert len(captured_states) == 1
         state = captured_states[0]
@@ -77,7 +91,11 @@ class TestArtifactStoreInjection:
             engine=None,
         )
 
-        await svc._run_workflow("run-42", mock_wf, {"instruction": "do something"})
+        await svc._run_workflow(
+            "run-42",
+            mock_wf,
+            _prepared_inputs({"instruction": "do something"}),
+        )
 
         state = captured_states[0]
         assert isinstance(state.artifact_store, InMemoryArtifactStore)
@@ -103,7 +121,11 @@ class TestArtifactStoreInjection:
             engine=None,
         )
 
-        await svc._run_workflow("run-42", mock_wf, {"instruction": "do something"})
+        await svc._run_workflow(
+            "run-42",
+            mock_wf,
+            _prepared_inputs({"instruction": "do something"}),
+        )
 
         state = captured_states[0]
         assert state.artifact_store.run_id == "run-42"
@@ -129,8 +151,8 @@ class TestArtifactStoreInjection:
             engine=None,
         )
 
-        await svc._run_workflow("run-1", mock_wf, {"instruction": "first"})
-        await svc._run_workflow("run-2", mock_wf, {"instruction": "second"})
+        await svc._run_workflow("run-1", mock_wf, _prepared_inputs({"instruction": "first"}))
+        await svc._run_workflow("run-2", mock_wf, _prepared_inputs({"instruction": "second"}))
 
         assert len(captured_states) == 2
         assert captured_states[0].artifact_store is not captured_states[1].artifact_store

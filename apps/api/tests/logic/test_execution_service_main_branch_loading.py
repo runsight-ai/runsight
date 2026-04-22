@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 
 def _init_git_repo_with_workflow(
     tmp_path: Path,
@@ -39,6 +42,13 @@ def _init_git_repo_with_workflow(
         capture_output=True,
     )
     return repo
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 @pytest.mark.asyncio
@@ -100,7 +110,7 @@ config: {}
         await svc.launch_execution(
             "run_main_branch_yaml",
             "wf_1",
-            {"instruction": "execute main"},
+            _prepared_inputs({"instruction": "execute main"}),
             branch="main",
         )
 

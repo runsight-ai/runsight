@@ -163,6 +163,11 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("@/queries/runs", () => ({
+  useCreateRun: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
   useRun: (runId: string) => {
     harness.runCalls.push(runId);
     return {

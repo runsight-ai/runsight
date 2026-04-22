@@ -12,7 +12,7 @@ blocks:
     inputs:
       task: shared_memory.task
     outputs:
-      results.mockup_html: gate
+      results.mockup_html: results.gate
     max_depth: 5
 
   retry_generate:

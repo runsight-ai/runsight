@@ -104,22 +104,7 @@ class EvalService:
         previous_by_key: dict[tuple[str, str, str | None], object] = {}
         severity_rank = {"warning": 1, "info": 0}
 
-        runs = [
-            run
-            for run in self.run_repo.list_runs()
-            if (
-                getattr(run, "branch", "main")
-                if isinstance(getattr(run, "branch", "main"), str)
-                else "main"
-            )
-            == "main"
-            and (
-                getattr(run, "source", "manual")
-                if isinstance(getattr(run, "source", "manual"), str)
-                else "manual"
-            )
-            in {"manual", "webhook", "schedule"}
-        ]
+        runs = [run for run in self.run_repo.list_runs() if self._is_production_run(run)]
         runs.sort(key=lambda run: run.created_at)
 
         for run in runs:
@@ -273,12 +258,10 @@ class EvalService:
     @staticmethod
     def _is_production_run(run) -> bool:
         """Filter to main-branch production runs, consistent with get_attention_items."""
-        branch = getattr(run, "branch", "main")
-        if not isinstance(branch, str):
-            branch = "main"
-        source = getattr(run, "source", "manual")
-        if not isinstance(source, str):
-            source = "manual"
+        branch = getattr(run, "branch", None)
+        source = getattr(run, "source", None)
+        if not isinstance(branch, str) or not isinstance(source, str):
+            return False
         return branch == "main" and source in {"manual", "webhook", "schedule"}
 
     def get_run_regressions(self, run_id: str) -> dict | None:

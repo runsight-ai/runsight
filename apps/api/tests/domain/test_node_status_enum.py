@@ -218,6 +218,7 @@ class TestObserverIntegration:
                 workflow_name="test_wf",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()

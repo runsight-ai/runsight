@@ -47,7 +47,6 @@ def _workflow_yaml(
             "version": "1.0",
             "id": workflow_id,
             "kind": "workflow",
-            "interface": {"inputs": [], "outputs": []},
             "blocks": blocks,
             "workflow": {
                 "name": workflow_name,
@@ -81,6 +80,84 @@ def _commented_workflow_yaml(*, workflow_id: str = "parent", workflow_name: str 
 
 def _missing_child_blocks() -> dict[str, dict[str, str]]:
     return {"call_child": {"type": "workflow", "workflow_ref": "missing-child"}}
+
+
+def _workflow_with_invalid_input_ref(*, workflow_id: str = "parent") -> str:
+    return yaml.safe_dump(
+        {
+            "version": "1.0",
+            "id": workflow_id,
+            "kind": "workflow",
+            "inputs": {
+                "query": {
+                    "type": "string",
+                }
+            },
+            "blocks": {
+                "finish": {
+                    "type": "code",
+                    "inputs": {
+                        "instruction": {
+                            "from": "workflow.missing",
+                        }
+                    },
+                    "code": "def main(data):\n    return {'ok': True}\n",
+                }
+            },
+            "workflow": {
+                "name": "Parent",
+                "entry": "finish",
+                "transitions": [{"from": "finish", "to": None}],
+            },
+        },
+        sort_keys=False,
+    )
+
+
+def _workflow_with_valid_input_ref(*, workflow_id: str = "parent") -> str:
+    return yaml.safe_dump(
+        {
+            "version": "1.0",
+            "id": workflow_id,
+            "kind": "workflow",
+            "inputs": {
+                "query": {
+                    "type": "string",
+                }
+            },
+            "blocks": {
+                "finish": {
+                    "type": "code",
+                    "inputs": {
+                        "instruction": {
+                            "from": "workflow.query",
+                        }
+                    },
+                    "code": "def main(data):\n    return {'ok': True}\n",
+                }
+            },
+            "workflow": {
+                "name": "Parent",
+                "entry": "finish",
+                "transitions": [{"from": "finish", "to": None}],
+            },
+        },
+        sort_keys=False,
+    )
+
+
+def _invalid_input_ref_blocks() -> dict[str, object]:
+    return {
+        "finish": {
+            "type": "code",
+            "inputs": {
+                "instruction": {
+                    "from": "workflow.missing",
+                }
+            },
+            "code": "def main(data):\n    return {'ok': True}\n",
+        }
+    }
 
 
 @pytest.mark.parametrize("operation", ["create", "update", "patch"])
@@ -122,6 +199,39 @@ def test_missing_child_registry_validation_surfaces_invalid_entity_shape(
     assert "cannot resolve ref 'missing-child'" in entity.validation_error
     assert entity.warnings == []
     assert "id: parent" in repo._get_path("parent").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("operation", ["create", "update", "patch"])
+def test_invalid_workflow_input_ref_write_fails_closed(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    if operation == "patch":
+        repo.create({"yaml": _workflow_with_valid_input_ref()})
+    elif operation != "create":
+        repo.create({"yaml": _workflow_yaml(workflow_id="parent", workflow_name="Parent")})
+
+    workflow_path = repo._get_path("parent")
+
+    with pytest.raises(InputValidationError, match="workflow\\.missing"):
+        if operation == "create":
+            repo.create({"yaml": _workflow_with_invalid_input_ref()})
+        elif operation == "update":
+            repo.update("parent", {"yaml": _workflow_with_invalid_input_ref()})
+        else:
+            repo.patch_yaml_field("parent", "blocks", _invalid_input_ref_blocks())
+
+    if operation == "create":
+        assert not workflow_path.exists()
+    elif operation == "update":
+        assert workflow_path.read_text(encoding="utf-8") == _workflow_yaml(
+            workflow_id="parent",
+            workflow_name="Parent",
+        )
+    else:
+        assert workflow_path.read_text(encoding="utf-8") == _workflow_with_valid_input_ref()
 
 
 @pytest.mark.parametrize("operation", ["create", "update", "patch"])
@@ -185,34 +295,43 @@ def test_patch_round_trips_comments_and_embedded_id(tmp_path: Path) -> None:
     assert "enabled: true" in saved_yaml.lower()
 
 
-def test_update_exposes_canvas_sidecar_write_failure_as_warning_after_yaml_success(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_canvas_sidecar_write_failure_rolls_back_yaml_and_fails_the_save(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    operation: str,
 ) -> None:
     repo = WorkflowRepository(base_path=str(tmp_path))
-    repo.create({"yaml": _workflow_yaml(workflow_id="parent", workflow_name="Parent")})
+    original_yaml = _workflow_yaml(workflow_id="parent", workflow_name="Parent")
+    repo.create({"yaml": original_yaml})
     repo.canvas_dir.rmdir()
     repo.canvas_dir.write_text("not-a-directory", encoding="utf-8")
 
     updated_yaml = _workflow_yaml(workflow_id="parent", workflow_name="Parent Updated")
-    with caplog.at_level(logging.WARNING):
-        updated = repo.update(
-            "parent",
-            {
-                "yaml": updated_yaml,
-                "canvas_state": {"nodes": [], "edges": []},
-            },
-        )
+    with caplog.at_level(logging.WARNING), pytest.raises(InputValidationError):
+        if operation == "create":
+            repo.delete("parent")
+            repo.create(
+                {
+                    "yaml": original_yaml,
+                    "canvas_state": {"nodes": [], "edges": []},
+                }
+            )
+        else:
+            repo.update(
+                "parent",
+                {
+                    "yaml": updated_yaml,
+                    "canvas_state": {"nodes": [], "edges": []},
+                },
+            )
 
-    assert repo._get_path("parent").read_text(encoding="utf-8") == updated_yaml
-    assert updated.validation_error is None
-    assert getattr(updated, "canvas_state", None) is None
+    workflow_path = repo._get_path("parent")
+    if operation == "create":
+        assert not workflow_path.exists()
+    else:
+        assert workflow_path.read_text(encoding="utf-8") == original_yaml
     assert any("Failed to write canvas sidecar" in record.message for record in caplog.records)
-    assert any(
-        warning.get("source") == "canvas_sidecar"
-        and warning.get("context") == "parent"
-        and "write" in warning.get("message", "").lower()
-        for warning in updated.warnings
-    )
 
 
 def test_prepare_for_launch_uses_injected_registry_builder_for_nested_git_snapshot() -> None:

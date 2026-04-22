@@ -35,6 +35,7 @@ def _seed_run(engine, run_id: str = "run_917") -> None:
                 workflow_name="context_governance_integration",
                 status=RunStatus.running,
                 task_json="{}",
+                branch="main",
             )
         )
         session.commit()

@@ -6,7 +6,14 @@ import yaml
 from runsight_core.identity import EntityKind, EntityRef
 
 from ...data.filesystem.soul_repo import SoulRepository
-from ...domain.errors import InputValidationError, SoulAlreadyExists, SoulInUse, SoulNotFound
+from ...domain.errors import (
+    GitError,
+    InputValidationError,
+    ServiceUnavailable,
+    SoulAlreadyExists,
+    SoulInUse,
+    SoulNotFound,
+)
 from ...domain.value_objects import SoulEntity, WorkflowEntity
 
 logger = logging.getLogger(__name__)
@@ -86,6 +93,28 @@ class SoulService:
         if provider and not getattr(provider, "is_active", True):
             raise InputValidationError(f"Provider {self._provider_ref(provider_id)} is disabled")
 
+    def _resolve_auto_commit_branch(self) -> str | None:
+        if not self.git_service:
+            return None
+
+        try:
+            current_branch = self.git_service.current_branch()
+        except ServiceUnavailable:
+            raise
+        except Exception as exc:
+            raise GitError("Unable to determine current branch for soul auto-commit") from exc
+
+        if not isinstance(current_branch, str):
+            raise GitError("Unable to determine current branch for soul auto-commit")
+
+        branch = current_branch.strip()
+        if not branch:
+            raise GitError("Unable to determine current branch for soul auto-commit")
+        if branch.upper() == "HEAD":
+            raise GitError("Unable to determine current branch for soul auto-commit")
+
+        return branch
+
     def list_souls(self, query: Optional[str] = None, workflow_repo=None) -> List[SoulEntity]:
         souls = self.soul_repo.list_all()
         if query:
@@ -150,8 +179,11 @@ class SoulService:
         SoulEntity.model_validate(data)
         if self.soul_repo.get_by_id(data["id"]):
             raise SoulAlreadyExists(f"Soul {self._soul_ref(data['id'])} already exists")
+        current_branch = self._resolve_auto_commit_branch()
         result = self.soul_repo.create(data)
-        self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
+        self._auto_commit(
+            current_branch, f"Create {result.id}.yaml", [self._soul_file_path(result.id)]
+        )
         return result
 
     def update_soul(self, id: str, data: Dict[str, Any], copy_on_edit: bool = False) -> SoulEntity:
@@ -165,15 +197,21 @@ class SoulService:
             new_id = f"{id}_copy_{uuid.uuid4().hex[:4]}"
             data["id"] = new_id
             self._validate_provider_state(data.get("provider"))
+            current_branch = self._resolve_auto_commit_branch()
             result = self.soul_repo.create(data)
-            self._auto_commit(f"Create {result.id}.yaml", [self._soul_file_path(result.id)])
+            self._auto_commit(
+                current_branch,
+                f"Create {result.id}.yaml",
+                [self._soul_file_path(result.id)],
+            )
             return result
 
         merged = existing.model_dump(exclude={"workflow_count"})
         merged.update(data)
         self._validate_provider_state(merged.get("provider"))
+        current_branch = self._resolve_auto_commit_branch()
         result = self.soul_repo.update(id, merged)
-        self._auto_commit(f"Update {id}.yaml", [self._soul_file_path(id)])
+        self._auto_commit(current_branch, f"Update {id}.yaml", [self._soul_file_path(id)])
         return result
 
     def delete_soul(self, id: str, force: bool = False, workflow_repo=None) -> bool:
@@ -190,27 +228,27 @@ class SoulService:
                     details={"usages": usages},
                 )
 
+        current_branch = self._resolve_auto_commit_branch()
         success = self.soul_repo.delete(id)
         if not success:
             raise SoulNotFound(f"Soul {self._soul_ref(id)} not found")
-        self._auto_commit(f"Delete {id}.yaml", [self._soul_file_path(id)])
+        self._auto_commit(current_branch, f"Delete {id}.yaml", [self._soul_file_path(id)])
         return True
 
-    def _auto_commit(self, message: str, files: list) -> None:
-        if not self.git_service:
+    def _auto_commit(self, current_branch: str | None, message: str, files: list[str]) -> None:
+        if not self.git_service or current_branch is None:
             return
+
+        if current_branch != "main":
+            logger.info(
+                "Skipping soul auto-commit outside main branch",
+                extra={"current_branch": current_branch, "files": files},
+            )
+            return
+
         try:
             if self.git_service.is_clean():
                 return  # nothing changed, skip empty commit
-            current_branch = self.git_service.current_branch()
-            if not isinstance(current_branch, str) or not current_branch:
-                current_branch = "main"
-            if current_branch != "main":
-                logger.info(
-                    "Skipping soul auto-commit outside main branch",
-                    extra={"current_branch": current_branch, "files": files},
-                )
-                return
             self.git_service.commit_to_branch("main", files, message)
         except Exception:
             logger.warning(

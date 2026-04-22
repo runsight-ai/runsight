@@ -10,7 +10,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 class TestResolveApiKeys:
@@ -146,7 +154,12 @@ config: {}
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_1", "wf_1", {"instruction": "test"})
+            await svc.launch_execution(
+                "run_1",
+                "wf_1",
+                _prepared_inputs({"instruction": "test"}),
+                branch="main",
+            )
 
             mock_parse.assert_called_once()
             call_kwargs = mock_parse.call_args.kwargs

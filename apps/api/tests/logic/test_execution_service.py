@@ -12,6 +12,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_core.redaction import RunRedactor
+
 # --- Import target (does not exist yet — tests must fail on import) ---
 
 
@@ -83,6 +86,13 @@ config: {}
 """
 
 
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
+
+
 # ---------------------------------------------------------------------------
 # 1. ExecutionService instantiation
 # ---------------------------------------------------------------------------
@@ -149,7 +159,12 @@ class TestLaunchExecution:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_1", "wf_1", {"instruction": "do stuff"})
+            await svc.launch_execution(
+                "run_1",
+                "wf_1",
+                _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
+            )
 
             # Task should be tracked
             assert "run_1" in svc._running_tasks
@@ -192,7 +207,12 @@ class TestLaunchExecution:
             mock_parse.return_value = mock_wf
 
             # launch_execution should return before slow_run completes
-            await svc.launch_execution("run_2", "wf_1", {"instruction": "test"})
+            await svc.launch_execution(
+                "run_2",
+                "wf_1",
+                _prepared_inputs({"instruction": "test"}),
+                branch="main",
+            )
 
             # The method returned but workflow hasn't completed
             assert "run_2" in svc._running_tasks
@@ -289,7 +309,7 @@ config: {}
             await svc.launch_execution(
                 "run_branch_yaml",
                 "wf_1",
-                {"instruction": "execute simulation"},
+                _prepared_inputs({"instruction": "execute simulation"}),
                 branch=sim_branch,
             )
 
@@ -338,7 +358,12 @@ class TestAutoCleanup:
             mock_wf.run = AsyncMock(return_value=WorkflowState())
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_cleanup", "wf_1", {"instruction": "test"})
+            await svc.launch_execution(
+                "run_cleanup",
+                "wf_1",
+                _prepared_inputs({"instruction": "test"}),
+                branch="main",
+            )
 
             # Wait for background task to finish and cleanup callback to fire
             await asyncio.sleep(0.1)
@@ -364,6 +389,7 @@ class TestLaunchExecutionErrors:
             workflow_name="wf_bad",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         run_repo = Mock()
         run_repo.get_run.return_value = run
@@ -382,7 +408,12 @@ class TestLaunchExecutionErrors:
             provider_repo=provider_repo,
         )
 
-        await svc.launch_execution("run_err1", "wf_bad", {"instruction": "test"})
+        await svc.launch_execution(
+            "run_err1",
+            "wf_bad",
+            _prepared_inputs({"instruction": "test"}),
+            branch="main",
+        )
 
         # Wait for background task to fail
         await asyncio.sleep(0.1)
@@ -411,6 +442,7 @@ class TestLaunchExecutionErrors:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -463,7 +495,12 @@ config: {}
             os.environ.pop("OPENAI_API_KEY", None)
             os.environ.pop("ANTHROPIC_API_KEY", None)
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "test"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "test"}),
+                branch="main",
+            )
             await asyncio.sleep(0.1)
 
             with Session(db_engine) as session:
@@ -482,6 +519,7 @@ config: {}
             workflow_name="wf_missing",
             status=RunStatus.pending,
             task_json="{}",
+            branch="main",
         )
         run_repo = Mock()
         run_repo.get_run.return_value = run
@@ -497,7 +535,12 @@ config: {}
             provider_repo=provider_repo,
         )
 
-        await svc.launch_execution("run_prefail", "wf_missing", {"instruction": "x"})
+        await svc.launch_execution(
+            "run_prefail",
+            "wf_missing",
+            _prepared_inputs({"instruction": "x"}),
+            branch="main",
+        )
         await asyncio.sleep(0.05)
 
         run_repo.update_run.assert_called()
@@ -528,6 +571,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -565,7 +609,12 @@ class TestRunStatusTransitions:
             mock_wf.run = slow_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
             # Observer should have set status to running in the DB
@@ -590,6 +639,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -628,7 +678,12 @@ class TestRunStatusTransitions:
             mock_wf.run = _mock_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.1)
 
             with Session(db_engine) as session:
@@ -652,6 +707,7 @@ class TestRunStatusTransitions:
                 workflow_name="wf_1",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -688,7 +744,12 @@ class TestRunStatusTransitions:
             mock_wf.run = _mock_run
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"})
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.1)
 
             with Session(db_engine) as session:
@@ -748,7 +809,12 @@ config: {}
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_code_only", "wf_1", {"instruction": "do stuff"})
+            await svc.launch_execution(
+                "run_code_only",
+                "wf_1",
+                _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
+            )
 
         mock_fail.assert_not_called()
         assert "run_code_only" in svc._running_tasks
@@ -799,7 +865,12 @@ config: {}
         )
 
         with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
-            await svc.launch_execution("run_missing_model", "wf_1", {"instruction": "do stuff"})
+            await svc.launch_execution(
+                "run_missing_model",
+                "wf_1",
+                _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
+            )
 
         mock_fail.assert_called_once()
         assert "explicit provider" in str(mock_fail.call_args.args[1])
@@ -854,7 +925,10 @@ config: {}
 
         with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
             await svc.launch_execution(
-                "run_missing_model_name", "wf_1", {"instruction": "do stuff"}
+                "run_missing_model_name",
+                "wf_1",
+                _prepared_inputs({"instruction": "do stuff"}),
+                branch="main",
             )
 
         mock_fail.assert_called_once()

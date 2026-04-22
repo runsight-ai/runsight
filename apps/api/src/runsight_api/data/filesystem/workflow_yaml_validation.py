@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 import yaml
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.identity import EntityKind, EntityRef, validate_entity_id
+from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.discovery import SoulScanner
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
@@ -41,6 +42,13 @@ def assert_valid_yaml_for_write(workflow_id: str, raw_yaml: str) -> None:
             f"embedded workflow id {embedded_id!r} does not match requested "
             f"{_workflow_ref(workflow_id)}"
         )
+    try:
+        file_def = RunsightWorkflowFile.model_validate(data)
+        effective_workflow_input_schema(file_def)
+    except PydanticValidationError as exc:
+        raise InputValidationError(str(exc)) from exc
+    except ValueError as exc:
+        raise InputValidationError(str(exc)) from exc
 
 
 def validate_yaml_content(
@@ -64,6 +72,7 @@ def validate_yaml_content(
             return False, "YAML content is not a mapping", []
 
         file_def = RunsightWorkflowFile.model_validate(data)
+        effective_workflow_input_schema(file_def)
         souls_map = SoulScanner(base_path).scan().ids()
         validation_result = tool_governance_validator(file_def, souls_map)
         validation_result.merge(

@@ -5,9 +5,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ...domain.entities.run import RunStatus
-from ...domain.errors import InputValidationError, RunFailed, RunNotFound, ServiceUnavailable
+from ...domain.errors import (
+    InputValidationError,
+    RunFailed,
+    RunNotFound,
+    RunsightError,
+    ServiceUnavailable,
+)
 from ...logic.services.eval_service import EvalService
-from ...logic.services.execution_service import ExecutionService
+from ...logic.services.execution_service import ExecutionService, PreparedRunInputs
 from ...logic.services.run_service import RunService
 from ..context_audit import (
     context_audit_sort_key,
@@ -24,6 +30,7 @@ from ..schemas.runs import (
     RunListResponse,
     RunNodeResponse,
     RunResponse,
+    WorkflowInputValidationErrorResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,10 +42,17 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 def _run_response_field(run, field: str, default):
     """Read a response field from a run-like object with a safe default."""
     value = getattr(run, field, default)
-    if field in {"branch", "source"}:
+    if field == "source":
         return value if isinstance(value, str) else default
     if field == "commit_sha":
         return value if value is None or isinstance(value, str) else None
+    return value
+
+
+def _run_branch_field(run) -> str:
+    value = getattr(run, "branch", None)
+    if not isinstance(value, str):
+        raise RunsightError("Run branch is required")
     return value
 
 
@@ -109,6 +123,11 @@ def _run_depth(run) -> int:
     return value if isinstance(value, int) else 0
 
 
+def _run_snapshot_field(run, field: str) -> Optional[dict]:
+    value = getattr(run, field, None)
+    return value if isinstance(value, dict) else None
+
+
 def _build_run_response(
     run,
     *,
@@ -131,7 +150,7 @@ def _build_run_response(
         total_cost_usd=total_cost_usd,
         total_tokens=total_tokens,
         created_at=run.created_at,
-        branch=_run_response_field(run, "branch", "main"),
+        branch=_run_branch_field(run),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
         run_number=_run_metric_field(run, "run_number"),
@@ -144,6 +163,8 @@ def _build_run_response(
         parent_run_id=_run_link_field(run, "parent_run_id"),
         root_run_id=_run_link_field(run, "root_run_id"),
         depth=_run_depth(run),
+        workflow_inputs=_run_snapshot_field(run, "workflow_inputs"),
+        workflow_input_schema=_run_snapshot_field(run, "workflow_input_schema"),
     )
 
 
@@ -160,28 +181,41 @@ def _refresh_launch_run(run_service: RunService, run):
     return latest if isinstance(status, RunStatus | str) else run
 
 
-@router.post("", response_model=RunResponse)
+@router.post(
+    "",
+    response_model=RunResponse,
+    responses={422: {"model": WorkflowInputValidationErrorResponse}},
+)
 async def create_run(
     body: RunCreate,
     run_service: RunService = Depends(get_run_service),
     execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     source = body.source or "manual"
-    branch = body.branch or "main"
+    branch = body.branch
     if execution_service is None:
         raise ServiceUnavailable("Execution runtime is unavailable")
 
+    prepare_run_inputs = getattr(execution_service, "prepare_run_inputs", None)
+    if not callable(prepare_run_inputs):
+        raise TypeError("Execution service must expose callable prepare_run_inputs")
+
+    prepared = prepare_run_inputs(body.workflow_id, body.inputs, branch=branch)
+    if inspect.isawaitable(prepared):
+        prepared = await prepared
+    if not isinstance(prepared, PreparedRunInputs):
+        raise TypeError("prepare_run_inputs must return PreparedRunInputs")
     run = run_service.create_run(
         body.workflow_id,
-        body.inputs,
-        source=source,
+        prepared,
         branch=branch,
+        source=source,
     )
     try:
         await execution_service.launch_execution(
             run.id,
             run.workflow_id,
-            body.inputs,
+            prepared,
             branch=branch,
         )
     except Exception as exc:

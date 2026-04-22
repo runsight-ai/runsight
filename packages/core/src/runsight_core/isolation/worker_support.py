@@ -93,6 +93,7 @@ def build_scoped_state(envelope: ContextEnvelope) -> WorkflowState:
     history_key = f"{envelope.block_id}_{envelope.soul.id}"
 
     return WorkflowState(
+        workflow_inputs=dict(envelope.scoped_workflow_inputs),
         shared_memory=dict(envelope.scoped_shared_memory),
         results=results,
         metadata=dict(envelope.scoped_metadata),

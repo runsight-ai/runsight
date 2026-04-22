@@ -105,10 +105,16 @@ describe("AC2: runWorkflow.ts uses inputs instead of task_data (RUN-882)", () =>
     expect(source).not.toMatch(/\btaskData\b/);
   });
 
-  it("runWorkflow.ts passes inputs to createRun call", () => {
+  it("runWorkflow.ts passes inputs and branch to createRun call", () => {
     const source = readSource(RUN_WORKFLOW_PATH);
-    // The createRun payload should include `inputs:`
+    // The createRun payload should include `inputs:` and an explicit branch
+    const match = source.match(
+      /createRun\s*\(\s*\{([\s\S]*?)\}\s*\)/,
+    );
+    expect(match, "Expected to find createRun payload object literal").toBeTruthy();
+    const payload = match![1];
     expect(source).toMatch(/inputs\s*:/);
+    expect(payload).toMatch(/branch\s*:/);
   });
 
   it("RunWorkflowOptions interface defines inputs not taskData", () => {

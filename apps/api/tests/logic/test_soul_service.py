@@ -318,6 +318,7 @@ def test_create_soul_happy_path_uses_custom_souls_commit_path():
     soul_repo.get_by_id.return_value = None
     soul_repo.create.return_value = created
     git_service.is_clean.return_value = False
+    git_service.current_branch.return_value = "main"
 
     result = service.create_soul(
         {"id": "soul_custom", "kind": "soul", "name": "Custom", "role": "Custom"}
@@ -332,14 +333,13 @@ def test_create_soul_happy_path_uses_custom_souls_commit_path():
     )
 
 
-def test_create_soul_still_succeeds_when_git_commit_fails():
+def test_create_soul_skips_auto_commit_outside_main_branch():
     soul_repo, git_service, service = make_service()
     created = SoulEntity(id="soul_custom", kind="soul", name="Custom", role="Custom")
     soul_repo.get_by_id.return_value = None
     soul_repo.create.return_value = created
     git_service.is_clean.return_value = False
     git_service.current_branch.return_value = "feature/test"
-    git_service.commit_to_branch.side_effect = RuntimeError("git failed")
 
     result = service.create_soul(
         {"id": "soul_custom", "kind": "soul", "name": "Custom", "role": "Custom"}
@@ -347,6 +347,7 @@ def test_create_soul_still_succeeds_when_git_commit_fails():
 
     assert result == created
     soul_repo.create.assert_called_once()
+    git_service.commit_to_branch.assert_not_called()
 
 
 def test_create_soul_existing_id_raises_conflict():
@@ -490,6 +491,7 @@ def test_update_soul_copy_on_edit_creates_copy_and_commits_new_path():
     existing = SoulEntity(id="soul_1", kind="soul", name="Original", role="Original")
     soul_repo.get_by_id.return_value = existing
     git_service.is_clean.return_value = False
+    git_service.current_branch.return_value = "main"
 
     def capture_create(data):
         return SoulEntity(
@@ -516,7 +518,7 @@ def test_update_soul_copy_on_edit_creates_copy_and_commits_new_path():
     soul_repo.update.assert_not_called()
 
 
-def test_update_soul_still_succeeds_when_git_commit_fails():
+def test_update_soul_skips_auto_commit_outside_main_branch():
     soul_repo, git_service, service = make_service()
     existing = SoulEntity(
         id="soul_1",
@@ -536,12 +538,12 @@ def test_update_soul_still_succeeds_when_git_commit_fails():
     soul_repo.update.return_value = updated
     git_service.is_clean.return_value = False
     git_service.current_branch.return_value = "feature/test"
-    git_service.commit_to_branch.side_effect = RuntimeError("git failed")
 
     result = service.update_soul("soul_1", {"role": "New"})
 
     assert result == updated
     soul_repo.update.assert_called_once()
+    git_service.commit_to_branch.assert_not_called()
 
 
 # --- delete_soul ---
@@ -557,6 +559,7 @@ def test_delete_soul_happy_path_uses_custom_souls_commit_path():
     )
     soul_repo.delete.return_value = True
     git_service.is_clean.return_value = False
+    git_service.current_branch.return_value = "main"
 
     result = service.delete_soul("soul_1")
 
@@ -567,6 +570,25 @@ def test_delete_soul_happy_path_uses_custom_souls_commit_path():
         ["custom/souls/soul_1.yaml"],
         "Delete soul_1.yaml",
     )
+
+
+def test_delete_soul_skips_auto_commit_outside_main_branch():
+    soul_repo, git_service, service = make_service()
+    soul_repo.get_by_id.return_value = SoulEntity(
+        id="soul_1",
+        kind="soul",
+        name="Soul",
+        role="Soul",
+    )
+    soul_repo.delete.return_value = True
+    git_service.is_clean.return_value = False
+    git_service.current_branch.return_value = "feature/test"
+
+    result = service.delete_soul("soul_1")
+
+    assert result is True
+    soul_repo.delete.assert_called_once_with("soul_1")
+    git_service.commit_to_branch.assert_not_called()
 
 
 def test_delete_soul_not_found_raises_soul_not_found():

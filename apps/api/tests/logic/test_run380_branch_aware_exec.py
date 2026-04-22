@@ -1,7 +1,7 @@
 """Regression tests for RUN-380 branch-aware execution behavior.
 
 ExecutionService.launch_execution must:
-1. Accept a ``branch`` parameter (default "main")
+1. Accept a ``branch`` parameter explicitly
 2. When Git is configured, read YAML via GitService.read_file(path, branch)
 3. ``branch="main"`` must load committed main content, not mutable working-tree YAML
 4. Pass YAML *string* (not file path) to parse_workflow_yaml
@@ -9,13 +9,15 @@ ExecutionService.launch_execution must:
 """
 
 import asyncio
+import subprocess
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
-from runsight_api.logic.services.execution_service import ExecutionService
+from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
+from runsight_core.redaction import RunRedactor
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -35,6 +37,13 @@ blocks:
 souls: {}
 config: {}
 """
+
+
+def _prepared_inputs(inputs):
+    return PreparedRunInputs(
+        normalized_inputs=inputs,
+        input_redactor=RunRedactor(),
+    )
 
 
 def _make_service(*, engine=None):
@@ -88,7 +97,12 @@ class TestLaunchAcceptsBranch:
             mock_parse.return_value = mock_wf
 
             # Must not raise TypeError for unexpected keyword argument 'branch'
-            await svc.launch_execution("run_1", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
 
     @pytest.mark.asyncio
     async def test_accepts_sim_branch(self):
@@ -105,13 +119,13 @@ class TestLaunchAcceptsBranch:
             await svc.launch_execution(
                 "run_2",
                 "wf_1",
-                {"instruction": "go"},
+                _prepared_inputs({"instruction": "go"}),
                 branch="sim/my-workflow/20260329/abc12",
             )
 
     @pytest.mark.asyncio
-    async def test_branch_defaults_to_main(self):
-        """When branch is omitted, it defaults to 'main'."""
+    async def test_missing_branch_defaults_to_main(self):
+        """Omitting branch should default launch execution to main."""
         svc, _, _, _, git_service = _make_service()
 
         with patch(
@@ -121,8 +135,7 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            # Call without branch — should load committed main from git
-            await svc.launch_execution("run_3", "wf_1", {"instruction": "go"})
+            await svc.launch_execution("run_3", "wf_1", _prepared_inputs({"instruction": "go"}))
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
@@ -151,7 +164,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim1", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once()
@@ -178,7 +196,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim2", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim2",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             # Parser must receive the git YAML, not the filesystem YAML
@@ -201,7 +224,12 @@ class TestSimBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_sim3", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_sim3",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             git_service.get_sha.assert_called_once()
@@ -229,7 +257,12 @@ class TestMainBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_main1", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_main1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
@@ -248,13 +281,53 @@ class TestMainBranchReadsViaGit:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_main2", "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                "run_main2",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
             mock_parse.assert_called_once()
             yaml_arg = mock_parse.call_args[0][0]
             assert yaml_arg == VALID_YAML
             assert yaml_arg != workflow_repo.get_by_id.return_value.yaml
+
+
+class TestGitFallbacks:
+    """Fallback behavior when git snapshots are unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_non_git_repo_falls_back_to_working_tree_yaml(self):
+        """Missing git repo should still run the working-tree workflow definition."""
+        svc, _, workflow_repo, _, git_service = _make_service()
+        working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        workflow_repo.get_by_id.return_value.yaml = working_tree_yaml
+        git_service.read_file.side_effect = subprocess.CalledProcessError(
+            128,
+            ["git", "show"],
+            stderr="fatal: not a git repository (or any of the parent directories): .git",
+        )
+
+        with patch(
+            "runsight_api.logic.services.execution_service.parse_workflow_yaml"
+        ) as mock_parse:
+            mock_wf = AsyncMock()
+            mock_wf.run = AsyncMock()
+            mock_parse.return_value = mock_wf
+
+            await svc.launch_execution(
+                "run_local1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
+            await asyncio.sleep(0.05)
+
+            mock_parse.assert_called_once()
+            yaml_arg = mock_parse.call_args[0][0]
+            assert yaml_arg == working_tree_yaml
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +353,12 @@ class TestParserReceivesString:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_str1", "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                "run_str1",
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
             mock_parse.assert_called_once()
@@ -314,6 +392,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -328,7 +407,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -351,6 +435,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch=sim_branch,
             )
             session.add(run)
             session.commit()
@@ -365,7 +450,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch=sim_branch)
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch=sim_branch,
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -389,6 +479,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -402,7 +493,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:
@@ -424,6 +520,7 @@ class TestBranchStoredOnRun:
                 workflow_name="test",
                 status=RunStatus.pending,
                 task_json="{}",
+                branch="main",
             )
             session.add(run)
             session.commit()
@@ -438,7 +535,12 @@ class TestBranchStoredOnRun:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution(run_id, "wf_1", {"instruction": "go"}, branch="main")
+            await svc.launch_execution(
+                run_id,
+                "wf_1",
+                _prepared_inputs({"instruction": "go"}),
+                branch="main",
+            )
             await asyncio.sleep(0.05)
 
         with Session(db_engine) as session:

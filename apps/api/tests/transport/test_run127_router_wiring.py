@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_api.main import app
 from runsight_api.transport.deps import get_run_service
+from runsight_core.redaction import RunRedactor
 
 
 def _make_mock_run(run_id="run_new"):
@@ -41,6 +43,13 @@ def _make_mock_run(run_id="run_new"):
 client = TestClient(app)
 
 
+def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
+    return PreparedRunInputs(
+        normalized_inputs=dict(inputs),
+        input_redactor=RunRedactor(),
+    )
+
+
 class TestPostRunsTriggersExecution:
     def test_post_runs_calls_launch_execution(self):
         """POST /api/runs must call execution_service.launch_execution() after creating the run."""
@@ -55,12 +64,19 @@ class TestPostRunsTriggersExecution:
             from runsight_api.transport.deps import get_execution_service
 
             mock_exec_service = Mock()
+            mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs(
+                {"instruction": "do stuff"}
+            )
             mock_exec_service.launch_execution = AsyncMock()
             app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "do stuff"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "do stuff"},
+                },
             )
 
             assert response.status_code == 200
@@ -87,12 +103,19 @@ class TestPostRunsTriggersExecution:
             from runsight_api.transport.deps import get_execution_service
 
             mock_exec_service = Mock()
+            mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs(
+                {"instruction": "go"}
+            )
             mock_exec_service.launch_execution = AsyncMock()
             app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
             response = client.post(
                 "/api/runs",
-                json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+                json={
+                    "workflow_id": "wf_1",
+                    "branch": "main",
+                    "inputs": {"instruction": "go"},
+                },
             )
 
             assert response.status_code == 200

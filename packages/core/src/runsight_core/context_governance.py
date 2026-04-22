@@ -3,27 +3,41 @@
 from __future__ import annotations
 
 import json
-import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal, Self
+from typing import Iterator, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
+from runsight_core.redaction import REDACTED_VALUE, RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
-_REDACTED_PREVIEW = "[redacted]"
 _MAX_PREVIEW_LENGTH = 200
 _WHOLE_OUTPUT_ALIASES = {"output", "result"}
-_SECRET_REF_MARKERS = (
+_SECRET_KEY_FRAGMENTS = (
     "api_key",
     "apikey",
-    "secret",
-    "password",
-    "passwd",
-    "token",
+    "access_token",
+    "auth_token",
+    "bearer_token",
+    "client_secret",
     "credential",
+    "password",
     "private_key",
+    "refresh_token",
+    "secret",
+)
+_SECRET_VALUE_MARKERS = (
+    "sk-",
+    "secret",
+    "bearer ",
+    "-----begin private key-----",
+)
+_SUPPRESSED_DECLARED_INPUT_BLOCK_IDS: ContextVar[frozenset[str]] = ContextVar(
+    "suppressed_declared_input_block_ids",
+    default=frozenset(),
 )
 
 
@@ -36,6 +50,7 @@ class ContextAccess(StrEnum):
 class ContextAuditNamespace(StrEnum):
     """Supported namespaces for context audit records."""
 
+    WORKFLOW = "workflow"
     RESULTS = "results"
     SHARED_MEMORY = "shared_memory"
     METADATA = "metadata"
@@ -112,20 +127,6 @@ class ContextAuditRecordV1(BaseModel):
     reason: str | None = None
     internal: bool = False
 
-    @model_validator(mode="after")
-    def _redact_secret_like_preview(self) -> Self:
-        if self.preview is not None and (
-            _is_secret_like_ref(
-                self.input_name,
-                self.from_ref,
-                self.source,
-                self.field_path,
-            )
-            or _is_secret_like_value(self.preview)
-        ):
-            self.preview = _REDACTED_PREVIEW
-        return self
-
 
 class ContextAuditEventV1(BaseModel):
     """Audit event emitted after resolving context for one block."""
@@ -154,6 +155,7 @@ class ScopedContextData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     inputs: dict[str, object] = Field(default_factory=dict)
+    scoped_workflow_inputs: dict[str, object] = Field(default_factory=dict)
     scoped_results: dict[str, object] = Field(default_factory=dict)
     scoped_shared_memory: dict[str, object] = Field(default_factory=dict)
     scoped_metadata: dict[str, object] = Field(default_factory=dict)
@@ -198,10 +200,12 @@ class ContextResolver:
         state: WorkflowState,
     ) -> ScopedContextData:
         inputs: dict[str, object] = {}
+        scoped_workflow_inputs: dict[str, object] = {}
         scoped_results: dict[str, BlockResult] = {}
         scoped_shared_memory: dict[str, object] = {}
         scoped_metadata: dict[str, object] = {}
         records: list[ContextAuditRecordV1] = []
+        redactor = state.input_redactor
 
         if declaration.access != ContextAccess.DECLARED.value:
             raise ContextReadDeniedError(
@@ -214,6 +218,8 @@ class ContextResolver:
                 parsed = _canonicalize_context_ref(parse_context_ref(from_ref), state)
                 value = _resolve_parsed_ref(parsed, state)
             except (ValueError, ContextResolutionError) as exc:
+                if isinstance(exc, ValueError) and from_ref == ContextAuditNamespace.WORKFLOW.value:
+                    raise ValueError(str(exc)) from exc
                 if self.policy.mode == ContextAuditMode.DEV.value:
                     records.append(
                         _audit_record(
@@ -224,6 +230,8 @@ class ContextResolver:
                             severity=ContextAuditSeverity.WARN,
                             reason=str(exc),
                             internal=internal,
+                            preview_value=None,
+                            redactor=redactor,
                         )
                     )
                     continue
@@ -241,6 +249,8 @@ class ContextResolver:
                         severity=ContextAuditSeverity.ERROR,
                         reason=str(exc),
                         internal=internal,
+                        preview_value=None,
+                        redactor=redactor,
                     )
                 )
                 raise ContextResolutionAuditError(
@@ -277,6 +287,7 @@ class ContextResolver:
                 parsed=parsed,
                 value=value,
                 whole_output_alias=_is_non_json_result_alias(parsed, state),
+                scoped_workflow_inputs=scoped_workflow_inputs,
                 scoped_results=scoped_results,
                 scoped_shared_memory=scoped_shared_memory,
                 scoped_metadata=scoped_metadata,
@@ -289,7 +300,9 @@ class ContextResolver:
                     status=ContextAuditStatus.RESOLVED,
                     severity=ContextAuditSeverity.ALLOW,
                     value=value,
+                    preview_value=_audit_preview_value(parsed, value, state, redactor),
                     internal=internal,
+                    redactor=redactor,
                 )
             )
 
@@ -315,6 +328,7 @@ class ContextResolver:
         )
         return ScopedContextData(
             inputs=inputs,
+            scoped_workflow_inputs=scoped_workflow_inputs,
             scoped_results=scoped_results,
             scoped_shared_memory=scoped_shared_memory,
             scoped_metadata=scoped_metadata,
@@ -356,6 +370,17 @@ def parse_context_ref(ref: str) -> ParsedContextRef:
     parts = ref.split(".")
     if not parts or any(part == "" for part in parts):
         raise ValueError("context ref must be a non-empty dot path")
+
+    if parts[0] == ContextAuditNamespace.WORKFLOW.value:
+        if len(parts) < 2:
+            raise ValueError("workflow context references must name an input")
+        source = parts[1]
+        field_path = ".".join(parts[2:]) or None
+        return ParsedContextRef(
+            namespace=ContextAuditNamespace.WORKFLOW,
+            source=source,
+            field_path=field_path,
+        )
 
     if parts[0] in {namespace.value for namespace in ContextAuditNamespace}:
         if len(parts) < 2:
@@ -406,26 +431,6 @@ def _resolve_result_source(
     return parsed.source, parsed.field_path
 
 
-def _is_secret_like_ref(*parts: str | None) -> bool:
-    normalized = ".".join(part.lower().replace("-", "_") for part in parts if part)
-    return any(marker in normalized for marker in _SECRET_REF_MARKERS)
-
-
-def _is_secret_like_value(value: str) -> bool:
-    normalized = value.strip().strip('"').lower()
-    if not normalized:
-        return False
-
-    secret_patterns = (
-        r"\bsk-[a-z0-9][a-z0-9._-]{6,}\b",
-        r"['\"]?[a-z0-9_]*(api[_-]?key|secret|token|credential|password)"
-        r"[a-z0-9_]*['\"]?\s*[:=]",
-        r"-----begin [a-z ]*private key-----",
-        r"\bakia[0-9a-z]{16}\b",
-    )
-    return any(re.search(pattern, normalized) for pattern in secret_patterns)
-
-
 def _iter_declared_and_internal_inputs(
     declaration: ContextDeclaration,
 ) -> list[tuple[str, str, bool]]:
@@ -435,15 +440,26 @@ def _iter_declared_and_internal_inputs(
     ]
 
 
+@contextmanager
+def suppress_declared_inputs_for_block(block_id: str) -> Iterator[None]:
+    """Temporarily skip user-declared input resolution for one block in this task."""
+    suppressed = _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.get()
+    token = _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.set(suppressed | {block_id})
+    try:
+        yield
+    finally:
+        _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.reset(token)
+
+
 def _user_declared_inputs(block: object, step: object | None) -> dict[str, str]:
+    block_id = str(getattr(block, "block_id", ""))
+    if block_id in _SUPPRESSED_DECLARED_INPUT_BLOCK_IDS.get():
+        return {}
     if step is not None and hasattr(step, "declared_inputs"):
         return dict(getattr(step, "declared_inputs") or {})
     declared_inputs = getattr(block, "declared_inputs", None)
     if declared_inputs:
         return dict(declared_inputs)
-    workflow_inputs = getattr(block, "inputs", None)
-    if isinstance(workflow_inputs, dict):
-        return dict(workflow_inputs)
     return {}
 
 
@@ -476,6 +492,14 @@ def _context_block_type(block: object) -> str:
 
 
 def _resolve_parsed_ref(parsed: ParsedContextRef, state: WorkflowState) -> object:
+    if parsed.namespace == ContextAuditNamespace.WORKFLOW.value:
+        if parsed.source not in state.workflow_inputs:
+            raise ContextResolutionError(f"Workflow input '{parsed.source}' field path missing")
+        value = state.workflow_inputs[parsed.source]
+        if parsed.field_path is None:
+            return value
+        return _resolve_field_path(value, parsed.field_path, parsed)
+
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
         if parsed.source not in state.results:
             raise ContextResolutionError(
@@ -552,10 +576,21 @@ def _scope_value(
     parsed: ParsedContextRef,
     value: object,
     whole_output_alias: bool,
+    scoped_workflow_inputs: dict[str, object],
     scoped_results: dict[str, BlockResult],
     scoped_shared_memory: dict[str, object],
     scoped_metadata: dict[str, object],
 ) -> None:
+    if parsed.namespace == ContextAuditNamespace.WORKFLOW.value:
+        if parsed.field_path is None:
+            scoped_workflow_inputs[parsed.source] = value
+        else:
+            scoped_workflow_inputs[parsed.source] = _merge_mapping_slice(
+                existing=scoped_workflow_inputs.get(parsed.source),
+                slice_value=_nest_field_path(parsed.field_path, value),
+            )
+        return
+
     if parsed.namespace == ContextAuditNamespace.RESULTS.value:
         if parsed.field_path is None or whole_output_alias:
             output = value if isinstance(value, str) else json.dumps(value)
@@ -657,9 +692,12 @@ def _audit_record(
     status: ContextAuditStatus,
     severity: ContextAuditSeverity,
     value: object | None = None,
+    preview_value: object | None = None,
     reason: str | None = None,
     internal: bool = False,
+    redactor: RunRedactor | None = None,
 ) -> ContextAuditRecordV1:
+    redacted_reason = redactor.redact_text(reason) if redactor is not None and reason else reason
     return ContextAuditRecordV1(
         input_name=input_name,
         from_ref=from_ref,
@@ -669,10 +707,101 @@ def _audit_record(
         status=status,
         severity=severity,
         value_type=None if value is None else type(value).__name__,
-        preview=None if value is None else bounded_context_preview(value),
-        reason=reason,
+        preview=None
+        if value is None
+        else bounded_context_preview(
+            preview_value
+            if preview_value is not None
+            else (redactor.redact(value) if redactor is not None else value)
+        ),
+        reason=redacted_reason,
         internal=internal,
     )
+
+
+def _audit_preview_value(
+    parsed: ParsedContextRef,
+    value: object,
+    state: WorkflowState,
+    redactor: RunRedactor | None,
+) -> object:
+    if redactor is None:
+        return _redact_unregistered_secret_preview(value)
+
+    if parsed.namespace != ContextAuditNamespace.WORKFLOW.value:
+        return _redact_unregistered_secret_preview(redactor.redact(value))
+
+    workflow_inputs = state.workflow_inputs
+    if len(workflow_inputs) <= 1:
+        preview_value = redactor.redact_named(parsed.source, value)
+        if parsed.field_path is None:
+            return _redact_unregistered_secret_preview(preview_value)
+        try:
+            return _redact_unregistered_secret_preview(
+                _resolve_field_path(preview_value, parsed.field_path, parsed)
+            )
+        except ContextResolutionError:
+            return _redact_unregistered_secret_preview(redactor.redact_named(parsed.source, value))
+
+    redacted_workflow_inputs = redactor.redact(workflow_inputs)
+    preview_value = redacted_workflow_inputs.get(parsed.source, value)
+    if parsed.field_path is None:
+        return _redact_unregistered_secret_preview(preview_value)
+
+    try:
+        return _redact_unregistered_secret_preview(
+            _resolve_field_path(preview_value, parsed.field_path, parsed)
+        )
+    except ContextResolutionError:
+        return _redact_unregistered_secret_preview(redactor.redact_named(parsed.source, value))
+
+
+def _redact_unregistered_secret_preview(value: object) -> object:
+    return REDACTED_VALUE if _contains_secret_like_preview(value) else value
+
+
+def redact_context_audit_event_preview(event: ContextAuditEventV1) -> ContextAuditEventV1:
+    """Apply heuristic preview redaction before audit events leave core."""
+    records: list[ContextAuditRecordV1] = []
+    for record in event.records:
+        records.append(record.model_copy(update={"preview": _redact_audit_preview(record.preview)}))
+    return event.model_copy(update={"records": records})
+
+
+def _redact_audit_preview(preview: str | None) -> str | None:
+    if preview is None:
+        return None
+    preview_value: object = preview
+    try:
+        preview_value = json.loads(preview)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    redacted = _redact_unregistered_secret_preview(preview_value)
+    if redacted == preview_value:
+        return preview
+    return bounded_context_preview(redacted)
+
+
+def _contains_secret_like_preview(value: object) -> bool:
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        return any(marker in lowered for marker in _SECRET_VALUE_MARKERS)
+    if isinstance(value, dict):
+        return any(
+            (_is_secret_like_key(key) and item != REDACTED_VALUE)
+            or _contains_secret_like_preview(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list | tuple):
+        return any(_contains_secret_like_preview(item) for item in value)
+    return False
+
+
+def _is_secret_like_key(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().lower().replace("-", "_")
+    return any(fragment in normalized for fragment in _SECRET_KEY_FRAGMENTS)
 
 
 def bounded_context_preview(value: object, *, max_length: int = _MAX_PREVIEW_LENGTH) -> str:

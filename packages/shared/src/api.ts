@@ -854,7 +854,7 @@ export interface components {
          * @description Supported namespaces for context audit records.
          * @enum {string}
          */
-        ContextAuditNamespace: "results" | "shared_memory" | "metadata";
+        ContextAuditNamespace: "workflow" | "results" | "shared_memory" | "metadata";
         /**
          * ContextAuditRecordV1
          * @description Audit record for a single block input context reference.
@@ -1127,7 +1127,10 @@ export interface components {
         RunCreate: {
             /** Workflow Id */
             workflow_id: string;
-            /** Inputs */
+            /**
+             * Inputs
+             * @default {}
+             */
             inputs?: {
                 [key: string]: unknown;
             };
@@ -1135,11 +1138,8 @@ export interface components {
              * Source
              * @default manual
              */
-            source: string | null;
-            /**
-             * Branch
-             * @default main
-             */
+            source?: string | null;
+            /** Branch */
             branch: string;
         };
         /** RunEvalResponse */
@@ -1233,10 +1233,7 @@ export interface components {
             total_tokens: number;
             /** Created At */
             created_at: number;
-            /**
-             * Branch
-             * @default main
-             */
+            /** Branch */
             branch: string;
             /**
              * Source
@@ -1273,6 +1270,14 @@ export interface components {
              * @default 0
              */
             depth: number;
+            /** Workflow Inputs */
+            workflow_inputs?: {
+                [key: string]: unknown;
+            } | null;
+            /** Workflow Input Schema */
+            workflow_input_schema?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** SettingsFallbackListResponse */
         SettingsFallbackListResponse: {
@@ -1647,6 +1652,69 @@ export interface components {
              */
             regression_count: number;
         };
+        /** WorkflowInputSchemaItem */
+        WorkflowInputSchemaItem: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "string" | "number" | "boolean" | "json" | "array";
+            /** Required */
+            required?: boolean | null;
+            /** Default */
+            default?: unknown | null;
+            /** Description */
+            description?: string | null;
+            /** Sensitive */
+            sensitive?: boolean | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** WorkflowInputValidationErrorDetails */
+        WorkflowInputValidationErrorDetails: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "workflow_input_validation";
+            /** Fields */
+            fields: components["schemas"]["WorkflowInputValidationFieldError"][];
+            /** Workflow Id */
+            workflow_id?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** WorkflowInputValidationErrorResponse */
+        WorkflowInputValidationErrorResponse: {
+            /** Error */
+            error: string;
+            /**
+             * Error Code
+             * @constant
+             */
+            error_code: "WORKFLOW_INPUT_VALIDATION_ERROR";
+            /**
+             * Status Code
+             * @constant
+             */
+            status_code: 422;
+            details: components["schemas"]["WorkflowInputValidationErrorDetails"];
+        };
+        /** WorkflowInputValidationFieldError */
+        WorkflowInputValidationFieldError: {
+            /** Field */
+            field: string;
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Input Path */
+            input_path: string[];
+            /** Expected Type */
+            expected_type: string | null;
+            /** Actual Type */
+            actual_type: string | null;
+        };
         /** WorkflowListResponse */
         WorkflowListResponse: {
             /** Items */
@@ -1697,6 +1765,10 @@ export interface components {
             /** Commit Sha */
             commit_sha?: string | null;
             health?: components["schemas"]["WorkflowHealthMetrics"];
+            /** Input Schema */
+            input_schema?: {
+                [key: string]: components["schemas"]["WorkflowInputSchemaItem"];
+            } | null;
         };
         /** WorkflowSimulationCreate */
         WorkflowSimulationCreate: {
@@ -1709,6 +1781,10 @@ export interface components {
             branch: string;
             /** Commit Sha */
             commit_sha: string;
+            /** Input Schema */
+            input_schema: {
+                [key: string]: components["schemas"]["WorkflowInputSchemaItem"];
+            };
         };
         /** WorkflowUpdate */
         WorkflowUpdate: {
@@ -1869,13 +1945,13 @@ export interface operations {
                     "application/json": components["schemas"]["RunResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["WorkflowInputValidationErrorResponse"];
                 };
             };
         };
@@ -2359,13 +2435,13 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowSimulationResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["WorkflowInputValidationErrorResponse"];
                 };
             };
         };

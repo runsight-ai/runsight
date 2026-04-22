@@ -1,23 +1,18 @@
 """
-Failing tests for RUN-880: Seed workflow input — inject state.results["workflow"]
-before first block.
+Failing tests for RUN-899-style workflow input state wiring.
 
 Acceptance Criteria verified:
 - Workflow.run() accepts an inputs: dict parameter
-- Before first block runs, state.results["workflow"] contains a BlockResult
-  with JSON-serialized inputs
+- Before first block runs, WorkflowState.workflow_inputs contains the inputs
 - Blocks with declared_inputs: { x: "workflow.field" } can resolve the value
-- When no inputs provided, state.results["workflow"] is BlockResult(output="{}")
-- Parser validates that "workflow" is not used as a block ID — raises error if
-  collision detected
-- YAML inputs: { field: { from: "workflow.field" } } resolves external caller
-  data end-to-end
+- When no inputs are provided, WorkflowState.workflow_inputs is empty
+- Parser rejects bare "workflow" references
+- YAML inputs: { field: { from: "workflow.field" } } resolves caller data
 """
 
 from __future__ import annotations
 
 import inspect
-import json
 import textwrap
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -25,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks.base import BaseBlock
-from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 
 # ---------------------------------------------------------------------------
@@ -36,17 +31,21 @@ from runsight_core.workflow import Workflow
 class _RecordingBlock(BaseBlock):
     """
     Minimal block that records the state it received and returns it unchanged.
-    Used to verify state.results["workflow"] is seeded before execution.
+    Used to verify WorkflowState.workflow_inputs is available before execution.
     """
 
-    def __init__(self, block_id: str) -> None:
+    def __init__(
+        self,
+        block_id: str,
+        declared_inputs: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(block_id)
         self.context_access = "declared"
-        self.declared_inputs = {"workflow": "workflow"}
+        self.declared_inputs = dict(declared_inputs or {})
         self.received_states: list[WorkflowState] = []
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
-        # Record the state snapshot so tests can inspect state.results["workflow"]
+        # Record the state snapshot so tests can inspect workflow_inputs.
         if ctx.state_snapshot is not None:
             self.received_states.append(ctx.state_snapshot)
         return BlockOutput(output="ok")
@@ -121,17 +120,17 @@ class TestWorkflowRunSignatureAcceptsInputs:
 
 
 # ===========================================================================
-# 2. state.results["workflow"] seeded before first block
+# 2. WorkflowState.workflow_inputs seeded before first block
 # ===========================================================================
 
 
-class TestWorkflowResultSeededBeforeFirstBlock:
-    """Before the first block executes, state.results["workflow"] must be set."""
+class TestWorkflowInputsSeededBeforeFirstBlock:
+    """Before the first block executes, WorkflowState.workflow_inputs must be set."""
 
     @pytest.mark.asyncio
-    async def test_workflow_result_present_in_first_block_state(self):
-        """Recording block sees state.results["workflow"] before it executes."""
-        block = _RecordingBlock("step1")
+    async def test_workflow_inputs_present_in_first_block_state(self):
+        """Recording block sees WorkflowState.workflow_inputs before it executes."""
+        block = _RecordingBlock("step1", declared_inputs={"name": "workflow.name"})
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 
@@ -139,75 +138,61 @@ class TestWorkflowResultSeededBeforeFirstBlock:
 
         assert len(block.received_states) == 1, "Block was not executed"
         received = block.received_states[0]
-        assert "workflow" in received.results, (
-            f"state.results['workflow'] was not seeded before block execution. "
-            f"Keys present: {list(received.results.keys())}"
+        assert received.workflow_inputs == {"name": "Alice"}, (
+            "WorkflowState.workflow_inputs was not seeded before block execution. "
+            f"Got: {getattr(received, 'workflow_inputs', None)!r}"
         )
 
     @pytest.mark.asyncio
-    async def test_workflow_result_is_block_result_instance(self):
-        """state.results["workflow"] must be a BlockResult instance."""
-        block = _RecordingBlock("step1")
+    async def test_workflow_inputs_are_plain_dict(self):
+        """WorkflowState.workflow_inputs must be a plain dict."""
+        block = _RecordingBlock("step1", declared_inputs={"x": "workflow.x"})
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 
         await wf.run(initial_state, inputs={"x": 42})
 
         received = block.received_states[0]
-        wf_result = received.results["workflow"]
-        assert isinstance(wf_result, BlockResult), (
-            f"state.results['workflow'] must be a BlockResult, got {type(wf_result)}"
+        assert received.workflow_inputs == {"x": 42}, (
+            f"WorkflowState.workflow_inputs must equal the caller inputs, "
+            f"got: {getattr(received, 'workflow_inputs', None)!r}"
         )
 
     @pytest.mark.asyncio
-    async def test_workflow_result_output_is_json_of_inputs(self):
-        """state.results["workflow"].output must be json.dumps(inputs)."""
-        inputs = {"name": "Alice", "count": 3}
-        block = _RecordingBlock("step1")
+    async def test_workflow_inputs_preserve_nested_structures(self):
+        """WorkflowState.workflow_inputs must preserve structured caller inputs."""
+        inputs = {"name": "Alice", "count": 3, "filters": {"topic": "ml"}}
+        block = _RecordingBlock(
+            "step1",
+            declared_inputs={
+                "name": "workflow.name",
+                "count": "workflow.count",
+                "filters": "workflow.filters",
+            },
+        )
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
 
         await wf.run(initial_state, inputs=inputs)
 
         received = block.received_states[0]
-        wf_result = received.results["workflow"]
-        parsed = json.loads(wf_result.output)
-        assert parsed == inputs, (
-            f"state.results['workflow'].output must equal json.dumps(inputs). "
-            f"Expected {inputs!r}, got {parsed!r}"
+        assert received.workflow_inputs == inputs, (
+            "WorkflowState.workflow_inputs must preserve structured caller inputs. "
+            f"Got: {getattr(received, 'workflow_inputs', None)!r}"
         )
-
-    @pytest.mark.asyncio
-    async def test_workflow_result_output_json_is_valid(self):
-        """state.results["workflow"].output must be valid JSON."""
-        block = _RecordingBlock("step1")
-        wf = _make_single_block_workflow(block)
-        initial_state = WorkflowState()
-
-        await wf.run(initial_state, inputs={"key": "value"})
-
-        received = block.received_states[0]
-        wf_result = received.results["workflow"]
-        try:
-            json.loads(wf_result.output)
-        except json.JSONDecodeError as exc:
-            pytest.fail(
-                f"state.results['workflow'].output is not valid JSON: {exc!r}. "
-                f"Output was: {wf_result.output!r}"
-            )
 
 
 # ===========================================================================
-# 3. No inputs provided → state.results["workflow"].output == "{}"
+# 3. No inputs provided → WorkflowState.workflow_inputs == {}
 # ===========================================================================
 
 
 class TestNoInputsProducesEmptyJsonObject:
-    """When no inputs are given, state.results["workflow"].output must be '{}'."""
+    """When no inputs are given, WorkflowState.workflow_inputs must be '{}'."""
 
     @pytest.mark.asyncio
     async def test_no_inputs_kwarg_produces_empty_dict(self):
-        """Calling run() without inputs= seeds workflow result with '{}'."""
+        """Calling run() without inputs= seeds WorkflowState.workflow_inputs with '{}'."""
         block = _RecordingBlock("step1")
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
@@ -215,16 +200,13 @@ class TestNoInputsProducesEmptyJsonObject:
         await wf.run(initial_state)
 
         received = block.received_states[0]
-        assert "workflow" in received.results, (
-            "state.results['workflow'] must be seeded even when no inputs are passed"
-        )
-        assert received.results["workflow"].output == "{}", (
-            f"Expected '{{}}', got {received.results['workflow'].output!r}"
+        assert received.workflow_inputs == {}, (
+            "WorkflowState.workflow_inputs must be seeded even when no inputs are passed"
         )
 
     @pytest.mark.asyncio
     async def test_inputs_none_explicitly_produces_empty_dict(self):
-        """Calling run(inputs=None) seeds workflow result with '{}'."""
+        """Calling run(inputs=None) seeds WorkflowState.workflow_inputs with '{}'."""
         block = _RecordingBlock("step1")
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
@@ -232,16 +214,13 @@ class TestNoInputsProducesEmptyJsonObject:
         await wf.run(initial_state, inputs=None)
 
         received = block.received_states[0]
-        assert "workflow" in received.results, (
-            "state.results['workflow'] must be seeded even when inputs=None"
-        )
-        assert received.results["workflow"].output == "{}", (
-            f"Expected '{{}}', got {received.results['workflow'].output!r}"
+        assert received.workflow_inputs == {}, (
+            "WorkflowState.workflow_inputs must be seeded even when inputs=None"
         )
 
     @pytest.mark.asyncio
     async def test_empty_inputs_dict_produces_empty_dict(self):
-        """Calling run(inputs={}) seeds workflow result with '{}'."""
+        """Calling run(inputs={}) seeds WorkflowState.workflow_inputs with '{}'."""
         block = _RecordingBlock("step1")
         wf = _make_single_block_workflow(block)
         initial_state = WorkflowState()
@@ -249,8 +228,8 @@ class TestNoInputsProducesEmptyJsonObject:
         await wf.run(initial_state, inputs={})
 
         received = block.received_states[0]
-        assert received.results["workflow"].output == "{}", (
-            f"Expected '{{}}', got {received.results['workflow'].output!r}"
+        assert received.workflow_inputs == {}, (
+            f"Expected '{{}}', got {getattr(received, 'workflow_inputs', None)!r}"
         )
 
 
@@ -262,23 +241,26 @@ class TestNoInputsProducesEmptyJsonObject:
 class TestDeclaredInputsResolvesWorkflowField:
     """
     A Step wrapped block with declared_inputs={ x: "workflow.field" } must
-    receive the seeded value from state.results["workflow"].
+    receive the seeded value from WorkflowState.workflow_inputs.
     """
 
     @pytest.mark.asyncio
     async def test_declared_input_resolves_workflow_field(self):
         """
         Step with declared_inputs={"x": "workflow.name"} resolves "name" from
-        the seeded workflow BlockResult.
+        WorkflowState.workflow_inputs.
         """
         from runsight_core.block_io import BlockOutput
         from runsight_core.primitives import Step
 
         captured_inputs: list[dict] = []
+        received_states: list[WorkflowState] = []
 
         class _CapturingBlock(BaseBlock):
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 captured_inputs.append(dict(ctx.inputs))
+                if ctx.state_snapshot is not None:
+                    received_states.append(ctx.state_snapshot)
                 return BlockOutput(output="ok")
 
         inner = _CapturingBlock("step1")
@@ -299,6 +281,10 @@ class TestDeclaredInputsResolvesWorkflowField:
         assert resolved["x"] == "Alice", (
             f"declared_input 'x' from 'workflow.name' must resolve to 'Alice', "
             f"got {resolved['x']!r}"
+        )
+        assert received_states[0].workflow_inputs == {"name": "Alice"}, (
+            "WorkflowState.workflow_inputs must be visible to the block state snapshot. "
+            f"Got: {getattr(received_states[0], 'workflow_inputs', None)!r}"
         )
 
     @pytest.mark.asyncio
@@ -329,32 +315,13 @@ class TestDeclaredInputsResolvesWorkflowField:
     @pytest.mark.asyncio
     async def test_declared_input_whole_workflow_object_without_field(self):
         """
-        Step with declared_inputs={"all": "workflow"} (no field path) resolves
-        to the full JSON string of the inputs dict.
+        Step with declared_inputs={"all": "workflow"} (no field path) is invalid
+        and must be rejected.
         """
-        from runsight_core.block_io import BlockOutput
-        from runsight_core.primitives import Step
+        from runsight_core import context_governance as cg
 
-        captured_inputs: list[dict] = []
-
-        class _CapturingBlock(BaseBlock):
-            async def execute(self, ctx: BlockContext) -> BlockOutput:
-                captured_inputs.append(dict(ctx.inputs))
-                return BlockOutput(output="ok")
-
-        inner = _CapturingBlock("step1")
-        step = Step(block=inner, declared_inputs={"all": "workflow"})
-
-        wf = Workflow(name="test_wf")
-        wf.add_block(step)
-        wf.set_entry(step.block_id)
-        initial_state = WorkflowState()
-
-        await wf.run(initial_state, inputs={"name": "Alice", "count": 5})
-
-        assert len(captured_inputs) == 1
-        resolved = captured_inputs[0]
-        assert "all" in resolved, f"Expected 'all' key in ctx.inputs, got: {list(resolved.keys())}"
+        with pytest.raises((ValueError, cg.ContextReadDeniedError), match="workflow|named input"):
+            cg.parse_context_ref("workflow")
 
 
 # ===========================================================================
@@ -463,8 +430,7 @@ class TestParserRejectsWorkflowAsBlockId:
 class TestParserAcceptsWorkflowInputRef:
     """
     parse_workflow_yaml must NOT raise when a block has inputs: { x: { from: "workflow.field" } }.
-    Currently it raises ValueError("references unknown block 'workflow'").
-    After fix, "workflow" is treated as the seeded pseudo-block.
+    "workflow" is the reserved caller-input source for dotted refs.
     """
 
     def test_workflow_field_input_ref_does_not_raise(self, tmp_path):
@@ -496,7 +462,7 @@ class TestParserAcceptsWorkflowInputRef:
         assert wf is not None
 
     def test_workflow_field_ref_without_field_path_does_not_raise(self, tmp_path):
-        """inputs: { all_data: { from: "workflow" } } must parse without error."""
+        """inputs: { all_data: { from: "workflow" } } must be rejected."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         _write_soul_file(tmp_path)
@@ -519,9 +485,8 @@ class TestParserAcceptsWorkflowInputRef:
             """,
         )
 
-        # Must not raise
-        wf = parse_workflow_yaml(yaml_path)
-        assert wf is not None
+        with pytest.raises(ValueError, match="workflow|named input"):
+            parse_workflow_yaml(yaml_path)
 
 
 # ===========================================================================
@@ -533,7 +498,7 @@ class TestEndToEndYamlWorkflowInputSeeding:
     """
     Full end-to-end: parse a YAML workflow with a block that declares
     inputs: { x: { from: "workflow.field" } }, run with inputs={"field": "hello"},
-    and verify the block received the correct resolved value.
+    and verify the runtime state carries workflow_inputs for engine consumption.
     """
 
     @pytest.mark.asyncio
@@ -592,20 +557,12 @@ class TestEndToEndYamlWorkflowInputSeeding:
         ):
             wf = parse_workflow_yaml(yaml_path)
 
-        # The block wrapped in Step captures shared_memory during execute
-        # We need to intercept _resolved_inputs at execute time
         assert wf is not None
 
-        # Run the workflow and capture the state after execution
         initial_state = WorkflowState()
         final_state = await wf.run(initial_state, inputs={"message": "hello"})
 
-        # The resolved input is consumed during block execution; verify it was present
-        # by checking the seeded workflow result exists in final state
-        assert "workflow" in final_state.results, (
-            "state.results['workflow'] must be present in final state"
-        )
-        assert json.loads(final_state.results["workflow"].output) == {"message": "hello"}, (
-            f"workflow seed result must contain the inputs. "
-            f"Got: {final_state.results['workflow'].output!r}"
+        assert final_state.workflow_inputs == {"message": "hello"}, (
+            "WorkflowState.workflow_inputs must contain the caller inputs in the final state. "
+            f"Got: {getattr(final_state, 'workflow_inputs', None)!r}"
         )

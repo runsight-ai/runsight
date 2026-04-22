@@ -2,11 +2,13 @@
 WorkflowState data model for workflow execution context.
 """
 
+import json
 from typing import Annotated, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from runsight_core.artifacts import ArtifactStore
+from runsight_core.redaction import RunRedactor
 
 
 class BlockResult(BaseModel):
@@ -51,6 +53,10 @@ class WorkflowState(BaseModel):
         default_factory=dict,
         description="Block outputs keyed by block_id. Values are BlockResult instances.",
     )
+    workflow_inputs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Validated workflow invocation inputs keyed by public input name.",
+    )
 
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
@@ -71,3 +77,36 @@ class WorkflowState(BaseModel):
     artifact_store: Optional[Annotated[ArtifactStore, SkipValidation]] = Field(
         default=None, exclude=True
     )
+    input_redactor: Optional[Annotated[RunRedactor, SkipValidation]] = Field(
+        default=None,
+        exclude=True,
+        description="Runtime-only redactor for sensitive workflow invocation inputs.",
+    )
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        dumped = super().model_dump(*args, **kwargs)
+        if self.input_redactor is None:
+            return dumped
+        return self.input_redactor.redact_runtime_value(dumped)
+
+    def model_dump_json(self, *args: Any, **kwargs: Any) -> str:
+        json_kwargs = {}
+        for key in (
+            "indent",
+            "ensure_ascii",
+            "separators",
+            "sort_keys",
+            "skipkeys",
+            "allow_nan",
+            "check_circular",
+            "default",
+            "cls",
+        ):
+            if key in kwargs:
+                json_kwargs[key] = kwargs.pop(key)
+        dumped = super().model_dump(*args, mode="json", **kwargs)
+        json_kwargs.setdefault("separators", (",", ":"))
+        json_kwargs.setdefault("ensure_ascii", False)
+        if self.input_redactor is None:
+            return json.dumps(dumped, **json_kwargs)
+        return json.dumps(self.input_redactor.redact_runtime_value(dumped), **json_kwargs)

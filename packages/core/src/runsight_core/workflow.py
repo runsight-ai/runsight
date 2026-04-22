@@ -5,8 +5,9 @@ Workflow state machine for orchestrating block execution.
 from __future__ import annotations
 
 import asyncio
+import copy
 import dataclasses
-import json
+import inspect
 import logging
 import re
 import time
@@ -17,16 +18,31 @@ from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
 from runsight_core.primitives import Step
+from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
 if TYPE_CHECKING:
     from runsight_core.blocks.registry import BlockRegistry
     from runsight_core.observer import WorkflowObserver
+    from runsight_core.workflow_input_schema import EffectiveWorkflowInputDef
     from runsight_core.yaml.registry import WorkflowRegistry
 
 logger = logging.getLogger(__name__)
 
 RuntimeBlock = BaseBlock | Step
+
+
+def _call_observer_method(method: Any, *args: Any, **kwargs: Any) -> None:
+    try:
+        signature = inspect.signature(method)
+    except (TypeError, ValueError):
+        method(*args, **kwargs)
+        return
+    if not any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
+    ):
+        kwargs = {key: value for key, value in kwargs.items() if key in signature.parameters}
+    method(*args, **kwargs)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -135,6 +151,36 @@ def _matches_exit_condition(cond: object, output: str) -> bool:
     return False
 
 
+def _actual_input_type(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "json"
+    return type(value).__name__
+
+
+def _matches_input_type(value: Any, expected_type: str | None) -> bool:
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "number":
+        return not isinstance(value, bool) and isinstance(value, int | float)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "json":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    return True
+
+
 async def execute_block(
     block: RuntimeBlock,
     state: WorkflowState,
@@ -177,18 +223,34 @@ async def execute_block(
             )
         if isinstance(blk, WorkflowBlock):
             wf_block_ctx = build_block_context(blk, current_state, observer=observer)
+            workflow_call_stack = list(ctx.call_stack)
+            workflow_stack_refs = {ctx.workflow_name}
+            aliases = ctx.passthrough_kwargs.get("workflow_stack_aliases", ())
+            if isinstance(aliases, str):
+                workflow_stack_refs.add(aliases)
+            else:
+                workflow_stack_refs.update(
+                    alias for alias in aliases if isinstance(alias, str) and alias
+                )
+            if not workflow_call_stack or workflow_call_stack[-1] not in workflow_stack_refs:
+                workflow_call_stack.append(ctx.workflow_name)
             wf_block_ctx = wf_block_ctx.model_copy(
                 update={
                     "inputs": {
                         **(extra_inputs or {}),
                         **wf_block_ctx.inputs,
-                        "call_stack": ctx.call_stack + [ctx.workflow_name],
+                        "call_stack": workflow_call_stack,
                         "workflow_registry": ctx.workflow_registry,
                         "observer": observer,
                     }
                 }
             )
-            wf_output = await blk.execute(wf_block_ctx)
+            try:
+                wf_output = await blk.execute(wf_block_ctx)
+            except Exception:
+                if wf_block_ctx.state_snapshot.input_redactor is not None:
+                    current_state.input_redactor = wf_block_ctx.state_snapshot.input_redactor
+                raise
             return apply_block_output(current_state, blk.block_id, wf_output)
         if isinstance(blk, LoopBlock):
             loop_ctx = build_block_context(blk, current_state, observer=observer)
@@ -288,8 +350,14 @@ async def execute_block(
         block_duration = time.time() - block_start_time
         if observer:
             try:
-                observer.on_block_error(
-                    ctx.workflow_name, block_id, block_type, block_duration, exc
+                _call_observer_method(
+                    observer.on_block_error,
+                    ctx.workflow_name,
+                    block_id,
+                    block_type,
+                    block_duration,
+                    exc,
+                    state=state,
                 )
             except Exception:
                 logger.warning("Observer.on_block_error failed", exc_info=True)
@@ -318,7 +386,11 @@ class Workflow:
         final_state = await wf.run(initial_state)
     """
 
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        input_schema: Optional[Dict[str, "EffectiveWorkflowInputDef"]] = None,
+    ):
         """
         Args:
             name: Workflow identifier (for logging/debugging).
@@ -329,6 +401,7 @@ class Workflow:
         if not name:
             raise ValueError("Workflow name cannot be empty")
         self.name = name
+        self.input_schema = input_schema
         self.identity: Optional[str] = None
         self._blocks: Dict[str, RuntimeBlock] = {}
         self._transitions: Dict[str, str] = {}  # from_block_id -> to_block_id
@@ -689,6 +762,7 @@ class Workflow:
         observer: Optional["WorkflowObserver"],
         event_name: str,
         *args: Any,
+        **kwargs: Any,
     ) -> None:
         """Call a named observer method, swallowing and logging any exception."""
         if observer is None:
@@ -697,7 +771,7 @@ class Workflow:
         if method is None:
             return
         try:
-            method(*args)
+            _call_observer_method(method, *args, **kwargs)
         except Exception:
             logger.warning("Observer.%s failed", event_name, exc_info=True)
 
@@ -839,16 +913,66 @@ class Workflow:
                 )
         return await loop_coro
 
+    def _normalize_runtime_inputs(self, inputs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        raw_inputs = dict(inputs or {})
+        input_schema = self.input_schema
+        if input_schema is None:
+            return raw_inputs
+
+        fields: list[str] = []
+        normalized: Dict[str, Any] = {}
+
+        for name, value in raw_inputs.items():
+            if name not in input_schema:
+                fields.append(f"unknown input '{name}'")
+
+        for name, input_def in input_schema.items():
+            if name not in raw_inputs:
+                default = getattr(input_def, "default", None)
+                if default is not None:
+                    normalized[name] = copy.deepcopy(default)
+                    continue
+                if getattr(input_def, "required", True):
+                    fields.append(f"required input '{name}' is missing")
+                continue
+
+            value = raw_inputs[name]
+            expected_type = getattr(input_def, "type", None)
+            if not _matches_input_type(value, expected_type):
+                actual_type = _actual_input_type(value)
+                fields.append(
+                    f"input '{name}' has invalid type: expected {expected_type}, got {actual_type}"
+                )
+                continue
+            normalized[name] = value
+
+        if fields:
+            raise ValueError("Workflow input validation failed: " + "; ".join(fields))
+        return normalized
+
     def _seed_inputs(self, state: WorkflowState, inputs: Optional[Dict[str, Any]]) -> WorkflowState:
-        """Return a copy of state with inputs serialised into results['workflow']."""
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    "workflow": BlockResult(output=json.dumps(inputs or {})),
-                }
-            }
-        )
+        """Return a copy of state with invocation inputs available to workflow refs."""
+        normalized_inputs = self._normalize_runtime_inputs(inputs)
+        updates: Dict[str, Any] = {"workflow_inputs": normalized_inputs}
+
+        if self.input_schema is not None:
+            redactor = state.input_redactor
+            for name, input_def in self.input_schema.items():
+                if not getattr(input_def, "sensitive", False) or name not in normalized_inputs:
+                    continue
+                if redactor is None:
+                    redactor = RunRedactor()
+                redactor.register_named(name, normalized_inputs[name])
+            if redactor is not None:
+                updates["input_redactor"] = redactor
+
+        return state.model_copy(update=updates)
+
+    def _workflow_stack_aliases(self, observer_workflow_name: str) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(alias for alias in (observer_workflow_name, self.name) if alias))
+
+    def _workflow_passthrough_kwargs(self, observer_workflow_name: str) -> Dict[str, Any]:
+        return {"workflow_stack_aliases": self._workflow_stack_aliases(observer_workflow_name)}
 
     async def run(
         self,
@@ -892,6 +1016,7 @@ class Workflow:
             call_stack=call_stack,
             workflow_registry=workflow_registry,
             observer=observer,
+            passthrough_kwargs=self._workflow_passthrough_kwargs(observer_workflow_name),
         )
         try:
             state = await self._run_with_timeout(
@@ -906,7 +1031,7 @@ class Workflow:
         except Exception as e:
             wf_duration = time.time() - wf_start_time
             self._notify_observers(
-                observer, "on_workflow_error", observer_workflow_name, e, wf_duration
+                observer, "on_workflow_error", observer_workflow_name, e, wf_duration, state=state
             )
             raise
         finally:

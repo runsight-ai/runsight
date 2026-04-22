@@ -40,6 +40,9 @@ SIMPLE_WORKFLOW_YAML = """\
 id: simple-workflow
 kind: workflow
 version: "1.0"
+inputs:
+  instruction:
+    type: string
 config:
   model_name: gpt-4o
 souls:
@@ -243,10 +246,14 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
     from httpx import ASGITransport, AsyncClient
 
     read_started = Event()
+    read_calls = {"count": 0}
     git_service = Mock()
     workflow_repo = WorkflowRepository(str(base_dir))
 
     def _blocked_read_file(*_args, **_kwargs):
+        read_calls["count"] += 1
+        if read_calls["count"] == 1:
+            return SIMPLE_WORKFLOW_YAML
         read_started.set()
         _cancel_latest_run(db_engine, workflow_repo)
         return SIMPLE_WORKFLOW_YAML
@@ -307,6 +314,7 @@ async def test_post_run_then_stream_replays_persisted_execution_logs(db_engine, 
                 "/api/runs",
                 json={
                     "workflow_id": "simple-workflow",
+                    "branch": "main",
                     "inputs": {"instruction": "stream my execution"},
                 },
             )

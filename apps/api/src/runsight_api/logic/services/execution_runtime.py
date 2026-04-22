@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import traceback
+from collections.abc import Mapping
 from typing import Any, Dict, Optional
 
 from runsight_core.observer import CompositeObserver, LoggingObserver
@@ -12,6 +14,15 @@ from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
+
+
+def _split_runtime_inputs(inputs: Any) -> tuple[dict[str, Any], Any | None]:
+    normalized_inputs = getattr(inputs, "normalized_inputs", None)
+    if isinstance(normalized_inputs, Mapping):
+        return dict(normalized_inputs), getattr(inputs, "input_redactor", None)
+    if isinstance(inputs, Mapping):
+        return dict(inputs), None
+    raise TypeError("Workflow launch inputs must be a mapping or PreparedRunInputs")
 
 
 def build_assertion_configs(wf: Any) -> Optional[Dict[str, list]]:
@@ -49,7 +60,7 @@ class ExecutionRuntimeCoordinator:
         task.cancel()
         return True
 
-    async def run_workflow(self, run_id: str, wf: Any, inputs: Dict[str, Any]) -> None:
+    async def run_workflow(self, run_id: str, wf: Any, inputs: Any) -> None:
         """Execute a prepared workflow under concurrency and stream coordination."""
         from runsight_core.state import WorkflowState
 
@@ -57,9 +68,16 @@ class ExecutionRuntimeCoordinator:
         self.streams.register(run_id, streaming_obs)
 
         try:
+            normalized_inputs, input_redactor = _split_runtime_inputs(inputs)
             try:
                 async with self.semaphore:
-                    self.persistence.set_status(run_id, RunStatus.running)
+                    if self.persistence.is_run_cancelled(run_id):
+                        self.streams.close_stream(run_id, observer=streaming_obs)
+                        return
+
+                    if not self.persistence.set_status(run_id, RunStatus.running):
+                        self.streams.close_stream(run_id, observer=streaming_obs)
+                        return
 
                     observers = [LoggingObserver(), streaming_obs]
                     if self.engine:
@@ -77,16 +95,32 @@ class ExecutionRuntimeCoordinator:
                     from runsight_core.artifacts import InMemoryArtifactStore
 
                     artifact_store = InMemoryArtifactStore(run_id=run_id)
-                    state = WorkflowState(artifact_store=artifact_store)
+                    state = WorkflowState(
+                        artifact_store=artifact_store,
+                        input_redactor=input_redactor,
+                    )
 
                     try:
-                        await wf.run(state, observer=observer, inputs=inputs)
-                    except Exception:
-                        logger.exception("Workflow execution failed for run %s", run_id)
+                        await wf.run(
+                            state,
+                            observer=observer,
+                            inputs=normalized_inputs,
+                        )
+                    except Exception as exc:
+                        if input_redactor is None:
+                            logger.exception("Workflow execution failed for run %s", run_id)
+                        else:
+                            tb_str = "".join(
+                                traceback.format_exception(type(exc), exc, exc.__traceback__)
+                            )
+                            logger.error(
+                                "Workflow execution failed for run %s\n%s",
+                                run_id,
+                                input_redactor.redact_text(tb_str),
+                            )
             except asyncio.CancelledError:
                 self.streams.close_stream(run_id, observer=streaming_obs)
                 raise
         finally:
             self.streams.unregister(run_id)
-
-        self.running_tasks.pop(run_id, None)
+            self.running_tasks.pop(run_id, None)

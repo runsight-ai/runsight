@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 from textwrap import dedent
 from unittest.mock import Mock
 
@@ -9,12 +10,25 @@ import pytest
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
-from runsight_api.domain.errors import InputValidationError
+from runsight_api.domain.errors import GitError, InputValidationError
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.provider_service import ProviderService
 from runsight_api.logic.services.run_service import RunService
 from runsight_api.logic.services.soul_service import SoulService
 from runsight_api.logic.services.workflow_service import WorkflowService
+
+
+def _prepared(inputs: dict[str, object] | None = None):
+    from runsight_core.redaction import RunRedactor
+
+    from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+    return PreparedRunInputs(
+        normalized_inputs=inputs or {},
+        input_redactor=RunRedactor(),
+        workflow_inputs={},
+        workflow_input_schema={},
+    )
 
 
 def _workflow_yaml(*, workflow_id: str, workflow_name: str, child_ref: str | None = None) -> str:
@@ -25,9 +39,6 @@ def _workflow_yaml(*, workflow_id: str, workflow_name: str, child_ref: str | Non
         f"""version: "1.0"
 id: {workflow_id}
 kind: workflow
-interface:
-  inputs: []
-  outputs: []
 blocks: {{}}
 workflow:
   name: {workflow_name}
@@ -40,9 +51,6 @@ workflow:
             version: "1.0"
             id: {workflow_id}
             kind: workflow
-            interface:
-              inputs: []
-              outputs: []
             blocks:
               call_child:
                 type: workflow
@@ -70,9 +78,6 @@ def _workflow_file(
             version: "1.0"
             id: {workflow_id}
             kind: workflow
-            interface:
-              inputs: []
-              outputs: []
             blocks: {{}}
             workflow:
               name: {workflow_name}
@@ -133,9 +138,6 @@ def test_workflow_repository_create_requires_embedded_id(tmp_path: Path) -> None
                     """\
                     version: "1.0"
                     kind: workflow
-                    interface:
-                      inputs: []
-                      outputs: []
                     workflow:
                       name: Research Review
                       entry: start
@@ -255,7 +257,7 @@ def test_run_service_create_run_stores_embedded_workflow_id() -> None:
     run_repo.create_run.side_effect = lambda run: run
 
     service = RunService(run_repo, workflow_repo)
-    run = service.create_run("research-review", {"instruction": "go"})
+    run = service.create_run("research-review", _prepared({"instruction": "go"}), branch="main")
 
     assert run.workflow_id == "research-review"
     assert run.workflow_name == "Research Review"
@@ -272,7 +274,7 @@ def test_workflow_service_create_simulation_forwards_embedded_yaml_unchanged() -
     yaml_text = _workflow_yaml(workflow_id="research-review", workflow_name="Research Review")
     result = service.create_simulation("research-review", yaml_text)
 
-    assert result == {"branch": "sim/research-review", "commit_sha": "abc123"}
+    assert result == {"branch": "sim/research-review", "commit_sha": "abc123", "input_schema": {}}
     git_service.create_sim_branch.assert_called_once_with(
         workflow_slug="research-review",
         yaml_content=yaml_text,
@@ -295,3 +297,30 @@ def test_workflow_service_create_simulation_rejects_mutated_workflow_id() -> Non
         service.create_simulation("research-review", yaml_text)
 
     git_service.create_sim_branch.assert_not_called()
+
+
+def test_workflow_service_create_simulation_requires_git_repository() -> None:
+    workflow_repo = Mock()
+    run_repo = Mock()
+    service = WorkflowService(workflow_repo, run_repo, git_service=None)
+    yaml_text = _workflow_yaml(workflow_id="research-review", workflow_name="Research Review")
+
+    with pytest.raises(GitError, match="Simulation runs require a git repository"):
+        service.create_simulation("research-review", yaml_text)
+
+
+def test_workflow_service_create_simulation_translates_non_git_repo_error() -> None:
+    workflow_repo = Mock()
+    run_repo = Mock()
+    git_service = Mock()
+    git_service.create_sim_branch.side_effect = subprocess.CalledProcessError(
+        128,
+        ["git", "rev-parse", "HEAD"],
+        stderr="fatal: not a git repository (or any of the parent directories): .git",
+    )
+
+    service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    yaml_text = _workflow_yaml(workflow_id="research-review", workflow_name="Research Review")
+
+    with pytest.raises(GitError, match="Simulation runs require a git repository"):
+        service.create_simulation("research-review", yaml_text)

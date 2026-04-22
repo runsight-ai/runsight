@@ -74,7 +74,13 @@ function installCanvasBottomPanelMock() {
     useCancelRun: () => ({ mutate: vi.fn(), isPending: false }),
     useRunNodes: () => ({ data: [], isLoading: false, isError: false, error: null, refetch: vi.fn() }),
     useRunLogs: () => ({ data: { items: [] }, isLoading: false, isError: false }),
-    useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
+    useRunContextAudit: () => ({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+    }),
     useRunContextAuditStream: () => undefined,
     useRunRegressions: (runId: string) => {
       harness.runRegressionsCalls.push(runId);
@@ -221,8 +227,15 @@ async function loadCanvasBottomPanel() {
 
   vi.doMock("@/queries/runs", () => ({
     useRuns: () => ({ data: { items: [] }, isLoading: false, isError: false }),
+    useCreateRun: () => ({ mutate: vi.fn(), isPending: false }),
     useRunLogs: () => ({ data: { items: [] }, isLoading: false, isError: false }),
-    useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
+    useRunContextAudit: () => ({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+    }),
     useRunContextAuditStream: () => undefined,
     useRunRegressions: (runId: string) => {
       harness.runRegressionsCalls.push(runId);
@@ -231,6 +244,11 @@ async function loadCanvasBottomPanel() {
   }));
 
   vi.doMock("@/queries/workflows", () => ({
+    useWorkflow: (workflowId: string) => ({
+      data: workflowId && harness.workflow?.id === workflowId ? harness.workflow : undefined,
+      isLoading: false,
+      isError: false,
+    }),
     useWorkflowRegressions: (workflowId: string) => {
       harness.workflowRegressionsCalls.push(workflowId);
       return { data: harness.workflowRegressions, isLoading: false, isError: false };

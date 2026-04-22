@@ -35,7 +35,6 @@ def _write_workflow(
                 "version": "1.0",
                 "id": workflow_id,
                 "kind": "workflow",
-                "interface": {"inputs": [], "outputs": []},
                 "blocks": blocks,
                 "workflow": {
                     "name": workflow_name,

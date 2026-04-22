@@ -209,10 +209,6 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
             "version": "1.0",
             "id": "child_wf",
             "kind": "workflow",
-            "interface": {
-                "inputs": [],
-                "outputs": [],
-            },
             "blocks": {
                 "write": {
                     "type": "linear",

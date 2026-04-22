@@ -64,7 +64,7 @@ export type ContextAccess = z.infer<typeof ContextAccessSchema>;
 export const ContextAuditModeSchema = z.enum(["strict", "dev"]);
 export type ContextAuditMode = z.infer<typeof ContextAuditModeSchema>;
 
-export const ContextAuditNamespaceSchema = z.enum(["results", "shared_memory", "metadata"]);
+export const ContextAuditNamespaceSchema = z.enum(["workflow", "results", "shared_memory", "metadata"]);
 export type ContextAuditNamespace = z.infer<typeof ContextAuditNamespaceSchema>;
 
 export const ContextAuditSeveritySchema = z.enum(["allow", "warn", "error"]);
@@ -156,7 +156,7 @@ export const ValidationErrorSchema = z.object({
   loc: z.array(z.union([z.string(), z.number()])),
   msg: z.string(),
   type: z.string(),
-  input: z.string().optional(),
+  input: z.unknown().optional(),
   ctx: z.record(z.string(), z.unknown()).optional(),
 });
 export type ValidationError = z.infer<typeof ValidationErrorSchema>;
@@ -254,7 +254,7 @@ export type ProviderTestIn = z.infer<typeof ProviderTestInSchema>;
 export const ProviderTestOutSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  models: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional().default([]),
   model_count: z.number().optional().default(0),
   latency_ms: z.number().optional().default(0.0),
 });
@@ -272,9 +272,9 @@ export type ProviderUpdate = z.infer<typeof ProviderUpdateSchema>;
 
 export const RunCreateSchema = z.object({
   workflow_id: z.string(),
-  inputs: z.record(z.string(), z.unknown()).optional(),
+  inputs: z.record(z.string(), z.unknown()).optional().default({}),
   source: z.string().nullable().optional().default("manual"),
-  branch: z.string().optional().default("main"),
+  branch: z.string(),
 }).strict();
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
@@ -305,7 +305,7 @@ export const RunResponseSchema = z.object({
   total_cost_usd: z.number(),
   total_tokens: z.number(),
   created_at: z.number(),
-  branch: z.string().optional().default("main"),
+  branch: z.string(),
   source: z.string().optional().default("manual"),
   commit_sha: z.string().nullable().optional(),
   run_number: z.number().nullable().optional(),
@@ -313,11 +313,13 @@ export const RunResponseSchema = z.object({
   eval_score_avg: z.number().nullable().optional(),
   regression_count: z.number().nullable().optional().default(0),
   regression_types: z.array(z.string()).optional(),
-  warnings: z.array(WarningItemSchema).optional(),
+  warnings: z.array(WarningItemSchema).optional().default([]),
   node_summary: NodeSummarySchema.nullable().optional(),
   parent_run_id: z.string().nullable().optional(),
   root_run_id: z.string().nullable().optional(),
   depth: z.number().optional().default(0),
+  workflow_inputs: z.record(z.string(), z.unknown()).nullable().optional(),
+  workflow_input_schema: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type RunResponse = z.infer<typeof RunResponseSchema>;
 
@@ -377,7 +379,7 @@ export const SettingsProviderResponseSchema = z.object({
   api_key_env: z.string().nullable().optional(),
   api_key_preview: z.string().nullable().optional(),
   base_url: z.string().nullable().optional(),
-  models: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional().default([]),
   model_count: z.number().optional().default(0),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
@@ -561,6 +563,40 @@ export const WorkflowHealthMetricsSchema = z.object({
 });
 export type WorkflowHealthMetrics = z.infer<typeof WorkflowHealthMetricsSchema>;
 
+export const WorkflowInputSchemaItemSchema = z.object({
+  type: z.enum(["string", "number", "boolean", "json", "array"]),
+  required: z.boolean().nullable().optional(),
+  default: z.unknown().nullable().optional(),
+  description: z.string().nullable().optional(),
+  sensitive: z.boolean().nullable().optional(),
+}).passthrough();
+export type WorkflowInputSchemaItem = z.infer<typeof WorkflowInputSchemaItemSchema>;
+
+export const WorkflowInputValidationFieldErrorSchema = z.object({
+  field: z.string(),
+  code: z.string(),
+  message: z.string(),
+  input_path: z.array(z.string()),
+  expected_type: z.string().nullable(),
+  actual_type: z.string().nullable(),
+});
+export type WorkflowInputValidationFieldError = z.infer<typeof WorkflowInputValidationFieldErrorSchema>;
+
+export const WorkflowInputValidationErrorDetailsSchema = z.object({
+  kind: z.literal("workflow_input_validation"),
+  fields: z.array(WorkflowInputValidationFieldErrorSchema),
+  workflow_id: z.string().nullable().optional(),
+}).passthrough();
+export type WorkflowInputValidationErrorDetails = z.infer<typeof WorkflowInputValidationErrorDetailsSchema>;
+
+export const WorkflowInputValidationErrorResponseSchema = z.object({
+  error: z.string(),
+  error_code: z.literal("WORKFLOW_INPUT_VALIDATION_ERROR"),
+  status_code: z.literal(422),
+  details: WorkflowInputValidationErrorDetailsSchema,
+});
+export type WorkflowInputValidationErrorResponse = z.infer<typeof WorkflowInputValidationErrorResponseSchema>;
+
 export const WorkflowResponseSchema = z.object({
   kind: z.literal("workflow"),
   id: z.string(),
@@ -570,12 +606,13 @@ export const WorkflowResponseSchema = z.object({
   canvas_state: WorkflowCanvasStateSchema.nullable().optional(),
   valid: z.boolean().optional().default(true),
   validation_error: z.string().nullable().optional(),
-  warnings: z.array(WarningItemSchema).optional(),
+  warnings: z.array(WarningItemSchema).optional().default([]),
   block_count: z.number().optional().default(0),
   modified_at: z.number().nullable().optional(),
   enabled: z.boolean().optional().default(false),
   commit_sha: z.string().nullable().optional(),
   health: WorkflowHealthMetricsSchema.optional(),
+  input_schema: z.record(z.string(), WorkflowInputSchemaItemSchema).nullable().optional(),
 });
 export type WorkflowResponse = z.infer<typeof WorkflowResponseSchema>;
 
@@ -593,6 +630,7 @@ export type WorkflowSimulationCreate = z.infer<typeof WorkflowSimulationCreateSc
 export const WorkflowSimulationResponseSchema = z.object({
   branch: z.string(),
   commit_sha: z.string(),
+  input_schema: z.record(z.string(), WorkflowInputSchemaItemSchema),
 });
 export type WorkflowSimulationResponse = z.infer<typeof WorkflowSimulationResponseSchema>;
 

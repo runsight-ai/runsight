@@ -261,7 +261,8 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -305,7 +306,8 @@ class TestContainsAssertionPasses:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -361,7 +363,8 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -402,7 +405,8 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -445,7 +449,8 @@ class TestContainsAssertionFails:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -501,7 +506,8 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -546,7 +552,8 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -591,7 +598,8 @@ class TestCostAssertionEvaluation:
                     "/api/runs",
                     json={
                         "workflow_id": "cost-assertion-workflow",
-                        "inputs": {"instruction": "Analyze this"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -646,7 +654,8 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Go"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200
@@ -709,7 +718,8 @@ class TestAssertionsFireDuringExecution:
                     "/api/runs",
                     json={
                         "workflow_id": "contains-assertion-workflow",
-                        "inputs": {"instruction": "Analyze"},
+                        "branch": "main",
+                        "inputs": {},
                     },
                 )
                 assert response.status_code == 200

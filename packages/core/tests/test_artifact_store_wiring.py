@@ -176,11 +176,16 @@ class TestWorkflowBlockArtifactStorePropagation:
         block = WorkflowBlock(
             block_id="sub",
             child_workflow=child_wf,
-            inputs={"shared_memory.topic": "shared_memory.topic"},
+            inputs={"topic": "shared_memory.topic"},
             outputs={},
         )
 
-        child_state = block._map_inputs(parent_state, block.inputs)
+        child_inputs = block._map_inputs(parent_state, block.inputs)
+        child_state = WorkflowState(
+            workflow_inputs=child_inputs,
+            artifact_store=parent_state.artifact_store,
+        )
+        assert child_inputs == {"topic": "AI"}
         assert child_state.artifact_store is store
 
     @pytest.mark.asyncio
@@ -198,13 +203,15 @@ class TestWorkflowBlockArtifactStorePropagation:
         # Mock child workflow that captures the state it receives
         mock_child_wf = AsyncMock()
         mock_child_wf.name = "child_wf"
+        mock_child_wf.identity = None
+        mock_child_wf.input_schema = None
         child_final = WorkflowState(total_cost_usd=0.0, total_tokens=0)
         mock_child_wf.run = AsyncMock(return_value=child_final)
 
         block = WorkflowBlock(
             block_id="sub",
             child_workflow=mock_child_wf,
-            inputs={"shared_memory.topic": "shared_memory.topic"},
+            inputs={"topic": "shared_memory.topic"},
             outputs={},
         )
 
@@ -232,6 +239,8 @@ class TestWorkflowBlockArtifactStorePropagation:
 
         mock_child_wf = AsyncMock()
         mock_child_wf.name = "child_wf"
+        mock_child_wf.identity = None
+        mock_child_wf.input_schema = None
         child_final = WorkflowState(total_cost_usd=0.0, total_tokens=0)
         mock_child_wf.run = AsyncMock(return_value=child_final)
 

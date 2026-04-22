@@ -342,6 +342,7 @@ blocks:
         )
         soul_repo.delete.return_value = True
         git_service.is_clean.return_value = False
+        git_service.current_branch.return_value = "main"
         workflow_repo.list_all.return_value = [
             workflow_entity(
                 "wf_1",

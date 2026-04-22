@@ -51,6 +51,7 @@ def _seed_run(engine, *, run_id: str = "run_955", status: RunStatus = RunStatus.
                 workflow_name="Execution Observer",
                 status=status,
                 task_json="{}",
+                branch="main",
                 created_at=time.time(),
                 updated_at=time.time(),
             )

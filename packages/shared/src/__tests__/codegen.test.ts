@@ -392,6 +392,7 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
       total_cost_usd: 0.01,
       total_tokens: 100,
       created_at: 1000,
+      branch: "sim/wf-1/20260330/abc12",
     });
     expect(result.success).toBe(true);
   });

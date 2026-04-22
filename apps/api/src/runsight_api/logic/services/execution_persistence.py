@@ -4,9 +4,26 @@ import logging
 import time
 from typing import Optional
 
-from ...domain.entities.run import RunStatus
+from ...domain.entities.run import InvalidStateTransition, RunStatus, validate_transition
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_run_status(value: object) -> RunStatus | None:
+    if isinstance(value, RunStatus):
+        return value
+    if isinstance(value, str):
+        try:
+            return RunStatus(value)
+        except ValueError:
+            return None
+    raw_value = getattr(value, "value", None)
+    if isinstance(raw_value, str):
+        try:
+            return RunStatus(raw_value)
+        except ValueError:
+            return None
+    return None
 
 
 class ExecutionRunStore:
@@ -68,6 +85,18 @@ class ExecutionRunStore:
                 with Session(self.engine) as session:
                     run = session.get(Run, run_id)
                     if run:
+                        current_status = _coerce_run_status(run.status)
+                        if current_status is not None:
+                            try:
+                                validate_transition(current_status, RunStatus.failed)
+                            except InvalidStateTransition:
+                                logger.warning(
+                                    "Skipping invalid prepare failure transition: %s -> %s for run %s",
+                                    current_status.value,
+                                    RunStatus.failed.value,
+                                    run_id,
+                                )
+                                return
                         run.status = RunStatus.failed
                         run.error = str(error)
                         run.completed_at = time.time()
@@ -80,6 +109,18 @@ class ExecutionRunStore:
         try:
             run = self.run_repo.get_run(run_id)
             if run:
+                current_status = _coerce_run_status(run.status)
+                if current_status is not None:
+                    try:
+                        validate_transition(current_status, RunStatus.failed)
+                    except InvalidStateTransition:
+                        logger.warning(
+                            "Skipping invalid prepare failure transition: %s -> %s for run %s",
+                            current_status.value,
+                            RunStatus.failed.value,
+                            run_id,
+                        )
+                        return
                 run.status = RunStatus.failed
                 run.error = str(error)
                 run.completed_at = time.time()
@@ -89,26 +130,70 @@ class ExecutionRunStore:
 
     def set_status(
         self, run_id: str, status: RunStatus, *, error: Optional[Exception] = None
-    ) -> None:
+    ) -> bool:
         """Persist a non-terminal execution status transition."""
-        if self.engine is None:
-            return
-        try:
-            from sqlmodel import Session
+        if self.engine is not None:
+            try:
+                from sqlmodel import Session
 
-            from ...domain.entities.run import Run
+                from ...domain.entities.run import Run
 
-            with Session(self.engine) as session:
-                run = session.get(Run, run_id)
-                if run:
+                with Session(self.engine) as session:
+                    run = session.get(Run, run_id)
+                    if run is None:
+                        return False
+                    current_status = _coerce_run_status(run.status)
+                    if current_status is not None:
+                        try:
+                            validate_transition(current_status, status)
+                        except InvalidStateTransition:
+                            logger.warning(
+                                "Skipping invalid state transition: %s -> %s for run %s",
+                                current_status.value,
+                                status.value,
+                                run_id,
+                            )
+                            return False
                     run.status = status
                     run.updated_at = time.time()
                     if error is not None:
                         run.error = str(error)
                     session.add(run)
                     session.commit()
+                    return True
+            except Exception:
+                logger.exception("Failed to update run %s status to %s", run_id, status)
+                return False
+
+        get_run = getattr(self.run_repo, "get_run", None)
+        update_run = getattr(self.run_repo, "update_run", None)
+        if not callable(get_run) or not callable(update_run):
+            return False
+        try:
+            run = get_run(run_id)
+            if run is None:
+                return False
+            current_status = _coerce_run_status(run.status)
+            if current_status is not None:
+                try:
+                    validate_transition(current_status, status)
+                except InvalidStateTransition:
+                    logger.warning(
+                        "Skipping invalid state transition: %s -> %s for run %s",
+                        current_status.value,
+                        status.value,
+                        run_id,
+                    )
+                    return False
+            run.status = status
+            run.updated_at = time.time()
+            if error is not None:
+                run.error = str(error)
+            update_run(run)
+            return True
         except Exception:
             logger.exception("Failed to update run %s status to %s", run_id, status)
+            return False
 
     def store_branch_and_sha(self, run_id: str, branch: str, commit_sha: Optional[str]) -> None:
         """Persist the branch and canonical commit SHA used for execution."""
