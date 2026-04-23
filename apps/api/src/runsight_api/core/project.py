@@ -8,9 +8,14 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _has_git_repo(base_path: Path) -> bool:
+    git_path = base_path / ".git"
+    return git_path.is_dir() or git_path.is_file()
+
+
 def scaffold_project(base_path: Path) -> None:
     """Create or verify the Runsight workspace structure at *base_path*."""
-    has_git_repo = (base_path / ".git").is_dir()
+    has_git_repo = _has_git_repo(base_path)
     is_new = not any(
         (
             (base_path / "custom").exists(),
