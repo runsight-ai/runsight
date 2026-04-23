@@ -31,7 +31,10 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import NodeStatus, Run, RunNode, RunStatus
-from runsight_api.logic.observers.execution_observer import ExecutionObserver
+from runsight_api.logic.observers.execution_observer import (
+    DatabaseExecutionLogSink,
+    ExecutionObserver,
+)
 
 _REAL_SESSION = Session
 
@@ -404,6 +407,47 @@ def test_block_complete_node_write_failure_still_persists_logs_and_trace_tail() 
     messages = _event_messages(rows)
     assert any(message.get("event") == "block_complete" for message in messages)
     assert any(row.level == "trace" and "incremental tail" in row.message for row in rows)
+
+
+def test_execution_log_sink_persists_incremental_tail_with_single_commit() -> None:
+    engine = _db_engine()
+    run_id = _seed_run(engine)
+    sink = DatabaseExecutionLogSink(engine=engine, run_id=run_id)
+    state = WorkflowState(
+        execution_log=[
+            {"role": "assistant", "content": "first tail entry"},
+            {"role": "assistant", "content": "second tail entry"},
+        ]
+    )
+    commit_count = {"value": 0}
+
+    class CommitCountingSession:
+        def __init__(self, engine):
+            self._wrapped = _REAL_SESSION(engine)
+
+        def __enter__(self):
+            self._wrapped.__enter__()
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return self._wrapped.__exit__(exc_type, exc, tb)
+
+        def commit(self):
+            commit_count["value"] += 1
+            return self._wrapped.commit()
+
+        def __getattr__(self, name):
+            return getattr(self._wrapped, name)
+
+    with patch(
+        "runsight_api.logic.observers.execution_observer.Session",
+        CommitCountingSession,
+    ):
+        sink.persist(state)
+
+    rows = _log_rows(engine, run_id=run_id)
+    assert commit_count["value"] == 1
+    assert len([row for row in rows if row.level == "trace"]) == 2
 
 
 def test_block_error_node_write_failure_still_persists_block_error_log() -> None:

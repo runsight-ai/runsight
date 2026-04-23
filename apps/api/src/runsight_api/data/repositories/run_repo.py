@@ -134,6 +134,13 @@ class RunRepository:
         self.session.refresh(log_entry)
         return log_entry
 
+    def create_logs(self, log_entries: List[LogEntry]) -> List[LogEntry]:
+        if not log_entries:
+            return []
+        self.session.add_all(log_entries)
+        self.session.commit()
+        return log_entries
+
     def list_logs_for_run(self, run_id: str) -> List[LogEntry]:
         statement = select(LogEntry).where(LogEntry.run_id == run_id).order_by(LogEntry.timestamp)
         return list(self.session.exec(statement).all())

@@ -381,15 +381,18 @@ class DatabaseExecutionLogSink:
         if not new_entries:
             return
 
+        logs = [
+            LogEntry(
+                run_id=self.run_id,
+                node_id=node_id,
+                level="trace",
+                message=json.dumps(_redact_for_state(entry, state)),
+            )
+            for entry in new_entries
+        ]
+
         with _run_repo(self.engine) as repo:
-            for entry in new_entries:
-                log = LogEntry(
-                    run_id=self.run_id,
-                    node_id=node_id,
-                    level="trace",
-                    message=json.dumps(_redact_for_state(entry, state)),
-                )
-                repo.create_log(log)
+            repo.create_logs(logs)
 
         self.high_water_mark = len(state.execution_log)
 
