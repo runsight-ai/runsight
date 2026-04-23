@@ -28,6 +28,12 @@ def _import_run_repository():
     return RunRepository
 
 
+def _import_run_read_model():
+    from runsight_api.data.repositories.run_read_model import RunReadModel
+
+    return RunReadModel
+
+
 def _make_engine():
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
@@ -191,7 +197,7 @@ class TestCountRegressionsQueryCount:
     def test_count_regressions_batch_query_count(self, db_session: Session):
         """With 1 workflow + 5 runs, _count_regressions_for_workflow must issue
         at most 3 queries total (not 1 + N per run)."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         wf_id = "wf_batch_regression"
         num_runs = 5
@@ -214,13 +220,13 @@ class TestCountRegressionsQueryCount:
             )
         db_session.commit()
 
-        repo = RunRepository(db_session)
+        read_model = RunReadModel(db_session)
 
         # Attach query counter AFTER seeding to measure only the method's queries.
         statements = _count_queries(db_session)
         start_count = len(statements)
 
-        repo._count_regressions_for_workflow(wf_id)
+        read_model._count_regressions_for_workflow(wf_id)
 
         queries_issued = len(statements) - start_count
 
@@ -238,7 +244,7 @@ class TestCountRegressionsQueryCount:
           run_2: eval_passed=False  → NO regression (prev was also False)
         Expected regression_count = 1
         """
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         wf_id = "wf_semantics"
 
@@ -256,8 +262,8 @@ class TestCountRegressionsQueryCount:
 
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        count = repo._count_regressions_for_workflow(wf_id)
+        read_model = RunReadModel(db_session)
+        count = read_model._count_regressions_for_workflow(wf_id)
 
         assert count == 1, (
             f"Expected 1 regression but got {count}. "
@@ -266,7 +272,7 @@ class TestCountRegressionsQueryCount:
 
     def test_count_regressions_soul_version_boundary(self, db_session: Session):
         """A soul_version change resets the baseline — no regression should fire."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         wf_id = "wf_soul_version_boundary"
 
@@ -280,8 +286,8 @@ class TestCountRegressionsQueryCount:
 
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        count = repo._count_regressions_for_workflow(wf_id)
+        read_model = RunReadModel(db_session)
+        count = read_model._count_regressions_for_workflow(wf_id)
 
         assert count == 0, f"Expected 0 regressions (soul_version changed) but got {count}."
 
@@ -295,7 +301,7 @@ class TestHealthMetricsQueryCount:
     def test_health_metrics_batch_query_count(self, db_session: Session):
         """With 5 workflows × 10 runs × 2 nodes, get_workflow_health_metrics must
         issue ≤ 5 queries total (not 50+ from the per-workflow N+1 loop)."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         workflow_ids = [f"wf_hm_{i}" for i in range(5)]
         for wf_idx, wf_id in enumerate(workflow_ids):
@@ -323,12 +329,12 @@ class TestHealthMetricsQueryCount:
                 )
         db_session.commit()
 
-        repo = RunRepository(db_session)
+        read_model = RunReadModel(db_session)
 
         statements = _count_queries(db_session)
         start_count = len(statements)
 
-        repo.get_workflow_health_metrics(workflow_ids)
+        read_model.get_workflow_health_metrics(workflow_ids)
 
         queries_issued = len(statements) - start_count
 
@@ -345,7 +351,7 @@ class TestHealthMetricsQueryCount:
         wf_b: 0 regressions (all pass)
         wf_c: 2 regressions (two independent nodes each regress once)
         """
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         # ── wf_a: 1 regression ──────────────────────────────────────────────
         _seed_run(db_session, "a_r0", workflow_id="wf_a", created_at_offset=0.0)
@@ -372,8 +378,8 @@ class TestHealthMetricsQueryCount:
 
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        result = repo.get_workflow_health_metrics(["wf_a", "wf_b", "wf_c"])
+        read_model = RunReadModel(db_session)
+        result = read_model.get_workflow_health_metrics(["wf_a", "wf_b", "wf_c"])
 
         assert result["wf_a"]["regression_count"] == 1, (
             f"wf_a: expected 1 regression, got {result['wf_a']['regression_count']}"

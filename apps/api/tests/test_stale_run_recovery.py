@@ -107,7 +107,7 @@ class TestStaleRunRecovery:
 
         with Session(db_engine) as session:
             recovered = session.get(Run, runs[0].id)
-            assert recovered.error == "API process restarted during execution"
+            assert recovered.error == "API server restarted during execution"
 
     def test_completed_at_is_set(self, db_engine, seed_runs):
         """completed_at must be populated (epoch float) after recovery."""
@@ -132,7 +132,7 @@ class TestStaleRunRecovery:
         with Session(db_engine) as session:
             run = session.get(Run, runs[0].id)
             assert run.status == RunStatus.failed
-            assert run.error == "API process restarted during execution"
+            assert run.error == "API server restarted during execution"
             assert run.completed_at is not None
 
     def test_completed_run_is_not_modified(self, db_engine, seed_runs):
@@ -186,7 +186,7 @@ class TestStaleRunRecovery:
             for run in runs:
                 recovered = session.get(Run, run.id)
                 assert recovered.status == RunStatus.failed
-                assert recovered.error == "API process restarted during execution"
+                assert recovered.error == "API server restarted during execution"
                 assert recovered.completed_at is not None
 
     def test_no_stale_runs_is_noop(self, db_engine, seed_runs):
@@ -224,9 +224,9 @@ class TestStaleRunRecovery:
 
         with Session(db_engine) as session:
             assert session.get(Run, pending.id).status == RunStatus.failed
-            assert session.get(Run, pending.id).error == "API process restarted during execution"
+            assert session.get(Run, pending.id).error == "API server restarted during execution"
             assert session.get(Run, running.id).status == RunStatus.failed
-            assert session.get(Run, running.id).error == "API process restarted during execution"
+            assert session.get(Run, running.id).error == "API server restarted during execution"
             assert session.get(Run, completed.id).status == RunStatus.completed
             assert session.get(Run, failed.id).status == RunStatus.failed
             assert session.get(Run, failed.id).error == "boom"  # original, not overwritten

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Deque, Dict, List, O
 from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.conditions.engine import Case, evaluate_output_conditions
+from runsight_core.primitives import Step
 from runsight_core.redaction import RunRedactor
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
     from runsight_core.yaml.registry import WorkflowRegistry
 
 logger = logging.getLogger(__name__)
+
+RuntimeBlock = BaseBlock | Step
 
 
 def _call_observer_method(method: Any, *args: Any, **kwargs: Any) -> None:
@@ -47,11 +50,46 @@ class BlockExecutionContext:
     """Execution context shared across block dispatch within a workflow run."""
 
     workflow_name: str
-    blocks: Dict[str, BaseBlock]
+    blocks: Dict[str, RuntimeBlock]
     call_stack: List[str]
     workflow_registry: Optional["WorkflowRegistry"]
     observer: Optional["WorkflowObserver"]
     passthrough_kwargs: Dict[str, Any] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class BlockRuntimePolicy:
+    """Execution policy extracted from the concrete block behind any Step wrapper."""
+
+    block: RuntimeBlock
+    policy_owner: BaseBlock
+    retry_config: Any
+    timeout: Optional[float]
+    limits: Any
+    exit_conditions: Any
+    declared_exits: Any
+
+
+def _unwrap_policy_owner(block: RuntimeBlock) -> BaseBlock:
+    """Return the concrete block that owns runtime policy and validation metadata."""
+    policy_owner: BaseBlock | Step = block
+    while isinstance(policy_owner, Step):
+        policy_owner = policy_owner.block
+    return policy_owner
+
+
+def _block_runtime_policy(block: RuntimeBlock) -> BlockRuntimePolicy:
+    """Resolve retry/timeout/exit metadata without letting Step hide wrapped semantics."""
+    policy_owner = _unwrap_policy_owner(block)
+    return BlockRuntimePolicy(
+        block=block,
+        policy_owner=policy_owner,
+        retry_config=getattr(policy_owner, "retry_config", None),
+        timeout=getattr(policy_owner, "max_duration_seconds", None),
+        limits=getattr(policy_owner, "limits", None),
+        exit_conditions=getattr(policy_owner, "exit_conditions", None),
+        declared_exits=getattr(policy_owner, "_declared_exits", None),
+    )
 
 
 async def _execute_with_retry(
@@ -144,7 +182,7 @@ def _matches_input_type(value: Any, expected_type: str | None) -> bool:
 
 
 async def execute_block(
-    block: BaseBlock,
+    block: RuntimeBlock,
     state: WorkflowState,
     ctx: BlockExecutionContext,
     extra_inputs: Optional[Dict[str, Any]] = None,
@@ -153,6 +191,7 @@ async def execute_block(
     from runsight_core.blocks.loop import LoopBlock
     from runsight_core.blocks.workflow_block import WorkflowBlock
 
+    runtime_policy = _block_runtime_policy(block)
     block_id = block.block_id
     block_type = type(block).__name__
     soul = getattr(block, "soul", None)
@@ -244,7 +283,7 @@ async def execute_block(
         _active_budget,
     )
 
-    block_limits = getattr(block, "limits", None)
+    block_limits = runtime_policy.limits
     block_budget_token = None
     if block_limits is not None:
         current_session = _active_budget.get(None)
@@ -254,8 +293,8 @@ async def execute_block(
         block_budget_token = _active_budget.set(block_session)
 
     try:
-        timeout = getattr(block, "max_duration_seconds", None)
-        retry_cfg = getattr(block, "retry_config", None)
+        timeout = runtime_policy.timeout
+        retry_cfg = runtime_policy.retry_config
         if retry_cfg is not None:
             dispatch_coro = _execute_with_retry(block, state, retry_cfg, _dispatch)
         else:
@@ -275,10 +314,10 @@ async def execute_block(
         else:
             state = await dispatch_coro
 
-        if getattr(block, "exit_conditions", None):
+        if runtime_policy.exit_conditions:
             br = state.results.get(block_id)
             if br and br.exit_handle is None:
-                for cond in block.exit_conditions:
+                for cond in runtime_policy.exit_conditions:
                     if _matches_exit_condition(cond, br.output):
                         state = state.model_copy(
                             update={
@@ -364,7 +403,7 @@ class Workflow:
         self.name = name
         self.input_schema = input_schema
         self.identity: Optional[str] = None
-        self._blocks: Dict[str, BaseBlock] = {}
+        self._blocks: Dict[str, RuntimeBlock] = {}
         self._transitions: Dict[str, str] = {}  # from_block_id -> to_block_id
         self._entry_block_id: Optional[str] = None
         self._conditional_transitions: Dict[
@@ -374,11 +413,11 @@ class Workflow:
         self._output_conditions: Dict[str, Tuple[List[Case], str]] = {}
 
     @property
-    def blocks(self) -> Dict[str, BaseBlock]:
+    def blocks(self) -> Dict[str, RuntimeBlock]:
         """Read-only access to the block registry keyed by block_id."""
         return self._blocks
 
-    def add_block(self, block: BaseBlock) -> "Workflow":
+    def add_block(self, block: RuntimeBlock) -> "Workflow":
         """
         Register a block in this workflow.
 
@@ -568,7 +607,9 @@ class Workflow:
         # Check 4: Exit validation — transition keys must match declared exits
         for from_id, cmap in self._conditional_transitions.items():
             block = self._blocks.get(from_id)
-            declared_exits = getattr(block, "_declared_exits", None)
+            declared_exits = (
+                _block_runtime_policy(block).declared_exits if block is not None else None
+            )
             if declared_exits is not None:
                 declared_ids = {e.id for e in declared_exits} | {"default"}
                 for key in cmap.keys():
@@ -830,10 +871,10 @@ class Workflow:
         self,
         injected_raw: list,
         registry: Optional["BlockRegistry"],
-        runtime_blocks: Dict[str, BaseBlock],
-    ) -> "List[Tuple[str, BaseBlock]]":
+        runtime_blocks: Dict[str, RuntimeBlock],
+    ) -> "List[Tuple[str, RuntimeBlock]]":
         """Validate and instantiate dynamically injected step items."""
-        injected_entries: List[Tuple[str, BaseBlock]] = []
+        injected_entries: List[Tuple[str, RuntimeBlock]] = []
         for item in injected_raw:
             if not isinstance(item, dict):
                 raise ValueError(
@@ -951,9 +992,9 @@ class Workflow:
         if errors := self.validate():
             raise ValueError(f"Cannot run invalid workflow '{self.name}': {errors}")
 
-        runtime_blocks: Dict[str, BaseBlock] = dict(self._blocks)
+        runtime_blocks: Dict[str, RuntimeBlock] = dict(self._blocks)
         assert self._entry_block_id is not None  # guaranteed by validate()
-        queue: Deque[Tuple[str, BaseBlock]] = deque(
+        queue: Deque[Tuple[str, RuntimeBlock]] = deque(
             [(self._entry_block_id, runtime_blocks[self._entry_block_id])]
         )
         state = self._seed_inputs(initial_state, inputs)

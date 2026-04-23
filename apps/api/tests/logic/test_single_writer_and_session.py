@@ -1,13 +1,14 @@
-"""Red tests for RUN-326 + RUN-333: single status writer + fresh session per operation.
+"""Red tests for RUN-326 + RUN-333: single status writer + explicit repo contract.
 
 RUN-326: _run_workflow must NOT call _set_run_status for completed/failed.
          ExecutionObserver is the sole writer of terminal Run status.
 
-RUN-333: launch_execution must use a fresh session for its error-path DB writes,
-         not a long-lived run_repo that holds a stale session.
+RUN-333: engine-backed ExecutionService must still use the supplied lifecycle
+         persistence repo when error-path writes are required.
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -84,34 +85,61 @@ def _prepared_inputs(inputs):
     )
 
 
-class TestFreshSessionPerOperation:
-    """ExecutionService.launch_execution must not rely on a long-lived
-    run_repo for its error-path DB writes. It should create its own
-    session when writing the failure status."""
+class TestExplicitLifecycleRepoContract:
+    """ExecutionService must honor the supplied lifecycle-capable repo contract."""
 
-    @pytest.mark.asyncio
-    async def test_launch_execution_error_path_writes_via_engine_session(self):
-        """Integration test: when workflow_repo.get_by_id returns None,
-        launch_execution should write the failure using a fresh session
-        from self.engine, NOT via run_repo."""
+    def test_store_branch_and_sha_uses_supplied_mock_lifecycle_repo_even_with_engine(self):
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_session_test"
-        with Session(db_engine) as session:
-            run = Run(
-                id=run_id,
-                workflow_id="wf_missing",
-                workflow_name="wf_missing",
-                status=RunStatus.pending,
-                task_json="{}",
-                branch="main",
-            )
-            session.add(run)
-            session.commit()
+        run = Mock()
+        run.id = "run_mock_repo"
+        run.status = RunStatus.pending
+        run.branch = None
+        run.commit_sha = None
+        run.updated_at = None
 
-        # run_repo is a mock — we verify it is NOT called
         run_repo = Mock()
+        run_repo.list_runs.return_value = []
+        run_repo.get_run.return_value = run
+
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+            engine=db_engine,
+        )
+
+        svc._store_branch_and_sha("run_mock_repo", "main", "abc123")
+
+        run_repo.get_run.assert_called_once_with("run_mock_repo")
+        run_repo.update_run.assert_called_once_with(run)
+        assert run.branch == "main"
+        assert run.commit_sha == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_error_path_writes_via_supplied_lifecycle_repo(self):
+        """Prepare-time failures should be persisted through the supplied repo."""
+        db_engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(db_engine)
+
+        run = SimpleNamespace(
+            id="run_session_test",
+            workflow_id="wf_missing",
+            workflow_name="wf_missing",
+            status=RunStatus.pending,
+            task_json="{}",
+            branch="main",
+            error=None,
+            completed_at=None,
+            updated_at=None,
+        )
+        updated_runs: list[object] = []
+        run_repo = SimpleNamespace(
+            list_runs=lambda: [],
+            get_run=lambda run_id: run if run_id == "run_session_test" else None,
+            update_run=lambda updated: updated_runs.append(updated),
+        )
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = None  # triggers error path
         provider_repo = Mock()
@@ -124,21 +152,12 @@ class TestFreshSessionPerOperation:
         )
 
         await svc.launch_execution(
-            run_id,
+            "run_session_test",
             "wf_missing",
             _prepared_inputs({"instruction": "test"}),
-            branch="main",
         )
         await asyncio.sleep(0.05)
 
-        # run_repo.get_run should NOT have been called (fresh session used instead)
-        run_repo.get_run.assert_not_called()
-        run_repo.update_run.assert_not_called()
-
-        # But the run should still be marked as failed in the DB
-        with Session(db_engine) as session:
-            run = session.get(Run, run_id)
-            assert run.status == RunStatus.failed, (
-                f"Expected run to be marked failed via engine session, got {run.status}"
-            )
-            assert run.error is not None
+        assert updated_runs == [run]
+        assert run.status == RunStatus.failed
+        assert run.error is not None

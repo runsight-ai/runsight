@@ -4,6 +4,7 @@ import asyncio
 import subprocess
 from pathlib import Path
 from textwrap import dedent
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -67,6 +68,16 @@ def _prepared_inputs(inputs):
     return PreparedRunInputs(
         normalized_inputs=inputs,
         input_redactor=RunRedactor(),
+    )
+
+
+def _run_record():
+    return SimpleNamespace(
+        status="pending",
+        error=None,
+        branch=None,
+        commit_sha=None,
+        updated_at=None,
     )
 
 
@@ -154,6 +165,8 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
     )
 
     run_repo = Mock()
+    run_repo.get_run.return_value = _run_record()
+    run_repo.get_run.return_value = _run_record()
     provider_repo = Mock()
     provider_repo.list_all.return_value = [
         Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
@@ -198,7 +211,11 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         )
         await asyncio.sleep(0.05)
 
-    run_repo.update_run.assert_not_called()
+    run_repo.update_run.assert_called_once()
+    updated = run_repo.update_run.call_args.args[0]
+    assert updated.error is None
+    assert updated.branch == "main"
+    assert updated.commit_sha is not None
     assert svc._run_workflow.await_count == 1
 
 
@@ -285,7 +302,7 @@ async def test_launch_execution_rejects_invalid_child_public_input_contract_from
         encoding="utf-8",
     )
 
-    run_record = Mock()
+    run_record = _run_record()
     run_repo = Mock()
     run_repo.get_run.return_value = run_record
     provider_repo = Mock()
@@ -365,7 +382,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
     assert "renamed-child" in saved.validation_error
     assert "resolve ref" in saved.validation_error.lower()
 
-    run_record = Mock()
+    run_record = _run_record()
     run_repo = Mock()
     run_repo.get_run.return_value = run_record
     provider_repo = Mock()
@@ -459,7 +476,7 @@ async def test_launch_execution_rejects_reserved_child_public_input_contract_fro
         child_yaml=child_yaml,
     )
 
-    run_record = Mock()
+    run_record = _run_record()
     run_repo = Mock()
     run_repo.get_run.return_value = run_record
     provider_repo = Mock()
@@ -622,6 +639,7 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
         child_impl_path.unlink()
 
     run_repo = Mock()
+    run_repo.get_run.return_value = _run_record()
     provider_repo = Mock()
     provider_repo.list_all.return_value = [
         Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)

@@ -16,6 +16,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunNode
+from runsight_api.data.repositories.run_read_model import RunReadModel
 from runsight_api.logic.services.eval_service import EvalService
 
 
@@ -520,8 +521,6 @@ class TestHealthMetricsProperRegressionLogic:
         Current buggy behavior: regression_count = 2 (both False nodes)
         Correct behavior: regression_count = 1 (only run_002 is a regression)
         """
-        from runsight_api.data.repositories.run_repo import RunRepository
-
         _seed_run(db_session, "run_001", workflow_id="wf_1", branch="main")
         _seed_node(
             db_session,
@@ -551,8 +550,8 @@ class TestHealthMetricsProperRegressionLogic:
 
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        result = repo.get_workflow_health_metrics(["wf_1"])
+        read_model = RunReadModel(db_session)
+        result = read_model.get_workflow_health_metrics(["wf_1"])
         metric = result["wf_1"]
 
         # The fix: regression_count should be 1, not 2
@@ -560,8 +559,6 @@ class TestHealthMetricsProperRegressionLogic:
 
     def test_no_regression_when_first_run_fails(self, db_session: Session):
         """First run with eval_passed=False is NOT a regression (no baseline)."""
-        from runsight_api.data.repositories.run_repo import RunRepository
-
         _seed_run(db_session, "run_001", workflow_id="wf_first", branch="main")
         _seed_node(
             db_session,
@@ -572,16 +569,14 @@ class TestHealthMetricsProperRegressionLogic:
         )
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        result = repo.get_workflow_health_metrics(["wf_first"])
+        read_model = RunReadModel(db_session)
+        result = read_model.get_workflow_health_metrics(["wf_first"])
         metric = result["wf_first"]
 
         assert metric["regression_count"] == 0
 
     def test_regression_only_counted_for_same_soul_version(self, db_session: Session):
         """A fail after a pass is only a regression if soul_version matches."""
-        from runsight_api.data.repositories.run_repo import RunRepository
-
         _seed_run(db_session, "run_001", workflow_id="wf_ver", branch="main")
         _seed_node(
             db_session,
@@ -602,8 +597,8 @@ class TestHealthMetricsProperRegressionLogic:
 
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        result = repo.get_workflow_health_metrics(["wf_ver"])
+        read_model = RunReadModel(db_session)
+        result = read_model.get_workflow_health_metrics(["wf_ver"])
         metric = result["wf_ver"]
 
         assert metric["regression_count"] == 0

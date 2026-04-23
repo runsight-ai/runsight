@@ -1,211 +1,115 @@
-"""
-Red tests for blank canvas YAML bug.
-
-Bug: WorkflowRepository.create() treats empty string YAML ("") as falsy,
-falling through to _extract_yaml_data() instead of writing an empty file.
-
-When the Setup Choose screen creates a blank canvas workflow, it sends
-POST /api/workflows with { yaml: "" }. Python evaluates "" as falsy in
-`if raw_yaml:`, so it falls through to the fallback branch.
-
-The fix: change `if raw_yaml:` to `if raw_yaml is not None:`.
-
-AC:
-  - POST /api/workflows with { yaml: "" } creates a workflow with empty YAML content
-  - POST /api/workflows with { yaml: "..." } still works (template YAML)
-  - POST /api/workflows with no yaml field is rejected instead of falling back
-  - PUT/commit paths also reject missing yaml so raw YAML stays canonical
-"""
+"""Red tests for strict blank-canvas workflow YAML writes."""
 
 import pytest
 
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_api.data.filesystem.workflow_yaml_validation import assert_valid_yaml_for_write
 from runsight_api.domain.errors import InputValidationError
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def repo(tmp_path):
-    """Create a WorkflowRepository rooted at a temporary directory."""
     return WorkflowRepository(base_path=str(tmp_path))
 
 
 @pytest.fixture
 def workflows_dir(tmp_path):
-    """Return the expected workflows directory path."""
     return tmp_path / "custom" / "workflows"
 
 
-# ===========================================================================
-# AC: POST /api/workflows with { yaml: "" } creates empty YAML content
-# ===========================================================================
+def _canonical_blank_canvas_yaml(
+    workflow_id: str = "blank-canvas",
+    workflow_name: str = "Blank Canvas",
+) -> str:
+    return (
+        'version: "1.0"\n'
+        f"id: {workflow_id}\n"
+        "kind: workflow\n"
+        "enabled: false\n"
+        "blocks: {}\n"
+        "workflow:\n"
+        f"  name: {workflow_name}\n"
+        "  entry: start\n"
+        "  transitions: []\n"
+    )
 
 
-class TestEmptyStringYamlCreate:
-    """Empty string YAML ("") must be written as-is, not treated as None."""
+class TestCanonicalBlankCanvasYamlCreate:
+    def test_create_accepts_current_gui_blank_canvas_payload(self, repo, workflows_dir):
+        raw_yaml = _canonical_blank_canvas_yaml()
 
-    def test_empty_yaml_string_writes_empty_file(self, repo, workflows_dir):
-        """create({"yaml": "..."}) with a minimal YAML (id+kind only) must produce a YAML file."""
-        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
-        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
+        entity = repo.create({"name": "Blank Canvas", "yaml": raw_yaml})
+        yaml_path = workflows_dir / "blank-canvas.yaml"
+
+        assert entity.id == "blank-canvas"
+        assert entity.yaml == raw_yaml
+        assert yaml_path.read_text() == raw_yaml
+
+    def test_update_accepts_current_gui_blank_canvas_payload(self, repo, workflows_dir):
+        initial_yaml = _canonical_blank_canvas_yaml("wf-update", "Original Canvas")
+        entity = repo.create({"name": "Original Canvas", "yaml": initial_yaml})
+        yaml_path = workflows_dir / "wf-update.yaml"
+        updated_yaml = _canonical_blank_canvas_yaml("wf-update", "Renamed Canvas")
+
+        updated = repo.update(entity.id, {"yaml": updated_yaml})
+
+        assert updated.id == "wf-update"
+        assert updated.yaml == updated_yaml
+        assert yaml_path.read_text() == updated_yaml
+
+
+class TestInvalidDraftYamlWrites:
+    def test_create_rejects_empty_string_yaml(self, repo, workflows_dir):
+        with pytest.raises(InputValidationError, match="YAML content is not a mapping"):
+            repo.create({"name": "Blank Canvas", "yaml": ""})
+
+        assert list(workflows_dir.glob("*.yaml")) == []
+
+    def test_write_validator_rejects_partial_draft_yaml(self):
+        partial_draft = "id: invalid-draft\nkind: workflow\nversion: '1.0'\n"
+
+        with pytest.raises(InputValidationError):
+            assert_valid_yaml_for_write("invalid-draft", partial_draft)
+
+    def test_create_rejects_partial_draft_yaml_without_writing_file(self, repo, workflows_dir):
+        partial_draft = "id: invalid-create\nkind: workflow\nversion: '1.0'\n"
+
+        with pytest.raises(InputValidationError):
+            repo.create({"name": "Invalid Create", "yaml": partial_draft})
+
+        assert list(workflows_dir.glob("invalid-create.yaml")) == []
+
+    def test_update_rejects_partial_draft_yaml_and_preserves_existing_file(
+        self, repo, workflows_dir
+    ):
+        valid_yaml = _canonical_blank_canvas_yaml("strict-update", "Strict Update")
+        entity = repo.create({"name": "Strict Update", "yaml": valid_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
+        partial_draft = "id: strict-update\nkind: workflow\nversion: '1.0'\n"
 
-        assert yaml_path.exists()
-        content = yaml_path.read_text()
-        assert content == minimal_yaml, f"Expected minimal YAML content, got: {content!r}"
+        with pytest.raises(InputValidationError):
+            repo.update(entity.id, {"yaml": partial_draft})
 
-    def test_empty_yaml_string_entity_has_empty_yaml(self, repo):
-        """The returned entity's yaml field must contain the provided YAML string."""
-        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
-        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
-
-        assert entity.yaml == minimal_yaml, (
-            f"Expected entity.yaml to be the provided YAML, got: {entity.yaml!r}"
-        )
-
-    def test_empty_yaml_string_does_not_extract_yaml_data(self, repo, workflows_dir):
-        """create({"yaml": "..."}) must write the provided YAML verbatim without merging name.
-
-        Previously, if no raw_yaml was provided, _extract_yaml_data ran and
-        auto-generated YAML from the data dict. We verify the provided YAML is used directly.
-        """
-        minimal_yaml = "id: blank-canvas\nkind: workflow\n"
-        entity = repo.create({"name": "Blank Canvas", "yaml": minimal_yaml})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
-
-        content = yaml_path.read_text()
-        # _extract_yaml_data fallback would produce "name: Blank Canvas\n"
-        assert content == minimal_yaml, (
-            f"_extract_yaml_data fallback was used instead of writing provided YAML: {content!r}"
-        )
+        assert yaml_path.read_text() == valid_yaml
 
 
-# ===========================================================================
-# AC: POST /api/workflows with { yaml: "..." } still works (template YAML)
-# ===========================================================================
-
-
-class TestNonEmptyYamlCreate:
-    """Non-empty raw YAML must be written directly (existing behavior, regression guard)."""
-
-    def test_nonempty_yaml_written_directly(self, repo, workflows_dir):
-        """create({"yaml": "..."}) must write the YAML verbatim."""
-        raw = "id: template-flow\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: My Flow\n"
-        entity = repo.create({"name": "Template Flow", "yaml": raw})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
-
-        content = yaml_path.read_text()
-        assert content == raw
-
-    def test_nonempty_yaml_entity_carries_raw_content(self, repo):
-        """Entity.yaml must contain the raw YAML string that was provided."""
-        raw = "id: template-flow\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: My Flow\n"
-        entity = repo.create({"name": "Template Flow", "yaml": raw})
-        assert entity.yaml == raw
-
-
-# ===========================================================================
-# AC: POST /api/workflows with no yaml field is rejected
-# ===========================================================================
-
-
-class TestNoYamlFieldCreate:
-    """Missing yaml must be rejected instead of using a structured-field fallback."""
-
+class TestMissingYamlIsRejected:
     def test_no_yaml_field_is_rejected(self, repo, workflows_dir):
-        """create({"name": "test"}) must fail fast when raw yaml is absent."""
         with pytest.raises(InputValidationError, match="yaml is required"):
             repo.create({"name": "Auto Generated"})
 
         assert list(workflows_dir.glob("*.yaml")) == []
 
     def test_none_yaml_field_is_rejected(self, repo, workflows_dir):
-        """create({"name": "test", "yaml": None}) must be rejected too."""
         with pytest.raises(InputValidationError, match="yaml is required"):
             repo.create({"name": "Explicit None", "yaml": None})
 
         assert list(workflows_dir.glob("*.yaml")) == []
 
-
-# ===========================================================================
-# AC: Empty string is NOT treated as None (core distinction)
-# ===========================================================================
-
-
-class TestEmptyStringIsNotNone:
-    """The critical invariant: {"yaml": ""} is valid, while missing yaml is not."""
-
-    def test_empty_string_yaml_differs_from_no_yaml(self, repo, workflows_dir):
-        """A minimal valid YAML must succeed while missing yaml raises a validation error."""
-        minimal_yaml = "id: blank-wf\nkind: workflow\n"
-        entity_blank = repo.create({"name": "Blank", "yaml": minimal_yaml})
-        blank_path = workflows_dir / f"{entity_blank.id}.yaml"
-        blank_content = blank_path.read_text()
-        assert blank_content == minimal_yaml
-        with pytest.raises(InputValidationError, match="yaml is required"):
-            repo.create({"name": "Blank"})
-
-    def test_empty_string_yaml_differs_from_none_yaml(self, repo, workflows_dir):
-        """A minimal valid YAML must NOT behave the same as {"yaml": None}."""
-        minimal_yaml = "id: blank-wf2\nkind: workflow\n"
-        entity_blank = repo.create({"name": "Blank", "yaml": minimal_yaml})
-        blank_path = workflows_dir / f"{entity_blank.id}.yaml"
-        blank_content = blank_path.read_text()
-        assert blank_content == minimal_yaml
-
-        with pytest.raises(InputValidationError, match="yaml is required"):
-            repo.create({"name": "Blank", "yaml": None})
-
-
-# ===========================================================================
-# Same bug in update() — line 316 also uses `if raw_yaml:`
-# ===========================================================================
-
-
-class TestEmptyStringYamlUpdate:
-    """The update() method has the same `if raw_yaml:` bug on line 316."""
-
-    def test_update_with_empty_yaml_writes_empty_file(self, repo, workflows_dir):
-        """update(id, {"yaml": "..."}) must overwrite the file with the new YAML content."""
-        # Create a workflow with some initial YAML
-        initial_yaml = (
-            "id: to-update\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
-        )
-        entity = repo.create({"name": "To Update", "yaml": initial_yaml})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
-
-        # Update with a minimal YAML (blank canvas reset)
-        updated_yaml = "id: to-update\nkind: workflow\n"
-        repo.update(entity.id, {"yaml": updated_yaml})
-
-        content = yaml_path.read_text()
-        assert content == updated_yaml, f"Expected updated YAML content, got: {content!r}"
-
-    def test_update_empty_yaml_does_not_merge_existing(self, repo, workflows_dir):
-        """update(id, {"yaml": "..."}) must replace existing content, not merge."""
-        initial_yaml = (
-            "id: to-update2\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
-        )
-        entity = repo.create({"name": "To Update", "yaml": initial_yaml})
-        yaml_path = workflows_dir / f"{entity.id}.yaml"
-
-        updated_yaml = "id: to-update2\nkind: workflow\n"
-        repo.update(entity.id, {"yaml": updated_yaml})
-
-        content = yaml_path.read_text()
-        assert "version" not in content, (
-            f"update merged with existing content instead of replacing: {content!r}"
-        )
-
-    def test_update_without_yaml_is_rejected_instead_of_merging_existing(self, repo, workflows_dir):
-        """update(id, {"name": "..."}) must fail instead of synthesizing YAML."""
-        initial_yaml = (
-            "id: to-update3\nkind: workflow\nversion: '1.0'\nworkflow:\n  name: Original\n"
-        )
+    def test_update_without_yaml_is_rejected_instead_of_preserving_compat_fallback(
+        self, repo, workflows_dir
+    ):
+        initial_yaml = _canonical_blank_canvas_yaml("to-update", "To Update")
         entity = repo.create({"name": "To Update", "yaml": initial_yaml})
         yaml_path = workflows_dir / f"{entity.id}.yaml"
 

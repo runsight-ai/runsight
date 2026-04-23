@@ -26,11 +26,14 @@ type WorkflowRecord = {
   id: string;
   name: string;
   input_schema: Record<string, WorkflowInputSchemaItem> | null;
+  commit_sha?: string | null;
 };
 
 const harness = vi.hoisted(() => {
   const canvasState = {
     activeRunId: null as string | null,
+    isDirty: false,
+    yamlContent: "id: wf_run_925_current\nkind: workflow\nversion: '1.0'\n",
     setNodeStatus: vi.fn(),
     setActiveRunId: vi.fn(),
     setRunCost: vi.fn(),
@@ -45,6 +48,8 @@ const harness = vi.hoisted(() => {
     runs: [] as RunResponse[],
     workflows: {} as Record<string, WorkflowRecord>,
     createRunRequest: vi.fn(),
+    prepareSimulation: vi.fn(),
+    toastError: vi.fn(),
     navigate: vi.fn(),
     canvasState,
     contextAuditState,
@@ -199,12 +204,25 @@ vi.mock("react-router", () => ({
   useNavigate: () => harness.navigate,
 }));
 
+vi.mock("@/api/git", () => ({
+  gitApi: {
+    createSimBranch: (...args: unknown[]) => harness.prepareSimulation(...args),
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: (...args: unknown[]) => harness.toastError(...args),
+  },
+}));
+
 const { SurfaceBottomPanel } = await import("../SurfaceBottomPanel");
 
 const CURRENT_WORKFLOW_ID = "wf_run_925_current";
 const CURRENT_WORKFLOW: WorkflowRecord = {
   id: CURRENT_WORKFLOW_ID,
   name: "Rerun Input Workflow",
+  commit_sha: "abcdef1234567890",
   input_schema: {
     query: {
       type: "string",
@@ -226,6 +244,7 @@ const CURRENT_WORKFLOW: WorkflowRecord = {
 const SIMPLE_WORKFLOW: WorkflowRecord = {
   id: CURRENT_WORKFLOW_ID,
   name: "Rerun Input Workflow",
+  commit_sha: "abcdef1234567890",
   input_schema: {
     query: {
       type: "string",
@@ -240,6 +259,7 @@ const SIMPLE_WORKFLOW: WorkflowRecord = {
 const EMPTY_WORKFLOW: WorkflowRecord = {
   id: CURRENT_WORKFLOW_ID,
   name: "Rerun Input Workflow",
+  commit_sha: "abcdef1234567890",
   input_schema: null,
 };
 
@@ -310,8 +330,17 @@ beforeEach(() => {
   harness.workflows = {};
   harness.createRunRequest.mockReset();
   harness.createRunRequest.mockResolvedValue({ id: "run_925_new" });
+  harness.prepareSimulation.mockReset();
+  harness.prepareSimulation.mockResolvedValue({
+    branch: "sim/wf_run_925_current/20260422/abc12",
+    commit_sha: "simulated-commit-sha",
+    input_schema: SIMPLE_WORKFLOW.input_schema,
+  });
+  harness.toastError.mockReset();
   harness.navigate.mockReset();
   harness.canvasState.activeRunId = null;
+  harness.canvasState.isDirty = false;
+  harness.canvasState.yamlContent = "id: wf_run_925_current\nkind: workflow\nversion: '1.0'\n";
   harness.canvasState.setNodeStatus.mockReset();
   harness.canvasState.setActiveRunId.mockReset();
   harness.canvasState.setRunCost.mockReset();
@@ -511,6 +540,114 @@ describe("RUN-925 rerun workflow inputs from footer history", () => {
     expect(harness.createRunRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         workflow_id: CURRENT_WORKFLOW_ID,
+        inputs: {},
+      }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("routes reruns through a simulation branch when the editable surface is dirty", async () => {
+    const user = userEvent.setup();
+    harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
+    harness.canvasState.isDirty = true;
+    harness.canvasState.yamlContent = "id: wf_run_925_current\nkind: workflow\nversion: '1.0'\n# dirty draft";
+    harness.runs = [
+      makeRun({
+        workflow_inputs: {
+          query: {
+            type: "string",
+            sensitive: false,
+            source: "provided",
+            value: "refunds",
+          },
+        },
+      }),
+    ];
+
+    renderSurfaceBottomPanel();
+    await openRunsHistory(user);
+    await openRunInputsPanel(user);
+    await user.click(screen.getByRole("button", { name: /rerun/i }));
+    await user.click(primaryAction());
+
+    await waitFor(() => expect(harness.prepareSimulation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.createRunRequest).toHaveBeenCalledTimes(1));
+    expect(harness.createRunRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflow_id: CURRENT_WORKFLOW_ID,
+        source: "simulation",
+        branch: "sim/wf_run_925_current/20260422/abc12",
+        inputs: {
+          query: "refunds",
+        },
+      }),
+    );
+  });
+
+  it("shows a toast when simulation preparation throws unexpectedly during rerun", async () => {
+    const user = userEvent.setup();
+    harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
+    harness.canvasState.isDirty = true;
+    harness.prepareSimulation.mockRejectedValueOnce(new Error("git exploded"));
+    harness.runs = [
+      makeRun({
+        workflow_inputs: {
+          query: {
+            type: "string",
+            sensitive: false,
+            source: "provided",
+            value: "refunds",
+          },
+        },
+      }),
+    ];
+
+    renderSurfaceBottomPanel();
+    await openRunsHistory(user);
+    await openRunInputsPanel(user);
+    await user.click(screen.getByRole("button", { name: /rerun/i }));
+
+    await waitFor(() => expect(harness.prepareSimulation).toHaveBeenCalledTimes(1));
+    expect(harness.createRunRequest).not.toHaveBeenCalled();
+    expect(harness.toastError).toHaveBeenCalledWith("Unable to start run", {
+      description: "git exploded",
+    });
+  });
+
+  it("skips the rerun modal when the dirty simulation snapshot no longer has inputs", async () => {
+    const user = userEvent.setup();
+    harness.workflows[CURRENT_WORKFLOW_ID] = CURRENT_WORKFLOW;
+    harness.canvasState.isDirty = true;
+    harness.prepareSimulation.mockResolvedValueOnce({
+      branch: "sim/wf_run_925_current/20260422/xyz99",
+      commit_sha: "simulated-no-inputs",
+      input_schema: null,
+    });
+    harness.runs = [
+      makeRun({
+        workflow_inputs: {
+          query: {
+            type: "string",
+            sensitive: false,
+            source: "provided",
+            value: "refunds",
+          },
+        },
+      }),
+    ];
+
+    renderSurfaceBottomPanel();
+    await openRunsHistory(user);
+    await openRunInputsPanel(user);
+    await user.click(screen.getByRole("button", { name: /rerun/i }));
+
+    await waitFor(() => expect(harness.prepareSimulation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.createRunRequest).toHaveBeenCalledTimes(1));
+    expect(harness.createRunRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflow_id: CURRENT_WORKFLOW_ID,
+        source: "simulation",
+        branch: "sim/wf_run_925_current/20260422/xyz99",
         inputs: {},
       }),
     );

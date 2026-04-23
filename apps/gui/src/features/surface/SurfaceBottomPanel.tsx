@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useRunContextAudit, useRunContextAuditStream, useRunLogs, useRunRegressions, useRuns, useCreateRun } from "@/queries/runs";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useCreateRun, useRunContextAudit, useRunContextAuditStream, useRunRegressions } from "@/queries/runs";
 import { useWorkflow, useWorkflowRegressions } from "@/queries/workflows";
 import { useCanvasStore } from "@/store/canvas";
-import { mapSSEEventToStoreAction } from "./useRunStream";
+import { gitApi } from "@/api/git";
 import { useNavigate } from "react-router";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
@@ -10,14 +11,12 @@ import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import { RunInputsModal } from "./RunInputsModal";
 import type { RunResponse, WorkflowInputSchemaItem } from "@runsight/shared/zod";
 import type { WorkflowRegression } from "@/types/schemas/regressions";
-import { useContextAuditStore } from "@/store/contextAudit";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
-
-interface LogEntry {
-  timestamp: string | number;
-  level: string;
-  message: string;
-}
+import { resolveRunInputSchemaDecision } from "./runInputSchemaPolicy";
+import { useSurfaceBottomPanelAudit } from "./useSurfaceBottomPanelAudit";
+import { useSurfaceBottomPanelLogs } from "./useSurfaceBottomPanelLogs";
+import { useSurfaceBottomPanelRunSelection } from "./useSurfaceBottomPanelRunSelection";
+import { useSurfaceBottomPanelTabs } from "./useSurfaceBottomPanelTabs";
 
 interface SurfaceBottomPanelProps {
   runId?: string;
@@ -42,9 +41,13 @@ type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {
 };
 
 type RerunModalState = {
+  source: "manual" | "simulation";
+  branch: string;
   workflow: {
     id: string;
     name?: unknown;
+    commit_sha?: unknown;
+    branch?: string;
     input_schema?: unknown;
   };
   initialValues: Record<string, unknown>;
@@ -53,49 +56,10 @@ type RerunModalState = {
 type AuditPanelWithQueryProps = {
   runId: string | undefined;
   selectedNodeId: string | null;
+  fetchNextPage?: () => Promise<unknown>;
+  hasNextPage?: boolean;
   onSelectNode: (nodeId: string, runId?: string) => void;
 };
-
-function sseEventToLogEntry(
-  eventType: string,
-  data: Record<string, unknown>,
-): LogEntry | null {
-  const ts = new Date().toISOString();
-  switch (eventType) {
-    case "node_started":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Node ${data.node_id as string} started`,
-      };
-    case "node_completed":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Node ${data.node_id as string} completed${data.cost_usd != null ? ` ($${(data.cost_usd as number).toFixed(4)})` : ""}`,
-      };
-    case "node_failed":
-      return {
-        timestamp: ts,
-        level: "error",
-        message: `Node ${data.node_id as string} failed: ${(data.error as string) ?? "unknown error"}`,
-      };
-    case "run_completed":
-      return {
-        timestamp: ts,
-        level: "info",
-        message: `Run completed. Total cost: $${((data.total_cost_usd as number) ?? 0).toFixed(4)}`,
-      };
-    case "run_failed":
-      return {
-        timestamp: ts,
-        level: "error",
-        message: `Run failed: ${(data.error as string) ?? "unknown error"}`,
-      };
-    default:
-      return null;
-  }
-}
 
 function SurfaceBottomPanelContent({
   runId: initialRunId,
@@ -107,52 +71,27 @@ function SurfaceBottomPanelContent({
   onAuditNodeSelect,
   onAuditOpen,
 }: SurfaceBottomPanelContentProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultState === "expanded");
-  const [activeTab, setActiveTab] = useState<"logs" | "runs" | "regressions" | "audit">("logs");
-  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(initialRunId);
   const logsRef = useRef<HTMLDivElement>(null);
-  const [sseEntries, setSseEntries] = useState<LogEntry[]>([]);
   const [rerunModalState, setRerunModalState] = useState<RerunModalState | null>(null);
   const navigate = useNavigate();
-
-  const activeRunId = useCanvasStore((s) => s.activeRunId);
-  const setNodeStatus = useCanvasStore((s) => s.setNodeStatus);
-  const setActiveRunId = useCanvasStore((s) => s.setActiveRunId);
-  const setRunCost = useCanvasStore((s) => s.setRunCost);
-  const replaceContextAuditEvents = useContextAuditStore((s) => s.replaceRunEvents);
+  const setActiveRunId = useCanvasStore((state) => state.setActiveRunId);
+  const isDirty = useCanvasStore((state) => state.isDirty);
+  const yamlContent = useCanvasStore((state) => state.yamlContent);
   const createRun = useCreateRun();
   const { data: workflow } = useWorkflow(workflowId ?? "");
-
-  const { data: runsData } = useRuns(
-    workflowId ? { workflow_id: workflowId } : undefined,
-  );
-  const sortedRuns = useMemo(() => {
-    const items = runsData?.items ?? [];
-    return [...items].sort((left, right) => {
-      const leftTime = left.started_at ?? left.created_at ?? 0;
-      const rightTime = right.started_at ?? right.created_at ?? 0;
-      return rightTime - leftTime;
-    });
-  }, [runsData?.items]);
-
-  useEffect(() => {
-    const fallbackRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-    if (fallbackRunId && fallbackRunId !== selectedRunId) {
-      setSelectedRunId(fallbackRunId);
-    }
-  }, [activeRunId, initialRunId, selectedRunId, sortedRuns]);
-
-  const currentRunId = activeRunId ?? selectedRunId ?? initialRunId ?? sortedRuns[0]?.id;
-  useRunContextAuditStream(currentRunId);
-
-  useEffect(() => {
-    if (!currentRunId) return;
-    const currentEvents = useContextAuditStore.getState().eventsByRun[currentRunId] ?? [];
-    replaceContextAuditEvents(currentRunId, currentEvents);
-  }, [currentRunId, replaceContextAuditEvents]);
-
-  const { data: logData } = useRunLogs(currentRunId ?? "", undefined, {
-    refetchInterval: undefined,
+  const { activeTab, isExpanded, openTab, toggleExpanded } = useSurfaceBottomPanelTabs({
+    defaultState,
+    onAuditOpen,
+  });
+  const { currentRunId, sortedRuns, selectRun } = useSurfaceBottomPanelRunSelection({
+    initialRunId,
+    workflowId,
+  });
+  const { entries } = useSurfaceBottomPanelLogs({ runId: currentRunId });
+  const contextAuditQuery = useSurfaceBottomPanelAudit({
+    runId: currentRunId,
+    useRunContextAudit,
+    useRunContextAuditStream,
   });
 
   const count = regressionsData?.count ?? 0;
@@ -160,65 +99,6 @@ function SurfaceBottomPanelContent({
   const regressionEmptyMessage = initialRunId
     ? "No regressions detected for this run."
     : "No regressions detected for this workflow.";
-
-  const entries: LogEntry[] = [...(logData?.items ?? []), ...sseEntries];
-
-  // SSE: EventSource connection to /api/runs/${runId}/stream for real-time log events
-  useEffect(() => {
-    if (!currentRunId) return;
-    const source = new EventSource(`/api/runs/${currentRunId}/stream`);
-
-    const EVENT_TYPES = [
-      "log_entry",
-      "node_started",
-      "node_completed",
-      "node_failed",
-      "run_completed",
-      "run_failed",
-    ] as const;
-
-    for (const eventType of EVENT_TYPES) {
-      source.addEventListener(eventType, (event) => {
-        const data = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
-
-        if (eventType === "log_entry") {
-          const entry = data as unknown as LogEntry;
-          setSseEntries((prev) => [...prev, entry]);
-          return;
-        }
-
-        // Map SSE event to store action for canvas node status updates
-        const storeAction = mapSSEEventToStoreAction(eventType, data);
-        if (storeAction) {
-          switch (storeAction.action) {
-            case "setNodeStatus":
-              setNodeStatus(storeAction.nodeId, storeAction.status);
-              break;
-            case "runCompleted":
-              setRunCost(storeAction.totalCost);
-              setActiveRunId(null);
-              break;
-            case "runFailed":
-              setActiveRunId(null);
-              break;
-          }
-        }
-
-        // Convert node lifecycle events to log entries
-        const logEntry = sseEventToLogEntry(eventType, data);
-        if (logEntry) {
-          setSseEntries((prev) => [...prev, logEntry]);
-        }
-
-        // Close EventSource on terminal events
-        if (eventType === "run_completed" || eventType === "run_failed") {
-          source.close();
-        }
-      });
-    }
-
-    return () => source.close();
-  }, [currentRunId, setNodeStatus, setActiveRunId, setRunCost]);
 
   // Auto-scroll when new entries arrive
   useEffect(() => {
@@ -228,25 +108,64 @@ function SurfaceBottomPanelContent({
   }, [entries.length]);
 
   const onRunSelect = (runId: string) => {
-    setSelectedRunId(runId);
-    setActiveTab("logs");
+    selectRun(runId);
+    openTab("logs");
   };
 
-  function openRerunModal(run: RunResponse) {
+  async function openRerunModal(run: RunResponse) {
     if (!workflow) {
       return;
     }
 
-    const workflowInputSchema = workflow.input_schema;
+    const shouldRunOnSimulation = isDirty || !workflow.commit_sha;
+    let workflowInputSchema = workflow.input_schema;
+    let source: "manual" | "simulation" = "manual";
+    let branch = "main";
+    let commitSha = workflow.commit_sha;
+
+    if (shouldRunOnSimulation) {
+      let decision;
+      try {
+        decision = await resolveRunInputSchemaDecision({
+          workflow: {
+            id: workflow.id,
+            input_schema: workflow.input_schema,
+          },
+          isDirty: true,
+          yamlContent,
+          prepareSimulation: gitApi.createSimBranch,
+        });
+      } catch (error) {
+        const description =
+          error instanceof Error ? error.message : "Failed to prepare simulation snapshot.";
+        toast.error("Unable to start run", { description });
+        return;
+      }
+
+      if (decision.kind === "blocked") {
+        toast.error("Unable to start run", { description: decision.error.message });
+        return;
+      }
+
+      workflowInputSchema = decision.kind === "needs_inputs" ? decision.input_schema : null;
+      source = decision.branch ? "simulation" : "manual";
+      branch = decision.branch ?? "main";
+      commitSha = decision.commit_sha ?? commitSha;
+    }
+
     if (!hasWorkflowInputs(workflowInputSchema)) {
-      void createRunRequest({}).catch(() => undefined);
+      void createRunRequest({}, { source, branch }).catch(() => undefined);
       return;
     }
 
     setRerunModalState({
+      source,
+      branch,
       workflow: {
         id: workflow.id,
         name: workflow.name,
+        commit_sha: commitSha,
+        branch,
         input_schema: workflowInputSchema,
       },
       initialValues: getRerunInitialValues(workflowInputSchema, run.workflow_inputs),
@@ -259,7 +178,13 @@ function SurfaceBottomPanelContent({
     }
   }
 
-  function createRunRequest(inputs: Record<string, unknown>) {
+  function createRunRequest(
+    inputs: Record<string, unknown>,
+    options: { source: "manual" | "simulation"; branch: string } = {
+      source: "manual",
+      branch: "main",
+    },
+  ) {
     const workflowIdToUse = workflow?.id ?? workflowId;
 
     if (!workflowIdToUse) {
@@ -271,8 +196,8 @@ function SurfaceBottomPanelContent({
         {
           workflow_id: workflowIdToUse,
           inputs,
-          source: "manual",
-          branch: "main",
+          source: options.source,
+          branch: options.branch,
         },
         {
           onSuccess: (result) => {
@@ -305,10 +230,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand logs panel"
           aria-selected={activeTab === "logs"}
-          onClick={() => {
-            setActiveTab("logs");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("logs")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "logs" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Logs
@@ -318,10 +240,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand runs panel"
           aria-selected={activeTab === "runs"}
-          onClick={() => {
-            setActiveTab("runs");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("runs")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "runs" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Runs
@@ -331,10 +250,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand regressions panel"
           aria-selected={activeTab === "regressions"}
-          onClick={() => {
-            setActiveTab("regressions");
-            setIsExpanded(true);
-          }}
+          onClick={() => openTab("regressions")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "regressions" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Regressions{count > 0 ? ` (${count})` : ""}
@@ -344,11 +260,7 @@ function SurfaceBottomPanelContent({
           role="tab"
           aria-label="Expand audit panel"
           aria-selected={activeTab === "audit"}
-          onClick={() => {
-            setActiveTab("audit");
-            setIsExpanded(true);
-            onAuditOpen?.();
-          }}
+          onClick={() => openTab("audit")}
           className={`font-mono text-2xs uppercase bg-transparent border-none cursor-pointer py-1 tracking-wide ${activeTab === "audit" ? "text-heading" : "text-muted hover:text-primary"}`}
         >
           Audit
@@ -357,7 +269,7 @@ function SurfaceBottomPanelContent({
           type="button"
           aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
           data-testid="workflow-bottom-panel-toggle"
-          onClick={() => setIsExpanded((prev) => !prev)}
+          onClick={toggleExpanded}
           className="ml-auto bg-transparent border-none text-muted cursor-pointer text-sm hover:text-primary"
         >
           {isExpanded ? "\u25BC" : "\u25B2"}
@@ -410,7 +322,9 @@ function SurfaceBottomPanelContent({
             runs={sortedRuns}
             currentRunId={currentRunId}
             onRowClick={onRunSelect}
-            onRerun={openRerunModal}
+            onRerun={(run) => {
+              void openRerunModal(run);
+            }}
           />
         </div>
       )}
@@ -436,9 +350,11 @@ function SurfaceBottomPanelContent({
       )}
       {isExpanded && activeTab === "audit" && (
         <div data-testid="workflow-audit-panel" className="overflow-hidden flex-1">
-          <AuditPanelWithQuery
+          <SurfaceBottomPanelAuditController
             runId={currentRunId}
             selectedNodeId={selectedNodeId ?? null}
+            fetchNextPage={contextAuditQuery.fetchNextPage}
+            hasNextPage={contextAuditQuery.hasNextPage}
             onSelectNode={(nodeId) => {
               onAuditNodeSelect?.(nodeId, currentRunId);
             }}
@@ -454,7 +370,10 @@ function SurfaceBottomPanelContent({
           submitting={createRun.isPending}
           onOpenChange={closeRerunModal}
           onSubmit={async (inputs) => {
-            await createRunRequest(inputs);
+            await createRunRequest(inputs, {
+              source: rerunModalState.source,
+              branch: rerunModalState.branch,
+            });
             setRerunModalState(null);
           }}
         />
@@ -463,20 +382,20 @@ function SurfaceBottomPanelContent({
   );
 }
 
-function AuditPanelWithQuery({
+function SurfaceBottomPanelAuditController({
   runId,
   selectedNodeId,
+  fetchNextPage,
+  hasNextPage,
   onSelectNode,
 }: AuditPanelWithQueryProps) {
-  const contextAuditQuery = useRunContextAudit(runId ?? "", { page_size: 100 });
-
   return (
     <ContextAuditPanel
       runId={runId}
       selectedNodeId={selectedNodeId}
       onSelectNode={(nodeId) => onSelectNode(nodeId, runId)}
-      fetchNextPage={contextAuditQuery.fetchNextPage}
-      hasNextPage={contextAuditQuery.hasNextPage}
+      fetchNextPage={fetchNextPage}
+      hasNextPage={hasNextPage}
     />
   );
 }

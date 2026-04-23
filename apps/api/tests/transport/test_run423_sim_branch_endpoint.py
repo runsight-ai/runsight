@@ -1,16 +1,14 @@
-"""Red-phase tests for RUN-423: sim-branch endpoint + explicit RunCreate branch.
+"""Contract tests for RUN-423 sim-branch flow and RunCreate branch handling.
 
 ADR-001 requires: dirty state → create sim branch, commit YAML there, then run
 from the sim branch.  These tests verify:
 
-1. RunCreate schema requires an explicit `branch` field
-2. POST /api/git/sim-branch route exists in the git router
-3. The sim-branch endpoint accepts workflow_id + yaml_content and returns
+1. RunCreate accepts an explicit `branch` field when provided
+2. RunCreate also allows omitted branch for working-tree launches
+3. Empty explicit branch values are rejected
+4. POST /api/git/sim-branch route exists in the git router
+5. The sim-branch endpoint accepts workflow_id + yaml_content and returns
    branch + commit_sha
-
-All tests are expected to FAIL against the current codebase because:
-  - RunCreate has no `branch` field
-  - The git router has no /sim-branch endpoint
 """
 
 import subprocess
@@ -70,12 +68,12 @@ client = TestClient(app)
 
 
 # ===================================================================
-# 1. RunCreate schema accepts a `branch` field
+# 1. RunCreate branch semantics
 # ===================================================================
 
 
 class TestRunCreateBranchField:
-    """RunCreate should require an explicit branch field."""
+    """RunCreate should support omitted or explicit non-empty branch values."""
 
     def test_branch_field_accepted(self):
         """RunCreate should accept branch without raising ValidationError."""
@@ -86,16 +84,21 @@ class TestRunCreateBranchField:
         )
         assert payload.branch == "sim/my-workflow/20260330/abc12"
 
-    def test_branch_is_required(self):
-        """Omitting branch should raise a validation error."""
-        with pytest.raises(ValidationError):
-            RunCreate(workflow_id="wf_test")
+    def test_branch_is_optional(self):
+        """Omitting branch should leave the working-tree path available."""
+        payload = RunCreate(workflow_id="wf_test")
+        assert payload.branch is None
 
     def test_branch_in_model_fields(self):
         """The branch field must be declared in the schema's model_fields."""
         field = RunCreate.model_fields.get("branch")
         assert field is not None
-        assert field.is_required()
+        assert not field.is_required()
+
+    def test_empty_branch_is_rejected(self):
+        """Explicit empty branch values must not be silently normalized."""
+        with pytest.raises(ValidationError):
+            RunCreate(workflow_id="wf_test", branch="")
 
     def test_branch_serializes_to_dict(self):
         """branch should appear in .model_dump() output."""

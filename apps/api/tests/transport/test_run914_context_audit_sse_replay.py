@@ -129,7 +129,10 @@ def test_sse_replay_emits_context_resolution_for_audit_logs_and_keeps_generic_re
         "context_resolution",
         "run_completed",
     ]
-    assert events[0]["data"] == {"event": "block_start", "block_id": "draft"}
+    assert events[0]["data"]["event"] == "block_start"
+    assert events[0]["data"]["block_id"] == "draft"
+    assert events[0]["data"]["id"] == 1
+    assert events[0]["data"]["timestamp"] == "1970-01-01T00:00:01+00:00"
     assert events[1]["data"]["schema_version"] == "context_audit.v1"
     assert events[1]["data"]["event"] == "context_resolution"
     assert events[1]["data"]["node_id"] == "summarize"

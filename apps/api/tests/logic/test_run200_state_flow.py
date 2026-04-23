@@ -136,7 +136,7 @@ class TestObserverReceivesRealState:
         inputs = {"data": "Process data"}
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -193,7 +193,7 @@ class TestLaunchExecutionStateFlow:
                 "run_e2e",
                 "wf_1",
                 _prepared_inputs(inputs),
-                branch="main",
+                branch=None,
             )
 
             # Wait for background task to complete

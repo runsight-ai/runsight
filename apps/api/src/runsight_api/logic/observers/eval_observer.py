@@ -11,7 +11,7 @@ from runsight_core.redaction import redact_runtime_value_for_state
 from runsight_core.state import BlockResult, WorkflowState
 from sqlmodel import Session, select
 
-from runsight_api.data.repositories.run_repo import RunRepository
+from runsight_api.data.repositories.run_read_model import RunReadModel
 from runsight_api.domain.entities.run import RunNode
 
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ class EvalObserver:
         delta = None
         if soul:
             with Session(self.engine) as session:
-                repo = RunRepository(session)
+                repo = RunReadModel(session)
                 baseline = repo.get_baseline(soul.id, compute_soul_version(soul) or "")
 
         if baseline:

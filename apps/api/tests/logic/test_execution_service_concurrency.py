@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
@@ -132,7 +133,7 @@ class TestConcurrencyLimit:
                     f"run_{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
-                    branch="main",
+                    branch=None,
                 )
 
             # Wait for the semaphore-permitted tasks to enter tracked_run
@@ -194,7 +195,7 @@ class TestConcurrencyLimit:
                     f"run_d{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
-                    branch="main",
+                    branch=None,
                 )
 
             # Wait for 5 to enter
@@ -244,7 +245,7 @@ class TestConcurrencyLimit:
                     f"run_q{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
-                    branch="main",
+                    branch=None,
                 )
 
             # Release gate — all queued runs should eventually complete
@@ -258,9 +259,10 @@ class TestConcurrencyLimit:
                     f"queued runs did not execute"
                 )
 
-            # All tasks should have completed (removed from _running_tasks)
-            assert len(svc._running_tasks) == 0, (
-                f"Expected all runs to complete, but {len(svc._running_tasks)} are still tracked"
+            # All tasks should have completed (removed from runtime.running_tasks)
+            assert len(svc._runtime.running_tasks) == 0, (
+                "Expected all runs to complete, but "
+                f"{len(svc._runtime.running_tasks)} are still tracked"
             )
 
     @pytest.mark.asyncio
@@ -284,19 +286,19 @@ class TestConcurrencyLimit:
                 "run_a",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             # Second run should NOT raise — it queues
             await svc.launch_execution(
                 "run_b",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
 
-            # Both should be in _running_tasks (one active, one waiting)
-            assert "run_a" in svc._running_tasks
-            assert "run_b" in svc._running_tasks
+            # Both should be in runtime.running_tasks (one active, one waiting)
+            assert "run_a" in svc._runtime.running_tasks
+            assert "run_b" in svc._runtime.running_tasks
 
             gate.set()
             await asyncio.sleep(0.3)
@@ -333,7 +335,7 @@ class TestSemaphoreRelease:
                 "run_fail",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.1)  # Let the failure happen
 
@@ -342,7 +344,7 @@ class TestSemaphoreRelease:
                 "run_ok",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
 
             # Give it time to complete
@@ -391,13 +393,13 @@ class TestSemaphoreRelease:
                 "run_cancel",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await run_started.wait()
 
             # Cancel the first task
-            task = svc._running_tasks.get("run_cancel")
-            assert task is not None, "run_cancel should be in _running_tasks"
+            task = svc._runtime.running_tasks.get("run_cancel")
+            assert task is not None, "run_cancel should be in runtime.running_tasks"
             task.cancel()
             await asyncio.sleep(0.1)
 
@@ -406,7 +408,7 @@ class TestSemaphoreRelease:
                 "run_after_cancel",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
 
             # Should complete within a reasonable time (not deadlocked)
@@ -436,7 +438,7 @@ class TestSemaphoreRelease:
                     f"run_fail_{i}",
                     "wf_1",
                     _prepared_inputs({"instruction": "go"}),
-                    branch="main",
+                    branch=None,
                 )
             await asyncio.sleep(0.2)  # Let all fail
 
@@ -455,7 +457,7 @@ class TestSemaphoreRelease:
                 "run_after_fails",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             try:
                 await asyncio.wait_for(success_event.wait(), timeout=2.0)
@@ -484,7 +486,7 @@ class TestPendingUntilAcquired:
 
         from runsight_api.logic.services.execution_service import ExecutionService
 
-        run_repo = Mock()
+        run_repo = RunRepository(Session(db_engine))
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -534,7 +536,7 @@ class TestPendingUntilAcquired:
                 "run_active",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.1)
 
@@ -543,7 +545,7 @@ class TestPendingUntilAcquired:
                 "run_queued",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.1)
 
@@ -569,7 +571,7 @@ class TestPendingUntilAcquired:
 
         from runsight_api.logic.services.execution_service import ExecutionService
 
-        run_repo = Mock()
+        run_repo = RunRepository(Session(db_engine))
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -631,7 +633,7 @@ class TestPendingUntilAcquired:
                 "run_first",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.1)
 
@@ -639,7 +641,7 @@ class TestPendingUntilAcquired:
                 "run_second",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.1)
 
@@ -689,7 +691,7 @@ class TestImmediateReturn:
                 "run_fill",
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
 
             # This should return within a short time, NOT block
@@ -699,7 +701,7 @@ class TestImmediateReturn:
                         "run_queued",
                         "wf_1",
                         _prepared_inputs({"instruction": "go"}),
-                        branch="main",
+                        branch=None,
                     ),
                     timeout=0.5,
                 )

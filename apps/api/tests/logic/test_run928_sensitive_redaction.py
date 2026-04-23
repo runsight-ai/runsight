@@ -249,7 +249,7 @@ def test_prepare_run_inputs_returns_values_and_runtime_redactor_for_sensitive_in
             "private_note": SENSITIVE_VALUE,
             "api_token": PUBLIC_VALUE,
         },
-        branch="main",
+        branch=None,
     )
 
     assert isinstance(prepared, PreparedRunInputs)
@@ -278,7 +278,7 @@ def test_secret_like_names_are_not_registered_without_sensitive_true() -> None:
             "private_note": SENSITIVE_VALUE,
             "api_token": PUBLIC_VALUE,
         },
-        branch="main",
+        branch=None,
     )
 
     redacted = prepared.input_redactor.redact(
@@ -303,7 +303,7 @@ def test_prepare_run_inputs_redacts_sensitive_non_string_values_at_runtime_bound
             },
             "private_values": [3.5, True],
         },
-        branch="main",
+        branch=None,
     )
 
     expected_normalized = {
@@ -342,7 +342,7 @@ def test_prepare_run_inputs_redacts_all_mixed_structured_sensitive_string_leaves
     prepared = service.prepare_run_inputs(
         "run928_inputs",
         {"credentials": credentials},
-        branch="main",
+        branch=None,
     )
 
     expected_credentials = {
@@ -368,7 +368,7 @@ def test_prepare_run_inputs_redacts_json_escaped_sensitive_string_leaf_text() ->
     prepared = service.prepare_run_inputs(
         "run928_inputs",
         {"credentials": credentials},
-        branch="main",
+        branch=None,
     )
     serialized = json.dumps(credentials)
     escaped_secret = json.dumps(secret)[1:-1]
@@ -509,7 +509,7 @@ def test_prepare_run_inputs_rejects_sensitive_defaults_before_normalization() ->
     service = _service(yaml=_workflow_yaml_with_sensitive_default_input())
 
     with pytest.raises(InputValidationError) as exc_info:
-        service.prepare_run_inputs("run928_inputs", {}, branch="main")
+        service.prepare_run_inputs("run928_inputs", {}, branch=None)
 
     payload = exc_info.value.to_dict()
     assert payload["error"] == "Workflow input validation failed"
@@ -526,7 +526,7 @@ async def test_launch_execution_keeps_prepared_redactor_for_prepared_run_inputs(
             "private_note": SENSITIVE_VALUE,
             "api_token": PUBLIC_VALUE,
         },
-        branch="main",
+        branch=None,
     )
     captured: dict[str, object] = {}
 
@@ -545,7 +545,7 @@ async def test_launch_execution_keeps_prepared_redactor_for_prepared_run_inputs(
             "run_928_launch",
             "run928_inputs",
             prepared,
-            branch="main",
+            branch=None,
         )
 
         await asyncio.sleep(0.1)
@@ -575,7 +575,7 @@ async def test_launch_execution_rejects_raw_mapping_inputs_at_service_boundary()
                     "private_note": SENSITIVE_VALUE,
                     "api_token": PUBLIC_VALUE,
                 },
-                branch="main",
+                branch=None,
             )
 
     mock_wf.run.assert_not_called()
@@ -647,7 +647,7 @@ def test_execution_observer_redacts_mixed_structured_sensitive_unique_leaf_in_ru
     prepared = service.prepare_run_inputs(
         "run928_inputs",
         {"credentials": credentials},
-        branch="main",
+        branch=None,
     )
     engine = _db_engine()
     _seed_run(engine)

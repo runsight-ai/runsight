@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
 from runsight_core.redaction import RunRedactor
@@ -48,7 +49,7 @@ def _prepared_inputs(inputs):
 
 def _make_service(*, engine=None):
     """Return (service, run_repo, workflow_repo, provider_repo, git_service) with mocks."""
-    run_repo = Mock()
+    run_repo = RunRepository(Session(engine)) if engine is not None else Mock()
     workflow_repo = Mock()
     provider_repo = Mock()
     git_service = Mock()
@@ -124,8 +125,8 @@ class TestLaunchAcceptsBranch:
             )
 
     @pytest.mark.asyncio
-    async def test_branch_is_required(self):
-        """Omitting branch should raise a TypeError."""
+    async def test_missing_branch_uses_working_tree_without_git_snapshot(self):
+        """Omitting branch should use the working-tree workflow definition."""
         svc, _, _, _, git_service = _make_service()
 
         with patch(
@@ -135,8 +136,12 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            with pytest.raises(TypeError):
-                await svc.launch_execution("run_3", "wf_1", _prepared_inputs({"instruction": "go"}))
+            await svc.launch_execution("run_3", "wf_1", _prepared_inputs({"instruction": "go"}))
+            await asyncio.sleep(0.05)
+
+            git_service.read_file.assert_not_called()
+            mock_parse.assert_called_once()
+            assert mock_parse.call_args.args[0] == VALID_YAML
 
 
 # ---------------------------------------------------------------------------
@@ -293,12 +298,12 @@ class TestMainBranchReadsViaGit:
             assert yaml_arg != workflow_repo.get_by_id.return_value.yaml
 
 
-class TestGitFallbacks:
-    """Fallback behavior when git snapshots are unavailable."""
+class TestGitUnavailableStrictness:
+    """Fail-closed behavior when explicit git snapshots are unavailable."""
 
     @pytest.mark.asyncio
-    async def test_non_git_repo_falls_back_to_working_tree_yaml(self):
-        """Missing git repo should still run the working-tree workflow definition."""
+    async def test_non_git_repo_fails_closed_for_explicit_main_branch(self):
+        """Explicit main branch must not fall back to working-tree YAML."""
         svc, _, workflow_repo, _, git_service = _make_service()
         working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value.yaml = working_tree_yaml
@@ -323,9 +328,8 @@ class TestGitFallbacks:
             )
             await asyncio.sleep(0.05)
 
-            mock_parse.assert_called_once()
-            yaml_arg = mock_parse.call_args[0][0]
-            assert yaml_arg == working_tree_yaml
+            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
+            mock_parse.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

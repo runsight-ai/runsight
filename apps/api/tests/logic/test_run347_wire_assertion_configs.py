@@ -273,7 +273,16 @@ class TestIntegrationEvalScoreViaService:
             provider_repo=Mock(),
             engine=db_engine,
         )
-        svc.unregister_observer = Mock()
+        original_unregister = svc._streams.unregister
+        captured_events: list[dict] = []
+
+        def _capture_then_unregister(rid):
+            observer = svc._streams.get(rid)
+            if observer is not None:
+                captured_events.extend(_drain_queue(observer.queue))
+            original_unregister(rid)
+
+        svc._streams.unregister = _capture_then_unregister
 
         run_id = "run_346_baseline_delta"
         _seed_run(db_engine, run_id, "block_assertion_test")
@@ -309,12 +318,10 @@ class TestIntegrationEvalScoreViaService:
                 _prepared_inputs({"instruction": "Analyze the data"}),
             )
 
-        observer = svc.get_observer(run_id)
-        assert observer is not None
-
-        events = _drain_queue(observer.queue)
-        assert any(event["event"] == "node_eval_complete" for event in events)
-        eval_event = next(event for event in events if event["event"] == "node_eval_complete")
+        assert any(event["event"] == "node_eval_complete" for event in captured_events)
+        eval_event = next(
+            event for event in captured_events if event["event"] == "node_eval_complete"
+        )
         assert eval_event["data"]["delta"] is not None
         assert eval_event["data"]["delta"]["baseline_run_count"] == 1
 

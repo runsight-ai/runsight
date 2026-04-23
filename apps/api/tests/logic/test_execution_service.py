@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
@@ -93,6 +94,10 @@ def _prepared_inputs(inputs):
     )
 
 
+def _run_repo(engine):
+    return RunRepository(Session(engine))
+
+
 # ---------------------------------------------------------------------------
 # 1. ExecutionService instantiation
 # ---------------------------------------------------------------------------
@@ -132,7 +137,7 @@ class TestLaunchExecution:
 
     @pytest.mark.asyncio
     async def test_launch_execution_registers_task(self):
-        """launch_execution adds run_id to _running_tasks."""
+        """launch_execution adds run_id to the runtime task registry."""
         ExecutionService = _import_execution_service()
         run_repo = Mock()
         workflow_repo = Mock()
@@ -163,11 +168,10 @@ class TestLaunchExecution:
                 "run_1",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
             # Task should be tracked
-            assert "run_1" in svc._running_tasks
+            assert "run_1" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_returns_immediately(self):
@@ -211,11 +215,10 @@ class TestLaunchExecution:
                 "run_2",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
 
             # The method returned but workflow hasn't completed
-            assert "run_2" in svc._running_tasks
+            assert "run_2" in svc._runtime.running_tasks
 
             # Let the background task finish
             execution_finish.set()
@@ -330,7 +333,7 @@ config: {}
 class TestAutoCleanup:
     @pytest.mark.asyncio
     async def test_task_removed_after_completion(self):
-        """After background task completes, run_id is removed from _running_tasks."""
+        """After background task completes, run_id is removed from runtime.running_tasks."""
         ExecutionService = _import_execution_service()
         run_repo = Mock()
         run_repo.update_run = Mock()
@@ -362,13 +365,12 @@ class TestAutoCleanup:
                 "run_cleanup",
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
 
             # Wait for background task to finish and cleanup callback to fire
             await asyncio.sleep(0.1)
 
-            assert "run_cleanup" not in svc._running_tasks
+            assert "run_cleanup" not in svc._runtime.running_tasks
 
 
 # ---------------------------------------------------------------------------
@@ -412,7 +414,6 @@ class TestLaunchExecutionErrors:
             "run_err1",
             "wf_bad",
             _prepared_inputs({"instruction": "test"}),
-            branch="main",
         )
 
         # Wait for background task to fail
@@ -447,7 +448,7 @@ class TestLaunchExecutionErrors:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -499,7 +500,6 @@ config: {}
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "test"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -539,7 +539,6 @@ config: {}
             "run_prefail",
             "wf_missing",
             _prepared_inputs({"instruction": "x"}),
-            branch="main",
         )
         await asyncio.sleep(0.05)
 
@@ -576,7 +575,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -613,7 +612,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
@@ -644,7 +642,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -682,7 +680,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -712,7 +709,7 @@ class TestRunStatusTransitions:
             session.add(run)
             session.commit()
 
-        run_repo = Mock()
+        run_repo = _run_repo(db_engine)
         workflow_repo = Mock()
         provider_repo = Mock()
 
@@ -748,7 +745,6 @@ class TestRunStatusTransitions:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
             )
             await asyncio.sleep(0.1)
 
@@ -813,11 +809,10 @@ config: {}
                 "run_code_only",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_not_called()
-        assert "run_code_only" in svc._running_tasks
+        assert "run_code_only" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_rejects_providerless_modeless_soul_without_workflow_model(self):
@@ -869,7 +864,6 @@ config: {}
                 "run_missing_model",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_called_once()
@@ -928,7 +922,6 @@ config: {}
                 "run_missing_model_name",
                 "wf_1",
                 _prepared_inputs({"instruction": "do stuff"}),
-                branch="main",
             )
 
         mock_fail.assert_called_once()

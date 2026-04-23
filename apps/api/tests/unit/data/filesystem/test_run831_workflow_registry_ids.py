@@ -99,3 +99,25 @@ def test_workflow_repository_source_does_not_keep_child_stem_fallback() -> None:
     assert "workflow_results_by_id[result.item.workflow.name]" not in source
     assert "validation_index[resolved_child.relative_path]" not in source
     assert "validation_index[wf_name]" not in source
+
+
+def test_build_runnable_workflow_registry_rejects_root_yaml_with_mismatched_embedded_id(
+    tmp_path: Path,
+) -> None:
+    parent_path = tmp_path / "custom" / "workflows" / "parent.yaml"
+    _write_workflow(
+        parent_path,
+        workflow_id="embedded-parent",
+        workflow_name="Parent Flow",
+    )
+
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match=r"embedded workflow id 'embedded-parent' does not match requested workflow:parent",
+    ):
+        repo.build_runnable_workflow_registry(
+            "parent",
+            parent_path.read_text(encoding="utf-8"),
+        )

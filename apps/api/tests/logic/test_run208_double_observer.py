@@ -98,7 +98,7 @@ class TestOnWorkflowStartCalledOnce:
         mock_wf.run = fake_wf_run
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -138,7 +138,7 @@ class TestOnWorkflowCompleteCalledOnce:
         mock_wf.run = fake_wf_run
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -180,7 +180,7 @@ class TestOnWorkflowErrorCalledOnce:
         mock_wf.run = fake_wf_run
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -398,7 +398,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -421,7 +421,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
@@ -442,7 +442,7 @@ class TestExecutionServiceDoesNotCallObserverDirectly:
         mock_wf.run = AsyncMock(side_effect=RuntimeError("kaboom"))
 
         with patch(
-            "runsight_api.logic.services.execution_service.CompositeObserver"
+            "runsight_api.logic.services.execution_runtime.CompositeObserver"
         ) as MockComposite:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer

@@ -115,7 +115,9 @@ function renderInputControl({
           {...sharedProps}
           labelId={labelId}
           value={value}
+          required={required}
           invalid={invalid}
+          describedBy={describedBy}
           onChange={(event) => onChange(name, parseNumberValue(event.target.value))}
         />
       );

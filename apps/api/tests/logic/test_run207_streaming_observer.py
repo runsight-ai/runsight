@@ -1,14 +1,14 @@
 """Red tests for RUN-207: Wire StreamingObserver into execution pipeline.
 
-Bug: StreamingObserver exists and so does the observer registry
-(register_observer / unregister_observer / subscribe_stream) on ExecutionService,
+Bug: StreamingObserver exists and so does the stream registry
+(register / unregister / subscribe_stream) in the execution collaborators,
 but _run_workflow() never creates a StreamingObserver, never registers it, and
 never adds it to the CompositeObserver chain.  The SSE endpoint therefore never
 receives any events during execution.
 
 Fix required:
   1. Create StreamingObserver(run_id=run_id) inside _run_workflow()
-  2. Register it via self.register_observer(run_id, streaming_obs)
+  2. Register it via the execution stream registry
   3. Add it to the CompositeObserver chain
   4. Unregister in a finally block (cleanup on both success and failure)
 
@@ -16,6 +16,7 @@ All tests should FAIL until the StreamingObserver is wired in.
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -23,6 +24,7 @@ from runsight_core.state import WorkflowState
 from runsight_core.redaction import RedactionContext
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
+from runsight_api.logic.services.execution_runtime import ExecutionRuntimeCoordinator
 from runsight_api.logic.services.execution_service import (
     ExecutionService,
     PreparedRunInputs,
@@ -31,6 +33,54 @@ from runsight_api.logic.services.execution_service import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_execution_runtime_registers_observers_directly_via_streams() -> None:
+    register_calls: list[str] = []
+    unregister_calls: list[str] = []
+
+    class _Streams:
+        def register(self, run_id, observer):
+            register_calls.append(run_id)
+
+        def unregister(self, run_id):
+            unregister_calls.append(run_id)
+
+        def close_stream(self, run_id, observer=None):
+            return None
+
+    persistence = Mock()
+    persistence.is_run_cancelled.return_value = False
+    persistence.set_status.return_value = True
+    runtime = ExecutionRuntimeCoordinator(engine=None, persistence=persistence, streams=_Streams())
+
+    class _Service:
+        def register_observer(self, run_id, observer):
+            raise AssertionError(
+                "ExecutionRuntimeCoordinator must not use service.register_observer facade"
+            )
+
+        def unregister_observer(self, run_id):
+            raise AssertionError(
+                "ExecutionRuntimeCoordinator must not use service.unregister_observer facade"
+            )
+
+    runtime.service = _Service()
+
+    async def _run(state, observer=None, inputs=None):
+        return state
+
+    workflow = SimpleNamespace(run=_run)
+
+    await runtime.run_workflow(
+        "run_direct_streams",
+        workflow,
+        _prepared_inputs({"instruction": "test"}),
+    )
+
+    assert register_calls == ["run_direct_streams"]
+    assert unregister_calls == ["run_direct_streams"]
 
 
 def _make_service(**overrides):
@@ -57,12 +107,12 @@ def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
 
 class TestStreamingObserverCreatedAndRegistered:
     """_run_workflow must create a StreamingObserver and register it via
-    self.register_observer(run_id, obs)."""
+    the canonical stream registry collaborator."""
 
     @pytest.mark.asyncio
     async def test_streaming_observer_registered_during_run(self):
-        """After _run_workflow starts, get_observer(run_id) must return a
-        StreamingObserver — meaning register_observer was called.
+        """After _run_workflow starts, the stream registry must return a
+        StreamingObserver — meaning registration happened.
 
         Currently FAILS because _run_workflow never calls register_observer.
         """
@@ -73,7 +123,7 @@ class TestStreamingObserverCreatedAndRegistered:
         async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal captured_observer
             # At this point the StreamingObserver should be registered
-            captured_observer = svc.get_observer("run_reg")
+            captured_observer = svc._streams.get("run_reg")
             return state
 
         mock_wf = Mock()
@@ -86,8 +136,7 @@ class TestStreamingObserverCreatedAndRegistered:
         )
 
         assert captured_observer is not None, (
-            "get_observer('run_reg') returned None during wf.run() — "
-            "StreamingObserver was never registered via register_observer()"
+            "stream registry returned None during wf.run() — StreamingObserver was never registered"
         )
         assert isinstance(captured_observer, StreamingObserver), (
             f"Expected StreamingObserver, got {type(captured_observer).__name__}"
@@ -106,7 +155,7 @@ class TestStreamingObserverCreatedAndRegistered:
 
         async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal captured_observer
-            captured_observer = svc.get_observer(run_id)
+            captured_observer = svc._streams.get(run_id)
             return state
 
         mock_wf = Mock()
@@ -210,7 +259,7 @@ class TestStreamingObserverInCompositeChain:
             if observer:
                 observer.on_workflow_start("test_wf", state)
             # Now check the registered StreamingObserver's queue
-            streaming_obs = svc2.get_observer("run_events2")
+            streaming_obs = svc2._streams.get("run_events2")
             if streaming_obs:
                 while not streaming_obs.queue.empty():
                     events.append(streaming_obs.queue.get_nowait())
@@ -243,12 +292,12 @@ class TestStreamingObserverInCompositeChain:
 
 class TestStreamingObserverCleanupOnSuccess:
     """After _run_workflow completes successfully, the StreamingObserver must
-    be unregistered via unregister_observer(run_id)."""
+    be unregistered from the stream registry."""
 
     @pytest.mark.asyncio
     async def test_observer_unregistered_after_success(self):
-        """get_observer(run_id) must return None after a successful run,
-        proving unregister_observer was called in the finally block.
+        """The stream registry must return None after a successful run,
+        proving cleanup happened in the finally block.
 
         Currently FAILS because StreamingObserver is never registered
         (and therefore there's nothing to unregister).
@@ -260,7 +309,7 @@ class TestStreamingObserverCleanupOnSuccess:
         async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal was_registered
             # Verify it IS registered during execution
-            was_registered = svc.get_observer("run_clean_ok") is not None
+            was_registered = svc._streams.get("run_clean_ok") is not None
             return state
 
         mock_wf = Mock()
@@ -276,9 +325,9 @@ class TestStreamingObserverCleanupOnSuccess:
         assert was_registered, "StreamingObserver was not registered during execution"
 
         # Must be unregistered after completion
-        assert svc.get_observer("run_clean_ok") is None, (
+        assert svc._streams.get("run_clean_ok") is None, (
             "StreamingObserver still registered after successful run — "
-            "unregister_observer() was not called in finally block"
+            "stream cleanup did not run in the finally block"
         )
 
 
@@ -293,8 +342,8 @@ class TestStreamingObserverCleanupOnFailure:
 
     @pytest.mark.asyncio
     async def test_observer_unregistered_after_failure(self):
-        """get_observer(run_id) must return None after a failed run,
-        proving unregister_observer was called in the finally block.
+        """The stream registry must return None after a failed run,
+        proving cleanup happened in the finally block.
 
         Currently FAILS because StreamingObserver is never registered.
         """
@@ -304,7 +353,7 @@ class TestStreamingObserverCleanupOnFailure:
 
         async def fake_wf_run(state, observer=None, **kwargs):
             nonlocal was_registered
-            was_registered = svc.get_observer("run_clean_fail") is not None
+            was_registered = svc._streams.get("run_clean_fail") is not None
             raise RuntimeError("LLM exploded")
 
         mock_wf = Mock()
@@ -320,9 +369,9 @@ class TestStreamingObserverCleanupOnFailure:
         assert was_registered, "StreamingObserver was not registered during execution"
 
         # Must be unregistered even after failure
-        assert svc.get_observer("run_clean_fail") is None, (
+        assert svc._streams.get("run_clean_fail") is None, (
             "StreamingObserver still registered after failed run — "
-            "unregister_observer() was not called in finally block"
+            "stream cleanup did not run in the finally block"
         )
 
 
@@ -365,9 +414,9 @@ class TestSubscribeStreamYieldsEvents:
                 collected_events.append(event)
 
         # Run both tasks concurrently: execution + stream consumption.
-        # subscribe_stream must be called AFTER register_observer but
+        # subscribe_stream must be called AFTER stream registration but
         # BEFORE wf.run() completes. We delay wf.run() events slightly.
-        # However, since register_observer isn't called yet, we need to
+        # However, since registration hasn't happened yet, we need to
         # allow time for it to be registered before consuming.
 
         # Start execution as a task
@@ -428,20 +477,19 @@ class TestSubscribeStreamYieldsEvents:
             events.append(event)
 
         # After fix: observer is cleaned up (None) but was registered during run.
-        # We assert it was registered at some point by checking that _observers
-        # was populated. Since we can't retroactively check, we verify the
+        # Since we can't retroactively inspect registration, we verify the
         # subscribe_stream contract works when the observer IS present.
 
-        # Register manually and verify subscribe_stream can yield from it
+        # Register manually through the canonical stream registry.
         manual_obs = StreamingObserver(run_id=run_id)
-        svc.register_observer(run_id, manual_obs)
+        svc._streams.register(run_id, manual_obs)
         manual_obs.queue.put_nowait({"event": "run_completed", "data": {}})
 
         manual_events = []
         async for event in svc.subscribe_stream(run_id):
             manual_events.append(event)
 
-        # This works with manual registration.  The fix must make
+        # This works with manual registration. The fix must make
         # _run_workflow do this automatically. We verify via test 1-4.
         assert len(manual_events) == 1
 
@@ -453,7 +501,7 @@ class TestSubscribeStreamYieldsEvents:
 
         async def capture_run(state, observer=None, **kwargs):
             nonlocal obs_during_run
-            obs_during_run = svc2.get_observer(run_id2)
+            obs_during_run = svc2._streams.get(run_id2)
             return state
 
         mock_wf2 = Mock()
@@ -607,7 +655,7 @@ class TestEndToEndEventPipeline:
                 observer.on_workflow_complete("test_wf", state, 0.5)
 
             # Capture what's in the queue at this point (before cleanup)
-            streaming_obs = svc.get_observer(run_id)
+            streaming_obs = svc._streams.get(run_id)
             if streaming_obs:
                 while not streaming_obs.queue.empty():
                     events_before_cleanup.append(streaming_obs.queue.get_nowait())
@@ -630,3 +678,37 @@ class TestEndToEndEventPipeline:
         event_types = [e["event"] for e in events_before_cleanup]
         assert "run_started" in event_types
         assert "run_completed" in event_types
+
+    @pytest.mark.asyncio
+    async def test_unhandled_runtime_exception_still_closes_stream(self):
+        """Unexpected wf.run() exceptions must still unblock stream subscribers."""
+        svc = _make_service()
+        run_id = "run_e2e_unhandled_close"
+        collected = []
+
+        async def fake_wf_run(state, observer=None, **kwargs):
+            await asyncio.sleep(0.02)
+            raise RuntimeError("unexpected boom")
+
+        mock_wf = Mock()
+        mock_wf.run = fake_wf_run
+
+        async def consume():
+            async for event in svc.subscribe_stream(run_id):
+                collected.append(event)
+
+        exec_task = asyncio.create_task(
+            svc._run_workflow(
+                run_id,
+                mock_wf,
+                _prepared_inputs({"instruction": "test"}),
+            )
+        )
+        await asyncio.sleep(0.005)
+        consumer_task = asyncio.create_task(consume())
+
+        await exec_task
+        await asyncio.wait_for(consumer_task, timeout=1.0)
+
+        assert collected == []
+        assert svc._streams.get(run_id) is None

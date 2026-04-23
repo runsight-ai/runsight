@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
@@ -233,7 +234,7 @@ class TestLaunchExecutionStoresSha:
         provider_repo.list_all.return_value = []
 
         svc = ExecutionService(
-            run_repo=Mock(),
+            run_repo=RunRepository(Session(db_engine)),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=db_engine,
@@ -261,7 +262,7 @@ class TestLaunchExecutionStoresSha:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -309,7 +310,7 @@ class TestLaunchExecutionStoresSha:
         provider_repo.list_all.return_value = []
 
         svc = ExecutionService(
-            run_repo=Mock(),
+            run_repo=RunRepository(Session(db_engine)),
             workflow_repo=workflow_repo,
             provider_repo=provider_repo,
             engine=db_engine,
@@ -335,7 +336,7 @@ class TestLaunchExecutionStoresSha:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 

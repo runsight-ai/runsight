@@ -158,17 +158,16 @@ class TestStreamingObserverUsesConstants:
 
 
 # ---------------------------------------------------------------------------
-# AC-3: execution_service uses constants for terminal event checks
+# AC-3: execution_stream_registry uses constants for terminal event checks
 # ---------------------------------------------------------------------------
 
 
-class TestExecutionServiceUsesConstants:
-    """execution_service.py must use SSE_TERMINAL_EVENTS (or individual constants)
-    for the terminal-event check in subscribe_stream, not inline string literals."""
+class TestExecutionStreamRegistryUsesConstants:
+    """execution_stream_registry.py must use SSE_TERMINAL_EVENTS for terminal-event checks."""
 
-    def test_execution_service_imports_from_events(self):
+    def test_execution_stream_registry_imports_from_events(self):
         """The module must import terminal-event constants from domain.events."""
-        import runsight_api.logic.services.execution_service as mod
+        import runsight_api.logic.services.execution_stream_registry as mod
 
         source = inspect.getsource(mod)
         tree = ast.parse(source)
@@ -188,21 +187,21 @@ class TestExecutionServiceUsesConstants:
 
         found = imported_names & acceptable
         assert len(found) >= 1, (
-            f"execution_service.py does not import any SSE terminal constants "
+            f"execution_stream_registry.py does not import any SSE terminal constants "
             f"from domain.events. Imported names: {imported_names}"
         )
 
-    def test_no_hardcoded_terminal_strings_in_subscribe_stream(self):
-        """subscribe_stream must not contain inline
+    def test_no_hardcoded_terminal_strings_in_subscribe(self):
+        """subscribe must not contain inline
         'run_completed' / 'run_failed' strings."""
-        import runsight_api.logic.services.execution_service as mod
+        import runsight_api.logic.services.execution_stream_registry as mod
 
         source = inspect.getsource(mod)
         tree = ast.parse(source)
 
-        # Find the subscribe_stream method
+        # Find the subscribe method
         for node in ast.walk(tree):
-            if isinstance(node, ast.AsyncFunctionDef) and node.name == "subscribe_stream":
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "subscribe":
                 method_source = ast.get_source_segment(source, node)
                 method_tree = ast.parse(textwrap.dedent(method_source))
 
@@ -214,13 +213,13 @@ class TestExecutionServiceUsesConstants:
                         violations.append(inner_node.value)
 
                 assert not violations, (
-                    f"subscribe_stream still has hardcoded terminal event strings: "
+                    f"subscribe still has hardcoded terminal event strings: "
                     f"{violations}. Replace with SSE_TERMINAL_EVENTS or "
                     f"individual constants."
                 )
                 return
 
-        pytest.fail("subscribe_stream method not found in execution_service.py")
+        pytest.fail("subscribe method not found in execution_stream_registry.py")
 
 
 # ---------------------------------------------------------------------------
