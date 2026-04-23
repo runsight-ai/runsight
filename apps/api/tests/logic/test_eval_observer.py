@@ -1026,3 +1026,71 @@ class TestEvalObserverChildStreamIsolation:
         event = child.sse_queue.get_nowait()
         assert event["event"] == "node_eval_complete"
         assert event["data"]["node_id"] == "block_a"
+
+    @pytest.mark.asyncio
+    async def test_sibling_child_eval_events_do_not_bleed_across_child_queues(
+        self,
+        db_engine,
+        sse_queue,
+        sample_state,
+        sample_soul,
+        contains_assertion_configs,
+    ):
+        parent_run_id = "run_973_eval_parent_siblings"
+        child_a_run_id = "run_973_eval_child_a"
+        child_b_run_id = "run_973_eval_child_b"
+
+        with Session(db_engine) as session:
+            for run_id, workflow_id in [
+                (parent_run_id, "wf_parent"),
+                (child_a_run_id, "wf_child_a"),
+                (child_b_run_id, "wf_child_b"),
+            ]:
+                session.add(
+                    Run(
+                        id=run_id,
+                        workflow_id=workflow_id,
+                        workflow_name=workflow_id,
+                        status=RunStatus.running,
+                        task_json="{}",
+                        branch="main",
+                    )
+                )
+            for run_id in [child_a_run_id, child_b_run_id]:
+                session.add(
+                    RunNode(
+                        id=f"{run_id}:block_a",
+                        run_id=run_id,
+                        node_id="block_a",
+                        block_type="LinearBlock",
+                        status="completed",
+                        cost_usd=0.05,
+                        tokens={"total": 1500},
+                        output="Some output containing Sources information.",
+                    )
+                )
+            session.commit()
+
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=db_engine,
+            run_id=parent_run_id,
+            sse_queue=sse_queue,
+            assertion_configs=contains_assertion_configs,
+        )
+        child_a = parent.clone_for_child_run(child_run_id=child_a_run_id)
+        child_b = parent.clone_for_child_run(child_run_id=child_b_run_id)
+
+        child_a.on_block_complete(
+            "wf_child_a", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
+
+        assert sse_queue.empty(), (
+            "Sibling child eval events must not bleed back into the parent queue."
+        )
+        assert child_b.sse_queue.empty(), (
+            "An eval event emitted for child A must not appear on child B's queue."
+        )
+        event = child_a.sse_queue.get_nowait()
+        assert event["event"] == "node_eval_complete"
+        assert event["data"]["node_id"] == "block_a"
