@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Node } from "@xyflow/react";
 import type { WorkflowSurfaceProps, WorkflowSurfaceMode } from "./surfaceContract";
@@ -140,6 +140,7 @@ function SurfaceCenter(p: CenterProps) {
 }
 
 export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflowId = "", runId: initialRunId }: WorkflowSurfaceProps) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<WorkflowSurfaceMode>(initialMode);
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [activeRunId, setRunId] = useState(initialRunId);
@@ -194,8 +195,12 @@ export function WorkflowSurface({ mode: initialMode, workflowId: initialWorkflow
   useRunStatusSync({ mode, run, setActiveCanvasRunId, setRunCost });
   useNodeStatusMapping({ mode, nodesLength: nodes.length, runNodes, canvasHydrationRevision, setNodeStatus });
 
-  const handleForkTransition = useCallback((id: string) => { window.history.replaceState(null, "", `/workflows/${id}/edit`); window.dispatchEvent(new PopStateEvent("popstate")); }, []);
-  const handleReadonlyForkTransition = useCallback((id: string) => { if (typeof globalThis.setTimeout === "function") { globalThis.setTimeout(() => handleForkTransition(id), 0); return; } handleForkTransition(id); }, [handleForkTransition]);
+  const handleForkTransition = useCallback((id: string) => {
+    navigate(`/workflows/${id}/edit`, { replace: true });
+  }, [navigate]);
+  const handleReadonlyForkTransition = useCallback((id: string) => {
+    handleForkTransition(id);
+  }, [handleForkTransition]);
   const handleProviderSaveSuccess = useCallback(async () => { await queryClient.invalidateQueries({ queryKey: ["providers"] }); setApiKeyModalOpen(false); }, [queryClient]);
   const handleSave = useCallback(() => { if (!editable || !workflowId) return; setCommitDialogOpen(true); }, [editable, workflowId]);
   const handleCommitSuccess = useCallback(() => { setIsDirty(false); setCommitDialogOpen(false); }, [setIsDirty]);
