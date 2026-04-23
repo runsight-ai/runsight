@@ -1094,3 +1094,109 @@ class TestEvalObserverChildStreamIsolation:
         event = child_a.sse_queue.get_nowait()
         assert event["event"] == "node_eval_complete"
         assert event["data"]["node_id"] == "block_a"
+
+
+class TestEvalObserverChildAssertionOwnership:
+    def test_child_assertion_config_rebinding_does_not_mutate_parent_surface(
+        self,
+        db_engine,
+        sse_queue,
+    ):
+        parent_run_id = "run_973_eval_parent_config"
+        child_run_id = "run_973_eval_child_config"
+
+        with Session(db_engine) as session:
+            for run_id, workflow_id in [
+                (parent_run_id, "wf_parent"),
+                (child_run_id, "wf_child"),
+            ]:
+                session.add(
+                    Run(
+                        id=run_id,
+                        workflow_id=workflow_id,
+                        workflow_name=workflow_id,
+                        status=RunStatus.running,
+                        task_json="{}",
+                        branch="main",
+                    )
+                )
+            session.add(
+                RunNode(
+                    id=f"{parent_run_id}:root_block",
+                    run_id=parent_run_id,
+                    node_id="root_block",
+                    block_type="LinearBlock",
+                    status="completed",
+                    cost_usd=0.05,
+                    tokens={"total": 1200},
+                    output="ROOT signal",
+                )
+            )
+            session.add(
+                RunNode(
+                    id=f"{child_run_id}:child_block",
+                    run_id=child_run_id,
+                    node_id="child_block",
+                    block_type="LinearBlock",
+                    status="completed",
+                    cost_usd=0.03,
+                    tokens={"total": 800},
+                    output="CHILD signal",
+                )
+            )
+            session.commit()
+
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=db_engine,
+            run_id=parent_run_id,
+            sse_queue=sse_queue,
+            assertion_configs={
+                "root_block": [{"type": "contains", "value": "ROOT", "weight": 1.0}]
+            },
+        )
+        child = parent.clone_for_child_run(child_run_id=child_run_id)
+
+        child.assertion_configs.clear()
+        child.assertion_configs.update(
+            {"child_block": [{"type": "contains", "value": "CHILD", "weight": 1.0}]}
+        )
+
+        child.on_block_complete(
+            "wf_child",
+            "child_block",
+            "LinearBlock",
+            0.25,
+            WorkflowState(
+                total_cost_usd=0.03,
+                total_tokens=800,
+                results={"child_block": BlockResult(output="CHILD signal")},
+            ),
+        )
+        parent.on_block_complete(
+            "wf_parent",
+            "root_block",
+            "LinearBlock",
+            0.25,
+            WorkflowState(
+                total_cost_usd=0.05,
+                total_tokens=1200,
+                results={"root_block": BlockResult(output="ROOT signal")},
+            ),
+        )
+
+        with Session(db_engine) as session:
+            child_node = session.get(RunNode, f"{child_run_id}:child_block")
+            parent_node = session.get(RunNode, f"{parent_run_id}:root_block")
+
+        assert child_node is not None
+        assert child_node.eval_passed is True
+        assert parent_node is not None
+        assert parent_node.eval_passed is True, (
+            "Rebinding a child observer to the child workflow's assertion configs must not "
+            "erase or replace the parent observer's root-workflow assertions."
+        )
+        assert child.assertion_configs is not parent.assertion_configs, (
+            "Child eval observers must own an assertion config surface that can be rebound "
+            "to the child workflow without mutating the parent's root workflow configs."
+        )

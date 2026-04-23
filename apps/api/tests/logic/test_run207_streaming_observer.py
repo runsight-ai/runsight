@@ -740,3 +740,33 @@ class TestChildStreamingObserverIsolation:
             "A live event emitted for one child run must not appear on a sibling child's "
             "queue; each child stream should belong to exactly one run id."
         )
+
+    def test_child_queue_is_removed_after_child_completion(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child_done")
+
+        assert "run_973_child_done" in parent._child_queues
+
+        child.on_workflow_complete(
+            "child_wf",
+            WorkflowState(total_cost_usd=0.01, total_tokens=42),
+            0.25,
+        )
+
+        assert "run_973_child_done" not in parent._child_queues, (
+            "Parent StreamingObserver must release a child queue after that child stream "
+            "reaches terminal completion."
+        )
+
+    def test_child_queue_is_removed_after_child_failure(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child_failed")
+
+        assert "run_973_child_failed" in parent._child_queues
+
+        child.on_workflow_error("child_wf", RuntimeError("boom"), 0.25)
+
+        assert "run_973_child_failed" not in parent._child_queues, (
+            "Parent StreamingObserver must release a child queue after that child stream "
+            "reaches terminal failure."
+        )

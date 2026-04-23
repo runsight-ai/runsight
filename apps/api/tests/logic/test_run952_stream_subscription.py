@@ -240,6 +240,52 @@ class TestChildRunStreamOwnership:
         assert event["data"]["run_id"] == child.run_id
 
     @pytest.mark.asyncio
+    async def test_late_child_subscriber_still_receives_completed_terminal_event(self):
+        service = _make_service()
+        parent = StreamingObserver(
+            run_id="run_973_parent",
+            register_stream=service._streams.register,
+            unregister_stream=service._streams.unregister,
+        )
+        service._streams.register(parent.run_id, parent)
+        child = parent.clone_for_child_run(child_run_id="run_973_child_complete")
+
+        child.on_workflow_complete(
+            "child_workflow",
+            Mock(total_cost_usd=0.01, total_tokens=42),
+            0.25,
+        )
+
+        events = [event async for event in service.subscribe_stream(child.run_id)]
+
+        assert [event["event"] for event in events] == ["run_completed"], (
+            "A late child subscriber must still observe the child's live run_completed event "
+            "even after the child stream unregisters itself on terminal completion."
+        )
+        assert events[0]["data"]["run_id"] == child.run_id
+
+    @pytest.mark.asyncio
+    async def test_late_child_subscriber_still_receives_failed_terminal_event(self):
+        service = _make_service()
+        parent = StreamingObserver(
+            run_id="run_973_parent",
+            register_stream=service._streams.register,
+            unregister_stream=service._streams.unregister,
+        )
+        service._streams.register(parent.run_id, parent)
+        child = parent.clone_for_child_run(child_run_id="run_973_child_failed")
+
+        child.on_workflow_error("child_workflow", RuntimeError("child boom"), 0.25)
+
+        events = [event async for event in service.subscribe_stream(child.run_id)]
+
+        assert [event["event"] for event in events] == ["run_failed"], (
+            "A late child subscriber must still observe the child's live run_failed event "
+            "even after the child stream unregisters itself on terminal failure."
+        )
+        assert events[0]["data"]["run_id"] == child.run_id
+
+    @pytest.mark.asyncio
     async def test_parent_stream_stays_open_and_filters_child_raw_events(self):
         service = _make_service()
         parent = StreamingObserver(run_id="run_973_parent")

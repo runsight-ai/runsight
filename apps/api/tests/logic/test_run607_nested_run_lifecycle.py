@@ -21,6 +21,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
+from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +438,45 @@ class TestParentNodeStoresChildRunId:
             assert child_run is not None, (
                 f"child_run_id '{node.child_run_id}' should reference an existing Run"
             )
+
+    def test_parent_node_started_event_includes_allocated_child_run_id(self, db_engine):
+        """The live parent node_started event should expose the child run created downstream."""
+        with Session(db_engine) as session:
+            _create_run(
+                session,
+                run_id="parent_live_stream",
+                workflow_id="wf_parent",
+                workflow_name="Parent",
+                status=RunStatus.running,
+                depth=0,
+            )
+
+        streaming_observer = StreamingObserver(run_id="parent_live_stream")
+        parent_observer = CompositeObserver(
+            streaming_observer,
+            ExecutionObserver(engine=db_engine, run_id="parent_live_stream"),
+        )
+
+        parent_observer.on_block_start(
+            "Parent",
+            "call_child",
+            "WorkflowBlock",
+            child_workflow_id="wf_real_child",
+            child_workflow_name="Child Workflow",
+        )
+
+        event = streaming_observer.queue.get_nowait()
+
+        with Session(db_engine) as session:
+            node = session.get(RunNode, "parent_live_stream:call_child")
+
+        assert node is not None
+        assert node.child_run_id is not None
+        assert event["event"] == "node_started"
+        assert event["data"]["child_run_id"] == node.child_run_id, (
+            "The parent live node_started event must include the child_run_id allocated by "
+            "the runtime observer path, not only when a test injects child_run_id manually."
+        )
 
     def test_child_observer_persists_child_nodes_on_child_run(self, db_engine):
         """Child workflow events must be persisted on the child run, not the parent run."""
