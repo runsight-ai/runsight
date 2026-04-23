@@ -55,6 +55,15 @@ class EvalObserver:
             child_sse_queue_factory=self._child_sse_queue_factory,
         )
 
+    def bind_sse_queue(
+        self,
+        *,
+        sse_queue: Any,
+        child_sse_queue_factory: Callable[[str], Any] | None = None,
+    ) -> None:
+        self.sse_queue = sse_queue
+        self._child_sse_queue_factory = child_sse_queue_factory
+
     # ------------------------------------------------------------------
     # No-op protocol methods
     # ------------------------------------------------------------------

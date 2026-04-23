@@ -520,12 +520,32 @@ class CompositeObserver:
 
     def clone_for_child_run(self, *, child_run_id: str) -> "CompositeObserver":
         child_observers: list[WorkflowObserver] = []
+        child_stream_queue: Any | None = None
+        child_stream_queue_factory: Any | None = None
+        queue_binders: list[Any] = []
         for obs in self.observers:
             cloner = getattr(obs, "clone_for_child_run", None)
             if callable(cloner):
-                child_observers.append(cloner(child_run_id=child_run_id))
+                cloned = cloner(child_run_id=child_run_id)
             else:
-                child_observers.append(ChildObserverWrapper(obs))
+                cloned = ChildObserverWrapper(obs)
+            child_observers.append(cloned)
+
+            queue_factory = getattr(cloned, "child_queue_for_run", None)
+            if callable(queue_factory) and hasattr(cloned, "queue"):
+                child_stream_queue = getattr(cloned, "queue")
+                child_stream_queue_factory = queue_factory
+
+            queue_binder = getattr(cloned, "bind_sse_queue", None)
+            if callable(queue_binder):
+                queue_binders.append(queue_binder)
+
+        if child_stream_queue is not None:
+            for queue_binder in queue_binders:
+                queue_binder(
+                    sse_queue=child_stream_queue,
+                    child_sse_queue_factory=child_stream_queue_factory,
+                )
         return CompositeObserver(*child_observers)
 
     def record_workflow_input_snapshot(self, input_schema: Any, inputs: Any, **kwargs: Any) -> None:
