@@ -514,13 +514,11 @@ class TestExecutionObserverHeartbeat:
 class TestGhostRunDetection:
     """Runs stuck in 'running' status at server startup must be marked as failed."""
 
-    def test_execution_service_has_detect_ghost_runs(self):
-        """ExecutionService must have a detect_ghost_runs or fail_ghost_runs method."""
+    def test_execution_service_has_fail_ghost_runs(self):
+        """ExecutionService must expose the canonical fail_ghost_runs method."""
         from runsight_api.logic.services.execution_service import ExecutionService
 
-        assert hasattr(ExecutionService, "fail_ghost_runs") or hasattr(
-            ExecutionService, "detect_ghost_runs"
-        )
+        assert hasattr(ExecutionService, "fail_ghost_runs")
 
     def test_ghost_runs_marked_as_failed(self):
         """Runs with status='running' at startup must be transitioned to 'failed'
@@ -533,7 +531,7 @@ class TestGhostRunDetection:
         mock_run.status = RunStatus.running
 
         mock_repo = MagicMock()
-        mock_repo.get_by_status.return_value = [mock_run]
+        mock_repo.list_runs.return_value = [mock_run]
 
         service = ExecutionService(
             run_repo=mock_repo,
@@ -542,14 +540,8 @@ class TestGhostRunDetection:
             engine=MagicMock(),
         )
 
-        # Actually invoke the method to mark ghost runs as failed
-        method = getattr(service, "fail_ghost_runs", None) or getattr(
-            service, "detect_ghost_runs", None
-        )
-        assert method is not None, (
-            "ExecutionService must have fail_ghost_runs or detect_ghost_runs method"
-        )
-        method()
+        # Actually invoke the canonical method to mark ghost runs as failed
+        service.fail_ghost_runs()
 
         # Ghost run must be transitioned to failed status
         assert mock_run.status == RunStatus.failed, (
@@ -567,7 +559,7 @@ class TestGhostRunDetection:
         mock_run.error = None
 
         mock_repo = MagicMock()
-        mock_repo.get_by_status.return_value = [mock_run]
+        mock_repo.list_runs.return_value = [mock_run]
 
         service = ExecutionService(
             run_repo=mock_repo,
@@ -576,12 +568,8 @@ class TestGhostRunDetection:
             engine=MagicMock(),
         )
 
-        # Actually invoke the method
-        method = getattr(service, "fail_ghost_runs", None) or getattr(
-            service, "detect_ghost_runs", None
-        )
-        assert method is not None
-        method()
+        # Actually invoke the canonical method
+        service.fail_ghost_runs()
 
         # Error message must be descriptive — mention server restart
         assert mock_run.error is not None, "Ghost run must have an error message set"

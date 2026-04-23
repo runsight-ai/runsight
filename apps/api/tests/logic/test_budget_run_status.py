@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
+from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.budget_enforcement import BudgetKilledException
@@ -200,7 +201,7 @@ def _make_execution_service(engine=None):
     """Create an ExecutionService with mocked repos."""
     from runsight_api.logic.services.execution_service import ExecutionService
 
-    run_repo = Mock()
+    run_repo = RunRepository(Session(engine)) if engine is not None else Mock()
     workflow_repo = Mock()
     provider_repo = Mock()
 
@@ -281,7 +282,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -335,7 +336,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -389,7 +390,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -449,7 +450,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -509,7 +510,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 
@@ -561,7 +562,7 @@ class TestBudgetExceptionSetsFailReason:
                 run_id,
                 "wf_1",
                 _prepared_inputs({"instruction": "go"}),
-                branch="main",
+                branch=None,
             )
             await asyncio.sleep(0.15)
 

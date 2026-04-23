@@ -72,17 +72,12 @@ def _canonical_service(run):
     return mock_service, captured
 
 
-def test_fetch_paginated_runs_uses_canonical_service_signature_without_runtime_introspection(
-    monkeypatch,
-):
+def test_fetch_paginated_runs_uses_canonical_service_signature_without_runtime_introspection():
     """_fetch_paginated_runs should succeed without calling inspect.signature at runtime."""
     run = _make_mock_run()
     mock_service, captured = _canonical_service(run)
 
-    def forbid_signature_lookup(*_args, **_kwargs):
-        raise AssertionError("inspect.signature should not be called for _fetch_paginated_runs")
-
-    monkeypatch.setattr(runs_router.inspect, "signature", forbid_signature_lookup)
+    assert not hasattr(runs_router, "inspect")
 
     result = runs_router._fetch_paginated_runs(
         mock_service,

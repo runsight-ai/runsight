@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 import runsight_api.data.filesystem.workflow_repo as workflow_repo_module
+from runsight_api.domain.errors import InputValidationError
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_core.yaml.validation import ValidationResult
 
@@ -186,11 +189,8 @@ def test_create_surfaces_missing_custom_tool_id_validation_error(tmp_path):
 def test_create_rejects_legacy_typed_tool_authoring(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
 
-    entity = repo.create({"name": "Legacy Typed Tool", "yaml": LEGACY_TYPED_TOOL_YAML})
-
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "list" in entity.validation_error
+    with pytest.raises(InputValidationError, match="list"):
+        repo.create({"name": "Legacy Typed Tool", "yaml": LEGACY_TYPED_TOOL_YAML})
 
 
 def test_create_rejects_reserved_builtin_id_collision_with_custom_slug(tmp_path):

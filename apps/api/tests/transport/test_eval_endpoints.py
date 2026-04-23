@@ -158,6 +158,12 @@ class TestEvalSchemas:
 class TestEvalServiceGetRunEval:
     """Test EvalService.get_run_eval() business logic."""
 
+    @staticmethod
+    def _service(repo: Mock, *, baseline=None) -> EvalService:
+        run_read_model = Mock()
+        run_read_model.get_baseline.return_value = baseline
+        return EvalService(repo, run_read_model=run_read_model)
+
     def test_returns_per_node_results_for_run_with_eval_data(self):
         """AC1: returns per-node assertion results for a run."""
         repo = Mock()
@@ -178,9 +184,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_abc123")
 
         assert result is not None
@@ -207,9 +211,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_abc123")
 
         node = result.nodes[0]
@@ -246,9 +248,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node1, node2]
         repo.get_run.return_value = Mock(id="run_123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_123")
 
         # Mean of 0.90 and 0.80 = 0.85
@@ -274,14 +274,14 @@ class TestEvalServiceGetRunEval:
 
         from runsight_api.domain.entities.run import BaselineStats
 
-        repo.get_baseline.return_value = BaselineStats(
+        baseline = BaselineStats(
             avg_cost=0.005,
             avg_tokens=150.0,
             avg_score=0.93,
             run_count=487,
         )
 
-        service = EvalService(repo)
+        service = self._service(repo, baseline=baseline)
         result = service.get_run_eval("run_abc123")
 
         delta = result.nodes[0].delta
@@ -308,9 +308,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_abc123")
 
         assert result.nodes[0].delta is None
@@ -354,9 +352,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node_with_eval, node_without_eval]
         repo.get_run.return_value = Mock(id="run_123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_123")
 
         assert len(result.nodes) == 1
@@ -391,9 +387,7 @@ class TestEvalServiceGetRunEval:
         )
         repo.list_nodes_for_run.return_value = [node_pass, node_fail]
         repo.get_run.return_value = Mock(id="run_123")
-        repo.get_baseline.return_value = None
-
-        service = EvalService(repo)
+        service = self._service(repo, baseline=None)
         result = service.get_run_eval("run_123")
 
         assert result.passed is False
