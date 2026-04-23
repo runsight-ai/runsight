@@ -110,14 +110,15 @@ async def test_private_child_state_input_mapping_raises(base_parent_state, mock_
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_execute_requires_child_doubles_to_expose_assertion_configs(
+async def test_workflow_block_execute_uses_child_double_without_assertion_configs(
     base_parent_state,
 ):
-    """WorkflowBlock.execute must not assume child doubles expose assertion_configs()."""
+    """WorkflowBlock.execute must accept child doubles without assertion_configs()."""
 
+    child_final_state = WorkflowState()
     child_workflow = SimpleNamespace(
         name="child_wf",
-        run=AsyncMock(return_value=WorkflowState()),
+        run=AsyncMock(return_value=child_final_state),
     )
     observer = MagicMock()
     block = WorkflowBlock(
@@ -128,8 +129,10 @@ async def test_workflow_block_execute_requires_child_doubles_to_expose_assertion
         max_depth=10,
     )
 
-    with pytest.raises(AttributeError, match="assertion_configs"):
-        await _run_block(block, base_parent_state, observer=observer)
+    result = await _run_block(block, base_parent_state, observer=observer)
+
+    assert isinstance(result, WorkflowState)
+    child_workflow.run.assert_awaited_once()
 
 
 @pytest.mark.asyncio
