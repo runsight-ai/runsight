@@ -33,6 +33,20 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+def _assert_persisted_revision(
+    repo: WorkflowRepository,
+    workflow_id: str,
+    entity,
+    expected_yaml: str,
+    expected_canvas: dict,
+) -> None:
+    assert entity.id == workflow_id
+    assert entity.yaml == expected_yaml
+    assert entity.canvas_state == expected_canvas
+    assert repo._get_path(workflow_id).read_text() == expected_yaml
+    assert _read_json(repo._canvas_path(workflow_id)) == expected_canvas
+
+
 def _install_sidecar_write_failure(
     monkeypatch: pytest.MonkeyPatch,
     repo: WorkflowRepository,
@@ -76,6 +90,49 @@ def test_update_without_canvas_state_keeps_existing_sidecar_and_succeeds(tmp_pat
     assert updated.id == workflow_id
     assert repo._get_path(workflow_id).read_text() == updated_yaml
     assert _read_json(repo._canvas_path(workflow_id)) == original_canvas
+
+
+def test_create_persists_yaml_and_canvas_sidecar_when_canvas_state_in_scope(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+    workflow_id = "create-canvas-success"
+    requested_yaml = _workflow_yaml(workflow_id, "Create Success")
+    requested_canvas = _canvas_state("node-create-success")
+
+    created = repo.create({"yaml": requested_yaml, "canvas_state": requested_canvas})
+
+    _assert_persisted_revision(
+        repo,
+        workflow_id,
+        created,
+        requested_yaml,
+        requested_canvas,
+    )
+
+
+def test_update_persists_yaml_and_canvas_sidecar_when_canvas_state_in_scope(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+    workflow_id = "update-canvas-success"
+    repo.create(
+        {
+            "yaml": _workflow_yaml(workflow_id, "Original"),
+            "canvas_state": _canvas_state("node-original"),
+        }
+    )
+    requested_yaml = _workflow_yaml(workflow_id, "Update Success")
+    requested_canvas = _canvas_state("node-update-success")
+
+    updated = repo.update(
+        workflow_id,
+        {"yaml": requested_yaml, "canvas_state": requested_canvas},
+    )
+
+    _assert_persisted_revision(
+        repo,
+        workflow_id,
+        updated,
+        requested_yaml,
+        requested_canvas,
+    )
 
 
 def test_create_raises_when_canvas_sidecar_persistence_fails(tmp_path, monkeypatch) -> None:
