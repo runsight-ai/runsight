@@ -1140,7 +1140,7 @@ export interface components {
              */
             source?: string | null;
             /** Branch */
-            branch?: string;
+            branch: string;
         };
         /** RunEvalResponse */
         RunEvalResponse: {
