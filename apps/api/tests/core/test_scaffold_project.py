@@ -36,6 +36,36 @@ def _init_existing_repo(
     return legacy_marker
 
 
+def _init_gitfile_worktree(
+    tmp_path: Path,
+    *,
+    marker_text: str = "version: 1\nbase_path: .\n",
+    gitignore_text: str | None = None,
+) -> Path:
+    primary_repo = tmp_path / "primary-repo"
+    worktree_root = tmp_path / "linked-worktree"
+    primary_repo.mkdir()
+
+    _git(primary_repo, "init")
+    _git(primary_repo, "config", "user.email", "runsight-tests@example.com")
+    _git(primary_repo, "config", "user.name", "Runsight Tests")
+    (primary_repo / "README.md").write_text("seed\n", encoding="utf-8")
+    _git(primary_repo, "add", "README.md")
+    _git(primary_repo, "commit", "-m", "Initial repository state")
+    _git(primary_repo, "branch", "-M", "main")
+    _git(primary_repo, "worktree", "add", "-b", "linked-worktree", str(worktree_root), "HEAD")
+
+    legacy_marker = worktree_root / ".runsight-project"
+    legacy_marker.write_text(marker_text, encoding="utf-8")
+    if gitignore_text is not None:
+        (worktree_root / ".gitignore").write_text(gitignore_text, encoding="utf-8")
+    _git(worktree_root, "add", ".")
+    _git(worktree_root, "commit", "-m", "Track workspace files")
+
+    assert (worktree_root / ".git").is_file()
+    return worktree_root
+
+
 class TestScaffoldProject:
     def test_creates_custom_dirs_and_gitignore_without_marker(self, tmp_path: Path):
         scaffold_project(tmp_path)
@@ -77,6 +107,22 @@ class TestScaffoldProject:
         assert sentinel.is_file()
         assert sentinel.read_text(encoding="utf-8") == "name: sentinel\n"
 
+    def test_gitfile_repo_keeps_tracked_marker_and_does_not_create_gitignore_or_commit(
+        self, tmp_path: Path
+    ):
+        worktree_root = _init_gitfile_worktree(tmp_path)
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
+
+        scaffold_project(worktree_root)
+
+        assert (worktree_root / ".git").is_file()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert not (worktree_root / ".gitignore").exists()
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
+
 
 class TestEnsureProjectDirsUsesScaffold:
     def test_startup_creates_runsight_and_canvas_without_marker(self, tmp_path: Path):
@@ -104,3 +150,25 @@ class TestEnsureProjectDirsUsesScaffold:
         assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
         assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "node_modules/\n"
         assert _git(tmp_path, "status", "--short").stdout.strip() == ""
+
+    def test_startup_keeps_gitfile_repo_clean_when_tracking_marker_and_gitignore(
+        self, tmp_path: Path
+    ):
+        worktree_root = _init_gitfile_worktree(
+            tmp_path,
+            gitignore_text="node_modules/\n.env\n",
+        )
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
+        settings = Settings(base_path=str(worktree_root))
+
+        ensure_project_dirs(settings)
+
+        assert (worktree_root / ".git").is_file()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (worktree_root / ".gitignore").read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n"
+        )
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
