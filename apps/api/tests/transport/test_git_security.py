@@ -73,6 +73,12 @@ client = TestClient(app)
 _PATH_REJECTION_KEYWORD = "path"
 
 
+def _error_detail(response) -> str:
+    """Return the lowercase error/detail payload for assertion helpers."""
+    body = response.json()
+    return body.get("error", body.get("detail", "")).lower()
+
+
 # ===================================================================
 # Path Traversal Prevention
 # ===================================================================
@@ -160,6 +166,104 @@ class TestPathTraversal:
             },
         )
         assert resp.status_code == 400
+
+
+# ===================================================================
+# Path Ancestry Validation
+# ===================================================================
+
+
+class TestPathAncestryValidation:
+    """Resolved-path ancestry decisions must reject prefix-based escapes."""
+
+    def test_validate_file_path_allows_absolute_path_inside_project_root(self, git_repo):
+        """Absolute paths inside the repo stay allowed by the current API policy."""
+        from runsight_api.transport.routers.git import _validate_file_path
+
+        tracked = git_repo / "README.md"
+
+        _validate_file_path(str(tracked))
+
+    def test_validate_file_path_rejects_absolute_sibling_prefix_path(self, git_repo):
+        """A resolved sibling like repo-escape must not pass ancestry validation."""
+        from runsight_api.domain.errors import InputValidationError
+        from runsight_api.transport.routers.git import _validate_file_path
+
+        sibling = git_repo.parent / f"{git_repo.name}-escape"
+        sibling.mkdir()
+        outside = sibling / "secret.txt"
+        outside.write_text("outside")
+
+        with pytest.raises(InputValidationError, match="path"):
+            _validate_file_path(str(outside))
+
+    def test_validate_file_path_rejects_symlink_to_sibling_prefix_directory(self, git_repo):
+        """A symlinked directory that resolves to repo-escape must be rejected."""
+        from runsight_api.domain.errors import InputValidationError
+        from runsight_api.transport.routers.git import _validate_file_path
+
+        sibling = git_repo.parent / f"{git_repo.name}-escape"
+        sibling.mkdir()
+        outside = sibling / "secret.txt"
+        outside.write_text("outside")
+
+        link = git_repo / "custom" / "workflows" / "escape-link"
+        link.symlink_to(sibling, target_is_directory=True)
+
+        with pytest.raises(InputValidationError, match="path"):
+            _validate_file_path("custom/workflows/escape-link/secret.txt")
+
+    def test_commit_rejects_absolute_sibling_prefix_path(self, git_repo):
+        """POST /api/git/commit must reject sibling-prefix absolute inputs up front."""
+        sibling = git_repo.parent / f"{git_repo.name}-escape"
+        sibling.mkdir()
+        outside = sibling / "secret.txt"
+        outside.write_text("outside")
+
+        resp = client.post(
+            "/api/git/commit",
+            json={
+                "message": "reject sibling prefix",
+                "files": [str(outside)],
+            },
+        )
+
+        assert resp.status_code == 400
+        assert _PATH_REJECTION_KEYWORD in _error_detail(resp)
+
+    def test_file_read_accepts_in_bounds_relative_path(self, git_repo):
+        """GET /api/git/file still reads a normal tracked file within the repo."""
+        resp = client.get(
+            "/api/git/file",
+            params={
+                "ref": "HEAD",
+                "path": "README.md",
+            },
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "init"
+
+    def test_file_read_rejects_symlink_to_sibling_prefix_directory(self, git_repo):
+        """GET /api/git/file must reject symlink escapes before touching git."""
+        sibling = git_repo.parent / f"{git_repo.name}-escape"
+        sibling.mkdir()
+        outside = sibling / "secret.txt"
+        outside.write_text("outside")
+
+        link = git_repo / "custom" / "workflows" / "escape-link"
+        link.symlink_to(sibling, target_is_directory=True)
+
+        resp = client.get(
+            "/api/git/file",
+            params={
+                "ref": "HEAD",
+                "path": "custom/workflows/escape-link/secret.txt",
+            },
+        )
+
+        assert resp.status_code == 400
+        assert _PATH_REJECTION_KEYWORD in _error_detail(resp)
 
 
 # ===================================================================
