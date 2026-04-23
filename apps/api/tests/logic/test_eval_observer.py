@@ -1111,6 +1111,7 @@ class TestEvalObserverChildAssertionOwnership:
         sse_queue,
     ):
         parent_run_id = "run_973_eval_parent_config"
+        block_id = "asserted_block"
 
         class AssertionEchoBlock(BaseBlock):
             def __init__(self, block_id: str, output: str, assertions: list[dict[str, object]]):
@@ -1141,18 +1142,18 @@ class TestEvalObserverChildAssertionOwnership:
         child_wf = Workflow(name="wf_child")
         child_wf.add_block(
             AssertionEchoBlock(
-                "child_block",
+                block_id,
                 "CHILD signal",
                 [{"type": "contains", "value": "CHILD", "weight": 1.0}],
             )
         )
-        child_wf.set_entry("child_block")
-        child_wf.add_transition("child_block", None)
+        child_wf.set_entry(block_id)
+        child_wf.add_transition(block_id, None)
 
         parent_wf = Workflow(name="wf_parent")
         parent_wf.add_block(
             AssertionEchoBlock(
-                "root_block",
+                block_id,
                 "ROOT signal",
                 [{"type": "contains", "value": "ROOT", "weight": 1.0}],
             )
@@ -1166,8 +1167,8 @@ class TestEvalObserverChildAssertionOwnership:
                 workflow_ref="wf_child",
             )
         )
-        parent_wf.set_entry("root_block")
-        parent_wf.add_transition("root_block", "invoke_child")
+        parent_wf.set_entry(block_id)
+        parent_wf.add_transition(block_id, "invoke_child")
         parent_wf.add_transition("invoke_child", None)
 
         EvalObserver = _import_eval_observer()
@@ -1184,12 +1185,12 @@ class TestEvalObserverChildAssertionOwnership:
         await parent_wf.run(WorkflowState(), observer=observer)
 
         with Session(db_engine) as session:
-            parent_node = session.get(RunNode, f"{parent_run_id}:root_block")
+            parent_node = session.get(RunNode, f"{parent_run_id}:{block_id}")
             invoke_child_node = session.get(RunNode, f"{parent_run_id}:invoke_child")
 
             assert invoke_child_node is not None
             assert invoke_child_node.child_run_id is not None
-            child_node = session.get(RunNode, f"{invoke_child_node.child_run_id}:child_block")
+            child_node = session.get(RunNode, f"{invoke_child_node.child_run_id}:{block_id}")
 
         assert child_node is not None
         assert parent_node is not None
