@@ -7,6 +7,7 @@ from typing import List
 from urllib.parse import unquote
 
 from fastapi import APIRouter
+from runsight_core.paths import is_path_within_base
 
 from ...core.config import settings
 from ...domain.errors import GitError, InputValidationError
@@ -90,22 +91,16 @@ def _validate_file_path(file_path: str) -> None:
         raise InputValidationError("Invalid path: path traversal not allowed")
 
     base = Path(settings.base_path).resolve()
-    if decoded.startswith("/"):
-        resolved = Path(decoded).resolve()
-        if not str(resolved).startswith(str(base)):
+    candidate_path = Path(decoded)
+    if candidate_path.is_absolute():
+        resolved = candidate_path.resolve()
+        if not is_path_within_base(base, resolved):
             raise InputValidationError("Invalid path: absolute path outside project root")
+        return
 
     resolved = (base / decoded).resolve()
-    if not str(resolved).startswith(str(base)):
+    if not is_path_within_base(base, resolved):
         raise InputValidationError("Invalid path: path escapes project root")
-
-    candidate = base / decoded
-    if candidate.is_symlink():
-        real = candidate.resolve()
-        if not str(real).startswith(str(base)):
-            raise InputValidationError(
-                "Invalid path: symlink target outside project root",
-            )
 
 
 def _validate_git_ref(ref: str) -> None:
