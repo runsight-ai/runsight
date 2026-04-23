@@ -6,6 +6,12 @@ import sys
 import structlog
 
 
+def _should_preserve_handler(handler: logging.Handler) -> bool:
+    return handler.__class__.__module__.startswith("_pytest.") or (
+        handler.__class__.__name__ == "LogCaptureHandler"
+    )
+
+
 def configure_logging(log_level: str, log_format: str) -> None:
     """Configure structlog with JSON or console rendering and stdlib bridge.
 
@@ -51,9 +57,13 @@ def configure_logging(log_level: str, log_format: str) -> None:
 
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(formatter)
+    handler._runsight_structlog = True  # type: ignore[attr-defined]
 
     root_logger = logging.getLogger()
+    preserved_handlers = [h for h in root_logger.handlers if _should_preserve_handler(h)]
     root_logger.handlers.clear()
+    for preserved_handler in preserved_handlers:
+        root_logger.addHandler(preserved_handler)
     root_logger.addHandler(handler)
     root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 

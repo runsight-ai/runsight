@@ -1,5 +1,6 @@
 """Tests for workspace scaffolding under the RUN-963 contract."""
 
+import logging
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from starlette.testclient import TestClient
 
 from runsight_api.core.config import Settings, ensure_project_dirs
 from runsight_api.core.project import scaffold_project
+from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 
 
 def _git(workspace_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -236,3 +238,20 @@ class TestFullApiStartupPreservesGitWorkspaceCleanliness:
         )
         assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
         assert _git(worktree_root, "status", "--short").stdout.strip() == ""
+
+    def test_full_api_startup_keeps_existing_warning_loggers_enabled(
+        self, tmp_path: Path, monkeypatch, caplog
+    ):
+        _init_existing_repo(tmp_path)
+
+        _start_api(tmp_path, monkeypatch)
+
+        malformed_provider = tmp_path / "custom" / "providers" / "broken.yaml"
+        malformed_provider.parent.mkdir(parents=True, exist_ok=True)
+        malformed_provider.write_text("not: valid: yaml: {{{}}", encoding="utf-8")
+
+        repo = FileSystemProviderRepo(base_path=str(tmp_path))
+        with caplog.at_level(logging.WARNING):
+            repo.list_all()
+
+        assert any("Failed to load provider file" in record.message for record in caplog.records)

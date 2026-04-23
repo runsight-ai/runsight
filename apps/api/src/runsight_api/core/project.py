@@ -8,9 +8,66 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def _has_git_repo(base_path: Path) -> bool:
+def _resolve_git_dir(base_path: Path) -> Path | None:
     git_path = base_path / ".git"
-    return git_path.is_dir() or git_path.is_file()
+    if git_path.is_dir():
+        return git_path
+    if git_path.is_file():
+        content = git_path.read_text(encoding="utf-8").strip()
+        if not content.startswith("gitdir:"):
+            return None
+        git_dir = content.split(":", 1)[1].strip()
+        candidate = Path(git_dir)
+        if not candidate.is_absolute():
+            candidate = (base_path / candidate).resolve()
+        return candidate
+    return None
+
+
+def _has_git_repo(base_path: Path) -> bool:
+    return _resolve_git_dir(base_path) is not None
+
+
+def _resolve_git_exclude_path(base_path: Path) -> Path | None:
+    if shutil.which("git") is not None:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-path", "info/exclude"],
+                cwd=base_path,
+                capture_output=True,
+                check=True,
+                text=True,
+            )
+            exclude_path = Path(result.stdout.strip())
+            if not exclude_path.is_absolute():
+                exclude_path = (base_path / exclude_path).resolve()
+            return exclude_path
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+    git_dir = _resolve_git_dir(base_path)
+    if git_dir is None:
+        return None
+    return git_dir / "info" / "exclude"
+
+
+def _ensure_repo_local_ignores(base_path: Path, patterns: list[str]) -> None:
+    exclude_path = _resolve_git_exclude_path(base_path)
+    if exclude_path is None:
+        return
+
+    exclude_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = exclude_path.read_text(encoding="utf-8") if exclude_path.exists() else ""
+
+    missing_patterns = [pattern for pattern in patterns if pattern not in existing]
+    if not missing_patterns:
+        return
+
+    with exclude_path.open("a", encoding="utf-8") as handle:
+        if existing and not existing.endswith("\n"):
+            handle.write("\n")
+        for pattern in missing_patterns:
+            handle.write(f"{pattern}\n")
 
 
 def scaffold_project(base_path: Path) -> None:
@@ -44,6 +101,8 @@ def scaffold_project(base_path: Path) -> None:
                     if content and not content.endswith("\n"):
                         f.write("\n")
                     f.write(".runsight/\n")
+    else:
+        _ensure_repo_local_ignores(base_path, [".canvas/", ".runsight/"])
 
     if not has_git_repo:
         if shutil.which("git") is None:
