@@ -145,11 +145,24 @@ def _discover_external_souls(
 ) -> Dict[str, Soul]:
     """Discover external soul files through the shared discovery seam."""
     base_dir = souls_dir.parent.parent
-    scan_kwargs: dict[str, Any] = {}
-    if git_ref is not None and git_service is not None:
-        scan_kwargs["git_ref"] = git_ref
-        scan_kwargs["git_service"] = git_service
+    scan_kwargs = _snapshot_discovery_scan_kwargs(git_ref=git_ref, git_service=git_service)
     return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys, **scan_kwargs).ids()
+
+
+def _snapshot_discovery_scan_kwargs(
+    *,
+    git_ref: str | None = None,
+    git_service: Any = None,
+) -> dict[str, Any]:
+    """Build snapshot discovery kwargs or fail closed for incomplete explicit snapshot context."""
+    if git_ref is None:
+        return {}
+    if git_service is None:
+        raise ValueError(
+            f"Requested snapshot discovery could not be loaded for ref {git_ref!r}: "
+            "git service unavailable"
+        )
+    return {"git_ref": git_ref, "git_service": git_service}
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
@@ -385,10 +398,11 @@ def _validate_declared_tool_definitions(
     if result.has_errors:
         return result
 
-    scan_kwargs: dict[str, Any] = {}
-    if git_ref is not None and git_service is not None:
-        scan_kwargs["git_ref"] = git_ref
-        scan_kwargs["git_service"] = git_service
+    scan_kwargs = _snapshot_discovery_scan_kwargs(git_ref=git_ref, git_service=git_service)
+    resolve_kwargs: dict[str, Any] = {"base_dir": base_dir}
+    if git_ref is not None:
+        resolve_kwargs["git_ref"] = git_ref
+        resolve_kwargs["git_service"] = git_service
 
     try:
         discovered_tools = ToolScanner(base_dir).scan(**scan_kwargs).ids()
@@ -475,12 +489,7 @@ def _validate_declared_tool_definitions(
             continue
 
         try:
-            _resolve_tool_for_parser(
-                tool_id,
-                base_dir=base_dir,
-                git_ref=git_ref,
-                git_service=git_service,
-            )
+            _resolve_tool_for_parser(tool_id, **resolve_kwargs)
         except ValueError as exc:
             add_issue = result.add_error if fail_closed else result.add_warning
             add_issue(f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id)
@@ -525,10 +534,7 @@ def _attach_tool_runtime_metadata(
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         setattr(tool, "tool_type", "builtin")
     else:
-        scan_kwargs: dict[str, Any] = {}
-        if git_ref is not None and git_service is not None:
-            scan_kwargs["git_ref"] = git_ref
-            scan_kwargs["git_service"] = git_service
+        scan_kwargs = _snapshot_discovery_scan_kwargs(git_ref=git_ref, git_service=git_service)
         tool_meta = ToolScanner(base_dir).scan(**scan_kwargs).ids().get(tool_id)
         setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
     setattr(tool, "config", {"id": tool_id})
@@ -812,6 +818,10 @@ def _resolve_tools_for_souls(
     strict: bool = False,
 ) -> None:
     """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
+    snapshot_kwargs: dict[str, Any] = {}
+    if git_ref is not None:
+        snapshot_kwargs["git_ref"] = git_ref
+        snapshot_kwargs["git_service"] = git_service
     for soul_key in _collect_referenced_soul_keys(file_def):
         soul = souls_map.get(soul_key)
         if soul is None or not soul.tools:
@@ -834,8 +844,7 @@ def _resolve_tools_for_souls(
                         tool_id,
                         exits=exits,
                         base_dir=workflow_base_dir,
-                        git_ref=git_ref,
-                        git_service=git_service,
+                        **snapshot_kwargs,
                     )
                 except Exception as exc:
                     if strict:
@@ -849,8 +858,7 @@ def _resolve_tools_for_souls(
                     resolved_tool = _resolve_tool_for_parser(
                         tool_id,
                         base_dir=workflow_base_dir,
-                        git_ref=git_ref,
-                        git_service=git_service,
+                        **snapshot_kwargs,
                     )
                 except Exception as exc:
                     if strict:
@@ -864,8 +872,7 @@ def _resolve_tools_for_souls(
                     resolved_tool,
                     tool_id,
                     base_dir=workflow_base_dir,
-                    git_ref=git_ref,
-                    git_service=git_service,
+                    **snapshot_kwargs,
                 )
             )
         soul.resolved_tools = resolved_tools
@@ -1062,10 +1069,10 @@ def parse_workflow_yaml(
         yaml_str_or_dict, _base_dir
     )
 
-    discovery_scan_kwargs: dict[str, Any] = {}
-    if _discovery_git_ref is not None and _discovery_git_service is not None:
-        discovery_scan_kwargs["git_ref"] = _discovery_git_ref
-        discovery_scan_kwargs["git_service"] = _discovery_git_service
+    discovery_scan_kwargs = _snapshot_discovery_scan_kwargs(
+        git_ref=_discovery_git_ref,
+        git_service=_discovery_git_service,
+    )
 
     assertion_index = AssertionScanner(workflow_base_dir).scan(**discovery_scan_kwargs)
     register_custom_assertions(assertion_index)

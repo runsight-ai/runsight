@@ -179,6 +179,22 @@ def _tool_instance_name(tool_id: str) -> str:
     return tool_id.removesuffix("_tool")
 
 
+def _snapshot_scan_kwargs(
+    *,
+    git_ref: object = None,
+    git_service: object = None,
+) -> dict[str, object]:
+    """Build scan kwargs for git-backed discovery or fail closed for incomplete snapshot context."""
+    if isinstance(git_ref, str) and git_ref:
+        if git_service is None:
+            raise ValueError(
+                f"Requested snapshot discovery could not be loaded for ref {git_ref!r}: "
+                "git service unavailable"
+            )
+        return {"git_ref": git_ref, "git_service": git_service}
+    return {}
+
+
 def _discovered_tools(
     *,
     base_dir: object,
@@ -186,10 +202,7 @@ def _discovered_tools(
     git_service: object = None,
 ) -> dict[str, ToolMeta]:
     """Resolve the custom tool catalog from either the working tree or a git snapshot."""
-    scan_kwargs: dict[str, object] = {}
-    if isinstance(git_ref, str) and git_ref and git_service is not None:
-        scan_kwargs["git_ref"] = git_ref
-        scan_kwargs["git_service"] = git_service
+    scan_kwargs = _snapshot_scan_kwargs(git_ref=git_ref, git_service=git_service)
     return ToolScanner(base_dir).scan(**scan_kwargs).ids()
 
 
