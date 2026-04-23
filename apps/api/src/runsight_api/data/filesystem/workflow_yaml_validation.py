@@ -38,7 +38,7 @@ def assert_valid_yaml_for_write(workflow_id: str, raw_yaml: str) -> None:
     except ValueError as exc:
         raise InputValidationError(str(exc)) from exc
     if embedded_id != workflow_id:
-        raise ValueError(
+        raise InputValidationError(
             f"embedded workflow id {embedded_id!r} does not match requested "
             f"{_workflow_ref(workflow_id)}"
         )

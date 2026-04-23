@@ -114,7 +114,7 @@ def test_workflow_repository_create_and_update_use_embedded_ids(tmp_path: Path) 
     assert updated.name == "Research Review v2"
 
     with pytest.raises(
-        ValueError,
+        InputValidationError,
         match="embedded workflow id 'research-review-v2' does not match requested workflow:research-review",
     ):
         repo.update(

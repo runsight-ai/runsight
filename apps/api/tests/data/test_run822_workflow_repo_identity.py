@@ -9,6 +9,7 @@ from textwrap import dedent
 import pytest
 
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+from runsight_api.domain.errors import InputValidationError
 
 
 def _workflow_fixture_text() -> str:
@@ -68,7 +69,7 @@ def test_update_rejects_workflow_id_stem_mismatch(tmp_path) -> None:
     workflows_dir = tmp_path / "custom" / "workflows"
     _write_workflow_file(workflows_dir / "legacy-workflow.yaml", _workflow_fixture_text())
 
-    with pytest.raises(ValueError, match="id"):
+    with pytest.raises(InputValidationError, match="id"):
         repo.update(
             "legacy-workflow",
             {"name": "Renamed Research Review", "yaml": _workflow_fixture_text()},
