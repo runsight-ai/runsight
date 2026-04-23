@@ -32,6 +32,17 @@ ensure_project_dirs(app_settings)
 print(Path(app_settings.base_path).resolve())
 """.strip()
 
+_API_STARTUP_SNIPPET = """
+from pathlib import Path
+from fastapi.testclient import TestClient
+from runsight_api.main import app, app_settings
+
+with TestClient(app):
+    pass
+
+print(Path(app_settings.base_path).resolve())
+""".strip()
+
 
 def _uv_executable() -> str:
     executable = shutil.which("uv")
@@ -42,6 +53,7 @@ def _uv_executable() -> str:
 def _run_package_startup(
     cwd: Path,
     *,
+    snippet: str = _PACKAGE_STARTUP_SNIPPET,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
@@ -53,7 +65,7 @@ def _run_package_startup(
         "runsight",
         "python",
         "-c",
-        _PACKAGE_STARTUP_SNIPPET,
+        snippet,
     ]
     merged_env = {**os.environ}
     if env is None or "RUNSIGHT_BASE_PATH" not in env:
@@ -149,6 +161,23 @@ class TestBlankWorkspacePublishedPackageStartup:
         assert (workspace_root / "custom" / "souls").is_dir()
         assert (workspace_root / "custom" / "tools").is_dir()
         assert _custom_yaml_paths(workspace_root) == []
+
+    def test_api_boot_does_not_eagerly_create_custom_providers(self, tmp_path: Path):
+        workspace_root = tmp_path / "api-workspace"
+        workspace_root.mkdir()
+
+        result = _run_package_startup(
+            workspace_root,
+            snippet=_API_STARTUP_SNIPPET,
+            env={"RUNSIGHT_BASE_PATH": str(workspace_root)},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert (workspace_root / ".runsight").is_dir()
+        assert (workspace_root / "custom" / "workflows").is_dir()
+        assert (workspace_root / "custom" / "souls").is_dir()
+        assert (workspace_root / "custom" / "tools").is_dir()
+        assert not (workspace_root / "custom" / "providers").exists()
 
 
 class TestBlankWorkspaceDockerStartup:

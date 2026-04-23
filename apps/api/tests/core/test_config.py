@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from runsight_api.core.config import Settings, ensure_project_dirs
 
 
@@ -24,3 +26,15 @@ def test_ensure_project_dirs_idempotent(tmp_path: Path):
 
     assert (tmp_path / "custom" / "workflows").is_dir()
     assert (tmp_path / ".runsight").is_dir()
+
+
+def test_ensure_project_dirs_rejects_file_occupying_custom_providers(tmp_path: Path):
+    """Startup should fail clearly when custom/providers is a file, not a directory."""
+    providers_path = tmp_path / "custom" / "providers"
+    providers_path.parent.mkdir(parents=True)
+    providers_path.write_text("not a directory\n", encoding="utf-8")
+
+    s = Settings(base_path=str(tmp_path))
+
+    with pytest.raises(SystemExit, match="custom/providers"):
+        ensure_project_dirs(s)
