@@ -46,7 +46,10 @@ def _run_package_startup(
         "-c",
         _PACKAGE_STARTUP_SNIPPET,
     ]
-    merged_env = {**os.environ, **dict(env or {})}
+    merged_env = {**os.environ}
+    if env is None or "RUNSIGHT_BASE_PATH" not in env:
+        merged_env.pop("RUNSIGHT_BASE_PATH", None)
+    merged_env.update(dict(env or {}))
     return subprocess.run(
         command,
         cwd=cwd,
@@ -85,7 +88,10 @@ def _run_docker_startup(
         "-c",
         _PACKAGE_STARTUP_SNIPPET,
     ]
-    merged_env = {**os.environ, **dict(env or {})}
+    merged_env = {**os.environ}
+    if env is None or "RUNSIGHT_BASE_PATH" not in env:
+        merged_env.pop("RUNSIGHT_BASE_PATH", None)
+    merged_env.update(dict(env or {}))
     return subprocess.run(
         command,
         cwd=cwd,
@@ -238,6 +244,27 @@ class TestPublishedPackageAndDockerContracts:
         assert not (base_path / ".runsight-project").exists()
         assert not (launch_dir / ".runsight").exists()
 
+    def test_published_package_honors_explicit_base_path_even_when_pytest_tmpdir_matches(
+        self, tmp_path: Path
+    ):
+        base_path = tmp_path / "pytest-tmpdir-workspace"
+        base_path.mkdir()
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+
+        result = _run_package_startup(
+            launch_dir,
+            env={
+                "PYTEST_CURRENT_TEST": "RUN-963 regression",
+                "RUNSIGHT_BASE_PATH": str(base_path),
+                "TMPDIR": str(base_path),
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert str(base_path.resolve()) in result.stdout
+        assert not (launch_dir / ".runsight").exists()
+
     def test_docker_entrypoint_defaults_to_mounted_workspace_root_without_env_override(
         self, tmp_path: Path
     ):
@@ -273,6 +300,27 @@ class TestPublishedPackageAndDockerContracts:
         assert (base_path / "custom" / "workflows").is_dir()
         assert (base_path / "custom" / "souls").is_dir()
         assert not (base_path / ".runsight-project").exists()
+        assert not (launch_dir / ".runsight").exists()
+
+    def test_docker_entrypoint_honors_explicit_base_path_even_when_pytest_tmpdir_matches(
+        self, tmp_path: Path
+    ):
+        base_path = tmp_path / "docker-pytest-tmpdir-workspace"
+        base_path.mkdir()
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+
+        result = _run_docker_startup(
+            launch_dir,
+            env={
+                "PYTEST_CURRENT_TEST": "RUN-963 regression",
+                "RUNSIGHT_BASE_PATH": str(base_path),
+                "TMPDIR": str(base_path),
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert str(base_path.resolve()) in result.stdout
         assert not (launch_dir / ".runsight").exists()
 
 

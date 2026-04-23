@@ -4,15 +4,6 @@ set -e
 # Activate the virtual environment
 export PATH="/app/.venv/bin:$PATH"
 
-# API pytest config injects RUNSIGHT_BASE_PATH=tempdir for in-process tests.
-# That inherited default should not override the container's mounted workspace root.
-if [ -n "${PYTEST_CURRENT_TEST:-}" ] && [ -n "${RUNSIGHT_BASE_PATH:-}" ]; then
-    normalized_tmpdir=${TMPDIR%/}
-    if [ -n "$normalized_tmpdir" ] && [ "$RUNSIGHT_BASE_PATH" = "$normalized_tmpdir" ]; then
-        unset RUNSIGHT_BASE_PATH
-    fi
-fi
-
 # Default to the mounted workspace root when no explicit override is provided.
 : "${RUNSIGHT_BASE_PATH:=/workspace}"
 export RUNSIGHT_BASE_PATH

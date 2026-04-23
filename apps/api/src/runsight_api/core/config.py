@@ -1,6 +1,4 @@
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import List
 
@@ -26,17 +24,6 @@ def _parse_cors_origins(raw: str) -> List[str]:
 
 def _workspace_error(workspace_root: Path, detail: str) -> SystemExit:
     return SystemExit(f"[runsight] ERROR: Workspace '{workspace_root}' is not usable: {detail}")
-
-
-def _should_ignore_inherited_test_base_path(base_path: object) -> bool:
-    """Ignore the API test harness temp-root default for subprocess startup contracts."""
-    if not isinstance(base_path, str) or os.environ.get("PYTEST_CURRENT_TEST") is None:
-        return False
-
-    try:
-        return Path(base_path).resolve() == Path(tempfile.gettempdir()).resolve()
-    except OSError:
-        return False
 
 
 def _ensure_directory(path: Path, *, workspace_root: Path) -> None:
@@ -67,17 +54,6 @@ class Settings(BaseSettings):
     log_format: str = "json"
 
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_base_path(cls, data: object) -> object:
-        if not isinstance(data, dict):
-            return data
-
-        normalized = dict(data)
-        if _should_ignore_inherited_test_base_path(normalized.get("base_path")):
-            normalized.pop("base_path", None)
-        return normalized
 
     @model_validator(mode="after")
     def _resolve_db_url(self) -> "Settings":
