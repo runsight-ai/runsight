@@ -4,7 +4,12 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  RouterProvider,
+  useLocation,
+} from "react-router";
 
 import { useCanvasStore } from "@/store/canvas";
 
@@ -300,6 +305,12 @@ vi.mock("../../surface/RunButton", () => ({
 
 import { WorkflowSurface } from "../../surface/WorkflowSurface";
 
+function RouteLocationProbe({ testId }: { testId: string }) {
+  const location = useLocation();
+
+  return <div data-testid={testId}>{location.pathname}</div>;
+}
+
 function buildWorkflow(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord {
   return {
     id: "wf_782",
@@ -412,6 +423,39 @@ function resetHarness() {
   useCanvasStore.getState().reset();
 }
 
+function renderReadonlySurfaceWithRouter() {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/runs/:runId",
+        element: (
+          <>
+            <RouteLocationProbe testId="readonly-route-location" />
+            <WorkflowSurface mode="readonly" runId="run_782" workflowId="wf_782" />
+          </>
+        ),
+      },
+      {
+        path: "/workflows/:workflowId/edit",
+        element: <RouteLocationProbe testId="edit-route-location" />,
+      },
+    ],
+    {
+      initialEntries: ["/runs/run_782"],
+    },
+  );
+
+  const user = userEvent.setup();
+  render(<RouterProvider router={router} />);
+
+  return { router, user };
+}
+
+async function flushForkTransition() {
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+}
+
 beforeEach(() => {
   cleanup();
   resetHarness();
@@ -437,6 +481,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   useCanvasStore.getState().reset();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -625,15 +670,10 @@ workflow:
     expect(screen.getByTestId("react-flow-node-node_brain").textContent).toContain("completed");
   });
 
-  it("forks a completed readonly run into edit mode", async () => {
-    const user = userEvent.setup();
+  it("navigates a readonly run fork through the router into the editable workflow route", async () => {
     setReadonlyFixtures();
 
-    render(
-      <MemoryRouter>
-        <WorkflowSurface mode="readonly" runId="run_782" workflowId="wf_782" />
-      </MemoryRouter>,
-    );
+    const { router, user } = renderReadonlySurfaceWithRouter();
 
     await user.click(screen.getByRole("button", { name: "Fork" }));
 
@@ -643,8 +683,54 @@ workflow:
         yaml: expect.stringContaining("enabled: false"),
         commit: false,
       });
-      expect(window.location.pathname).toBe("/workflows/wf_forked_782/edit");
     });
+
+    await flushForkTransition();
+
+    expect(router.state.location.pathname).toBe("/workflows/wf_forked_782/edit");
+
+    expect(screen.getByTestId("edit-route-location").textContent).toBe(
+      "/workflows/wf_forked_782/edit",
+    );
+    expect(screen.queryByTestId("readonly-route-location")).toBeNull();
+  });
+
+  it("does not mutate browser history when a readonly run fork succeeds", async () => {
+    setReadonlyFixtures();
+
+    const { user } = renderReadonlySurfaceWithRouter();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    replaceStateSpy.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Fork" }));
+
+    await waitFor(() => {
+      expect(harness.createWorkflow).toHaveBeenCalledTimes(1);
+    });
+
+    await flushForkTransition();
+
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch a synthetic popstate when a readonly run fork succeeds", async () => {
+    setReadonlyFixtures();
+
+    const { user } = renderReadonlySurfaceWithRouter();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+    dispatchEventSpy.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Fork" }));
+
+    await waitFor(() => {
+      expect(harness.createWorkflow).toHaveBeenCalledTimes(1);
+    });
+
+    await flushForkTransition();
+
+    expect(
+      dispatchEventSpy.mock.calls.some(([event]) => event instanceof PopStateEvent),
+    ).toBe(false);
   });
 
   it("keeps edit mode off the readonly data path and hides readonly-only UI state", async () => {
