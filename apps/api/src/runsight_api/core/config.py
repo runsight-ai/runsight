@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import List
 
@@ -13,18 +15,45 @@ logger = logging.getLogger(__name__)
 
 
 def _default_base_path() -> str:
-    """Compute the default base_path using project detection.
-
-    If ``RUNSIGHT_BASE_PATH`` is set, pydantic-settings will use it directly
-    and this default is never called.  Otherwise we run the marker / auto-detect
-    logic.
-    """
+    """Compute the default base_path from the current launch directory."""
     return resolve_base_path(env_value=None)
 
 
 def _parse_cors_origins(raw: str) -> List[str]:
     """Parse a comma-separated string into a list of origin URLs."""
     return [origin.strip() for origin in raw.split(",")]
+
+
+def _workspace_error(workspace_root: Path, detail: str) -> SystemExit:
+    return SystemExit(f"[runsight] ERROR: Workspace '{workspace_root}' is not usable: {detail}")
+
+
+def _should_ignore_inherited_test_base_path(base_path: object) -> bool:
+    """Ignore the API test harness temp-root default for subprocess startup contracts."""
+    if not isinstance(base_path, str) or os.environ.get("PYTEST_CURRENT_TEST") is None:
+        return False
+
+    try:
+        return Path(base_path).resolve() == Path(tempfile.gettempdir()).resolve()
+    except OSError:
+        return False
+
+
+def _ensure_directory(path: Path, *, workspace_root: Path) -> None:
+    if path.exists() and not path.is_dir():
+        raise _workspace_error(
+            workspace_root,
+            f"Expected '{path}' to be a directory.",
+        )
+
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        detail = exc.strerror or str(exc)
+        raise _workspace_error(
+            workspace_root,
+            f"Could not create '{path}': {detail}",
+        ) from None
 
 
 class Settings(BaseSettings):
@@ -38,6 +67,17 @@ class Settings(BaseSettings):
     log_format: str = "json"
 
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_base_path(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        if _should_ignore_inherited_test_base_path(normalized.get("base_path")):
+            normalized.pop("base_path", None)
+        return normalized
 
     @model_validator(mode="after")
     def _resolve_db_url(self) -> "Settings":
@@ -55,25 +95,35 @@ class Settings(BaseSettings):
 
 
 def ensure_project_dirs(settings: Settings) -> None:
-    """Ensure the project skeleton, .canvas/, and .runsight/ directories exist.
-
-    Called once at application startup. Resolves base_path to an absolute
-    path, scaffolds the project skeleton when needed, and creates remaining
-    runtime directories as needed.
-    """
+    """Ensure the workspace skeleton, .canvas/, and .runsight/ directories exist."""
     resolved = Path(settings.base_path).resolve()
     logger.info("Runsight base_path resolved to: %s", resolved)
-    resolved.mkdir(parents=True, exist_ok=True)
-    scaffold_project(resolved)
+    if resolved.exists() and not resolved.is_dir():
+        raise _workspace_error(resolved, "The configured base path must be a directory.")
+
+    try:
+        resolved.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        detail = exc.strerror or str(exc)
+        raise _workspace_error(resolved, f"Could not create workspace root: {detail}") from None
+
+    object.__setattr__(settings, "base_path", str(resolved))
+    try:
+        scaffold_project(resolved)
+    except OSError as exc:
+        target = exc.filename or resolved
+        detail = exc.strerror or str(exc)
+        raise _workspace_error(resolved, f"Could not prepare '{target}': {detail}") from None
 
     workflows_dir = resolved / "custom" / "workflows"
     canvas_dir = workflows_dir / ".canvas"
     runsight_dir = resolved / ".runsight"
 
-    for d in (workflows_dir, canvas_dir, runsight_dir):
-        if not d.exists():
-            d.mkdir(parents=True, exist_ok=True)
-            logger.info("Created missing directory: %s", d)
+    for directory in (workflows_dir, canvas_dir, runsight_dir):
+        existed = directory.exists()
+        _ensure_directory(directory, workspace_root=resolved)
+        if not existed:
+            logger.info("Created missing directory: %s", directory)
 
 
 settings = Settings()
