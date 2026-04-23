@@ -1,6 +1,6 @@
 import time
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel
 from sqlmodel import JSON, Column, Field, SQLModel
@@ -19,6 +19,15 @@ class NodeStatus(str, Enum):
     running = "running"
     completed = "completed"
     failed = "failed"
+
+
+class RegressionIssueType(str, Enum):
+    assertion_regression = "assertion_regression"
+    cost_spike = "cost_spike"
+    quality_drop = "quality_drop"
+
+
+RegressionIssueTypeLiteral: TypeAlias = Literal[*tuple(RegressionIssueType)]
 
 
 # ---------------------------------------------------------------------------

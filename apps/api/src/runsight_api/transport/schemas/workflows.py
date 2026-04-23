@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
+from ...domain.entities.run import RegressionIssueTypeLiteral
+
 
 class CanvasViewport(BaseModel):
     x: float = 0.0
@@ -120,7 +122,7 @@ class WorkflowEnabledUpdate(BaseModel):
 class WorkflowRegressionIssue(BaseModel):
     node_id: str
     node_name: str
-    type: Literal["assertion_regression", "cost_spike", "quality_drop"]
+    type: RegressionIssueTypeLiteral
     delta: Dict[str, Any] = Field(default_factory=dict)
     run_id: str | None = None
     run_number: int | None = None

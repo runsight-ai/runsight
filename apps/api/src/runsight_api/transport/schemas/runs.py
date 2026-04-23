@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from runsight_core.context_governance import ContextAuditEventV1
 
+from ...domain.entities.run import RegressionIssueTypeLiteral
 from .workflows import WarningItem
 
 
@@ -131,7 +132,7 @@ class ContextAuditListResponse(BaseModel):
 class RunRegressionIssue(BaseModel):
     node_id: str
     node_name: str
-    type: Literal["assertion_regression", "cost_spike", "quality_drop"]
+    type: RegressionIssueTypeLiteral
     delta: Dict[str, Any] = Field(default_factory=dict)
 
 
