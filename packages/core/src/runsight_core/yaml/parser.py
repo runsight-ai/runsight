@@ -409,6 +409,9 @@ def _collect_warning_only_declared_tool_issues(
     git_ref: str | None,
     git_service: Any,
 ) -> dict[str, str]:
+    if git_ref is None:
+        return {}
+
     tool_scanner = ToolScanner(base_dir)
     issues: dict[str, str] = {}
 
@@ -573,11 +576,10 @@ def _validate_declared_tool_definitions(
             continue
 
         try:
-            _resolve_tool_for_parser(
-                tool_id,
-                ignore_tool_ids=warning_only_tool_ids,
-                **resolve_kwargs,
-            )
+            tool_resolve_kwargs = dict(resolve_kwargs)
+            if warning_only_tool_ids:
+                tool_resolve_kwargs["ignore_tool_ids"] = warning_only_tool_ids
+            _resolve_tool_for_parser(tool_id, **tool_resolve_kwargs)
         except ValueError as exc:
             add_issue = result.add_error if fail_closed else result.add_warning
             add_issue(f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id)
@@ -606,7 +608,7 @@ def _resolve_tool_for_parser(
     if git_ref is not None and git_service is not None:
         kwargs["git_ref"] = git_ref
         kwargs["git_service"] = git_service
-    if ignore_tool_ids:
+    if ignore_tool_ids and tool_id not in RESERVED_BUILTIN_TOOL_IDS:
         kwargs["ignore_tool_ids"] = tuple(ignore_tool_ids)
 
     return resolve_tool_id(tool_id, **kwargs)
@@ -1010,11 +1012,10 @@ def _resolve_tool_for_soul(
             )
         kwargs["exits"] = exits
     try:
-        return _resolve_tool_for_parser(
-            tool_id,
-            ignore_tool_ids=warning_only_tool_ids,
-            **kwargs,
-        )
+        resolve_kwargs = dict(kwargs)
+        if warning_only_tool_ids and tool_id not in RESERVED_BUILTIN_TOOL_IDS:
+            resolve_kwargs["ignore_tool_ids"] = warning_only_tool_ids
+        return _resolve_tool_for_parser(tool_id, **resolve_kwargs)
     except Exception as exc:
         if strict:
             raise

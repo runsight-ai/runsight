@@ -261,7 +261,30 @@ class TestReadFile:
 
 
 # ---------------------------------------------------------------------------
-# 6. get_sha(branch, path)
+# 6. list_files(ref, path_prefix)
+# ---------------------------------------------------------------------------
+
+
+class TestListFiles:
+    def test_preserves_leading_and_trailing_spaces_in_filenames(self, tmp_path: Path):
+        from runsight_api.logic.services.git_service import GitService
+
+        repo = _init_repo(tmp_path)
+        workflows_dir = repo / "custom" / "workflows"
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        spaced_name = " leading workflow .yaml "
+        (workflows_dir / spaced_name).write_text("version: '1.0'\n", encoding="utf-8")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add spaced workflow name")
+
+        svc = GitService(repo_path=str(repo))
+        files = svc.list_files(svc.current_branch(), "custom/workflows")
+
+        assert f"custom/workflows/{spaced_name}" in files
+
+
+# ---------------------------------------------------------------------------
+# 7. get_sha(branch, path)
 # ---------------------------------------------------------------------------
 
 
@@ -302,7 +325,7 @@ class TestGetSha:
 
 
 # ---------------------------------------------------------------------------
-# 7. commit_to_branch(branch, files, message)
+# 8. commit_to_branch(branch, files, message)
 # ---------------------------------------------------------------------------
 
 

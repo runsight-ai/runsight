@@ -99,7 +99,7 @@ class GitService:
         result = self._run("ls-tree", "-r", "--name-only", ref, "--", repo_path, check=False)
         if result.returncode != 0:
             return []
-        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return [line for line in result.stdout.splitlines() if line != ""]
 
     def get_sha(self, branch: str, path: str) -> Optional[str]:
         repo_path = self._normalize_repo_path(path)
