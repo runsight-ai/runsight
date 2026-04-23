@@ -7,11 +7,11 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Project scaffolding
 
-When Runsight starts for the first time, the API server creates the project structure automatically:
+When Runsight starts for the first time, the API server creates a blank workspace automatically:
 
 <Steps>
 
-1. **Directories and marker file.** Runsight creates `custom/workflows/` and `custom/souls/`, plus a `.runsight-project` marker file and a `.gitignore` that excludes `.runsight/` and `.canvas/`.
+1. **Empty workspace directories.** Runsight creates empty `custom/workflows/`, `custom/souls/`, and `custom/tools/` directories, plus a `.gitignore` that excludes `.runsight/` and `.canvas/`.
 
 2. **Git initialization.** If no `.git` directory exists, Runsight runs `git init`, sets a local git user (`runsight@localhost`), stages the scaffolded files, and creates an initial commit.
 
@@ -48,17 +48,19 @@ See [Providers](/docs/configuration/providers) for supported providers, storage 
 your-project/
 ├── .git/                    # Auto-initialized git repo
 ├── .gitignore               # Excludes .runsight/ and .canvas/
-├── .runsight-project        # Project marker file
 ├── .runsight/               # Gitignored runtime data
 │   ├── settings.yaml        # App settings
 │   └── secrets.env          # API keys (gitignored)
 └── custom/
     ├── providers/            # Provider YAML files
-    ├── souls/                # Soul definitions
-    └── workflows/            # Workflow definitions
+    ├── souls/                # Empty until you add your own souls
+    ├── tools/                # Empty until you add your own tools
+    └── workflows/            # Empty until you create your first workflow
 ```
 
 ## Next steps
+
+Runsight does not ship sample workflow, soul, or tool YAML into your runtime workspace. After first launch, create your first workflow through onboarding or by adding files under `custom/`.
 
 - [Providers](/docs/configuration/providers) -- add and manage LLM providers
 - [Quickstart](/docs/getting-started/quickstart) -- create and run your first workflow

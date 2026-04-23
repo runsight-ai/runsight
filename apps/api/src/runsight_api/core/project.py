@@ -25,6 +25,7 @@ def scaffold_project(base_path: Path) -> None:
 
     (base_path / "custom" / "workflows").mkdir(parents=True, exist_ok=True)
     (base_path / "custom" / "souls").mkdir(parents=True, exist_ok=True)
+    (base_path / "custom" / "tools").mkdir(parents=True, exist_ok=True)
 
     gitignore_path = base_path / ".gitignore"
     if not gitignore_path.is_file():
