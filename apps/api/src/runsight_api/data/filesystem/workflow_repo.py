@@ -208,12 +208,16 @@ class WorkflowRepository:
         else:
             logger.warning("Unexpected canvas_state type: %s", type(canvas_state))
             return
-        try:
-            content = json.dumps(canvas_data, indent=2, sort_keys=True)
-            self._atomic_write(self._canvas_path(stem), content)
-        except Exception as e:
-            # D5: canvas write failure after YAML success is acceptable
-            logger.warning("Failed to write canvas sidecar for %s: %s", stem, e)
+        content = json.dumps(canvas_data, indent=2, sort_keys=True)
+        self._atomic_write(self._canvas_path(stem), content)
+
+    def _restore_canvas_sidecar(self, stem: str, previous_content: Optional[str]) -> None:
+        canvas_path = self._canvas_path(stem)
+        if previous_content is None:
+            if canvas_path.exists():
+                canvas_path.unlink()
+            return
+        self._atomic_write(canvas_path, previous_content)
 
     def _read_canvas_sidecar(self, stem: str) -> Optional[Dict[str, Any]]:
         """Read the canvas sidecar JSON file, if it exists."""
@@ -416,11 +420,14 @@ class WorkflowRepository:
             raw_yaml=yaml_content,
         )
 
-        # Atomic write YAML (D5: YAML first, then canvas)
         self._atomic_write(yaml_path, yaml_content)
-
-        # Write canvas sidecar (failure is acceptable per D5)
-        self._write_canvas_sidecar(stem, canvas_state)
+        try:
+            self._write_canvas_sidecar(stem, canvas_state)
+        except Exception:
+            if yaml_path.exists():
+                yaml_path.unlink()
+            self._restore_canvas_sidecar(stem, None)
+            raise
 
         return entity
 
@@ -485,11 +492,22 @@ class WorkflowRepository:
             self._read_canvas_sidecar(workflow_id),
             raw_yaml=yaml_content,
         )
+        previous_yaml = yaml_path.read_text()
+        previous_canvas_content = None
+        if canvas_state_update is not None:
+            canvas_path = self._canvas_path(workflow_id)
+            if canvas_path.exists():
+                previous_canvas_content = canvas_path.read_text()
+
         self._atomic_write(yaml_path, yaml_content)
 
-        # Update canvas sidecar if provided
         if canvas_state_update is not None:
-            self._write_canvas_sidecar(workflow_id, canvas_state_update)
+            try:
+                self._write_canvas_sidecar(workflow_id, canvas_state_update)
+            except Exception:
+                self._atomic_write(yaml_path, previous_yaml)
+                self._restore_canvas_sidecar(workflow_id, previous_canvas_content)
+                raise
 
         # Parse written content for entity construction
         canvas_state = self._read_canvas_sidecar(workflow_id)
