@@ -249,6 +249,8 @@ class TestChildRunStreamOwnership:
         )
         service._streams.register(parent.run_id, parent)
         child = parent.clone_for_child_run(child_run_id="run_973_child_complete")
+        assert service._streams.get(child.run_id) is child
+        assert child.parent_run_id == parent.run_id
 
         child.on_workflow_complete(
             "child_workflow",
@@ -274,6 +276,8 @@ class TestChildRunStreamOwnership:
         )
         service._streams.register(parent.run_id, parent)
         child = parent.clone_for_child_run(child_run_id="run_973_child_failed")
+        assert service._streams.get(child.run_id) is child
+        assert child.parent_run_id == parent.run_id
 
         child.on_workflow_error("child_workflow", RuntimeError("child boom"), 0.25)
 

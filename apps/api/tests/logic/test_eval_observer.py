@@ -1173,6 +1173,9 @@ class TestEvalObserverChildAssertionOwnership:
                 results={"child_block": BlockResult(output="CHILD signal")},
             ),
         )
+        assert parent.assertion_configs.get("root_block"), (
+            "Child eval rebinding must not erase the parent's root assertion config surface."
+        )
         parent.on_block_complete(
             "wf_parent",
             "root_block",

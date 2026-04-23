@@ -473,7 +473,7 @@ class TestParentNodeStoresChildRunId:
         assert node is not None
         assert node.child_run_id is not None
         assert event["event"] == "node_started"
-        assert event["data"]["child_run_id"] == node.child_run_id, (
+        assert event["data"].get("child_run_id") == node.child_run_id, (
             "The parent live node_started event must include the child_run_id allocated by "
             "the runtime observer path, not only when a test injects child_run_id manually."
         )
