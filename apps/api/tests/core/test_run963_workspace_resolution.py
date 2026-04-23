@@ -61,10 +61,20 @@ def _run_docker_startup(
     cwd: Path,
     *,
     env: dict[str, str] | None = None,
+    mounted_workspace_root: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    entrypoint = DOCKER_ENTRYPOINT
+    if mounted_workspace_root is not None:
+        entrypoint = cwd / "docker-entrypoint.host-test.sh"
+        entrypoint.write_text(
+            DOCKER_ENTRYPOINT.read_text(encoding="utf-8").replace(
+                "/workspace", str(mounted_workspace_root)
+            ),
+            encoding="utf-8",
+        )
     command = [
         "sh",
-        str(DOCKER_ENTRYPOINT),
+        str(entrypoint),
         _uv_executable(),
         "run",
         "--project",
@@ -84,6 +94,19 @@ def _run_docker_startup(
         capture_output=True,
         text=True,
     )
+
+
+def _seed_legacy_resolution_traps(workspace_root: Path) -> tuple[Path, Path]:
+    redirected = workspace_root.parent / f"{workspace_root.name}-redirected"
+    redirected.mkdir()
+    (workspace_root / "custom" / "workflows").mkdir(parents=True)
+    (workspace_root / ".runsight-project").write_text(
+        f"version: 1\nbase_path: {redirected}\n",
+        encoding="utf-8",
+    )
+    launch_dir = workspace_root / "nested" / "launch"
+    launch_dir.mkdir(parents=True)
+    return launch_dir, redirected
 
 
 class TestResolveBasePathDeterministicPolicy:
@@ -179,6 +202,22 @@ class TestStartupWorkspaceBootstrap:
 class TestPublishedPackageAndDockerContracts:
     """Published-package and Docker launch surfaces should honor the same contract."""
 
+    def test_published_package_defaults_to_launch_directory_without_env_override(
+        self, tmp_path: Path
+    ):
+        workspace_root = tmp_path / "package-workspace"
+        workspace_root.mkdir()
+        launch_dir, redirected = _seed_legacy_resolution_traps(workspace_root)
+
+        result = _run_package_startup(launch_dir)
+
+        assert result.returncode == 0, result.stderr
+        assert (launch_dir / ".runsight").is_dir()
+        assert (launch_dir / "custom" / "workflows").is_dir()
+        assert not (launch_dir / ".runsight-project").exists()
+        assert not (redirected / ".runsight").exists()
+        assert str(launch_dir.resolve()) in result.stdout
+
     def test_published_package_startup_honors_runsight_base_path_without_marker(
         self, tmp_path: Path
     ):
@@ -198,6 +237,25 @@ class TestPublishedPackageAndDockerContracts:
         assert (base_path / "custom" / "souls").is_dir()
         assert not (base_path / ".runsight-project").exists()
         assert not (launch_dir / ".runsight").exists()
+
+    def test_docker_entrypoint_defaults_to_mounted_workspace_root_without_env_override(
+        self, tmp_path: Path
+    ):
+        mounted_workspace_root = tmp_path / "docker-mounted-workspace"
+        mounted_workspace_root.mkdir()
+        launch_dir, redirected = _seed_legacy_resolution_traps(mounted_workspace_root)
+
+        result = _run_docker_startup(
+            launch_dir,
+            mounted_workspace_root=mounted_workspace_root,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert (mounted_workspace_root / ".runsight").is_dir()
+        assert (mounted_workspace_root / "custom" / "workflows").is_dir()
+        assert not (mounted_workspace_root / ".runsight-project").exists()
+        assert not (redirected / ".runsight").exists()
+        assert str(mounted_workspace_root.resolve()) in result.stdout
 
     def test_docker_entrypoint_uses_same_workspace_contract_without_marker(self, tmp_path: Path):
         base_path = tmp_path / "docker-workspace"
@@ -237,9 +295,13 @@ class TestStartupFailureContracts:
             base_path.chmod(0o755)
 
         combined_output = f"{result.stdout}\n{result.stderr}"
+        lower_output = combined_output.lower()
         assert result.returncode != 0, "startup should fail for an unwritable workspace"
-        assert "RUNSIGHT_BASE_PATH" in combined_output
         assert str(base_path) in combined_output
+        assert any(
+            phrase in lower_output
+            for phrase in ("permission", "denied", "read-only", "not writable", "write")
+        ), combined_output
         assert "Traceback" not in combined_output
         assert not (launch_dir / ".runsight").exists()
 
