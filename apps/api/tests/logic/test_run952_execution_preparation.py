@@ -1,19 +1,23 @@
-"""Red tests for RUN-952 execution preparation and launch coordination.
+"""Red tests for RUN-952 and RUN-969 execution snapshot preparation.
 
 These tests lock the coordinator split around preparation-time ownership:
 
 - the requested snapshot/ref is the source of truth for launch preparation
 - commit metadata lookup failures stay explicit instead of silently degrading
 - cancellation that lands during prepare prevents execution from being scheduled
+- explicit snapshot parser-time discovery fails closed instead of mixing in
+  dirty working-tree souls, tools, or assertions
 
 All tests in this file should fail on the pre-split implementation.
 """
 
 import asyncio
+import logging
 import subprocess
 import threading
 import tempfile
 from pathlib import Path
+from textwrap import dedent
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -118,6 +122,163 @@ def _cancel_run(engine, run_id: str) -> None:
 
 def _run_repo(engine):
     return RunRepository(Session(engine))
+
+
+def _write_repo_files(repo: Path, files: dict[str, str]) -> None:
+    for relative_path, contents in files.items():
+        target = repo / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(dedent(contents).lstrip(), encoding="utf-8")
+
+
+def _init_git_repo_with_files(tmp_path: Path, *, files: dict[str, str]) -> Path:
+    repo = tmp_path / "repo"
+    _write_repo_files(repo, files)
+
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@runsight.dev"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Runsight Tests"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "initial snapshot"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return repo
+
+
+def _snapshot_missing_external_soul_workflow(workflow_id: str) -> str:
+    return f"""\
+version: "1.0"
+id: {workflow_id}
+kind: workflow
+workflow:
+  name: Snapshot Soul Workflow
+  entry: review
+  transitions:
+    - from: review
+      to: null
+blocks:
+  review:
+    type: linear
+    soul_ref: reviewer
+souls: {{}}
+config: {{}}
+"""
+
+
+def _working_tree_external_soul() -> str:
+    return """\
+id: reviewer
+kind: soul
+name: Reviewer
+role: Reviewer
+system_prompt: Review carefully.
+provider: openai
+model_name: gpt-4o
+"""
+
+
+def _snapshot_missing_tool_workflow(workflow_id: str) -> str:
+    return f"""\
+version: "1.0"
+id: {workflow_id}
+kind: workflow
+tools:
+  - helper_tool
+workflow:
+  name: Snapshot Tool Workflow
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+blocks:
+  analyze:
+    type: linear
+    soul_ref: assistant
+souls:
+  assistant:
+    id: assistant
+    kind: soul
+    name: Assistant
+    role: Assistant
+    system_prompt: Help carefully.
+    provider: openai
+    model_name: gpt-4o
+    tools:
+      - helper_tool
+config: {{}}
+"""
+
+
+def _working_tree_tool_definition() -> str:
+    return """\
+version: "1.0"
+id: helper_tool
+kind: tool
+type: custom
+executor: python
+name: Helper Tool
+description: Helper tool discovered only in the dirty working tree.
+parameters:
+  type: object
+code: |
+  def main(args):
+      return {"ok": True}
+"""
+
+
+def _snapshot_missing_assertion_workflow(workflow_id: str, assertion_id: str) -> str:
+    return f"""\
+version: "1.0"
+id: {workflow_id}
+kind: workflow
+workflow:
+  name: Snapshot Assertion Workflow
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
+blocks:
+  analyze:
+    type: code
+    code: |
+      def main(data):
+          return "calm response"
+    assertions:
+      - type: custom:{assertion_id}
+config: {{}}
+"""
+
+
+def _working_tree_assertion_manifest(assertion_id: str) -> str:
+    return f"""\
+version: "1.0"
+id: {assertion_id}
+kind: assertion
+name: Snapshot Guard
+description: Assertion discovered only in the dirty working tree.
+returns: bool
+source: {assertion_id}.py
+"""
+
+
+def _working_tree_assertion_source() -> str:
+    return """\
+def get_assert(output, context):
+    return output == "calm response"
+"""
 
 
 class TestRequestedSnapshotSourceOfTruth:
@@ -609,3 +770,215 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
         assert run.status == RunStatus.cancelled
 
     mock_wf.run.assert_not_awaited()
+
+
+class TestSnapshotDiscoveryFailsClosed:
+    @pytest.mark.asyncio
+    async def test_launch_execution_fails_when_requested_snapshot_lacks_external_soul_but_working_tree_has_one(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+        from runsight_api.logic.services.git_service import GitService
+
+        workflow_id = "wf_snapshot_missing_soul"
+        repo = _init_git_repo_with_files(
+            tmp_path,
+            files={
+                f"custom/workflows/{workflow_id}.yaml": _snapshot_missing_external_soul_workflow(
+                    workflow_id
+                )
+            },
+        )
+        _write_repo_files(repo, {"custom/souls/reviewer.yaml": _working_tree_external_soul()})
+
+        engine = _db_engine()
+        run_id = "run_969_missing_soul_snapshot"
+        _seed_run(engine, run_id, workflow_id=workflow_id)
+
+        service = ExecutionService(
+            run_repo=_run_repo(engine),
+            workflow_repo=WorkflowRepository(base_path=str(repo)),
+            provider_repo=Mock(list_all=Mock(return_value=[])),
+            engine=engine,
+            git_service=GitService(repo_path=repo),
+        )
+
+        run_workflow = AsyncMock()
+        with patch.object(service, "_run_workflow", run_workflow):
+            await service.launch_execution(
+                run_id,
+                workflow_id,
+                _prepared_inputs({"instruction": "must fail closed"}),
+                branch="main",
+            )
+            await asyncio.sleep(0)
+
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.status == RunStatus.failed
+            assert run.error is not None
+            assert "reviewer" in run.error.lower()
+
+        assert run_workflow.await_count == 0, (
+            "Explicit snapshot launches must fail instead of mixing committed "
+            "workflow YAML with a dirty working-tree soul file."
+        )
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_fails_when_requested_snapshot_lacks_custom_tool_but_working_tree_has_one(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+        from runsight_api.logic.services.git_service import GitService
+
+        workflow_id = "wf_snapshot_missing_tool"
+        repo = _init_git_repo_with_files(
+            tmp_path,
+            files={
+                f"custom/workflows/{workflow_id}.yaml": _snapshot_missing_tool_workflow(workflow_id)
+            },
+        )
+        _write_repo_files(repo, {"custom/tools/helper_tool.yaml": _working_tree_tool_definition()})
+
+        engine = _db_engine()
+        run_id = "run_969_missing_tool_snapshot"
+        _seed_run(engine, run_id, workflow_id=workflow_id)
+
+        provider_repo = Mock()
+        provider_repo.list_all.return_value = [_provider()]
+        service = ExecutionService(
+            run_repo=_run_repo(engine),
+            workflow_repo=WorkflowRepository(base_path=str(repo)),
+            provider_repo=provider_repo,
+            engine=engine,
+            git_service=GitService(repo_path=repo),
+        )
+
+        run_workflow = AsyncMock()
+        with patch.object(service, "_run_workflow", run_workflow):
+            await service.launch_execution(
+                run_id,
+                workflow_id,
+                _prepared_inputs({"instruction": "must fail closed"}),
+                branch="main",
+            )
+            await asyncio.sleep(0)
+
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.status == RunStatus.failed
+            assert run.error is not None
+            assert "helper_tool" in run.error.lower()
+
+        assert run_workflow.await_count == 0, (
+            "Explicit snapshot launches must fail instead of resolving custom "
+            "tool metadata from the dirty working tree."
+        )
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_fails_when_requested_snapshot_lacks_custom_assertion_but_working_tree_has_one(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+        from runsight_api.logic.services.git_service import GitService
+
+        workflow_id = "wf_snapshot_missing_assertion"
+        assertion_id = "snapshot_guard_969"
+        repo = _init_git_repo_with_files(
+            tmp_path,
+            files={
+                f"custom/workflows/{workflow_id}.yaml": _snapshot_missing_assertion_workflow(
+                    workflow_id,
+                    assertion_id,
+                )
+            },
+        )
+        _write_repo_files(
+            repo,
+            {
+                f"custom/assertions/{assertion_id}.yaml": _working_tree_assertion_manifest(
+                    assertion_id
+                ),
+                f"custom/assertions/{assertion_id}.py": _working_tree_assertion_source(),
+            },
+        )
+
+        engine = _db_engine()
+        run_id = "run_969_missing_assertion_snapshot"
+        _seed_run(engine, run_id, workflow_id=workflow_id)
+
+        service = ExecutionService(
+            run_repo=_run_repo(engine),
+            workflow_repo=WorkflowRepository(base_path=str(repo)),
+            provider_repo=Mock(list_all=Mock(return_value=[])),
+            engine=engine,
+            git_service=GitService(repo_path=repo),
+        )
+
+        run_workflow = AsyncMock()
+        with patch.object(service, "_run_workflow", run_workflow):
+            await service.launch_execution(
+                run_id,
+                workflow_id,
+                _prepared_inputs({"instruction": "must fail closed"}),
+                branch="main",
+            )
+            await asyncio.sleep(0)
+
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.status == RunStatus.failed
+            assert run.error is not None
+            assert assertion_id in run.error
+
+        assert run_workflow.await_count == 0, (
+            "Explicit snapshot launches must fail instead of registering custom "
+            "assertions from the dirty working tree."
+        )
+
+    @pytest.mark.asyncio
+    async def test_launch_execution_logs_requested_ref_when_prepare_fails(self, caplog) -> None:
+        engine = _db_engine()
+        run_id = "run_969_prepare_log_context"
+        workflow_id = "wf_969_log_context"
+        requested_ref = "feature/snapshot-review"
+        _seed_run(engine, run_id, workflow_id=workflow_id)
+
+        workflow_repo = Mock()
+        workflow_repo._get_path.return_value = Path(f"/tmp/custom/workflows/{workflow_id}.yaml")
+        provider_repo = Mock()
+        provider_repo.list_all.return_value = []
+        service = ExecutionService(
+            run_repo=_run_repo(engine),
+            workflow_repo=workflow_repo,
+            provider_repo=provider_repo,
+            engine=engine,
+            git_service=Mock(),
+        )
+
+        with (
+            patch.object(
+                service._preparation,
+                "prepare_for_launch",
+                side_effect=ValueError("Requested snapshot is missing custom/souls/reviewer.yaml"),
+            ),
+            caplog.at_level(
+                logging.ERROR,
+                logger="runsight_api.logic.services.execution_service",
+            ),
+        ):
+            await service.launch_execution(
+                run_id,
+                workflow_id,
+                _prepared_inputs({"instruction": "report requested ref"}),
+                branch=requested_ref,
+            )
+
+        assert requested_ref in caplog.text
+        assert "custom/souls/reviewer.yaml" in caplog.text
