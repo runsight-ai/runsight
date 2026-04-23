@@ -1,11 +1,89 @@
 """Red tests for RUN-963: deterministic workspace resolution without markers."""
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from runsight_api.core.config import Settings, ensure_project_dirs
 from runsight_api.core.project import resolve_base_path
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+README = REPO_ROOT / "README.md"
+DOCKER_ENTRYPOINT = REPO_ROOT / "docker-entrypoint.sh"
+
+_PACKAGE_STARTUP_SNIPPET = """
+from pathlib import Path
+from runsight_api.main import app_settings
+from runsight_api.core.config import ensure_project_dirs
+
+ensure_project_dirs(app_settings)
+print(Path(app_settings.base_path).resolve())
+""".strip()
+
+
+def _uv_executable() -> str:
+    executable = shutil.which("uv")
+    assert executable, "uv must be available to exercise the published-package startup contract"
+    return executable
+
+
+def _run_package_startup(
+    cwd: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    command = [
+        _uv_executable(),
+        "run",
+        "--project",
+        str(REPO_ROOT),
+        "--package",
+        "runsight",
+        "python",
+        "-c",
+        _PACKAGE_STARTUP_SNIPPET,
+    ]
+    merged_env = {**os.environ, **dict(env or {})}
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        env=merged_env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_docker_startup(
+    cwd: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    command = [
+        "sh",
+        str(DOCKER_ENTRYPOINT),
+        _uv_executable(),
+        "run",
+        "--project",
+        str(REPO_ROOT),
+        "--package",
+        "runsight",
+        "python",
+        "-c",
+        _PACKAGE_STARTUP_SNIPPET,
+    ]
+    merged_env = {**os.environ, **dict(env or {})}
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        env=merged_env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
 
 class TestResolveBasePathDeterministicPolicy:
@@ -76,7 +154,7 @@ class TestStartupWorkspaceBootstrap:
         assert (tmp_path / "custom" / "souls").is_dir()
         assert not (tmp_path / ".runsight-project").exists()
 
-    def test_explicit_base_path_wins_without_writing_marker(
+    def test_runsight_base_path_env_wins_without_writing_marker(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         launch_dir = tmp_path / "launch-dir"
@@ -84,13 +162,124 @@ class TestStartupWorkspaceBootstrap:
         base_path = tmp_path / "explicit-workspace"
         base_path.mkdir()
         monkeypatch.chdir(launch_dir)
+        monkeypatch.setenv("RUNSIGHT_BASE_PATH", str(base_path))
 
-        settings = Settings(base_path=str(base_path))
+        settings = Settings()
         ensure_project_dirs(settings)
 
+        assert Path(settings.base_path).resolve() == base_path.resolve()
         assert (base_path / ".runsight").is_dir()
         assert (base_path / "custom" / "workflows").is_dir()
         assert (base_path / "custom" / "souls").is_dir()
         assert not (base_path / ".runsight-project").exists()
         assert not (launch_dir / ".runsight").exists()
         assert not (launch_dir / "custom").exists()
+
+
+class TestPublishedPackageAndDockerContracts:
+    """Published-package and Docker launch surfaces should honor the same contract."""
+
+    def test_published_package_startup_honors_runsight_base_path_without_marker(
+        self, tmp_path: Path
+    ):
+        base_path = tmp_path / "uvx-workspace"
+        base_path.mkdir()
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+
+        result = _run_package_startup(
+            launch_dir,
+            env={"RUNSIGHT_BASE_PATH": str(base_path)},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert (base_path / ".runsight").is_dir()
+        assert (base_path / "custom" / "workflows").is_dir()
+        assert (base_path / "custom" / "souls").is_dir()
+        assert not (base_path / ".runsight-project").exists()
+        assert not (launch_dir / ".runsight").exists()
+
+    def test_docker_entrypoint_uses_same_workspace_contract_without_marker(self, tmp_path: Path):
+        base_path = tmp_path / "docker-workspace"
+        base_path.mkdir()
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+
+        result = _run_docker_startup(
+            launch_dir,
+            env={"RUNSIGHT_BASE_PATH": str(base_path)},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert (base_path / ".runsight").is_dir()
+        assert (base_path / "custom" / "workflows").is_dir()
+        assert (base_path / "custom" / "souls").is_dir()
+        assert not (base_path / ".runsight-project").exists()
+        assert not (launch_dir / ".runsight").exists()
+
+
+class TestStartupFailureContracts:
+    """Startup should fail clearly for invalid workspaces instead of redirecting or limping on."""
+
+    def test_published_package_reports_clear_error_for_read_only_workspace(self, tmp_path: Path):
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+        base_path = tmp_path / "read-only-workspace"
+        base_path.mkdir()
+        base_path.chmod(0o555)
+
+        try:
+            result = _run_package_startup(
+                launch_dir,
+                env={"RUNSIGHT_BASE_PATH": str(base_path)},
+            )
+        finally:
+            base_path.chmod(0o755)
+
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert result.returncode != 0, "startup should fail for an unwritable workspace"
+        assert "RUNSIGHT_BASE_PATH" in combined_output
+        assert str(base_path) in combined_output
+        assert "Traceback" not in combined_output
+        assert not (launch_dir / ".runsight").exists()
+
+    def test_published_package_rejects_partial_workspace_with_file_at_runsight_dir(
+        self, tmp_path: Path
+    ):
+        launch_dir = tmp_path / "launch-dir"
+        launch_dir.mkdir()
+        base_path = tmp_path / "partial-workspace"
+        base_path.mkdir()
+        (base_path / ".runsight").write_text("not a directory", encoding="utf-8")
+
+        result = _run_package_startup(
+            launch_dir,
+            env={"RUNSIGHT_BASE_PATH": str(base_path)},
+        )
+
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert result.returncode != 0, "startup should fail for a partial workspace"
+        assert ".runsight" in combined_output
+        assert "directory" in combined_output.lower()
+        assert "Traceback" not in combined_output
+        assert not (launch_dir / ".runsight").exists()
+
+
+class TestReadmeGuidance:
+    """User-facing docs must describe the Docker workspace-root persistence contract."""
+
+    def test_readme_explains_mounting_workspace_root_for_db_and_settings_persistence(self):
+        text = README.read_text(encoding="utf-8").lower()
+
+        mentions_workspace_root = "workspace root" in text or "whole workspace" in text
+        mentions_not_custom_only = "not only `custom/`" in text or "not just `custom/`" in text
+        mentions_runtime_persistence = ".runsight/" in text and any(
+            phrase in text for phrase in ("db", "settings", "persistence")
+        )
+
+        assert (
+            mentions_workspace_root and mentions_not_custom_only and mentions_runtime_persistence
+        ), (
+            "README must explain that Docker users should mount the whole workspace root, not "
+            "just custom/, when they want .runsight/ DB/settings persistence."
+        )
