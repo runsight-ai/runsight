@@ -64,7 +64,11 @@ class ExecutionRuntimeCoordinator:
         """Execute a prepared workflow under concurrency and stream coordination."""
         from runsight_core.state import WorkflowState
 
-        streaming_obs = StreamingObserver(run_id=run_id)
+        streaming_obs = StreamingObserver(
+            run_id=run_id,
+            register_stream=self.streams.register,
+            unregister_stream=self.streams.unregister,
+        )
         self.streams.register(run_id, streaming_obs)
 
         try:
@@ -88,6 +92,7 @@ class ExecutionRuntimeCoordinator:
                                 run_id=run_id,
                                 sse_queue=streaming_obs.queue,
                                 assertion_configs=build_assertion_configs(wf),
+                                child_sse_queue_factory=streaming_obs.child_queue_for_run,
                             )
                         )
                     observer = CompositeObserver(*observers)

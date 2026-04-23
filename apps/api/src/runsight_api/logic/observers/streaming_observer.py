@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from runsight_core.context_governance import (
     ContextAuditEventV1,
@@ -30,15 +30,46 @@ class StreamingObserver:
     The GUI SSE endpoint drains this queue to stream real-time execution events.
     """
 
-    def __init__(self, *, run_id: str, parent_run_id: Optional[str] = None):
+    def __init__(
+        self,
+        *,
+        run_id: str,
+        parent_run_id: Optional[str] = None,
+        queue: asyncio.Queue[Dict[str, Any]] | None = None,
+        parent_summary_queue: asyncio.Queue[Dict[str, Any]] | None = None,
+        register_stream: Callable[[str, "StreamingObserver"], None] | None = None,
+        unregister_stream: Callable[[str], None] | None = None,
+        child_owns_terminal_stream: bool = False,
+    ):
         self.run_id = run_id
         self.parent_run_id = parent_run_id
-        self.queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+        self.queue: asyncio.Queue[Dict[str, Any]] = queue or asyncio.Queue()
+        self.parent_summary_queue = parent_summary_queue
+        self._register_stream = register_stream
+        self._unregister_stream = unregister_stream
+        self._child_owns_terminal_stream = child_owns_terminal_stream
+        self._child_queues: dict[str, asyncio.Queue[Dict[str, Any]]] = {}
         self.is_done: bool = False
 
+    def child_queue_for_run(self, child_run_id: str) -> asyncio.Queue[Dict[str, Any]]:
+        queue = self._child_queues.get(child_run_id)
+        if queue is None:
+            queue = asyncio.Queue()
+            self._child_queues[child_run_id] = queue
+        return queue
+
     def clone_for_child_run(self, *, child_run_id: str) -> "StreamingObserver":
-        child = StreamingObserver(run_id=child_run_id, parent_run_id=self.run_id)
-        child.queue = self.queue
+        child = StreamingObserver(
+            run_id=child_run_id,
+            parent_run_id=self.run_id,
+            queue=self.child_queue_for_run(child_run_id),
+            parent_summary_queue=self.queue,
+            register_stream=self._register_stream,
+            unregister_stream=self._unregister_stream,
+            child_owns_terminal_stream=True,
+        )
+        if self._register_stream is not None:
+            self._register_stream(child_run_id, child)
         return child
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
@@ -109,8 +140,37 @@ class StreamingObserver:
     def on_workflow_complete(
         self, workflow_name: str, state: WorkflowState, duration_s: float
     ) -> None:
-        if self.parent_run_id is not None:
-            # Child run: emit non-terminal event, do NOT mark stream as done
+        if self.parent_run_id is not None and self._child_owns_terminal_stream:
+            self.queue.put_nowait(
+                {
+                    "event": SSE_RUN_COMPLETED,
+                    "data": {
+                        "run_id": self.run_id,
+                        "duration_s": duration_s,
+                        "total_cost_usd": state.total_cost_usd,
+                        "total_tokens": state.total_tokens,
+                    },
+                }
+            )
+            self.is_done = True
+            if self.parent_summary_queue is not None:
+                self.parent_summary_queue.put_nowait(
+                    {
+                        "event": SSE_CHILD_RUN_COMPLETED,
+                        "data": {
+                            "run_id": self.run_id,
+                            "parent_run_id": self.parent_run_id,
+                            "child_run_id": self.run_id,
+                            "duration_s": duration_s,
+                            "total_cost_usd": state.total_cost_usd,
+                            "total_tokens": state.total_tokens,
+                        },
+                    }
+                )
+            if self._unregister_stream is not None:
+                self._unregister_stream(self.run_id)
+        elif self.parent_run_id is not None:
+            # Compatibility path for manually-constructed child observers.
             self.queue.put_nowait(
                 {
                     "event": SSE_CHILD_RUN_COMPLETED,
@@ -177,6 +237,9 @@ class StreamingObserver:
             }
         )
         self.is_done = True
+        if self.parent_run_id is not None and self._child_owns_terminal_stream:
+            if self._unregister_stream is not None:
+                self._unregister_stream(self.run_id)
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
         event = redact_context_audit_event_preview(event)

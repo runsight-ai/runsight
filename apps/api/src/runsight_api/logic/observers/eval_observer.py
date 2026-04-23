@@ -1,7 +1,8 @@
 """EvalObserver: runs assertion configs on block completion, persists eval results."""
 
+import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from runsight_core.assertions.base import AssertionContext
 from runsight_core.assertions.registry import run_assertions_sync
@@ -33,18 +34,25 @@ class EvalObserver:
         run_id: str,
         sse_queue: Any,
         assertion_configs: Dict[str, List[Dict[str, Any]]] | None = None,
+        child_sse_queue_factory: Callable[[str], Any] | None = None,
     ) -> None:
         self.engine = engine
         self.run_id = run_id
         self.sse_queue = sse_queue
         self.assertion_configs = assertion_configs
+        self._child_sse_queue_factory = child_sse_queue_factory
 
     def clone_for_child_run(self, *, child_run_id: str) -> "EvalObserver":
         return EvalObserver(
             engine=self.engine,
             run_id=child_run_id,
-            sse_queue=self.sse_queue,
+            sse_queue=(
+                self._child_sse_queue_factory(child_run_id)
+                if self._child_sse_queue_factory is not None
+                else asyncio.Queue()
+            ),
             assertion_configs=self.assertion_configs,
+            child_sse_queue_factory=self._child_sse_queue_factory,
         )
 
     # ------------------------------------------------------------------
