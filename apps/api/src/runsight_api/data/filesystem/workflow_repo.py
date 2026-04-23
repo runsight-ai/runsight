@@ -10,6 +10,8 @@ The workflow id is embedded in the YAML file and is the canonical identity.
 import io
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
@@ -69,6 +71,21 @@ class WorkflowRepository:
         Delegates to the shared utility in _utils.py.
         """
         _shared_atomic_write(path, content)
+
+    @staticmethod
+    def _atomic_write_bytes(path: Path, content: bytes) -> None:
+        parent = path.parent
+        fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(content)
+            os.rename(tmp_path, str(path))
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _get_path(self, workflow_id: str) -> Path:
         """Get the YAML file path for a workflow id."""
@@ -211,13 +228,22 @@ class WorkflowRepository:
         content = json.dumps(canvas_data, indent=2, sort_keys=True)
         self._atomic_write(self._canvas_path(stem), content)
 
-    def _restore_canvas_sidecar(self, stem: str, previous_content: Optional[str]) -> None:
+    def _restore_canvas_sidecar(self, stem: str, previous_content: Optional[bytes | str]) -> None:
         canvas_path = self._canvas_path(stem)
         if previous_content is None:
             if canvas_path.exists():
                 canvas_path.unlink()
             return
+        if isinstance(previous_content, bytes):
+            self._atomic_write_bytes(canvas_path, previous_content)
+            return
         self._atomic_write(canvas_path, previous_content)
+
+    def _read_canvas_sidecar_bytes(self, stem: str) -> Optional[bytes]:
+        path = self._canvas_path(stem)
+        if not path.exists():
+            return None
+        return path.read_bytes()
 
     def _read_canvas_sidecar(self, stem: str) -> Optional[Dict[str, Any]]:
         """Read the canvas sidecar JSON file, if it exists."""
@@ -497,7 +523,7 @@ class WorkflowRepository:
         if canvas_state_update is not None:
             canvas_path = self._canvas_path(workflow_id)
             if canvas_path.exists():
-                previous_canvas_content = canvas_path.read_text()
+                previous_canvas_content = canvas_path.read_bytes()
 
         self._atomic_write(yaml_path, yaml_content)
 

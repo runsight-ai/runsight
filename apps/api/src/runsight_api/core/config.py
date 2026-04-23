@@ -71,7 +71,7 @@ class Settings(BaseSettings):
 
 
 def ensure_project_dirs(settings: Settings) -> None:
-    """Ensure the workspace skeleton, .canvas/, and .runsight/ directories exist."""
+    """Ensure the workspace skeleton, workflow canvas, and .runsight/ directories exist."""
     resolved = Path(settings.base_path).resolve()
     logger.info("Runsight base_path resolved to: %s", resolved)
     if resolved.exists() and not resolved.is_dir():
@@ -93,7 +93,14 @@ def ensure_project_dirs(settings: Settings) -> None:
 
     workflows_dir = resolved / "custom" / "workflows"
     canvas_dir = workflows_dir / ".canvas"
+    providers_dir = resolved / "custom" / "providers"
     runsight_dir = resolved / ".runsight"
+
+    if providers_dir.exists() and not providers_dir.is_dir():
+        raise _workspace_error(
+            resolved,
+            f"Expected '{providers_dir}' to be a directory.",
+        )
 
     for directory in (workflows_dir, canvas_dir, runsight_dir):
         existed = directory.exists()

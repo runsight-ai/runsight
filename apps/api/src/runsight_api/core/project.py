@@ -10,16 +10,17 @@ logger = logging.getLogger(__name__)
 
 def scaffold_project(base_path: Path) -> None:
     """Create or verify the Runsight workspace structure at *base_path*."""
+    has_git_repo = (base_path / ".git").is_dir()
     is_new = not any(
         (
             (base_path / "custom").exists(),
             (base_path / ".gitignore").exists(),
-            (base_path / ".git").exists(),
+            has_git_repo,
         )
     )
     legacy_marker_path = base_path / ".runsight-project"
 
-    if legacy_marker_path.exists():
+    if legacy_marker_path.exists() and not has_git_repo:
         legacy_marker_path.unlink()
         logger.info("Removed legacy Runsight marker at %s", legacy_marker_path)
 
@@ -28,17 +29,18 @@ def scaffold_project(base_path: Path) -> None:
     (base_path / "custom" / "tools").mkdir(parents=True, exist_ok=True)
 
     gitignore_path = base_path / ".gitignore"
-    if not gitignore_path.is_file():
-        gitignore_path.write_text(".canvas/\n.runsight/\n", encoding="utf-8")
-    else:
-        content = gitignore_path.read_text(encoding="utf-8")
-        if ".runsight/" not in content:
-            with gitignore_path.open("a", encoding="utf-8") as f:
-                if content and not content.endswith("\n"):
-                    f.write("\n")
-                f.write(".runsight/\n")
+    if not has_git_repo:
+        if not gitignore_path.is_file():
+            gitignore_path.write_text(".canvas/\n.runsight/\n", encoding="utf-8")
+        else:
+            content = gitignore_path.read_text(encoding="utf-8")
+            if ".runsight/" not in content:
+                with gitignore_path.open("a", encoding="utf-8") as f:
+                    if content and not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(".runsight/\n")
 
-    if not (base_path / ".git").is_dir():
+    if not has_git_repo:
         if shutil.which("git") is None:
             logger.warning(
                 "Git executable is unavailable; GitOps disabled for workspace at %s",
