@@ -27,7 +27,11 @@ class RegressionIssueType(str, Enum):
     quality_drop = "quality_drop"
 
 
-RegressionIssueTypeLiteral: TypeAlias = Literal[*tuple(RegressionIssueType)]
+RegressionIssueTypeLiteral: TypeAlias = Literal[
+    "assertion_regression",
+    "cost_spike",
+    "quality_drop",
+]
 
 
 # ---------------------------------------------------------------------------

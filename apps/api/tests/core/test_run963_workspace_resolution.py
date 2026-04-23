@@ -251,13 +251,15 @@ class TestPublishedPackageAndDockerContracts:
         base_path.mkdir()
         launch_dir = tmp_path / "launch-dir"
         launch_dir.mkdir()
+        different_tmpdir = tmp_path / "different-tmpdir"
+        different_tmpdir.mkdir()
 
         result = _run_package_startup(
             launch_dir,
             env={
                 "PYTEST_CURRENT_TEST": "RUN-963 regression",
                 "RUNSIGHT_BASE_PATH": str(base_path),
-                "TMPDIR": str(base_path),
+                "TMPDIR": str(different_tmpdir),
             },
         )
 
