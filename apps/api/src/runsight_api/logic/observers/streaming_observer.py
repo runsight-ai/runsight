@@ -39,6 +39,7 @@ class StreamingObserver:
         parent_summary_queue: asyncio.Queue[Dict[str, Any]] | None = None,
         register_stream: Callable[[str, "StreamingObserver"], None] | None = None,
         unregister_stream: Callable[[str], None] | None = None,
+        release_child_queue: Callable[[str], None] | None = None,
         child_owns_terminal_stream: bool = False,
     ):
         self.run_id = run_id
@@ -47,6 +48,7 @@ class StreamingObserver:
         self.parent_summary_queue = parent_summary_queue
         self._register_stream = register_stream
         self._unregister_stream = unregister_stream
+        self._release_child_queue = release_child_queue
         self._child_owns_terminal_stream = child_owns_terminal_stream
         self._child_queues: dict[str, asyncio.Queue[Dict[str, Any]]] = {}
         self.is_done: bool = False
@@ -66,11 +68,15 @@ class StreamingObserver:
             parent_summary_queue=self.queue,
             register_stream=self._register_stream,
             unregister_stream=self._unregister_stream,
+            release_child_queue=self._drop_child_queue,
             child_owns_terminal_stream=True,
         )
         if self._register_stream is not None:
             self._register_stream(child_run_id, child)
         return child
+
+    def _drop_child_queue(self, child_run_id: str) -> None:
+        self._child_queues.pop(child_run_id, None)
 
     def on_workflow_start(self, workflow_name: str, state: WorkflowState) -> None:
         self.queue.put_nowait({"event": SSE_RUN_STARTED, "data": {"run_id": self.run_id}})
@@ -169,6 +175,8 @@ class StreamingObserver:
                 )
             if self._unregister_stream is not None:
                 self._unregister_stream(self.run_id)
+            if self._release_child_queue is not None:
+                self._release_child_queue(self.run_id)
         elif self.parent_run_id is not None:
             # Compatibility path for manually-constructed child observers.
             self.queue.put_nowait(
@@ -240,6 +248,8 @@ class StreamingObserver:
         if self.parent_run_id is not None and self._child_owns_terminal_stream:
             if self._unregister_stream is not None:
                 self._unregister_stream(self.run_id)
+            if self._release_child_queue is not None:
+                self._release_child_queue(self.run_id)
 
     def on_context_resolution(self, event: ContextAuditEventV1) -> None:
         event = redact_context_audit_event_preview(event)

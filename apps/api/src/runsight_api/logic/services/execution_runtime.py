@@ -27,6 +27,9 @@ def _split_runtime_inputs(inputs: Any) -> tuple[dict[str, Any], Any | None]:
 
 def build_assertion_configs(wf: Any) -> Optional[Dict[str, list]]:
     """Extract block-owned assertion configs from runtime blocks."""
+    getter = getattr(wf, "assertion_configs", None)
+    if callable(getter):
+        return getter()
     blocks = getattr(wf, "_blocks", None)
     if not blocks or not isinstance(blocks, dict):
         return None

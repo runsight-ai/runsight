@@ -16,6 +16,7 @@ from runsight_api.data.repositories.run_read_model import RunReadModel
 from runsight_api.domain.entities.run import RunNode
 
 logger = logging.getLogger(__name__)
+_USE_PARENT_ASSERTION_CONFIGS = object()
 
 
 class EvalObserver:
@@ -42,7 +43,17 @@ class EvalObserver:
         self.assertion_configs = assertion_configs
         self._child_sse_queue_factory = child_sse_queue_factory
 
-    def clone_for_child_run(self, *, child_run_id: str) -> "EvalObserver":
+    def clone_for_child_run(
+        self,
+        *,
+        child_run_id: str,
+        assertion_configs: Dict[str, List[Dict[str, Any]]] | None | object = (
+            _USE_PARENT_ASSERTION_CONFIGS
+        ),
+    ) -> "EvalObserver":
+        child_assertion_configs = self.assertion_configs
+        if assertion_configs is not _USE_PARENT_ASSERTION_CONFIGS:
+            child_assertion_configs = assertion_configs
         return EvalObserver(
             engine=self.engine,
             run_id=child_run_id,
@@ -51,7 +62,7 @@ class EvalObserver:
                 if self._child_sse_queue_factory is not None
                 else asyncio.Queue()
             ),
-            assertion_configs=self.assertion_configs,
+            assertion_configs=child_assertion_configs,
             child_sse_queue_factory=self._child_sse_queue_factory,
         )
 

@@ -119,10 +119,13 @@ class WorkflowBlock(BaseBlock):
 
         child_observer = None
         child_run_id = None
+        child_assertion_configs = self.child_workflow.assertion_configs()
         if observer:
             if self._observer_has_terminal_hooks(observer):
                 child_observer, child_run_id = build_child_observer(
-                    observer, block_id=self.block_id
+                    observer,
+                    block_id=self.block_id,
+                    assertion_configs=child_assertion_configs,
                 )
             else:
                 child_observer = observer

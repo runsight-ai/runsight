@@ -377,6 +377,10 @@ def _call_observer_method(method: Any, *args: Any, **kwargs: Any) -> None:
     method(*args, **_filtered_observer_kwargs(method, kwargs))
 
 
+def _clone_child_observer(method: Any, *, child_run_id: str, **kwargs: Any) -> Any:
+    return method(child_run_id=child_run_id, **_filtered_observer_kwargs(method, kwargs))
+
+
 class ChildObserverWrapper:
     """Wraps a parent observer, forwarding non-terminal events and intercepting terminal ones.
 
@@ -479,6 +483,7 @@ def build_child_observer(
     parent_observer: WorkflowObserver,
     *,
     block_id: str,
+    **kwargs: Any,
 ) -> tuple[WorkflowObserver, Optional[str]]:
     """Derive a child observer when the parent can expose child-run context.
 
@@ -493,7 +498,7 @@ def build_child_observer(
 
     cloner = getattr(parent_observer, "clone_for_child_run", None)
     if child_run_id and callable(cloner):
-        return cloner(child_run_id=child_run_id), child_run_id
+        return _clone_child_observer(cloner, child_run_id=child_run_id, **kwargs), child_run_id
 
     return ChildObserverWrapper(parent_observer), child_run_id
 
@@ -518,7 +523,7 @@ class CompositeObserver:
                 return child_run_id
         return None
 
-    def clone_for_child_run(self, *, child_run_id: str) -> "CompositeObserver":
+    def clone_for_child_run(self, *, child_run_id: str, **kwargs: Any) -> "CompositeObserver":
         child_observers: list[WorkflowObserver] = []
         child_stream_queue: Any | None = None
         child_stream_queue_factory: Any | None = None
@@ -526,7 +531,7 @@ class CompositeObserver:
         for obs in self.observers:
             cloner = getattr(obs, "clone_for_child_run", None)
             if callable(cloner):
-                cloned = cloner(child_run_id=child_run_id)
+                cloned = _clone_child_observer(cloner, child_run_id=child_run_id, **kwargs)
             else:
                 cloned = ChildObserverWrapper(obs)
             child_observers.append(cloned)
@@ -588,7 +593,23 @@ class CompositeObserver:
         kwargs = dict(kwargs)
         if soul is not None:
             kwargs["soul"] = soul
-        for obs in self.observers:
+        handled_indices: set[int] = set()
+        if "child_run_id" not in kwargs:
+            for index, obs in enumerate(self.observers):
+                getter = getattr(obs, "get_child_run_id_for_block", None)
+                if not callable(getter):
+                    continue
+                self._safe_call(
+                    obs, "on_block_start", workflow_name, block_id, block_type, **kwargs
+                )
+                handled_indices.add(index)
+                child_run_id = getter(block_id)
+                if child_run_id:
+                    kwargs["child_run_id"] = child_run_id
+
+        for index, obs in enumerate(self.observers):
+            if index in handled_indices:
+                continue
             self._safe_call(obs, "on_block_start", workflow_name, block_id, block_type, **kwargs)
 
     def on_block_complete(
