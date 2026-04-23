@@ -938,3 +938,91 @@ class TestEvalObserverProtocol:
         state = WorkflowState()
         # Should not raise
         obs.on_workflow_start("wf", state)
+
+
+class TestEvalObserverChildStreamIsolation:
+    def test_clone_for_child_run_uses_a_distinct_sse_queue(self, seed_run, sse_queue):
+        engine, run_id = seed_run
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=engine,
+            run_id=run_id,
+            sse_queue=sse_queue,
+            assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
+        )
+
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+
+        assert child.run_id == "run_973_child"
+        assert child.sse_queue is not parent.sse_queue, (
+            "Child eval observers must own a dedicated SSE queue so child eval traffic "
+            "cannot bleed into the parent's live stream."
+        )
+
+    @pytest.mark.asyncio
+    async def test_child_eval_events_stay_off_the_parent_queue(
+        self,
+        db_engine,
+        sse_queue,
+        sample_state,
+        sample_soul,
+        contains_assertion_configs,
+    ):
+        parent_run_id = "run_973_eval_parent"
+        child_run_id = "run_973_eval_child"
+
+        with Session(db_engine) as session:
+            session.add(
+                Run(
+                    id=parent_run_id,
+                    workflow_id="wf_parent",
+                    workflow_name="parent",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
+                )
+            )
+            session.add(
+                Run(
+                    id=child_run_id,
+                    workflow_id="wf_child",
+                    workflow_name="child",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
+                )
+            )
+            session.add(
+                RunNode(
+                    id=f"{child_run_id}:block_a",
+                    run_id=child_run_id,
+                    node_id="block_a",
+                    block_type="LinearBlock",
+                    status="completed",
+                    cost_usd=0.05,
+                    tokens={"total": 1500},
+                    output="Some output containing Sources information.",
+                )
+            )
+            session.commit()
+
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=db_engine,
+            run_id=parent_run_id,
+            sse_queue=sse_queue,
+            assertion_configs=contains_assertion_configs,
+        )
+        child = parent.clone_for_child_run(child_run_id=child_run_id)
+
+        child.on_block_complete(
+            "wf_child", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
+
+        assert sse_queue.empty(), (
+            "A child run's node_eval_complete event must not be enqueued onto the parent's "
+            "live stream queue."
+        )
+        event = child.sse_queue.get_nowait()
+        assert event["event"] == "node_eval_complete"
+        assert event["data"]["node_id"] == "block_a"

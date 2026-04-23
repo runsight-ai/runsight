@@ -1,6 +1,7 @@
 """Red tests for RUN-952 stream subscription coordination."""
 
 import asyncio
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -212,6 +213,74 @@ class TestLateStreamSubscribers:
         assert any("event:run_completed" in chunk for chunk in chunks), (
             "The SSE endpoint should wait for the stream registry to attach and "
             "then deliver the terminal event to an already-connected subscriber."
+        )
+
+
+class TestChildRunStreamOwnership:
+    @pytest.mark.asyncio
+    async def test_child_stream_gets_child_owned_terminal_event(self):
+        service = _make_service()
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+        service._streams.register(parent.run_id, parent)
+        service._streams.register(child.run_id, child)
+
+        child_state = Mock(total_cost_usd=0.01, total_tokens=42)
+
+        stream = service.subscribe_stream(child.run_id)
+        child.on_workflow_complete("child_workflow", child_state, 0.25)
+        event = await asyncio.wait_for(anext(stream), timeout=1)
+        await stream.aclose()
+
+        assert event["event"] == "run_completed", (
+            "A child run's own stream must terminate with child-owned terminal traffic, "
+            "not a parent-summary event."
+        )
+        assert event["data"]["run_id"] == child.run_id
+
+    @pytest.mark.asyncio
+    async def test_parent_stream_stays_open_and_filters_child_raw_events(self):
+        service = _make_service()
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+        service._streams.register(parent.run_id, parent)
+        service._streams.register(child.run_id, child)
+
+        parent_state = Mock(total_cost_usd=0.02, total_tokens=84)
+        child_state = Mock(total_cost_usd=0.01, total_tokens=42)
+        events: list[dict] = []
+
+        async def consume_parent() -> None:
+            async for event in service.subscribe_stream(parent.run_id):
+                events.append(event)
+
+        consumer = asyncio.create_task(consume_parent())
+        await asyncio.sleep(0)
+
+        child.on_block_start("child_workflow", "child_step", "workflow")
+        child.on_block_heartbeat(
+            "child_workflow",
+            "child_step",
+            "running",
+            "still working",
+            datetime.now(timezone.utc),
+        )
+        child.on_workflow_complete("child_workflow", child_state, 0.25)
+
+        await asyncio.sleep(0.05)
+        assert not consumer.done(), (
+            "A parent stream must remain open after child completion until the parent itself "
+            "enqueues terminal traffic."
+        )
+
+        parent.on_workflow_complete("parent_workflow", parent_state, 0.5)
+        await asyncio.wait_for(consumer, timeout=1)
+
+        event_types = [event["event"] for event in events]
+        assert event_types[-1] == "run_completed"
+        assert set(event_types) <= {"child_run_completed", "run_completed"}, (
+            "Parent streams may carry an explicit child summary signal, but they must not "
+            "receive raw child node lifecycle traffic."
         )
 
 
