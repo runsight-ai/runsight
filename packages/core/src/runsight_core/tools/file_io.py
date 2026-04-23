@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+from runsight_core.paths import is_path_within_base
 from runsight_core.tools._catalog import ToolInstance, register_builtin
 
 _PARAMETERS_SCHEMA: Dict[str, Any] = {
@@ -27,8 +28,9 @@ def _validate_path(base_dir: Path, relative_path: str) -> Path:
     if ".." in Path(relative_path).parts:
         raise PermissionError(f"Path traversal is not allowed: {relative_path}")
 
-    resolved = (base_dir / relative_path).resolve()
-    if not str(resolved).startswith(str(base_dir.resolve())):
+    resolved_base = base_dir.resolve()
+    resolved = (resolved_base / relative_path).resolve()
+    if not is_path_within_base(resolved_base, resolved):
         raise PermissionError(f"Path escapes base directory: {relative_path}")
 
     return resolved

@@ -193,10 +193,28 @@ def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: in
 
 def _git_service_for(base_dir: Path) -> Mock:
     git_service = Mock()
-    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
-        encoding="utf-8"
-    )
+
+    def _list_files(branch: str, path_prefix: str) -> list[str]:
+        del branch
+        root = base_dir / path_prefix.rstrip("/")
+        if not root.exists():
+            return []
+        return sorted(
+            path.relative_to(base_dir).as_posix()
+            for path in root.rglob("*")
+            if path.is_file() and path.suffix in {".yaml", ".yml"}
+        )
+
+    def _read_file(workflow_path: str, branch: str) -> str:
+        del branch
+        path = Path(workflow_path)
+        if not path.is_absolute():
+            path = base_dir / workflow_path
+        return path.read_text(encoding="utf-8")
+
+    git_service.read_file.side_effect = _read_file
     git_service.get_sha.side_effect = lambda branch, workflow_path: "7" * 40
+    git_service.list_files.side_effect = _list_files
     return git_service
 
 
@@ -483,20 +501,21 @@ class TestSSEStreamProducesBlockEvents:
 
 
 # ===========================================================================
-# AC2 — Child WorkflowBlock -> SSE stream contains child block events
+# AC2 — Child WorkflowBlock -> SSE stream keeps child raw traffic on child stream
 # ===========================================================================
 
 
-class TestSSEStreamContainsChildBlockEvents:
-    """When a parent workflow contains a workflow-call block that spawns a child
-    workflow, the SSE stream must contain events for the child workflow's blocks."""
+class TestSSEStreamContainsChildSummaryOnly:
+    """The parent stream should surface child completion summary only.
+
+    Raw child node lifecycle traffic belongs on the child run stream.
+    """
 
     @pytest.mark.asyncio
     async def test_child_workflow_block_events_appear_in_stream(
         self, execution_service, db_engine, base_dir
     ):
-        """The stream for a parent run must include node events from the child
-        workflow's blocks (e.g. do_work), not just the parent's blocks."""
+        """The parent stream must not expose raw child node lifecycle events."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         import yaml
@@ -527,13 +546,17 @@ class TestSSEStreamContainsChildBlockEvents:
             for e in events
             if e["event"] == SSE_NODE_STARTED and "node_id" in e.get("data", {})
         }
+        event_types = [e["event"] for e in events]
 
-        assert "do_work" in started_node_ids, (
-            f"Child workflow's block 'do_work' must appear in the parent's SSE "
-            f"stream. Got node_ids: {started_node_ids}"
+        assert "do_work" not in started_node_ids, (
+            f"Parent stream must not include raw child block events. Got node_ids: "
+            f"{started_node_ids}"
         )
         assert "plan" in started_node_ids, (
             f"Parent block 'plan' must appear in SSE stream. Got: {started_node_ids}"
+        )
+        assert "child_run_completed" in event_types, (
+            f"Parent stream must surface a child summary event. Got: {event_types}"
         )
 
 

@@ -12,6 +12,8 @@ from sqlalchemy import text
 from starlette.responses import FileResponse
 from sqlmodel import Session
 
+from runsight_core.paths import is_path_within_base
+
 from .core.config import ensure_project_dirs
 from .core.config import settings as app_settings
 from .core.di import engine
@@ -190,13 +192,14 @@ def create_app() -> FastAPI:
 
     # Serve built frontend static files (bundled in wheel or overridden via env)
     _pkg_static = Path(__file__).parent / "static"
-    static_dir = Path(os.environ.get("RUNSIGHT_STATIC_DIR", str(_pkg_static)))
+    static_dir = Path(os.environ.get("RUNSIGHT_STATIC_DIR", str(_pkg_static))).resolve()
     if static_dir.is_dir():
         assets_dir = static_dir / "assets"
         if assets_dir.is_dir():
             app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
         index_html = static_dir / "index.html"
+        resolved_index_html = index_html.resolve(strict=False)
 
         @app.get("/runsight.svg", include_in_schema=False)
         async def _favicon():
@@ -204,11 +207,14 @@ def create_app() -> FastAPI:
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def _spa_catch_all(full_path: str):
-            # Serve static file if it exists, otherwise index.html for SPA routing
-            candidate = static_dir / full_path
-            if candidate.is_file():
-                return FileResponse(candidate)
-            return FileResponse(index_html)
+            resolved_candidate = (static_dir / full_path).resolve(strict=False)
+            if not is_path_within_base(static_dir, resolved_candidate):
+                raise RunsightError("Not found", error_code="NOT_FOUND", status_code=404)
+            if resolved_candidate.is_file():
+                return FileResponse(resolved_candidate)
+            if not is_path_within_base(static_dir, resolved_index_html):
+                raise RunsightError("Not found", error_code="NOT_FOUND", status_code=404)
+            return FileResponse(resolved_index_html)
 
     return app
 

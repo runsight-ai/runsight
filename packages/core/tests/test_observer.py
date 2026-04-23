@@ -121,6 +121,26 @@ class TestCompositeObserver:
         composite.on_block_error("wf", "b1", "LinearBlock", 1.0, err)
         obs1.on_block_error.assert_called_once_with("wf", "b1", "LinearBlock", 1.0, err)
 
+    def test_child_run_id_does_not_leak_into_later_non_workflow_block_starts(self):
+        class ChildRunIdObserver:
+            def __init__(self) -> None:
+                self.on_block_start = MagicMock()
+
+            def get_child_run_id_for_block(self, block_id: str) -> str | None:
+                return "child_run_1" if block_id == "delegate" else None
+
+        child_run_id_observer = ChildRunIdObserver()
+        passive_observer = MagicMock()
+        composite = CompositeObserver(child_run_id_observer, passive_observer)
+
+        composite.on_block_start("wf", "delegate", "workflow")
+        composite.on_block_start("wf", "analyze", "linear")
+
+        assert passive_observer.on_block_start.call_args_list[0].kwargs["child_run_id"] == (
+            "child_run_1"
+        )
+        assert "child_run_id" not in passive_observer.on_block_start.call_args_list[1].kwargs
+
 
 class TestWorkflowObserverProtocol:
     def test_logging_observer_is_workflow_observer(self):

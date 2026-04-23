@@ -417,6 +417,15 @@ class Workflow:
         """Read-only access to the block registry keyed by block_id."""
         return self._blocks
 
+    def assertion_configs(self) -> Optional[Dict[str, list[dict[str, Any]]]]:
+        """Return block-owned assertion configs for this workflow only."""
+        configs: Dict[str, list[dict[str, Any]]] = {}
+        for block_id, block in self._blocks.items():
+            block_assertions = getattr(block, "assertions", None)
+            if block_assertions:
+                configs[block_id] = list(block_assertions)
+        return configs or None
+
     def add_block(self, block: RuntimeBlock) -> "Workflow":
         """
         Register a block in this workflow.

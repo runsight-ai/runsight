@@ -1130,6 +1130,29 @@ class TestFileIOPathTraversal:
         # Ensure the file was NOT written outside base_dir
         assert not (tmp_path / "escape.txt").exists()
 
+    @pytest.mark.asyncio
+    async def test_symlink_to_sibling_prefix_directory_rejected(self, tmp_path: Path):
+        """Symlink escapes to a similarly named sibling must be rejected."""
+        from runsight_core.isolation.handlers import make_file_io_handler
+
+        base = tmp_path / "wf-safe"
+        sibling = tmp_path / "wf-safe-escape"
+        base.mkdir()
+        sibling.mkdir()
+        (sibling / "secret.txt").write_text("outside")
+        (base / "escape-link").symlink_to(sibling, target_is_directory=True)
+
+        handler = make_file_io_handler(base_dir=str(base))
+        result = await handler(
+            {
+                "action_type": "read",
+                "path": "escape-link/secret.txt",
+            }
+        )
+
+        assert "error" in result
+        assert "escape" in result["error"].lower() or "base" in result["error"].lower()
+
 
 # ---------------------------------------------------------------------------
 # AC7: ${ENV_VAR} resolved at engine level

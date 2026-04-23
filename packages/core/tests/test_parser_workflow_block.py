@@ -7,6 +7,7 @@ This module tests:
 - Special-case handler for workflow blocks (placed before BLOCK_TYPE_REGISTRY lookup)
 - Input/output mapping configuration
 - max_depth resolution from block-level or global config
+- snapshot discovery context forwarding for nested workflow parses
 """
 
 import pytest
@@ -222,6 +223,79 @@ class TestParseWorkflowBlock:
         # Assert name-based invocation mappings are correctly set
         assert workflow_block.inputs == {"topic": "shared_memory.research_topic"}
         assert workflow_block.outputs == {"results.child_result": "results.child_step"}
+
+    def test_parse_workflow_block_forwards_snapshot_discovery_context_to_child_parse(self):
+        """Nested workflow parsing must preserve explicit snapshot discovery context."""
+        import runsight_core.yaml.parser as parser_module
+
+        child_yaml_dict = {
+            "version": "1.0",
+            "souls": _RESEARCHER_SOUL,
+            "blocks": {
+                "child_step": {
+                    "type": "linear",
+                    "soul_ref": "researcher",
+                }
+            },
+            "workflow": {
+                "name": "child_workflow",
+                "entry": "child_step",
+                "transitions": [{"from": "child_step", "to": None}],
+            },
+        }
+        child_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        )
+
+        registry = WorkflowRegistry()
+        registry.register("child_workflow", child_file)
+
+        parent_yaml_dict = {
+            "version": "1.0",
+            "blocks": {
+                "invoke_child": {
+                    "type": "workflow",
+                    "workflow_ref": "child_workflow",
+                },
+            },
+            "workflow": {
+                "name": "parent_workflow",
+                "entry": "invoke_child",
+                "transitions": [{"from": "invoke_child", "to": None}],
+            },
+        }
+
+        original_parse = parser_module.parse_workflow_yaml
+        child_parse_calls: list[dict[str, object]] = []
+        git_service = type("GitServiceDouble", (), {"repo_path": "."})()
+
+        def _record_child_parse(*args, **kwargs):
+            child_parse_calls.append(kwargs)
+            return original_parse(*args, **kwargs)
+
+        from unittest.mock import patch
+
+        with (
+            patch.object(parser_module, "parse_workflow_yaml", side_effect=_record_child_parse),
+            patch.object(parser_module.AssertionScanner, "scan") as mock_assertion_scan,
+            patch.object(parser_module.SoulScanner, "scan") as mock_soul_scan,
+            patch.object(parser_module.ToolScanner, "scan") as mock_tool_scan,
+        ):
+            mock_assertion_scan.return_value.ids.return_value = {}
+            mock_soul_scan.return_value.ids.return_value = {}
+            mock_tool_scan.return_value.ids.return_value = {}
+
+            parent_workflow = original_parse(
+                _with_workflow_identity(parent_yaml_dict, "parent_workflow"),
+                workflow_registry=registry,
+                _discovery_git_ref="main",
+                _discovery_git_service=git_service,
+            )
+
+        assert isinstance(parent_workflow._blocks["invoke_child"], WorkflowBlock)
+        assert len(child_parse_calls) == 1
+        assert child_parse_calls[0]["_discovery_git_ref"] == "main"
+        assert child_parse_calls[0]["_discovery_git_service"] is git_service
 
     def test_parse_workflow_block_no_registry_raises(self):
         """

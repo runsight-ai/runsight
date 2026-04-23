@@ -693,6 +693,23 @@ class TestFileIoToolExecute:
             await tool.execute({"action": "read", "path": "/etc/passwd"})
 
     @pytest.mark.asyncio
+    async def test_symlink_to_sibling_prefix_directory_rejected(self, tmp_path: Path):
+        """A symlink escape to a similarly named sibling must be rejected."""
+        from runsight_core.tools.file_io import create_file_io_tool
+
+        base = tmp_path / "sandbox"
+        sibling = tmp_path / "sandbox-escape"
+        base.mkdir()
+        sibling.mkdir()
+        (sibling / "secret.txt").write_text("outside")
+        (base / "escape-link").symlink_to(sibling, target_is_directory=True)
+
+        tool = create_file_io_tool(base_dir=str(base))
+
+        with pytest.raises((ValueError, PermissionError)):
+            await tool.execute({"action": "read", "path": "escape-link/secret.txt"})
+
+    @pytest.mark.asyncio
     async def test_read_nonexistent_file_returns_error(self, tmp_path: Path):
         """Reading a file that doesn't exist returns an error (not crash)."""
         from runsight_core.tools.file_io import create_file_io_tool

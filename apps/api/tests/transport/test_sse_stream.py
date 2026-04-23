@@ -69,6 +69,38 @@ def _parse_sse_events(raw: str) -> list[dict]:
     return events
 
 
+def _context_audit_message(run_id: str) -> dict:
+    return {
+        "schema_version": "context_audit.v1",
+        "event": "context_resolution",
+        "run_id": run_id,
+        "workflow_name": "child_workflow",
+        "node_id": "resolve_context",
+        "block_type": "linear",
+        "access": "declared",
+        "mode": "strict",
+        "records": [
+            {
+                "input_name": "query",
+                "from_ref": "results.query",
+                "namespace": "results",
+                "source": "query",
+                "field_path": "query",
+                "status": "resolved",
+                "severity": "allow",
+                "value_type": "str",
+                "preview": "bounded preview",
+                "reason": None,
+                "internal": False,
+            }
+        ],
+        "resolved_count": 1,
+        "denied_count": 0,
+        "warning_count": 0,
+        "emitted_at": "2026-04-23T00:00:00+00:00",
+    }
+
+
 # ---------------------------------------------------------------------------
 # 1. SSE endpoint returns text/event-stream content type
 # ---------------------------------------------------------------------------
@@ -321,6 +353,103 @@ class TestLateJoinReplay:
             assert events[2]["data"]["node_id"] == "b2"
 
             assert events[3]["event"] == "run_completed"
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_child_late_join_replay_does_not_switch_to_live_parent_queue(self):
+        """A late child subscriber must stay on replayed child history, not parent live traffic."""
+        from runsight_api.logic.observers.streaming_observer import StreamingObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        child_run_id = "run_sse_child"
+        parent_run_id = "run_sse_parent"
+
+        mock_run_service = Mock()
+        mock_run_service.get_run.return_value = _make_mock_run(run_id=child_run_id)
+
+        replay_log = Mock()
+        replay_log.id = 11
+        replay_log.message = json.dumps({"event": "workflow_complete", "run_id": child_run_id})
+        replay_log.level = "info"
+        replay_log.timestamp = 1713790802.0
+        mock_run_service.get_run_logs.return_value = [replay_log]
+
+        execution_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+        parent = StreamingObserver(run_id=parent_run_id)
+        child = parent.clone_for_child_run(child_run_id=child_run_id)
+        execution_service._streams.register(parent_run_id, parent)
+        execution_service._streams.register(child_run_id, child)
+
+        parent.on_block_start("parent_workflow", "delegate", "workflow")
+        execution_service._streams.close_stream(child_run_id, observer=child)
+
+        app.dependency_overrides[get_run_service] = lambda: mock_run_service
+        app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+        try:
+            with client.stream("GET", f"/api/runs/{child_run_id}/stream") as response:
+                body = response.read().decode()
+            events = _parse_sse_events(body)
+
+            assert [event["event"] for event in events] == ["replay"], (
+                "A late child subscriber should receive persisted child replay only; live "
+                "parent queue traffic must not bleed into the child stream."
+            )
+            assert events[0]["data"]["run_id"] == child_run_id
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_child_context_resolution_replay_does_not_switch_to_live_parent_queue(self):
+        """Child context-audit replay must not be followed by parent live traffic."""
+        from runsight_api.logic.observers.streaming_observer import StreamingObserver
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        child_run_id = "run_sse_child_context"
+        parent_run_id = "run_sse_parent_context"
+
+        mock_run_service = Mock()
+        mock_run_service.get_run.return_value = _make_mock_run(run_id=child_run_id)
+
+        replay_log = Mock()
+        replay_log.id = 12
+        replay_log.message = json.dumps(_context_audit_message(child_run_id))
+        replay_log.level = "trace"
+        replay_log.timestamp = 1713790803.0
+        mock_run_service.get_run_logs.return_value = [replay_log]
+
+        execution_service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+        parent = StreamingObserver(run_id=parent_run_id)
+        child = parent.clone_for_child_run(child_run_id=child_run_id)
+        execution_service._streams.register(parent_run_id, parent)
+        execution_service._streams.register(child_run_id, child)
+
+        parent.on_block_start("parent_workflow", "delegate", "workflow")
+        execution_service._streams.close_stream(child_run_id, observer=child)
+
+        app.dependency_overrides[get_run_service] = lambda: mock_run_service
+        app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+        try:
+            with client.stream("GET", f"/api/runs/{child_run_id}/stream") as response:
+                body = response.read().decode()
+            events = _parse_sse_events(body)
+
+            assert [event["event"] for event in events] == ["context_resolution"], (
+                "A child context-resolution replay stream must not switch into live parent "
+                "queue traffic."
+            )
+            assert events[0]["data"]["run_id"] == child_run_id
+            assert all(
+                queued["event"] != "context_resolution" for queued in list(parent.queue._queue)
+            ), "Parent live queue must remain silent for child context_resolution traffic."
         finally:
             app.dependency_overrides.clear()
 

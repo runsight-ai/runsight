@@ -19,11 +19,18 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from runsight_core.block_io import BlockOutput
+from runsight_core.blocks.base import BaseBlock
+from runsight_core.blocks.workflow_block import WorkflowBlock
+from runsight_core.observer import CompositeObserver
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import Workflow
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+from runsight_api.logic.observers.execution_observer import ExecutionObserver
+from runsight_api.logic.services.execution_runtime import build_assertion_configs
 
 # ---------------------------------------------------------------------------
 # Deferred import — EvalObserver does not exist yet
@@ -938,3 +945,260 @@ class TestEvalObserverProtocol:
         state = WorkflowState()
         # Should not raise
         obs.on_workflow_start("wf", state)
+
+
+class TestEvalObserverChildStreamIsolation:
+    def test_clone_for_child_run_uses_a_distinct_sse_queue(self, seed_run, sse_queue):
+        engine, run_id = seed_run
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=engine,
+            run_id=run_id,
+            sse_queue=sse_queue,
+            assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
+        )
+
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+
+        assert child.run_id == "run_973_child"
+        assert child.sse_queue is not parent.sse_queue, (
+            "Child eval observers must own a dedicated SSE queue so child eval traffic "
+            "cannot bleed into the parent's live stream."
+        )
+
+    @pytest.mark.asyncio
+    async def test_child_eval_events_stay_off_the_parent_queue(
+        self,
+        db_engine,
+        sse_queue,
+        sample_state,
+        sample_soul,
+        contains_assertion_configs,
+    ):
+        parent_run_id = "run_973_eval_parent"
+        child_run_id = "run_973_eval_child"
+
+        with Session(db_engine) as session:
+            session.add(
+                Run(
+                    id=parent_run_id,
+                    workflow_id="wf_parent",
+                    workflow_name="parent",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
+                )
+            )
+            session.add(
+                Run(
+                    id=child_run_id,
+                    workflow_id="wf_child",
+                    workflow_name="child",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
+                )
+            )
+            session.add(
+                RunNode(
+                    id=f"{child_run_id}:block_a",
+                    run_id=child_run_id,
+                    node_id="block_a",
+                    block_type="LinearBlock",
+                    status="completed",
+                    cost_usd=0.05,
+                    tokens={"total": 1500},
+                    output="Some output containing Sources information.",
+                )
+            )
+            session.commit()
+
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=db_engine,
+            run_id=parent_run_id,
+            sse_queue=sse_queue,
+            assertion_configs=contains_assertion_configs,
+        )
+        child = parent.clone_for_child_run(child_run_id=child_run_id)
+
+        child.on_block_complete(
+            "wf_child", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
+
+        assert sse_queue.empty(), (
+            "A child run's node_eval_complete event must not be enqueued onto the parent's "
+            "live stream queue."
+        )
+        event = child.sse_queue.get_nowait()
+        assert event["event"] == "node_eval_complete"
+        assert event["data"]["node_id"] == "block_a"
+
+    @pytest.mark.asyncio
+    async def test_sibling_child_eval_events_do_not_bleed_across_child_queues(
+        self,
+        db_engine,
+        sse_queue,
+        sample_state,
+        sample_soul,
+        contains_assertion_configs,
+    ):
+        parent_run_id = "run_973_eval_parent_siblings"
+        child_a_run_id = "run_973_eval_child_a"
+        child_b_run_id = "run_973_eval_child_b"
+
+        with Session(db_engine) as session:
+            for run_id, workflow_id in [
+                (parent_run_id, "wf_parent"),
+                (child_a_run_id, "wf_child_a"),
+                (child_b_run_id, "wf_child_b"),
+            ]:
+                session.add(
+                    Run(
+                        id=run_id,
+                        workflow_id=workflow_id,
+                        workflow_name=workflow_id,
+                        status=RunStatus.running,
+                        task_json="{}",
+                        branch="main",
+                    )
+                )
+            for run_id in [child_a_run_id, child_b_run_id]:
+                session.add(
+                    RunNode(
+                        id=f"{run_id}:block_a",
+                        run_id=run_id,
+                        node_id="block_a",
+                        block_type="LinearBlock",
+                        status="completed",
+                        cost_usd=0.05,
+                        tokens={"total": 1500},
+                        output="Some output containing Sources information.",
+                    )
+                )
+            session.commit()
+
+        EvalObserver = _import_eval_observer()
+        parent = EvalObserver(
+            engine=db_engine,
+            run_id=parent_run_id,
+            sse_queue=sse_queue,
+            assertion_configs=contains_assertion_configs,
+        )
+        child_a = parent.clone_for_child_run(child_run_id=child_a_run_id)
+        child_b = parent.clone_for_child_run(child_run_id=child_b_run_id)
+
+        child_a.on_block_complete(
+            "wf_child_a", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
+
+        assert sse_queue.empty(), (
+            "Sibling child eval events must not bleed back into the parent queue."
+        )
+        assert child_b.sse_queue.empty(), (
+            "An eval event emitted for child A must not appear on child B's queue."
+        )
+        event = child_a.sse_queue.get_nowait()
+        assert event["event"] == "node_eval_complete"
+        assert event["data"]["node_id"] == "block_a"
+
+
+class TestEvalObserverChildAssertionOwnership:
+    @pytest.mark.asyncio
+    async def test_nested_child_workflow_uses_its_own_assertions_without_mutating_parent_surface(
+        self,
+        db_engine,
+        sse_queue,
+    ):
+        parent_run_id = "run_973_eval_parent_config"
+        block_id = "asserted_block"
+
+        class AssertionEchoBlock(BaseBlock):
+            def __init__(self, block_id: str, output: str, assertions: list[dict[str, object]]):
+                super().__init__(block_id)
+                self.output = output
+                self.assertions = assertions
+
+            async def execute(self, ctx):
+                return BlockOutput(
+                    output=self.output,
+                    cost_usd=0.0,
+                    total_tokens=0,
+                )
+
+        with Session(db_engine) as session:
+            session.add(
+                Run(
+                    id=parent_run_id,
+                    workflow_id="wf_parent",
+                    workflow_name="wf_parent",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
+                )
+            )
+            session.commit()
+
+        child_wf = Workflow(name="wf_child")
+        child_wf.add_block(
+            AssertionEchoBlock(
+                block_id,
+                "CHILD signal",
+                [{"type": "contains", "value": "CHILD", "weight": 1.0}],
+            )
+        )
+        child_wf.set_entry(block_id)
+        child_wf.add_transition(block_id, None)
+
+        parent_wf = Workflow(name="wf_parent")
+        parent_wf.add_block(
+            AssertionEchoBlock(
+                block_id,
+                "ROOT signal",
+                [{"type": "contains", "value": "ROOT", "weight": 1.0}],
+            )
+        )
+        parent_wf.add_block(
+            WorkflowBlock(
+                block_id="invoke_child",
+                child_workflow=child_wf,
+                inputs={},
+                outputs={},
+                workflow_ref="wf_child",
+            )
+        )
+        parent_wf.set_entry(block_id)
+        parent_wf.add_transition(block_id, "invoke_child")
+        parent_wf.add_transition("invoke_child", None)
+
+        EvalObserver = _import_eval_observer()
+        observer = CompositeObserver(
+            ExecutionObserver(engine=db_engine, run_id=parent_run_id),
+            EvalObserver(
+                engine=db_engine,
+                run_id=parent_run_id,
+                sse_queue=sse_queue,
+                assertion_configs=build_assertion_configs(parent_wf),
+            ),
+        )
+
+        await parent_wf.run(WorkflowState(), observer=observer)
+
+        with Session(db_engine) as session:
+            parent_node = session.get(RunNode, f"{parent_run_id}:{block_id}")
+            invoke_child_node = session.get(RunNode, f"{parent_run_id}:invoke_child")
+
+            assert invoke_child_node is not None
+            assert invoke_child_node.child_run_id is not None
+            child_node = session.get(RunNode, f"{invoke_child_node.child_run_id}:{block_id}")
+
+        assert child_node is not None
+        assert parent_node is not None
+        assert parent_node.eval_passed is True, (
+            "The parent/root assertion surface must still evaluate the root block on the "
+            "real nested workflow path."
+        )
+        assert child_node.eval_passed is True, (
+            "Nested child workflows must evaluate using the child workflow's own assertion "
+            "configs on the real WorkflowBlock + CompositeObserver path."
+        )

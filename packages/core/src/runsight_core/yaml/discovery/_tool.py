@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import logging
-import subprocess
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -158,9 +157,11 @@ class ToolScanner(BaseScanner[ToolMeta]):
         base_dir: str | Path,
         *,
         tools_subdir: str = "custom/tools",
+        ignored_tool_ids: set[str] | frozenset[str] | None = None,
     ) -> None:
         super().__init__(base_dir)
         self._tools_subdir = tools_subdir
+        self._ignored_tool_ids = frozenset(ignored_tool_ids or ())
 
     @property
     def asset_subdir(self) -> str:
@@ -205,6 +206,8 @@ class ToolScanner(BaseScanner[ToolMeta]):
         results: list[ScanResult[ToolMeta]] = []
         seen_ids: set[str] = set()
         for yaml_file in self._glob_yaml_files(asset_dir):
+            if yaml_file.stem in self._ignored_tool_ids:
+                continue
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
                 if result.entity_id in seen_ids:
@@ -217,36 +220,18 @@ class ToolScanner(BaseScanner[ToolMeta]):
         return ScanIndex(results)
 
     def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[ToolMeta]:
-        command = [
-            "git",
-            "ls-tree",
-            "-r",
-            "--name-only",
-            git_ref,
-            "--",
-            f"{self.asset_subdir}/",
-        ]
-        result = subprocess.run(
-            command,
-            cwd=str(git_service.repo_path),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            return ScanIndex()
-
         results: list[ScanResult[ToolMeta]] = []
         seen_ids: set[str] = set()
-        for line in result.stdout.splitlines():
-            candidate = line.strip()
+        for candidate in self._list_git_files(git_ref, git_service):
             if not candidate or not candidate.endswith(".yaml"):
                 continue
-            candidate_path = Path(candidate)
+            if Path(candidate).stem in self._ignored_tool_ids:
+                continue
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
+            candidate_path = self._resolve_git_candidate_path(candidate, git_service)
             result_item = self._scan_yaml_content(candidate_path, raw_yaml)
             if result_item is not None:
                 if result_item.entity_id in seen_ids:

@@ -81,13 +81,35 @@ def _run_record():
     )
 
 
+class _SnapshotGitService:
+    def __init__(self, *, snapshot_root: Path, snapshot_files: dict[str, str]) -> None:
+        self.snapshot_root = snapshot_root
+        self._snapshot_files = dict(snapshot_files)
+        self.read_calls: list[tuple[str, str]] = []
+
+    def list_files(self, ref: str, path_prefix: str) -> list[str]:
+        del ref
+        return sorted(
+            path for path in self._snapshot_files if path.startswith(path_prefix.rstrip("/") + "/")
+        )
+
+    def read_file(self, path: str, ref: str) -> str:
+        self.read_calls.append((path, ref))
+        candidate = Path(path)
+        if candidate.is_absolute():
+            candidate = candidate.relative_to(self.snapshot_root)
+        return self._snapshot_files[candidate.as_posix()]
+
+    def get_sha(self, branch: str, path: str) -> str:
+        return "8" * 40
+
+
 @pytest.mark.asyncio
-async def test_launch_execution_resolves_child_workflow_from_requested_branch_snapshot(
+async def test_launch_execution_resolves_child_workflow_from_snapshot_files_without_repo_path(
     tmp_path: Path,
 ) -> None:
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
     from runsight_api.logic.services.execution_service import ExecutionService
-    from runsight_api.logic.services.git_service import GitService
 
     parent_yaml = """
     version: "1.0"
@@ -131,38 +153,19 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
         - from: finish
           to: null
     """
-    dirty_child_yaml = """
-    version: "1.0"
-    inputs:
-      detail:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          detail:
-            from: workflow.detail
-        code: |
-          def main(data):
-              return {"detail": data["detail"]}
-    workflow:
-      name: Dirty Child Workflow
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
 
-    repo = _init_git_repo_with_nested_workflows(
-        tmp_path,
-        parent_yaml=parent_yaml,
-        child_yaml=child_yaml,
+    snapshot_files = {
+        "custom/workflows/parent.yaml": _with_workflow_identity("parent", parent_yaml),
+        "custom/workflows/child.yaml": _with_workflow_identity("child", child_yaml),
+    }
+    git_service = _SnapshotGitService(
+        snapshot_root=tmp_path,
+        snapshot_files=snapshot_files,
     )
-    (repo / "custom" / "workflows" / "child.yaml").write_text(
-        _with_workflow_identity("child", dirty_child_yaml),
-        encoding="utf-8",
-    )
+    assert git_service.list_files("main", "custom/workflows/") == [
+        "custom/workflows/child.yaml",
+        "custom/workflows/parent.yaml",
+    ]
 
     run_repo = Mock()
     run_repo.get_run.return_value = _run_record()
@@ -171,8 +174,7 @@ async def test_launch_execution_resolves_child_workflow_from_requested_branch_sn
     provider_repo.list_all.return_value = [
         Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
     ]
-    workflow_repo = WorkflowRepository(base_path=str(repo))
-    git_service = GitService(repo_path=repo)
+    workflow_repo = WorkflowRepository(base_path=str(tmp_path))
     svc = ExecutionService(
         run_repo=run_repo,
         workflow_repo=workflow_repo,

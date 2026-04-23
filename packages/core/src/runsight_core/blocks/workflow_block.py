@@ -78,6 +78,12 @@ class WorkflowBlock(BaseBlock):
         for child_source_path in self.outputs.values():
             self._validate_child_output_source_path(child_source_path)
 
+    def _child_assertion_configs(self) -> dict[str, list[dict[str, Any]]] | None:
+        getter = getattr(self.child_workflow, "assertion_configs", None)
+        if callable(getter):
+            return getter()
+        return None
+
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute WorkflowBlock with BlockContext, return BlockOutput."""
         state: WorkflowState = ctx.state_snapshot
@@ -119,10 +125,13 @@ class WorkflowBlock(BaseBlock):
 
         child_observer = None
         child_run_id = None
+        child_assertion_configs = self._child_assertion_configs()
         if observer:
             if self._observer_has_terminal_hooks(observer):
                 child_observer, child_run_id = build_child_observer(
-                    observer, block_id=self.block_id
+                    observer,
+                    block_id=self.block_id,
+                    assertion_configs=child_assertion_configs,
                 )
             else:
                 child_observer = observer
@@ -614,6 +623,8 @@ def build(
     api_keys: Dict[str, str] | None = None,
     workflow_base_dir: str = ".",
     parent_file_def: Any | None = None,
+    _discovery_git_ref: str | None = None,
+    _discovery_git_service: Any = None,
     **_: Any,
 ) -> WorkflowBlock:
     """Build a WorkflowBlock from a block definition."""
@@ -637,6 +648,8 @@ def build(
         workflow_registry=workflow_registry,
         api_keys=api_keys,
         _base_dir=workflow_base_dir,
+        _discovery_git_ref=_discovery_git_ref,
+        _discovery_git_service=_discovery_git_service,
     )
 
     max_depth = (

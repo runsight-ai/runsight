@@ -2,18 +2,21 @@
 Tests for WorkflowBlock execution, mapping, and state isolation.
 """
 
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from runsight_core import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 
 
-async def _run_block(block, state: WorkflowState) -> WorkflowState:
+async def _run_block(block, state: WorkflowState, *, observer=None) -> WorkflowState:
     """Helper: build BlockContext, run block, apply output → WorkflowState."""
     from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
 
     ctx = build_block_context(block, state)
+    if observer is not None:
+        ctx.inputs["observer"] = observer
     output = await block.execute(ctx)
     if isinstance(output, WorkflowState):
         return output
@@ -104,6 +107,32 @@ async def test_private_child_state_input_mapping_raises(base_parent_state, mock_
             max_depth=10,
         )
         await _run_block(block, base_parent_state)
+
+
+@pytest.mark.asyncio
+async def test_workflow_block_execute_uses_child_double_without_assertion_configs(
+    base_parent_state,
+):
+    """WorkflowBlock.execute must accept child doubles without assertion_configs()."""
+
+    child_final_state = WorkflowState()
+    child_workflow = SimpleNamespace(
+        name="child_wf",
+        run=AsyncMock(return_value=child_final_state),
+    )
+    observer = MagicMock()
+    block = WorkflowBlock(
+        block_id="test_missing_assertion_configs",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=10,
+    )
+
+    result = await _run_block(block, base_parent_state, observer=observer)
+
+    assert isinstance(result, WorkflowState)
+    child_workflow.run.assert_awaited_once()
 
 
 @pytest.mark.asyncio
