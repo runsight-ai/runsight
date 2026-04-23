@@ -3,6 +3,9 @@
 import subprocess
 from pathlib import Path
 
+from sqlmodel import create_engine
+from starlette.testclient import TestClient
+
 from runsight_api.core.config import Settings, ensure_project_dirs
 from runsight_api.core.project import scaffold_project
 
@@ -64,6 +67,27 @@ def _init_gitfile_worktree(
 
     assert (worktree_root / ".git").is_file()
     return worktree_root
+
+
+def _start_api(workspace_root: Path, monkeypatch) -> None:
+    from runsight_api import main as main_module
+
+    db_url = f"sqlite:///{workspace_root / '.runsight' / 'runsight.db'}"
+    monkeypatch.setattr(main_module.app_settings, "base_path", str(workspace_root))
+    monkeypatch.setattr(main_module.app_settings, "db_url", db_url)
+
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+    )
+    monkeypatch.setattr(main_module, "engine", engine)
+
+    app = main_module.create_app()
+    try:
+        with TestClient(app):
+            pass
+    finally:
+        engine.dispose()
 
 
 class TestScaffoldProject:
@@ -165,6 +189,46 @@ class TestEnsureProjectDirsUsesScaffold:
         ensure_project_dirs(settings)
 
         assert (worktree_root / ".git").is_file()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (worktree_root / ".gitignore").read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n"
+        )
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
+
+
+class TestFullApiStartupPreservesGitWorkspaceCleanliness:
+    def test_full_api_startup_keeps_existing_git_repo_clean(self, tmp_path: Path, monkeypatch):
+        legacy_marker = _init_existing_repo(
+            tmp_path,
+            gitignore_text="node_modules/\n",
+        )
+
+        _start_api(tmp_path, monkeypatch)
+
+        assert (tmp_path / ".runsight").is_dir()
+        assert (tmp_path / "custom" / "workflows" / ".canvas").is_dir()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "node_modules/\n"
+        assert _git(tmp_path, "status", "--short").stdout.strip() == ""
+
+    def test_full_api_startup_keeps_gitfile_repo_clean_and_head_unchanged(
+        self, tmp_path: Path, monkeypatch
+    ):
+        worktree_root = _init_gitfile_worktree(
+            tmp_path,
+            gitignore_text="node_modules/\n.env\n",
+        )
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
+
+        _start_api(worktree_root, monkeypatch)
+
+        assert (worktree_root / ".git").is_file()
+        assert (worktree_root / ".runsight").is_dir()
+        assert (worktree_root / "custom" / "workflows" / ".canvas").is_dir()
         assert legacy_marker.exists()
         assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
         assert (worktree_root / ".gitignore").read_text(encoding="utf-8") == (
