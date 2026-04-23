@@ -461,6 +461,14 @@ class TestRequestedSnapshotSourceOfTruth:
             )
             await asyncio.sleep(0)
 
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.status == RunStatus.failed
+            assert run.error is not None
+            assert branch in run.error
+            assert "not a git repository" in run.error.lower()
+
         assert run_workflow.await_count == 0, (
             "launch_execution must fail instead of silently degrading to the working tree "
             "when the requested git snapshot cannot be read."
@@ -500,6 +508,14 @@ class TestRequestedSnapshotSourceOfTruth:
                 branch="main",
             )
             await asyncio.sleep(0)
+
+        with Session(engine) as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            assert run.status == RunStatus.failed
+            assert run.error is not None
+            assert "main" in run.error
+            assert "git service unavailable" in run.error.lower()
 
         assert run_workflow.await_count == 0, (
             "An explicit branch='main' request must still be treated as a git snapshot request "
@@ -819,6 +835,8 @@ class TestSnapshotDiscoveryFailsClosed:
             assert run is not None
             assert run.status == RunStatus.failed
             assert run.error is not None
+            assert "main" in run.error
+            assert "custom/souls/reviewer.yaml" in run.error
             assert "reviewer" in run.error.lower()
 
         assert run_workflow.await_count == 0, (
