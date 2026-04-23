@@ -168,6 +168,14 @@ class BaseScanner(Generic[T], abc.ABC):
                 results.append(result)
         return self._build_scan_index(results)
 
+    def _git_repo_path(self, git_service: Any) -> Path | None:
+        repo_path = getattr(git_service, "repo_path", None)
+        if isinstance(repo_path, Path):
+            return repo_path
+        if isinstance(repo_path, str):
+            return Path(repo_path)
+        return None
+
     def _list_git_files(self, git_ref: str, git_service: Any) -> list[str]:
         list_files = getattr(git_service, "list_files", None)
         if callable(list_files):
@@ -178,9 +186,9 @@ class BaseScanner(Generic[T], abc.ABC):
                     if str(candidate).strip()
                 ]
             except Exception:
-                return []
+                pass
 
-        repo_path = getattr(git_service, "repo_path", None)
+        repo_path = self._git_repo_path(git_service)
         if repo_path is None:
             return []
 
@@ -209,8 +217,7 @@ class BaseScanner(Generic[T], abc.ABC):
         if candidate_path.is_absolute():
             return candidate_path.resolve()
 
-        repo_path = getattr(git_service, "repo_path", None)
-        base_path = Path(repo_path) if repo_path is not None else self.base_dir
+        base_path = self._git_repo_path(git_service) or self.base_dir
         return (base_path / candidate_path).resolve()
 
     def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[T]:

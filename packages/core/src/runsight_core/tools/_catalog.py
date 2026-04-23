@@ -200,10 +200,14 @@ def _discovered_tools(
     base_dir: object,
     git_ref: object = None,
     git_service: object = None,
+    ignore_tool_ids: object = None,
 ) -> dict[str, ToolMeta]:
     """Resolve the custom tool catalog from either the working tree or a git snapshot."""
     scan_kwargs = _snapshot_scan_kwargs(git_ref=git_ref, git_service=git_service)
-    return ToolScanner(base_dir).scan(**scan_kwargs).ids()
+    scanner_kwargs: dict[str, object] = {}
+    if ignore_tool_ids:
+        scanner_kwargs["ignored_tool_ids"] = ignore_tool_ids
+    return ToolScanner(base_dir, **scanner_kwargs).scan(**scan_kwargs).ids()
 
 
 def _resolve_custom_tool_id(
@@ -493,6 +497,7 @@ def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
         base_dir=base_dir,
         git_ref=kwargs.get("git_ref"),
         git_service=kwargs.get("git_service"),
+        ignore_tool_ids=kwargs.get("ignore_tool_ids"),
     )
 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:

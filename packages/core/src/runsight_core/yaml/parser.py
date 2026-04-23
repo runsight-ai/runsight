@@ -368,6 +368,72 @@ def validate_tool_governance(
     return result
 
 
+def _is_warning_only_tool_definition_error(message: str) -> bool:
+    return "Tool code must define" in message or "Tool code has a syntax error" in message
+
+
+def _warning_only_declared_tool_ids(validation_result: ValidationResult) -> set[str]:
+    return {
+        issue.context
+        for issue in validation_result.warnings
+        if issue.source == "tool_definitions"
+        and issue.context is not None
+        and _is_warning_only_tool_definition_error(issue.message)
+    }
+
+
+def _read_declared_tool_yaml(
+    tool_id: str,
+    *,
+    base_dir: str,
+    git_ref: str | None,
+    git_service: Any,
+) -> str | None:
+    relative_path = f"custom/tools/{tool_id}.yaml"
+    if git_ref is not None:
+        try:
+            return git_service.read_file(relative_path, git_ref)
+        except Exception:
+            return None
+
+    expected_file = Path(base_dir) / relative_path
+    if not expected_file.exists():
+        return None
+    return expected_file.read_text(encoding="utf-8")
+
+
+def _collect_warning_only_declared_tool_issues(
+    file_def: RunsightWorkflowFile,
+    *,
+    base_dir: str,
+    git_ref: str | None,
+    git_service: Any,
+) -> dict[str, str]:
+    tool_scanner = ToolScanner(base_dir)
+    issues: dict[str, str] = {}
+
+    for tool_id in file_def.tools:
+        if tool_id in RESERVED_BUILTIN_TOOL_IDS:
+            continue
+        raw_yaml = _read_declared_tool_yaml(
+            tool_id,
+            base_dir=base_dir,
+            git_ref=git_ref,
+            git_service=git_service,
+        )
+        if raw_yaml is None:
+            continue
+        expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
+        try:
+            tool_scanner._scan_yaml_content(expected_file, raw_yaml)
+        except ValueError as exc:
+            message = str(exc)
+            if expected_file.name in message and _is_warning_only_tool_definition_error(message):
+                issues[tool_id] = message
+
+    return issues
+
+
 def _validate_declared_tool_definitions(
     file_def: RunsightWorkflowFile,
     *,
@@ -404,8 +470,25 @@ def _validate_declared_tool_definitions(
         resolve_kwargs["git_ref"] = git_ref
         resolve_kwargs["git_service"] = git_service
 
+    warning_only_tool_issues = _collect_warning_only_declared_tool_issues(
+        file_def,
+        base_dir=base_dir,
+        git_ref=git_ref,
+        git_service=git_service,
+    )
+    for tool_id, message in warning_only_tool_issues.items():
+        result.add_warning(
+            f"Tool '{tool_id}': {message}",
+            source="tool_definitions",
+            context=tool_id,
+        )
+    warning_only_tool_ids = set(warning_only_tool_issues)
+
     try:
-        discovered_tools = ToolScanner(base_dir).scan(**scan_kwargs).ids()
+        scanner_kwargs: dict[str, Any] = {}
+        if warning_only_tool_ids:
+            scanner_kwargs["ignored_tool_ids"] = warning_only_tool_ids
+        discovered_tools = ToolScanner(base_dir, **scanner_kwargs).scan(**scan_kwargs).ids()
     except ValueError as exc:
         scanner_message = str(exc)
         add_issue = result.add_error if fail_closed else result.add_warning
@@ -427,11 +510,10 @@ def _validate_declared_tool_definitions(
                     return result
                 continue
 
-            if expected_file.name in scanner_message and (
-                "Tool code must define" in scanner_message
-                or "Tool code has a syntax error" in scanner_message
+            if expected_file.name in scanner_message and _is_warning_only_tool_definition_error(
+                scanner_message
             ):
-                add_issue(
+                result.add_warning(
                     f"Tool '{tool_id}': {scanner_message}",
                     source="tool_definitions",
                     context=tool_id,
@@ -462,6 +544,8 @@ def _validate_declared_tool_definitions(
 
         if tool_id in RESERVED_BUILTIN_TOOL_IDS:
             continue
+        if tool_id in warning_only_tool_ids:
+            continue
 
         tool_meta = discovered_tools.get(tool_id)
         if tool_meta is None:
@@ -489,7 +573,11 @@ def _validate_declared_tool_definitions(
             continue
 
         try:
-            _resolve_tool_for_parser(tool_id, **resolve_kwargs)
+            _resolve_tool_for_parser(
+                tool_id,
+                ignore_tool_ids=warning_only_tool_ids,
+                **resolve_kwargs,
+            )
         except ValueError as exc:
             add_issue = result.add_error if fail_closed else result.add_warning
             add_issue(f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id)
@@ -504,6 +592,7 @@ def _resolve_tool_for_parser(
     exits: object | None = None,
     git_ref: str | None = None,
     git_service: Any = None,
+    ignore_tool_ids: Collection[str] = (),
 ) -> object:
     """Resolve a tool with only the parser context that its canonical ID needs."""
     kwargs: Dict[str, object] = {}
@@ -517,6 +606,8 @@ def _resolve_tool_for_parser(
     if git_ref is not None and git_service is not None:
         kwargs["git_ref"] = git_ref
         kwargs["git_service"] = git_service
+    if ignore_tool_ids:
+        kwargs["ignore_tool_ids"] = tuple(ignore_tool_ids)
 
     return resolve_tool_id(tool_id, **kwargs)
 
@@ -528,6 +619,7 @@ def _attach_tool_runtime_metadata(
     base_dir: str,
     git_ref: str | None = None,
     git_service: Any = None,
+    ignore_tool_ids: Collection[str] = (),
 ) -> object:
     """Annotate a resolved ToolInstance with ID/type metadata for isolation."""
     setattr(tool, "source", tool_id)
@@ -535,7 +627,10 @@ def _attach_tool_runtime_metadata(
         setattr(tool, "tool_type", "builtin")
     else:
         scan_kwargs = _snapshot_discovery_scan_kwargs(git_ref=git_ref, git_service=git_service)
-        tool_meta = ToolScanner(base_dir).scan(**scan_kwargs).ids().get(tool_id)
+        scanner_kwargs: dict[str, object] = {}
+        if ignore_tool_ids:
+            scanner_kwargs["ignored_tool_ids"] = ignore_tool_ids
+        tool_meta = ToolScanner(base_dir, **scanner_kwargs).scan(**scan_kwargs).ids().get(tool_id)
         setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
     setattr(tool, "config", {"id": tool_id})
     return tool
@@ -606,6 +701,7 @@ def _validate_and_resolve_tools(
     )
     if validation_result.has_errors:
         raise ValueError(validation_result.error_summary or "Tool governance validation failed")
+    warning_only_tool_ids = _warning_only_declared_tool_ids(validation_result)
     _resolve_tools_for_souls(
         file_def,
         souls_map,
@@ -613,6 +709,7 @@ def _validate_and_resolve_tools(
         git_ref=git_ref,
         git_service=git_service,
         strict=git_ref is not None,
+        warning_only_tool_ids=warning_only_tool_ids,
     )
 
 
@@ -897,7 +994,11 @@ def _resolve_tool_for_soul(
     workflow_base_dir: str,
     snapshot_kwargs: dict[str, Any],
     strict: bool,
+    warning_only_tool_ids: Collection[str],
 ) -> object | None:
+    if strict and tool_id in warning_only_tool_ids:
+        logger.warning("Skipping warning-only tool '%s' for soul '%s'", tool_id, soul_key)
+        return None
     kwargs = {"base_dir": workflow_base_dir, **snapshot_kwargs}
     if tool_id == "delegate":
         block_id_for_soul, block_def_for_soul = _find_block_for_soul(file_def, soul_key)
@@ -909,11 +1010,20 @@ def _resolve_tool_for_soul(
             )
         kwargs["exits"] = exits
     try:
-        return _resolve_tool_for_parser(tool_id, **kwargs)
+        return _resolve_tool_for_parser(
+            tool_id,
+            ignore_tool_ids=warning_only_tool_ids,
+            **kwargs,
+        )
     except Exception as exc:
         if strict:
             raise
-        logger.warning("Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc)
+        logger.warning(
+            "Skipping unresolved tool '%s' for soul '%s': %s",
+            tool_id,
+            soul_key,
+            exc,
+        )
         return None
 
 
@@ -925,6 +1035,7 @@ def _resolve_tools_for_souls(
     git_ref: str | None = None,
     git_service: Any = None,
     strict: bool = False,
+    warning_only_tool_ids: Collection[str] = (),
 ) -> None:
     """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
     snapshot_kwargs = _tool_snapshot_kwargs(git_ref, git_service)
@@ -944,6 +1055,7 @@ def _resolve_tools_for_souls(
                 workflow_base_dir=workflow_base_dir,
                 snapshot_kwargs=snapshot_kwargs,
                 strict=strict,
+                warning_only_tool_ids=warning_only_tool_ids,
             )
             if resolved_tool is None:
                 continue
@@ -952,6 +1064,7 @@ def _resolve_tools_for_souls(
                     resolved_tool,
                     tool_id,
                     base_dir=workflow_base_dir,
+                    ignore_tool_ids=warning_only_tool_ids,
                     **snapshot_kwargs,
                 )
             )

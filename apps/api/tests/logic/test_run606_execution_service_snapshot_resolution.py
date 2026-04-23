@@ -87,8 +87,11 @@ class _SnapshotGitService:
         self._snapshot_files = dict(snapshot_files)
         self.read_calls: list[tuple[str, str]] = []
 
-    def list_snapshot_files(self) -> list[str]:
-        return sorted(self._snapshot_files)
+    def list_files(self, ref: str, path_prefix: str) -> list[str]:
+        del ref
+        return sorted(
+            path for path in self._snapshot_files if path.startswith(path_prefix.rstrip("/") + "/")
+        )
 
     def read_file(self, path: str, ref: str) -> str:
         self.read_calls.append((path, ref))
@@ -159,7 +162,7 @@ async def test_launch_execution_resolves_child_workflow_from_snapshot_files_with
         snapshot_root=tmp_path,
         snapshot_files=snapshot_files,
     )
-    assert git_service.list_snapshot_files() == [
+    assert git_service.list_files("main", "custom/workflows/") == [
         "custom/workflows/child.yaml",
         "custom/workflows/parent.yaml",
     ]

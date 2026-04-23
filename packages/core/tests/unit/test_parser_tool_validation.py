@@ -75,6 +75,26 @@ def _write_custom_tool_file(tmp_path, slug: str, contents: str) -> None:
     (tools_dir / f"{slug}.yaml").write_text(content, encoding="utf-8")
 
 
+class _SnapshotGitService:
+    def __init__(self, base_dir):
+        self._base_dir = base_dir
+
+    def list_files(self, ref: str, path_prefix: str) -> list[str]:
+        del ref
+        root = self._base_dir / path_prefix.rstrip("/")
+        if not root.exists():
+            return []
+        return sorted(
+            path.relative_to(self._base_dir).as_posix()
+            for path in root.rglob("*")
+            if path.is_file() and path.suffix in {".yaml", ".yml"}
+        )
+
+    def read_file(self, path: str, ref: str) -> str:
+        del ref
+        return (self._base_dir / path).read_text(encoding="utf-8")
+
+
 # ===========================================================================
 # AC1: Valid YAML — soul.resolved_tools populated with ToolInstance objects
 # ===========================================================================
@@ -861,6 +881,151 @@ souls:
 
         assert soul.tools == [slug]
         assert soul.resolved_tools == []
+
+    def test_strict_snapshot_skips_multiple_warning_only_corrupt_tools_and_resolves_sibling(
+        self, tmp_path
+    ):
+        """Strict snapshot parsing should skip all warning-only corrupt tools without blocking siblings."""
+        _write_custom_tool_file(
+            tmp_path,
+            "bad_one",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Bad One
+            description: Corrupt metadata should warn and skip.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return {"broken":
+            """,
+        )
+        _write_custom_tool_file(
+            tmp_path,
+            "bad_two",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Bad Two
+            description: Another corrupt tool should also warn and skip.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return {"still_broken":
+            """,
+        )
+        _write_custom_tool_file(
+            tmp_path,
+            "good_three",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Good Three
+            description: Valid metadata should still resolve.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return {"ok": True}
+            """,
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  - bad_one
+  - bad_two
+  - good_three""",
+                souls="""\
+souls:
+  my_agent:
+    id: my_agent
+    kind: soul
+    name: Agent
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - bad_one
+      - bad_two
+      - good_three""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        workflow = parse_workflow_yaml(
+            workflow_file,
+            _discovery_git_ref="main",
+            _discovery_git_service=_SnapshotGitService(tmp_path),
+        )
+
+        soul = workflow.blocks["my_block"].soul
+        assert soul.tools == ["bad_one", "bad_two", "good_three"]
+        assert soul.resolved_tools is not None
+        assert [tool.name for tool in soul.resolved_tools] == ["good_three"]
+
+    def test_strict_snapshot_still_fails_closed_for_missing_sibling_tool(self, tmp_path):
+        """Warning-only corrupt tools must not hide other missing declared snapshot assets."""
+        _write_custom_tool_file(
+            tmp_path,
+            "bad_one",
+            """
+            version: "1.0"
+            type: custom
+            executor: python
+            name: Bad One
+            description: Corrupt metadata should warn and skip.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return {"broken":
+            """,
+        )
+        workflow_file = _write_workflow_file(
+            tmp_path,
+            _make_yaml(
+                tools="""\
+tools:
+  - bad_one
+  - missing_unused""",
+                souls="""\
+souls:
+  my_agent:
+    id: my_agent
+    kind: soul
+    name: Agent
+    role: Agent
+    system_prompt: Do things.
+    tools:
+      - bad_one""",
+                blocks="""\
+  my_block:
+    type: linear
+    soul_ref: my_agent""",
+                transitions="""\
+    - from: my_block
+      to: null""",
+            ),
+        )
+
+        with pytest.raises(ValueError, match="missing_unused"):
+            parse_workflow_yaml(
+                workflow_file,
+                _discovery_git_ref="main",
+                _discovery_git_service=_SnapshotGitService(tmp_path),
+            )
 
     def test_valid_builtin_and_discovered_custom_tool_ids_parse_successfully(self, tmp_path):
         """A workflow mixing canonical builtin and discovered custom IDs should parse cleanly."""

@@ -157,9 +157,11 @@ class ToolScanner(BaseScanner[ToolMeta]):
         base_dir: str | Path,
         *,
         tools_subdir: str = "custom/tools",
+        ignored_tool_ids: set[str] | frozenset[str] | None = None,
     ) -> None:
         super().__init__(base_dir)
         self._tools_subdir = tools_subdir
+        self._ignored_tool_ids = frozenset(ignored_tool_ids or ())
 
     @property
     def asset_subdir(self) -> str:
@@ -204,6 +206,8 @@ class ToolScanner(BaseScanner[ToolMeta]):
         results: list[ScanResult[ToolMeta]] = []
         seen_ids: set[str] = set()
         for yaml_file in self._glob_yaml_files(asset_dir):
+            if yaml_file.stem in self._ignored_tool_ids:
+                continue
             result = self._scan_yaml_file(yaml_file)
             if result is not None:
                 if result.entity_id in seen_ids:
@@ -220,6 +224,8 @@ class ToolScanner(BaseScanner[ToolMeta]):
         seen_ids: set[str] = set()
         for candidate in self._list_git_files(git_ref, git_service):
             if not candidate or not candidate.endswith(".yaml"):
+                continue
+            if Path(candidate).stem in self._ignored_tool_ids:
                 continue
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
