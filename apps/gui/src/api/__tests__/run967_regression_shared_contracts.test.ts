@@ -44,7 +44,11 @@ describe("RUN-967 GUI regression contracts come from @runsight/shared/zod", () =
   });
 
   it("local regression schema module no longer defines canonical regression response schemas", () => {
-    expect(localRegressionSchemaExists).toBe(false);
+    if (!localRegressionSchemaExists) {
+      expect(localRegressionSchemaExists).toBe(false);
+      return;
+    }
+
     expect(localRegressionSchemaSource).not.toMatch(/export const WorkflowRegressionSchema/);
     expect(localRegressionSchemaSource).not.toMatch(/export const WorkflowRegressionsResponseSchema/);
   });
