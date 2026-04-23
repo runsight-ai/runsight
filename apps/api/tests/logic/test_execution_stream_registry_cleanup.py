@@ -43,7 +43,7 @@ async def _drain_completed_subscription(registry: ExecutionStreamRegistry, run_i
     return observed
 
 
-def test_completed_stream_marker_still_allows_immediate_terminal_shutdown() -> None:
+def test_completed_stream_marker_allows_one_late_terminal_drain() -> None:
     registry = ExecutionStreamRegistry()
     run_id = "run_completed_late_subscriber"
     observer = StreamingObserver(run_id=run_id)
@@ -54,8 +54,10 @@ def test_completed_stream_marker_still_allows_immediate_terminal_shutdown() -> N
     registry.unregister(run_id)
 
     observed = asyncio.run(_drain_completed_subscription(registry, run_id))
+    observed_again = asyncio.run(_drain_completed_subscription(registry, run_id))
 
-    assert observed == []
+    assert observed == [{"event": "run_completed", "data": {"run_id": run_id}}]
+    assert observed_again == []
 
 
 def test_subscribe_timeout_cleans_placeholder_ready_event() -> None:
