@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from runsight_core.context_governance import ContextAuditEventV1, ContextAuditRecordV1
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
 from runsight_api.logic.services.execution_service import ExecutionService
@@ -282,6 +283,105 @@ class TestChildRunStreamOwnership:
             "Parent streams may carry an explicit child summary signal, but they must not "
             "receive raw child node lifecycle traffic."
         )
+
+    @pytest.mark.asyncio
+    async def test_child_failure_terminates_only_child_stream(self):
+        service = _make_service()
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+        service._streams.register(parent.run_id, parent)
+        service._streams.register(child.run_id, child)
+
+        events: list[dict] = []
+
+        async def consume_parent() -> None:
+            async for event in service.subscribe_stream(parent.run_id):
+                events.append(event)
+
+        consumer = asyncio.create_task(consume_parent())
+        await asyncio.sleep(0)
+
+        child.on_workflow_error("child_workflow", RuntimeError("child boom"), 0.25)
+
+        await asyncio.sleep(0.05)
+        assert not consumer.done(), (
+            "A child failure must terminate only the child stream; the parent subscriber "
+            "should stay attached until the parent emits its own terminal event."
+        )
+
+        child_stream = service.subscribe_stream(child.run_id)
+        event = await asyncio.wait_for(anext(child_stream), timeout=1)
+        await child_stream.aclose()
+
+        assert event["event"] == "run_failed"
+        assert event["data"]["run_id"] == child.run_id
+
+        parent.on_workflow_complete(
+            "parent_workflow", Mock(total_cost_usd=0.02, total_tokens=84), 0.5
+        )
+        await asyncio.wait_for(consumer, timeout=1)
+
+        assert events[-1]["event"] == "run_completed"
+        assert all(parent_event["event"] != "run_failed" for parent_event in events), (
+            "Parent streams must not receive child run_failed traffic."
+        )
+
+    @pytest.mark.asyncio
+    async def test_parent_stream_filters_child_context_resolution_events(self):
+        service = _make_service()
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+        service._streams.register(parent.run_id, parent)
+        service._streams.register(child.run_id, child)
+
+        events: list[dict] = []
+
+        async def consume_parent() -> None:
+            async for event in service.subscribe_stream(parent.run_id):
+                events.append(event)
+
+        consumer = asyncio.create_task(consume_parent())
+        await asyncio.sleep(0)
+
+        child.on_context_resolution(
+            ContextAuditEventV1(
+                run_id=child.run_id,
+                workflow_name="child_workflow",
+                node_id="resolve_context",
+                block_type="linear",
+                access="declared",
+                mode="strict",
+                records=[
+                    ContextAuditRecordV1(
+                        input_name="query",
+                        from_ref="results.query",
+                        namespace="results",
+                        source="query",
+                        field_path="query",
+                        status="resolved",
+                        severity="allow",
+                        value_type="str",
+                        preview="bounded preview",
+                        reason=None,
+                    )
+                ],
+                resolved_count=1,
+                denied_count=0,
+                warning_count=0,
+                emitted_at=datetime.now(timezone.utc),
+            )
+        )
+
+        await asyncio.sleep(0.05)
+        assert events == [], "Parent streams must not receive raw child context_resolution traffic."
+        assert not consumer.done(), (
+            "A child context-resolution event must not terminate the parent stream."
+        )
+
+        parent.on_workflow_complete(
+            "parent_workflow", Mock(total_cost_usd=0.02, total_tokens=84), 0.5
+        )
+        await asyncio.wait_for(consumer, timeout=1)
 
 
 @pytest.mark.parametrize(
