@@ -140,10 +140,16 @@ def _discover_external_souls(
     souls_dir: Path,
     *,
     inline_soul_keys: Collection[str],
+    git_ref: str | None = None,
+    git_service: Any = None,
 ) -> Dict[str, Soul]:
     """Discover external soul files through the shared discovery seam."""
     base_dir = souls_dir.parent.parent
-    return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys).ids()
+    scan_kwargs: dict[str, Any] = {}
+    if git_ref is not None and git_service is not None:
+        scan_kwargs["git_ref"] = git_ref
+        scan_kwargs["git_service"] = git_service
+    return SoulScanner(base_dir).scan(ignore_keys=inline_soul_keys, **scan_kwargs).ids()
 
 
 def _normalize_depends(depends: str | list[str] | None) -> list[str]:
@@ -354,6 +360,9 @@ def _validate_declared_tool_definitions(
     *,
     base_dir: str,
     require_custom_metadata: bool = False,
+    git_ref: str | None = None,
+    git_service: Any = None,
+    fail_closed: bool = False,
 ) -> ValidationResult:
     """Validate that declared canonical tool IDs are parse-time resolvable."""
     result = ValidationResult()
@@ -376,10 +385,16 @@ def _validate_declared_tool_definitions(
     if result.has_errors:
         return result
 
+    scan_kwargs: dict[str, Any] = {}
+    if git_ref is not None and git_service is not None:
+        scan_kwargs["git_ref"] = git_ref
+        scan_kwargs["git_service"] = git_service
+
     try:
-        discovered_tools = ToolScanner(base_dir).scan().ids()
+        discovered_tools = ToolScanner(base_dir).scan(**scan_kwargs).ids()
     except ValueError as exc:
         scanner_message = str(exc)
+        add_issue = result.add_error if fail_closed else result.add_warning
         for tool_id in file_def.tools:
             expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
             if tool_id in RESERVED_BUILTIN_TOOL_IDS:
@@ -402,7 +417,7 @@ def _validate_declared_tool_definitions(
                 "Tool code must define" in scanner_message
                 or "Tool code has a syntax error" in scanner_message
             ):
-                result.add_warning(
+                add_issue(
                     f"Tool '{tool_id}': {scanner_message}",
                     source="tool_definitions",
                     context=tool_id,
@@ -437,8 +452,9 @@ def _validate_declared_tool_definitions(
         tool_meta = discovered_tools.get(tool_id)
         if tool_meta is None:
             tool_ref = str(EntityRef(EntityKind.TOOL, tool_id))
+            add_issue = result.add_error if fail_closed else result.add_warning
             if require_custom_metadata:
-                result.add_warning(
+                add_issue(
                     (
                         f"{tool_ref} references missing custom tool metadata. "
                         f"Expected metadata at {expected_file}"
@@ -447,7 +463,7 @@ def _validate_declared_tool_definitions(
                     context=tool_id,
                 )
             else:
-                result.add_warning(
+                add_issue(
                     (
                         f"Workflow declares unknown {tool_ref}. "
                         f"Available builtin IDs: {available_builtin_ids}. "
@@ -459,11 +475,15 @@ def _validate_declared_tool_definitions(
             continue
 
         try:
-            _resolve_tool_for_parser(tool_id, base_dir=base_dir)
-        except ValueError as exc:
-            result.add_warning(
-                f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id
+            _resolve_tool_for_parser(
+                tool_id,
+                base_dir=base_dir,
+                git_ref=git_ref,
+                git_service=git_service,
             )
+        except ValueError as exc:
+            add_issue = result.add_error if fail_closed else result.add_warning
+            add_issue(f"Tool '{tool_id}': {exc}", source="tool_definitions", context=tool_id)
 
     return result
 
@@ -473,6 +493,8 @@ def _resolve_tool_for_parser(
     *,
     base_dir: str,
     exits: object | None = None,
+    git_ref: str | None = None,
+    git_service: Any = None,
 ) -> object:
     """Resolve a tool with only the parser context that its canonical ID needs."""
     kwargs: Dict[str, object] = {}
@@ -483,16 +505,31 @@ def _resolve_tool_for_parser(
     elif tool_id not in RESERVED_BUILTIN_TOOL_IDS:
         kwargs["base_dir"] = base_dir
 
+    if git_ref is not None and git_service is not None:
+        kwargs["git_ref"] = git_ref
+        kwargs["git_service"] = git_service
+
     return resolve_tool_id(tool_id, **kwargs)
 
 
-def _attach_tool_runtime_metadata(tool: object, tool_id: str, *, base_dir: str) -> object:
+def _attach_tool_runtime_metadata(
+    tool: object,
+    tool_id: str,
+    *,
+    base_dir: str,
+    git_ref: str | None = None,
+    git_service: Any = None,
+) -> object:
     """Annotate a resolved ToolInstance with ID/type metadata for isolation."""
     setattr(tool, "source", tool_id)
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         setattr(tool, "tool_type", "builtin")
     else:
-        tool_meta = ToolScanner(base_dir).scan().ids().get(tool_id)
+        scan_kwargs: dict[str, Any] = {}
+        if git_ref is not None and git_service is not None:
+            scan_kwargs["git_ref"] = git_ref
+            scan_kwargs["git_service"] = git_service
+        tool_meta = ToolScanner(base_dir).scan(**scan_kwargs).ids().get(tool_id)
         setattr(tool, "tool_type", tool_meta.type if tool_meta is not None else "")
     setattr(tool, "config", {"id": tool_id})
     return tool
@@ -769,6 +806,10 @@ def _resolve_tools_for_souls(
     file_def: RunsightWorkflowFile,
     souls_map: Dict[str, Soul],
     workflow_base_dir: str,
+    *,
+    git_ref: str | None = None,
+    git_service: Any = None,
+    strict: bool = False,
 ) -> None:
     """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
     for soul_key in _collect_referenced_soul_keys(file_def):
@@ -790,25 +831,76 @@ def _resolve_tools_for_souls(
                     )
                 try:
                     resolved_tool = _resolve_tool_for_parser(
-                        tool_id, exits=exits, base_dir=workflow_base_dir
+                        tool_id,
+                        exits=exits,
+                        base_dir=workflow_base_dir,
+                        git_ref=git_ref,
+                        git_service=git_service,
                     )
                 except Exception as exc:
+                    if strict:
+                        raise
                     logger.warning(
                         "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
                     )
                     continue
             else:
                 try:
-                    resolved_tool = _resolve_tool_for_parser(tool_id, base_dir=workflow_base_dir)
+                    resolved_tool = _resolve_tool_for_parser(
+                        tool_id,
+                        base_dir=workflow_base_dir,
+                        git_ref=git_ref,
+                        git_service=git_service,
+                    )
                 except Exception as exc:
+                    if strict:
+                        raise
                     logger.warning(
                         "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
                     )
                     continue
             resolved_tools.append(
-                _attach_tool_runtime_metadata(resolved_tool, tool_id, base_dir=workflow_base_dir)
+                _attach_tool_runtime_metadata(
+                    resolved_tool,
+                    tool_id,
+                    base_dir=workflow_base_dir,
+                    git_ref=git_ref,
+                    git_service=git_service,
+                )
             )
         soul.resolved_tools = resolved_tools
+
+
+def _validate_custom_assertion_refs(
+    file_def: RunsightWorkflowFile,
+    assertion_ids: Collection[str],
+    *,
+    workflow_base_dir: str,
+) -> None:
+    """Ensure every referenced custom assertion exists in the active discovery scope."""
+    available_ids = set(assertion_ids)
+    for block_id, block_def in file_def.blocks.items():
+        for assertion in getattr(block_def, "assertions", None) or []:
+            assertion_type = (
+                assertion.get("type")
+                if isinstance(assertion, dict)
+                else getattr(assertion, "type", None)
+            )
+            if not isinstance(assertion_type, str):
+                continue
+            base_type = assertion_type.removeprefix("not-")
+            if not base_type.startswith("custom:"):
+                continue
+            assertion_id = base_type.split(":", 1)[1]
+            if assertion_id in available_ids:
+                continue
+            expected_path = (
+                Path(workflow_base_dir) / "custom" / "assertions" / f"{assertion_id}.yaml"
+            )
+            raise ValueError(
+                f"Block '{block_id}' references missing custom assertion '{assertion_id}'. "
+                f"Expected metadata at {expected_path}"
+            )
 
 
 def _validate_inputs_and_detect_cycles(
@@ -962,17 +1054,34 @@ def parse_workflow_yaml(
     api_keys: Optional[Dict[str, str]] = None,
     runner: Optional[Any] = None,
     _base_dir: Optional[str] = None,
+    _discovery_git_ref: str | None = None,
+    _discovery_git_service: Any = None,
 ) -> Workflow:
     """Parse a YAML workflow definition into a validated, runnable Workflow object."""
     file_def, workflow_base_dir, require_custom_metadata = _normalize_workflow_input(
         yaml_str_or_dict, _base_dir
     )
 
-    assertion_index = AssertionScanner(workflow_base_dir).scan()
+    discovery_scan_kwargs: dict[str, Any] = {}
+    if _discovery_git_ref is not None and _discovery_git_service is not None:
+        discovery_scan_kwargs["git_ref"] = _discovery_git_ref
+        discovery_scan_kwargs["git_service"] = _discovery_git_service
+
+    assertion_index = AssertionScanner(workflow_base_dir).scan(**discovery_scan_kwargs)
     register_custom_assertions(assertion_index)
+    _validate_custom_assertion_refs(
+        file_def,
+        assertion_index.ids(),
+        workflow_base_dir=workflow_base_dir,
+    )
 
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
-    external_souls = _discover_external_souls(souls_dir, inline_soul_keys=file_def.souls)
+    external_souls = _discover_external_souls(
+        souls_dir,
+        inline_soul_keys=file_def.souls,
+        git_ref=_discovery_git_ref,
+        git_service=_discovery_git_service,
+    )
     souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
 
     if runner is None:
@@ -1013,13 +1122,25 @@ def parse_workflow_yaml(
     validation_result = validate_tool_governance(file_def, souls_map)
     validation_result.merge(
         _validate_declared_tool_definitions(
-            file_def, base_dir=workflow_base_dir, require_custom_metadata=require_custom_metadata
+            file_def,
+            base_dir=workflow_base_dir,
+            require_custom_metadata=require_custom_metadata,
+            git_ref=_discovery_git_ref,
+            git_service=_discovery_git_service,
+            fail_closed=_discovery_git_ref is not None,
         )
     )
     if validation_result.has_errors:
         raise ValueError(validation_result.error_summary or "Tool governance validation failed")
 
-    _resolve_tools_for_souls(file_def, souls_map, workflow_base_dir)
+    _resolve_tools_for_souls(
+        file_def,
+        souls_map,
+        workflow_base_dir,
+        git_ref=_discovery_git_ref,
+        git_service=_discovery_git_service,
+        strict=_discovery_git_ref is not None,
+    )
     _validate_inputs_and_detect_cycles(file_def, built_blocks)
     return _assemble_workflow(file_def, built_blocks)
 

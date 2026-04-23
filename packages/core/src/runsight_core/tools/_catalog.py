@@ -179,6 +179,20 @@ def _tool_instance_name(tool_id: str) -> str:
     return tool_id.removesuffix("_tool")
 
 
+def _discovered_tools(
+    *,
+    base_dir: object,
+    git_ref: object = None,
+    git_service: object = None,
+) -> dict[str, ToolMeta]:
+    """Resolve the custom tool catalog from either the working tree or a git snapshot."""
+    scan_kwargs: dict[str, object] = {}
+    if isinstance(git_ref, str) and git_ref and git_service is not None:
+        scan_kwargs["git_ref"] = git_ref
+        scan_kwargs["git_service"] = git_service
+    return ToolScanner(base_dir).scan(**scan_kwargs).ids()
+
+
 def _resolve_custom_tool_id(
     tool_id: str,
     *,
@@ -191,7 +205,11 @@ def _resolve_custom_tool_id(
     if not isinstance(timeout_seconds, int):
         raise TypeError("timeout_seconds must be an int")
 
-    tool_meta = tool_meta or ToolScanner(base_dir).scan().ids().get(tool_id)
+    tool_meta = tool_meta or _discovered_tools(
+        base_dir=base_dir,
+        git_ref=kwargs.get("git_ref"),
+        git_service=kwargs.get("git_service"),
+    ).get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown custom tool source: {tool_id!r}")
     if tool_meta.executor != "python":
@@ -422,7 +440,11 @@ def _resolve_http_tool_id(
 ) -> ToolInstance:
     """Resolve a discovered HTTP tool from its canonical workflow ID."""
     base_dir = kwargs.get("base_dir", ".")
-    tool_meta = tool_meta or ToolScanner(base_dir).scan().ids().get(tool_id)
+    tool_meta = tool_meta or _discovered_tools(
+        base_dir=base_dir,
+        git_ref=kwargs.get("git_ref"),
+        git_service=kwargs.get("git_service"),
+    ).get(tool_id)
     if tool_meta is None:
         raise ValueError(f"Unknown HTTP tool source: {tool_id!r}")
     if tool_meta.executor != "request":
@@ -454,7 +476,11 @@ def resolve_tool_id(tool_id: str, **kwargs: object) -> ToolInstance:
         raise TypeError(f"tool_id must be a string, got {type(tool_id)!r}")
 
     base_dir = kwargs.get("base_dir", ".")
-    discovered_tools = ToolScanner(base_dir).scan().ids()
+    discovered_tools = _discovered_tools(
+        base_dir=base_dir,
+        git_ref=kwargs.get("git_ref"),
+        git_service=kwargs.get("git_service"),
+    )
 
     if tool_id in RESERVED_BUILTIN_TOOL_IDS:
         if tool_id in discovered_tools:
