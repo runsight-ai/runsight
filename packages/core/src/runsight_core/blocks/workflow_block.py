@@ -78,6 +78,12 @@ class WorkflowBlock(BaseBlock):
         for child_source_path in self.outputs.values():
             self._validate_child_output_source_path(child_source_path)
 
+    def _child_assertion_configs(self) -> dict[str, list[dict[str, Any]]] | None:
+        getter = getattr(self.child_workflow, "assertion_configs", None)
+        if callable(getter):
+            return getter()
+        return None
+
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         """Execute WorkflowBlock with BlockContext, return BlockOutput."""
         state: WorkflowState = ctx.state_snapshot
@@ -119,7 +125,7 @@ class WorkflowBlock(BaseBlock):
 
         child_observer = None
         child_run_id = None
-        child_assertion_configs = self.child_workflow.assertion_configs()
+        child_assertion_configs = self._child_assertion_configs()
         if observer:
             if self._observer_has_terminal_hooks(observer):
                 child_observer, child_run_id = build_child_observer(

@@ -513,10 +513,22 @@ class CompositeObserver:
     def __init__(self, *observers: WorkflowObserver):
         self.observers = list(observers)
 
+    @staticmethod
+    def _child_run_getter(obs: WorkflowObserver) -> Any | None:
+        getter = getattr(type(obs), "get_child_run_id_for_block", None)
+        if not callable(getter):
+            return None
+        bound = getattr(obs, "get_child_run_id_for_block", None)
+        return bound if callable(bound) else None
+
+    @staticmethod
+    def _is_workflow_block_type(block_type: str) -> bool:
+        return block_type.strip().lower() in {"workflow", "workflowblock"}
+
     def get_child_run_id_for_block(self, block_id: str) -> Optional[str]:
         for obs in self.observers:
-            getter = getattr(obs, "get_child_run_id_for_block", None)
-            if not callable(getter):
+            getter = self._child_run_getter(obs)
+            if getter is None:
                 continue
             child_run_id = getter(block_id)
             if child_run_id:
@@ -594,18 +606,22 @@ class CompositeObserver:
         if soul is not None:
             kwargs["soul"] = soul
         handled_indices: set[int] = set()
-        if "child_run_id" not in kwargs:
+        if "child_run_id" not in kwargs and self._is_workflow_block_type(block_type):
+            getters: list[Any] = []
             for index, obs in enumerate(self.observers):
-                getter = getattr(obs, "get_child_run_id_for_block", None)
-                if not callable(getter):
+                getter = self._child_run_getter(obs)
+                if getter is None:
                     continue
                 self._safe_call(
                     obs, "on_block_start", workflow_name, block_id, block_type, **kwargs
                 )
                 handled_indices.add(index)
+                getters.append(getter)
+            for getter in getters:
                 child_run_id = getter(block_id)
                 if child_run_id:
                     kwargs["child_run_id"] = child_run_id
+                    break
 
         for index, obs in enumerate(self.observers):
             if index in handled_indices:

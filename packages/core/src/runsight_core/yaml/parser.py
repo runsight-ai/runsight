@@ -541,6 +541,81 @@ def _attach_tool_runtime_metadata(
     return tool
 
 
+def _build_runtime_blocks(
+    file_def: RunsightWorkflowFile,
+    *,
+    workflow_registry: Optional["WorkflowRegistry"],
+    api_keys: Optional[Dict[str, str]],
+    runner: Any,
+    workflow_base_dir: str,
+    souls_map: Dict[str, Soul],
+    git_ref: str | None,
+    git_service: Any,
+) -> Dict[str, BaseBlock]:
+    built_blocks: Dict[str, BaseBlock] = {}
+    for block_id, block_def in file_def.blocks.items():
+        from runsight_core.blocks._registry import get_builder
+
+        builder = get_builder(block_def.type)
+        if builder is None:
+            from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
+
+            raise ValueError(
+                f"Unknown block type '{block_def.type}' for block '{block_id}'. "
+                f"Available types: {sorted(BLOCK_BUILDER_REGISTRY.keys())}"
+            )
+        builder_kwargs: Dict[str, Any] = {
+            "workflow_registry": workflow_registry,
+            "api_keys": api_keys,
+            "workflow_base_dir": workflow_base_dir,
+            "parent_file_def": file_def,
+        }
+        if block_def.type == "workflow":
+            builder_kwargs["_discovery_git_ref"] = git_ref
+            builder_kwargs["_discovery_git_service"] = git_service
+        built_blocks[block_id] = builder(
+            block_id,
+            block_def,
+            souls_map,
+            runner,
+            built_blocks,
+            **builder_kwargs,
+        )
+    return built_blocks
+
+
+def _validate_and_resolve_tools(
+    file_def: RunsightWorkflowFile,
+    souls_map: Dict[str, Soul],
+    workflow_base_dir: str,
+    *,
+    require_custom_metadata: bool,
+    git_ref: str | None,
+    git_service: Any,
+) -> None:
+    validation_result = validate_tool_governance(file_def, souls_map)
+    validation_result.merge(
+        _validate_declared_tool_definitions(
+            file_def,
+            base_dir=workflow_base_dir,
+            require_custom_metadata=require_custom_metadata,
+            git_ref=git_ref,
+            git_service=git_service,
+            fail_closed=git_ref is not None,
+        )
+    )
+    if validation_result.has_errors:
+        raise ValueError(validation_result.error_summary or "Tool governance validation failed")
+    _resolve_tools_for_souls(
+        file_def,
+        souls_map,
+        workflow_base_dir,
+        git_ref=git_ref,
+        git_service=git_service,
+        strict=git_ref is not None,
+    )
+
+
 # Trigger auto-discovery of co-located blocks and rebuild the discriminated
 # union so that BlockDef includes all registered block types.
 import runsight_core.blocks  # noqa: E402, F401
@@ -808,6 +883,40 @@ def _find_block_for_soul(file_def: RunsightWorkflowFile, soul_key: str) -> tuple
     return None, None
 
 
+def _tool_snapshot_kwargs(git_ref: str | None, git_service: Any) -> dict[str, Any]:
+    if git_ref is None:
+        return {}
+    return {"git_ref": git_ref, "git_service": git_service}
+
+
+def _resolve_tool_for_soul(
+    *,
+    soul_key: str,
+    tool_id: str,
+    file_def: RunsightWorkflowFile,
+    workflow_base_dir: str,
+    snapshot_kwargs: dict[str, Any],
+    strict: bool,
+) -> object | None:
+    kwargs = {"base_dir": workflow_base_dir, **snapshot_kwargs}
+    if tool_id == "delegate":
+        block_id_for_soul, block_def_for_soul = _find_block_for_soul(file_def, soul_key)
+        exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
+        if not exits:
+            raise ValueError(
+                f"Soul '{soul_key}' uses delegate tool but block '{block_id_for_soul}' "
+                "has no exits defined"
+            )
+        kwargs["exits"] = exits
+    try:
+        return _resolve_tool_for_parser(tool_id, **kwargs)
+    except Exception as exc:
+        if strict:
+            raise
+        logger.warning("Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc)
+        return None
+
+
 def _resolve_tools_for_souls(
     file_def: RunsightWorkflowFile,
     souls_map: Dict[str, Soul],
@@ -818,10 +927,7 @@ def _resolve_tools_for_souls(
     strict: bool = False,
 ) -> None:
     """Resolve ToolInstance objects per soul and assign to soul.resolved_tools."""
-    snapshot_kwargs: dict[str, Any] = {}
-    if git_ref is not None:
-        snapshot_kwargs["git_ref"] = git_ref
-        snapshot_kwargs["git_service"] = git_service
+    snapshot_kwargs = _tool_snapshot_kwargs(git_ref, git_service)
     for soul_key in _collect_referenced_soul_keys(file_def):
         soul = souls_map.get(soul_key)
         if soul is None or not soul.tools:
@@ -831,42 +937,16 @@ def _resolve_tools_for_souls(
             tool_id = _resolve_soul_tool_definition(tool_name, file_def.tools)
             if tool_id is None:
                 continue
-            if tool_id == "delegate":
-                block_id_for_soul, block_def_for_soul = _find_block_for_soul(file_def, soul_key)
-                exits = getattr(block_def_for_soul, "exits", None) if block_def_for_soul else None
-                if not exits:
-                    raise ValueError(
-                        f"Soul '{soul_key}' uses delegate tool but block "
-                        f"'{block_id_for_soul}' has no exits defined"
-                    )
-                try:
-                    resolved_tool = _resolve_tool_for_parser(
-                        tool_id,
-                        exits=exits,
-                        base_dir=workflow_base_dir,
-                        **snapshot_kwargs,
-                    )
-                except Exception as exc:
-                    if strict:
-                        raise
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
-                    )
-                    continue
-            else:
-                try:
-                    resolved_tool = _resolve_tool_for_parser(
-                        tool_id,
-                        base_dir=workflow_base_dir,
-                        **snapshot_kwargs,
-                    )
-                except Exception as exc:
-                    if strict:
-                        raise
-                    logger.warning(
-                        "Skipping unresolved tool '%s' for soul '%s': %s", tool_id, soul_key, exc
-                    )
-                    continue
+            resolved_tool = _resolve_tool_for_soul(
+                soul_key=soul_key,
+                tool_id=tool_id,
+                file_def=file_def,
+                workflow_base_dir=workflow_base_dir,
+                snapshot_kwargs=snapshot_kwargs,
+                strict=strict,
+            )
+            if resolved_tool is None:
+                continue
             resolved_tools.append(
                 _attach_tool_runtime_metadata(
                     resolved_tool,
@@ -1068,12 +1148,9 @@ def parse_workflow_yaml(
     file_def, workflow_base_dir, require_custom_metadata = _normalize_workflow_input(
         yaml_str_or_dict, _base_dir
     )
-
     discovery_scan_kwargs = _snapshot_discovery_scan_kwargs(
-        git_ref=_discovery_git_ref,
-        git_service=_discovery_git_service,
+        git_ref=_discovery_git_ref, git_service=_discovery_git_service
     )
-
     assertion_index = AssertionScanner(workflow_base_dir).scan(**discovery_scan_kwargs)
     register_custom_assertions(assertion_index)
     _validate_custom_assertion_refs(
@@ -1081,7 +1158,6 @@ def parse_workflow_yaml(
         assertion_index.ids(),
         workflow_base_dir=workflow_base_dir,
     )
-
     souls_dir = Path(workflow_base_dir) / "custom" / "souls"
     external_souls = _discover_external_souls(
         souls_dir,
@@ -1090,69 +1166,31 @@ def parse_workflow_yaml(
         git_service=_discovery_git_service,
     )
     souls_map: Dict[str, Soul] = _merge_inline_souls(file_def, external_souls)
-
     if runner is None:
         model_name = _bootstrap_runner_model_name(souls_map)
         runner = RunsightTeamRunner(model_name=model_name, api_keys=api_keys)
-
     _validate_reserved_context_block_ids(file_def)
-    built_blocks: Dict[str, BaseBlock] = {}
-    for block_id, block_def in file_def.blocks.items():
-        from runsight_core.blocks._registry import get_builder
-
-        builder = get_builder(block_def.type)
-        if builder is None:
-            from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
-
-            raise ValueError(
-                f"Unknown block type '{block_def.type}' for block '{block_id}'. "
-                f"Available types: {sorted(BLOCK_BUILDER_REGISTRY.keys())}"
-            )
-        builder_kwargs: Dict[str, Any] = {
-            "workflow_registry": workflow_registry,
-            "api_keys": api_keys,
-            "workflow_base_dir": workflow_base_dir,
-            "parent_file_def": file_def,
-        }
-        if block_def.type == "workflow":
-            builder_kwargs["_discovery_git_ref"] = _discovery_git_ref
-            builder_kwargs["_discovery_git_service"] = _discovery_git_service
-        built_blocks[block_id] = builder(
-            block_id,
-            block_def,
-            souls_map,
-            runner,
-            built_blocks,
-            **builder_kwargs,
-        )
-
+    built_blocks = _build_runtime_blocks(
+        file_def,
+        workflow_registry=workflow_registry,
+        api_keys=api_keys,
+        runner=runner,
+        workflow_base_dir=workflow_base_dir,
+        souls_map=souls_map,
+        git_ref=_discovery_git_ref,
+        git_service=_discovery_git_service,
+    )
     for block_id, block_def in file_def.blocks.items():
         if block_id in built_blocks:
             _bridge_block_attributes(block_id, block_def, built_blocks[block_id])
-
     _wrap_llm_blocks_with_isolation(file_def, built_blocks, api_keys)
-
-    validation_result = validate_tool_governance(file_def, souls_map)
-    validation_result.merge(
-        _validate_declared_tool_definitions(
-            file_def,
-            base_dir=workflow_base_dir,
-            require_custom_metadata=require_custom_metadata,
-            git_ref=_discovery_git_ref,
-            git_service=_discovery_git_service,
-            fail_closed=_discovery_git_ref is not None,
-        )
-    )
-    if validation_result.has_errors:
-        raise ValueError(validation_result.error_summary or "Tool governance validation failed")
-
-    _resolve_tools_for_souls(
+    _validate_and_resolve_tools(
         file_def,
         souls_map,
         workflow_base_dir,
+        require_custom_metadata=require_custom_metadata,
         git_ref=_discovery_git_ref,
         git_service=_discovery_git_service,
-        strict=_discovery_git_ref is not None,
     )
     _validate_inputs_and_detect_cycles(file_def, built_blocks)
     return _assemble_workflow(file_def, built_blocks)

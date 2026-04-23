@@ -94,6 +94,13 @@ class GitService:
         result = self._run("show", f"{ref}:{repo_path}")
         return result.stdout
 
+    def list_files(self, ref: str, path_prefix: str) -> list[str]:
+        repo_path = self._normalize_repo_path(path_prefix)
+        result = self._run("ls-tree", "-r", "--name-only", ref, "--", repo_path, check=False)
+        if result.returncode != 0:
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
     def get_sha(self, branch: str, path: str) -> Optional[str]:
         repo_path = self._normalize_repo_path(path)
         result = self._run("log", "-1", "--format=%H", branch, "--", repo_path, check=False)
