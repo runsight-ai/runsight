@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.identity import EntityKind, EntityRef
-from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -24,6 +23,7 @@ def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | 
     if not raw_yaml:
         return None
     try:
+        from runsight_core.workflow_input_schema import effective_workflow_input_schema
         from runsight_core.yaml.schema import RunsightWorkflowFile as WorkflowFileModel
 
         data = yaml_mod.safe_load(raw_yaml)
@@ -49,6 +49,8 @@ def _workflow_input_schema_for_simulation(
     workflow_id: str,
 ) -> dict[str, dict[str, Any]]:
     try:
+        from runsight_core.workflow_input_schema import effective_workflow_input_schema
+
         inputs = effective_workflow_input_schema(file_def)
     except ValueError as exc:
         _raise_workflow_input_validation(
@@ -224,13 +226,16 @@ class WorkflowService:
             commit_hash = self.git_service.commit_to_branch("main", files, message)
         except Exception:
             if previous is not None:
+                previous_canvas_state = getattr(previous, "canvas_state", None)
                 rollback = {"yaml": previous.yaml}
-                if previous.canvas_state is not None:
-                    if hasattr(previous.canvas_state, "model_dump"):
-                        rollback["canvas_state"] = previous.canvas_state.model_dump()
+                if previous_canvas_state is not None:
+                    if hasattr(previous_canvas_state, "model_dump"):
+                        rollback["canvas_state"] = previous_canvas_state.model_dump()
                     else:
-                        rollback["canvas_state"] = previous.canvas_state
+                        rollback["canvas_state"] = previous_canvas_state
                 self.workflow_repo.update(workflow_id, rollback)
+                if previous_canvas_state is None:
+                    self.workflow_repo._restore_canvas_sidecar(workflow_id, None)
             raise
         return {"hash": commit_hash, "message": message}
 
