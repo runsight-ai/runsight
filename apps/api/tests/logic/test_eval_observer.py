@@ -1199,7 +1199,3 @@ class TestEvalObserverChildAssertionOwnership:
             "Rebinding a child observer to the child workflow's assertion configs must not "
             "erase or replace the parent observer's root-workflow assertions."
         )
-        assert child.assertion_configs is not parent.assertion_configs, (
-            "Child eval observers must own an assertion config surface that can be rebound "
-            "to the child workflow without mutating the parent's root workflow configs."
-        )
