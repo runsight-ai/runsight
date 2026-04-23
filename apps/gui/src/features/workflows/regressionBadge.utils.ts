@@ -1,4 +1,4 @@
-import type { WorkflowRegression } from "../../types/schemas/regressions";
+import type { RunRegressionIssue, WorkflowRegressionIssue } from "@runsight/shared/zod";
 
 const TYPE_LABELS: Record<string, string> = {
   assertion_regression: "Assertion",
@@ -8,13 +8,15 @@ const TYPE_LABELS: Record<string, string> = {
   latency_spike: "Latency spike",
 };
 
+type RegressionIssue = RunRegressionIssue | WorkflowRegressionIssue;
+
 export function shouldShowRegressionBadge(
-  issues: WorkflowRegression[] | undefined,
+  issues: RegressionIssue[] | undefined,
 ): boolean {
   return Array.isArray(issues) && issues.length > 0;
 }
 
-export function formatRegressionTooltip(issues: WorkflowRegression[]): {
+export function formatRegressionTooltip(issues: RegressionIssue[]): {
   header: string;
   lines: string[];
 } {

@@ -588,7 +588,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RunRegressionsResponse"
+                }
               }
             }
           },
@@ -1080,7 +1082,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRegressionsResponse"
+                }
               }
             }
           },
@@ -3738,6 +3742,59 @@
         ],
         "title": "RunNodeResponse"
       },
+      "RunRegressionIssue": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "node_name": {
+            "type": "string",
+            "title": "Node Name"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "assertion_regression",
+              "cost_spike",
+              "quality_drop"
+            ],
+            "title": "Type"
+          },
+          "delta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Delta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "node_name",
+          "type"
+        ],
+        "title": "RunRegressionIssue"
+      },
+      "RunRegressionsResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/RunRegressionIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "RunRegressionsResponse"
+      },
       "RunResponse": {
         "properties": {
           "id": {
@@ -5321,6 +5378,81 @@
           "total"
         ],
         "title": "WorkflowListResponse"
+      },
+      "WorkflowRegressionIssue": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "node_name": {
+            "type": "string",
+            "title": "Node Name"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "assertion_regression",
+              "cost_spike",
+              "quality_drop"
+            ],
+            "title": "Type"
+          },
+          "delta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Delta"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "run_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "node_name",
+          "type"
+        ],
+        "title": "WorkflowRegressionIssue"
+      },
+      "WorkflowRegressionsResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRegressionIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "WorkflowRegressionsResponse"
       },
       "WorkflowResponse": {
         "properties": {

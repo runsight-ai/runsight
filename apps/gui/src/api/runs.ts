@@ -1,6 +1,8 @@
 import { api } from "./client";
 import {
   type RunCreate,
+  type RunRegressionsResponse,
+  RunRegressionsResponseSchema,
   RunResponseSchema,
   type RunResponse,
   RunListResponseSchema,
@@ -14,26 +16,6 @@ import {
   type runsight_api__transport__schemas__runs__LogResponse as RunLogResponse,
 } from "@runsight/shared/zod";
 import { z } from "zod";
-
-// ---------------------------------------------------------------------------
-// Regressions
-// ---------------------------------------------------------------------------
-
-export const RunRegressionSchema = z.object({
-  node_id: z.string(),
-  node_name: z.string(),
-  type: z.enum(["assertion_regression", "cost_spike", "quality_drop"]),
-  delta: z.record(z.string(), z.unknown()),
-});
-
-export type RunRegression = z.infer<typeof RunRegressionSchema>;
-
-export const RunRegressionsResponseSchema = z.object({
-  count: z.number(),
-  issues: z.array(RunRegressionSchema),
-});
-
-export type RunRegressionsResponse = z.infer<typeof RunRegressionsResponseSchema>;
 export type RunContextAuditParams = {
   node_id?: string;
   cursor?: string;

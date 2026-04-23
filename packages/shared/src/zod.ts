@@ -354,6 +354,20 @@ export const RunNodeResponseSchema = z.object({
 });
 export type RunNodeResponse = z.infer<typeof RunNodeResponseSchema>;
 
+export const RunRegressionIssueSchema = z.object({
+  node_id: z.string(),
+  node_name: z.string(),
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop"]),
+  delta: z.record(z.string(), z.unknown()).optional(),
+});
+export type RunRegressionIssue = z.infer<typeof RunRegressionIssueSchema>;
+
+export const RunRegressionsResponseSchema = z.object({
+  count: z.number(),
+  issues: z.array(RunRegressionIssueSchema).optional(),
+});
+export type RunRegressionsResponse = z.infer<typeof RunRegressionsResponseSchema>;
+
 export const SettingsFallbackResponseSchema = z.object({
   id: z.string(),
   provider_id: z.string(),
@@ -621,6 +635,22 @@ export const WorkflowListResponseSchema = z.object({
   total: z.number(),
 });
 export type WorkflowListResponse = z.infer<typeof WorkflowListResponseSchema>;
+
+export const WorkflowRegressionIssueSchema = z.object({
+  node_id: z.string(),
+  node_name: z.string(),
+  type: z.enum(["assertion_regression", "cost_spike", "quality_drop"]),
+  delta: z.record(z.string(), z.unknown()).optional(),
+  run_id: z.string().nullable().optional(),
+  run_number: z.number().nullable().optional(),
+});
+export type WorkflowRegressionIssue = z.infer<typeof WorkflowRegressionIssueSchema>;
+
+export const WorkflowRegressionsResponseSchema = z.object({
+  count: z.number(),
+  issues: z.array(WorkflowRegressionIssueSchema).optional(),
+});
+export type WorkflowRegressionsResponse = z.infer<typeof WorkflowRegressionsResponseSchema>;
 
 export const WorkflowSimulationCreateSchema = z.object({
   yaml: z.string(),

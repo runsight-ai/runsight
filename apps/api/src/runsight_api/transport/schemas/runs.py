@@ -126,3 +126,15 @@ class ContextAuditListResponse(BaseModel):
     page_size: int
     has_next_page: bool
     end_cursor: Optional[str] = None
+
+
+class RunRegressionIssue(BaseModel):
+    node_id: str
+    node_name: str
+    type: Literal["assertion_regression", "cost_spike", "quality_drop"]
+    delta: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RunRegressionsResponse(BaseModel):
+    count: int
+    issues: List[RunRegressionIssue] = Field(default_factory=list)

@@ -115,3 +115,17 @@ class WorkflowDeleteResponse(BaseModel):
 
 class WorkflowEnabledUpdate(BaseModel):
     enabled: StrictBool
+
+
+class WorkflowRegressionIssue(BaseModel):
+    node_id: str
+    node_name: str
+    type: Literal["assertion_regression", "cost_spike", "quality_drop"]
+    delta: Dict[str, Any] = Field(default_factory=dict)
+    run_id: str | None = None
+    run_number: int | None = None
+
+
+class WorkflowRegressionsResponse(BaseModel):
+    count: int
+    issues: List[WorkflowRegressionIssue] = Field(default_factory=list)
