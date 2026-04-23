@@ -1108,16 +1108,22 @@ def parse_workflow_yaml(
                 f"Unknown block type '{block_def.type}' for block '{block_id}'. "
                 f"Available types: {sorted(BLOCK_BUILDER_REGISTRY.keys())}"
             )
+        builder_kwargs: Dict[str, Any] = {
+            "workflow_registry": workflow_registry,
+            "api_keys": api_keys,
+            "workflow_base_dir": workflow_base_dir,
+            "parent_file_def": file_def,
+        }
+        if block_def.type == "workflow":
+            builder_kwargs["_discovery_git_ref"] = _discovery_git_ref
+            builder_kwargs["_discovery_git_service"] = _discovery_git_service
         built_blocks[block_id] = builder(
             block_id,
             block_def,
             souls_map,
             runner,
             built_blocks,
-            workflow_registry=workflow_registry,
-            api_keys=api_keys,
-            workflow_base_dir=workflow_base_dir,
-            parent_file_def=file_def,
+            **builder_kwargs,
         )
 
     for block_id, block_def in file_def.blocks.items():

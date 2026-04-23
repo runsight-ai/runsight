@@ -614,6 +614,8 @@ def build(
     api_keys: Dict[str, str] | None = None,
     workflow_base_dir: str = ".",
     parent_file_def: Any | None = None,
+    _discovery_git_ref: str | None = None,
+    _discovery_git_service: Any = None,
     **_: Any,
 ) -> WorkflowBlock:
     """Build a WorkflowBlock from a block definition."""
@@ -637,6 +639,8 @@ def build(
         workflow_registry=workflow_registry,
         api_keys=api_keys,
         _base_dir=workflow_base_dir,
+        _discovery_git_ref=_discovery_git_ref,
+        _discovery_git_service=_discovery_git_service,
     )
 
     max_depth = (
