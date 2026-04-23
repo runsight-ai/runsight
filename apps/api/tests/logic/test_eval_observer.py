@@ -19,11 +19,18 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from runsight_core.block_io import BlockOutput
+from runsight_core.blocks.base import BaseBlock
+from runsight_core.blocks.workflow_block import WorkflowBlock
+from runsight_core.observer import CompositeObserver
 from runsight_core.primitives import Soul
 from runsight_core.state import BlockResult, WorkflowState
+from runsight_core.workflow import Workflow
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+from runsight_api.logic.observers.execution_observer import ExecutionObserver
+from runsight_api.logic.services.execution_runtime import build_assertion_configs
 
 # ---------------------------------------------------------------------------
 # Deferred import — EvalObserver does not exist yet
@@ -1097,105 +1104,100 @@ class TestEvalObserverChildStreamIsolation:
 
 
 class TestEvalObserverChildAssertionOwnership:
-    def test_child_assertion_config_rebinding_does_not_mutate_parent_surface(
+    @pytest.mark.asyncio
+    async def test_nested_child_workflow_uses_its_own_assertions_without_mutating_parent_surface(
         self,
         db_engine,
         sse_queue,
     ):
         parent_run_id = "run_973_eval_parent_config"
-        child_run_id = "run_973_eval_child_config"
+
+        class AssertionEchoBlock(BaseBlock):
+            def __init__(self, block_id: str, output: str, assertions: list[dict[str, object]]):
+                super().__init__(block_id)
+                self.output = output
+                self.assertions = assertions
+
+            async def execute(self, ctx):
+                return BlockOutput(
+                    output=self.output,
+                    cost_usd=0.0,
+                    total_tokens=0,
+                )
 
         with Session(db_engine) as session:
-            for run_id, workflow_id in [
-                (parent_run_id, "wf_parent"),
-                (child_run_id, "wf_child"),
-            ]:
-                session.add(
-                    Run(
-                        id=run_id,
-                        workflow_id=workflow_id,
-                        workflow_name=workflow_id,
-                        status=RunStatus.running,
-                        task_json="{}",
-                        branch="main",
-                    )
-                )
             session.add(
-                RunNode(
-                    id=f"{parent_run_id}:root_block",
-                    run_id=parent_run_id,
-                    node_id="root_block",
-                    block_type="LinearBlock",
-                    status="completed",
-                    cost_usd=0.05,
-                    tokens={"total": 1200},
-                    output="ROOT signal",
-                )
-            )
-            session.add(
-                RunNode(
-                    id=f"{child_run_id}:child_block",
-                    run_id=child_run_id,
-                    node_id="child_block",
-                    block_type="LinearBlock",
-                    status="completed",
-                    cost_usd=0.03,
-                    tokens={"total": 800},
-                    output="CHILD signal",
+                Run(
+                    id=parent_run_id,
+                    workflow_id="wf_parent",
+                    workflow_name="wf_parent",
+                    status=RunStatus.running,
+                    task_json="{}",
+                    branch="main",
                 )
             )
             session.commit()
 
+        child_wf = Workflow(name="wf_child")
+        child_wf.add_block(
+            AssertionEchoBlock(
+                "child_block",
+                "CHILD signal",
+                [{"type": "contains", "value": "CHILD", "weight": 1.0}],
+            )
+        )
+        child_wf.set_entry("child_block")
+        child_wf.add_transition("child_block", None)
+
+        parent_wf = Workflow(name="wf_parent")
+        parent_wf.add_block(
+            AssertionEchoBlock(
+                "root_block",
+                "ROOT signal",
+                [{"type": "contains", "value": "ROOT", "weight": 1.0}],
+            )
+        )
+        parent_wf.add_block(
+            WorkflowBlock(
+                block_id="invoke_child",
+                child_workflow=child_wf,
+                inputs={},
+                outputs={},
+                workflow_ref="wf_child",
+            )
+        )
+        parent_wf.set_entry("root_block")
+        parent_wf.add_transition("root_block", "invoke_child")
+        parent_wf.add_transition("invoke_child", None)
+
         EvalObserver = _import_eval_observer()
-        parent = EvalObserver(
-            engine=db_engine,
-            run_id=parent_run_id,
-            sse_queue=sse_queue,
-            assertion_configs={
-                "root_block": [{"type": "contains", "value": "ROOT", "weight": 1.0}]
-            },
-        )
-        child = parent.clone_for_child_run(child_run_id=child_run_id)
-
-        child.assertion_configs.clear()
-        child.assertion_configs.update(
-            {"child_block": [{"type": "contains", "value": "CHILD", "weight": 1.0}]}
-        )
-
-        child.on_block_complete(
-            "wf_child",
-            "child_block",
-            "LinearBlock",
-            0.25,
-            WorkflowState(
-                total_cost_usd=0.03,
-                total_tokens=800,
-                results={"child_block": BlockResult(output="CHILD signal")},
+        observer = CompositeObserver(
+            ExecutionObserver(engine=db_engine, run_id=parent_run_id),
+            EvalObserver(
+                engine=db_engine,
+                run_id=parent_run_id,
+                sse_queue=sse_queue,
+                assertion_configs=build_assertion_configs(parent_wf),
             ),
         )
-        assert parent.assertion_configs.get("root_block"), (
-            "Child eval rebinding must not erase the parent's root assertion config surface."
-        )
-        parent.on_block_complete(
-            "wf_parent",
-            "root_block",
-            "LinearBlock",
-            0.25,
-            WorkflowState(
-                total_cost_usd=0.05,
-                total_tokens=1200,
-                results={"root_block": BlockResult(output="ROOT signal")},
-            ),
-        )
+
+        await parent_wf.run(WorkflowState(), observer=observer)
 
         with Session(db_engine) as session:
-            child_node = session.get(RunNode, f"{child_run_id}:child_block")
             parent_node = session.get(RunNode, f"{parent_run_id}:root_block")
+            invoke_child_node = session.get(RunNode, f"{parent_run_id}:invoke_child")
+
+            assert invoke_child_node is not None
+            assert invoke_child_node.child_run_id is not None
+            child_node = session.get(RunNode, f"{invoke_child_node.child_run_id}:child_block")
 
         assert child_node is not None
-        assert child_node.eval_passed is True
         assert parent_node is not None
         assert parent_node.eval_passed is True, (
-            "Rebinding a child observer to the child workflow's assertion configs must not "
-            "erase or replace the parent observer's root-workflow assertions."
+            "The parent/root assertion surface must still evaluate the root block on the "
+            "real nested workflow path."
+        )
+        assert child_node.eval_passed is True, (
+            "Nested child workflows must evaluate using the child workflow's own assertion "
+            "configs on the real WorkflowBlock + CompositeObserver path."
         )
