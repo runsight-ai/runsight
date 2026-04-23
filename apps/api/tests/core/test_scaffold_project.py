@@ -111,6 +111,18 @@ class TestScaffoldProject:
         assert not (tmp_path / ".gitignore").exists()
         assert _git(tmp_path, "status", "--short").stdout.strip() == ""
 
+    def test_existing_gitignore_without_repo_gets_canvas_and_runsight_patterns(
+        self, tmp_path: Path
+    ):
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text("node_modules/\n.env\n", encoding="utf-8")
+
+        scaffold_project(tmp_path)
+
+        assert gitignore.read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n.canvas/\n.runsight/\n"
+        )
+
     def test_existing_git_repo_keeps_gitignore_contents_unchanged(self, tmp_path: Path):
         gitignore = tmp_path / ".gitignore"
         _init_existing_repo(

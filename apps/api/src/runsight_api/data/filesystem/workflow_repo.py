@@ -384,7 +384,13 @@ class WorkflowRepository:
                 logger.warning(
                     "Failed to restore workflow YAML after sidecar failure: %s", workflow_id
                 )
-            self._restore_canvas_sidecar(workflow_id, previous_canvas_content)
+            try:
+                self._restore_canvas_sidecar(workflow_id, previous_canvas_content)
+            except Exception:
+                logger.warning(
+                    "Failed to restore workflow canvas sidecar after sidecar failure: %s",
+                    workflow_id,
+                )
             raise
 
         return self._build_entity(

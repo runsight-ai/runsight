@@ -25,7 +25,7 @@ import yaml
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
-CUSTOM_SOULS = REPO_ROOT / "custom" / "souls"
+CUSTOM_SOULS = REPO_ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "souls"
 
 # ===========================================================================
 # Preconditions
@@ -36,13 +36,13 @@ class TestPreconditions:
     """Sanity checks so failures are diagnostic, not cryptic."""
 
     def test_custom_souls_directory_exists(self):
-        """custom/souls/ must exist for the scan to be meaningful."""
+        """Fixture soul library must exist for the scan to be meaningful."""
         assert CUSTOM_SOULS.exists(), f"Directory not found: {CUSTOM_SOULS}"
 
     def test_at_least_one_soul_file_exists(self):
         """There should be at least one soul YAML file to scan."""
         files = sorted(CUSTOM_SOULS.glob("*.yaml"))
-        assert len(files) > 0, "No YAML files found in custom/souls/"
+        assert len(files) > 0, "No YAML files found in fixture custom/souls/"
 
 
 # ===========================================================================
@@ -55,7 +55,7 @@ class TestNoAssertionsKeyInSoulYaml:
 
     @staticmethod
     def _discover_soul_files() -> list[Path]:
-        """Return all .yaml files under custom/souls/."""
+        """Return all .yaml files under the fixture custom/souls/ library."""
         if not CUSTOM_SOULS.exists():
             return []
         return sorted(CUSTOM_SOULS.glob("*.yaml"))

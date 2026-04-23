@@ -56,14 +56,18 @@ def _ensure_repo_local_ignores(base_path: Path, patterns: list[str]) -> None:
     if exclude_path is None:
         return
 
-    exclude_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = exclude_path.read_text(encoding="utf-8") if exclude_path.exists() else ""
+    _append_missing_patterns(exclude_path, patterns)
+
+
+def _append_missing_patterns(path: Path, patterns: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
 
     missing_patterns = [pattern for pattern in patterns if pattern not in existing]
     if not missing_patterns:
         return
 
-    with exclude_path.open("a", encoding="utf-8") as handle:
+    with path.open("a", encoding="utf-8") as handle:
         if existing and not existing.endswith("\n"):
             handle.write("\n")
         for pattern in missing_patterns:
@@ -90,17 +94,8 @@ def scaffold_project(base_path: Path) -> None:
     (base_path / "custom" / "souls").mkdir(parents=True, exist_ok=True)
     (base_path / "custom" / "tools").mkdir(parents=True, exist_ok=True)
 
-    gitignore_path = base_path / ".gitignore"
     if not has_git_repo:
-        if not gitignore_path.is_file():
-            gitignore_path.write_text(".canvas/\n.runsight/\n", encoding="utf-8")
-        else:
-            content = gitignore_path.read_text(encoding="utf-8")
-            if ".runsight/" not in content:
-                with gitignore_path.open("a", encoding="utf-8") as f:
-                    if content and not content.endswith("\n"):
-                        f.write("\n")
-                    f.write(".runsight/\n")
+        _append_missing_patterns(base_path / ".gitignore", [".canvas/", ".runsight/"])
     else:
         _ensure_repo_local_ignores(base_path, [".canvas/", ".runsight/"])
 
