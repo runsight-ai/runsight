@@ -1,6 +1,6 @@
-"""Red tests for RUN-313: RunRepository.get_baseline() query.
+"""Red tests for RUN-313: RunReadModel.get_baseline() query.
 
-Tests target the new baseline query method on RunRepository:
+Tests target the baseline query method on RunReadModel:
   - get_baseline(soul_id, soul_version, limit=100) -> BaselineStats | None
   - Returns None when no matching runs exist
   - Returns correct averages over matching RunNode records
@@ -18,7 +18,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from runsight_api.domain.entities.run import RunNode
 
 # ---------------------------------------------------------------------------
-# Deferred imports — BaselineStats and get_baseline do not exist yet
+# Deferred imports — BaselineStats and RunReadModel are imported lazily for test isolation
 # ---------------------------------------------------------------------------
 
 
@@ -28,10 +28,10 @@ def _import_baseline_stats():
     return BaselineStats
 
 
-def _import_run_repository():
-    from runsight_api.data.repositories.run_repo import RunRepository
+def _import_run_read_model():
+    from runsight_api.data.repositories.run_read_model import RunReadModel
 
-    return RunRepository
+    return RunReadModel
 
 
 # ---------------------------------------------------------------------------
@@ -73,9 +73,9 @@ class TestBaselineStatsModel:
 class TestGetBaselineNoData:
     def test_returns_none_when_no_matching_nodes(self, db_session):
         """get_baseline returns None when no RunNode matches soul_id + soul_version."""
-        RunRepository = _import_run_repository()
-        repo = RunRepository(db_session)
-        result = repo.get_baseline("nonexistent_soul", "nonexistent_version")
+        RunReadModel = _import_run_read_model()
+        read_model = RunReadModel(db_session)
+        result = read_model.get_baseline("nonexistent_soul", "nonexistent_version")
         assert result is None
 
 
@@ -106,7 +106,7 @@ class TestGetBaselineAverages:
 
     def test_returns_correct_avg_cost(self, db_session):
         """get_baseline computes correct avg_cost over matching nodes."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
             "soul_1",
@@ -114,14 +114,14 @@ class TestGetBaselineAverages:
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         assert stats.avg_cost == pytest.approx(0.20, abs=0.001)
 
     def test_returns_correct_avg_tokens(self, db_session):
         """get_baseline computes correct avg_tokens over matching nodes."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
             "soul_1",
@@ -129,14 +129,14 @@ class TestGetBaselineAverages:
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         assert stats.avg_tokens == pytest.approx(200.0, abs=1.0)
 
     def test_returns_correct_avg_score(self, db_session):
         """get_baseline computes correct avg_score when eval_score is present."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
             "soul_1",
@@ -145,14 +145,14 @@ class TestGetBaselineAverages:
             tokens=[100, 200],
             scores=[0.80, 0.90],
         )
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         assert stats.avg_score == pytest.approx(0.85, abs=0.01)
 
     def test_avg_score_none_when_no_eval_scores(self, db_session):
         """get_baseline returns avg_score=None when no nodes have eval_score."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
             "soul_1",
@@ -160,14 +160,14 @@ class TestGetBaselineAverages:
             costs=[0.10, 0.20],
             tokens=[100, 200],
         )
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         assert stats.avg_score is None
 
     def test_returns_correct_run_count(self, db_session):
         """get_baseline returns correct run_count."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
             "soul_1",
@@ -175,8 +175,8 @@ class TestGetBaselineAverages:
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         assert stats.run_count == 3
 
@@ -244,10 +244,10 @@ class TestGetBaselineFiltering:
 
     def test_filters_by_soul_id_and_version(self, db_session):
         """get_baseline only includes nodes matching both soul_id AND soul_version."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_mixed_nodes(db_session)
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash")
         assert stats is not None
         # Should average over 0.10 and 0.20, not 1.00 or 2.00
         assert stats.run_count == 2
@@ -255,10 +255,10 @@ class TestGetBaselineFiltering:
 
     def test_different_version_returns_different_stats(self, db_session):
         """Querying a different soul_version returns that version's stats only."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         self._seed_mixed_nodes(db_session)
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v2hash")
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v2hash")
         assert stats is not None
         assert stats.run_count == 1
         assert stats.avg_cost == pytest.approx(1.00, abs=0.001)
@@ -272,7 +272,7 @@ class TestGetBaselineFiltering:
 class TestGetBaselineLimit:
     def test_limit_restricts_node_count(self, db_session):
         """get_baseline(... limit=2) only averages the most recent 2 nodes."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         # Insert 5 nodes with increasing cost: 0.10, 0.20, 0.30, 0.40, 0.50
         for i in range(5):
@@ -291,18 +291,18 @@ class TestGetBaselineLimit:
             db_session.add(node)
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        stats = repo.get_baseline("soul_1", "v1hash", limit=2)
+        read_model = RunReadModel(db_session)
+        stats = read_model.get_baseline("soul_1", "v1hash", limit=2)
         assert stats is not None
         # With limit=2, should only consider the 2 most recent nodes
         assert stats.run_count == 2
 
     def test_default_limit_is_100(self, db_session):
         """get_baseline default limit is 100."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
         import inspect
 
-        sig = inspect.signature(RunRepository.get_baseline)
+        sig = inspect.signature(RunReadModel.get_baseline)
         limit_param = sig.parameters.get("limit")
         assert limit_param is not None, "get_baseline must have a 'limit' parameter"
         assert limit_param.default == 100, "Default limit should be 100"

@@ -258,6 +258,29 @@ class TestRunInputValidationRouter:
             branch="main",
         )
 
+    def test_omitted_branch_uses_working_tree_path_and_persists_main(self):
+        run_service, execution_service = _services(normalized_inputs={})
+
+        response = client.post(
+            "/api/runs",
+            json={"workflow_id": "wf_inputs"},
+        )
+
+        assert response.status_code == 200
+        execution_service.prepare_run_inputs.assert_called_once_with("wf_inputs", {}, branch=None)
+        run_service.create_run.assert_called_once_with(
+            "wf_inputs",
+            {},
+            source="manual",
+            branch="main",
+        )
+        execution_service.launch_execution.assert_called_once_with(
+            "run_896",
+            "wf_inputs",
+            {},
+            branch=None,
+        )
+
     def test_malformed_run_body_uses_workflow_input_error_shape(self):
         run_service, execution_service = _services(normalized_inputs={})
 

@@ -12,6 +12,7 @@ from ..data.filesystem.settings_repo import FileSystemSettingsRepo
 from ..data.filesystem.soul_repo import SoulRepository
 from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.repositories.run_repo import RunRepository
+from ..data.repositories.run_read_model import RunReadModel
 from ..logic.services.eval_service import EvalService
 from ..logic.services.execution_service import ExecutionService
 from ..logic.services.git_service import GitService
@@ -30,6 +31,10 @@ def get_session():
 
 def get_run_repo(session: Session = Depends(get_session)) -> RunRepository:
     return RunRepository(session)
+
+
+def get_run_read_model(session: Session = Depends(get_session)) -> RunReadModel:
+    return RunReadModel(session)
 
 
 def get_provider_repo() -> FileSystemProviderRepo:
@@ -73,16 +78,23 @@ def get_git_service() -> GitService:
 def get_workflow_service(
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
     run_repo: RunRepository = Depends(get_run_repo),
+    run_read_model: RunReadModel = Depends(get_run_read_model),
     git_service: GitService = Depends(get_git_service),
 ) -> WorkflowService:
-    return WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    return WorkflowService(
+        workflow_repo,
+        run_repo,
+        git_service=git_service,
+        run_read_model=run_read_model,
+    )
 
 
 def get_run_service(
     run_repo: RunRepository = Depends(get_run_repo),
     workflow_repo: WorkflowRepository = Depends(get_workflow_repo),
+    run_read_model: RunReadModel = Depends(get_run_read_model),
 ) -> RunService:
-    return RunService(run_repo, workflow_repo)
+    return RunService(run_repo, workflow_repo, run_read_model=run_read_model)
 
 
 def get_execution_service(
@@ -122,5 +134,8 @@ def get_model_service(
     return ModelService(catalog=catalog, provider_repo=provider_repo)
 
 
-def get_eval_service(run_repo: RunRepository = Depends(get_run_repo)) -> EvalService:
-    return EvalService(run_repo)
+def get_eval_service(
+    run_repo: RunRepository = Depends(get_run_repo),
+    run_read_model: RunReadModel = Depends(get_run_read_model),
+) -> EvalService:
+    return EvalService(run_repo, run_read_model=run_read_model)

@@ -15,6 +15,7 @@ from ...domain.errors import RunNotFound, WorkflowNotFound
 
 if TYPE_CHECKING:
     from ...data.filesystem.workflow_repo import WorkflowRepository
+    from ...data.repositories.run_read_model import RunReadModel
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -43,9 +44,15 @@ def _workflow_input_snapshots(
 
 
 class RunService:
-    def __init__(self, run_repo: RunRepository, workflow_repo: WorkflowRepository):
+    def __init__(
+        self,
+        run_repo: RunRepository,
+        workflow_repo: WorkflowRepository,
+        run_read_model: "RunReadModel | None" = None,
+    ):
         self.run_repo = run_repo
         self.workflow_repo = workflow_repo
+        self.run_read_model = run_read_model
 
     def get_run(self, run_id: str) -> Optional[Run]:
         return self.run_repo.get_run(run_id)
@@ -69,7 +76,9 @@ class RunService:
         branch: Optional[str] = None,
     ) -> Tuple[List[Run], int]:
         """Return a page of runs and total count via SQL pagination."""
-        return self.run_repo.list_runs_paginated(
+        if self.run_read_model is None:
+            raise RuntimeError("RunService requires a run read model for paginated run queries")
+        return self.run_read_model.list_runs_paginated(
             offset, limit, status=status, workflow_id=workflow_id, source=source, branch=branch
         )
 

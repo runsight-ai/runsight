@@ -1,10 +1,19 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
+import pytest
 from runsight_core.redaction import RunRedactor
+from sqlmodel import SQLModel, Session, create_engine
 
+from runsight_api.data.repositories.run_read_model import RunReadModel
+from runsight_api.data.repositories.run_repo import RunRepository
+from runsight_api.domain.entities.run import Run, RunNode
 from runsight_api.domain.entities.run import RunStatus
+from runsight_api.logic.services.eval_service import EvalService
 from runsight_api.logic.services.execution_service import PreparedRunInputs
+from runsight_api.logic.services.run_service import RunService
 from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service, get_execution_service, get_run_service
 
@@ -96,6 +105,117 @@ def test_runs_list():
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == "run_123"
     assert data["items"][0]["warnings"] == mock_run.warnings_json
+    app.dependency_overrides.clear()
+
+
+def test_runs_list_with_real_read_model_preserves_enriched_metrics_contract():
+    db_path = Path(tempfile.mkdtemp(prefix="run958-runs-router-")) / "runsight.db"
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+    )
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        session.add(
+            Run(
+                id="run_old",
+                workflow_id="wf_metrics",
+                workflow_name="Metrics Flow",
+                status=RunStatus.completed,
+                task_json="{}",
+                created_at=100.0,
+                updated_at=100.0,
+                source="manual",
+                branch="main",
+                total_cost_usd=0.1,
+                total_tokens=10,
+            )
+        )
+        session.add(
+            Run(
+                id="run_new",
+                workflow_id="wf_metrics",
+                workflow_name="Metrics Flow",
+                status=RunStatus.completed,
+                task_json="{}",
+                created_at=200.0,
+                updated_at=200.0,
+                source="manual",
+                branch="main",
+                total_cost_usd=0.3,
+                total_tokens=30,
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_old:node_a",
+                run_id="run_old",
+                node_id="node_a",
+                block_type="llm",
+                status="completed",
+                eval_passed=True,
+                cost_usd=0.1,
+                tokens={"total": 10},
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_old:node_b",
+                run_id="run_old",
+                node_id="node_b",
+                block_type="llm",
+                status="completed",
+                eval_passed=False,
+                cost_usd=0.2,
+                tokens={"total": 20},
+            )
+        )
+        session.add(
+            RunNode(
+                id="run_new:node_a",
+                run_id="run_new",
+                node_id="node_a",
+                block_type="llm",
+                status="completed",
+                eval_passed=True,
+                cost_usd=0.3,
+                tokens={"total": 30},
+            )
+        )
+        session.commit()
+
+    def _get_run_service():
+        session = Session(engine)
+        return RunService(
+            RunRepository(session),
+            workflow_repo=Mock(),
+            run_read_model=RunReadModel(session),
+        )
+
+    def _get_eval_service():
+        session = Session(engine)
+        return EvalService(
+            RunRepository(session),
+            run_read_model=RunReadModel(session),
+        )
+
+    app.dependency_overrides[get_run_service] = _get_run_service
+    app.dependency_overrides[get_eval_service] = _get_eval_service
+
+    response = client.get("/api/runs?workflow_id=wf_metrics")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["id"] for item in items] == ["run_new", "run_old"]
+    assert items[0]["run_number"] == 2
+    assert items[0]["eval_pass_pct"] == 100.0
+    assert items[0]["node_summary"]["completed"] == 1
+    assert items[0]["total_tokens"] == 30
+    assert items[1]["run_number"] == 1
+    assert items[1]["eval_pass_pct"] == 50.0
+    assert items[1]["node_summary"]["completed"] == 2
+    assert items[1]["total_cost_usd"] == pytest.approx(0.3)
     app.dependency_overrides.clear()
 
 
@@ -235,6 +355,7 @@ def test_runs_post():
         }
     ]
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -259,6 +380,7 @@ def test_runs_post_passes_source_and_branch_to_services():
     mock_run = _make_mock_run("run_branch_source", branch=TEST_BRANCH)
     mock_run.source = "simulation"
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -293,13 +415,12 @@ def test_runs_post_passes_source_and_branch_to_services():
     app.dependency_overrides.clear()
 
 
-def test_runs_post_rejects_missing_branch():
-    """POST /api/runs must reject requests that omit branch."""
+def test_runs_post_allows_omitted_branch_and_persists_main():
+    """POST /api/runs should use the working tree when branch is omitted."""
     mock_service = Mock()
-    mock_service.create_run.return_value = _make_mock_run(
-        "run_missing_branch",
-        branch=TEST_BRANCH,
-    )
+    mock_run = _make_mock_run("run_missing_branch", branch="main")
+    mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
@@ -312,9 +433,24 @@ def test_runs_post_rejects_missing_branch():
         json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
     )
 
-    assert response.status_code == 422
-    mock_service.create_run.assert_not_called()
-    mock_exec_service.launch_execution.assert_not_called()
+    assert response.status_code == 200
+    mock_exec_service.prepare_run_inputs.assert_called_once_with(
+        "wf_1",
+        {"instruction": "go"},
+        branch=None,
+    )
+    mock_service.create_run.assert_called_once_with(
+        "wf_1",
+        prepared,
+        branch="main",
+        source="manual",
+    )
+    mock_exec_service.launch_execution.assert_awaited_once_with(
+        "run_missing_branch",
+        "wf_1",
+        prepared,
+        branch=None,
+    )
     app.dependency_overrides.clear()
 
 
@@ -372,6 +508,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     mock_run = _make_mock_run("run_sim", branch=TEST_BRANCH)
     mock_run.source = "simulation"
     mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
 
     mock_exec_service = Mock()
     prepared = _prepared_inputs({"instruction": "go"})

@@ -6,10 +6,10 @@ from sqlmodel import Session, SQLModel, create_engine
 from runsight_api.domain.entities.run import Run, RunNode
 
 
-def _import_run_repository():
-    from runsight_api.data.repositories.run_repo import RunRepository
+def _import_run_read_model():
+    from runsight_api.data.repositories.run_read_model import RunReadModel
 
-    return RunRepository
+    return RunReadModel
 
 
 @pytest.fixture
@@ -63,13 +63,13 @@ def _seed_node(
     )
 
 
-class TestRunRepositoryListMetrics:
+class TestRunReadModelListMetrics:
     def test_list_runs_paginated_assigns_per_workflow_run_numbers_and_eval_pass_pct(
         self,
         db_session: Session,
     ):
         """Each list item should expose workflow-local sequence and eval aggregate."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         _seed_run(
             db_session,
@@ -100,8 +100,8 @@ class TestRunRepositoryListMetrics:
         )
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        items, total = repo.list_runs_paginated(offset=0, limit=10)
+        read_model = RunReadModel(db_session)
+        items, total = read_model.list_runs_paginated(offset=0, limit=10)
 
         assert total == 3
         assert [run.id for run in items] == ["run_new", "run_other", "run_old"]
@@ -120,7 +120,7 @@ class TestRunRepositoryListMetrics:
         db_session: Session,
     ):
         """RUN-378 filters must still work unchanged on enriched list items."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         _seed_run(
             db_session,
@@ -153,8 +153,8 @@ class TestRunRepositoryListMetrics:
         )
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        items, total = repo.list_runs_paginated(
+        read_model = RunReadModel(db_session)
+        items, total = read_model.list_runs_paginated(
             offset=0,
             limit=10,
             source=["manual"],
@@ -171,7 +171,7 @@ class TestRunRepositoryListMetrics:
         db_session: Session,
     ):
         """Unfiltered lists must keep simulation runs instead of excluding them by default."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         _seed_run(
             db_session,
@@ -194,8 +194,8 @@ class TestRunRepositoryListMetrics:
         _seed_node(db_session, "run_sim", "node_1", eval_passed=False)
         db_session.commit()
 
-        repo = RunRepository(db_session)
-        items, total = repo.list_runs_paginated(offset=0, limit=10)
+        read_model = RunReadModel(db_session)
+        items, total = read_model.list_runs_paginated(offset=0, limit=10)
 
         assert total == 2
         assert [run.id for run in items] == ["run_sim", "run_manual"]

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import Mock
 
 import pytest
 
 from runsight_api.domain.errors import InputValidationError
+from runsight_api.domain.errors import ServiceUnavailable
 from runsight_api.domain.errors import WorkflowNotFound
 from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.execution_service import ExecutionService
@@ -136,7 +138,7 @@ class TestWorkflowInputValidationPreparation:
         )
 
         with pytest.raises(WorkflowNotFound) as exc_info:
-            service.prepare_run_inputs("run896_inputs", {}, branch="main")
+            service.prepare_run_inputs("run896_inputs", {})
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.error_code == "WORKFLOW_NOT_FOUND"
@@ -146,7 +148,7 @@ class TestWorkflowInputValidationPreparation:
         service = _service(_workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
-            service.prepare_run_inputs("run896_inputs", {}, branch="main")
+            service.prepare_run_inputs("run896_inputs", {})
 
         payload = _error_payload(exc_info.value)
         assert payload["details"]["workflow_id"] == "run896_inputs"
@@ -168,7 +170,6 @@ class TestWorkflowInputValidationPreparation:
             service.prepare_run_inputs(
                 "run896_inputs",
                 {"query": "search", "max_results": "ten"},
-                branch="main",
             )
 
         payload = _error_payload(exc_info.value)
@@ -191,7 +192,6 @@ class TestWorkflowInputValidationPreparation:
             service.prepare_run_inputs(
                 "run896_inputs",
                 {"query": "search", "max_results": True},
-                branch="main",
             )
 
         payload = _error_payload(exc_info.value)
@@ -206,7 +206,6 @@ class TestWorkflowInputValidationPreparation:
             service.prepare_run_inputs(
                 "run896_inputs",
                 {"query": "search", "debug": True},
-                branch="main",
             )
 
         payload = _error_payload(exc_info.value)
@@ -228,7 +227,6 @@ class TestWorkflowInputValidationPreparation:
             service.prepare_run_inputs(
                 "run896_inputs",
                 {"query": "search"},
-                branch="main",
             )
 
         payload = _error_payload(exc_info.value)
@@ -243,7 +241,6 @@ class TestWorkflowInputValidationPreparation:
         normalized = service.prepare_run_inputs(
             "run896_inputs",
             {"query": "search"},
-            branch="main",
         )
 
         assert normalized == {
@@ -263,7 +260,7 @@ class TestWorkflowInputValidationPreparation:
             "tags": ["support", "vip"],
         }
 
-        normalized = service.prepare_run_inputs("run896_inputs", submitted_inputs, branch="main")
+        normalized = service.prepare_run_inputs("run896_inputs", submitted_inputs)
 
         assert normalized == {
             "query": "search",
@@ -294,7 +291,6 @@ class TestWorkflowInputValidationPreparation:
             service.prepare_run_inputs(
                 "run896_inputs",
                 {"query": "search", "payload": payload_value},
-                branch="main",
             )
 
         payload = _error_payload(exc_info.value)
@@ -310,7 +306,8 @@ class TestWorkflowInputValidationPreparation:
         ]
         assert submitted_value_text not in str(payload)
 
-    def test_branch_specific_yaml_snapshot_is_used_for_input_validation(self):
+    @pytest.mark.parametrize("branch", ["feature-x", "main"])
+    def test_branch_specific_yaml_snapshot_is_used_for_input_validation(self, branch):
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = WorkflowEntity(
             kind="workflow",
@@ -334,7 +331,7 @@ class TestWorkflowInputValidationPreparation:
         normalized = service.prepare_run_inputs(
             "run896_inputs",
             {"query": "search"},
-            branch="feature-x",
+            branch=branch,
         )
 
         assert normalized == {
@@ -345,10 +342,84 @@ class TestWorkflowInputValidationPreparation:
             "tags": ["support"],
         }
         git_service.read_file.assert_called_once_with(
-            "/custom/workflows/run896_inputs.yaml", "feature-x"
+            "/custom/workflows/run896_inputs.yaml", branch
         )
+
+    def test_explicit_main_snapshot_requires_git_service_for_input_preparation(self):
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = WorkflowEntity(
+            kind="workflow",
+            id="run896_inputs",
+            name="run896_inputs",
+            yaml=_workflow_yaml_with_inputs(),
+            valid=True,
+            validation_error=None,
+        )
+        workflow_repo._get_path.return_value = "/custom/workflows/run896_inputs.yaml"
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=Mock(),
+        )
+
+        with pytest.raises(ValueError, match="Requested snapshot could not be loaded"):
+            service.prepare_run_inputs(
+                "run896_inputs",
+                {"query": "search"},
+                branch="main",
+            )
+
+    @pytest.mark.parametrize(
+        ("branch", "error"),
+        [
+            ("feature-x", ServiceUnavailable("git snapshot unavailable")),
+            (
+                "feature-x",
+                subprocess.CalledProcessError(
+                    128, ["git", "show"], stderr="fatal: not a git repository"
+                ),
+            ),
+            ("main", ServiceUnavailable("git snapshot unavailable")),
+            (
+                "main",
+                subprocess.CalledProcessError(
+                    128, ["git", "show"], stderr="fatal: not a git repository"
+                ),
+            ),
+        ],
+    )
+    def test_branch_specific_input_preparation_fails_closed_when_git_snapshot_read_fails(
+        self, branch, error
+    ):
+        workflow_repo = Mock()
+        workflow_repo.get_by_id.return_value = WorkflowEntity(
+            kind="workflow",
+            id="run896_inputs",
+            name="run896_inputs",
+            yaml=_workflow_yaml_with_inputs(),
+            valid=True,
+            validation_error=None,
+        )
+        workflow_repo._get_path.return_value = "/custom/workflows/run896_inputs.yaml"
+        git_service = Mock()
+        git_service.read_file.side_effect = error
+
+        service = ExecutionService(
+            run_repo=Mock(),
+            workflow_repo=workflow_repo,
+            provider_repo=Mock(),
+            git_service=git_service,
+        )
+
+        with pytest.raises(type(error)):
+            service.prepare_run_inputs(
+                "run896_inputs",
+                {"query": "search"},
+                branch=branch,
+            )
 
     def test_no_schema_no_inputs_keeps_no_input_path_empty(self):
         service = _service(_workflow_yaml_without_inputs(), workflow_id="run896_no_inputs")
 
-        assert service.prepare_run_inputs("run896_no_inputs", {}, branch="main") == {}
+        assert service.prepare_run_inputs("run896_no_inputs", {}) == {}

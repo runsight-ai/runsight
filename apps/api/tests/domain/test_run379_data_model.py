@@ -5,7 +5,7 @@ Tests cover:
 2. Run entity has `source` field (default "manual")
 3. Run entity has `commit_sha` field (optional, default None)
 5. RunResponse exposes branch, source, commit_sha
-6. RunCreate requires branch and accepts source (optional)
+6. RunCreate allows omitted branch and accepts source (optional)
 7. create_run() requires branch and stores it explicitly
 8. commit_sha stays independent from workflow_commit_sha
 """
@@ -393,19 +393,21 @@ class TestRunCreateSourceField:
 
 class TestRunCreateBranchField:
     def test_run_create_has_branch_field(self):
-        """RunCreate schema includes an explicit branch field."""
+        """RunCreate schema includes an optional branch field."""
         from runsight_api.transport.schemas.runs import RunCreate
 
         field = RunCreate.model_fields.get("branch")
         assert field is not None
-        assert field.is_required()
+        assert not field.is_required()
+        assert field.default is None
 
-    def test_run_create_requires_branch(self):
-        """RunCreate should reject payloads that omit branch."""
+    def test_run_create_allows_omitted_branch_for_working_tree_path(self):
+        """RunCreate omits branch to request the working-tree execution path."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        with pytest.raises(ValidationError):
-            RunCreate(workflow_id="wf-1")
+        body = RunCreate(workflow_id="wf-1")
+
+        assert body.branch is None
 
 
 # ---------------------------------------------------------------------------
@@ -567,12 +569,8 @@ class TestCreateRunPopulatesNewFields:
 
 class TestCommitShaFallback:
     def test_commit_sha_does_not_fall_back_to_workflow_commit_sha(self):
-        """Run no longer derives a commit SHA from workflow_commit_sha."""
-        run = _make_run(
-            branch=EXPLICIT_BRANCH,
-            commit_sha=None,
-            workflow_commit_sha="old_sha_fallback",
-        )
+        """Run with no commit SHA stays empty and exposes no legacy accessors."""
+        run = _make_run(branch=EXPLICIT_BRANCH, commit_sha=None)
         assert run.commit_sha is None
         assert not hasattr(run, "workflow_commit_sha")
         assert not hasattr(run, "effective_commit_sha")

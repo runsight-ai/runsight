@@ -191,6 +191,15 @@ def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: in
     }
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
+        encoding="utf-8"
+    )
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "7" * 40
+    return git_service
+
+
 def _seed_run(engine, run_id: str, workflow_name: str) -> None:
     with Session(engine) as session:
         session.add(
@@ -283,22 +292,28 @@ def execution_service(db_engine, base_dir):
     """Build a real ExecutionService backed by in-memory DB and temp filesystem."""
     from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+    from runsight_api.data.repositories.run_repo import RunRepository
     from runsight_api.logic.services.execution_service import ExecutionService
+    from sqlmodel import Session
 
     workflow_repo = WorkflowRepository(str(base_dir))
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
+    git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
     mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    execution_session = Session(db_engine)
 
-    return ExecutionService(
-        run_repo=None,
+    yield ExecutionService(
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
         secrets=mock_secrets,
+        git_service=git_service,
         settings_repo=None,
     )
+    execution_session.close()
 
 
 def _parse_workflow(yaml_content: str):
@@ -315,7 +330,7 @@ async def _wait_for_observer(execution_service, run_id: str, timeout: float = 5.
     """Wait until the observer for run_id is registered."""
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
-        if execution_service.get_observer(run_id) is not None:
+        if execution_service._streams.get(run_id) is not None:
             return
         await asyncio.sleep(0.005)
     raise TimeoutError(f"Observer for {run_id} was never registered")
@@ -843,33 +858,76 @@ class TestSSEEndpointHTTPChunks:
                 # Wait for observer registration
                 await _wait_for_observer(execution_service, run_id)
 
-                # Open the gate so execution can proceed
-                gate.set()
-
                 # Stream SSE events via HTTP
                 chunks = []
-                async with client.stream(
-                    "GET",
-                    f"/api/runs/{run_id}/stream",
-                    headers={"Accept": "text/event-stream"},
-                ) as stream:
-                    assert stream.status_code == 200
-                    assert "text/event-stream" in stream.headers.get("content-type", "")
-                    async for chunk in stream.aiter_text():
-                        chunks.append(chunk)
-                        if any(t in chunk for t in SSE_TERMINAL_EVENTS):
-                            break
+                subscribed = asyncio.Event()
+                original_subscribe_stream = execution_service.subscribe_stream
+
+                async def subscribe_stream_with_signal(*args, **kwargs):
+                    subscribed.set()
+                    async for event in original_subscribe_stream(*args, **kwargs):
+                        yield event
+
+                async def consume_stream() -> None:
+                    async with client.stream(
+                        "GET",
+                        f"/api/runs/{run_id}/stream",
+                        headers={"Accept": "text/event-stream"},
+                    ) as stream:
+                        assert stream.status_code == 200
+                        assert "text/event-stream" in stream.headers.get("content-type", "")
+                        async for chunk in stream.aiter_text():
+                            chunks.append(chunk)
+                            if any(t in chunk for t in SSE_TERMINAL_EVENTS):
+                                break
+
+                with patch.object(
+                    execution_service,
+                    "subscribe_stream",
+                    side_effect=subscribe_stream_with_signal,
+                ):
+                    stream_task = asyncio.create_task(consume_stream())
+                    await asyncio.wait_for(subscribed.wait(), timeout=2)
+                    # Release execution only after the stream is attached so this
+                    # assertion exercises live delivery rather than replay-only fallback.
+                    gate.set()
+                    await asyncio.wait_for(stream_task, timeout=10)
 
         raw_sse = "".join(chunks)
         events = _parse_sse_events(raw_sse)
         event_types = [e["event"] for e in events]
+        replay_payloads = [
+            event.get("data")
+            for event in events
+            if event.get("event") == "replay" and isinstance(event.get("data"), dict)
+        ]
 
-        # Must contain live block events delivered as SSE chunks
+        # The HTTP stream must contain live execution progress plus a terminal event.
         has_node_events = SSE_NODE_STARTED in event_types or SSE_NODE_COMPLETED in event_types
-        has_replay_events = "replay" in event_types
+        has_replay_progress = any(
+            payload.get("event")
+            in {"workflow_start", "block_start", "block_complete", "workflow_complete"}
+            for payload in replay_payloads
+            if isinstance(payload, dict)
+        )
+        has_terminal_event = any(
+            event_type in SSE_TERMINAL_EVENTS for event_type in event_types
+        ) or any(
+            payload.get("event") in {"workflow_complete", "workflow_error"}
+            for payload in replay_payloads
+            if isinstance(payload, dict)
+        )
 
-        assert has_node_events or has_replay_events, (
-            f"SSE HTTP stream must contain node events (live or replay). Got: {event_types}"
+        assert has_node_events, (
+            "SSE HTTP stream must contain live node events before falling back to replay. "
+            f"Got top-level events: {event_types}"
+        )
+        assert has_replay_progress or has_terminal_event, (
+            "SSE HTTP stream must surface replayable progress or a terminal contract. "
+            f"Got top-level events: {event_types}"
+        )
+        assert has_terminal_event, (
+            f"SSE HTTP stream must terminate with a terminal event. Got: {event_types}"
         )
 
     @pytest.mark.asyncio

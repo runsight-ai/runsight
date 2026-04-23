@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from statistics import mean
 import time
+from typing import TYPE_CHECKING
 
 from ...data.repositories.run_repo import RunRepository
 from ...domain.entities.run import RegressionIssueType
@@ -15,10 +16,18 @@ from ...transport.schemas.eval import (
     SoulVersionEntry,
 )
 
+if TYPE_CHECKING:
+    from ...data.repositories.run_read_model import RunReadModel
+
 
 class EvalService:
-    def __init__(self, run_repo: RunRepository):
+    def __init__(
+        self,
+        run_repo: RunRepository,
+        run_read_model: "RunReadModel | None" = None,
+    ):
         self.run_repo = run_repo
+        self.run_read_model = run_read_model
 
     def get_run_eval(self, run_id: str) -> RunEvalResponse | None:
         run = self.run_repo.get_run(run_id)
@@ -344,7 +353,9 @@ class EvalService:
         if node.soul_id is None or node.soul_version is None:
             return None
 
-        baseline = self.run_repo.get_baseline(node.soul_id, node.soul_version)
+        if self.run_read_model is None:
+            raise RuntimeError("EvalService requires a run read model for baseline queries")
+        baseline = self.run_read_model.get_baseline(node.soul_id, node.soul_version)
         if baseline is None:
             return None
 

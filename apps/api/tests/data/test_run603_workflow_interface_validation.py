@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from textwrap import dedent
+
+import pytest
+
+from runsight_api.domain.errors import InputValidationError
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
 
@@ -28,11 +32,8 @@ def test_create_rejects_legacy_workflow_interface_through_api_save(tmp_path) -> 
       transitions: []
     """
 
-    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
-
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "legacy workflow interface is unsupported" in entity.validation_error.lower()
+    with pytest.raises(InputValidationError, match="legacy workflow interface is unsupported"):
+        repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
 
 
 def test_create_rejects_public_output_name_without_child_source_path(tmp_path) -> None:
@@ -73,11 +74,8 @@ def test_create_rejects_public_output_name_without_child_source_path(tmp_path) -
           to: null
     """
 
-    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
-
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "child source path" in entity.validation_error.lower()
+    with pytest.raises(InputValidationError, match="child source path"):
+        repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
 
 
 def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> None:
@@ -164,11 +162,8 @@ def test_create_rejects_undeclared_child_output_binding(tmp_path) -> None:
           to: null
     """
 
-    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
-
-    assert entity.valid is False
-    assert entity.validation_error is not None
-    assert "detail" in entity.validation_error
+    with pytest.raises(InputValidationError, match="detail"):
+        repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
 
 
 # ---------------------------------------------------------------------------
@@ -223,14 +218,8 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
           to: null
     """
 
-    entity = repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
-
-    assert entity.valid is False, (
-        "Raw dotted-path input key 'shared_memory.topic' should be rejected "
-        "through the full API save path"
-    )
-    assert entity.validation_error is not None
-    assert (
-        "workflow block inputs must bind child interface names" in entity.validation_error.lower()
-        or "dotted" in entity.validation_error.lower()
-    )
+    with pytest.raises(
+        InputValidationError,
+        match="workflow block inputs must bind child interface names|dotted",
+    ):
+        repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})

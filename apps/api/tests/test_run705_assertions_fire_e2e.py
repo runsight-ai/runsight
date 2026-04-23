@@ -101,6 +101,15 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
     (wf_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
 
 
+def _git_service_for(base_dir: Path) -> Mock:
+    git_service = Mock()
+    git_service.read_file.side_effect = lambda workflow_path, branch: Path(workflow_path).read_text(
+        encoding="utf-8"
+    )
+    git_service.get_sha.side_effect = lambda branch, workflow_path: "7" * 40
+    return git_service
+
+
 def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: int = 100):
     """Build a dict matching LiteLLMClient.achat return shape."""
     return {
@@ -179,16 +188,19 @@ def app_with_real_services(db_engine, base_dir):
 
     workflow_repo = WorkflowRepository(str(base_dir))
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
+    git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
     mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    execution_session = Session(db_engine)
 
     execution_service = ExecutionService(
-        run_repo=None,
+        run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
         provider_repo=provider_repo,
         engine=db_engine,
         secrets=mock_secrets,
+        git_service=git_service,
         settings_repo=None,
     )
     app.state.execution_service = execution_service
@@ -213,6 +225,7 @@ def app_with_real_services(db_engine, base_dir):
     yield app
 
     app.dependency_overrides.clear()
+    execution_session.close()
 
 
 @pytest.fixture
@@ -687,16 +700,16 @@ class TestAssertionsFireDuringExecution:
 
         # Capture SSE events before unregister cleans up the observer
         captured_events: list = []
-        original_unregister = execution_service.unregister_observer
+        original_unregister = execution_service._streams.unregister
 
         def _capture_then_unregister(rid):
-            obs = execution_service.get_observer(rid)
+            obs = execution_service._streams.get(rid)
             if obs:
                 while not obs.queue.empty():
                     captured_events.append(obs.queue.get_nowait())
             original_unregister(rid)
 
-        execution_service.unregister_observer = _capture_then_unregister
+        execution_service._streams.unregister = _capture_then_unregister
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),

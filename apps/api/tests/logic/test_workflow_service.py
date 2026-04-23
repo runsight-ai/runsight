@@ -163,8 +163,15 @@ def run_repo():
 
 
 @pytest.fixture
-def workflow_service(workflow_repo, run_repo):
-    return WorkflowService(workflow_repo, run_repo)
+def run_read_model():
+    mock = Mock()
+    mock.get_workflow_health_metrics.return_value = {}
+    return mock
+
+
+@pytest.fixture
+def workflow_service(workflow_repo, run_repo, run_read_model):
+    return WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
 
 
 # --- list_workflows ---
@@ -233,26 +240,28 @@ def test_list_workflows_query_empty_string_returns_all(workflow_service, workflo
     assert len(result_none) == 1
 
 
-def test_list_workflows_returns_none_commit_sha_without_git_service(workflow_repo, run_repo):
+def test_list_workflows_returns_none_commit_sha_without_git_service(
+    workflow_repo, run_repo, run_read_model
+):
     """Workflow list metadata should keep commit_sha nullable when no git service is wired."""
-    workflow_service = WorkflowService(workflow_repo, run_repo)
+    workflow_service = WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
     workflow_repo.list_all.return_value = [
         WorkflowEntity(kind="workflow", id="wf_no_git", name="No Git Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
-    run_repo.get_workflow_health_metrics.return_value = {}
-
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
     assert result[0].id == "wf_no_git"
     assert result[0].commit_sha is None
+    run_read_model.get_workflow_health_metrics.assert_called_once_with(["wf_no_git"])
 
 
 def test_list_workflows_returns_none_commit_sha_when_current_branch_lookup_fails(
     workflow_repo,
     run_repo,
+    run_read_model,
 ):
     """Workflow list metadata should not fall back to main when branch lookup fails."""
     git_service = Mock()
@@ -260,37 +269,45 @@ def test_list_workflows_returns_none_commit_sha_when_current_branch_lookup_fails
     git_service.get_sha.side_effect = (
         lambda branch, _path: "main-sha-123" if branch == "main" else None
     )
-    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_service = WorkflowService(
+        workflow_repo,
+        run_repo,
+        git_service=git_service,
+        run_read_model=run_read_model,
+    )
     workflow_repo.list_all.return_value = [
         WorkflowEntity(kind="workflow", id="wf_branch_fail", name="Branch Failure Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
-    run_repo.get_workflow_health_metrics.return_value = {}
-
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
     assert result[0].id == "wf_branch_fail"
     assert result[0].commit_sha is None
+    run_read_model.get_workflow_health_metrics.assert_called_once_with(["wf_branch_fail"])
 
 
 def test_list_workflows_returns_none_commit_sha_when_current_branch_has_no_commit(
     workflow_repo,
     run_repo,
+    run_read_model,
 ):
     """Workflow list metadata should stay nullable when the current branch has no commit for a file."""
     git_service = Mock()
     git_service.current_branch.return_value = "feature-x"
     git_service.get_sha.return_value = None
-    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_service = WorkflowService(
+        workflow_repo,
+        run_repo,
+        git_service=git_service,
+        run_read_model=run_read_model,
+    )
     workflow_repo.list_all.return_value = [
         WorkflowEntity(kind="workflow", id="wf_feature_only", name="Feature Branch Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
-    run_repo.get_workflow_health_metrics.return_value = {}
-
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
@@ -312,6 +329,7 @@ def test_list_workflows_returns_none_commit_sha_when_current_branch_has_no_commi
 def test_list_workflows_returns_none_commit_sha_for_invalid_current_branch_values(
     workflow_repo,
     run_repo,
+    run_read_model,
     branch_value,
     case_id,
 ):
@@ -319,14 +337,17 @@ def test_list_workflows_returns_none_commit_sha_for_invalid_current_branch_value
     git_service = Mock()
     git_service.current_branch.return_value = branch_value
     git_service.get_sha.return_value = f"unexpected-sha-for-{case_id}"
-    workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
+    workflow_service = WorkflowService(
+        workflow_repo,
+        run_repo,
+        git_service=git_service,
+        run_read_model=run_read_model,
+    )
     workflow_repo.list_all.return_value = [
         WorkflowEntity(kind="workflow", id=f"wf_invalid_{case_id}", name="Invalid Branch Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
-    run_repo.get_workflow_health_metrics.return_value = {}
-
     result = workflow_service.list_workflows()
 
     assert len(result) == 1

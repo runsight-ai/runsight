@@ -1,4 +1,4 @@
-"""Red tests for RUN-478 run-repository health aggregation."""
+"""Red tests for RUN-478 workflow health aggregation."""
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
@@ -6,10 +6,10 @@ from sqlmodel import Session, SQLModel, create_engine
 from runsight_api.domain.entities.run import Run, RunNode
 
 
-def _import_run_repository():
-    from runsight_api.data.repositories.run_repo import RunRepository
+def _import_run_read_model():
+    from runsight_api.data.repositories.run_read_model import RunReadModel
 
-    return RunRepository
+    return RunReadModel
 
 
 def _metric_value(metric, name: str):
@@ -33,6 +33,8 @@ def _seed_run(
     workflow_id: str,
     source: str,
     total_cost_usd: float,
+    created_at: float = 100.0,
+    deleted_at: float | None = None,
 ) -> None:
     run = Run(
         id=run_id,
@@ -42,6 +44,9 @@ def _seed_run(
         branch="main",
         source=source,
         total_cost_usd=total_cost_usd,
+        created_at=created_at,
+        updated_at=created_at,
+        deleted_at=deleted_at,
     )
     session.add(run)
 
@@ -52,6 +57,7 @@ def _seed_node(
     node_id: str,
     *,
     eval_passed: bool | None,
+    soul_version: str | None = None,
 ) -> None:
     node = RunNode(
         id=f"{run_id}:{node_id}",
@@ -60,6 +66,7 @@ def _seed_node(
         block_type="llm",
         status="completed",
         eval_passed=eval_passed,
+        soul_version=soul_version,
     )
     session.add(node)
 
@@ -67,7 +74,7 @@ def _seed_node(
 class TestWorkflowHealthMetricsRepository:
     def test_get_workflow_health_metrics_excludes_simulation_runs(self, db_session: Session):
         """Simulation runs must not affect workflow KPI aggregates."""
-        RunRepository = _import_run_repository()
+        RunReadModel = _import_run_read_model()
 
         _seed_run(
             db_session,
@@ -97,7 +104,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_node(db_session, "run_simulation", "node_c", eval_passed=True)
         db_session.commit()
 
-        repo = RunRepository(db_session)
+        repo = RunReadModel(db_session)
         result = repo.get_workflow_health_metrics(["wf_1"])
         metric = result["wf_1"]
 
@@ -108,4 +115,52 @@ class TestWorkflowHealthMetricsRepository:
         # RUN-558: regression_count is now comparison-based (passed->failed,
         # same node_id + soul_version). These two runs have different node_ids
         # and no soul_version, so there are zero regressions.
+        assert _metric_value(metric, "regression_count") == 0
+
+    def test_get_workflow_health_metrics_excludes_soft_deleted_runs(self, db_session: Session):
+        """Soft-deleted runs must not affect workflow KPI or regression aggregates."""
+        RunReadModel = _import_run_read_model()
+
+        _seed_run(
+            db_session,
+            "run_active",
+            workflow_id="wf_deleted",
+            source="manual",
+            total_cost_usd=0.40,
+            created_at=100.0,
+        )
+        _seed_node(
+            db_session,
+            "run_active",
+            "node_shared",
+            eval_passed=True,
+            soul_version="v1",
+        )
+
+        _seed_run(
+            db_session,
+            "run_deleted",
+            workflow_id="wf_deleted",
+            source="manual",
+            total_cost_usd=9.90,
+            created_at=200.0,
+            deleted_at=250.0,
+        )
+        _seed_node(
+            db_session,
+            "run_deleted",
+            "node_shared",
+            eval_passed=False,
+            soul_version="v1",
+        )
+        db_session.commit()
+
+        repo = RunReadModel(db_session)
+        result = repo.get_workflow_health_metrics(["wf_deleted"])
+        metric = result["wf_deleted"]
+
+        assert _metric_value(metric, "run_count") == 1
+        assert _metric_value(metric, "eval_pass_pct") == pytest.approx(100.0)
+        assert _metric_value(metric, "eval_health") == "success"
+        assert _metric_value(metric, "total_cost_usd") == pytest.approx(0.40)
         assert _metric_value(metric, "regression_count") == 0

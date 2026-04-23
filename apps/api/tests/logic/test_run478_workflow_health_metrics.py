@@ -145,7 +145,7 @@ def _make_workflow_health(
 
 
 def _workflow_health(item):
-    health = getattr(item, "health", None) or getattr(item, "health_metrics", None)
+    health = getattr(item, "health", None)
     assert health is not None, "Expected workflow health metadata to be present"
     return health
 
@@ -165,7 +165,8 @@ class TestWorkflowHealthAggregation:
         ]
 
         run_repo = Mock()
-        run_repo.get_workflow_health_metrics.return_value = {
+        run_read_model = Mock()
+        run_read_model.get_workflow_health_metrics.return_value = {
             "wf_1": _make_workflow_health(
                 eval_health="danger",
                 run_count=2,
@@ -175,11 +176,11 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo, run_repo)
+        service = WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
 
         result = service.list_workflows()
 
-        run_repo.get_workflow_health_metrics.assert_called_once()
+        run_read_model.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])
@@ -197,7 +198,8 @@ class TestWorkflowHealthAggregation:
         ]
 
         run_repo = Mock()
-        run_repo.get_workflow_health_metrics.return_value = {
+        run_read_model = Mock()
+        run_read_model.get_workflow_health_metrics.return_value = {
             "wf_empty": _make_workflow_health(
                 eval_health=None,
                 run_count=0,
@@ -207,11 +209,11 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo, run_repo)
+        service = WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
 
         result = service.list_workflows()
 
-        run_repo.get_workflow_health_metrics.assert_called_once()
+        run_read_model.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])
@@ -229,7 +231,8 @@ class TestWorkflowHealthAggregation:
         ]
 
         run_repo = Mock()
-        run_repo.get_workflow_health_metrics.return_value = {
+        run_read_model = Mock()
+        run_read_model.get_workflow_health_metrics.return_value = {
             "wf_no_eval": _make_workflow_health(
                 eval_health=None,
                 run_count=1,
@@ -239,11 +242,11 @@ class TestWorkflowHealthAggregation:
             )
         }
 
-        service = WorkflowService(workflow_repo, run_repo)
+        service = WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
 
         result = service.list_workflows()
 
-        run_repo.get_workflow_health_metrics.assert_called_once()
+        run_read_model.get_workflow_health_metrics.assert_called_once()
         run_repo.list_nodes_for_run.assert_not_called()
 
         health = _workflow_health(result[0])

@@ -115,9 +115,10 @@ def _service_with_workflows(*workflows: WorkflowEntity) -> WorkflowService:
     workflow_repo.get_file_mtime.return_value = 1711900000.0
 
     run_repo = Mock()
-    run_repo.get_workflow_health_metrics.return_value = {}
+    run_read_model = Mock()
+    run_read_model.get_workflow_health_metrics.return_value = {}
 
-    return WorkflowService(workflow_repo, run_repo)
+    return WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
 
 
 def _workflow_entity(

@@ -273,11 +273,15 @@ class TestLateJoinReplay:
 
         # Simulate prior events already persisted in DB
         mock_log_1 = Mock()
+        mock_log_1.id = 1
         mock_log_1.message = json.dumps({"event": "block_start", "block_id": "b1"})
         mock_log_1.level = "info"
+        mock_log_1.timestamp = 1713790800.0
         mock_log_2 = Mock()
+        mock_log_2.id = 2
         mock_log_2.message = json.dumps({"event": "block_complete", "block_id": "b1"})
         mock_log_2.level = "info"
+        mock_log_2.timestamp = 1713790801.0
         mock_run_service.get_run_logs.return_value = [mock_log_1, mock_log_2]
 
         mock_exec_service = Mock()
@@ -303,10 +307,14 @@ class TestLateJoinReplay:
             assert events[0]["event"] == "replay"
             assert events[0]["data"]["event"] == "block_start"
             assert events[0]["data"]["block_id"] == "b1"
+            assert events[0]["data"]["id"] == 1
+            assert events[0]["data"]["timestamp"] == "2024-04-22T13:00:00+00:00"
 
             assert events[1]["event"] == "replay"
             assert events[1]["data"]["event"] == "block_complete"
             assert events[1]["data"]["block_id"] == "b1"
+            assert events[1]["data"]["id"] == 2
+            assert events[1]["data"]["timestamp"] == "2024-04-22T13:00:01+00:00"
 
             # Live events follow after all replays
             assert events[2]["event"] == "node_started"
@@ -429,8 +437,8 @@ class TestStreamingObserver:
 
 class TestObserverRegistry:
     @pytest.mark.asyncio
-    async def test_execution_service_registers_observer_for_run_id(self):
-        """ExecutionService should store a StreamingObserver per run_id and allow retrieval."""
+    async def test_execution_service_stream_registry_stores_observer_for_run_id(self):
+        """ExecutionService should delegate stream observer storage to its registry collaborator."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -442,16 +450,14 @@ class TestObserverRegistry:
 
         observer = StreamingObserver(run_id="run_reg_1")
 
-        # Register observer for a run_id
-        exec_service.register_observer("run_reg_1", observer)
+        exec_service._streams.register("run_reg_1", observer)
 
-        # Retrieve it back
-        retrieved = exec_service.get_observer("run_reg_1")
+        retrieved = exec_service._streams.get("run_reg_1")
         assert retrieved is observer
 
     @pytest.mark.asyncio
-    async def test_execution_service_returns_none_for_unknown_run_id(self):
-        """ExecutionService.get_observer should return None for unregistered run_ids."""
+    async def test_execution_service_stream_registry_returns_none_for_unknown_run_id(self):
+        """The stream registry should return None for unregistered run ids."""
         from runsight_api.logic.services.execution_service import ExecutionService
 
         exec_service = ExecutionService(
@@ -460,12 +466,12 @@ class TestObserverRegistry:
             provider_repo=Mock(),
         )
 
-        result = exec_service.get_observer("nonexistent_run")
+        result = exec_service._streams.get("nonexistent_run")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_execution_service_unregisters_observer(self):
-        """ExecutionService should allow removing an observer after run completion."""
+    async def test_execution_service_stream_registry_unregisters_observer(self):
+        """The stream registry should allow removing an observer after run completion."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
         from runsight_api.logic.services.execution_service import ExecutionService
 
@@ -476,12 +482,11 @@ class TestObserverRegistry:
         )
 
         observer = StreamingObserver(run_id="run_reg_2")
-        exec_service.register_observer("run_reg_2", observer)
+        exec_service._streams.register("run_reg_2", observer)
 
-        # Unregister after completion
-        exec_service.unregister_observer("run_reg_2")
+        exec_service._streams.unregister("run_reg_2")
 
-        assert exec_service.get_observer("run_reg_2") is None
+        assert exec_service._streams.get("run_reg_2") is None
 
 
 # ---------------------------------------------------------------------------
@@ -529,3 +534,47 @@ class TestReplayFailureLogging:
         source = SSE_STREAM_PATH.read_text()
 
         assert "except Exception:\n            pass" not in source
+
+    def test_replay_payload_serialization_failure_degrades_to_message_event(self):
+        """Unexpected replay serializer failures should fall back to the raw log message."""
+        from runsight_api.transport.routers import sse_stream
+
+        mock_run_service = Mock()
+        mock_run_service.get_run.return_value = _make_mock_run()
+        mock_log = Mock()
+        mock_log.id = 7
+        mock_log.message = "payload raw"
+        mock_log.timestamp = 1713790800.0
+        mock_run_service.get_run_logs.return_value = [mock_log]
+
+        mock_exec_service = Mock()
+
+        async def _fake_stream(run_id):
+            yield {"event": "run_completed", "data": {"run_id": run_id}}
+
+        mock_exec_service.subscribe_stream = _fake_stream
+
+        app.dependency_overrides[get_run_service] = lambda: mock_run_service
+        app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+        try:
+            with patch.object(
+                sse_stream,
+                "_replay_payload",
+                side_effect=RuntimeError("payload exploded"),
+            ):
+                with patch.object(sse_stream, "logger", create=True) as mock_logger:
+                    with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
+                        body = response.read().decode()
+
+            events = _parse_sse_events(body)
+
+            assert response.status_code == 200
+            assert events[0] == {"event": "replay", "data": {"message": "payload raw"}}
+            assert events[-1]["event"] == "run_completed"
+            mock_logger.warning.assert_any_call(
+                "SSE replay payload serialization failed",
+                exc_info=True,
+            )
+        finally:
+            app.dependency_overrides.clear()
