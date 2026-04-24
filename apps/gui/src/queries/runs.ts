@@ -1,12 +1,25 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo } from "react";
-import { ContextAuditEventV1Schema, type ContextAuditEventV1 } from "@runsight/shared/zod";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ContextAuditEventV1Schema,
+  type ContextAuditEventV1,
+  type RunResponse,
+} from "@runsight/shared/zod";
 import { toast } from "sonner";
 import { runsApi, type RunContextAuditParams, type RunQueryParams } from "../api/runs";
 import { useContextAuditStore } from "../store/contextAudit";
 import { queryKeys } from "./keys";
 
 const PRODUCTION_RUN_SOURCES = new Set(["manual", "webhook", "schedule"]);
+
+function hasSameRunMembership(currentRuns: RunResponse[], nextRuns: RunResponse[]) {
+  if (currentRuns.length !== nextRuns.length) {
+    return false;
+  }
+
+  const nextRunIds = new Set(nextRuns.map((run) => run.id));
+  return currentRuns.every((run) => nextRunIds.has(run.id));
+}
 
 export function useRuns(
   params?: RunQueryParams,
@@ -169,6 +182,7 @@ export function useChildRuns(runId: string) {
 
 export function useActiveRuns() {
   const queryClient = useQueryClient();
+  const activeRunsRef = useRef<RunResponse[]>([]);
 
   const query = useQuery({
     queryKey: [
@@ -193,10 +207,15 @@ export function useActiveRuns() {
     refetchIntervalInBackground: false,
   });
 
-  const activeRuns = useMemo(
+  const nextActiveRuns = useMemo(
     () =>
       [...(query.data?.items ?? [])]
-        .filter((run) => run.branch === "main" && PRODUCTION_RUN_SOURCES.has(run.source))
+        .filter(
+          (run) =>
+            run.parent_run_id == null &&
+            run.branch === "main" &&
+            PRODUCTION_RUN_SOURCES.has(run.source),
+        )
         .sort((left, right) => {
           const leftPriority = left.status === "running" ? 0 : 1;
           const rightPriority = right.status === "running" ? 0 : 1;
@@ -209,6 +228,16 @@ export function useActiveRuns() {
         }),
     [query.data?.items],
   );
+
+  const activeRuns = useMemo(() => {
+    if (!hasSameRunMembership(activeRunsRef.current, nextActiveRuns)) {
+      activeRunsRef.current = [...nextActiveRuns];
+      return activeRunsRef.current;
+    }
+
+    activeRunsRef.current.splice(0, activeRunsRef.current.length, ...nextActiveRuns);
+    return activeRunsRef.current;
+  }, [nextActiveRuns]);
 
   // SSE: subscribe to each active run's stream for real-time updates
   // Connect EventSource to /api/runs/${run.id}/stream for each active run

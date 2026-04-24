@@ -351,12 +351,24 @@ def _git_service_for(base_dir: Path) -> Mock:
     git_service = Mock()
     git_service.repo_path = str(base_dir)
 
+    def _list_files(branch: str, path_prefix: str) -> list[str]:
+        del branch
+        root = base_dir / path_prefix.rstrip("/")
+        if not root.exists():
+            return []
+        return sorted(
+            path.relative_to(base_dir).as_posix()
+            for path in root.rglob("*")
+            if path.is_file() and path.suffix in {".yaml", ".yml"}
+        )
+
     def _read_file(workflow_path: str, branch: str) -> str:
         path = Path(workflow_path)
         if not path.is_absolute():
             path = base_dir / workflow_path
         return path.read_text(encoding="utf-8")
 
+    git_service.list_files.side_effect = _list_files
     git_service.read_file.side_effect = _read_file
     git_service.get_sha.side_effect = lambda branch, workflow_path: "9" * 40
     return git_service

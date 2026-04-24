@@ -8,6 +8,7 @@ from runsight_core.yaml.discovery import ToolMeta
 from runsight_core.yaml.parser import (
     _attach_tool_runtime_metadata,
     _validate_declared_tool_definitions,
+    parse_workflow_yaml,
 )
 from runsight_core.yaml.validation import ValidationResult, ValidationSeverity
 
@@ -91,6 +92,39 @@ def test_validate_declared_tool_definitions_warns_for_unknown_tool_id(tmp_path):
     assert warning.source == "tool_definitions"
     assert warning.context == "foo"
     assert "foo" in warning.message
+
+
+def test_parse_workflow_yaml_rejects_snapshot_discovery_without_git_service() -> None:
+    yaml_str = """\
+version: "1.0"
+id: wf_snapshot_contract
+kind: workflow
+blocks:
+  step:
+    type: code
+    code: |
+      def main(data):
+        return {"ok": True}
+workflow:
+  name: Snapshot Contract Workflow
+  entry: step
+  transitions:
+    - from: step
+      to: null
+"""
+
+    with patch("runsight_core.yaml.parser.AssertionScanner") as mock_assertion_scanner:
+        try:
+            parse_workflow_yaml(yaml_str, _discovery_git_ref="main")
+        except ValueError as exc:
+            assert "main" in str(exc)
+            assert "git service unavailable" in str(exc).lower()
+        else:
+            raise AssertionError(
+                "Expected parse_workflow_yaml to reject incomplete snapshot discovery context"
+            )
+
+    mock_assertion_scanner.assert_not_called()
 
 
 def test_validate_declared_tool_definitions_warns_for_missing_custom_metadata_when_required(
@@ -229,6 +263,23 @@ def test_attach_tool_runtime_metadata_uses_tool_scanner(tmp_path):
     mock_scanner.assert_called_once_with(str(tmp_path))
     mock_scanner.return_value.scan.assert_called_once()
     mock_scanner.return_value.scan.return_value.ids.assert_called_once()
+
+
+def test_resolve_custom_tool_id_rejects_snapshot_discovery_without_git_service(tmp_path):
+    from runsight_core.tools._catalog import _resolve_custom_tool_id
+
+    with patch("runsight_core.tools._catalog.ToolScanner") as mock_scanner:
+        try:
+            _resolve_custom_tool_id("lookup_profile", base_dir=str(tmp_path), git_ref="main")
+        except ValueError as exc:
+            assert "main" in str(exc)
+            assert "git service unavailable" in str(exc).lower()
+        else:
+            raise AssertionError(
+                "Expected _resolve_custom_tool_id to reject incomplete snapshot discovery context"
+            )
+
+    mock_scanner.assert_not_called()
 
 
 def test_resolve_custom_tool_id_uses_tool_scanner(tmp_path):

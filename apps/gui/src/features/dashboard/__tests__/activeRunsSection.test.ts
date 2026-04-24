@@ -1,314 +1,395 @@
-/**
- * RED-TEAM tests for RUN-339: A3 — Active Runs section with SSE (end-to-end).
- *
- * These tests verify the structural acceptance criteria by reading source
- * files and asserting observable properties:
- *
- * AC1: Dashboard imports and uses StatusDot component
- * AC2: "ACTIVE RUNS" section label exists in the dashboard
- * AC3: useActiveRuns hook exists and queries with status filter
- * AC4: StatusDot has animate="pulse" for running runs
- * AC5: Click navigates to /runs/:id
- * AC6: Section hidden when no active runs (conditional rendering)
- * AC7: useNavigate used for run click navigation
- * AC9: Run removed from active list when completed/failed via SSE
- *
- * Expected failures (current state):
- *   - DashboardOrOnboarding.tsx is a minimal 30-line shell with no active runs section
- *   - No useActiveRuns hook exists in queries/runs.ts
- *   - No StatusDot import in the dashboard
- *   - No "ACTIVE RUNS" label anywhere
- */
+// @vitest-environment jsdom
 
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import React from "react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import type { RunListResponse, RunResponse } from "@runsight/shared/zod";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders } from "@/test/testUtils";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const harness = vi.hoisted(() => ({
+  listRuns: vi.fn<(params?: unknown) => Promise<RunListResponse>>(),
+}));
 
-const SRC_DIR = resolve(__dirname, "../../..");
-const DASHBOARD_COMPONENTS_DIR = resolve(SRC_DIR, "features/dashboard/components");
+vi.mock("@/api/runs", () => ({
+  runsApi: {
+    listRuns: (...args: unknown[]) => harness.listRuns(...args),
+  },
+}));
 
-function readSource(relativePath: string): string {
-  const main = readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-  if (relativePath.includes("DashboardOrOnboarding")) {
-    try {
-      const subFiles = readdirSync(DASHBOARD_COMPONENTS_DIR).filter((f) => f.endsWith(".tsx"));
-      const subSource = subFiles.map((f) => readFileSync(resolve(DASHBOARD_COMPONENTS_DIR, f), "utf-8")).join("\n");
-      return main + "\n" + subSource;
-    } catch { /* components dir may not exist in older states */ }
+vi.mock("@/queries/workflows", () => ({
+  useWorkflows: () => ({
+    data: { items: [{ id: "wf_root", name: "Root Flow" }] },
+    isLoading: false,
+    error: null,
+  }),
+}));
+
+vi.mock("@/queries/dashboard", () => ({
+  useDashboardKPIs: () => ({
+    data: {
+      runs_today: 2,
+      cost_today_usd: 9.5,
+      eval_pass_rate: 0.8,
+      regressions: 0,
+      runs_previous_period: 1,
+      cost_previous_period_usd: 4.25,
+      eval_pass_rate_previous_period: 0.7,
+      regressions_previous_period: 0,
+    },
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useAttentionItems: () => ({ data: { items: [] } }),
+  useRecentRuns: () => ({ data: { items: [] } }),
+}));
+
+vi.mock("../useNewWorkflow", () => ({
+  useNewWorkflow: () => ({
+    handleNewWorkflow: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/components/shared/PageHeader", () => ({
+  PageHeader: ({
+    title,
+    subtitle,
+    actions,
+  }: {
+    title: string;
+    subtitle?: string;
+    actions?: React.ReactNode;
+  }) =>
+    React.createElement("header", null, [
+      React.createElement("h1", { key: "title" }, title),
+      subtitle ? React.createElement("p", { key: "subtitle" }, subtitle) : null,
+      React.createElement("div", { key: "actions" }, actions),
+    ]),
+}));
+
+vi.mock("@runsight/ui/empty-state", () => ({
+  EmptyState: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description: string;
+  }) =>
+    React.createElement("section", null, [
+      React.createElement("h2", { key: "title" }, title),
+      React.createElement("p", { key: "description" }, description),
+    ]),
+}));
+
+vi.mock("@runsight/ui/button", () => ({
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    type,
+  }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    type?: "button" | "submit" | "reset";
+  }) =>
+    React.createElement(
+      "button",
+      {
+        type: type ?? "button",
+        onClick,
+        disabled,
+      },
+      children,
+    ),
+}));
+
+vi.mock("@runsight/ui/card", () => ({
+  Card: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children),
+}));
+
+vi.mock("@runsight/ui/status-dot", () => ({
+  StatusDot: () => React.createElement("span", null, "status-dot"),
+}));
+
+vi.mock("@runsight/ui/skeleton", () => ({
+  Skeleton: () => React.createElement("div", null, "skeleton"),
+}));
+
+vi.mock("@runsight/ui/table", () => ({
+  Table: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("table", null, children),
+  TableBody: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("tbody", null, children),
+  TableCell: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("td", null, children),
+  TableHead: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("th", null, children),
+  TableHeader: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("thead", null, children),
+  TableRow: ({ children, onClick }: { children?: React.ReactNode; onClick?: () => void }) =>
+    React.createElement("tr", { onClick }, children),
+}));
+
+vi.mock("../components/DashboardKPIs", () => ({
+  DashboardKPIs: () => React.createElement("section", null, "dashboard-kpis"),
+}));
+
+vi.mock("../components/AttentionItems", () => ({
+  AttentionItems: () => React.createElement("section", null, "attention-items"),
+}));
+
+vi.mock("lucide-react", () => ({
+  Plus: () => React.createElement("span", { "aria-hidden": "true" }, "+"),
+  Workflow: () => React.createElement("span", { "aria-hidden": "true" }, "wf"),
+  Play: () => React.createElement("span", { "aria-hidden": "true" }, "play"),
+}));
+
+import { Component as DashboardOrOnboarding } from "../DashboardOrOnboarding";
+
+type EventSourceListener = (event: MessageEvent) => void;
+
+const eventSources: MockEventSource[] = [];
+
+class MockEventSource {
+  readonly url: string;
+  readonly close = vi.fn();
+  private readonly listeners = new Map<string, EventSourceListener[]>();
+
+  constructor(url: string) {
+    this.url = url;
+    eventSources.push(this);
   }
-  return main;
+
+  addEventListener(type: string, listener: EventSourceListener) {
+    const existing = this.listeners.get(type) ?? [];
+    this.listeners.set(type, [...existing, listener]);
+  }
+
+  emit(type: string, payload: unknown) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(new MessageEvent(type, { data: JSON.stringify(payload) }));
+    }
+  }
 }
 
-// ---------------------------------------------------------------------------
-// File paths
-// ---------------------------------------------------------------------------
+function makeRun(overrides: Partial<RunResponse>): RunResponse {
+  return {
+    id: "run_root",
+    workflow_id: "wf_root",
+    workflow_name: "Root Flow",
+    status: "running",
+    error: null,
+    started_at: 1_710_000_000,
+    completed_at: null,
+    duration_seconds: null,
+    total_cost_usd: 1.25,
+    total_tokens: 123,
+    created_at: 1_710_000_100,
+    branch: "main",
+    source: "manual",
+    commit_sha: "sha-root",
+    run_number: 42,
+    eval_pass_pct: null,
+    eval_score_avg: null,
+    regression_count: 0,
+    regression_types: [],
+    warnings: [],
+    node_summary: null,
+    parent_run_id: null,
+    root_run_id: null,
+    depth: 0,
+    workflow_inputs: null,
+    workflow_input_schema: null,
+    ...overrides,
+  };
+}
 
-const DASHBOARD_PATH = "features/dashboard/DashboardOrOnboarding.tsx";
-const RUNS_QUERIES_PATH = "queries/runs.ts";
-// ===========================================================================
-// 1. useActiveRuns hook exists (AC3)
-// ===========================================================================
+function buildRunList(items: RunResponse[]): RunListResponse {
+  return {
+    items,
+    total: items.length,
+    offset: 0,
+    limit: 50,
+  };
+}
 
-describe("useActiveRuns hook (AC3: queries with status filter)", () => {
-  let source: string;
+function rootRun(overrides: Partial<RunResponse> = {}): RunResponse {
+  return makeRun(overrides);
+}
 
-  it("exports a useActiveRuns function from queries/runs.ts", () => {
-    source = readSource(RUNS_QUERIES_PATH);
-    expect(source).toMatch(/export\s+function\s+useActiveRuns/);
+function secondRootRun(overrides: Partial<RunResponse> = {}): RunResponse {
+  return makeRun({
+    id: "run_root_2",
+    workflow_id: "wf_root_2",
+    workflow_name: "Second Root Flow",
+    run_number: 43,
+    total_cost_usd: 2.5,
+    created_at: 1_710_000_150,
+    ...overrides,
+  });
+}
+
+function childRun(overrides: Partial<RunResponse> = {}): RunResponse {
+  return makeRun({
+    id: "run_child",
+    workflow_id: "wf_child",
+    workflow_name: "Child Flow",
+    run_number: 99,
+    total_cost_usd: 0.4,
+    created_at: 1_710_000_200,
+    parent_run_id: "run_root",
+    root_run_id: "run_root",
+    depth: 1,
+    ...overrides,
+  });
+}
+
+function renderDashboard() {
+  return renderWithProviders(React.createElement(DashboardOrOnboarding));
+}
+
+async function waitForInitialActiveRunsLoad(expectedWorkflowNames: string[]) {
+  await waitFor(() => {
+    expect(screen.queryByText("skeleton")).toBeNull();
+    for (const workflowName of expectedWorkflowNames) {
+      expect(screen.getByText(workflowName)).toBeTruthy();
+    }
+  });
+}
+
+function getRunRow(workflowName: string): HTMLTableRowElement {
+  const row = screen.getByText(workflowName).closest("tr");
+  expect(row).not.toBeNull();
+  return row as HTMLTableRowElement;
+}
+
+function expectRunCost(workflowName: string, formattedCost: string) {
+  expect(within(getRunRow(workflowName)).getByText(formattedCost)).toBeTruthy();
+}
+
+function findStream(runId: string): MockEventSource {
+  const source = eventSources.find((candidate) => candidate.url === `/api/runs/${runId}/stream`);
+  expect(source).toBeTruthy();
+  return source as MockEventSource;
+}
+
+describe("RUN-974 active runs dashboard behavior", () => {
+  let activeRunsData: RunResponse[] = [];
+
+  beforeEach(() => {
+    activeRunsData = [];
+    harness.listRuns.mockReset();
+    harness.listRuns.mockImplementation(async () => buildRunList(activeRunsData));
+    eventSources.length = 0;
+    vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
   });
 
-  it("useActiveRuns passes status filter params (running, pending)", () => {
-    source = readSource(RUNS_QUERIES_PATH);
-    // Should construct query params with status=running and status=pending
-    expect(source).toMatch(/status/);
-    expect(source).toMatch(/running/);
-    expect(source).toMatch(/pending/);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
   });
 
-  it("useActiveRuns filters to production sources (manual, webhook, schedule)", () => {
-    source = readSource(RUNS_QUERIES_PATH);
-    expect(source).toMatch(/source/);
-    expect(source).toMatch(/manual/);
-    expect(source).toMatch(/webhook/);
-    expect(source).toMatch(/schedule/);
+  it("shows only eligible root runs and opens one stream per root run", async () => {
+    activeRunsData = [rootRun(), secondRootRun(), childRun()];
+
+    renderDashboard();
+    await waitForInitialActiveRunsLoad(["Root Flow", "Second Root Flow"]);
+
+    expect(screen.queryByText("Child Flow")).toBeNull();
+    expect(eventSources.map((source) => source.url).sort()).toEqual([
+      "/api/runs/run_root/stream",
+      "/api/runs/run_root_2/stream",
+    ]);
   });
 
-  it("useActiveRuns uses a polling interval (refetchInterval)", () => {
-    source = readSource(RUNS_QUERIES_PATH);
-    // The hook should poll at an interval (e.g. 5000ms)
-    // Look for refetchInterval in the context of useActiveRuns
-    const hookMatch = source.match(
-      /function\s+useActiveRuns[\s\S]*?^}/m
-    );
-    expect(hookMatch).not.toBeNull();
-    expect(hookMatch![0]).toMatch(/refetchInterval/);
-  });
-});
+  it.each(["run_completed", "run_failed"] as const)(
+    "removes a root row through the %s refetch path without promoting child runs",
+    async (eventName) => {
+      activeRunsData = [rootRun()];
 
-// ===========================================================================
-// 2. Dashboard imports StatusDot (AC1)
-// ===========================================================================
+      renderDashboard();
+      await waitForInitialActiveRunsLoad(["Root Flow"]);
 
-describe("Dashboard imports StatusDot (AC1)", () => {
-  let source: string;
+      const rootSource = findStream("run_root");
+      activeRunsData = [childRun()];
 
-  it("imports StatusDot from components/ui/status-dot", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/import.*StatusDot.*from/);
-    expect(source).toMatch(/status-dot/);
-  });
+      act(() => {
+        rootSource.emit(eventName, { run_id: "run_root" });
+      });
 
-  it("uses StatusDot in JSX", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/<StatusDot\b/);
-  });
-});
+      await waitFor(() => {
+        expect(harness.listRuns.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(screen.queryByText("Root Flow")).toBeNull();
+        expect(rootSource.close).toHaveBeenCalledTimes(1);
+      });
 
-// ===========================================================================
-// 3. "ACTIVE RUNS" section label (AC2)
-// ===========================================================================
+      expect(screen.queryByText("Child Flow")).toBeNull();
+      expect(eventSources.map((source) => source.url)).toEqual(["/api/runs/run_root/stream"]);
+    },
+  );
 
-describe("Active Runs section label (AC2)", () => {
-  let source: string;
+  it("updates rendered cost after a cost-bearing node_completed refetch without surfacing child runs", async () => {
+    activeRunsData = [rootRun({ total_cost_usd: 1.25 })];
 
-  it("contains Active Runs text in the dashboard", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/Active Runs/);
-  });
+    renderDashboard();
+    await waitForInitialActiveRunsLoad(["Root Flow"]);
 
-  it("uses monospace and muted styling for the label", () => {
-    source = readSource(DASHBOARD_PATH);
-    // The label should have mono font and muted text color per spec
-    expect(source).toMatch(/font-mono|mono/);
-    expect(source).toMatch(/text-muted|--text-muted/);
-  });
-});
+    expectRunCost("Root Flow", "$1.25");
 
-// ===========================================================================
-// 4. StatusDot pulses for running runs (AC4)
-// ===========================================================================
+    const rootSource = findStream("run_root");
+    activeRunsData = [rootRun({ total_cost_usd: 1.75 }), childRun({ total_cost_usd: 0.9 })];
 
-describe("StatusDot animate='pulse' for running (AC4)", () => {
-  let source: string;
+    act(() => {
+      rootSource.emit("node_completed", { cost_usd: 0.5 });
+    });
 
-  it("passes animate='pulse' to StatusDot for running status", () => {
-    source = readSource(DASHBOARD_PATH);
-    // Should have animate="pulse" conditional on running status
-    expect(source).toMatch(/animate\s*=\s*["'{].*pulse/);
+    await waitFor(() => {
+      expect(harness.listRuns.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expectRunCost("Root Flow", "$1.75");
+    });
+
+    expect(screen.queryByText("Child Flow")).toBeNull();
+    expect(eventSources.map((source) => source.url)).toEqual(["/api/runs/run_root/stream"]);
   });
 
-  it("does NOT pulse for pending status", () => {
-    source = readSource(DASHBOARD_PATH);
-    // For pending runs, animate should be "none" or absent — not "pulse"
-    // We check that there's a conditional: running → pulse, pending → something else
-    // This means there should be a ternary or condition around pulse
-    const hasPulseConditional =
-      /running.*pulse|status.*===.*["']running["'].*pulse/.test(source);
-    expect(
-      hasPulseConditional,
-      "Expected pulse animation to be conditional on running status"
-    ).toBe(true);
-  });
-});
+  it("ignores replay, context_resolution, node_eval_complete, and child_run_completed when the data does not change", async () => {
+    activeRunsData = [rootRun()];
 
-// ===========================================================================
-// 5. Click navigates to run detail (AC5, AC7)
-// ===========================================================================
+    renderDashboard();
+    await waitForInitialActiveRunsLoad(["Root Flow"]);
 
-describe("Click navigates to /runs/:id (AC5, AC7)", () => {
-  let source: string;
+    const rootSource = findStream("run_root");
+    const initialCalls = harness.listRuns.mock.calls.length;
 
-  it("imports useNavigate from react-router", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/import.*useNavigate.*from\s*["']react-router["']/);
+    act(() => {
+      rootSource.emit("replay", { run_id: "run_root" });
+      rootSource.emit("context_resolution", { run_id: "run_root" });
+      rootSource.emit("node_eval_complete", { run_id: "run_root" });
+      rootSource.emit("child_run_completed", { run_id: "run_child" });
+    });
+
+    expectRunCost("Root Flow", "$1.25");
+    expect(harness.listRuns).toHaveBeenCalledTimes(initialCalls);
+    expect(screen.queryByText("Child Flow")).toBeNull();
+    expect(eventSources.map((source) => source.url)).toEqual(["/api/runs/run_root/stream"]);
   });
 
-  it("navigates to /runs/:id using the run id", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/\/runs\/\$\{.*run\.id|navigate\(\s*`\/runs\/\$\{run\.id\}`/);
-  });
+  it("closes root streams on unmount", async () => {
+    activeRunsData = [rootRun(), secondRootRun()];
 
-  it("has an onClick handler on the active run row", () => {
-    source = readSource(DASHBOARD_PATH);
-    // The run row needs a click handler that navigates — there should be at
-    // least two onClick handlers: one for New Workflow and one for run rows.
-    const matches = source.match(/onClick/g);
-    expect(matches).not.toBeNull();
-    expect(matches!.length).toBeGreaterThanOrEqual(2);
-  });
-});
+    const view = renderDashboard();
+    await waitForInitialActiveRunsLoad(["Root Flow", "Second Root Flow"]);
 
-// ===========================================================================
-// 6. Conditional rendering — hidden when no active runs (AC6)
-// ===========================================================================
+    expect(eventSources.map((source) => source.url).sort()).toEqual([
+      "/api/runs/run_root/stream",
+      "/api/runs/run_root_2/stream",
+    ]);
 
-describe("Section hidden when no active runs (AC6)", () => {
-  let source: string;
+    view.unmount();
 
-  it("imports useActiveRuns hook in the dashboard", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/import.*useActiveRuns.*from/);
-  });
-
-  it("conditionally renders the active runs section", () => {
-    source = readSource(DASHBOARD_PATH);
-    // Should have conditional rendering: check for array length or data existence
-    // Patterns like: {activeRuns?.length > 0 && ...} or {data?.items?.length ? ... : null}
-    const hasConditional =
-      /activeRuns.*&&|\.length\s*[>!]|\.items\?\.length|data\s*&&/.test(
-        source
-      );
-    expect(
-      hasConditional,
-      "Expected conditional rendering based on active runs data"
-    ).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 7. Dashboard uses useActiveRuns (wiring check)
-// ===========================================================================
-
-describe("Dashboard wiring (useActiveRuns integration)", () => {
-  let source: string;
-
-  it("calls useActiveRuns() in the component", () => {
-    source = readSource(DASHBOARD_PATH);
-    expect(source).toMatch(/useActiveRuns\s*\(/);
-  });
-
-  it("displays workflow name for each active run", () => {
-    source = readSource(DASHBOARD_PATH);
-    // Should render the workflow_name from the run
-    expect(source).toMatch(/workflow_name/);
-  });
-
-  it("displays elapsed time for each active run", () => {
-    source = readSource(DASHBOARD_PATH);
-    // Should have elapsed time logic — referencing started_at or elapsed
-    const hasElapsed = /elapsed|started_at|duration/.test(source);
-    expect(
-      hasElapsed,
-      "Expected elapsed time display referencing started_at or elapsed"
-    ).toBe(true);
-  });
-
-  it("displays cost for each active run", () => {
-    source = readSource(DASHBOARD_PATH);
-    // Should reference total_cost_usd or cost
-    expect(source).toMatch(/total_cost_usd|cost/);
-  });
-});
-
-// ===========================================================================
-// 8. SSE subscription removes runs on completion/failure (AC9)
-// ===========================================================================
-
-describe("SSE removes completed/failed runs from active list (AC9)", () => {
-  let dashSource: string;
-  let queriesSource: string;
-
-  it("references EventSource or SSE stream in dashboard or queries layer", () => {
-    dashSource = readSource(DASHBOARD_PATH);
-    queriesSource = readSource(RUNS_QUERIES_PATH);
-    const combined = dashSource + queriesSource;
-    // There must be an EventSource instantiation or a /stream endpoint reference
-    const hasSSE = /EventSource|\/stream|event-source|useSSE|useSse/.test(
-      combined
-    );
-    expect(
-      hasSSE,
-      "Expected EventSource or /stream reference for SSE subscription"
-    ).toBe(true);
-  });
-
-  it("connects SSE per active run (uses run id in stream URL)", () => {
-    dashSource = readSource(DASHBOARD_PATH);
-    queriesSource = readSource(RUNS_QUERIES_PATH);
-    const combined = dashSource + queriesSource;
-    // The SSE connection should be per-run, referencing the run's id in the URL
-    // e.g. /api/v1/runs/${run.id}/stream or similar pattern
-    const hasPerRunStream =
-      /runs\/\$\{.*\.id\}\/stream|runs\/\$\{.*id\}\/stream|run\.id.*stream|runId.*stream/.test(
-        combined
-      );
-    expect(
-      hasPerRunStream,
-      "Expected per-run SSE connection using run id in the stream URL"
-    ).toBe(true);
-  });
-
-  it("handles run_completed or completed event to remove run from list", () => {
-    dashSource = readSource(DASHBOARD_PATH);
-    queriesSource = readSource(RUNS_QUERIES_PATH);
-    const combined = dashSource + queriesSource;
-    // Should listen for a completed event and remove/filter the run
-    const handlesCompleted =
-      /run_completed|["']completed["'].*remove|completed.*filter|onmessage.*completed|addEventListener.*completed/.test(
-        combined
-      );
-    expect(
-      handlesCompleted,
-      "Expected handler for run_completed/completed SSE event that removes run"
-    ).toBe(true);
-  });
-
-  it("handles run_failed or failed event to remove run from list", () => {
-    dashSource = readSource(DASHBOARD_PATH);
-    queriesSource = readSource(RUNS_QUERIES_PATH);
-    const combined = dashSource + queriesSource;
-    // Should listen for a failed event and remove/filter the run
-    const handlesFailed =
-      /run_failed|["']failed["'].*remove|failed.*filter|onmessage.*failed|addEventListener.*failed/.test(
-        combined
-      );
-    expect(
-      handlesFailed,
-      "Expected handler for run_failed/failed SSE event that removes run"
-    ).toBe(true);
+    expect(eventSources[0].close).toHaveBeenCalledTimes(1);
+    expect(eventSources[1].close).toHaveBeenCalledTimes(1);
   });
 });

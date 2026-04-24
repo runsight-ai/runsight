@@ -33,6 +33,17 @@ def _provider_ref(provider_id: str) -> str:
     return str(EntityRef(EntityKind.PROVIDER, provider_id))
 
 
+def _snapshot_failure_reason(error: Exception) -> str:
+    if isinstance(error, subprocess.CalledProcessError):
+        stderr = (error.stderr or "").strip()
+        stdout = (error.stdout or "").strip()
+        if stderr:
+            return stderr
+        if stdout:
+            return stdout
+    return str(error)
+
+
 def has_workflow_blocks(workflow_definition: Dict[str, Any]) -> bool:
     blocks = workflow_definition.get("blocks", {})
     if not isinstance(blocks, dict):
@@ -110,12 +121,17 @@ class ExecutionPreparationService:
             try:
                 yaml_content = self.git_service.read_file(workflow_path, explicit_branch)
                 commit_sha = self.git_service.get_sha(explicit_branch, workflow_path)
-            except Exception:
-                raise
+            except Exception as exc:
+                raise ValueError(
+                    f"Requested snapshot could not be loaded for workflow "
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: "
+                    f"{_snapshot_failure_reason(exc)}"
+                ) from exc
             if commit_sha is None:
                 raise ValueError(
-                    f"Requested snapshot sha could not be resolved for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}"
+                    f"Requested snapshot could not be loaded for workflow "
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: "
+                    "requested snapshot sha could not be resolved"
                 )
         else:
             if wf_entity is None:
@@ -124,30 +140,41 @@ class ExecutionPreparationService:
             commit_sha = get_workflow_commit_sha(workflow_path)
 
         api_keys = self.resolve_api_keys()
-        workflow_definition, runner = prepare_runtime_workflow(
-            yaml_content=yaml_content,
-            api_keys=api_keys,
-        )
-
-        workflow_registry = None
-        if has_workflow_blocks(workflow_definition):
-            registry_builder = self.workflow_registry_builder
-            if registry_builder is None:
-                registry_builder = self.workflow_repo.build_runnable_workflow_registry
-            workflow_registry = registry_builder(
-                workflow_id,
-                yaml_content,
-                git_ref=registry_git_ref,
-                git_service=registry_git_service,
+        try:
+            workflow_definition, runner = prepare_runtime_workflow(
+                yaml_content=yaml_content,
+                api_keys=api_keys,
             )
 
-        workflow = parser(
-            yaml_content,
-            workflow_registry=workflow_registry,
-            api_keys=api_keys,
-            runner=runner,
-            _base_dir=str(getattr(self.workflow_repo, "base_path", ".")),
-        )
+            workflow_registry = None
+            if has_workflow_blocks(workflow_definition):
+                registry_builder = self.workflow_registry_builder
+                if registry_builder is None:
+                    registry_builder = self.workflow_repo.build_runnable_workflow_registry
+                workflow_registry = registry_builder(
+                    workflow_id,
+                    yaml_content,
+                    git_ref=registry_git_ref,
+                    git_service=registry_git_service,
+                )
+
+            workflow = parser(
+                yaml_content,
+                workflow_registry=workflow_registry,
+                api_keys=api_keys,
+                runner=runner,
+                _base_dir=str(getattr(self.workflow_repo, "base_path", ".")),
+                _discovery_git_ref=registry_git_ref,
+                _discovery_git_service=registry_git_service,
+            )
+        except Exception as exc:
+            if explicit_branch is not None:
+                raise ValueError(
+                    f"Requested snapshot could not be loaded for workflow "
+                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: "
+                    f"{_snapshot_failure_reason(exc)}"
+                ) from exc
+            raise
         return PreparedWorkflow(workflow=workflow, commit_sha=commit_sha)
 
     def resolve_api_keys(self) -> Dict[str, str]:

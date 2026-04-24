@@ -168,12 +168,29 @@ class BaseScanner(Generic[T], abc.ABC):
                 results.append(result)
         return self._build_scan_index(results)
 
-    def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[T]:
-        asset_dir = self.asset_dir
-        if not asset_dir.exists():
-            # The git ref may still be valid even if the local checkout lacks the directory,
-            # so only short-circuit when we know we cannot enumerate.
-            pass
+    def _git_repo_path(self, git_service: Any) -> Path | None:
+        repo_path = getattr(git_service, "repo_path", None)
+        if isinstance(repo_path, Path):
+            return repo_path
+        if isinstance(repo_path, str):
+            return Path(repo_path)
+        return None
+
+    def _list_git_files(self, git_ref: str, git_service: Any) -> list[str]:
+        list_files = getattr(git_service, "list_files", None)
+        if callable(list_files):
+            try:
+                return [
+                    str(candidate).strip()
+                    for candidate in list_files(git_ref, f"{self.asset_subdir}/")
+                    if str(candidate).strip()
+                ]
+            except Exception:
+                pass
+
+        repo_path = self._git_repo_path(git_service)
+        if repo_path is None:
+            return []
 
         command = [
             "git",
@@ -186,24 +203,42 @@ class BaseScanner(Generic[T], abc.ABC):
         ]
         result = subprocess.run(
             command,
-            cwd=str(git_service.repo_path),
+            cwd=str(repo_path),
             capture_output=True,
             text=True,
             check=False,
         )
         if result.returncode != 0:
-            return ScanIndex()
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def _resolve_git_candidate_path(self, candidate: str, git_service: Any) -> Path:
+        candidate_path = Path(candidate)
+        if candidate_path.is_absolute():
+            return candidate_path.resolve()
+
+        base_path = self._git_repo_path(git_service) or self.base_dir
+        return (base_path / candidate_path).resolve()
+
+    def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[T]:
+        asset_dir = self.asset_dir
+        if not asset_dir.exists():
+            # The git ref may still be valid even if the local checkout lacks the directory,
+            # so only short-circuit when we know we cannot enumerate.
+            pass
 
         results: list[ScanResult[T]] = []
-        for line in result.stdout.splitlines():
-            candidate = line.strip()
+        for candidate in self._list_git_files(git_ref, git_service):
             if not candidate or not candidate.endswith((".yaml", ".yml")):
                 continue
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
-            result_item = self._scan_yaml_content(Path(candidate), raw_yaml)
+            result_item = self._scan_yaml_content(
+                self._resolve_git_candidate_path(candidate, git_service),
+                raw_yaml,
+            )
             if result_item is not None:
                 results.append(result_item)
         return self._build_scan_index(results)

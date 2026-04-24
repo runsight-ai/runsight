@@ -16,6 +16,7 @@ import httpx
 from runsight_core.budget_enforcement import _active_budget
 from runsight_core.isolation.ipc_models import Handler
 from runsight_core.llm.client import LiteLLMClient
+from runsight_core.paths import is_path_within_base
 from runsight_core.runner import _detect_provider
 from runsight_core.security import SSRFError, validate_ssrf
 
@@ -165,7 +166,7 @@ def make_file_io_handler(
         resolved = (base / decoded_path).resolve()
 
         # Belt-and-suspenders: ensure resolved path is within base_dir
-        if not str(resolved).startswith(str(base)):
+        if not is_path_within_base(base, resolved):
             return {"error": f"Path escapes base directory: {raw_path}"}
 
         if action_type == "read":

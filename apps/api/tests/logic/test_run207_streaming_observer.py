@@ -712,3 +712,63 @@ class TestEndToEndEventPipeline:
 
         assert collected == []
         assert svc._streams.get(run_id) is None
+
+
+class TestChildStreamingObserverIsolation:
+    """Child stream observers must own separate queue state from the parent."""
+
+    def test_clone_for_child_run_creates_a_distinct_queue(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+
+        child = parent.clone_for_child_run(child_run_id="run_973_child")
+
+        assert child.run_id == "run_973_child"
+        assert child.parent_run_id == "run_973_parent"
+        assert child.queue is not parent.queue, (
+            "Child StreamingObserver must own its own SSE queue so /stream subscribers "
+            "for the child do not drain parent-owned events."
+        )
+
+    def test_sibling_child_observers_do_not_share_each_others_live_events(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+        first_child = parent.clone_for_child_run(child_run_id="run_973_child_a")
+        second_child = parent.clone_for_child_run(child_run_id="run_973_child_b")
+
+        first_child.on_block_start("child_wf", "child_step", "workflow")
+
+        assert second_child.queue.empty(), (
+            "A live event emitted for one child run must not appear on a sibling child's "
+            "queue; each child stream should belong to exactly one run id."
+        )
+
+    def test_child_queue_is_removed_after_child_completion(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child_done")
+
+        assert "run_973_child_done" in parent._child_queues
+
+        child.on_workflow_complete(
+            "child_wf",
+            WorkflowState(total_cost_usd=0.01, total_tokens=42),
+            0.25,
+        )
+        assert child.is_done is True
+
+        assert "run_973_child_done" not in parent._child_queues, (
+            "Parent StreamingObserver must release a child queue after that child stream "
+            "reaches terminal completion."
+        )
+
+    def test_child_queue_is_removed_after_child_failure(self) -> None:
+        parent = StreamingObserver(run_id="run_973_parent")
+        child = parent.clone_for_child_run(child_run_id="run_973_child_failed")
+
+        assert "run_973_child_failed" in parent._child_queues
+
+        child.on_workflow_error("child_wf", RuntimeError("boom"), 0.25)
+        assert child.is_done is True
+
+        assert "run_973_child_failed" not in parent._child_queues, (
+            "Parent StreamingObserver must release a child queue after that child stream "
+            "reaches terminal failure."
+        )

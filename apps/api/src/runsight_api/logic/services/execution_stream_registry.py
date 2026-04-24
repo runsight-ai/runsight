@@ -18,7 +18,7 @@ class ExecutionStreamRegistry:
     def __init__(self):
         self._observers: Dict[str, StreamingObserver] = {}
         self._observer_events: Dict[str, asyncio.Event] = {}
-        self._completed_streams: "OrderedDict[str, None]" = OrderedDict()
+        self._completed_streams: "OrderedDict[str, StreamingObserver]" = OrderedDict()
 
     def register(self, run_id: str, observer: StreamingObserver) -> None:
         self._observers[run_id] = observer
@@ -33,7 +33,7 @@ class ExecutionStreamRegistry:
         observer = self._observers.pop(run_id, None)
         ready_event = self._observer_events.pop(run_id, None)
         if observer is not None and observer.is_done:
-            self._mark_completed(run_id)
+            self._mark_completed(run_id, observer)
             if ready_event is not None:
                 ready_event.set()
             return
@@ -53,10 +53,8 @@ class ExecutionStreamRegistry:
         )
 
     async def subscribe(self, run_id: str) -> AsyncGenerator[Dict[str, Any], None]:
-        observer = self._observers.get(run_id)
+        observer = self._observers.get(run_id) or self._completed_streams.get(run_id)
         if observer is None:
-            if run_id in self._completed_streams:
-                return
             created_ready_event = run_id not in self._observer_events
             ready_event = self._observer_events.setdefault(run_id, asyncio.Event())
             try:
@@ -72,18 +70,20 @@ class ExecutionStreamRegistry:
                 ):
                     self._observer_events.pop(run_id, None)
                 return
-            observer = self._observers.get(run_id)
+            observer = self._observers.get(run_id) or self._completed_streams.get(run_id)
             if observer is None:
-                if run_id in self._completed_streams:
-                    return
                 if created_ready_event:
                     self._observer_events.pop(run_id, None)
                 return
 
         while True:
+            if observer.is_done and observer.queue.empty():
+                break
             try:
                 event = await asyncio.wait_for(observer.queue.get(), timeout=30.0)
             except asyncio.TimeoutError:
+                if observer.is_done and observer.queue.empty():
+                    break
                 continue
 
             if event["event"] == self.STREAM_CLOSED_EVENT:
@@ -94,8 +94,8 @@ class ExecutionStreamRegistry:
             if event["event"] in SSE_TERMINAL_EVENTS:
                 break
 
-    def _mark_completed(self, run_id: str) -> None:
+    def _mark_completed(self, run_id: str, observer: StreamingObserver) -> None:
         self._completed_streams.pop(run_id, None)
-        self._completed_streams[run_id] = None
+        self._completed_streams[run_id] = observer
         while len(self._completed_streams) > self.COMPLETED_STREAM_CACHE_SIZE:
             self._completed_streams.popitem(last=False)

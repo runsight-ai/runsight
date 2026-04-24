@@ -455,7 +455,13 @@ class ExecutionService:
                 )
                 return
         except Exception as e:
-            logger.exception("Failed to prepare workflow for run %s", run_id)
+            logger.exception(
+                "Failed to prepare workflow for run %s (workflow=%s, requested_ref=%r): %s",
+                run_id,
+                workflow_id,
+                explicit_branch,
+                e,
+            )
             self._fail_run_on_prepare_error(run_id, e)
             return
 

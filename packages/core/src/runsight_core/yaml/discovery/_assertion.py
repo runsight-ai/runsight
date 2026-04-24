@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -189,36 +188,16 @@ class AssertionScanner(BaseScanner[AssertionMeta]):
         return ScanIndex(results)
 
     def _scan_git(self, git_ref: str, git_service: Any) -> ScanIndex[AssertionMeta]:
-        command = [
-            "git",
-            "ls-tree",
-            "-r",
-            "--name-only",
-            git_ref,
-            "--",
-            f"{self.asset_subdir}/",
-        ]
-        result = subprocess.run(
-            command,
-            cwd=str(git_service.repo_path),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            return ScanIndex()
-
         results: list[ScanResult[AssertionMeta]] = []
         seen_ids: set[str] = set()
-        for line in result.stdout.splitlines():
-            candidate = line.strip()
+        for candidate in self._list_git_files(git_ref, git_service):
             if not candidate or not candidate.endswith(".yaml"):
                 continue
-            candidate_path = Path(candidate)
             try:
                 raw_yaml = git_service.read_file(candidate, git_ref)
             except Exception:
                 continue
+            candidate_path = self._resolve_git_candidate_path(candidate, git_service)
             result_item = self._scan_yaml_content(candidate_path, raw_yaml)
             if result_item is not None:
                 if result_item.entity_id in seen_ids:
