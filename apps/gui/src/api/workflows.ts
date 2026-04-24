@@ -1,5 +1,7 @@
 import { api } from "./client";
 import {
+  type WorkflowRegressionsResponse,
+  WorkflowRegressionsResponseSchema,
   WorkflowListResponseSchema,
   WorkflowResponseSchema,
 } from "@runsight/shared/zod";
@@ -9,10 +11,6 @@ import type {
   WorkflowResponse,
   WorkflowUpdate,
 } from "@runsight/shared/zod";
-import {
-  WorkflowRegressionsResponseSchema,
-  type WorkflowRegressionsResponse,
-} from "../types/schemas/regressions";
 
 export const workflowsApi = {
   listWorkflows: async (): Promise<WorkflowListResponse> => {

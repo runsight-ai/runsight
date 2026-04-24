@@ -35,7 +35,6 @@ class FileSystemProviderRepo:
     def __init__(self, base_path: str = "."):
         self.base_path = Path(base_path)
         self.providers_dir = self.base_path / "custom" / "providers"
-        self.providers_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -83,6 +82,11 @@ class FileSystemProviderRepo:
         """Validate provider YAML before merging update fields."""
         self._build_entity(data, stem)
 
+    def _ensure_providers_dir(self) -> None:
+        if self.providers_dir.exists() and not self.providers_dir.is_dir():
+            raise NotADirectoryError(f"Expected '{self.providers_dir}' to be a directory")
+        self.providers_dir.mkdir(parents=True, exist_ok=True)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -92,6 +96,11 @@ class FileSystemProviderRepo:
 
         Skips malformed YAML files with a logged warning.
         """
+        if not self.providers_dir.exists():
+            return []
+        if not self.providers_dir.is_dir():
+            raise NotADirectoryError(f"Expected '{self.providers_dir}' to be a directory")
+
         providers: List[ProviderEntity] = []
         for file in sorted(self.providers_dir.glob("*.yaml")):
             try:
@@ -136,6 +145,7 @@ class FileSystemProviderRepo:
         if not isinstance(provider_id, str) or not provider_id:
             raise ValueError("Provider must have an id")
         self._validate_id(provider_id)
+        self._ensure_providers_dir()
 
         yaml_path = self._get_path(provider_id)
         if yaml_path.exists():

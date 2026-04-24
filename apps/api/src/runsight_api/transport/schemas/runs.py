@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from runsight_core.context_governance import ContextAuditEventV1
 
+from ...domain.entities.run import RegressionIssueTypeLiteral
 from .workflows import WarningItem
 
 
@@ -126,3 +127,15 @@ class ContextAuditListResponse(BaseModel):
     page_size: int
     has_next_page: bool
     end_cursor: Optional[str] = None
+
+
+class RunRegressionIssue(BaseModel):
+    node_id: str
+    node_name: str
+    type: RegressionIssueTypeLiteral
+    delta: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RunRegressionsResponse(BaseModel):
+    count: int
+    issues: List[RunRegressionIssue] = Field(default_factory=list)

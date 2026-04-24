@@ -25,6 +25,11 @@ uvx runsight
 
 Open [http://localhost:8000](http://localhost:8000). Your YAML files in `custom/` are your workflows.
 
+Runsight starts a blank workspace with empty `custom/workflows/`, `custom/souls/`, and
+`custom/tools/` directories plus `.runsight/` for runtime state. No sample workflows,
+souls, or tools are pre-shipped. Sample content is not shipped into the runtime path, so
+the onboarding flow helps you create your first workflow.
+
 > Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 Or use Docker:
@@ -32,6 +37,10 @@ Or use Docker:
 ```bash
 docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
 ```
+
+Mount the whole workspace root, not only `custom/`, if you want `.runsight/` DB and
+settings persistence across container restarts. Runsight keeps runtime-owned files under
+that workspace root in `.runsight/`.
 
 **[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
 

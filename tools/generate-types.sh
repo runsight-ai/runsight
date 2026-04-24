@@ -40,7 +40,6 @@ block = source[start:end]
 replacements = {
     "            inputs: {": "            inputs?: {",
     "            source: string | null;": "            source?: string | null;",
-    "            branch: string;": "            branch?: string;",
 }
 for old, new in replacements.items():
     if old not in block:

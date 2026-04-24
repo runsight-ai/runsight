@@ -8,12 +8,17 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 
 YAML_ROOTS = [
-    (ROOT / "custom" / "souls", "soul", True),
-    (ROOT / "custom" / "tools", "tool", False),
-    (ROOT / "custom" / "workflows", "workflow", False),
-    (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "souls", "soul", True),
-    (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "tools", "tool", False),
-    (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "workflows", "workflow", False),
+    (ROOT / "custom" / "souls", "soul", True, False),
+    (ROOT / "custom" / "tools", "tool", False, False),
+    (ROOT / "custom" / "workflows", "workflow", False, False),
+    (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "souls", "soul", True, True),
+    (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "tools", "tool", False, True),
+    (
+        ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "workflows",
+        "workflow",
+        False,
+        True,
+    ),
 ]
 
 STALE_SOUL_ID_PATTERN = re.compile(
@@ -91,8 +96,10 @@ def _iter_inline_fixture_files() -> list[Path]:
 
 def test_yaml_identity_fields_match_filename_stem() -> None:
     mismatches: list[str] = []
-    for root, expected_kind, requires_name in YAML_ROOTS:
-        assert root.exists(), f"Expected YAML root to exist: {root.relative_to(ROOT)}"
+    for root, expected_kind, requires_name, required in YAML_ROOTS:
+        if not root.exists():
+            assert not required, f"Expected YAML root to exist: {root.relative_to(ROOT)}"
+            continue
         for path in _iter_yaml_files(root):
             data = _load_yaml(path)
             relative_path = path.relative_to(ROOT)

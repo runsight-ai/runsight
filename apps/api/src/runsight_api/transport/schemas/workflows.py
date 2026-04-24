@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
+from ...domain.entities.run import RegressionIssueTypeLiteral
+
 
 class CanvasViewport(BaseModel):
     x: float = 0.0
@@ -115,3 +117,17 @@ class WorkflowDeleteResponse(BaseModel):
 
 class WorkflowEnabledUpdate(BaseModel):
     enabled: StrictBool
+
+
+class WorkflowRegressionIssue(BaseModel):
+    node_id: str
+    node_name: str
+    type: RegressionIssueTypeLiteral
+    delta: Dict[str, Any] = Field(default_factory=dict)
+    run_id: str | None = None
+    run_number: int | None = None
+
+
+class WorkflowRegressionsResponse(BaseModel):
+    count: int
+    issues: List[WorkflowRegressionIssue] = Field(default_factory=list)

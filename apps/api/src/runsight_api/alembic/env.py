@@ -1,3 +1,4 @@
+import logging
 from logging.config import fileConfig
 
 from alembic import context
@@ -10,8 +11,10 @@ from runsight_api.domain.entities.log import LogEntry  # noqa: F401
 from runsight_api.domain.entities.run import Run, RunNode  # noqa: F401
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and not logging.getLogger().handlers:
+    # When migrations run inside the API process, preserve the application's
+    # existing logging setup instead of replacing root handlers mid-startup.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = SQLModel.metadata
 

@@ -12,7 +12,7 @@ Acceptance criteria covered:
   - Path traversal protection rejects ../ in provider IDs
   - Atomic writes via temp file + rename
   - list_all skips malformed YAML files with logged warning
-  - custom/providers/ directory auto-created on repo init
+  - custom/providers/ remains lazy until provider persistence needs it
   - Unit tests for CRUD, path traversal rejection, malformed file handling
   - Two providers with same name: create raises ValueError
 """
@@ -65,6 +65,10 @@ def _make_provider_data(**overrides):
     return data
 
 
+def _ensure_providers_dir(providers_dir):
+    providers_dir.mkdir(parents=True, exist_ok=True)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -83,20 +87,30 @@ def providers_dir(tmp_path):
 
 
 # ===========================================================================
-# AC: custom/providers/ directory auto-created on repo init
+# AC: custom/providers/ remains lazy until provider persistence needs it
 # ===========================================================================
 
 
-class TestDirectoryAutoCreation:
-    def test_providers_dir_created_on_init(self, tmp_path):
-        """Initialising the repo must create custom/providers/ automatically."""
+class TestDirectoryCreationContract:
+    def test_repo_init_does_not_create_providers_dir(self, tmp_path):
+        """Blank-workspace startup must not create custom/providers/ just by wiring the repo."""
         providers_dir = tmp_path / "custom" / "providers"
         assert not providers_dir.exists()
 
         FileSystemProviderRepo(base_path=str(tmp_path))
 
+        assert not providers_dir.exists()
+
+    def test_create_lazily_creates_providers_dir(self, tmp_path):
+        """Provider persistence must still work when custom/providers/ is absent at init time."""
+        providers_dir = tmp_path / "custom" / "providers"
+        repo = FileSystemProviderRepo(base_path=str(tmp_path))
+
+        entity = repo.create(_make_provider_data(name="OpenAI"))
+
         assert providers_dir.exists()
         assert providers_dir.is_dir()
+        assert (providers_dir / f"{entity.id}.yaml").exists()
 
 
 # ===========================================================================
@@ -201,6 +215,7 @@ class TestGetById:
     def test_get_by_id_derives_id_from_filename(self, repo, providers_dir):
         """ID must be stored in YAML and match the filename stem."""
         # Write a YAML file with the id field matching the filename stem
+        _ensure_providers_dir(providers_dir)
         yaml_path = providers_dir / "my-provider.yaml"
         yaml_path.write_text(
             yaml.dump(
@@ -245,6 +260,14 @@ class TestListAll:
         """list_all must return an empty list when no providers exist."""
         assert repo.list_all() == []
 
+    def test_list_all_raises_for_non_directory_provider_path(self, repo, providers_dir):
+        """An invalid custom/providers path must surface as a filesystem error."""
+        providers_dir.parent.mkdir(parents=True, exist_ok=True)
+        providers_dir.write_text("not a directory")
+
+        with pytest.raises(NotADirectoryError, match="custom/providers"):
+            repo.list_all()
+
     def test_list_all_returns_all_providers(self, repo):
         """list_all must return every provider in the directory."""
         repo.create(_make_provider_data(name="OpenAI", type="openai"))
@@ -264,6 +287,7 @@ class TestListAll:
 
     def test_list_all_includes_hand_authored_files(self, repo, providers_dir):
         """Hand-authored YAML files with embedded id must be picked up by list_all."""
+        _ensure_providers_dir(providers_dir)
         yaml_path = providers_dir / "manual-provider.yaml"
         yaml_path.write_text(
             yaml.dump(
@@ -329,6 +353,7 @@ class TestUpdate:
 
 class TestReadValidation:
     def test_get_by_id_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
+        _ensure_providers_dir(providers_dir)
         yaml_path = providers_dir / "openai.yaml"
         yaml_path.write_text(
             yaml.safe_dump(
@@ -346,6 +371,7 @@ class TestReadValidation:
         assert repo.get_by_id("openai") is None
 
     def test_list_all_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
+        _ensure_providers_dir(providers_dir)
         yaml_path = providers_dir / "openai.yaml"
         yaml_path.write_text(
             yaml.safe_dump(
@@ -411,6 +437,7 @@ class TestIdNotStoredInYaml:
     def test_id_derived_from_filename_on_read(self, repo, providers_dir):
         """When reading back, the ID must match the embedded id field in the YAML."""
         # Write a file with the id field matching the filename stem
+        _ensure_providers_dir(providers_dir)
         (providers_dir / "test-provider.yaml").write_text(
             yaml.dump({"id": "test-provider", "kind": "provider", "name": "Test", "type": "custom"})
         )
@@ -525,6 +552,7 @@ class TestMalformedYamlHandling:
 
     def test_list_all_logs_warning_for_malformed_files(self, repo, providers_dir, caplog):
         """list_all must log a warning when it skips a malformed file."""
+        _ensure_providers_dir(providers_dir)
         malformed_path = providers_dir / "broken.yaml"
         malformed_path.write_text("not: valid: yaml: {{{}}")
 
@@ -541,6 +569,7 @@ class TestMalformedYamlHandling:
         repo.create(_make_provider_data(name="Good Provider"))
 
         # Write some non-YAML files
+        _ensure_providers_dir(providers_dir)
         (providers_dir / "readme.txt").write_text("not a provider")
         (providers_dir / ".DS_Store").write_text("macOS junk")
 

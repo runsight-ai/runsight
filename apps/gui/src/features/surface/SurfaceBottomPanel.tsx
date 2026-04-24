@@ -9,8 +9,12 @@ import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { SurfaceRunsTable } from "./SurfaceRunsTable";
 import { RunInputsModal } from "./RunInputsModal";
-import type { RunResponse, WorkflowInputSchemaItem } from "@runsight/shared/zod";
-import type { WorkflowRegression } from "@/types/schemas/regressions";
+import type {
+  RunRegressionIssue,
+  RunResponse,
+  WorkflowInputSchemaItem,
+  WorkflowRegressionIssue,
+} from "@runsight/shared/zod";
 import { ContextAuditPanel } from "./contextAuditSurfaces";
 import { resolveRunInputSchemaDecision } from "./runInputSchemaPolicy";
 import { useSurfaceBottomPanelAudit } from "./useSurfaceBottomPanelAudit";
@@ -33,7 +37,7 @@ interface SurfaceBottomPanelProps {
 
 type RegressionsData = {
   count?: number;
-  issues?: WorkflowRegression[];
+  issues?: Array<RunRegressionIssue | WorkflowRegressionIssue>;
 };
 
 type SurfaceBottomPanelContentProps = SurfaceBottomPanelProps & {

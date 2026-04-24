@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { ReactNode } from "react";
+import { useInRouterContext, useNavigate } from "react-router";
 import type { RunResponse } from "@runsight/shared/zod";
 import { Badge, BadgeDot } from "@runsight/ui/badge";
 import { Button } from "@runsight/ui/button";
@@ -41,7 +42,6 @@ type SurfaceHeaderSlotsArgs = {
   mode: WorkflowSurfaceMode;
   run: RunResponse | null | undefined;
   workflowId: string;
-  onForkTransition?: (newWorkflowId: string) => void;
 };
 
 type SurfaceHeaderSlots = {
@@ -50,32 +50,70 @@ type SurfaceHeaderSlots = {
   actionsOverride?: ReactNode;
 };
 
-export function useSurfaceHeaderSlots({
-  mode,
+type ReadonlyForkActionsProps = {
+  run: RunResponse;
+  workflowId: string;
+};
+
+type ReadonlyForkActionsContentProps = ReadonlyForkActionsProps & {
+  onForkTransition?: (newWorkflowId: string) => void;
+};
+
+function ReadonlyForkActions({
   run,
   workflowId,
-  onForkTransition,
-}: SurfaceHeaderSlotsArgs): SurfaceHeaderSlots {
-  const cancelRun = useCancelRun();
-  const forkTransition = useCallback(
+}: ReadonlyForkActionsProps) {
+  const hasRouter = useInRouterContext();
+
+  if (!hasRouter) {
+    return <ReadonlyForkActionsContent run={run} workflowId={workflowId} />;
+  }
+
+  return <ReadonlyForkActionsWithNavigate run={run} workflowId={workflowId} />;
+}
+
+function ReadonlyForkActionsWithNavigate({
+  run,
+  workflowId,
+}: ReadonlyForkActionsProps) {
+  const navigate = useNavigate();
+  const handleForkTransition = useCallback(
     (newWorkflowId: string) => {
-      if (!onForkTransition) return;
+      const transition = () => {
+        navigate(`/workflows/${newWorkflowId}/edit`, { replace: true });
+      };
 
       if (typeof globalThis.setTimeout === "function") {
-        globalThis.setTimeout(() => onForkTransition(newWorkflowId), 0);
+        globalThis.setTimeout(transition, 0);
         return;
       }
 
-      onForkTransition(newWorkflowId);
+      transition();
     },
-    [onForkTransition],
+    [navigate],
   );
+
+  return (
+    <ReadonlyForkActionsContent
+      run={run}
+      workflowId={workflowId}
+      onForkTransition={handleForkTransition}
+    />
+  );
+}
+
+function ReadonlyForkActionsContent({
+  run,
+  workflowId,
+  onForkTransition,
+}: ReadonlyForkActionsContentProps) {
+  const cancelRun = useCancelRun();
 
   const { forkWorkflow, isForking } = useForkWorkflow({
     commitSha: run?.commit_sha ?? "",
     workflowPath: `custom/workflows/${workflowId}.yaml`,
     workflowName: run?.workflow_name ?? "Untitled Workflow",
-    onTransition: forkTransition,
+    onTransition: onForkTransition,
   });
 
   const isActive = run?.status === "running" || run?.status === "pending";
@@ -91,10 +129,6 @@ export function useSurfaceHeaderSlots({
     if (!run || !isActive || cancelRun.isPending) return;
     cancelRun.mutate(run.id);
   }, [cancelRun, isActive, run]);
-
-  if (mode !== "readonly" || !run) {
-    return {};
-  }
 
   let forkTooltip: string | null = null;
   if (isActive) {
@@ -114,6 +148,49 @@ export function useSurfaceHeaderSlots({
       {isForking ? "Forking..." : "Fork"}
     </Button>
   );
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" disabled data-testid="workflow-save-button">
+        <Save className="w-4 h-4" />
+        Save
+      </Button>
+      {isActive ? (
+        <Button
+          variant="danger"
+          loading={cancelRun.isPending}
+          onClick={handleCancel}
+          aria-label="Cancel"
+        >
+          <X className="w-4 h-4" />
+          Cancel
+        </Button>
+      ) : null}
+      {forkTooltip ? (
+        <>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={forkButton} />
+              <TooltipContent>{forkTooltip}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span className="sr-only">{forkTooltip}</span>
+        </>
+      ) : (
+        forkButton
+      )}
+    </>
+  );
+}
+
+export function useSurfaceHeaderSlots({
+  mode,
+  run,
+  workflowId,
+}: SurfaceHeaderSlotsArgs): SurfaceHeaderSlots {
+  if (mode !== "readonly" || !run) {
+    return {};
+  }
 
   return {
     titleAfter: (
@@ -138,37 +215,6 @@ export function useSurfaceHeaderSlots({
         </div>
       </div>
     ),
-    actionsOverride: (
-      <>
-        <Button variant="ghost" size="sm" disabled data-testid="workflow-save-button">
-          <Save className="w-4 h-4" />
-          Save
-        </Button>
-        {isActive ? (
-          <Button
-            variant="danger"
-            loading={cancelRun.isPending}
-            onClick={handleCancel}
-            aria-label="Cancel"
-          >
-            <X className="w-4 h-4" />
-            Cancel
-          </Button>
-        ) : null}
-        {forkTooltip ? (
-          <>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger render={forkButton} />
-                <TooltipContent>{forkTooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <span className="sr-only">{forkTooltip}</span>
-          </>
-        ) : (
-          forkButton
-        )}
-      </>
-    ),
+    actionsOverride: <ReadonlyForkActions run={run} workflowId={workflowId} />,
   };
 }

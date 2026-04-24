@@ -26,6 +26,7 @@ from ..schemas.runs import (
     NodeSummary,
     PaginatedLogsResponse,
     RunCreate,
+    RunRegressionsResponse,
     RunListResponse,
     RunNodeResponse,
     RunResponse,
@@ -458,7 +459,7 @@ async def get_run_context_audit(
     )
 
 
-@router.get("/{run_id}/regressions")
+@router.get("/{run_id}/regressions", response_model=RunRegressionsResponse)
 async def get_run_regressions(
     run_id: str,
     eval_service: EvalService = Depends(get_eval_service),
@@ -466,7 +467,7 @@ async def get_run_regressions(
     result = eval_service.get_run_regressions(run_id)
     if result is None:
         raise RunNotFound(f"Run {run_id} not found")
-    return result
+    return RunRegressionsResponse.model_validate(result)
 
 
 @router.get("/{run_id}/nodes", response_model=List[RunNodeResponse])

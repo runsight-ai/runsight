@@ -1,209 +1,269 @@
-"""Red tests for RUN-139: Auto-scaffold project directories on API boot.
+"""Tests for workspace scaffolding under the RUN-963 contract."""
 
-Tests for scaffold_project(base_path) which should:
-- Create .runsight-project marker, custom/workflows/, custom/souls/, .gitignore
-- Be idempotent (skip existing projects)
-- Fill gaps in partial structures
-- Never overwrite an existing .gitignore
-"""
-
+import logging
+import subprocess
 from pathlib import Path
 
-import yaml
+from sqlmodel import create_engine
+from starlette.testclient import TestClient
 
 from runsight_api.core.config import Settings, ensure_project_dirs
-from runsight_api.core.project import MARKER_FILE, scaffold_project
+from runsight_api.core.project import scaffold_project
+from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 
 
-class TestScaffoldEmptyDirectory:
-    """Empty directory -> scaffold creates all expected files/dirs."""
+def _git(workspace_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=workspace_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
-    def test_creates_marker_file(self, tmp_path: Path):
+
+def _init_existing_repo(
+    workspace_root: Path,
+    *,
+    marker_text: str = "version: 1\nbase_path: .\n",
+    gitignore_text: str | None = None,
+) -> Path:
+    legacy_marker = workspace_root / ".runsight-project"
+    legacy_marker.write_text(marker_text, encoding="utf-8")
+    if gitignore_text is not None:
+        (workspace_root / ".gitignore").write_text(gitignore_text, encoding="utf-8")
+
+    _git(workspace_root, "init")
+    _git(workspace_root, "config", "user.email", "runsight-tests@example.com")
+    _git(workspace_root, "config", "user.name", "Runsight Tests")
+    _git(workspace_root, "add", ".")
+    _git(workspace_root, "commit", "-m", "Initial workspace state")
+    return legacy_marker
+
+
+def _init_gitfile_worktree(
+    tmp_path: Path,
+    *,
+    marker_text: str = "version: 1\nbase_path: .\n",
+    gitignore_text: str | None = None,
+) -> Path:
+    primary_repo = tmp_path / "primary-repo"
+    worktree_root = tmp_path / "linked-worktree"
+    primary_repo.mkdir()
+
+    _git(primary_repo, "init")
+    _git(primary_repo, "config", "user.email", "runsight-tests@example.com")
+    _git(primary_repo, "config", "user.name", "Runsight Tests")
+    (primary_repo / "README.md").write_text("seed\n", encoding="utf-8")
+    _git(primary_repo, "add", "README.md")
+    _git(primary_repo, "commit", "-m", "Initial repository state")
+    _git(primary_repo, "branch", "-M", "main")
+    _git(primary_repo, "worktree", "add", "-b", "linked-worktree", str(worktree_root), "HEAD")
+
+    legacy_marker = worktree_root / ".runsight-project"
+    legacy_marker.write_text(marker_text, encoding="utf-8")
+    if gitignore_text is not None:
+        (worktree_root / ".gitignore").write_text(gitignore_text, encoding="utf-8")
+    _git(worktree_root, "add", ".")
+    _git(worktree_root, "commit", "-m", "Track workspace files")
+
+    assert (worktree_root / ".git").is_file()
+    return worktree_root
+
+
+def _start_api(workspace_root: Path, monkeypatch) -> None:
+    from runsight_api import main as main_module
+
+    db_url = f"sqlite:///{workspace_root / '.runsight' / 'runsight.db'}"
+    monkeypatch.setattr(main_module.app_settings, "base_path", str(workspace_root))
+    monkeypatch.setattr(main_module.app_settings, "db_url", db_url)
+
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+    )
+    monkeypatch.setattr(main_module, "engine", engine)
+
+    app = main_module.create_app()
+    try:
+        with TestClient(app):
+            pass
+    finally:
+        engine.dispose()
+
+
+class TestScaffoldProject:
+    def test_creates_custom_dirs_and_gitignore_without_marker(self, tmp_path: Path):
         scaffold_project(tmp_path)
-        marker = tmp_path / MARKER_FILE
-        assert marker.is_file(), ".runsight-project marker was not created"
 
-    def test_marker_contains_valid_yaml_with_base_path(self, tmp_path: Path):
-        scaffold_project(tmp_path)
-        marker = tmp_path / MARKER_FILE
-        data = yaml.safe_load(marker.read_text(encoding="utf-8"))
-        assert isinstance(data, dict)
-        assert "base_path" in data
-        assert data["base_path"] == "."
-
-    def test_marker_contains_version(self, tmp_path: Path):
-        scaffold_project(tmp_path)
-        marker = tmp_path / MARKER_FILE
-        data = yaml.safe_load(marker.read_text(encoding="utf-8"))
-        assert "version" in data
-        assert data["version"] == 1
-
-    def test_creates_custom_workflows_dir(self, tmp_path: Path):
-        scaffold_project(tmp_path)
         assert (tmp_path / "custom" / "workflows").is_dir()
-
-    def test_creates_custom_souls_dir(self, tmp_path: Path):
-        scaffold_project(tmp_path)
         assert (tmp_path / "custom" / "souls").is_dir()
+        assert (tmp_path / ".gitignore").is_file()
+        assert not (tmp_path / ".runsight-project").exists()
 
-    def test_creates_gitignore(self, tmp_path: Path):
+    def test_existing_git_repo_keeps_tracked_legacy_marker_and_no_gitignore(self, tmp_path: Path):
+        legacy_marker = _init_existing_repo(tmp_path)
+
         scaffold_project(tmp_path)
+
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert not (tmp_path / ".gitignore").exists()
+        assert _git(tmp_path, "status", "--short").stdout.strip() == ""
+
+    def test_existing_gitignore_without_repo_gets_canvas_and_runsight_patterns(
+        self, tmp_path: Path
+    ):
         gitignore = tmp_path / ".gitignore"
-        assert gitignore.is_file(), ".gitignore was not created"
+        gitignore.write_text("node_modules/\n.env\n", encoding="utf-8")
 
-    def test_gitignore_contains_canvas_pattern(self, tmp_path: Path):
         scaffold_project(tmp_path)
+
+        assert gitignore.read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n.canvas/\n.runsight/\n"
+        )
+
+    def test_existing_git_repo_keeps_gitignore_contents_unchanged(self, tmp_path: Path):
         gitignore = tmp_path / ".gitignore"
-        content = gitignore.read_text(encoding="utf-8")
-        assert ".canvas/" in content
-
-    def test_returns_without_error(self, tmp_path: Path):
-        """scaffold_project should not raise on an empty directory."""
-        scaffold_project(tmp_path)  # should not raise
-
-
-class TestScaffoldIdempotent:
-    """Existing project -> no modification (idempotent)."""
-
-    def _setup_full_project(self, base: Path):
-        """Create a complete project structure."""
-        marker = base / MARKER_FILE
-        marker.write_text(yaml.dump({"version": 1, "base_path": "."}), encoding="utf-8")
-        (base / "custom" / "workflows").mkdir(parents=True)
-        (base / "custom" / "souls").mkdir(parents=True)
-        gitignore = base / ".gitignore"
-        gitignore.write_text("# existing gitignore\n.canvas/\n.runsight/\n", encoding="utf-8")
-
-    def test_marker_not_overwritten(self, tmp_path: Path):
-        self._setup_full_project(tmp_path)
-        marker = tmp_path / MARKER_FILE
-        original_content = marker.read_text(encoding="utf-8")
-        original_mtime = marker.stat().st_mtime
+        _init_existing_repo(
+            tmp_path,
+            gitignore_text="node_modules/\n.env\n",
+        )
 
         scaffold_project(tmp_path)
 
-        assert marker.read_text(encoding="utf-8") == original_content
-        assert marker.stat().st_mtime == original_mtime
+        assert gitignore.read_text(encoding="utf-8") == "node_modules/\n.env\n"
+        assert _git(tmp_path, "status", "--short").stdout.strip() == ""
 
-    def test_gitignore_not_overwritten(self, tmp_path: Path):
-        self._setup_full_project(tmp_path)
-        gitignore = tmp_path / ".gitignore"
-        original_content = gitignore.read_text(encoding="utf-8")
-
+    def test_scaffold_is_idempotent_for_existing_workspace(self, tmp_path: Path):
+        sentinel = tmp_path / "custom" / "workflows" / "sentinel.yaml"
         scaffold_project(tmp_path)
-
-        assert gitignore.read_text(encoding="utf-8") == original_content
-
-    def test_existing_dirs_preserved(self, tmp_path: Path):
-        self._setup_full_project(tmp_path)
-        # Add a file inside workflows to prove dir is not recreated/wiped
-        sentinel = tmp_path / "custom" / "workflows" / "my_workflow.yaml"
-        sentinel.write_text("name: test")
+        sentinel.write_text("name: sentinel\n", encoding="utf-8")
 
         scaffold_project(tmp_path)
 
         assert sentinel.is_file()
-        assert sentinel.read_text() == "name: test"
+        assert sentinel.read_text(encoding="utf-8") == "name: sentinel\n"
 
+    def test_gitfile_repo_keeps_tracked_marker_and_does_not_create_gitignore_or_commit(
+        self, tmp_path: Path
+    ):
+        worktree_root = _init_gitfile_worktree(tmp_path)
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
 
-class TestScaffoldPartialStructure:
-    """Partial structure -> fills in missing pieces."""
+        scaffold_project(worktree_root)
 
-    def test_missing_souls_dir_created(self, tmp_path: Path):
-        """Has marker and workflows, but no souls dir."""
-        (tmp_path / MARKER_FILE).write_text(
-            yaml.dump({"version": 1, "base_path": "."}), encoding="utf-8"
-        )
-        (tmp_path / "custom" / "workflows").mkdir(parents=True)
-        (tmp_path / ".gitignore").write_text(".canvas/\n")
-
-        scaffold_project(tmp_path)
-
-        assert (tmp_path / "custom" / "souls").is_dir()
-
-    def test_missing_workflows_dir_created(self, tmp_path: Path):
-        """Has marker and souls, but no workflows dir."""
-        (tmp_path / MARKER_FILE).write_text(
-            yaml.dump({"version": 1, "base_path": "."}), encoding="utf-8"
-        )
-        (tmp_path / "custom" / "souls").mkdir(parents=True)
-
-        scaffold_project(tmp_path)
-
-        assert (tmp_path / "custom" / "workflows").is_dir()
-
-    def test_missing_gitignore_created(self, tmp_path: Path):
-        """Has marker and dirs, but no .gitignore."""
-        (tmp_path / MARKER_FILE).write_text(
-            yaml.dump({"version": 1, "base_path": "."}), encoding="utf-8"
-        )
-        (tmp_path / "custom" / "workflows").mkdir(parents=True)
-        (tmp_path / "custom" / "souls").mkdir(parents=True)
-
-        scaffold_project(tmp_path)
-
-        gitignore = tmp_path / ".gitignore"
-        assert gitignore.is_file()
-        assert ".canvas/" in gitignore.read_text(encoding="utf-8")
-
-    def test_missing_marker_created(self, tmp_path: Path):
-        """Has dirs and gitignore, but no marker."""
-        (tmp_path / "custom" / "workflows").mkdir(parents=True)
-        (tmp_path / "custom" / "souls").mkdir(parents=True)
-        (tmp_path / ".gitignore").write_text(".canvas/\n")
-
-        scaffold_project(tmp_path)
-
-        marker = tmp_path / MARKER_FILE
-        assert marker.is_file()
-
-    def test_existing_gitignore_not_overwritten_in_partial(self, tmp_path: Path):
-        """Has custom .gitignore with user content; scaffold must not touch it."""
-        user_gitignore_content = "# My custom ignores\nnode_modules/\n.env\n.runsight/\n"
-        (tmp_path / ".gitignore").write_text(user_gitignore_content, encoding="utf-8")
-
-        scaffold_project(tmp_path)
-
-        assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == user_gitignore_content
-
-
-class TestScaffoldLogging:
-    """Startup log message indicates whether project was created or found."""
-
-    def test_logs_created_message_for_new_project(self, tmp_path: Path, caplog):
-        with caplog.at_level("INFO"):
-            scaffold_project(tmp_path)
-        assert any("Created" in msg or "created" in msg.lower() for msg in caplog.messages), (
-            "Expected a log message containing 'Created' for a new project"
-        )
-
-    def test_logs_found_message_for_existing_project(self, tmp_path: Path, caplog):
-        # Set up a full project first
-        (tmp_path / MARKER_FILE).write_text(
-            yaml.dump({"version": 1, "base_path": "."}), encoding="utf-8"
-        )
-        (tmp_path / "custom" / "workflows").mkdir(parents=True)
-        (tmp_path / "custom" / "souls").mkdir(parents=True)
-        (tmp_path / ".gitignore").write_text(".canvas/\n")
-
-        with caplog.at_level("INFO"):
-            scaffold_project(tmp_path)
-        assert any(
-            "Found" in msg or "found" in msg.lower() or "existing" in msg.lower()
-            for msg in caplog.messages
-        ), "Expected a log message indicating existing project was found"
+        assert (worktree_root / ".git").is_file()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert not (worktree_root / ".gitignore").exists()
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
 
 
 class TestEnsureProjectDirsUsesScaffold:
-    """Application startup should use the same project scaffolding path."""
-
-    def test_startup_scaffolds_marker_gitignore_and_git_repo(self, tmp_path: Path):
+    def test_startup_creates_runsight_and_canvas_without_marker(self, tmp_path: Path):
         settings = Settings(base_path=str(tmp_path))
 
         ensure_project_dirs(settings)
 
-        assert (tmp_path / MARKER_FILE).is_file()
-        assert (tmp_path / ".gitignore").is_file()
-        assert (tmp_path / ".git").is_dir()
-        assert (tmp_path / "custom" / "workflows" / ".canvas").is_dir()
         assert (tmp_path / ".runsight").is_dir()
+        assert (tmp_path / "custom" / "workflows" / ".canvas").is_dir()
+        assert (tmp_path / "custom" / "souls").is_dir()
+        assert not (tmp_path / ".runsight-project").exists()
+
+    def test_startup_keeps_existing_git_repo_clean_when_tracking_legacy_marker(
+        self, tmp_path: Path
+    ):
+        legacy_marker = _init_existing_repo(
+            tmp_path,
+            gitignore_text="node_modules/\n",
+        )
+        settings = Settings(base_path=str(tmp_path))
+
+        ensure_project_dirs(settings)
+
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "node_modules/\n"
+        assert _git(tmp_path, "status", "--short").stdout.strip() == ""
+
+    def test_startup_keeps_gitfile_repo_clean_when_tracking_marker_and_gitignore(
+        self, tmp_path: Path
+    ):
+        worktree_root = _init_gitfile_worktree(
+            tmp_path,
+            gitignore_text="node_modules/\n.env\n",
+        )
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
+        settings = Settings(base_path=str(worktree_root))
+
+        ensure_project_dirs(settings)
+
+        assert (worktree_root / ".git").is_file()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (worktree_root / ".gitignore").read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n"
+        )
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
+
+
+class TestFullApiStartupPreservesGitWorkspaceCleanliness:
+    def test_full_api_startup_keeps_existing_git_repo_clean(self, tmp_path: Path, monkeypatch):
+        legacy_marker = _init_existing_repo(
+            tmp_path,
+            gitignore_text="node_modules/\n",
+        )
+
+        _start_api(tmp_path, monkeypatch)
+
+        assert (tmp_path / ".runsight").is_dir()
+        assert (tmp_path / "custom" / "workflows" / ".canvas").is_dir()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == "node_modules/\n"
+        assert _git(tmp_path, "status", "--short").stdout.strip() == ""
+
+    def test_full_api_startup_keeps_gitfile_repo_clean_and_head_unchanged(
+        self, tmp_path: Path, monkeypatch
+    ):
+        worktree_root = _init_gitfile_worktree(
+            tmp_path,
+            gitignore_text="node_modules/\n.env\n",
+        )
+        legacy_marker = worktree_root / ".runsight-project"
+        head_before = _git(worktree_root, "rev-parse", "HEAD").stdout.strip()
+
+        _start_api(worktree_root, monkeypatch)
+
+        assert (worktree_root / ".git").is_file()
+        assert (worktree_root / ".runsight").is_dir()
+        assert (worktree_root / "custom" / "workflows" / ".canvas").is_dir()
+        assert legacy_marker.exists()
+        assert legacy_marker.read_text(encoding="utf-8") == "version: 1\nbase_path: .\n"
+        assert (worktree_root / ".gitignore").read_text(encoding="utf-8") == (
+            "node_modules/\n.env\n"
+        )
+        assert _git(worktree_root, "rev-parse", "HEAD").stdout.strip() == head_before
+        assert _git(worktree_root, "status", "--short").stdout.strip() == ""
+
+    def test_full_api_startup_keeps_existing_warning_loggers_enabled(
+        self, tmp_path: Path, monkeypatch, caplog
+    ):
+        _init_existing_repo(tmp_path)
+
+        _start_api(tmp_path, monkeypatch)
+
+        malformed_provider = tmp_path / "custom" / "providers" / "broken.yaml"
+        malformed_provider.parent.mkdir(parents=True, exist_ok=True)
+        malformed_provider.write_text("not: valid: yaml: {{{}}", encoding="utf-8")
+
+        repo = FileSystemProviderRepo(base_path=str(tmp_path))
+        with caplog.at_level(logging.WARNING):
+            repo.list_all()
+
+        assert any("Failed to load provider file" in record.message for record in caplog.records)

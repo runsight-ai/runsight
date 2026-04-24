@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import yaml as yaml_mod
 from pydantic import ValidationError as PydanticValidationError
 from runsight_core.identity import EntityKind, EntityRef
-from runsight_core.workflow_input_schema import effective_workflow_input_schema
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 from ...data.filesystem.workflow_repo import WorkflowRepository
@@ -14,6 +13,7 @@ from ...domain.errors import GitError, InputValidationError, WorkflowNotFound
 from ...domain.value_objects import WorkflowEntity
 
 logger = logging.getLogger(__name__)
+_CANVAS_BYTES_UNAVAILABLE = object()
 
 if TYPE_CHECKING:
     from ...data.repositories.run_read_model import RunReadModel
@@ -23,10 +23,18 @@ def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
 
 
+def _read_canvas_sidecar_bytes(workflow_repo: Any, workflow_id: str) -> bytes | None | object:
+    reader = getattr(type(workflow_repo), "_read_canvas_sidecar_bytes", None)
+    if not callable(reader):
+        return _CANVAS_BYTES_UNAVAILABLE
+    return workflow_repo._read_canvas_sidecar_bytes(workflow_id)
+
+
 def _workflow_input_schema(raw_yaml: str | None) -> dict[str, dict[str, Any]] | None:
     if not raw_yaml:
         return None
     try:
+        from runsight_core.workflow_input_schema import effective_workflow_input_schema
         from runsight_core.yaml.schema import RunsightWorkflowFile as WorkflowFileModel
 
         data = yaml_mod.safe_load(raw_yaml)
@@ -52,6 +60,8 @@ def _workflow_input_schema_for_simulation(
     workflow_id: str,
 ) -> dict[str, dict[str, Any]]:
     try:
+        from runsight_core.workflow_input_schema import effective_workflow_input_schema
+
         inputs = effective_workflow_input_schema(file_def)
     except ValueError as exc:
         _raise_workflow_input_validation(
@@ -224,6 +234,11 @@ class WorkflowService:
             raise RuntimeError("Git service not configured")
 
         previous = self.workflow_repo.get_by_id(workflow_id)
+        previous_canvas_bytes = (
+            _read_canvas_sidecar_bytes(self.workflow_repo, workflow_id)
+            if previous is not None
+            else _CANVAS_BYTES_UNAVAILABLE
+        )
         try:
             self.update_workflow(workflow_id, draft)
         except InputValidationError:
@@ -237,13 +252,20 @@ class WorkflowService:
             commit_hash = self.git_service.commit_to_branch("main", files, message)
         except Exception:
             if previous is not None:
-                rollback = {"yaml": previous.yaml}
-                if previous.canvas_state is not None:
-                    if hasattr(previous.canvas_state, "model_dump"):
-                        rollback["canvas_state"] = previous.canvas_state.model_dump()
-                    else:
-                        rollback["canvas_state"] = previous.canvas_state
-                self.workflow_repo.update(workflow_id, rollback)
+                if previous_canvas_bytes is not _CANVAS_BYTES_UNAVAILABLE:
+                    self.workflow_repo.update(workflow_id, {"yaml": previous.yaml})
+                    self.workflow_repo._restore_canvas_sidecar(workflow_id, previous_canvas_bytes)
+                else:
+                    previous_canvas_state = getattr(previous, "canvas_state", None)
+                    rollback = {"yaml": previous.yaml}
+                    if previous_canvas_state is not None:
+                        if hasattr(previous_canvas_state, "model_dump"):
+                            rollback["canvas_state"] = previous_canvas_state.model_dump()
+                        else:
+                            rollback["canvas_state"] = previous_canvas_state
+                    self.workflow_repo.update(workflow_id, rollback)
+                    if previous_canvas_state is None:
+                        self.workflow_repo._restore_canvas_sidecar(workflow_id, None)
             raise
         return {"hash": commit_hash, "message": message}
 

@@ -724,6 +724,70 @@ def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fa
     git_service.commit_to_branch.assert_called_once()
 
 
+def test_commit_workflow_restores_exact_corrupt_canvas_sidecar_bytes_when_git_commit_fails(
+    tmp_path,
+):
+    """Rollback must preserve the pre-save sidecar bytes even when JSON parsing failed."""
+    from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
+
+    workflow_id = "wf_corrupt_canvas"
+    original_yaml = (
+        f"id: {workflow_id}\n"
+        "kind: workflow\n"
+        "version: '1.0'\n"
+        "blocks: {}\n"
+        "workflow:\n"
+        "  name: Original Flow\n"
+        "  entry: start\n"
+        "  transitions: []\n"
+    )
+    updated_yaml = (
+        f"id: {workflow_id}\n"
+        "kind: workflow\n"
+        "version: '1.0'\n"
+        "blocks: {}\n"
+        "workflow:\n"
+        "  name: Updated Flow\n"
+        "  entry: start\n"
+        "  transitions: []\n"
+    )
+    original_canvas = {
+        "nodes": [{"id": "node-original", "position": {"x": 10, "y": 20}}],
+        "edges": [],
+        "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
+        "selected_node_id": "node-original",
+        "canvas_mode": "dag",
+    }
+    updated_canvas = {
+        "nodes": [{"id": "node-updated", "position": {"x": 30, "y": 40}}],
+        "edges": [],
+        "viewport": {"x": 3.0, "y": 4.0, "zoom": 0.8},
+        "selected_node_id": "node-updated",
+        "canvas_mode": "dag",
+    }
+    corrupt_canvas_bytes = b'{"nodes":[{"id":"node-original"}],\n'
+
+    workflow_repo = WorkflowRepository(base_path=str(tmp_path))
+    workflow_repo.create({"yaml": original_yaml, "canvas_state": original_canvas})
+    canvas_path = workflow_repo._canvas_path(workflow_id)
+    canvas_path.write_bytes(corrupt_canvas_bytes)
+
+    git_service = Mock()
+    git_service.commit_to_branch.side_effect = RuntimeError("git failed")
+    workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
+
+    with pytest.raises(RuntimeError, match="git failed"):
+        workflow_service.commit_workflow(
+            workflow_id,
+            {"yaml": updated_yaml, "canvas_state": updated_canvas},
+            "Save workflow to main",
+        )
+
+    assert workflow_repo._get_path(workflow_id).read_text() == original_yaml
+    assert canvas_path.exists()
+    assert canvas_path.read_bytes() == corrupt_canvas_bytes
+
+
 # --- delete_workflow ---
 
 

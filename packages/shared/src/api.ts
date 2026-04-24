@@ -1209,6 +1209,29 @@ export interface components {
             /** Exit Handle */
             exit_handle?: string | null;
         };
+        /** RunRegressionIssue */
+        RunRegressionIssue: {
+            /** Node Id */
+            node_id: string;
+            /** Node Name */
+            node_name: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "assertion_regression" | "cost_spike" | "quality_drop";
+            /** Delta */
+            delta?: {
+                [key: string]: unknown;
+            };
+        };
+        /** RunRegressionsResponse */
+        RunRegressionsResponse: {
+            /** Count */
+            count: number;
+            /** Issues */
+            issues?: components["schemas"]["RunRegressionIssue"][];
+        };
         /** RunResponse */
         RunResponse: {
             /** Id */
@@ -1722,6 +1745,33 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** WorkflowRegressionIssue */
+        WorkflowRegressionIssue: {
+            /** Node Id */
+            node_id: string;
+            /** Node Name */
+            node_name: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "assertion_regression" | "cost_spike" | "quality_drop";
+            /** Delta */
+            delta?: {
+                [key: string]: unknown;
+            };
+            /** Run Id */
+            run_id?: string | null;
+            /** Run Number */
+            run_number?: number | null;
+        };
+        /** WorkflowRegressionsResponse */
+        WorkflowRegressionsResponse: {
+            /** Count */
+            count: number;
+            /** Issues */
+            issues?: components["schemas"]["WorkflowRegressionIssue"][];
+        };
         /** WorkflowResponse */
         WorkflowResponse: {
             /**
@@ -2166,7 +2216,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RunRegressionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2498,7 +2548,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["WorkflowRegressionsResponse"];
                 };
             };
             /** @description Validation Error */

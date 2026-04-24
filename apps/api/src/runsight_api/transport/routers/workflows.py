@@ -13,6 +13,7 @@ from ..schemas.workflows import (
     WorkflowCreate,
     WorkflowDeleteResponse,
     WorkflowEnabledUpdate,
+    WorkflowRegressionsResponse,
     WorkflowListResponse,
     WorkflowResponse,
     WorkflowSimulationCreate,
@@ -103,13 +104,13 @@ async def patch_workflow_enabled(
     return WorkflowResponse(**w.model_dump())
 
 
-@router.get("/{id}/regressions")
+@router.get("/{id}/regressions", response_model=WorkflowRegressionsResponse)
 async def get_workflow_regressions(
     id: str,
     eval_service: EvalService = Depends(get_eval_service),
 ):
     result = eval_service.get_workflow_regressions(id)
-    return result
+    return WorkflowRegressionsResponse.model_validate(result)
 
 
 @router.delete("/{id}", response_model=WorkflowDeleteResponse)

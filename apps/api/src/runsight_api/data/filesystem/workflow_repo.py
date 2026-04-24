@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import io
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
@@ -51,6 +53,21 @@ class WorkflowRepository:
     @staticmethod
     def _atomic_write(path: Path, content: str) -> None:
         _shared_atomic_write(path, content)
+
+    @staticmethod
+    def _atomic_write_bytes(path: Path, content: bytes) -> None:
+        parent = path.parent
+        fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(content)
+            os.rename(tmp_path, str(path))
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _get_path(self, workflow_id: str) -> Path:
         decoded = unquote(workflow_id)
@@ -131,6 +148,23 @@ class WorkflowRepository:
         raise InputValidationError(
             message or f"Failed to persist canvas sidecar for workflow {_workflow_ref(workflow_id)}"
         )
+
+    def _restore_canvas_sidecar(self, stem: str, previous_content: Optional[bytes | str]) -> None:
+        canvas_path = self._canvas_path(stem)
+        if previous_content is None:
+            if canvas_path.exists():
+                canvas_path.unlink()
+            return
+        if isinstance(previous_content, bytes):
+            self._atomic_write_bytes(canvas_path, previous_content)
+            return
+        self._atomic_write(canvas_path, previous_content)
+
+    def _read_canvas_sidecar_bytes(self, stem: str) -> Optional[bytes]:
+        path = self._canvas_path(stem)
+        if not path.exists():
+            return None
+        return path.read_bytes()
 
     def _write_canvas_sidecar_or_raise(self, stem: str, canvas_state: Any) -> None:
         self._raise_sidecar_write_failure(
@@ -332,9 +366,14 @@ class WorkflowRepository:
             raise InputValidationError("YAML content is not a mapping")
 
         previous_yaml = yaml_path.read_text(encoding="utf-8")
+        previous_canvas_content = None
+        canvas_state_update = data.get("canvas_state")
+        if canvas_state_update is not None:
+            canvas_path = self._canvas_path(workflow_id)
+            if canvas_path.exists():
+                previous_canvas_content = canvas_path.read_bytes()
         self._atomic_write(yaml_path, yaml_content)
 
-        canvas_state_update = data.get("canvas_state")
         try:
             if canvas_state_update is not None:
                 self._write_canvas_sidecar_or_raise(workflow_id, canvas_state_update)
@@ -344,6 +383,13 @@ class WorkflowRepository:
             except Exception:
                 logger.warning(
                     "Failed to restore workflow YAML after sidecar failure: %s", workflow_id
+                )
+            try:
+                self._restore_canvas_sidecar(workflow_id, previous_canvas_content)
+            except Exception:
+                logger.warning(
+                    "Failed to restore workflow canvas sidecar after sidecar failure: %s",
+                    workflow_id,
                 )
             raise
 

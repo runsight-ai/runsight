@@ -41,7 +41,7 @@ from runsight_core.yaml.schema import SoulDef
 # ---------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_CUSTOM_SOULS = _REPO_ROOT / "custom" / "souls"
+_CUSTOM_SOULS = _REPO_ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "souls"
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import time
 from typing import TYPE_CHECKING
 
 from ...data.repositories.run_repo import RunRepository
+from ...domain.entities.run import RegressionIssueType
 from ...transport.schemas.dashboard import AttentionItem
 from ...transport.schemas.eval import (
     EvalDelta,
@@ -141,7 +142,7 @@ class EvalService:
                                 (
                                     node.created_at,
                                     AttentionItem(
-                                        type="assertion_regression",
+                                        type=RegressionIssueType.assertion_regression,
                                         title=title,
                                         description="Eval passed on the previous production run and failed on this one.",
                                         run_id=run.id,
@@ -162,7 +163,7 @@ class EvalService:
                                     (
                                         node.created_at,
                                         AttentionItem(
-                                            type="cost_spike",
+                                            type=RegressionIssueType.cost_spike,
                                             title=title,
                                             description=f"Cost increased {cost_pct:.0f}% vs the previous production run.",
                                             run_id=run.id,
@@ -179,7 +180,7 @@ class EvalService:
                                     (
                                         node.created_at,
                                         AttentionItem(
-                                            type="quality_drop",
+                                            type=RegressionIssueType.quality_drop,
                                             title=title,
                                             description=f"Eval score dropped {abs(score_delta):.2f} vs the previous production run.",
                                             run_id=run.id,
@@ -215,7 +216,7 @@ class EvalService:
                 {
                     "node_id": current_node.node_id,
                     "node_name": getattr(current_node, "node_name", current_node.node_id),
-                    "type": "assertion_regression",
+                    "type": RegressionIssueType.assertion_regression,
                     "delta": {
                         "eval_passed": False,
                         "baseline_eval_passed": True,
@@ -233,7 +234,7 @@ class EvalService:
                     {
                         "node_id": current_node.node_id,
                         "node_name": getattr(current_node, "node_name", current_node.node_id),
-                        "type": "cost_spike",
+                        "type": RegressionIssueType.cost_spike,
                         "delta": {
                             "cost_pct": cost_pct,
                             "baseline_cost": previous_node.cost_usd,
@@ -249,7 +250,7 @@ class EvalService:
                     {
                         "node_id": current_node.node_id,
                         "node_name": getattr(current_node, "node_name", current_node.node_id),
-                        "type": "quality_drop",
+                        "type": RegressionIssueType.quality_drop,
                         "delta": {
                             "score_delta": score_delta,
                         },
