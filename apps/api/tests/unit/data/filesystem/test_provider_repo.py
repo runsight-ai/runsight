@@ -260,6 +260,14 @@ class TestListAll:
         """list_all must return an empty list when no providers exist."""
         assert repo.list_all() == []
 
+    def test_list_all_raises_for_non_directory_provider_path(self, repo, providers_dir):
+        """An invalid custom/providers path must surface as a filesystem error."""
+        providers_dir.parent.mkdir(parents=True, exist_ok=True)
+        providers_dir.write_text("not a directory")
+
+        with pytest.raises(NotADirectoryError, match="custom/providers"):
+            repo.list_all()
+
     def test_list_all_returns_all_providers(self, repo):
         """list_all must return every provider in the directory."""
         repo.create(_make_provider_data(name="OpenAI", type="openai"))

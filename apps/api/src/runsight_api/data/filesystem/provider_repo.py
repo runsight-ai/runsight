@@ -96,8 +96,10 @@ class FileSystemProviderRepo:
 
         Skips malformed YAML files with a logged warning.
         """
-        if not self.providers_dir.is_dir():
+        if not self.providers_dir.exists():
             return []
+        if not self.providers_dir.is_dir():
+            raise NotADirectoryError(f"Expected '{self.providers_dir}' to be a directory")
 
         providers: List[ProviderEntity] = []
         for file in sorted(self.providers_dir.glob("*.yaml")):
