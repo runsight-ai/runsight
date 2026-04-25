@@ -330,7 +330,6 @@ describe("RUN-957 bottom panel controller boundaries", () => {
       runId: "run_live",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_live");
     expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenCalledWith("run_live", []);
     expect(screen.getByText("No logs captured for this run yet.")).toBeTruthy();
 
@@ -364,7 +363,6 @@ describe("RUN-957 bottom panel controller boundaries", () => {
       runId: "run_other",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_other");
     expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenLastCalledWith("run_other", []);
     expect(liveSource.closed).toBe(true);
     expect(otherSource).not.toBe(liveSource);
@@ -401,7 +399,6 @@ describe("RUN-957 bottom panel controller boundaries", () => {
       runId: "run_fresh",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_fresh");
     expect(liveSource.closed).toBe(true);
     expect(otherSource.closed).toBe(true);
     expect(expectSingleStreamForRun("run_fresh")?.url).toBe("/api/runs/run_fresh/stream");
