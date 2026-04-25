@@ -14,6 +14,7 @@ interface TagInputProps {
 
 export function TagInput({ label, placeholder, tags, onChange }: TagInputProps) {
   const [inputValue, setInputValue] = React.useState("")
+  const inputId = React.useId()
 
   function addTag(value: string) {
     const trimmed = value.trim()
@@ -40,7 +41,7 @@ export function TagInput({ label, placeholder, tags, onChange }: TagInputProps) 
 
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
       <div
         className={cn(
           "flex flex-wrap gap-1.5 border border-border-default rounded-md px-2 py-1.5",
@@ -61,6 +62,7 @@ export function TagInput({ label, placeholder, tags, onChange }: TagInputProps) 
           </Badge>
         ))}
         <Input
+          id={inputId}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
