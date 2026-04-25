@@ -2,30 +2,17 @@ import * as React from "react"
 import { act } from "react"
 import { describe, expect, it, vi } from "vitest"
 
-import { fireEvent, render, screen } from "../../../test/testUtils"
+import { createUser, mockClipboard, render, screen } from "../../../test/testUtils"
 import { CodeBlock, SyntaxKey, SyntaxString, SyntaxValue } from "../code-block"
-
-function setClipboard(writeText?: (text: string) => Promise<void>) {
-  Object.defineProperty(window.navigator, "clipboard", {
-    configurable: true,
-    value: writeText ? { writeText } : undefined,
-  })
-}
 
 function getCopyButtons() {
   return screen.getAllByRole("button", { name: "Copy" }) as HTMLButtonElement[]
 }
 
-async function click(button: HTMLButtonElement) {
-  await act(async () => {
-    fireEvent.click(button)
-  })
-}
-
 describe("CodeBlock copy behavior (RUN-966)", () => {
   it("copies the clicked block's tokenized code content", async () => {
-    const writeText = vi.fn<(_: string) => Promise<void>>().mockResolvedValue(undefined)
-    setClipboard(writeText)
+    const user = createUser()
+    const { writeText } = mockClipboard()
 
     render(
       <div>
@@ -45,15 +32,15 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
     )
 
     const [, secondButton] = getCopyButtons()
-    await click(secondButton)
+    await user.click(secondButton)
 
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText).toHaveBeenLastCalledWith("name: beta\nmodel: gpt-5.4")
   })
 
   it("copies numbered string content without visual line numbers", async () => {
-    const writeText = vi.fn<(_: string) => Promise<void>>().mockResolvedValue(undefined)
-    setClipboard(writeText)
+    const user = createUser()
+    const { writeText } = mockClipboard()
 
     render(
       <CodeBlock language="yaml" numbered>
@@ -62,13 +49,14 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
     )
 
     const [button] = getCopyButtons()
-    await click(button)
+    await user.click(button)
 
     expect(writeText).toHaveBeenCalledWith("first: one\nsecond: two")
   })
 
   it("does not enter copied state when clipboard is unavailable", async () => {
-    setClipboard()
+    const user = createUser()
+    mockClipboard({ available: false })
 
     render(
       <CodeBlock language="yaml">
@@ -79,14 +67,16 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
     const [button] = getCopyButtons()
     expect(button.textContent).toBe("⧉")
 
-    await click(button)
+    await user.click(button)
 
     expect(button.textContent).toBe("⧉")
   })
 
   it("does not enter copied state when clipboard write rejects", async () => {
-    const writeText = vi.fn<(_: string) => Promise<void>>().mockRejectedValue(new Error("denied"))
-    setClipboard(writeText)
+    const user = createUser()
+    const { writeText } = mockClipboard({
+      writeText: vi.fn<(_: string) => Promise<void>>().mockRejectedValue(new Error("denied")),
+    })
 
     render(
       <CodeBlock language="yaml">
@@ -95,7 +85,7 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
     )
 
     const [button] = getCopyButtons()
-    await click(button)
+    await user.click(button)
 
     expect(writeText).toHaveBeenCalledWith("name: rejected")
     expect(button.textContent).toBe("⧉")
@@ -104,8 +94,8 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
   it("refreshes the copied-state timer on repeated successful clicks", async () => {
     vi.useFakeTimers()
 
-    const writeText = vi.fn<(_: string) => Promise<void>>().mockResolvedValue(undefined)
-    setClipboard(writeText)
+    const user = createUser({ advanceTimers: vi.advanceTimersByTimeAsync })
+    mockClipboard()
 
     render(
       <CodeBlock language="yaml">
@@ -115,14 +105,14 @@ describe("CodeBlock copy behavior (RUN-966)", () => {
 
     const [button] = getCopyButtons()
 
-    await click(button)
+    await user.click(button)
     expect(button.textContent).toBe("✓")
 
     await act(async () => {
       vi.advanceTimersByTime(1500)
     })
 
-    await click(button)
+    await user.click(button)
 
     await act(async () => {
       vi.advanceTimersByTime(600)
