@@ -1,0 +1,29 @@
+apps/gui/src/features/surface/useSurfaceBottomPanelAudit.ts
+  80e26f8307a16289 26
+apps/gui/src/features/surface/useSurfaceBottomPanelLogs.ts
+  80e26f8307a16289 2,7,26,36,53,93-100,156,503-506
+apps/gui/src/features/surface/SurfaceBottomPanel.tsx
+  80e26f8307a16289 99
+pyproject.toml
+  80e26f8307a16289 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2a2a75e7f209488da18e35fecf59fcbfd7149fe5",
+  "prompts": {
+    "80e26f8307a16289": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dc3cd-1ab1-75e0-bcf6-f23e11f1e7a1",
+        "model": "gpt-5.4"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 43,
+      "total_deletions": 9,
+      "accepted_lines": 43,
+      "overriden_lines": 0
+    }
+  }
+}
