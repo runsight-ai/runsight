@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ContextAuditEventV1Schema, type ContextAuditEventV1 } from "@runsight/shared/zod";
 
 import { type RunLogResponse } from "@/api/runs";
 import { useRunLogs } from "@/queries/runs";
 import { useCanvasStore } from "@/store/canvas";
+import { useContextAuditStore } from "@/store/contextAudit";
 
 import { mapSSEEventToStoreAction } from "./useRunStream";
 
@@ -21,6 +23,7 @@ type UseSurfaceBottomPanelLogsParams = {
 };
 
 type StreamEventType =
+  | "context_resolution"
   | "log_entry"
   | "replay"
   | "node_started"
@@ -30,6 +33,7 @@ type StreamEventType =
   | "run_failed";
 
 const STREAM_EVENT_TYPES: StreamEventType[] = [
+  "context_resolution",
   "log_entry",
   "replay",
   "node_started",
@@ -46,6 +50,7 @@ export function useSurfaceBottomPanelLogs({ runId }: UseSurfaceBottomPanelLogsPa
   const setNodeStatus = useCanvasStore((state) => state.setNodeStatus);
   const setActiveRunId = useCanvasStore((state) => state.setActiveRunId);
   const setRunCost = useCanvasStore((state) => state.setRunCost);
+  const appendAuditEvents = useContextAuditStore((state) => state.appendEvents);
   const { data: logData } = useRunLogs(runId ?? "", undefined, {
     refetchInterval: undefined,
   });
@@ -84,6 +89,14 @@ export function useSurfaceBottomPanelLogs({ runId }: UseSurfaceBottomPanelLogsPa
         }
 
         const data = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
+
+        if (eventType === "context_resolution") {
+          const auditEvent = parseContextAuditEvent(data);
+          if (auditEvent?.run_id === runId) {
+            appendAuditEvents(runId, [auditEvent]);
+          }
+          return;
+        }
 
         if (eventType === "log_entry") {
           const normalizedEntry = withOrigin(normalizeLogEntry(data as RunLogResponse), "live");
@@ -140,7 +153,7 @@ export function useSurfaceBottomPanelLogs({ runId }: UseSurfaceBottomPanelLogsPa
       disposed = true;
       source.close();
     };
-  }, [runId, setActiveRunId, setNodeStatus, setRunCost]);
+  }, [appendAuditEvents, runId, setActiveRunId, setNodeStatus, setRunCost]);
 
   const entries = useMemo(
     () => mergeLogEntries(logData?.items ?? [], liveEntries),
@@ -486,4 +499,9 @@ function structuredEventDedupeKey(
     default:
       return null;
   }
+}
+
+function parseContextAuditEvent(payload: Record<string, unknown>): ContextAuditEventV1 | null {
+  const parsed = ContextAuditEventV1Schema.safeParse(payload);
+  return parsed.success ? parsed.data : null;
 }
