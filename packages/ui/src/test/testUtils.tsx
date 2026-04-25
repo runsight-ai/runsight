@@ -5,7 +5,7 @@ import {
   render as testingLibraryRender,
   type RenderOptions,
 } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { PointerEventsCheckLevel } from "@testing-library/user-event";
 
 function TestProviders({ children }: { children: ReactNode }) {
   return <>{children}</>;
@@ -20,10 +20,15 @@ export function render(
 
 export function createUser(options?: {
   advanceTimers?: ((delay: number) => Promise<void> | void) | undefined;
+  pointerEventsCheck?: "default" | "never";
 }) {
   if (!options?.advanceTimers) {
     return userEvent.setup({
       delay: null,
+      pointerEventsCheck:
+        options?.pointerEventsCheck === "never"
+          ? PointerEventsCheckLevel.Never
+          : undefined,
     });
   }
 

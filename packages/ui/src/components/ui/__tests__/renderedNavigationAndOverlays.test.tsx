@@ -7,7 +7,9 @@ import { Button } from "../button";
 import {
   Dialog,
   DialogBody,
+  DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,16 +17,27 @@ import {
 } from "../dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../dropdown-menu";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "../select";
@@ -33,13 +46,14 @@ import {
   TableBody,
   TableCaption,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableMonoCell,
   TableRow,
 } from "../table";
 import { TabBadge, Tabs, TabsContent, TabsList, TabsTrigger } from "../tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
+import { SoulTip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
 
 function DialogHarness() {
   return (
@@ -48,9 +62,11 @@ function DialogHarness() {
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Workflow settings</DialogTitle>
+          <DialogDescription>Choose how this workflow runs.</DialogDescription>
         </DialogHeader>
         <DialogBody>Dialog body copy</DialogBody>
         <DialogFooter showCloseButton>
+          <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
           <Button>Save</Button>
         </DialogFooter>
       </DialogContent>
@@ -65,7 +81,11 @@ function SelectHarness() {
         <SelectValue placeholder="Select a model" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+        <SelectGroup>
+          <SelectLabel>Hosted models</SelectLabel>
+          <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+        </SelectGroup>
+        <SelectSeparator />
         <SelectItem value="gpt-4o">GPT-4o</SelectItem>
       </SelectContent>
     </Select>
@@ -123,6 +143,12 @@ describe("rendered navigation and overlay contracts", () => {
             <TableMonoCell>run_123</TableMonoCell>
           </TableRow>
         </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell>Total</TableCell>
+            <TableCell>1 run</TableCell>
+          </TableRow>
+        </TableFooter>
       </Table>,
     );
 
@@ -137,6 +163,7 @@ describe("rendered navigation and overlay contracts", () => {
     expect(row.getAttribute("aria-selected")).toBe("true");
     expect(monoCell.className).toContain("font-mono");
     expect(screen.getByText("Recent runs").tagName).toBe("CAPTION");
+    expect(screen.getByText("Total").closest("tfoot")).not.toBeNull();
   });
 
   it("opens dialogs from the trigger and closes them from the built-in footer close affordance", async () => {
@@ -150,11 +177,15 @@ describe("rendered navigation and overlay contracts", () => {
 
     const title = await screen.findByText("Workflow settings");
     const dialog = title.closest("[data-slot='dialog-content']");
+    const overlay = document.body.querySelector("[data-slot='dialog-overlay']");
     const footer = screen.getByText("Save").closest("[data-slot='dialog-footer']");
     const closeButtons = screen.getAllByRole("button", { name: "Close" });
     expect(dialog?.className).toContain("w-(--overlay-width-lg)");
+    expect(overlay).not.toBeNull();
+    expect(screen.getByText("Choose how this workflow runs.")).toBeTruthy();
     expect(screen.getByText("Dialog body copy")).toBeTruthy();
     expect(closeButtons).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
     expect(footer).not.toBeNull();
 
     await user.click(within(footer as HTMLElement).getByRole("button", { name: "Close" }));
@@ -166,6 +197,7 @@ describe("rendered navigation and overlay contracts", () => {
 
   it("selects options through the rendered select trigger and popup", async () => {
     const user = createUser();
+    const popupUser = createUser({ pointerEventsCheck: "never" });
 
     render(<SelectHarness />);
 
@@ -176,9 +208,15 @@ describe("rendered navigation and overlay contracts", () => {
     await user.click(trigger as Element);
 
     const popup = await screen.findByText("GPT-5.4");
-    expect(popup.closest("[data-slot='select-content']")).not.toBeNull();
+    const content = popup.closest("[data-slot='select-content']");
+    expect(content).not.toBeNull();
+    expect(screen.getByText("Hosted models").closest("[data-slot='select-label']")).not.toBeNull();
+    expect(content?.querySelector("[data-slot='select-group']")).not.toBeNull();
+    expect(content?.querySelector("[data-slot='select-separator']")).not.toBeNull();
 
-    await user.click(screen.getByText("GPT-5.4"));
+    const option = popup.closest("[data-slot='select-item']");
+    expect(option).not.toBeNull();
+    await popupUser.click(option as HTMLElement);
 
     await waitFor(() => {
       expect(screen.getByText("GPT-5.4")).toBeTruthy();
@@ -200,12 +238,25 @@ describe("rendered navigation and overlay contracts", () => {
           }
         />
         <DropdownMenuContent>
-          <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Workflow actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
+            <DropdownMenuCheckboxItem checked>Favorite</DropdownMenuCheckboxItem>
+            <DropdownMenuRadioGroup value="canvas">
+              <DropdownMenuRadioItem value="canvas">Canvas mode</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>More actions</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem>Duplicate</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             Open canvas
-            <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
+            <DropdownMenuShortcut>Cmd+K</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>,
@@ -214,16 +265,27 @@ describe("rendered navigation and overlay contracts", () => {
     await user.click(screen.getByRole("button", { name: /Actions/i }));
 
     const rename = await screen.findByText("Rename");
+    const group = screen.getByText("Workflow actions").closest("[data-slot='dropdown-menu-group']");
+    const checkboxItem = screen.getByText("Favorite").closest("[data-slot='dropdown-menu-checkbox-item']");
+    const radioItem = screen.getByText("Canvas mode").closest("[data-slot='dropdown-menu-radio-item']");
+    const subTrigger = screen.getByText("More actions").closest("[data-slot='dropdown-menu-sub-trigger']");
     const destructive = screen.getByText("Delete");
     const shortcutItem = screen.getByText("Open canvas").closest("[data-slot='dropdown-menu-item']");
     const separator = rename
       .closest("[data-slot='dropdown-menu-content']")
       ?.querySelector("[data-slot='dropdown-menu-separator']");
 
+    expect(group).not.toBeNull();
+    expect(checkboxItem?.querySelector("[data-slot='dropdown-menu-checkbox-item-indicator']")).not.toBeNull();
+    expect(radioItem?.querySelector("[data-slot='dropdown-menu-radio-item-indicator']")).not.toBeNull();
+    expect(subTrigger).not.toBeNull();
     expect(separator).not.toBeNull();
     expect(destructive.closest("[data-slot='dropdown-menu-item']")?.getAttribute("data-variant")).toBe("destructive");
-    expect(screen.getByText("⌘K").className).toContain("font-mono");
+    expect(screen.getByText("Cmd+K").className).toContain("font-mono");
     expect(shortcutItem).not.toBeNull();
+
+    await user.hover(subTrigger as HTMLElement);
+    expect(await screen.findByText("Duplicate")).toBeTruthy();
 
     await user.click(rename);
 
@@ -238,10 +300,21 @@ describe("rendered navigation and overlay contracts", () => {
 
     render(
       <TooltipProvider delay={0}>
-        <Tooltip>
-          <TooltipTrigger>Need help</TooltipTrigger>
-          <TooltipContent side="right">Helpful copy</TooltipContent>
-        </Tooltip>
+        <div>
+          <Tooltip>
+            <TooltipTrigger>Need help</TooltipTrigger>
+            <TooltipContent side="right">Helpful copy</TooltipContent>
+          </Tooltip>
+          <SoulTip
+            initial="W"
+            color="hsl(220 70% 50%)"
+            name="writer_main"
+            model="gpt-5.4"
+            provider="OpenAI"
+            prompt="Draft a concise summary."
+            rows={[{ key: "Role", val: "Writer" }]}
+          />
+        </div>
       </TooltipProvider>,
     );
 
@@ -251,6 +324,10 @@ describe("rendered navigation and overlay contracts", () => {
     const popup = content.closest("[data-slot='tooltip-content']");
 
     expect(popup?.className).toContain("pointer-events-none");
+    expect(screen.getByText("W")).toBeTruthy();
+    expect(screen.getByText("writer_main")).toBeTruthy();
+    expect(screen.getByText("OpenAI")).toBeTruthy();
+    expect(screen.getByText("Writer")).toBeTruthy();
 
     await user.unhover(screen.getByRole("button", { name: "Need help" }));
     await waitFor(() => {
