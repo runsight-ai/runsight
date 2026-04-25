@@ -56,7 +56,12 @@ const harness = vi.hoisted(() => ({
       harness.contextAuditStore.activeRunId = runId;
       harness.contextAuditStore.eventsByRun = { [runId]: events };
     }),
-    appendEvents: vi.fn(),
+    appendEvents: vi.fn((runId: string, events: unknown[]) => {
+      harness.contextAuditStore.eventsByRun = {
+        ...harness.contextAuditStore.eventsByRun,
+        [runId]: [...(harness.contextAuditStore.eventsByRun[runId] ?? []), ...events],
+      };
+    }),
     clearRun: vi.fn(),
   },
 }));
@@ -93,47 +98,72 @@ class MockEventSource {
   }
 }
 
-vi.mock("@/queries/runs", () => ({
-  useRuns: (filters?: { workflow_id?: string }) => ({
-    data: {
-      items: filters?.workflow_id
-        ? harness.runs.filter((run) => run.workflow_id === filters.workflow_id)
-        : harness.runs,
+vi.mock("@/queries/runs", async () => {
+  const { useEffect } = await import("react");
+
+  return {
+    useRuns: (filters?: { workflow_id?: string }) => ({
+      data: {
+        items: filters?.workflow_id
+          ? harness.runs.filter((run) => run.workflow_id === filters.workflow_id)
+          : harness.runs,
+      },
+      isLoading: false,
+      isError: false,
+    }),
+    useRunLogs: (runId: string) => ({
+      data: {
+        items: harness.runLogsById[runId] ?? [],
+        total: harness.runLogTotalsById[runId] ?? (harness.runLogsById[runId] ?? []).length,
+      },
+      isLoading: false,
+      isError: false,
+    }),
+    useRunContextAudit: (
+      runId: string,
+      params?: { page_size?: number; node_id?: string },
+    ) => {
+      harness.auditCalls.push({ runId, params });
+      return {
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+      };
     },
-    isLoading: false,
-    isError: false,
-  }),
-  useRunLogs: (runId: string) => ({
-    data: {
-      items: harness.runLogsById[runId] ?? [],
-      total: harness.runLogTotalsById[runId] ?? (harness.runLogsById[runId] ?? []).length,
+    useRunContextAuditStream: (runId: string | null | undefined) => {
+      harness.auditStreamCalls.push(runId);
+
+      useEffect(() => {
+        if (!runId) {
+          return;
+        }
+
+        const source = new EventSource(`/api/runs/${runId}/stream`);
+
+        source.addEventListener("context_resolution", (event) => {
+          const payload = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
+
+          if (payload.run_id === runId) {
+            harness.contextAuditStore.appendEvents(runId, [payload]);
+          }
+        });
+
+        source.addEventListener("run_completed", () => source.close());
+        source.addEventListener("run_failed", () => source.close());
+
+        return () => source.close();
+      }, [runId]);
     },
-    isLoading: false,
-    isError: false,
-  }),
-  useRunContextAudit: (
-    runId: string,
-    params?: { page_size?: number; node_id?: string },
-  ) => {
-    harness.auditCalls.push({ runId, params });
-    return {
-      fetchNextPage: vi.fn(),
-      hasNextPage: false,
-    };
-  },
-  useRunContextAuditStream: (runId: string | null | undefined) => {
-    harness.auditStreamCalls.push(runId);
-  },
-  useRunRegressions: () => ({
-    data: harness.runRegressions,
-    isLoading: false,
-    isError: false,
-  }),
-  useCreateRun: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-  }),
-}));
+    useRunRegressions: () => ({
+      data: harness.runRegressions,
+      isLoading: false,
+      isError: false,
+    }),
+    useCreateRun: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+    }),
+  };
+});
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
@@ -209,6 +239,35 @@ function makeRun(
   };
 }
 
+function makeContextResolutionEvent(runId: string, nodeId: string, sequence: number) {
+  return {
+    schema_version: "context_audit.v1",
+    event: "context_resolution",
+    run_id: runId,
+    workflow_name: "Bottom Panel Workflow",
+    node_id: nodeId,
+    block_type: "linear",
+    access: "declared",
+    mode: "strict",
+    sequence,
+    records: [],
+    resolved_count: 0,
+    denied_count: 0,
+    warning_count: 0,
+    emitted_at: `2026-04-22T13:0${sequence}:00.000Z`,
+  };
+}
+
+function expectSingleStreamForRun(runId: string) {
+  const matching = eventSources.filter(
+    (source) => source.url === `/api/runs/${runId}/stream`,
+  );
+
+  expect(matching).toHaveLength(1);
+
+  return matching[0];
+}
+
 function renderPanel({
   runId = "run_live",
   workflowId = "wf_957",
@@ -263,24 +322,50 @@ afterEach(() => {
 });
 
 describe("RUN-957 bottom panel controller boundaries", () => {
-  it("keeps audit hydration attached to the selected run even when the Audit tab is closed", async () => {
+  it("keeps audit hydration attached to the selected run from one shared stream even when the Audit tab is closed", async () => {
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     expect(harness.auditCalls.at(-1)).toMatchObject({
       runId: "run_live",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_live");
     expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenCalledWith("run_live", []);
+    expect(screen.getByText("No logs captured for this run yet.")).toBeTruthy();
+
+    act(() => {
+      liveSource.emit(
+        "context_resolution",
+        makeContextResolutionEvent("run_live", "draft", 1),
+      );
+    });
+
+    expect(harness.contextAuditStore.appendEvents).toHaveBeenCalledWith("run_live", [
+      expect.objectContaining({
+        run_id: "run_live",
+        node_id: "draft",
+        sequence: 1,
+      }),
+    ]);
+    expect(harness.contextAuditStore.eventsByRun.run_live).toEqual([
+      expect.objectContaining({
+        run_id: "run_live",
+        node_id: "draft",
+        sequence: 1,
+      }),
+    ]);
+    expect(screen.getByText("No logs captured for this run yet.")).toBeTruthy();
 
     await selectRunFromRunsTab("#2");
+    const otherSource = expectSingleStreamForRun("run_other");
 
     expect(harness.auditCalls.at(-1)).toMatchObject({
       runId: "run_other",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_other");
     expect(harness.contextAuditStore.replaceRunEvents).toHaveBeenLastCalledWith("run_other", []);
+    expect(liveSource.closed).toBe(true);
+    expect(otherSource).not.toBe(liveSource);
   });
 
   it("resets selection when the workflow context switches to a different run set", async () => {
@@ -291,8 +376,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     ];
 
     const view = renderPanel({ runId: "run_live", workflowId: "wf_957" });
+    const liveSource = expectSingleStreamForRun("run_live");
 
     await selectRunFromRunsTab("#2");
+    const otherSource = expectSingleStreamForRun("run_other");
     expect(harness.auditCalls.at(-1)).toMatchObject({
       runId: "run_other",
       params: { page_size: 100 },
@@ -312,32 +399,70 @@ describe("RUN-957 bottom panel controller boundaries", () => {
       runId: "run_fresh",
       params: { page_size: 100 },
     });
-    expect(harness.auditStreamCalls.at(-1)).toBe("run_fresh");
-    expect(eventSources.at(-1)?.url).toBe("/api/runs/run_fresh/stream");
+    expect(liveSource.closed).toBe(true);
+    expect(otherSource.closed).toBe(true);
+    expect(expectSingleStreamForRun("run_fresh")?.url).toBe("/api/runs/run_fresh/stream");
   });
 
-  it("clears run-scoped live log buffers when the selected run changes", async () => {
+  it("switches runs by closing the prior shared stream and ignoring stale log and audit events from it", async () => {
     renderPanel();
-
-    expect(eventSources.map((source) => source.url)).toEqual([
-      "/api/runs/run_live/stream",
-    ]);
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("log_entry", {
+      liveSource.emit("log_entry", {
         timestamp: "2026-04-22T12:00:00.000Z",
         level: "info",
         message: "live only from run_live",
       });
+      liveSource.emit(
+        "context_resolution",
+        makeContextResolutionEvent("run_live", "draft", 1),
+      );
     });
 
     expect(screen.getByText("live only from run_live")).toBeTruthy();
 
     await selectRunFromRunsTab("#2");
+    const otherSource = expectSingleStreamForRun("run_other");
 
-    expect(eventSources[0].closed).toBe(true);
-    expect(eventSources.at(-1)?.url).toBe("/api/runs/run_other/stream");
+    expect(liveSource.closed).toBe(true);
     expect(screen.queryByText("live only from run_live")).toBeNull();
+
+    act(() => {
+      liveSource.emit("log_entry", {
+        timestamp: "2026-04-22T12:01:00.000Z",
+        level: "error",
+        message: "stale event after switch",
+      });
+      liveSource.emit(
+        "context_resolution",
+        makeContextResolutionEvent("run_live", "stale", 2),
+      );
+    });
+
+    expect(screen.queryByText("stale event after switch")).toBeNull();
+    expect(harness.contextAuditStore.eventsByRun.run_other ?? []).toEqual([]);
+
+    act(() => {
+      otherSource.emit(
+        "context_resolution",
+        makeContextResolutionEvent("run_other", "review", 1),
+      );
+      otherSource.emit("log_entry", {
+        timestamp: "2026-04-22T12:02:00.000Z",
+        level: "info",
+        message: "live only from run_other",
+      });
+    });
+
+    expect(harness.contextAuditStore.eventsByRun.run_other).toEqual([
+      expect.objectContaining({
+        run_id: "run_other",
+        node_id: "review",
+        sequence: 1,
+      }),
+    ]);
+    expect(screen.getByText("live only from run_other")).toBeTruthy();
   });
 
   it("normalizes replayed history and live log entries into one visible row", () => {
@@ -350,9 +475,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     ];
 
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("log_entry", {
+      liveSource.emit("log_entry", {
         timestamp: "2026-04-22T13:00:00.000Z",
         level: "info",
         message: "Node draft started",
@@ -372,9 +498,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     ];
 
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("log_entry", {
+      liveSource.emit("log_entry", {
         timestamp: "2024-04-22T13:00:00.000Z",
         level: "info",
         message: "Node draft started",
@@ -386,9 +513,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
   it("renders replay-only lifecycle payloads when fetched history is empty", () => {
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         event: "block_start",
         block_id: "draft",
       });
@@ -399,9 +527,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
   it("drops replay placeholders once canonical log history arrives", () => {
     const view = renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         id: 1,
         timestamp: "2026-04-22T13:01:00.000Z",
         event: "block_start",
@@ -436,15 +565,16 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
   it("keeps unmatched replay history visible when the fetched log page is partial", () => {
     const view = renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         id: 1,
         timestamp: "2026-04-22T13:01:00.000Z",
         event: "block_start",
         block_id: "draft",
       });
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         id: 2,
         timestamp: "2026-04-22T13:02:00.000Z",
         event: "block_complete",
@@ -478,15 +608,16 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
   it("keeps repeated lifecycle occurrences for the same block distinct", () => {
     const view = renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         id: 11,
         timestamp: "2026-04-22T13:01:00.000Z",
         event: "block_start",
         block_id: "draft",
       });
-      eventSources[0].emit("replay", {
+      liveSource.emit("replay", {
         id: 12,
         timestamp: "2026-04-22T13:02:00.000Z",
         event: "block_start",
@@ -527,9 +658,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
   it("shows the existing no-log empty state after switching to a run with no history", async () => {
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("log_entry", {
+      liveSource.emit("log_entry", {
         timestamp: "2026-04-22T13:05:00.000Z",
         level: "info",
         message: "stale streamed entry",
@@ -554,9 +686,10 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     ];
 
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("log_entry", {
+      liveSource.emit("log_entry", {
         timestamp: "2026-04-22T13:09:00.000Z",
         level: "info",
         message: "live only from run_live",
@@ -565,8 +698,9 @@ describe("RUN-957 bottom panel controller boundaries", () => {
 
     expect(screen.getByText("live only from run_live")).toBeTruthy();
 
-    const staleSource = eventSources[0];
+    const staleSource = liveSource;
     await selectRunFromRunsTab("#2");
+    const otherSource = expectSingleStreamForRun("run_other");
 
     expect(staleSource.closed).toBe(true);
     expect(screen.getByText("historical entry from run_other")).toBeTruthy();
@@ -583,7 +717,7 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     expect(screen.queryByText("stale event after switch")).toBeNull();
 
     act(() => {
-      eventSources.at(-1)?.emit("log_entry", {
+      otherSource.emit("log_entry", {
         timestamp: "2026-04-22T13:12:00.000Z",
         level: "info",
         message: "live only from run_other",
@@ -594,21 +728,41 @@ describe("RUN-957 bottom panel controller boundaries", () => {
     expect(screen.getByText("live only from run_other")).toBeTruthy();
   });
 
-  it("retargets the audit tab to the new run without keeping terminal log entries from the old run", async () => {
+  it("closes the shared stream on terminal events while keeping audit data, logs, and canvas updates in sync", async () => {
     const user = userEvent.setup();
     renderPanel();
+    const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      eventSources[0].emit("run_completed", {
+      liveSource.emit(
+        "context_resolution",
+        makeContextResolutionEvent("run_live", "draft", 1),
+      );
+      liveSource.emit("node_completed", {
+        node_id: "draft",
+        cost_usd: 0.75,
+      });
+      liveSource.emit("run_completed", {
         run_id: "run_live",
         total_cost_usd: 1.23,
       });
     });
 
-    expect(eventSources[0].closed).toBe(true);
+    expect(harness.contextAuditStore.eventsByRun.run_live).toEqual([
+      expect.objectContaining({
+        run_id: "run_live",
+        node_id: "draft",
+        sequence: 1,
+      }),
+    ]);
+    expect(harness.canvasStore.setNodeStatus).toHaveBeenCalledWith("draft", "completed");
+    expect(harness.canvasStore.setRunCost).toHaveBeenCalledWith(1.23);
+    expect(harness.canvasStore.setActiveRunId).toHaveBeenCalledWith(null);
+    expect(liveSource.closed).toBe(true);
     expect(screen.getByText("Run completed. Total cost: $1.2300")).toBeTruthy();
 
     await selectRunFromRunsTab("#2");
+    expectSingleStreamForRun("run_other");
     await user.click(screen.getByTestId("workflow-audit-tab"));
 
     expect(harness.auditCalls.at(-1)).toMatchObject({
