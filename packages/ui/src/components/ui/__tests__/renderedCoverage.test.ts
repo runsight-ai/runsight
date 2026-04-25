@@ -37,6 +37,12 @@ const canonicalSuites = [
 
 type CanonicalSuite = (typeof canonicalSuites)[number];
 
+const canonicalSuitePaths: Record<CanonicalSuite, string> = {
+  "renderedDisplayContracts.test.tsx": resolve(__dirname, "renderedDisplayContracts.test.tsx"),
+  "renderedFormControls.test.tsx": resolve(__dirname, "renderedFormControls.test.tsx"),
+  "renderedNavigationAndOverlays.test.tsx": resolve(__dirname, "renderedNavigationAndOverlays.test.tsx"),
+};
+
 const renderedBaselineCoverage = {
   "./RunStatusDot": {
     suite: "renderedDisplayContracts.test.tsx",
@@ -220,6 +226,225 @@ const nonComponentNamedExports = {
   "./button": ["buttonVariants"],
 } satisfies Partial<Record<CoveredSubpath, readonly string[]>>;
 
+interface RenderedEvidence {
+  assertionToken: string;
+  testName: string;
+}
+
+function evidence(testName: string, assertionToken: string): RenderedEvidence {
+  return { testName, assertionToken };
+}
+
+const renderedComponentEvidence: Record<CoveredSubpath, Record<string, RenderedEvidence>> = {
+  "./RunStatusDot": {
+    RunStatusDot: evidence("maps runtime run statuses onto observable status-dot presentation", "title='running'"),
+  },
+  "./badge": {
+    Badge: evidence("renders badge variants and the decorative badge dot", "data-slot='badge-dot'"),
+    BadgeDot: evidence("renders badge variants and the decorative badge dot", "data-slot='badge-dot'"),
+  },
+  "./button": {
+    Button: evidence("disables buttons and exposes a spinner when loading", "aria-busy"),
+  },
+  "./card": {
+    Card: evidence("renders card composition slots and raised interactive styling", "data-slot='card-footer'"),
+    CardAction: evidence("renders card composition slots and raised interactive styling", "data-slot='card-footer'"),
+    CardContent: evidence("renders card composition slots and raised interactive styling", "data-slot='card-content'"),
+    CardDescription: evidence("renders card composition slots and raised interactive styling", "Everything looks healthy."),
+    CardFooter: evidence("renders card composition slots and raised interactive styling", "data-slot='card-footer'"),
+    CardHeader: evidence("renders card composition slots and raised interactive styling", "data-slot='card-header'"),
+    CardTitle: evidence("renders card composition slots and raised interactive styling", "Workflow health"),
+  },
+  "./dialog": {
+    Dialog: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Workflow settings",
+    ),
+    DialogBody: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Dialog body copy",
+    ),
+    DialogClose: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Cancel",
+    ),
+    DialogContent: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "data-slot='dialog-content'",
+    ),
+    DialogDescription: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Choose how this workflow runs.",
+    ),
+    DialogFooter: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "data-slot='dialog-footer'",
+    ),
+    DialogHeader: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Workflow settings",
+    ),
+    DialogOverlay: evidence("renders public portal and overlay exports inside their primitive roots", "dialog-overlay"),
+    DialogPortal: evidence(
+      "renders public portal and overlay exports inside their primitive roots",
+      "Manual dialog portal content",
+    ),
+    DialogTitle: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Workflow settings",
+    ),
+    DialogTrigger: evidence(
+      "opens dialogs from the trigger and closes them from the built-in footer close affordance",
+      "Open dialog",
+    ),
+  },
+  "./dropdown-menu": {
+    DropdownMenu: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Actions",
+    ),
+    DropdownMenuCheckboxItem: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "dropdown-menu-checkbox-item-indicator",
+    ),
+    DropdownMenuContent: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "data-slot='dropdown-menu-content'",
+    ),
+    DropdownMenuGroup: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "data-slot='dropdown-menu-group'",
+    ),
+    DropdownMenuItem: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Rename",
+    ),
+    DropdownMenuLabel: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Workflow actions",
+    ),
+    DropdownMenuPortal: evidence(
+      "renders public portal and overlay exports inside their primitive roots",
+      "Manual dropdown portal content",
+    ),
+    DropdownMenuRadioGroup: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Canvas mode",
+    ),
+    DropdownMenuRadioItem: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "dropdown-menu-radio-item-indicator",
+    ),
+    DropdownMenuSeparator: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "data-slot='dropdown-menu-separator'",
+    ),
+    DropdownMenuShortcut: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Cmd+K",
+    ),
+    DropdownMenuSub: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "More actions",
+    ),
+    DropdownMenuSubContent: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Duplicate",
+    ),
+    DropdownMenuSubTrigger: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "data-slot='dropdown-menu-sub-trigger'",
+    ),
+    DropdownMenuTrigger: evidence(
+      "opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items",
+      "Actions",
+    ),
+  },
+  "./empty-state": {
+    EmptyState: evidence("renders empty states with optional description and action affordances", "empty-state-icon"),
+  },
+  "./input": {
+    Input: evidence("associates labels with inputs and exposes input state variants", "api-key"),
+  },
+  "./key-value": {
+    KeyValue: evidence(
+      "renders key-value pairs with monospace values by default and body text when requested",
+      "run_123",
+    ),
+    KeyValueList: evidence(
+      "renders key-value pairs with monospace values by default and body text when requested",
+      "OpenAI",
+    ),
+  },
+  "./label": {
+    Label: evidence("associates labels with inputs and exposes input state variants", "API key"),
+  },
+  "./select": {
+    Select: evidence("selects options through the rendered select trigger and popup", "Select a model"),
+    SelectContent: evidence("selects options through the rendered select trigger and popup", "data-slot='select-content'"),
+    SelectGroup: evidence("selects options through the rendered select trigger and popup", "data-slot='select-group'"),
+    SelectItem: evidence("selects options through the rendered select trigger and popup", "data-slot='select-item'"),
+    SelectLabel: evidence("selects options through the rendered select trigger and popup", "Hosted models"),
+    SelectScrollDownButton: evidence("renders public select scroll arrow exports when kept mounted", "manual-down-arrow"),
+    SelectScrollUpButton: evidence("renders public select scroll arrow exports when kept mounted", "manual-up-arrow"),
+    SelectSeparator: evidence("selects options through the rendered select trigger and popup", "select-separator"),
+    SelectTrigger: evidence("selects options through the rendered select trigger and popup", "select-trigger"),
+    SelectValue: evidence("selects options through the rendered select trigger and popup", "Select a model"),
+  },
+  "./segmented-control": {
+    SegmentedControl: evidence(
+      "marks the active segmented control option and ignores disabled option clicks",
+      "aria-pressed",
+    ),
+  },
+  "./skeleton": {
+    Skeleton: evidence("renders skeleton variants as busy loading placeholders", "aria-busy"),
+  },
+  "./slider": {
+    Slider: evidence("exposes range slider semantics and forwards value changes", "Temperature"),
+  },
+  "./stat-card": {
+    StatCard: evidence("renders stat cards with inferred and explicit delta tones", "stat-card-delta"),
+  },
+  "./status-dot": {
+    StatusDot: evidence("renders status dots with the requested tone and animation contract", "data-slot='status-dot'"),
+  },
+  "./switch": {
+    Switch: evidence("toggles switches from their visible label and keeps label text rendered", "aria-checked"),
+  },
+  "./table": {
+    Table: evidence("renders table wrappers, sortable headers, and monospace data cells", "data-slot='table-container'"),
+    TableBody: evidence("renders table wrappers, sortable headers, and monospace data cells", "Completed"),
+    TableCaption: evidence("renders table wrappers, sortable headers, and monospace data cells", "Recent runs"),
+    TableCell: evidence("renders table wrappers, sortable headers, and monospace data cells", "1 run"),
+    TableFooter: evidence("renders table wrappers, sortable headers, and monospace data cells", "tfoot"),
+    TableHead: evidence("renders table wrappers, sortable headers, and monospace data cells", "aria-sort"),
+    TableHeader: evidence("renders table wrappers, sortable headers, and monospace data cells", "columnheader"),
+    TableMonoCell: evidence("renders table wrappers, sortable headers, and monospace data cells", "run_123"),
+    TableRow: evidence("renders table wrappers, sortable headers, and monospace data cells", "aria-selected"),
+  },
+  "./tag-input": {
+    TagInput: evidence("adds, deduplicates, and removes tags through the rendered tag-input surface", "Remove alpha"),
+  },
+  "./tabs": {
+    TabBadge: evidence("switches tabs through the rendered trigger and panel surface", "font-mono"),
+    Tabs: evidence("switches tabs through the rendered trigger and panel surface", "Overview content"),
+    TabsContent: evidence("switches tabs through the rendered trigger and panel surface", "Runs content"),
+    TabsList: evidence("switches tabs through the rendered trigger and panel surface", "tablist"),
+    TabsTrigger: evidence("switches tabs through the rendered trigger and panel surface", "aria-selected"),
+  },
+  "./textarea": {
+    Textarea: evidence("renders textarea code and auto-resize styling contracts", "line two"),
+  },
+  "./tooltip": {
+    SoulTip: evidence("shows tooltip content on hover and keeps the popup non-interactive", "writer_main"),
+    Tooltip: evidence("shows tooltip content on hover and keeps the popup non-interactive", "Need help"),
+    TooltipContent: evidence("shows tooltip content on hover and keeps the popup non-interactive", "Helpful copy"),
+    TooltipProvider: evidence("shows tooltip content on hover and keeps the popup non-interactive", "Helpful copy"),
+    TooltipTrigger: evidence("shows tooltip content on hover and keeps the popup non-interactive", "Need help"),
+  },
+};
+
 function readRetainedComponentExports() {
   const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")) as {
     exports?: Record<string, unknown>;
@@ -236,6 +461,24 @@ function readRuntimeComponentNames(subpath: CoveredSubpath) {
   return Object.keys(componentModules[subpath])
     .filter((exportName) => !ignoredExports.has(exportName))
     .sort();
+}
+
+const suiteSourceCache = new Map<CanonicalSuite, string>();
+
+function readSuiteSource(suite: CanonicalSuite) {
+  const cachedSource = suiteSourceCache.get(suite);
+
+  if (cachedSource) {
+    return cachedSource;
+  }
+
+  const source = readFileSync(canonicalSuitePaths[suite], "utf8");
+  suiteSourceCache.set(suite, source);
+  return source;
+}
+
+function hasRenderedJsxTag(source: string, componentName: string) {
+  return new RegExp(`<${componentName}(?:[\\s>/])`).test(source);
 }
 
 describe("RUN-977 rendered component coverage structure", () => {
@@ -265,6 +508,68 @@ describe("RUN-977 rendered component coverage structure", () => {
 
     expect(uncoveredComponents).toEqual([]);
     expect(staleComponents).toEqual([]);
+  });
+
+  it("requires explicit rendered assertion evidence for every public component export", () => {
+    const missingEvidence = Object.entries(renderedBaselineCoverage).flatMap(
+      ([subpath, assignment]) => {
+        const evidence = renderedComponentEvidence[subpath as CoveredSubpath];
+
+        return assignment.components
+          .filter((componentName) => !evidence[componentName])
+          .map((componentName) => `${subpath} -> ${componentName}`);
+      },
+    );
+    const staleEvidence = Object.entries(renderedComponentEvidence).flatMap(
+      ([subpath, evidence]) => {
+        const coveredComponents = new Set(renderedBaselineCoverage[subpath as CoveredSubpath].components);
+
+        return Object.keys(evidence)
+          .filter((componentName) => !coveredComponents.has(componentName))
+          .map((componentName) => `${subpath} -> ${componentName}`);
+      },
+    );
+    const missingRenderedTags = Object.entries(renderedBaselineCoverage).flatMap(
+      ([subpath, assignment]) => {
+        const source = readSuiteSource(assignment.suite);
+
+        return assignment.components
+          .filter((componentName) => !hasRenderedJsxTag(source, componentName))
+          .map((componentName) => `${subpath} -> ${componentName}`);
+      },
+    );
+    const missingTestNames = Object.entries(renderedBaselineCoverage).flatMap(
+      ([subpath, assignment]) => {
+        const source = readSuiteSource(assignment.suite);
+        const evidence = renderedComponentEvidence[subpath as CoveredSubpath];
+
+        return assignment.components
+          .filter((componentName) => {
+            const componentEvidence = evidence[componentName];
+            return componentEvidence && !source.includes(`it("${componentEvidence.testName}"`);
+          })
+          .map((componentName) => `${subpath} -> ${componentName}`);
+      },
+    );
+    const missingAssertionTokens = Object.entries(renderedBaselineCoverage).flatMap(
+      ([subpath, assignment]) => {
+        const source = readSuiteSource(assignment.suite);
+        const evidence = renderedComponentEvidence[subpath as CoveredSubpath];
+
+        return assignment.components
+          .filter((componentName) => {
+            const componentEvidence = evidence[componentName];
+            return componentEvidence && !source.includes(componentEvidence.assertionToken);
+          })
+          .map((componentName) => `${subpath} -> ${componentName}`);
+      },
+    );
+
+    expect(missingEvidence).toEqual([]);
+    expect(staleEvidence).toEqual([]);
+    expect(missingRenderedTags).toEqual([]);
+    expect(missingTestNames).toEqual([]);
+    expect(missingAssertionTokens).toEqual([]);
   });
 
   it("keeps rendered component coverage grouped by the canonical baseline suites", () => {

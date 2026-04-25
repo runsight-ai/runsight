@@ -12,6 +12,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogOverlay,
+  DialogPortal,
   DialogTitle,
   DialogTrigger,
 } from "../dialog";
@@ -29,6 +31,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuPortal,
   DropdownMenuTrigger,
 } from "../dropdown-menu";
 import {
@@ -37,6 +40,8 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
   SelectSeparator,
   SelectTrigger,
   SelectValue,
@@ -87,6 +92,21 @@ function SelectHarness() {
         </SelectGroup>
         <SelectSeparator />
         <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function SelectScrollArrowHarness() {
+  return (
+    <Select open>
+      <SelectTrigger>
+        <SelectValue placeholder="Select a model" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectScrollUpButton keepMounted className="manual-up-arrow" />
+        <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+        <SelectScrollDownButton keepMounted className="manual-down-arrow" />
       </SelectContent>
     </Select>
   );
@@ -195,6 +215,28 @@ describe("rendered navigation and overlay contracts", () => {
     });
   });
 
+  it("renders public portal and overlay exports inside their primitive roots", () => {
+    render(
+      <div>
+        <Dialog open>
+          <DialogPortal keepMounted data-testid="manual-dialog-portal">
+            <DialogOverlay forceRender />
+            <div>Manual dialog portal content</div>
+          </DialogPortal>
+        </Dialog>
+        <DropdownMenu open>
+          <DropdownMenuPortal keepMounted data-testid="manual-dropdown-portal">
+            <div>Manual dropdown portal content</div>
+          </DropdownMenuPortal>
+        </DropdownMenu>
+      </div>,
+    );
+
+    expect(screen.getByText("Manual dialog portal content")).toBeTruthy();
+    expect(screen.getByText("Manual dropdown portal content")).toBeTruthy();
+    expect(document.body.querySelector("[data-slot='dialog-overlay']")).not.toBeNull();
+  });
+
   it("selects options through the rendered select trigger and popup", async () => {
     const user = createUser();
     const popupUser = createUser({ pointerEventsCheck: "never" });
@@ -222,6 +264,23 @@ describe("rendered navigation and overlay contracts", () => {
       expect(screen.getByText("GPT-5.4")).toBeTruthy();
     });
     expect(screen.queryByText("Select a model")).toBeNull();
+  });
+
+  it("renders public select scroll arrow exports when kept mounted", async () => {
+    render(<SelectScrollArrowHarness />);
+
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-slot='select-scroll-up-button']")).not.toBeNull();
+      expect(document.body.querySelector("[data-slot='select-scroll-down-button']")).not.toBeNull();
+    });
+
+    const scrollUp = document.body.querySelector("[data-slot='select-scroll-up-button']");
+    const scrollDown = document.body.querySelector("[data-slot='select-scroll-down-button']");
+
+    expect(scrollUp?.className).toContain("manual-up-arrow");
+    expect(scrollUp?.getAttribute("aria-hidden")).toBe("true");
+    expect(scrollDown?.className).toContain("manual-down-arrow");
+    expect(scrollDown?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("opens dropdown menus, preserves separator/shortcut structure, and invokes clicked items", async () => {
