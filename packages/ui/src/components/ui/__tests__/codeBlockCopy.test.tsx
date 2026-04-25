@@ -1,17 +1,9 @@
-// @vitest-environment jsdom
-
 import * as React from "react"
 import { act } from "react"
-import { createRoot, type Root } from "react-dom/client"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
+import { fireEvent, render, screen } from "../../../test/testUtils"
 import { CodeBlock, SyntaxKey, SyntaxString, SyntaxValue } from "../code-block"
-
-let container: HTMLDivElement
-let root: Root | null = null
-
-;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true
 
 function setClipboard(writeText?: (text: string) => Promise<void>) {
   Object.defineProperty(window.navigator, "clipboard", {
@@ -20,39 +12,15 @@ function setClipboard(writeText?: (text: string) => Promise<void>) {
   })
 }
 
-function render(element: React.ReactElement) {
-  root = createRoot(container)
-
-  act(() => {
-    root?.render(element)
-  })
-}
-
 function getCopyButtons() {
-  return Array.from(container.querySelectorAll('button[aria-label="Copy"]')) as HTMLButtonElement[]
+  return screen.getAllByRole("button", { name: "Copy" }) as HTMLButtonElement[]
 }
 
 async function click(button: HTMLButtonElement) {
   await act(async () => {
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    fireEvent.click(button)
   })
 }
-
-beforeEach(() => {
-  container = document.createElement("div")
-  document.body.appendChild(container)
-})
-
-afterEach(() => {
-  act(() => {
-    root?.unmount()
-  })
-
-  root = null
-  container.remove()
-  vi.restoreAllMocks()
-  vi.useRealTimers()
-})
 
 describe("CodeBlock copy behavior (RUN-966)", () => {
   it("copies the clicked block's tokenized code content", async () => {
