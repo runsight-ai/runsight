@@ -94,6 +94,18 @@ function getDataRow() {
   return row;
 }
 
+function getCellByColumn(row: HTMLElement, columnName: string): HTMLElement {
+  const headerIndex = screen
+    .getAllByRole("columnheader")
+    .findIndex((header) => header.textContent?.trim() === columnName);
+
+  expect(headerIndex).toBeGreaterThanOrEqual(0);
+  const cell = within(row).getAllByRole("cell")[headerIndex];
+  expect(cell).toBeTruthy();
+
+  return cell;
+}
+
 beforeEach(() => {
   mocks.onRowClick.mockReset();
   mocks.clipboardWriteText.mockReset();
@@ -106,6 +118,33 @@ beforeEach(() => {
 });
 
 describe("RUN-924 surface run input history", () => {
+  it("renders api run history source as API without displaying request provenance metadata", () => {
+    renderSurfaceRunsTable(
+      makeRun({
+        id: "run_api_940",
+        source: "api",
+        source_correlation_id: "req-surface-940",
+        source_metadata: {
+          authorization: "Bearer surface-secret-940",
+          idempotency_key: "idem-surface-940",
+        },
+      } as Partial<RunResponse>),
+    );
+
+    const row = getDataRow();
+    const sourceCell = getCellByColumn(row, "Source");
+    const apiBadge = within(sourceCell).getByText("API");
+
+    expect(sourceCell.textContent).toBe("API");
+    expect(apiBadge.className).toContain("whitespace-nowrap");
+
+    const renderedText = row.textContent ?? "";
+    expect(renderedText).not.toContain("req-surface-940");
+    expect(renderedText).not.toContain("idem-surface-940");
+    expect(renderedText).not.toContain("Bearer");
+    expect(renderedText).not.toContain("surface-secret-940");
+  });
+
   it("shows the stored snapshot preview and ignores later workflow schema defaults", () => {
     renderSurfaceRunsTable(
       makeRun({
