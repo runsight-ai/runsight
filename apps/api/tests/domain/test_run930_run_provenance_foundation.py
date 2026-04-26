@@ -42,6 +42,31 @@ def _migration_sources() -> list[tuple[Path, str]]:
     ]
 
 
+def _deferred_persistence_hits(names: set[str]) -> list[str]:
+    """Find deferred persistence names while allowing existing token metrics."""
+    allowed_token_metrics = {"tokens", "total_tokens"}
+    deferred_terms = (
+        "webhook",
+        "schedule",
+        "scheduler",
+        "trigger",
+        "delivery",
+        "idempotency",
+    )
+    hits = []
+    for name in sorted(names):
+        lowered = name.lower()
+        if any(term in lowered for term in deferred_terms):
+            hits.append(name)
+        elif "token" in lowered and lowered not in allowed_token_metrics:
+            hits.append(name)
+    return hits
+
+
+def _migration_identifiers(source: str) -> set[str]:
+    return set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", source))
+
+
 def _mock_run(
     run_id: str,
     *,
@@ -80,9 +105,10 @@ def _mock_node(
 class TestRun930AlembicMigrationContract:
     def test_migration_adds_direct_api_provenance_columns_and_indexes_only(self) -> None:
         """RUN-930 must add direct API provenance without deferred trigger/idempotency storage."""
+        all_migration_sources = _migration_sources()
         provenance_migrations = [
             (path, source)
-            for path, source in _migration_sources()
+            for path, source in all_migration_sources
             if "source_metadata" in source or "source_correlation_id" in source
         ]
         assert provenance_migrations, "Expected a RUN-930 migration for direct API provenance"
@@ -103,36 +129,34 @@ class TestRun930AlembicMigrationContract:
             normalized,
         ), "Expected an index over (workflow_id, source, created_at)"
 
-        forbidden_terms = {
-            "idempotency_key",
-            "webhook",
-            "schedule",
-            "scheduler",
-            "trigger",
-            "delivery",
-            "token",
-        }
-        found = {term for term in forbidden_terms if term in combined.lower()}
-        assert not found, (
-            f"RUN-930 migration must not include deferred persistence: {sorted(found)}"
+        all_migration_identifiers = set()
+        for _, source in all_migration_sources:
+            all_migration_identifiers.update(_migration_identifiers(source))
+        deferred_hits = _deferred_persistence_hits(all_migration_identifiers)
+        assert deferred_hits == [], (
+            "RUN-930 migration surface must not include deferred persistence identifiers: "
+            f"{deferred_hits}"
         )
 
 
-class TestRun930NoIdempotencyPersistenceSurface:
-    def test_run_model_table_and_response_fields_do_not_expose_idempotency(self) -> None:
-        """RUN-930 must leave no idempotency persistence or serialization surface."""
+class TestRun930PersistenceSurfaceContract:
+    def test_provenance_fields_exist_without_deferred_persistence_surfaces(self) -> None:
+        """RUN-930 provenance must exist without webhook/schedule/idempotency persistence."""
         from runsight_api.domain.entities.run import Run
         from runsight_api.transport.schemas.runs import RunResponse
 
         run_model_fields = set(Run.model_fields)
         run_table_columns = {column.name for column in Run.__table__.columns}
         response_fields = set(RunResponse.model_fields)
-        all_field_names = run_model_fields | run_table_columns | response_fields
 
-        idempotency_fields = sorted(
-            field_name for field_name in all_field_names if "idempotency" in field_name.lower()
-        )
-        assert idempotency_fields == []
+        required_provenance_fields = {"source_metadata", "source_correlation_id"}
+        assert required_provenance_fields.issubset(run_model_fields)
+        assert required_provenance_fields.issubset(run_table_columns)
+        assert required_provenance_fields.issubset(response_fields)
+
+        all_surface_names = run_model_fields | run_table_columns | response_fields
+        deferred_hits = _deferred_persistence_hits(all_surface_names)
+        assert deferred_hits == []
 
 
 class TestRun930RunEntityProvenance:
