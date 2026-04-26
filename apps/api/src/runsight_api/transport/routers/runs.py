@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
@@ -36,6 +36,78 @@ from ..schemas.runs import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
+
+_DROP_SOURCE_METADATA_VALUE = object()
+
+
+def _is_unsafe_source_metadata_response_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_").replace(" ", "_")
+    compact = "".join(part for part in normalized if part.isalnum())
+    segments = {segment for segment in normalized.split("_") if segment}
+
+    if any(
+        marker in compact
+        for marker in (
+            "apikey",
+            "authorization",
+            "authentication",
+            "idempotency",
+            "password",
+            "rawbody",
+            "rawinput",
+            "rawinputs",
+            "secret",
+            "token",
+            "workflowinputs",
+        )
+    ):
+        return True
+    return bool(
+        segments
+        & {
+            "auth",
+            "authorization",
+            "authentication",
+            "body",
+            "cookie",
+            "cookies",
+            "header",
+            "headers",
+            "input",
+            "inputs",
+            "password",
+            "raw",
+            "secret",
+            "token",
+        }
+    )
+
+
+def _sanitize_source_metadata_response_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        sanitized: dict[str, Any] = {}
+        for key, nested in value.items():
+            if not isinstance(key, str) or _is_unsafe_source_metadata_response_key(key):
+                continue
+            clean_nested = _sanitize_source_metadata_response_value(nested)
+            if clean_nested is _DROP_SOURCE_METADATA_VALUE or clean_nested in ({}, []):
+                continue
+            sanitized[key] = clean_nested
+        return sanitized
+
+    if isinstance(value, list):
+        sanitized_items = []
+        for item in value:
+            clean_item = _sanitize_source_metadata_response_value(item)
+            if clean_item is _DROP_SOURCE_METADATA_VALUE or clean_item in ({}, []):
+                continue
+            sanitized_items.append(clean_item)
+        return sanitized_items
+
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    return _DROP_SOURCE_METADATA_VALUE
 
 
 def _run_response_field(run, field: str, default):
@@ -129,7 +201,7 @@ def _run_snapshot_field(run, field: str) -> Optional[dict]:
 
 def _run_metadata_field(run) -> dict:
     value = getattr(run, "source_metadata", None)
-    return value if isinstance(value, dict) else {}
+    return _sanitize_source_metadata_response_value(value) if isinstance(value, dict) else {}
 
 
 def _build_run_response(
