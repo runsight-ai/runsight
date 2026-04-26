@@ -23,11 +23,10 @@ type UseSurfaceBottomPanelAuditParams = {
 export function useSurfaceBottomPanelAudit({
   runId,
   useRunContextAudit,
-  useRunContextAuditStream,
+  useRunContextAuditStream: _useRunContextAuditStream,
 }: UseSurfaceBottomPanelAuditParams) {
   const replaceRunEvents = useContextAuditStore((state) => state.replaceRunEvents);
   const contextAuditQuery = useRunContextAudit(runId ?? "", { page_size: 100 });
-  useRunContextAuditStream(runId);
 
   useEffect(() => {
     if (!runId) {

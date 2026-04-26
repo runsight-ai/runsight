@@ -167,58 +167,74 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => harness.queryClient,
 }));
 
-vi.mock("@/queries/runs", () => ({
-  useCreateRun: () => ({
-    mutate: vi.fn(),
-    mutateAsync: vi.fn(),
-    isPending: false,
-  }),
-  useRun: (runId: string) => {
-    harness.runCalls.push(runId);
-    return {
-      data: runId && harness.run?.id === runId ? harness.run : undefined,
-      isLoading: false,
-      isError: false,
-    };
-  },
-  useRunNodes: (runId: string) => {
-    harness.runNodesCalls.push(runId);
-    return {
-      data: runId && harness.run?.id === runId ? harness.runNodes : [],
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    };
-  },
-  useRunLogs: (runId: string) => {
-    harness.runLogsCalls.push(runId);
-    return {
-      data: runId ? { items: harness.runLogs } : { items: [] },
-      isLoading: false,
-      isError: false,
-    };
-  },
-  useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
-  useRunContextAuditStream: () => undefined,
-  useRuns: (filters?: Record<string, unknown>) => {
-    harness.useRunsFilters.push(filters);
-    return {
-      data: { items: harness.runs },
-      isLoading: false,
-      isError: false,
-    };
-  },
-  useRunRegressions: (runId: string) => {
-    harness.runRegressionsCalls.push(runId);
-    return {
-      data: runId ? harness.runRegressions : undefined,
-      isLoading: false,
-      isError: false,
-    };
-  },
-  useCancelRun: () => harness.cancelRun,
-}));
+vi.mock("@/queries/runs", async () => {
+  const { useEffect } = await import("react");
+
+  return {
+    useCreateRun: () => ({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+    }),
+    useRun: (runId: string) => {
+      harness.runCalls.push(runId);
+      return {
+        data: runId && harness.run?.id === runId ? harness.run : undefined,
+        isLoading: false,
+        isError: false,
+      };
+    },
+    useRunNodes: (runId: string) => {
+      harness.runNodesCalls.push(runId);
+      return {
+        data: runId && harness.run?.id === runId ? harness.runNodes : [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      };
+    },
+    useRunLogs: (runId: string) => {
+      harness.runLogsCalls.push(runId);
+      return {
+        data: runId ? { items: harness.runLogs } : { items: [] },
+        isLoading: false,
+        isError: false,
+      };
+    },
+    useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
+    useRunContextAuditStream: (runId: string | null | undefined) => {
+      useEffect(() => {
+        if (!runId) {
+          return;
+        }
+
+        const source = new EventSource(`/api/runs/${runId}/stream`);
+        source.addEventListener("run_completed", () => source.close());
+        source.addEventListener("run_failed", () => source.close());
+
+        return () => source.close();
+      }, [runId]);
+    },
+    useRuns: (filters?: Record<string, unknown>) => {
+      harness.useRunsFilters.push(filters);
+      return {
+        data: { items: harness.runs },
+        isLoading: false,
+        isError: false,
+      };
+    },
+    useRunRegressions: (runId: string) => {
+      harness.runRegressionsCalls.push(runId);
+      return {
+        data: runId ? harness.runRegressions : undefined,
+        isLoading: false,
+        isError: false,
+      };
+    },
+    useCancelRun: () => harness.cancelRun,
+  };
+});
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: (workflowId: string) => {
@@ -515,7 +531,7 @@ describe("WorkflowSurface readonly integration (RUN-782)", () => {
     expect(screen.getByTestId("react-flow-node-node_brain").textContent).toContain("completed");
   });
 
-  it("updates node status from SSE through the shared bottom panel path", async () => {
+  it("updates node status from one shared stream owner through the bottom panel path", async () => {
     setReadonlyFixtures({
       runStatus: "running",
       runNodes: [buildRunNode({ status: "running" })],

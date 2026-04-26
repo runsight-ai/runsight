@@ -91,12 +91,12 @@ function SurfaceBottomPanelContent({
     initialRunId,
     workflowId,
   });
-  const { entries } = useSurfaceBottomPanelLogs({ runId: currentRunId });
   const contextAuditQuery = useSurfaceBottomPanelAudit({
     runId: currentRunId,
     useRunContextAudit,
     useRunContextAuditStream,
   });
+  const { entries } = useSurfaceBottomPanelLogs({ runId: currentRunId });
 
   const count = regressionsData?.count ?? 0;
   const regressionsItems = regressionsData?.issues ?? [];
