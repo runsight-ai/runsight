@@ -61,8 +61,8 @@ describe("rendered form control contracts", () => {
       </div>,
     );
 
-    const input = screen.getByRole("textbox") as HTMLInputElement;
-    const label = screen.getByText("API key").closest("label");
+    const input = screen.getByLabelText(/^API key/) as HTMLInputElement;
+    const label = input.labels?.[0] ?? null;
 
     expect(input.value).toBe("secret");
     expect(input.id).toBe("api-key");
