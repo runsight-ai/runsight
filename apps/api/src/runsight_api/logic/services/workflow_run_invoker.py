@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import copy
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Iterator, Literal, Mapping
+from typing import Any, Literal, Mapping
 
 from ...domain.entities.run import RunStatus, validate_source_metadata
 from ...domain.errors import InputValidationError, WorkflowNotFound
@@ -89,30 +88,15 @@ class WorkflowRunInvoker:
         if admission_failure is not None:
             return admission_failure
 
-        resolved_snapshot = None
         try:
-            resolve_snapshot = getattr(
-                self.execution_service, "resolve_workflow_run_snapshot", None
+            resolved_snapshot = self.execution_service.resolve_workflow_run_snapshot(
+                invocation.workflow_id, branch=invocation.branch
             )
-            if callable(resolve_snapshot):
-                resolved_snapshot = resolve_snapshot(
-                    invocation.workflow_id, branch=invocation.branch
-                )
-                prepared_inputs = self.execution_service.prepare_run_inputs_from_snapshot(
-                    resolved_snapshot,
-                    invocation.inputs,
-                )
-                workflow_snapshot = resolved_snapshot.workflow
-            else:
-                prepared_inputs = self.execution_service.prepare_run_inputs(
-                    invocation.workflow_id,
-                    invocation.inputs,
-                    branch=invocation.branch,
-                )
-                workflow_snapshot = self.execution_service.workflow_snapshot_for_run(
-                    invocation.workflow_id,
-                    branch=invocation.branch,
-                )
+            prepared_inputs = self.execution_service.prepare_run_inputs_from_snapshot(
+                resolved_snapshot,
+                invocation.inputs,
+            )
+            workflow_snapshot = resolved_snapshot.workflow
         except InputValidationError as exc:
             return WorkflowRunInvocationResult.failure(
                 WorkflowRunInvocationFailureCode.workflow_input_validation_failed,
@@ -134,24 +118,12 @@ class WorkflowRunInvoker:
         )
 
         try:
-            with self._temporary_run_update_sink():
-                launch_from_snapshot = getattr(
-                    self.execution_service, "launch_execution_from_snapshot", None
-                )
-                if resolved_snapshot is not None and callable(launch_from_snapshot):
-                    await launch_from_snapshot(
-                        run.id,
-                        run.workflow_id,
-                        prepared_inputs,
-                        snapshot=resolved_snapshot,
-                    )
-                else:
-                    await self.execution_service.launch_execution(
-                        run.id,
-                        run.workflow_id,
-                        prepared_inputs,
-                        branch=invocation.branch,
-                    )
+            await self.execution_service.launch_execution_from_snapshot(
+                run.id,
+                run.workflow_id,
+                prepared_inputs,
+                snapshot=resolved_snapshot,
+            )
         except Exception as exc:
             failed_run = self.run_service.fail_run(run.id, str(exc))
             return WorkflowRunInvocationResult.failure(
@@ -200,21 +172,3 @@ class WorkflowRunInvoker:
             if method is not None:
                 return method(invocation)
         return True
-
-    @contextmanager
-    def _temporary_run_update_sink(self) -> Iterator[None]:
-        execution_run_service = getattr(self.execution_service, "run_service", None)
-        if execution_run_service is not self.run_service or hasattr(self.run_service, "run_repo"):
-            yield
-            return
-
-        self.run_service.run_repo = _RunUpdateSink()
-        try:
-            yield
-        finally:
-            del self.run_service.run_repo
-
-
-class _RunUpdateSink:
-    def update_run(self, run: Any) -> Any:
-        return run

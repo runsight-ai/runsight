@@ -162,6 +162,14 @@ class _AdmissionDecision:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class _ResolvedWorkflowSnapshot:
+    workflow_id: str
+    branch: str
+    workflow: WorkflowEntity | None
+    commit_sha: str
+
+
 class _RuntimeAdmission:
     def __init__(self, *, enabled: bool = True, saturated: bool = False) -> None:
         self.enabled = enabled
@@ -218,31 +226,43 @@ class _RecordingExecutionService:
         self.launch_calls: list[dict[str, Any]] = []
         self.snapshot_calls: list[dict[str, Any]] = []
 
-    def prepare_run_inputs(self, workflow_id: str, inputs: dict[str, Any], *, branch: str | None):
-        self.prepare_calls.append({"workflow_id": workflow_id, "inputs": inputs, "branch": branch})
+    def resolve_workflow_run_snapshot(
+        self, workflow_id: str, *, branch: str
+    ) -> _ResolvedWorkflowSnapshot:
+        self.snapshot_calls.append({"workflow_id": workflow_id, "branch": branch})
+        if self.committed_workflow is None and self.prepare_error is None:
+            raise WorkflowNotFound(f"Workflow {workflow_id!r} not found on {branch!r}")
+        return _ResolvedWorkflowSnapshot(
+            workflow_id=workflow_id,
+            branch=branch,
+            workflow=self.committed_workflow,
+            commit_sha=self.commit_sha,
+        )
+
+    def prepare_run_inputs_from_snapshot(
+        self, snapshot: _ResolvedWorkflowSnapshot, inputs: dict[str, Any]
+    ):
+        self.prepare_calls.append(
+            {"workflow_id": snapshot.workflow_id, "inputs": inputs, "branch": snapshot.branch}
+        )
         if self.prepare_error is not None:
             raise self.prepare_error
         return self.prepared
 
-    def workflow_snapshot_for_run(self, workflow_id: str, *, branch: str) -> WorkflowEntity:
-        self.snapshot_calls.append({"workflow_id": workflow_id, "branch": branch})
-        if self.committed_workflow is None:
-            raise WorkflowNotFound(f"Workflow {workflow_id!r} not found on {branch!r}")
-        return self.committed_workflow
-
-    async def launch_execution(
+    async def launch_execution_from_snapshot(
         self,
         run_id: str,
         workflow_id: str,
         inputs: Any,
-        branch: str | None = None,
+        *,
+        snapshot: _ResolvedWorkflowSnapshot,
     ) -> None:
         self.launch_calls.append(
             {
                 "run_id": run_id,
                 "workflow_id": workflow_id,
                 "inputs": inputs,
-                "branch": branch,
+                "branch": snapshot.branch,
             }
         )
         if self.launch_error is not None:
@@ -250,7 +270,9 @@ class _RecordingExecutionService:
         if self.run_service is not None:
             run = self.run_service.get_run(run_id)
             run.commit_sha = self.commit_sha
-            self.run_service.run_repo.update_run(run)
+            run_repo = getattr(self.run_service, "run_repo", None)
+            if run_repo is not None:
+                run_repo.update_run(run)
 
 
 class _RecordingRunService:
