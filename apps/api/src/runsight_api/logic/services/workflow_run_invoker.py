@@ -87,10 +87,23 @@ class WorkflowRunInvoker:
         self.runtime_admission = runtime_admission
 
     async def invoke(self, invocation: WorkflowRunInvocation) -> WorkflowRunInvocationResult:
-        admission_failure = self._admission_failure(invocation)
+        slot = getattr(self.runtime_admission, "external_invocation_slot", None)
+        if callable(slot):
+            with slot(invocation) as decision:
+                admission_failure = self._admission_decision_failure(decision)
+                if admission_failure is not None:
+                    return admission_failure
+                return await self._invoke_admitted(invocation)
+
+        admission_failure = self._check_admission_failure(invocation)
         if admission_failure is not None:
             return admission_failure
 
+        return await self._invoke_admitted(invocation)
+
+    async def _invoke_admitted(
+        self, invocation: WorkflowRunInvocation
+    ) -> WorkflowRunInvocationResult:
         try:
             resolved_snapshot = self.execution_service.resolve_workflow_run_snapshot(
                 invocation.workflow_id, branch=invocation.branch
@@ -149,10 +162,13 @@ class WorkflowRunInvoker:
             commit_sha=getattr(refreshed, "commit_sha", None),
         )
 
-    def _admission_failure(
+    def _check_admission_failure(
         self, invocation: WorkflowRunInvocation
     ) -> WorkflowRunInvocationResult | None:
         decision = self._check_admission(invocation)
+        return self._admission_decision_failure(decision)
+
+    def _admission_decision_failure(self, decision: Any) -> WorkflowRunInvocationResult | None:
         if decision is None or decision is True:
             return None
         if decision is False:

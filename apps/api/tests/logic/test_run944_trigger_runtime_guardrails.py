@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+
+from runsight_api.domain.entities.run import RunStatus
 
 
 WORKFLOW_ID = "run944_runtime_guardrails"
@@ -81,6 +85,122 @@ class _RecordingRunService:
     def create_run(self, *args: Any, **kwargs: Any) -> None:
         self.create_calls.append((args, kwargs))
         raise AssertionError("pre-run admission failure must not create runs")
+
+
+@dataclass(frozen=True)
+class _ResolvedWorkflowSnapshot:
+    workflow_id: str
+    branch: str
+    workflow: Any
+    commit_sha: str = "9449449449449449449449449449449449449449"
+
+
+class _SlotRunService:
+    def __init__(self) -> None:
+        self.created_runs: dict[str, Any] = {}
+        self.create_calls: list[dict[str, Any]] = []
+        self.fail_calls: list[dict[str, Any]] = []
+
+    def create_run(
+        self,
+        workflow_id: str,
+        inputs: Any,
+        *,
+        branch: str,
+        source: str,
+        source_correlation_id: str | None = None,
+        source_metadata: dict[str, Any] | None = None,
+        workflow_snapshot: Any | None = None,
+    ) -> Any:
+        run_id = f"run_slot_{len(self.created_runs) + 1}"
+        self.create_calls.append(
+            {
+                "workflow_id": workflow_id,
+                "inputs": inputs,
+                "branch": branch,
+                "source": source,
+                "source_correlation_id": source_correlation_id,
+                "source_metadata": source_metadata,
+                "workflow_snapshot": workflow_snapshot,
+            }
+        )
+        run = SimpleNamespace(
+            id=run_id,
+            workflow_id=workflow_id,
+            status=RunStatus.pending,
+            commit_sha=None,
+        )
+        self.created_runs[run_id] = run
+        return run
+
+    def get_run(self, run_id: str) -> Any | None:
+        return self.created_runs.get(run_id)
+
+    def fail_run(self, run_id: str, error: str) -> Any:
+        self.fail_calls.append({"run_id": run_id, "error": error})
+        run = self.created_runs[run_id]
+        run.status = RunStatus.failed
+        run.error = error
+        return run
+
+
+class _SlotHoldingExecutionService:
+    def __init__(
+        self,
+        *,
+        entered_launch: asyncio.Event | None = None,
+        release_launch: asyncio.Event | None = None,
+        launch_error: Exception | None = None,
+    ) -> None:
+        self.entered_launch = entered_launch
+        self.release_launch = release_launch
+        self.launch_error = launch_error
+        self.resolve_calls: list[dict[str, Any]] = []
+        self.prepare_calls: list[dict[str, Any]] = []
+        self.launch_calls: list[dict[str, Any]] = []
+
+    def resolve_workflow_run_snapshot(
+        self, workflow_id: str, *, branch: str
+    ) -> _ResolvedWorkflowSnapshot:
+        self.resolve_calls.append({"workflow_id": workflow_id, "branch": branch})
+        return _ResolvedWorkflowSnapshot(
+            workflow_id=workflow_id,
+            branch=branch,
+            workflow=SimpleNamespace(name="Committed Main Workflow"),
+        )
+
+    def prepare_run_inputs_from_snapshot(
+        self,
+        snapshot: _ResolvedWorkflowSnapshot,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.prepare_calls.append(
+            {"workflow_id": snapshot.workflow_id, "branch": snapshot.branch, "inputs": inputs}
+        )
+        return {"normalized_inputs": dict(inputs)}
+
+    async def launch_execution_from_snapshot(
+        self,
+        run_id: str,
+        workflow_id: str,
+        inputs: Any,
+        *,
+        snapshot: _ResolvedWorkflowSnapshot,
+    ) -> None:
+        self.launch_calls.append(
+            {
+                "run_id": run_id,
+                "workflow_id": workflow_id,
+                "inputs": inputs,
+                "branch": snapshot.branch,
+            }
+        )
+        if self.entered_launch is not None:
+            self.entered_launch.set()
+        if self.release_launch is not None:
+            await self.release_launch.wait()
+        if self.launch_error is not None:
+            raise self.launch_error
 
 
 @pytest.mark.asyncio
@@ -216,3 +336,87 @@ def test_external_admission_respects_concurrent_run_capacity() -> None:
     assert saturated.allowed is False
     assert saturated.failure_code == "admission_saturated"
     assert saturated.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_invoker_uses_external_invocation_slot_for_capacity_and_release() -> None:
+    from runsight_api.logic.services.trigger_runtime import (
+        ExternalInvocationAdmission,
+        TriggerRuntimeConfig,
+    )
+
+    WorkflowRunInvoker, _ = _invoker_contract()
+    config = TriggerRuntimeConfig(
+        external_invocation_enabled=True,
+        max_concurrent_runs=1,
+        max_pending_external_invocations=1,
+        body_limit_bytes=1_048_576,
+        public_base_url=None,
+    )
+    admission = ExternalInvocationAdmission(config)
+    run_service = _SlotRunService()
+    entered_launch = asyncio.Event()
+    release_launch = asyncio.Event()
+    invoker = WorkflowRunInvoker(
+        run_service=run_service,
+        execution_service=_SlotHoldingExecutionService(
+            entered_launch=entered_launch,
+            release_launch=release_launch,
+        ),
+        runtime_admission=admission,
+    )
+
+    first_task = asyncio.create_task(invoker.invoke(_direct_api_invocation()))
+    await asyncio.wait_for(entered_launch.wait(), timeout=1)
+
+    assert admission.pending_external_invocations == 1
+
+    saturated = await invoker.invoke(_direct_api_invocation())
+
+    assert _field(saturated, "accepted") is False
+    assert _value(_field(saturated, "failure_code")) == "admission_saturated"
+    assert _field(saturated, "status_code") == 429
+    assert admission.pending_external_invocations == 1
+    assert len(run_service.create_calls) == 1
+
+    release_launch.set()
+    first = await asyncio.wait_for(first_task, timeout=1)
+
+    assert _field(first, "accepted") is True
+    assert admission.pending_external_invocations == 0
+
+    after_release = await invoker.invoke(_direct_api_invocation())
+
+    assert _field(after_release, "accepted") is True
+    assert admission.pending_external_invocations == 0
+
+
+@pytest.mark.asyncio
+async def test_invoker_releases_external_invocation_slot_after_launch_exception() -> None:
+    from runsight_api.logic.services.trigger_runtime import (
+        ExternalInvocationAdmission,
+        TriggerRuntimeConfig,
+    )
+
+    WorkflowRunInvoker, _ = _invoker_contract()
+    config = TriggerRuntimeConfig(
+        external_invocation_enabled=True,
+        max_concurrent_runs=1,
+        max_pending_external_invocations=1,
+        body_limit_bytes=1_048_576,
+        public_base_url=None,
+    )
+    admission = ExternalInvocationAdmission(config)
+    invoker = WorkflowRunInvoker(
+        run_service=_SlotRunService(),
+        execution_service=_SlotHoldingExecutionService(
+            launch_error=RuntimeError("snapshot launch failed")
+        ),
+        runtime_admission=admission,
+    )
+
+    result = await invoker.invoke(_direct_api_invocation())
+
+    assert _field(result, "accepted") is False
+    assert _value(_field(result, "failure_code")) == "execution_launch_failed"
+    assert admission.pending_external_invocations == 0
