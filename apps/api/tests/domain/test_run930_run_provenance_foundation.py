@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
@@ -39,6 +40,41 @@ def _migration_sources() -> list[tuple[Path, str]]:
         for path in sorted(_versions_dir().glob("*.py"))
         if path.name != "__init__.py"
     ]
+
+
+def _mock_run(
+    run_id: str,
+    *,
+    source: str,
+    branch: str = "main",
+    created_at: float,
+):
+    run = Mock()
+    run.id = run_id
+    run.workflow_id = "wf-930"
+    run.workflow_name = "Direct API Workflow"
+    run.source = source
+    run.branch = branch
+    run.created_at = created_at
+    return run
+
+
+def _mock_node(
+    run_id: str,
+    *,
+    eval_passed: bool,
+):
+    node = Mock()
+    node.node_id = "shared_node"
+    node.run_id = run_id
+    node.soul_id = "researcher"
+    node.soul_version = "sha256:run930"
+    node.eval_score = 0.9
+    node.eval_passed = eval_passed
+    node.cost_usd = 0.01
+    node.tokens = {"prompt": 100, "completion": 50, "total": 150}
+    node.created_at = 100.0
+    return node
 
 
 class TestRun930AlembicMigrationContract:
@@ -80,6 +116,23 @@ class TestRun930AlembicMigrationContract:
         assert not found, (
             f"RUN-930 migration must not include deferred persistence: {sorted(found)}"
         )
+
+
+class TestRun930NoIdempotencyPersistenceSurface:
+    def test_run_model_table_and_response_fields_do_not_expose_idempotency(self) -> None:
+        """RUN-930 must leave no idempotency persistence or serialization surface."""
+        from runsight_api.domain.entities.run import Run
+        from runsight_api.transport.schemas.runs import RunResponse
+
+        run_model_fields = set(Run.model_fields)
+        run_table_columns = {column.name for column in Run.__table__.columns}
+        response_fields = set(RunResponse.model_fields)
+        all_field_names = run_model_fields | run_table_columns | response_fields
+
+        idempotency_fields = sorted(
+            field_name for field_name in all_field_names if "idempotency" in field_name.lower()
+        )
+        assert idempotency_fields == []
 
 
 class TestRun930RunEntityProvenance:
@@ -198,3 +251,51 @@ class TestRun930RunResponseProvenance:
             "client_request_id": "req-930",
         }
         assert "idempotency" not in serialized.lower()
+
+
+class TestRun930ProductionSourceSemantics:
+    def test_api_main_run_is_production_baseline_and_simulation_between_runs_is_not(self) -> None:
+        """Downstream regression logic must include API production runs and exclude simulations."""
+        from runsight_api.logic.services.eval_service import EvalService
+
+        repo = Mock()
+        manual_baseline = _mock_run(
+            "run-manual-pass",
+            source="manual",
+            created_at=100.0,
+        )
+        api_baseline = _mock_run(
+            "run-api-fail",
+            source="api",
+            created_at=200.0,
+        )
+        simulation_between = _mock_run(
+            "run-simulation-pass",
+            source="simulation",
+            branch="sim/run-930",
+            created_at=300.0,
+        )
+        current_manual = _mock_run(
+            "run-manual-current-fail",
+            source="manual",
+            created_at=400.0,
+        )
+
+        nodes_by_run = {
+            "run-manual-pass": [_mock_node("run-manual-pass", eval_passed=True)],
+            "run-api-fail": [_mock_node("run-api-fail", eval_passed=False)],
+            "run-simulation-pass": [_mock_node("run-simulation-pass", eval_passed=True)],
+            "run-manual-current-fail": [_mock_node("run-manual-current-fail", eval_passed=False)],
+        }
+        repo.get_run.return_value = current_manual
+        repo.list_runs.return_value = [
+            current_manual,
+            simulation_between,
+            api_baseline,
+            manual_baseline,
+        ]
+        repo.list_nodes_for_run.side_effect = lambda run_id: nodes_by_run[run_id]
+
+        result = EvalService(repo).get_run_regressions("run-manual-current-fail")
+
+        assert result == {"count": 0, "issues": []}
