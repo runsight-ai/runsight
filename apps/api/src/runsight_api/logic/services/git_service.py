@@ -107,6 +107,11 @@ class GitService:
         sha = result.stdout.strip()
         return sha if sha else None
 
+    def get_ref_sha(self, ref: str) -> Optional[str]:
+        result = self._run("rev-parse", "--verify", f"{ref}^{{commit}}", check=False)
+        sha = result.stdout.strip()
+        return sha if result.returncode == 0 and sha else None
+
     def create_sim_branch(
         self, workflow_slug: str, yaml_content: str, yaml_path: str
     ) -> SimBranchResult:

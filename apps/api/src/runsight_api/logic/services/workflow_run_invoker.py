@@ -89,16 +89,30 @@ class WorkflowRunInvoker:
         if admission_failure is not None:
             return admission_failure
 
+        resolved_snapshot = None
         try:
-            prepared_inputs = self.execution_service.prepare_run_inputs(
-                invocation.workflow_id,
-                invocation.inputs,
-                branch=invocation.branch,
+            resolve_snapshot = getattr(
+                self.execution_service, "resolve_workflow_run_snapshot", None
             )
-            workflow_snapshot = self.execution_service.workflow_snapshot_for_run(
-                invocation.workflow_id,
-                branch=invocation.branch,
-            )
+            if callable(resolve_snapshot):
+                resolved_snapshot = resolve_snapshot(
+                    invocation.workflow_id, branch=invocation.branch
+                )
+                prepared_inputs = self.execution_service.prepare_run_inputs_from_snapshot(
+                    resolved_snapshot,
+                    invocation.inputs,
+                )
+                workflow_snapshot = resolved_snapshot.workflow
+            else:
+                prepared_inputs = self.execution_service.prepare_run_inputs(
+                    invocation.workflow_id,
+                    invocation.inputs,
+                    branch=invocation.branch,
+                )
+                workflow_snapshot = self.execution_service.workflow_snapshot_for_run(
+                    invocation.workflow_id,
+                    branch=invocation.branch,
+                )
         except InputValidationError as exc:
             return WorkflowRunInvocationResult.failure(
                 WorkflowRunInvocationFailureCode.workflow_input_validation_failed,
@@ -121,12 +135,23 @@ class WorkflowRunInvoker:
 
         try:
             with self._temporary_run_update_sink():
-                await self.execution_service.launch_execution(
-                    run.id,
-                    run.workflow_id,
-                    prepared_inputs,
-                    branch=invocation.branch,
+                launch_from_snapshot = getattr(
+                    self.execution_service, "launch_execution_from_snapshot", None
                 )
+                if resolved_snapshot is not None and callable(launch_from_snapshot):
+                    await launch_from_snapshot(
+                        run.id,
+                        run.workflow_id,
+                        prepared_inputs,
+                        snapshot=resolved_snapshot,
+                    )
+                else:
+                    await self.execution_service.launch_execution(
+                        run.id,
+                        run.workflow_id,
+                        prepared_inputs,
+                        branch=invocation.branch,
+                    )
         except Exception as exc:
             failed_run = self.run_service.fail_run(run.id, str(exc))
             return WorkflowRunInvocationResult.failure(
@@ -136,6 +161,12 @@ class WorkflowRunInvoker:
             )
 
         refreshed = self.run_service.get_run(run.id) or run
+        if getattr(refreshed, "status", None) in {RunStatus.failed, RunStatus.failed.value}:
+            return WorkflowRunInvocationResult.failure(
+                WorkflowRunInvocationFailureCode.execution_launch_failed,
+                run_id=run.id,
+                status=getattr(refreshed, "status", None),
+            )
         return WorkflowRunInvocationResult(
             accepted=True,
             run_id=run.id,

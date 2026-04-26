@@ -21,6 +21,7 @@ from ...domain.value_objects import WorkflowEntity
 from .execution_persistence import ExecutionRunStore
 from .execution_preparation import (
     ExecutionPreparationService,
+    ResolvedWorkflowSnapshot,
     get_workflow_commit_sha,
     has_workflow_blocks,
 )
@@ -55,6 +56,24 @@ class PreparedRunInputs(Mapping[str, Any]):
         if isinstance(other, Mapping):
             return self.normalized_inputs == dict(other)
         return False
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowRunSnapshot:
+    workflow_id: str
+    branch: str
+    yaml_content: str
+    commit_sha: str | None
+    git_ref: str | None
+    workflow: WorkflowEntity
+
+    def execution_snapshot(self) -> ResolvedWorkflowSnapshot:
+        return ResolvedWorkflowSnapshot(
+            workflow_id=self.workflow_id,
+            yaml_content=self.yaml_content,
+            commit_sha=self.commit_sha,
+            git_ref=self.git_ref,
+        )
 
 
 def _workflow_ref(workflow_id: str) -> str:
@@ -498,24 +517,127 @@ class ExecutionService:
         )
 
     def workflow_snapshot_for_run(self, workflow_id: str, *, branch: str) -> WorkflowEntity:
+        return self.resolve_workflow_run_snapshot(workflow_id, branch=branch).workflow
+
+    def resolve_workflow_run_snapshot(
+        self, workflow_id: str, *, branch: str
+    ) -> WorkflowRunSnapshot:
         workflow_path = str(self.workflow_repo._get_path(workflow_id))
         explicit_branch = _explicit_branch(branch)
+        stored_branch = _stored_branch(explicit_branch)
         if explicit_branch is None:
             workflow = self.workflow_repo.get_by_id(workflow_id)
-            if workflow is None:
+            if workflow is None or workflow.yaml is None:
                 raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
-            return workflow
+            return WorkflowRunSnapshot(
+                workflow_id=workflow_id,
+                branch=stored_branch,
+                yaml_content=workflow.yaml,
+                commit_sha=get_workflow_commit_sha(workflow_path),
+                git_ref=None,
+                workflow=workflow,
+            )
         if self.git_service is None:
             raise ValueError(
                 f"Requested snapshot could not be loaded for workflow "
                 f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: git service unavailable"
             )
+        git_ref = self._resolve_git_ref_sha(explicit_branch, workflow_path)
+        if git_ref is None:
+            raise WorkflowNotFound(
+                f"Workflow {_workflow_ref(workflow_id)} not found on {explicit_branch!r}"
+            )
         try:
-            yaml_content = self.git_service.read_file(workflow_path, explicit_branch)
+            yaml_content = self.git_service.read_file(workflow_path, git_ref)
         except Exception as exc:
             raise WorkflowNotFound(
                 f"Workflow {_workflow_ref(workflow_id)} not found on {explicit_branch!r}"
             ) from exc
+        return WorkflowRunSnapshot(
+            workflow_id=workflow_id,
+            branch=stored_branch,
+            yaml_content=yaml_content,
+            commit_sha=git_ref,
+            git_ref=git_ref,
+            workflow=self._workflow_entity_from_snapshot(
+                workflow_id,
+                yaml_content,
+                git_ref=git_ref,
+            ),
+        )
+
+    def prepare_run_inputs_from_snapshot(
+        self,
+        snapshot: WorkflowRunSnapshot,
+        inputs: Mapping[str, Any],
+    ) -> PreparedRunInputs:
+        return _prepare_run_inputs_from_schema(
+            snapshot.workflow_id,
+            _workflow_input_schema_from_yaml(snapshot.workflow_id, snapshot.yaml_content),
+            inputs,
+        )
+
+    async def launch_execution_from_snapshot(
+        self,
+        run_id: str,
+        workflow_id: str,
+        inputs: PreparedRunInputs,
+        *,
+        snapshot: WorkflowRunSnapshot,
+    ) -> None:
+        if workflow_id != snapshot.workflow_id:
+            raise ValueError("workflow_id must match resolved workflow snapshot")
+        if not isinstance(inputs, PreparedRunInputs):
+            raise TypeError("launch_execution inputs must be PreparedRunInputs")
+
+        try:
+            prepared = self._preparation.prepare_resolved_snapshot_for_launch(
+                snapshot=snapshot.execution_snapshot(),
+                parser=parse_workflow_yaml,
+                prepare_runtime_workflow=self._prepare_runtime_workflow,
+            )
+            self._store_branch_and_sha(run_id, snapshot.branch, prepared.commit_sha)
+            if self._is_run_cancelled(run_id):
+                logger.info(
+                    "Run %s was cancelled during prepare; skipping execution launch", run_id
+                )
+                return
+        except Exception as e:
+            logger.exception(
+                "Failed to prepare workflow for run %s (workflow=%s, requested_ref=%r): %s",
+                run_id,
+                workflow_id,
+                snapshot.git_ref,
+                e,
+            )
+            self._fail_run_on_prepare_error(run_id, e)
+            return
+
+        self._runtime.track_background_task(
+            run_id, self._run_workflow(run_id, prepared.workflow, inputs)
+        )
+
+    def _resolve_git_ref_sha(self, ref: str, workflow_path: str) -> str | None:
+        get_ref_sha = getattr(self.git_service, "get_ref_sha", None)
+        if callable(get_ref_sha):
+            return get_ref_sha(ref)
+        return self.git_service.get_sha(ref, workflow_path)
+
+    def _workflow_entity_from_snapshot(
+        self,
+        workflow_id: str,
+        yaml_content: str,
+        *,
+        git_ref: str,
+    ) -> WorkflowEntity:
+        builder = getattr(self.workflow_repo, "build_entity_from_yaml", None)
+        if callable(builder):
+            return builder(
+                workflow_id,
+                yaml_content,
+                git_ref=git_ref,
+                git_service=self.git_service,
+            )
         data = yaml.safe_load(yaml_content) or {}
         if not isinstance(data, dict):
             raise InputValidationError("Workflow YAML content is not a mapping")
