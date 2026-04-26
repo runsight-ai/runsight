@@ -63,6 +63,8 @@ class RunResponse(BaseModel):
     branch: str
     source: str = "manual"
     commit_sha: Optional[str] = None
+    source_correlation_id: Optional[str] = None
+    source_metadata: Dict[str, Any] = Field(default_factory=dict)
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
     eval_score_avg: Optional[float] = None

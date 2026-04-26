@@ -73,6 +73,8 @@ def _ensure_sqlite_columns(engine) -> None:
             "error_traceback": "VARCHAR",
             "source": "VARCHAR NOT NULL DEFAULT 'manual'",
             "commit_sha": "VARCHAR",
+            "source_correlation_id": "VARCHAR",
+            "source_metadata": "JSON",
             "parent_run_id": "TEXT",
             "parent_node_id": "TEXT",
             "root_run_id": "TEXT",
@@ -106,6 +108,15 @@ def _ensure_sqlite_columns(engine) -> None:
                 if column_name in existing:
                     continue
                 conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_run_source_created_at ON run (source, created_at)")
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_run_workflow_source_created_at "
+                "ON run (workflow_id, source, created_at)"
+            )
+        )
 
 
 def _build_alembic_config() -> AlembicConfig:

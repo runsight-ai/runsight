@@ -1,8 +1,9 @@
+import json
 import time
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, TypeAlias
+from typing import Any, Dict, Iterable, List, Literal, Optional, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -56,8 +57,72 @@ class InvalidStateTransition(ValueError):
         super().__init__(f"Invalid state transition: {current.value} -> {target.value}")
 
 
+MAX_SOURCE_METADATA_BYTES = 4096
+_SENSITIVE_SOURCE_METADATA_KEYS = {
+    "authorization",
+    "auth",
+    "authentication",
+    "body",
+    "cookie",
+    "cookies",
+    "headers",
+    "idempotency",
+    "idempotency_key",
+    "input",
+    "inputs",
+    "password",
+    "raw_body",
+    "secret",
+    "workflow_inputs",
+}
+
+
+def _iter_source_metadata_keys(value: Any) -> Iterable[str]:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if isinstance(key, str):
+                yield key
+            yield from _iter_source_metadata_keys(nested)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_source_metadata_keys(item)
+
+
+def _is_sensitive_source_metadata_key(key: str) -> bool:
+    normalized = key.lower()
+    return normalized in _SENSITIVE_SOURCE_METADATA_KEYS or normalized.endswith("_token")
+
+
 class _RunCreationValidator(BaseModel):
     branch: str
+    source_metadata: Optional[Dict[str, Any]] = None
+
+    @field_validator("source_metadata", mode="before")
+    @classmethod
+    def validate_source_metadata(cls, value: Any) -> Dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("source_metadata must be an object")
+
+        blocked_keys = sorted(
+            {
+                key
+                for key in _iter_source_metadata_keys(value)
+                if _is_sensitive_source_metadata_key(key)
+            }
+        )
+        if blocked_keys:
+            raise ValueError(f"source_metadata contains unsafe keys: {', '.join(blocked_keys)}")
+
+        try:
+            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("source_metadata must be JSON serializable") from exc
+        if len(encoded.encode("utf-8")) > MAX_SOURCE_METADATA_BYTES:
+            raise ValueError("source_metadata is too large")
+
+        return value
 
 
 def validate_transition(current: RunStatus, target: RunStatus) -> None:
@@ -75,7 +140,9 @@ def validate_transition(current: RunStatus, target: RunStatus) -> None:
 
 class Run(SQLModel, table=True):
     def __init__(self, **data: Any):
-        _RunCreationValidator.model_validate(data)
+        validated = _RunCreationValidator.model_validate(data)
+        if "source_metadata" in data:
+            data["source_metadata"] = validated.source_metadata
         super().__init__(**data)
 
     id: str = Field(primary_key=True)
@@ -95,6 +162,10 @@ class Run(SQLModel, table=True):
     branch: str
     source: str = Field(default="manual")
     commit_sha: Optional[str] = Field(default=None)
+    source_correlation_id: Optional[str] = Field(default=None)
+    source_metadata: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=True)
+    )
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 

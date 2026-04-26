@@ -43,7 +43,7 @@ def _run_response_field(run, field: str, default):
     value = getattr(run, field, default)
     if field == "source":
         return value if isinstance(value, str) else default
-    if field == "commit_sha":
+    if field in {"commit_sha", "source_correlation_id"}:
         return value if value is None or isinstance(value, str) else None
     return value
 
@@ -127,6 +127,11 @@ def _run_snapshot_field(run, field: str) -> Optional[dict]:
     return value if isinstance(value, dict) else None
 
 
+def _run_metadata_field(run) -> dict:
+    value = getattr(run, "source_metadata", None)
+    return value if isinstance(value, dict) else {}
+
+
 def _build_run_response(
     run,
     *,
@@ -152,6 +157,8 @@ def _build_run_response(
         branch=_run_branch_field(run),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
+        source_correlation_id=_run_response_field(run, "source_correlation_id", None),
+        source_metadata=_run_metadata_field(run),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
         eval_score_avg=eval_score_avg,
