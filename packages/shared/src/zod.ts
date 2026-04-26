@@ -132,6 +132,11 @@ export const DiffResponseSchema = z.object({
 });
 export type DiffResponse = z.infer<typeof DiffResponseSchema>;
 
+export const DirectApiRunCreateSchema = z.object({
+  inputs: z.record(z.string(), z.unknown()),
+}).strict();
+export type DirectApiRunCreate = z.infer<typeof DirectApiRunCreateSchema>;
+
 export const EvalDeltaSchema = z.object({
   cost_pct: z.number(),
   tokens_pct: z.number(),
@@ -274,7 +279,7 @@ export const RunCreateSchema = z.object({
   workflow_id: z.string(),
   inputs: z.record(z.string(), z.unknown()).optional().default({}),
   source: z.string().nullable().optional().default("manual"),
-  branch: z.string(),
+  branch: z.string().nullable().optional(),
 }).strict();
 export type RunCreate = z.infer<typeof RunCreateSchema>;
 
@@ -308,6 +313,8 @@ export const RunResponseSchema = z.object({
   branch: z.string(),
   source: z.string().optional().default("manual"),
   commit_sha: z.string().nullable().optional(),
+  source_correlation_id: z.string().nullable().optional(),
+  source_metadata: z.record(z.string(), z.unknown()).optional(),
   run_number: z.number().nullable().optional(),
   eval_pass_pct: z.number().nullable().optional(),
   eval_score_avg: z.number().nullable().optional(),

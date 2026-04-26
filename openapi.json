@@ -1059,6 +1059,67 @@
         }
       }
     },
+    "/api/workflows/{workflow_id}/runs": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Create Direct Api Run",
+        "operationId": "create_direct_api_run_api_workflows__workflow_id__runs_post",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectApiRunCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowInputValidationErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "description": "External invocation admission is saturated"
+          },
+          "503": {
+            "description": "Execution runtime is unavailable"
+          }
+        }
+      }
+    },
     "/api/workflows/{id}/regressions": {
       "get": {
         "tags": [
@@ -2857,6 +2918,21 @@
         ],
         "title": "DiffResponse"
       },
+      "DirectApiRunCreate": {
+        "properties": {
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "inputs"
+        ],
+        "title": "DirectApiRunCreate"
+      },
       "EvalDelta": {
         "properties": {
           "cost_pct": {
@@ -3473,15 +3549,22 @@
             "default": "manual"
           },
           "branch": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Branch"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "workflow_id",
-          "branch"
+          "workflow_id"
         ],
         "title": "RunCreate"
       },
@@ -3888,6 +3971,22 @@
               }
             ],
             "title": "Commit Sha"
+          },
+          "source_correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Correlation Id"
+          },
+          "source_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Source Metadata"
           },
           "run_number": {
             "anyOf": [

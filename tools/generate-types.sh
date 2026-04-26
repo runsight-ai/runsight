@@ -45,6 +45,43 @@ for old, new in replacements.items():
     if old not in block:
         raise SystemExit(f"RunCreate generated contract missing expected field: {old}")
     block = block.replace(old, new, 1)
+inputs_record = """            inputs?: {
+                [key: string]: unknown;
+            };"""
+if inputs_record not in block:
+    raise SystemExit("RunCreate generated contract missing expected inputs record shape")
+block = block.replace(inputs_record, "            inputs?: Record<string, unknown>;", 1)
+path.write_text(source[:start] + block + source[end:])
+PY
+
+# Keep generated response map fields compact so component field extraction in
+# contract tests can see fields that follow them.
+uv run python - "$GENERATED_DIR/api.ts" << 'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+start_marker = "        /** RunResponse */\n        RunResponse: {"
+end_marker = "        /** SettingsFallbackListResponse */"
+start = source.index(start_marker)
+end = source.index(end_marker, start)
+block = source[start:end]
+replacements = {
+    """            source_metadata?: {
+                [key: string]: unknown;
+            };""": "            source_metadata?: Record<string, unknown>;",
+    """            workflow_inputs?: {
+                [key: string]: unknown;
+            } | null;""": "            workflow_inputs?: Record<string, unknown> | null;",
+    """            workflow_input_schema?: {
+                [key: string]: unknown;
+            } | null;""": "            workflow_input_schema?: Record<string, unknown> | null;",
+}
+for old, new in replacements.items():
+    if old not in block:
+        raise SystemExit(f"RunResponse generated contract missing expected map field: {old}")
+    block = block.replace(old, new, 1)
 path.write_text(source[:start] + block + source[end:])
 PY
 

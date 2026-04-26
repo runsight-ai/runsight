@@ -264,6 +264,23 @@ export interface paths {
         patch: operations["patch_workflow_enabled_api_workflows__id__enabled_patch"];
         trace?: never;
     };
+    "/api/workflows/{workflow_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Direct Api Run */
+        post: operations["create_direct_api_run_api_workflows__workflow_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workflows/{id}/regressions": {
         parameters: {
             query?: never;
@@ -930,6 +947,13 @@ export interface components {
             /** Diff */
             diff: string;
         };
+        /** DirectApiRunCreate */
+        DirectApiRunCreate: {
+            /** Inputs */
+            inputs: {
+                [key: string]: unknown;
+            };
+        };
         /** EvalDelta */
         EvalDelta: {
             /** Cost Pct */
@@ -1131,16 +1155,14 @@ export interface components {
              * Inputs
              * @default {}
              */
-            inputs?: {
-                [key: string]: unknown;
-            };
+            inputs?: Record<string, unknown>;
             /**
              * Source
              * @default manual
              */
             source?: string | null;
             /** Branch */
-            branch: string;
+            branch?: string | null;
         };
         /** RunEvalResponse */
         RunEvalResponse: {
@@ -1265,6 +1287,10 @@ export interface components {
             source: string;
             /** Commit Sha */
             commit_sha?: string | null;
+            /** Source Correlation Id */
+            source_correlation_id?: string | null;
+            /** Source Metadata */
+            source_metadata?: Record<string, unknown>;
             /** Run Number */
             run_number?: number | null;
             /** Eval Pass Pct */
@@ -1294,13 +1320,9 @@ export interface components {
              */
             depth: number;
             /** Workflow Inputs */
-            workflow_inputs?: {
-                [key: string]: unknown;
-            } | null;
+            workflow_inputs?: Record<string, unknown> | null;
             /** Workflow Input Schema */
-            workflow_input_schema?: {
-                [key: string]: unknown;
-            } | null;
+            workflow_input_schema?: Record<string, unknown> | null;
         };
         /** SettingsFallbackListResponse */
         SettingsFallbackListResponse: {
@@ -2528,6 +2550,62 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    create_direct_api_run_api_workflows__workflow_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectApiRunCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+            /** @description Workflow not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowInputValidationErrorResponse"];
+                };
+            };
+            /** @description External invocation admission is saturated */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Execution runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
