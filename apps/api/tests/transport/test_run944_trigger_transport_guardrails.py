@@ -78,6 +78,22 @@ def test_external_invocation_log_context_redacts_auth_headers_raw_body_and_input
     assert context["inputs"]["query"] == "safe"
 
 
+def test_external_invocation_log_context_redacts_sensitive_keys_inside_input_lists() -> None:
+    from runsight_api.logic.services.trigger_runtime import redact_external_invocation_log_context
+
+    context = redact_external_invocation_log_context(
+        method="POST",
+        path="/api/workflows/wf_944/runs",
+        headers={},
+        body=None,
+        inputs={"records": [{"token": "secret-list-token", "query": "safe"}]},
+    )
+
+    rendered = json.dumps(context, sort_keys=True)
+    assert "secret-list-token" not in rendered
+    assert context["inputs"]["records"] == [{"token": "[redacted]", "query": "safe"}]
+
+
 @pytest.mark.parametrize(
     "raw_body",
     [

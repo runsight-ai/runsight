@@ -117,15 +117,23 @@ def _is_sensitive_key(key: object) -> bool:
     return any(part in normalized for part in SENSITIVE_INPUT_KEY_PARTS)
 
 
+def _redact_json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _redact_mapping_values(value)
+    if isinstance(value, list):
+        return [_redact_json_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_json_value(item) for item in value)
+    return value
+
+
 def _redact_mapping_values(values: Mapping[str, Any]) -> dict[str, Any]:
     redacted: dict[str, Any] = {}
     for key, value in values.items():
         if _is_sensitive_key(key):
             redacted[str(key)] = REDACTED
-        elif isinstance(value, Mapping):
-            redacted[str(key)] = _redact_mapping_values(value)
         else:
-            redacted[str(key)] = value
+            redacted[str(key)] = _redact_json_value(value)
     return redacted
 
 
