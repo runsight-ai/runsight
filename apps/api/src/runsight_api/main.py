@@ -26,7 +26,12 @@ from .data.repositories.run_repo import RunRepository
 from .domain.errors import RunsightError
 from .logic.services.git_service import GitService
 from .logic.services.execution_service import ExecutionService
+from .logic.services.trigger_runtime import (
+    ExternalInvocationAdmission,
+    TriggerRuntimeConfig,
+)
 from .transport.middleware.access_log import AccessLogMiddleware
+from .transport.middleware.body_limit import BodySizeLimitMiddleware
 from .transport.middleware.error_handler import (
     global_exception_handler,
     request_validation_exception_handler,
@@ -54,6 +59,7 @@ def _recover_stale_runs(engine):
             workflow_repo=None,
             provider_repo=None,
             engine=engine,
+            max_concurrent_runs=app_settings.max_concurrent_runs,
         ).fail_ghost_runs()
 
 
@@ -142,11 +148,15 @@ async def lifespan(app: FastAPI):
     settings_repo = FileSystemSettingsRepo(base_path=app_settings.base_path)
     secrets = SecretsEnvLoader(base_path=app_settings.base_path)
     git_service = GitService(app_settings.base_path)
+    trigger_runtime_config = TriggerRuntimeConfig.from_settings(app_settings)
+    app.state.trigger_runtime_config = trigger_runtime_config
+    app.state.external_invocation_admission = ExternalInvocationAdmission(trigger_runtime_config)
     app.state.execution_service = ExecutionService(
         run_repo,
         workflow_repo,
         provider_repo,
         engine=engine,
+        max_concurrent_runs=trigger_runtime_config.max_concurrent_runs,
         secrets=secrets,
         settings_repo=settings_repo,
         git_service=git_service,
@@ -171,6 +181,10 @@ def create_app() -> FastAPI:
     )
 
     # Middleware
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        max_body_bytes=app_settings.external_invocation_body_limit_bytes,
+    )
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RunsightError, global_exception_handler)
@@ -235,4 +249,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=app_settings.host, port=app_settings.port)

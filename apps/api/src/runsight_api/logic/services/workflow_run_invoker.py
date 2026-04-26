@@ -56,6 +56,7 @@ class WorkflowRunInvocationResult:
     run_id: str | None = None
     status: RunStatus | str | None = None
     failure_code: WorkflowRunInvocationFailureCode | str | None = None
+    status_code: int | None = None
     details: dict[str, Any] | None = None
     commit_sha: str | None = None
 
@@ -66,6 +67,7 @@ class WorkflowRunInvocationResult:
         *,
         run_id: str | None = None,
         status: RunStatus | str | None = None,
+        status_code: int | None = None,
         details: dict[str, Any] | None = None,
     ) -> WorkflowRunInvocationResult:
         return cls(
@@ -73,6 +75,7 @@ class WorkflowRunInvocationResult:
             run_id=run_id,
             status=status,
             failure_code=failure_code,
+            status_code=status_code,
             details=details,
         )
 
@@ -164,7 +167,16 @@ class WorkflowRunInvoker:
             "failure_code",
             WorkflowRunInvocationFailureCode.runtime_unavailable,
         )
-        return WorkflowRunInvocationResult.failure(failure_code)
+        status_code = getattr(decision, "status_code", None)
+        details = getattr(decision, "details", None)
+        reason = getattr(decision, "reason", None)
+        if details is None and reason:
+            details = {"reason": reason}
+        return WorkflowRunInvocationResult.failure(
+            failure_code,
+            status_code=status_code,
+            details=details,
+        )
 
     def _check_admission(self, invocation: WorkflowRunInvocation) -> Any:
         for method_name in ("check_external_invocation", "check", "admit"):

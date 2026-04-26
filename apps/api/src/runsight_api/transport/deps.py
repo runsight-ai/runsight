@@ -21,6 +21,7 @@ from ..logic.services.provider_service import ProviderService
 from ..logic.services.run_service import RunService
 from ..logic.services.settings_service import SettingsService
 from ..logic.services.soul_service import SoulService
+from ..logic.services.trigger_runtime import ExternalInvocationAdmission, TriggerRuntimeConfig
 from ..logic.services.workflow_service import WorkflowService
 
 
@@ -104,6 +105,20 @@ def get_execution_service(
         return request.app.state.execution_service
     except AttributeError:
         return None
+
+
+def get_trigger_runtime_config(request: Request) -> TriggerRuntimeConfig:
+    try:
+        return request.app.state.trigger_runtime_config
+    except AttributeError:
+        return TriggerRuntimeConfig.from_settings(settings)
+
+
+def get_external_invocation_admission(request: Request) -> ExternalInvocationAdmission:
+    try:
+        return request.app.state.external_invocation_admission
+    except AttributeError:
+        return ExternalInvocationAdmission(get_trigger_runtime_config(request))
 
 
 def get_soul_service(
