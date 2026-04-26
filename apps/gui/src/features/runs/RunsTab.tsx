@@ -45,7 +45,7 @@ type SortColumn =
 type SortDirection = "ascending" | "descending";
 type SourceFilter = "production" | "all";
 
-const PRODUCTION_RUN_SOURCES = ["manual", "webhook", "schedule"] as const;
+const PRODUCTION_RUN_SOURCES = ["manual", "webhook", "schedule", "api"] as const;
 const SOURCE_FILTER_LABELS: Record<SourceFilter, string> = {
   production: "Production runs",
   all: "All runs",

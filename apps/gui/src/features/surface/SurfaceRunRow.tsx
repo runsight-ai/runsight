@@ -15,7 +15,7 @@ import { AlertTriangle, Info } from "lucide-react";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import { useRunRegressions } from "@/queries/runs";
-import { formatCost, formatDuration, getSourceVariant, getTimeAgo } from "@/utils/formatting";
+import { formatCost, formatDuration, formatRunSource, getSourceVariant, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import {
   formatWarningTooltip,
@@ -138,7 +138,7 @@ export function SurfaceRunRow({
         {run.run_number != null ? `#${run.run_number}` : "—"}
       </TableCell>
       <TableCell data-type="data" className={RUN_TABLE_CELL_CLASS}>
-        <Badge variant={getSourceVariant(run.source)}>{run.source}</Badge>
+        <Badge variant={getSourceVariant(run.source)}>{formatRunSource(run.source)}</Badge>
       </TableCell>
       <TableCell data-type="timestamp" className={cn(RUN_TABLE_CELL_CLASS, "text-muted")}>
         {run.started_at ? getTimeAgo(new Date(run.started_at * 1000).toISOString()) : "—"}
