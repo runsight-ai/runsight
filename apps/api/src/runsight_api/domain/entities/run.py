@@ -101,29 +101,29 @@ class _RunCreationValidator(BaseModel):
     @field_validator("source_metadata", mode="before")
     @classmethod
     def validate_source_metadata(cls, value: Any) -> Dict[str, Any]:
-        if value is None:
-            return {}
-        if not isinstance(value, dict):
-            raise ValueError("source_metadata must be an object")
+        return validate_source_metadata(value)
 
-        blocked_keys = sorted(
-            {
-                key
-                for key in _iter_source_metadata_keys(value)
-                if _is_sensitive_source_metadata_key(key)
-            }
-        )
-        if blocked_keys:
-            raise ValueError(f"source_metadata contains unsafe keys: {', '.join(blocked_keys)}")
 
-        try:
-            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
-        except (TypeError, ValueError) as exc:
-            raise ValueError("source_metadata must be JSON serializable") from exc
-        if len(encoded.encode("utf-8")) > MAX_SOURCE_METADATA_BYTES:
-            raise ValueError("source_metadata is too large")
+def validate_source_metadata(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("source_metadata must be an object")
 
-        return value
+    blocked_keys = sorted(
+        {key for key in _iter_source_metadata_keys(value) if _is_sensitive_source_metadata_key(key)}
+    )
+    if blocked_keys:
+        raise ValueError(f"source_metadata contains unsafe keys: {', '.join(blocked_keys)}")
+
+    try:
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("source_metadata must be JSON serializable") from exc
+    if len(encoded.encode("utf-8")) > MAX_SOURCE_METADATA_BYTES:
+        raise ValueError("source_metadata is too large")
+
+    return value
 
 
 def validate_transition(current: RunStatus, target: RunStatus) -> None:

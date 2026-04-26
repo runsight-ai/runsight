@@ -17,6 +17,7 @@ import yaml
 from ...core.secrets import SecretsEnvLoader
 from ...domain.entities.run import RunStatus
 from ...domain.errors import InputValidationError, WorkflowNotFound
+from ...domain.value_objects import WorkflowEntity
 from .execution_persistence import ExecutionRunStore
 from .execution_preparation import (
     ExecutionPreparationService,
@@ -494,6 +495,43 @@ class ExecutionService:
             workflow_id,
             _workflow_input_schema_from_yaml(workflow_id, yaml_content),
             inputs,
+        )
+
+    def workflow_snapshot_for_run(self, workflow_id: str, *, branch: str) -> WorkflowEntity:
+        workflow_path = str(self.workflow_repo._get_path(workflow_id))
+        explicit_branch = _explicit_branch(branch)
+        if explicit_branch is None:
+            workflow = self.workflow_repo.get_by_id(workflow_id)
+            if workflow is None:
+                raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
+            return workflow
+        if self.git_service is None:
+            raise ValueError(
+                f"Requested snapshot could not be loaded for workflow "
+                f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: git service unavailable"
+            )
+        try:
+            yaml_content = self.git_service.read_file(workflow_path, explicit_branch)
+        except Exception as exc:
+            raise WorkflowNotFound(
+                f"Workflow {_workflow_ref(workflow_id)} not found on {explicit_branch!r}"
+            ) from exc
+        data = yaml.safe_load(yaml_content) or {}
+        if not isinstance(data, dict):
+            raise InputValidationError("Workflow YAML content is not a mapping")
+        workflow_section = data.get("workflow")
+        name = workflow_id
+        if isinstance(workflow_section, dict) and isinstance(workflow_section.get("name"), str):
+            name = workflow_section["name"]
+        return WorkflowEntity(
+            kind="workflow",
+            id=workflow_id,
+            name=name,
+            yaml=yaml_content,
+            valid=True,
+            validation_error=None,
+            filename=f"{workflow_id}.yaml",
+            warnings=[],
         )
 
     async def _run_workflow(self, run_id: str, wf: Any, inputs: PreparedRunInputs) -> None:
