@@ -516,9 +516,6 @@ class ExecutionService:
             inputs,
         )
 
-    def workflow_snapshot_for_run(self, workflow_id: str, *, branch: str) -> WorkflowEntity:
-        return self.resolve_workflow_run_snapshot(workflow_id, branch=branch).workflow
-
     def resolve_workflow_run_snapshot(
         self, workflow_id: str, *, branch: str
     ) -> WorkflowRunSnapshot:
