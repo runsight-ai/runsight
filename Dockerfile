@@ -77,7 +77,7 @@ ENV RUNSIGHT_BASE_PATH=/workspace \
 EXPOSE 8000
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["runsight"]
+CMD ["runsight", "--host", "0.0.0.0"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

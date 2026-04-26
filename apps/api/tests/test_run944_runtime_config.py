@@ -90,9 +90,9 @@ def _compose_port_binding(raw_port: object) -> dict[str, object]:
 def test_docker_compose_and_runtime_defaults_preserve_loopback_port_binding() -> None:
     from runsight_api.core.config import Settings
 
-    compose_text = (Path(__file__).resolve().parents[3] / "docker-compose.yml").read_text(
-        encoding="utf-8"
-    )
+    repo_root = Path(__file__).resolve().parents[3]
+    compose_text = (repo_root / "docker-compose.yml").read_text(encoding="utf-8")
+    dockerfile_text = (repo_root / "Dockerfile").read_text(encoding="utf-8")
     compose: dict[str, Any] = yaml.safe_load(compose_text)
     ports = compose["services"]["runsight"]["ports"]
     bindings = [_compose_port_binding(port) for port in ports]
@@ -106,3 +106,4 @@ def test_docker_compose_and_runtime_defaults_preserve_loopback_port_binding() ->
     assert any(binding["host_ip"] in {"127.0.0.1", "localhost"} for binding in api_bindings)
     assert not any(binding["host_ip"] in {None, "", "0.0.0.0", "::"} for binding in api_bindings)
     assert Settings().host == "127.0.0.1"
+    assert 'CMD ["runsight", "--host", "0.0.0.0"]' in dockerfile_text

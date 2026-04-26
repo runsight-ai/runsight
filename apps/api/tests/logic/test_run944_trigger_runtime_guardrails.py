@@ -159,3 +159,60 @@ def test_external_admission_uses_shared_runtime_config_primitives() -> None:
     assert decision.allowed is False
     assert decision.failure_code == "runtime_unavailable"
     assert decision.status_code == 503
+
+
+def test_external_admission_tracks_pending_capacity_and_releases() -> None:
+    from runsight_api.logic.services.trigger_runtime import (
+        ExternalInvocationAdmission,
+        TriggerRuntimeConfig,
+    )
+
+    config = TriggerRuntimeConfig(
+        external_invocation_enabled=True,
+        max_concurrent_runs=3,
+        max_pending_external_invocations=2,
+        body_limit_bytes=1_048_576,
+        public_base_url=None,
+    )
+    admission = ExternalInvocationAdmission(config)
+
+    first = admission.acquire_external_invocation(_direct_api_invocation())
+    second = admission.acquire_external_invocation(_direct_api_invocation())
+    saturated = admission.acquire_external_invocation(_direct_api_invocation())
+
+    assert first.allowed is True
+    assert second.allowed is True
+    assert saturated.allowed is False
+    assert saturated.failure_code == "admission_saturated"
+    assert saturated.status_code == 429
+    assert admission.pending_external_invocations == 2
+
+    admission.release_external_invocation()
+
+    after_release = admission.acquire_external_invocation(_direct_api_invocation())
+    assert after_release.allowed is True
+    assert admission.pending_external_invocations == 2
+
+
+def test_external_admission_respects_concurrent_run_capacity() -> None:
+    from runsight_api.logic.services.trigger_runtime import (
+        ExternalInvocationAdmission,
+        TriggerRuntimeConfig,
+    )
+
+    config = TriggerRuntimeConfig(
+        external_invocation_enabled=True,
+        max_concurrent_runs=1,
+        max_pending_external_invocations=5,
+        body_limit_bytes=1_048_576,
+        public_base_url=None,
+    )
+    admission = ExternalInvocationAdmission(config)
+
+    admitted = admission.acquire_external_invocation(_direct_api_invocation())
+    saturated = admission.acquire_external_invocation(_direct_api_invocation())
+
+    assert admitted.allowed is True
+    assert saturated.allowed is False
+    assert saturated.failure_code == "admission_saturated"
+    assert saturated.status_code == 429

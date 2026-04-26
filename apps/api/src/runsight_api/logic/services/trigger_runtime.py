@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Mapping
@@ -89,6 +91,21 @@ class ExternalInvocationAdmission:
         self._pending_external_invocations = pending_external_invocations
         self._lock = Lock()
 
+    @property
+    def pending_external_invocations(self) -> int:
+        with self._lock:
+            return self._pending_external_invocations
+
+    @property
+    def _capacity(self) -> int:
+        return max(
+            0,
+            min(
+                self.config.max_concurrent_runs,
+                self.config.max_pending_external_invocations,
+            ),
+        )
+
     def check_external_invocation(self, invocation: Any) -> ExternalInvocationAdmissionDecision:
         del invocation
         if not self.config.external_invocation_available:
@@ -100,15 +117,47 @@ class ExternalInvocationAdmission:
             )
 
         with self._lock:
-            pending = self._pending_external_invocations
-        if pending >= self.config.max_pending_external_invocations:
+            return self._check_capacity_locked()
+
+    def acquire_external_invocation(self, invocation: Any) -> ExternalInvocationAdmissionDecision:
+        del invocation
+        if not self.config.external_invocation_available:
+            return ExternalInvocationAdmissionDecision(
+                allowed=False,
+                failure_code="runtime_unavailable",
+                status_code=503,
+                reason="external invocation disabled by runtime config",
+            )
+
+        with self._lock:
+            decision = self._check_capacity_locked()
+            if decision.allowed:
+                self._pending_external_invocations += 1
+            return decision
+
+    def release_external_invocation(self) -> None:
+        with self._lock:
+            self._pending_external_invocations = max(0, self._pending_external_invocations - 1)
+
+    @contextmanager
+    def external_invocation_slot(
+        self, invocation: Any
+    ) -> Iterator[ExternalInvocationAdmissionDecision]:
+        decision = self.acquire_external_invocation(invocation)
+        try:
+            yield decision
+        finally:
+            if decision.allowed:
+                self.release_external_invocation()
+
+    def _check_capacity_locked(self) -> ExternalInvocationAdmissionDecision:
+        if self._pending_external_invocations >= self._capacity:
             return ExternalInvocationAdmissionDecision(
                 allowed=False,
                 failure_code="admission_saturated",
                 status_code=429,
                 reason="external invocation admission is saturated",
             )
-
         return ExternalInvocationAdmissionDecision(allowed=True)
 
 
