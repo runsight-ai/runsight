@@ -35,12 +35,15 @@ the onboarding flow helps you create your first workflow.
 Or use Docker:
 
 ```bash
-docker run -p 8000:8000 -v $(pwd):/workspace ghcr.io/runsight-ai/runsight
+docker run -p 127.0.0.1:8000:8000 -v "$(pwd)":/workspace ghcr.io/runsight-ai/runsight
 ```
 
 Mount the whole workspace root, not only `custom/`, if you want `.runsight/` DB and
 settings persistence across container restarts. Runsight keeps runtime-owned files under
 that workspace root in `.runsight/`.
+
+The self-hosted API is unauthenticated today. Keep local Docker usage bound to
+`127.0.0.1` unless you add your own proxy and authentication controls.
 
 **[Documentation](https://runsight.ai/docs)** · [GitHub Discussions](https://github.com/runsight-ai/runsight/discussions) · [Issues](https://github.com/runsight-ai/runsight/issues)
 

@@ -66,11 +66,11 @@ Runsight ships a multi-stage Dockerfile that bundles the frontend and backend in
 # Build the image
 docker build -t runsight .
 
-# Run with defaults
-docker run -p 8000:8000 runsight
+# Run for local-only access
+docker run -p 127.0.0.1:8000:8000 runsight
 
-# Mount a workspace directory for your workflows, souls, and tools
-docker run -p 8000:8000 -v $(pwd)/custom:/workspace/custom runsight
+# Mount the whole workspace root so .runsight state persists too
+docker run -p 127.0.0.1:8000:8000 -v "$(pwd)":/workspace runsight
 ```
 
 ### Environment variables
@@ -83,13 +83,20 @@ docker run -p 8000:8000 -v $(pwd)/custom:/workspace/custom runsight
 
 The container exposes port `8000` and includes a health check at `/health`.
 
+:::caution
+Publishing the container on a non-loopback interface exposes an unauthenticated API
+unless you add your own proxy or authentication controls.
+:::
+
 ### Passing CLI flags in Docker
 
 The default Docker `CMD` is `["runsight"]`. Override it to pass flags:
 
 ```bash
-docker run -p 3000:3000 runsight runsight --port 3000
+docker run -p 127.0.0.1:3000:3000 runsight runsight --port 3000
 ```
+
+<!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944 — last verified against codebase 2026-04-26 -->
 
 ## Requirements
 

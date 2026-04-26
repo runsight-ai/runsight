@@ -9,16 +9,16 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 
 1. **Install and start Runsight**
 
-   The fastest way is `uvx`:
+   For local-only access with `uvx`:
 
    ```bash
-   uvx runsight
+   uvx runsight --host 127.0.0.1
    ```
 
    Or use Docker:
 
    ```bash
-   docker run -p 8000:8000 -v "$(pwd)":/workspace ghcr.io/runsight-ai/runsight
+   docker run -p 127.0.0.1:8000:8000 -v "$(pwd)":/workspace ghcr.io/runsight-ai/runsight
    ```
 
    Don't have `uv`? Install it first: `curl -LsSf https://astral.sh/uv/install.sh | sh`
@@ -119,3 +119,5 @@ import { Steps, FileTree } from '@astrojs/starlight/components';
 - [Custom Tools](/docs/tools/custom-tools) — give your agents tools defined as YAML files
 - [Assertions & Eval](/docs/evaluation/assertions) — add quality checks to your workflows
 - [Git Integration](/docs/execution/git-integration) — save, commit, and simulation branches
+
+{/* Linear: RUN-821, RUN-847, RUN-848, RUN-944 — last verified against codebase 2026-04-26 */}
