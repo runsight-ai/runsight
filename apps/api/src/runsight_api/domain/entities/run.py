@@ -73,6 +73,7 @@ _SENSITIVE_SOURCE_METADATA_KEYS = {
     "password",
     "raw_body",
     "secret",
+    "token",
     "workflow_inputs",
 }
 
