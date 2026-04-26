@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any
 
 from fastapi import Request
@@ -12,6 +13,8 @@ from ...core.context import request_id as _request_id_var
 from ...domain.errors import RunsightError
 
 logger = logging.getLogger(__name__)
+
+_DIRECT_API_RUN_PATH = re.compile(r"^/api/workflows/([^/]+)/runs$")
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -72,11 +75,15 @@ async def request_validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
-    if request.method != "POST" or request.url.path != "/api/runs":
+    workflow_id: str | None = None
+    if request.method == "POST" and request.url.path == "/api/runs":
+        body_value = getattr(exc, "body", None)
+        workflow_id = body_value.get("workflow_id") if isinstance(body_value, dict) else None
+    elif request.method == "POST" and (match := _DIRECT_API_RUN_PATH.match(request.url.path)):
+        workflow_id = match.group(1)
+    else:
         return await fastapi_validation_handler(request, exc)
 
-    body_value = getattr(exc, "body", None)
-    workflow_id = body_value.get("workflow_id") if isinstance(body_value, dict) else None
     fields = [_workflow_request_field_error(error) for error in exc.errors()]
     body: dict[str, Any] = {
         "error": "Workflow input validation failed",

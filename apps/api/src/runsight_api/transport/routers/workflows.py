@@ -1,12 +1,19 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from runsight_core.identity import EntityKind, EntityRef
 
 from ...logic.services.eval_service import EvalService
+from ...logic.services.api_run_service import ApiRunService
 from ...logic.services.workflow_service import WorkflowService
-from ..deps import get_eval_service, get_workflow_service
-from ..schemas.runs import WorkflowInputValidationErrorResponse
+from ..deps import get_api_run_service, get_eval_service, get_workflow_service
+from ..schemas.runs import (
+    DirectApiRunCreate,
+    NodeSummary,
+    RunResponse,
+    WorkflowInputValidationErrorResponse,
+)
+from .runs import _build_run_response, _run_metric_field
 from ..schemas.workflows import (
     WorkflowCommitCreate,
     WorkflowCommitResponse,
@@ -26,6 +33,10 @@ router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 def _workflow_ref(workflow_id: str) -> str:
     return str(EntityRef(EntityKind.WORKFLOW, workflow_id))
+
+
+def _direct_api_source_correlation_id(request: Request) -> str | None:
+    return request.headers.get("x-request-id") or request.headers.get("x-correlation-id")
 
 
 @router.get("", response_model=WorkflowListResponse)
@@ -102,6 +113,42 @@ async def patch_workflow_enabled(
 ):
     w = service.set_enabled(id, body.enabled)
     return WorkflowResponse(**w.model_dump())
+
+
+@router.post(
+    "/{workflow_id}/runs",
+    response_model=RunResponse,
+    responses={
+        404: {"description": "Workflow not found"},
+        422: {"model": WorkflowInputValidationErrorResponse},
+        429: {"description": "External invocation admission is saturated"},
+        503: {"description": "Execution runtime is unavailable"},
+    },
+)
+async def create_direct_api_run(
+    workflow_id: str,
+    body: DirectApiRunCreate,
+    request: Request,
+    service: ApiRunService = Depends(get_api_run_service),
+):
+    run = await service.create_direct_api_run(
+        workflow_id=workflow_id,
+        inputs=body.inputs,
+        source_correlation_id=_direct_api_source_correlation_id(request),
+        source_metadata={
+            "entry_path": "direct_api",
+            "request_path": request.url.path,
+        },
+    )
+    return _build_run_response(
+        run,
+        total_cost_usd=run.total_cost_usd,
+        total_tokens=run.total_tokens,
+        node_summary=NodeSummary(total=0, completed=0, running=0, pending=0, failed=0),
+        eval_score_avg=_run_metric_field(run, "eval_score_avg"),
+        regression_count=_run_metric_field(run, "regression_count"),
+        regression_types=[],
+    )
 
 
 @router.get("/{id}/regressions", response_model=WorkflowRegressionsResponse)

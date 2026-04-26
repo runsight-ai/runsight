@@ -40,6 +40,12 @@ class RunCreate(BaseModel):
     branch: Optional[str] = Field(default=None, min_length=1)
 
 
+class DirectApiRunCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inputs: Dict[str, Any]
+
+
 class NodeSummary(BaseModel):
     total: int
     completed: int

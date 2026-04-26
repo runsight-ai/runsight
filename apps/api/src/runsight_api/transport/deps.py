@@ -14,6 +14,7 @@ from ..data.filesystem.workflow_repo import WorkflowRepository
 from ..data.repositories.run_repo import RunRepository
 from ..data.repositories.run_read_model import RunReadModel
 from ..logic.services.eval_service import EvalService
+from ..logic.services.api_run_service import ApiRunService
 from ..logic.services.execution_service import ExecutionService
 from ..logic.services.git_service import GitService
 from ..logic.services.model_service import ModelService
@@ -119,6 +120,18 @@ def get_external_invocation_admission(request: Request) -> ExternalInvocationAdm
         return request.app.state.external_invocation_admission
     except AttributeError:
         return ExternalInvocationAdmission(get_trigger_runtime_config(request))
+
+
+def get_api_run_service(
+    run_service: RunService = Depends(get_run_service),
+    execution_service: Optional[ExecutionService] = Depends(get_execution_service),
+    runtime_admission: ExternalInvocationAdmission = Depends(get_external_invocation_admission),
+) -> ApiRunService:
+    return ApiRunService(
+        run_service=run_service,
+        execution_service=execution_service,
+        runtime_admission=runtime_admission,
+    )
 
 
 def get_soul_service(
