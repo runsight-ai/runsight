@@ -590,7 +590,7 @@ class ExecutionService:
         if workflow_id != snapshot.workflow_id:
             raise ValueError("workflow_id must match resolved workflow snapshot")
         if not isinstance(inputs, PreparedRunInputs):
-            raise TypeError("launch_execution inputs must be PreparedRunInputs")
+            raise TypeError("launch_execution_from_snapshot inputs must be PreparedRunInputs")
 
         try:
             prepared = await asyncio.to_thread(

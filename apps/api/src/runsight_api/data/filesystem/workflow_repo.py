@@ -221,12 +221,15 @@ class WorkflowRepository:
                 git_service=git_service,
             )
 
-        return build_workflow_entity(
-            data=data,
-            stem=workflow_id,
-            validate_yaml_content=validate_snapshot_yaml,
-            raw_yaml=raw_yaml,
-        )
+        try:
+            return build_workflow_entity(
+                data=data,
+                stem=workflow_id,
+                validate_yaml_content=validate_snapshot_yaml,
+                raw_yaml=raw_yaml,
+            )
+        except ValueError as exc:
+            raise InputValidationError(str(exc)) from exc
 
     def _assert_valid_yaml_for_write(self, workflow_id: str, raw_yaml: str) -> None:
         assert_valid_yaml_for_write(workflow_id, raw_yaml)
