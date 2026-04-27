@@ -104,6 +104,7 @@ def _workflow_entity(
     yaml_text: str,
     *,
     name: str,
+    enabled: bool = True,
     warnings: list[dict[str, str]] | None = None,
 ) -> WorkflowEntity:
     return WorkflowEntity(
@@ -111,6 +112,7 @@ def _workflow_entity(
         id=WORKFLOW_ID,
         name=name,
         yaml=yaml_text,
+        enabled=enabled,
         valid=True,
         validation_error=None,
         warnings=warnings or [],
@@ -149,7 +151,7 @@ def _direct_api_invocation(**overrides: Any):
         "source_correlation_id": "corr-run-931",
         "source_metadata": {
             "entry_path": "direct_api",
-            "request_path": f"/api/workflows/{WORKFLOW_ID}/invocations",
+            "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
             "client_request_id": "req-run-931",
         },
     }
@@ -491,6 +493,33 @@ class TestWorkflowRunInvokerPreRunFailures:
         assert execution.launch_calls == []
         assert run_service.create_calls == []
 
+    @pytest.mark.asyncio
+    async def test_workflow_omitting_enabled_on_main_returns_not_found_without_validation(
+        self,
+    ) -> None:
+        WorkflowRunInvoker, _ = _invoker_contract()
+        omitted_enabled_workflow = WorkflowEntity(
+            kind="workflow",
+            id=WORKFLOW_ID,
+            name="Omitted Enabled Main Workflow",
+            yaml=_main_workflow_yaml(name="Omitted Enabled Main Workflow"),
+        )
+        execution = _RecordingExecutionService(committed_workflow=omitted_enabled_workflow)
+        run_service = _RecordingRunService()
+        invoker = WorkflowRunInvoker(
+            run_service=run_service,
+            execution_service=execution,
+            runtime_admission=_RuntimeAdmission(),
+        )
+
+        result = await invoker.invoke(_direct_api_invocation())
+
+        _assert_failure_result(result, code="workflow_not_found")
+        assert execution.snapshot_calls == [{"workflow_id": WORKFLOW_ID, "branch": "main"}]
+        assert execution.prepare_calls == []
+        assert execution.launch_calls == []
+        assert run_service.create_calls == []
+
 
 class TestWorkflowRunInvokerDirectApiLaunch:
     @pytest.mark.asyncio
@@ -532,7 +561,7 @@ class TestWorkflowRunInvokerDirectApiLaunch:
                 "source_correlation_id": "corr-run-931",
                 "source_metadata": {
                     "entry_path": "direct_api",
-                    "request_path": f"/api/workflows/{WORKFLOW_ID}/invocations",
+                    "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
                     "client_request_id": "req-run-931",
                 },
                 "workflow_snapshot": committed_workflow,
@@ -606,7 +635,7 @@ class TestWorkflowRunInvokerDirectApiLaunch:
         assert run.source_correlation_id == "corr-run-931"
         assert run.source_metadata == {
             "entry_path": "direct_api",
-            "request_path": f"/api/workflows/{WORKFLOW_ID}/invocations",
+            "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
             "client_request_id": "req-run-931",
         }
         assert run.workflow_name == "Committed Main Workflow"

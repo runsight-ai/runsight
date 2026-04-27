@@ -36,6 +36,7 @@ DIRECT_WORKFLOW_YAML = """\
 id: run941-direct
 kind: workflow
 version: "1.0"
+enabled: true
 inputs:
   query:
     type: string
@@ -104,6 +105,7 @@ PARENT_WORKFLOW_YAML = """\
 id: run941-parent
 kind: workflow
 version: "1.0"
+enabled: true
 inputs:
   query:
     type: string
@@ -131,6 +133,7 @@ CHILD_WORKFLOW_YAML = """\
 id: run941-child
 kind: workflow
 version: "1.0"
+enabled: true
 inputs:
   child_query:
     type: string

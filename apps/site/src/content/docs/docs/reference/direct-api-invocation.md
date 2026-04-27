@@ -4,6 +4,8 @@ description: Reference for invoking Runsight workflows through the external Dire
 ---
 
 Direct API invocation creates a production workflow run through an external HTTP request.
+The requested workflow must exist in the committed `main` workflow snapshot and requires `enabled: true`.
+Omitting `enabled` is treated the same as `enabled: false`, so a user must explicitly enable the workflow before it is externally invokable.
 
 ## Endpoint
 
@@ -13,7 +15,7 @@ POST /api/workflows/{workflow_id}/runs
 
 | Path parameter | Type | Required | Description |
 |----------------|------|----------|-------------|
-| `workflow_id` | string | Yes | Workflow ID to run. The server resolves the committed `main` workflow snapshot for this workflow. |
+| `workflow_id` | string | Yes | Workflow ID to run. The server resolves the committed `main` workflow snapshot for this workflow and only invokes it when the snapshot has `enabled: true`. |
 
 ## Request body
 
@@ -110,11 +112,11 @@ Runsight reads correlation IDs from request headers.
 
 ## Workflow snapshot resolution
 
-Direct API always resolves the committed `main` workflow snapshot.
+Direct API always resolves the committed `main` workflow snapshot and requires that snapshot to be enabled.
 
 | Runtime asset | Resolution behavior |
 |---------------|---------------------|
-| Workflow YAML | Committed `main` snapshot |
+| Workflow YAML | Committed `main` snapshot with `enabled: true` |
 | Nested workflow YAML | Committed `main` snapshot through the resolved git ref |
 | Snapshot-capable workflow asset discovery | Receives the resolved git ref from the execution runtime |
 | Provider settings | Live server runtime configuration |
@@ -156,7 +158,7 @@ The Dockerfile command may bind to `0.0.0.0` inside the container. Host publishi
 
 | Status | Code | Description |
 |--------|------|-------------|
-| `404` | `WORKFLOW_NOT_FOUND` | The workflow ID does not resolve to a workflow. |
+| `404` | `WORKFLOW_NOT_FOUND` | The workflow ID does not resolve to a workflow, or the committed `main` workflow snapshot is not enabled. |
 | `413` | `REQUEST_BODY_TOO_LARGE` | The request body exceeds `RUNSIGHT_EXTERNAL_INVOCATION_BODY_LIMIT_BYTES`. |
 | `422` | `WORKFLOW_INPUT_VALIDATION_ERROR` | The body shape is invalid, privileged fields are present, required inputs are missing, or input types do not match. |
 | `429` | `ADMISSION_SATURATED` | Runtime admission limits are saturated. |

@@ -424,6 +424,31 @@ def test_direct_api_disabled_saved_main_snapshot_returns_404_without_run_creatio
     assert execution.launch_snapshot_calls == []
 
 
+def test_direct_api_omitted_enabled_saved_main_snapshot_returns_404_without_run_creation() -> None:
+    run_service, execution, _ = _install_services()
+    execution.resolved_snapshot = _ResolvedWorkflowSnapshot(
+        workflow=WorkflowEntity(
+            kind="workflow",
+            id=WORKFLOW_ID,
+            name="Omitted Enabled Main Workflow",
+            yaml="id: run932_direct_api\nkind: workflow\nworkflow:\n  name: Omitted Enabled Main Workflow\n",
+        )
+    )
+
+    response = client.post(
+        f"/api/workflows/{WORKFLOW_ID}/runs",
+        json={"inputs": {"query": SECRET_INPUT}},
+        headers={"authorization": SECRET_AUTH},
+    )
+
+    body = _assert_sanitized_error_response(response, 404)
+    assert body["error_code"] == "WORKFLOW_NOT_FOUND"
+    assert execution.resolve_calls == [{"workflow_id": WORKFLOW_ID, "branch": "main"}]
+    assert execution.prepare_snapshot_calls == []
+    assert run_service.create_calls == []
+    assert execution.launch_snapshot_calls == []
+
+
 def test_direct_api_canonical_input_validation_returns_422_without_run_creation() -> None:
     run_service, execution, _ = _install_services(
         execution=_CanonicalExecutionService(prepare_error=_validation_error())

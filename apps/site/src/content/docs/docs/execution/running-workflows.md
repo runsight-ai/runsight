@@ -26,18 +26,18 @@ Terminal states (`completed`, `failed`, `cancelled`) are final --- no further tr
 
 A production run executes the workflow YAML as committed on the **main branch**.
 
-Production runs can be started from the GUI when there are no unsaved workflow changes, or through the external Direct API. Direct API invocation uses `POST /api/workflows/{workflow_id}/runs`, always records `source: "api"`, and always resolves `branch: "main"`. Callers cannot supply `source`, `branch`, provenance, delivery, simulation, or idempotency fields in the request body.
+Production runs can be started from the GUI when there are no unsaved workflow changes, or through the external Direct API. Direct API invocation uses `POST /api/workflows/{workflow_id}/runs`, always records `source: "api"`, always resolves `branch: "main"`, and only runs workflows committed on `main` and explicitly enabled with `enabled: true`. Callers cannot supply `source`, `branch`, provenance, delivery, simulation, or idempotency fields in the request body.
 
 When a production run starts:
 
-1. The API resolves the committed `main` workflow YAML for the requested workflow.
+1. The API resolves the committed `main` workflow YAML for the requested workflow and verifies that the committed snapshot has `enabled: true`.
 2. A `Run` record is created with `status: pending` and `branch: "main"`.
 3. The execution service acquires a concurrency slot (default: 5 concurrent runs), then transitions the run to `running`.
 4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` with a `SubprocessHarness`.
 5. Each block executes sequentially through the transition graph. LLM blocks (linear, gate, synthesize, dispatch) run in isolated subprocesses --- the subprocess has no API keys and communicates with the engine over a Unix socket IPC channel. A `RunNode` record is created per block.
 6. On completion, the observer writes `status: completed` with final cost and token totals.
 
-Direct API runs ignore dirty working tree edits to workflow YAML and nested workflow YAML. Referenced workflow blocks are resolved through the same committed snapshot. Parser and discovery paths receive the resolved git ref for snapshot-capable workflow assets, while provider settings, server settings, and API keys remain live runtime configuration from the running server environment.
+Direct API runs ignore dirty working tree edits to workflow YAML and nested workflow YAML. Referenced workflow blocks are resolved through the same committed snapshot. Parser and discovery paths receive the resolved git ref for snapshot-capable workflow assets, while provider settings, server settings, and API keys remain live runtime configuration from the running server environment. Omitted `enabled` is treated as disabled for Direct API invocation.
 
 For the exact external HTTP contract, request body, success response, and error codes, see [Direct API Invocation](/docs/reference/direct-api-invocation).
 
@@ -110,7 +110,7 @@ If the server restarts while runs are in `running` status, those runs become "gh
 | Method | How |
 |--------|-----|
 | **GUI** | Click the **Run** button on the canvas topbar. Committed clean workflows run on `main`; dirty workflows create a simulation branch. |
-| **Direct API** | `POST /api/workflows/{workflow_id}/runs` with a required body containing only `inputs`. Direct API runs use `source: "api"` and `branch: "main"`. |
+| **Direct API** | `POST /api/workflows/{workflow_id}/runs` with a required body containing only `inputs`. Direct API runs require a committed `main` workflow with `enabled: true`, and use `source: "api"` and `branch: "main"`. |
 
 :::note
 Webhook and schedule triggers are not part of RUN-85. Runs can be triggered manually through the GUI or externally through the Direct API.
