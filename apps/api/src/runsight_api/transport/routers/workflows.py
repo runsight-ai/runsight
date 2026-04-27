@@ -9,6 +9,7 @@ from ...logic.services.workflow_service import WorkflowService
 from ..deps import get_api_run_service, get_eval_service, get_workflow_service
 from ..schemas.runs import (
     DirectApiRunCreate,
+    ErrorResponse,
     NodeSummary,
     RunResponse,
     WorkflowInputValidationErrorResponse,
@@ -119,10 +120,14 @@ async def patch_workflow_enabled(
     "/{workflow_id}/runs",
     response_model=RunResponse,
     responses={
-        404: {"description": "Workflow not found"},
+        404: {"model": ErrorResponse, "description": "Workflow not found"},
         422: {"model": WorkflowInputValidationErrorResponse},
-        429: {"description": "External invocation admission is saturated"},
-        503: {"description": "Execution runtime is unavailable"},
+        429: {
+            "model": ErrorResponse,
+            "description": "External invocation admission is saturated",
+        },
+        503: {"model": ErrorResponse, "description": "Execution runtime is unavailable"},
+        413: {"model": ErrorResponse, "description": "Request body too large"},
     },
 )
 async def create_direct_api_run(

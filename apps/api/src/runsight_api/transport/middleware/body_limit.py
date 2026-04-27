@@ -14,6 +14,10 @@ class BodySizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if not _is_direct_api_invocation_request(scope):
+            await self.app(scope, receive, send)
+            return
+
         content_length = _content_length(scope.get("headers", []))
         if content_length is not None and content_length > self.max_body_bytes:
             await _body_too_large_response()(scope, receive, send)
@@ -65,6 +69,13 @@ def _content_length(headers: list[tuple[bytes, bytes]]) -> int | None:
         except ValueError:
             return None
     return None
+
+
+def _is_direct_api_invocation_request(scope: Scope) -> bool:
+    if scope.get("method") != "POST":
+        return False
+    parts = str(scope.get("path", "")).strip("/").split("/")
+    return len(parts) == 4 and parts[0] == "api" and parts[1] == "workflows" and parts[3] == "runs"
 
 
 def _body_too_large_response() -> JSONResponse:

@@ -96,7 +96,7 @@ unless you add your own proxy or authentication controls.
 The default Docker `CMD` is `["runsight"]`. Override it to pass flags:
 
 ```bash
-docker run -p 127.0.0.1:3000:3000 runsight runsight --port 3000
+docker run -p 127.0.0.1:3000:3000 runsight runsight --host 0.0.0.0 --port 3000
 ```
 
 <!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944, RUN-943 — last verified against codebase 2026-04-26 -->

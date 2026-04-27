@@ -25,7 +25,11 @@ from .execution_preparation import (
     get_workflow_commit_sha,
     has_workflow_blocks,
 )
-from .execution_runtime import ExecutionRuntimeCoordinator, build_assertion_configs
+from .execution_runtime import (
+    BackgroundTaskHandle,
+    ExecutionRuntimeCoordinator,
+    build_assertion_configs,
+)
 from .execution_stream_registry import ExecutionStreamRegistry
 
 logger = logging.getLogger(__name__)
@@ -454,7 +458,7 @@ class ExecutionService:
         workflow_id: str,
         inputs: PreparedRunInputs,
         branch: str | None = None,
-    ) -> None:
+    ) -> BackgroundTaskHandle | None:
         """Prepare a workflow snapshot, then schedule background execution."""
         if not isinstance(inputs, PreparedRunInputs):
             raise TypeError("launch_execution inputs must be PreparedRunInputs")
@@ -473,7 +477,7 @@ class ExecutionService:
                 logger.info(
                     "Run %s was cancelled during prepare; skipping execution launch", run_id
                 )
-                return
+                return None
         except Exception as e:
             logger.exception(
                 "Failed to prepare workflow for run %s (workflow=%s, requested_ref=%r): %s",
@@ -483,9 +487,9 @@ class ExecutionService:
                 e,
             )
             self._fail_run_on_prepare_error(run_id, e)
-            return
+            return None
 
-        self._runtime.track_background_task(
+        return self._runtime.track_background_task(
             run_id, self._run_workflow(run_id, prepared.workflow, inputs)
         )
 
@@ -581,7 +585,7 @@ class ExecutionService:
         inputs: PreparedRunInputs,
         *,
         snapshot: WorkflowRunSnapshot,
-    ) -> None:
+    ) -> BackgroundTaskHandle | None:
         if workflow_id != snapshot.workflow_id:
             raise ValueError("workflow_id must match resolved workflow snapshot")
         if not isinstance(inputs, PreparedRunInputs):
@@ -598,7 +602,7 @@ class ExecutionService:
                 logger.info(
                     "Run %s was cancelled during prepare; skipping execution launch", run_id
                 )
-                return
+                return None
         except Exception as e:
             logger.exception(
                 "Failed to prepare workflow for run %s (workflow=%s, requested_ref=%r): %s",
@@ -608,9 +612,9 @@ class ExecutionService:
                 e,
             )
             self._fail_run_on_prepare_error(run_id, e)
-            return
+            return None
 
-        self._runtime.track_background_task(
+        return self._runtime.track_background_task(
             run_id, self._run_workflow(run_id, prepared.workflow, inputs)
         )
 

@@ -1,6 +1,6 @@
 [project]
 name = "runsight-workspace"
-version = "0.4.25"
+version = "0.4.26"
 requires-python = ">=3.11"
 dependencies = []
 

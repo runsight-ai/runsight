@@ -137,6 +137,14 @@ export const DirectApiRunCreateSchema = z.object({
 }).strict();
 export type DirectApiRunCreate = z.infer<typeof DirectApiRunCreateSchema>;
 
+export const ErrorResponseSchema = z.object({
+  error: z.string(),
+  error_code: z.string(),
+  status_code: z.number(),
+  details: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+
 export const EvalDeltaSchema = z.object({
   cost_pct: z.number(),
   tokens_pct: z.number(),

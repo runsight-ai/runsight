@@ -265,6 +265,26 @@ async def create_run(
     execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     source = body.source or "manual"
+    if source == "api":
+        raise InputValidationError(
+            "Workflow input validation failed",
+            error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+            status_code=422,
+            details={
+                "kind": "workflow_input_validation",
+                "workflow_id": body.workflow_id,
+                "fields": [
+                    {
+                        "field": "source",
+                        "code": "reserved",
+                        "message": "The api source is reserved for Direct API invocations.",
+                        "input_path": ["body", "source"],
+                        "expected_type": None,
+                        "actual_type": "string",
+                    }
+                ],
+            },
+        )
     branch = body.branch
     persisted_branch = "main" if branch is None else branch
     if execution_service is None:

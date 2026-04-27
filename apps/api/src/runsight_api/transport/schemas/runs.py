@@ -31,6 +31,13 @@ class WorkflowInputValidationErrorResponse(BaseModel):
     details: WorkflowInputValidationErrorDetails
 
 
+class ErrorResponse(BaseModel):
+    error: str
+    error_code: str
+    status_code: int
+    details: Optional[Dict[str, Any]] = None
+
+
 class RunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -1099,7 +1099,14 @@
             }
           },
           "404": {
-            "description": "Workflow not found"
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -1112,10 +1119,34 @@
             "description": "Unprocessable Content"
           },
           "429": {
-            "description": "External invocation admission is saturated"
+            "description": "External invocation admission is saturated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Execution runtime is unavailable"
+            "description": "Execution runtime is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2932,6 +2963,41 @@
           "inputs"
         ],
         "title": "DirectApiRunCreate"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "error_code": {
+            "type": "string",
+            "title": "Error Code"
+          },
+          "status_code": {
+            "type": "integer",
+            "title": "Status Code"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "error_code",
+          "status_code"
+        ],
+        "title": "ErrorResponse"
       },
       "EvalDelta": {
         "properties": {

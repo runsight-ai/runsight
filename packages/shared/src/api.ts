@@ -954,6 +954,19 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** ErrorResponse */
+        ErrorResponse: {
+            /** Error */
+            error: string;
+            /** Error Code */
+            error_code: string;
+            /** Status Code */
+            status_code: number;
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** EvalDelta */
         EvalDelta: {
             /** Cost Pct */
@@ -2582,7 +2595,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request body too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Unprocessable Content */
             422: {
@@ -2598,14 +2622,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Execution runtime is unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 from ...domain.entities.run import RunStatus, validate_source_metadata
 from ...domain.errors import InputValidationError, WorkflowNotFound
@@ -87,40 +88,52 @@ class WorkflowRunInvoker:
         self.runtime_admission = runtime_admission
 
     async def invoke(self, invocation: WorkflowRunInvocation) -> WorkflowRunInvocationResult:
-        slot = getattr(self.runtime_admission, "external_invocation_slot", None)
-        if callable(slot):
-            with slot(invocation) as decision:
-                admission_failure = self._admission_decision_failure(decision)
-                if admission_failure is not None:
-                    return admission_failure
-                return await self._invoke_admitted(invocation)
+        acquire = getattr(self.runtime_admission, "acquire_external_invocation", None)
+        release = getattr(self.runtime_admission, "release_external_invocation", None)
+        if callable(acquire) and callable(release):
+            decision = acquire(invocation)
+            admission_failure = self._admission_decision_failure(decision)
+            if admission_failure is not None:
+                return admission_failure
+
+            release_on_return = True
+            try:
+                result, completion = await self._invoke_admitted(invocation)
+                release_on_return = not self._release_on_completion(completion, release)
+                return result
+            finally:
+                if release_on_return:
+                    release()
 
         admission_failure = self._check_admission_failure(invocation)
         if admission_failure is not None:
             return admission_failure
 
-        return await self._invoke_admitted(invocation)
+        result, _completion = await self._invoke_admitted(invocation)
+        return result
 
     async def _invoke_admitted(
         self, invocation: WorkflowRunInvocation
-    ) -> WorkflowRunInvocationResult:
+    ) -> tuple[WorkflowRunInvocationResult, Any | None]:
         try:
-            resolved_snapshot = self.execution_service.resolve_workflow_run_snapshot(
-                invocation.workflow_id, branch=invocation.branch
-            )
-            prepared_inputs = self.execution_service.prepare_run_inputs_from_snapshot(
-                resolved_snapshot,
-                invocation.inputs,
+            resolved_snapshot, prepared_inputs = await asyncio.to_thread(
+                self._resolve_and_prepare, invocation
             )
             workflow_snapshot = resolved_snapshot.workflow
         except InputValidationError as exc:
-            return WorkflowRunInvocationResult.failure(
-                WorkflowRunInvocationFailureCode.workflow_input_validation_failed,
-                details=exc.to_dict(),
+            return (
+                WorkflowRunInvocationResult.failure(
+                    WorkflowRunInvocationFailureCode.workflow_input_validation_failed,
+                    details=exc.to_dict(),
+                ),
+                None,
             )
         except WorkflowNotFound:
-            return WorkflowRunInvocationResult.failure(
-                WorkflowRunInvocationFailureCode.workflow_not_found
+            return (
+                WorkflowRunInvocationResult.failure(
+                    WorkflowRunInvocationFailureCode.workflow_not_found
+                ),
+                None,
             )
 
         run = self.run_service.create_run(
@@ -134,33 +147,77 @@ class WorkflowRunInvoker:
         )
 
         try:
-            await self.execution_service.launch_execution_from_snapshot(
+            completion = await self.execution_service.launch_execution_from_snapshot(
                 run.id,
                 run.workflow_id,
                 prepared_inputs,
                 snapshot=resolved_snapshot,
             )
+            if isinstance(completion, asyncio.Future):
+                await completion
         except Exception as exc:
             failed_run = self.run_service.fail_run(run.id, str(exc))
-            return WorkflowRunInvocationResult.failure(
-                WorkflowRunInvocationFailureCode.execution_launch_failed,
-                run_id=run.id,
-                status=getattr(failed_run, "status", None),
+            return (
+                WorkflowRunInvocationResult.failure(
+                    WorkflowRunInvocationFailureCode.execution_launch_failed,
+                    run_id=run.id,
+                    status=getattr(failed_run, "status", None),
+                ),
+                None,
             )
 
         refreshed = self.run_service.get_run(run.id) or run
         if getattr(refreshed, "status", None) in {RunStatus.failed, RunStatus.failed.value}:
-            return WorkflowRunInvocationResult.failure(
-                WorkflowRunInvocationFailureCode.execution_launch_failed,
+            return (
+                WorkflowRunInvocationResult.failure(
+                    WorkflowRunInvocationFailureCode.execution_launch_failed,
+                    run_id=run.id,
+                    status=getattr(refreshed, "status", None),
+                ),
+                completion,
+            )
+        return (
+            WorkflowRunInvocationResult(
+                accepted=True,
                 run_id=run.id,
                 status=getattr(refreshed, "status", None),
-            )
-        return WorkflowRunInvocationResult(
-            accepted=True,
-            run_id=run.id,
-            status=getattr(refreshed, "status", None),
-            commit_sha=getattr(refreshed, "commit_sha", None),
+                commit_sha=getattr(refreshed, "commit_sha", None),
+            ),
+            completion,
         )
+
+    def _resolve_and_prepare(self, invocation: WorkflowRunInvocation) -> tuple[Any, Any]:
+        resolved_snapshot = self.execution_service.resolve_workflow_run_snapshot(
+            invocation.workflow_id, branch=invocation.branch
+        )
+        workflow_snapshot = getattr(resolved_snapshot, "workflow", None)
+        if _workflow_snapshot_is_explicitly_disabled(workflow_snapshot):
+            raise WorkflowNotFound(
+                f"Workflow {invocation.workflow_id!r} not found on {invocation.branch!r}"
+            )
+        prepared_inputs = self.execution_service.prepare_run_inputs_from_snapshot(
+            resolved_snapshot,
+            invocation.inputs,
+        )
+        return resolved_snapshot, prepared_inputs
+
+    def _release_on_completion(
+        self,
+        completion: Any,
+        release: Callable[[], None],
+    ) -> bool:
+        add_done_callback = getattr(completion, "add_done_callback", None)
+        if not callable(add_done_callback):
+            return False
+        if not getattr(completion, "release_external_invocation_on_done", False):
+            return False
+
+        done = getattr(completion, "done", None)
+        if callable(done) and done():
+            return False
+
+        add_done_callback(lambda _task: release())
+        return True
 
     def _check_admission_failure(
         self, invocation: WorkflowRunInvocation
@@ -200,3 +257,15 @@ class WorkflowRunInvoker:
             if method is not None:
                 return method(invocation)
         return True
+
+
+def _workflow_snapshot_is_explicitly_disabled(workflow_snapshot: Any) -> bool:
+    if getattr(workflow_snapshot, "enabled", True) is not False:
+        return False
+
+    fields_set = getattr(workflow_snapshot, "model_fields_set", None)
+    if fields_set is None:
+        fields_set = getattr(workflow_snapshot, "__fields_set__", None)
+    if isinstance(fields_set, set):
+        return "enabled" in fields_set
+    return True
