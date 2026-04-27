@@ -32,7 +32,7 @@ runsight [--host HOST] [--port PORT]
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--host` | `str` | `0.0.0.0` | Bind address for the server |
+| `--host` | `str` | `127.0.0.1` | Bind address for the server |
 | `--port` | `int` | `8000` | Bind port for the server |
 | `--help`, `-h` | -- | -- | Print usage information and exit |
 
@@ -41,7 +41,7 @@ Unknown arguments cause the CLI to print an error and exit with code 1.
 ## Examples
 
 ```bash
-# Start with defaults (0.0.0.0:8000)
+# Start with defaults (127.0.0.1:8000)
 uvx runsight
 
 # Custom port
@@ -49,6 +49,9 @@ uvx runsight --port 3000
 
 # Bind to localhost only
 uvx runsight --host 127.0.0.1 --port 9000
+
+# Bind to all interfaces only when protected by your own network and auth controls
+uvx runsight --host 0.0.0.0 --port 8000
 ```
 
 On startup, the CLI prints:
@@ -93,10 +96,10 @@ unless you add your own proxy or authentication controls.
 The default Docker `CMD` is `["runsight"]`. Override it to pass flags:
 
 ```bash
-docker run -p 127.0.0.1:3000:3000 runsight runsight --port 3000
+docker run -p 127.0.0.1:3000:3000 runsight runsight --host 0.0.0.0 --port 3000
 ```
 
-<!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944 — last verified against codebase 2026-04-26 -->
+<!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944, RUN-943 — last verified against codebase 2026-04-26 -->
 
 ## Requirements
 

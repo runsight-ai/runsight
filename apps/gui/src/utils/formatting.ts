@@ -73,6 +73,7 @@ export function getSourceVariant(
   switch (source) {
     case "manual":
       return "neutral";
+    case "api":
     case "webhook":
       return "info";
     case "schedule":
@@ -82,6 +83,11 @@ export function getSourceVariant(
     default:
       return "neutral";
   }
+}
+
+export function formatRunSource(source: string | null | undefined): string {
+  if (!source) return "\u2014";
+  return source === "api" ? "API" : source;
 }
 
 // ── Relative time ───────────────────────────────────────────────────────────

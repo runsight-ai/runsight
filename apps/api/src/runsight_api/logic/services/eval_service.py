@@ -266,7 +266,7 @@ class EvalService:
         source = getattr(run, "source", None)
         if not isinstance(branch, str) or not isinstance(source, str):
             return False
-        return branch == "main" and source in {"manual", "webhook", "schedule"}
+        return branch == "main" and source in {"manual", "api", "webhook", "schedule"}
 
     def get_run_regressions(self, run_id: str) -> dict | None:
         """Compute comparison-based regressions for a single run."""

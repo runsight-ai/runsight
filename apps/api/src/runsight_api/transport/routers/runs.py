@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
@@ -37,13 +37,85 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
+_DROP_SOURCE_METADATA_VALUE = object()
+
+
+def _is_unsafe_source_metadata_response_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_").replace(" ", "_")
+    compact = "".join(part for part in normalized if part.isalnum())
+    segments = {segment for segment in normalized.split("_") if segment}
+
+    if any(
+        marker in compact
+        for marker in (
+            "apikey",
+            "authorization",
+            "authentication",
+            "idempotency",
+            "password",
+            "rawbody",
+            "rawinput",
+            "rawinputs",
+            "secret",
+            "token",
+            "workflowinputs",
+        )
+    ):
+        return True
+    return bool(
+        segments
+        & {
+            "auth",
+            "authorization",
+            "authentication",
+            "body",
+            "cookie",
+            "cookies",
+            "header",
+            "headers",
+            "input",
+            "inputs",
+            "password",
+            "raw",
+            "secret",
+            "token",
+        }
+    )
+
+
+def _sanitize_source_metadata_response_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        sanitized: dict[str, Any] = {}
+        for key, nested in value.items():
+            if not isinstance(key, str) or _is_unsafe_source_metadata_response_key(key):
+                continue
+            clean_nested = _sanitize_source_metadata_response_value(nested)
+            if clean_nested is _DROP_SOURCE_METADATA_VALUE or clean_nested in ({}, []):
+                continue
+            sanitized[key] = clean_nested
+        return sanitized
+
+    if isinstance(value, list):
+        sanitized_items = []
+        for item in value:
+            clean_item = _sanitize_source_metadata_response_value(item)
+            if clean_item is _DROP_SOURCE_METADATA_VALUE or clean_item in ({}, []):
+                continue
+            sanitized_items.append(clean_item)
+        return sanitized_items
+
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    return _DROP_SOURCE_METADATA_VALUE
+
 
 def _run_response_field(run, field: str, default):
     """Read a response field from a run-like object with a safe default."""
     value = getattr(run, field, default)
     if field == "source":
         return value if isinstance(value, str) else default
-    if field == "commit_sha":
+    if field in {"commit_sha", "source_correlation_id"}:
         return value if value is None or isinstance(value, str) else None
     return value
 
@@ -127,6 +199,11 @@ def _run_snapshot_field(run, field: str) -> Optional[dict]:
     return value if isinstance(value, dict) else None
 
 
+def _run_metadata_field(run) -> dict:
+    value = getattr(run, "source_metadata", None)
+    return _sanitize_source_metadata_response_value(value) if isinstance(value, dict) else {}
+
+
 def _build_run_response(
     run,
     *,
@@ -152,6 +229,8 @@ def _build_run_response(
         branch=_run_branch_field(run),
         source=_run_response_field(run, "source", "manual"),
         commit_sha=_run_response_field(run, "commit_sha", None),
+        source_correlation_id=_run_response_field(run, "source_correlation_id", None),
+        source_metadata=_run_metadata_field(run),
         run_number=_run_metric_field(run, "run_number"),
         eval_pass_pct=_run_metric_field(run, "eval_pass_pct"),
         eval_score_avg=eval_score_avg,
@@ -186,6 +265,26 @@ async def create_run(
     execution_service: Optional[ExecutionService] = Depends(get_execution_service),
 ):
     source = body.source or "manual"
+    if source == "api":
+        raise InputValidationError(
+            "Workflow input validation failed",
+            error_code="WORKFLOW_INPUT_VALIDATION_ERROR",
+            status_code=422,
+            details={
+                "kind": "workflow_input_validation",
+                "workflow_id": body.workflow_id,
+                "fields": [
+                    {
+                        "field": "source",
+                        "code": "reserved",
+                        "message": "The api source is reserved for Direct API invocations.",
+                        "input_path": ["body", "source"],
+                        "expected_type": None,
+                        "actual_type": "string",
+                    }
+                ],
+            },
+        )
     branch = body.branch
     persisted_branch = "main" if branch is None else branch
     if execution_service is None:

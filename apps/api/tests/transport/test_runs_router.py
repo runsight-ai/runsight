@@ -415,6 +415,42 @@ def test_runs_post_passes_source_and_branch_to_services():
     app.dependency_overrides.clear()
 
 
+def test_runs_post_rejects_reserved_api_source_before_create_or_launch():
+    mock_service = Mock()
+    mock_run = _make_mock_run("run_forged_api_source", branch=TEST_BRANCH)
+    mock_run.source = "api"
+    mock_service.create_run.return_value = mock_run
+    mock_service.refresh_run.return_value = mock_run
+    mock_exec_service = Mock()
+    mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
+    mock_exec_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_run_service] = lambda: mock_service
+    app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
+
+    try:
+        response = client.post(
+            "/api/runs",
+            json={
+                "workflow_id": "wf_1",
+                "inputs": {"instruction": "go"},
+                "source": "api",
+                "branch": TEST_BRANCH,
+            },
+        )
+
+        assert response.status_code == 422
+        body = response.json()
+        assert body["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+        assert body["status_code"] == 422
+        assert body["details"]["kind"] == "workflow_input_validation"
+        assert body["details"]["fields"][0]["field"] == "source"
+        mock_exec_service.prepare_run_inputs.assert_not_called()
+        mock_service.create_run.assert_not_called()
+        mock_exec_service.launch_execution.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_runs_post_allows_omitted_branch_and_persists_main():
     """POST /api/runs should use the working tree when branch is omitted."""
     mock_service = Mock()
@@ -452,6 +488,20 @@ def test_runs_post_allows_omitted_branch_and_persists_main():
         branch=None,
     )
     app.dependency_overrides.clear()
+
+
+def test_runs_post_large_unrelated_body_is_not_rejected_by_direct_api_body_limit():
+    response = client.post(
+        "/api/runs",
+        content=b'{"workflow_id":123,"inputs":{"blob":"' + (b"x" * 1_100_000) + b'"}}',
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+    assert body["status_code"] == 422
+    assert body["error_code"] != "REQUEST_BODY_TOO_LARGE"
 
 
 def test_runs_post_422():

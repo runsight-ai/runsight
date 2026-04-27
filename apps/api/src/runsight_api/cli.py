@@ -7,7 +7,7 @@ import uvicorn
 
 def main() -> None:
     # Parse --host and --port from argv (keep it minimal)
-    host = "0.0.0.0"
+    host = "127.0.0.1"
     port = 8000
 
     args = sys.argv[1:]
@@ -25,7 +25,7 @@ def main() -> None:
             print("Start the Runsight server.")
             print()
             print("Options:")
-            print("  --host HOST  Bind address (default: 0.0.0.0)")
+            print("  --host HOST  Bind address (default: 127.0.0.1)")
             print("  --port PORT  Bind port (default: 8000)")
             sys.exit(0)
         else:

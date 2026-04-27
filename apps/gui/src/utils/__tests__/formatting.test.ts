@@ -5,6 +5,7 @@ import {
   formatTimestamp,
   formatCost,
   getTimeAgo,
+  getSourceVariant,
 } from "../formatting";
 
 // ---------------------------------------------------------------------------
@@ -185,6 +186,19 @@ describe("formatCost", () => {
 
   it("formats sub-milli-cent cost values with more precision", () => {
     expect(formatCost(0.0001132)).toBe("$0.000113");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSourceVariant
+// ---------------------------------------------------------------------------
+describe("getSourceVariant", () => {
+  it("treats api as a known production source instead of the unknown fallback", () => {
+    expect(getSourceVariant("api")).not.toBe(getSourceVariant("unknown-run-source"));
+  });
+
+  it("keeps unknown run sources on the neutral fallback variant", () => {
+    expect(getSourceVariant("unknown-run-source")).toBe("neutral");
   });
 });
 

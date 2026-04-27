@@ -215,6 +215,24 @@ function buildRunList(items: RunResponse[]): RunListResponse {
   };
 }
 
+function getRequestedSources(params: unknown): string[] {
+  if (params instanceof URLSearchParams) {
+    return params.getAll("source").sort();
+  }
+
+  if (params && typeof params === "object") {
+    const source = (params as { source?: unknown }).source;
+    if (Array.isArray(source)) {
+      return source.filter((value): value is string => typeof value === "string").sort();
+    }
+    if (typeof source === "string") {
+      return [source];
+    }
+  }
+
+  return [];
+}
+
 function rootRun(overrides: Partial<RunResponse> = {}): RunResponse {
   return makeRun(overrides);
 }
@@ -301,6 +319,34 @@ describe("RUN-974 active runs dashboard behavior", () => {
     expect(eventSources.map((source) => source.url).sort()).toEqual([
       "/api/runs/run_root/stream",
       "/api/runs/run_root_2/stream",
+    ]);
+  });
+
+  it("treats api main root runs as production active runs", async () => {
+    activeRunsData = [
+      rootRun({
+        id: "run_api_active",
+        workflow_name: "API Active Flow",
+        source: "api",
+      }),
+    ];
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(harness.listRuns).toHaveBeenCalled();
+    });
+
+    expect(getRequestedSources(harness.listRuns.mock.calls[0]?.[0])).toEqual([
+      "api",
+      "manual",
+      "schedule",
+      "webhook",
+    ]);
+
+    await waitForInitialActiveRunsLoad(["API Active Flow"]);
+    expect(eventSources.map((source) => source.url)).toEqual([
+      "/api/runs/run_api_active/stream",
     ]);
   });
 

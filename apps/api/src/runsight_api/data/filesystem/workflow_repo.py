@@ -105,7 +105,12 @@ class WorkflowRepository:
         )
 
     def _validate_yaml_content(
-        self, workflow_id: str, raw_yaml: Optional[str]
+        self,
+        workflow_id: str,
+        raw_yaml: Optional[str],
+        *,
+        git_ref: str | None = None,
+        git_service: Any = None,
     ) -> tuple[bool, Optional[str], list[dict[str, Optional[str]]]]:
         return validate_yaml_content(
             base_path=self.base_path,
@@ -116,6 +121,8 @@ class WorkflowRepository:
             tool_governance_validator=validate_tool_governance,
             has_workflow_blocks=self._has_workflow_blocks,
             soul_scanner_cls=SoulScanner,
+            git_ref=git_ref,
+            git_service=git_service,
         )
 
     def _read_canvas_sidecar(self, stem: str) -> Optional[dict[str, Any]]:
@@ -188,6 +195,41 @@ class WorkflowRepository:
             raw_yaml=raw_yaml,
             extra_warnings=extra_warnings,
         )
+
+    def build_entity_from_yaml(
+        self,
+        workflow_id: str,
+        raw_yaml: str,
+        *,
+        git_ref: str | None = None,
+        git_service: Any = None,
+    ) -> WorkflowEntity:
+        try:
+            data = yaml_mod.safe_load(raw_yaml) or {}
+        except Exception as exc:
+            raise InputValidationError(f"Malformed YAML: {exc}") from exc
+        if not isinstance(data, dict):
+            raise InputValidationError("YAML content is not a mapping")
+
+        def validate_snapshot_yaml(
+            stem: str, content: Optional[str]
+        ) -> tuple[bool, Optional[str], list[dict[str, Optional[str]]]]:
+            return self._validate_yaml_content(
+                stem,
+                content,
+                git_ref=git_ref,
+                git_service=git_service,
+            )
+
+        try:
+            return build_workflow_entity(
+                data=data,
+                stem=workflow_id,
+                validate_yaml_content=validate_snapshot_yaml,
+                raw_yaml=raw_yaml,
+            )
+        except ValueError as exc:
+            raise InputValidationError(str(exc)) from exc
 
     def _assert_valid_yaml_for_write(self, workflow_id: str, raw_yaml: str) -> None:
         assert_valid_yaml_for_write(workflow_id, raw_yaml)

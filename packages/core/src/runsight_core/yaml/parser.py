@@ -454,7 +454,7 @@ def _validate_declared_tool_definitions(
             continue
 
         expected_file = Path(base_dir) / "custom" / "tools" / f"{tool_id}.yaml"
-        if expected_file.exists():
+        if git_ref is None and expected_file.exists():
             result.add_error(
                 (
                     f"reserved builtin tool id '{tool_id}' collides with custom tool metadata at "
