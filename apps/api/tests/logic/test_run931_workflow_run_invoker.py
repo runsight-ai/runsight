@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import Mock
@@ -333,6 +335,24 @@ class _RecordingRunService:
         return self.created_run
 
 
+class _BlockingPreRunExecutionService(_RecordingExecutionService):
+    def __init__(self, *, delay_seconds: float, prepared: Any, committed_workflow: WorkflowEntity):
+        super().__init__(prepared=prepared, committed_workflow=committed_workflow)
+        self.delay_seconds = delay_seconds
+
+    def resolve_workflow_run_snapshot(
+        self, workflow_id: str, *, branch: str
+    ) -> _ResolvedWorkflowSnapshot:
+        time.sleep(self.delay_seconds)
+        return super().resolve_workflow_run_snapshot(workflow_id, branch=branch)
+
+    def prepare_run_inputs_from_snapshot(
+        self, snapshot: _ResolvedWorkflowSnapshot, inputs: dict[str, Any]
+    ):
+        time.sleep(self.delay_seconds)
+        return super().prepare_run_inputs_from_snapshot(snapshot, inputs)
+
+
 class TestWorkflowRunInvocationDirectApiContract:
     def test_direct_api_factory_owns_api_source_and_saved_main_policy(self) -> None:
         invocation = _direct_api_invocation()
@@ -626,3 +646,36 @@ class TestWorkflowRunInvokerDirectApiLaunch:
             {"run_id": "run_run931_created", "error": "snapshot graph failed"}
         ]
         assert _value(run_service.created_run.status) == "failed"
+
+    @pytest.mark.asyncio
+    async def test_direct_api_pre_run_snapshot_work_does_not_block_event_loop(self) -> None:
+        WorkflowRunInvoker, _ = _invoker_contract()
+        main_yaml = _main_workflow_yaml()
+        committed_workflow = _workflow_entity(main_yaml, name="Committed Main Workflow")
+        prepared = _prepared_inputs(main_yaml, {"query": "from api"})
+        run_service = _RecordingRunService()
+        execution = _BlockingPreRunExecutionService(
+            delay_seconds=0.12,
+            prepared=prepared,
+            committed_workflow=committed_workflow,
+        )
+        invoker = WorkflowRunInvoker(
+            run_service=run_service,
+            execution_service=execution,
+            runtime_admission=_RuntimeAdmission(),
+        )
+        start = time.perf_counter()
+        progress_at: list[float] = []
+
+        async def record_event_loop_progress() -> None:
+            await asyncio.sleep(0.01)
+            progress_at.append(time.perf_counter() - start)
+
+        invoke_task = asyncio.create_task(invoker.invoke(_direct_api_invocation()))
+        progress_task = asyncio.create_task(record_event_loop_progress())
+
+        await asyncio.gather(invoke_task, progress_task)
+
+        assert progress_at
+        assert progress_at[0] < 0.08
+        assert _field(invoke_task.result(), "accepted") is True

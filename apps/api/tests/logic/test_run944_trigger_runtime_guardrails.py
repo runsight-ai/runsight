@@ -186,7 +186,7 @@ class _SlotHoldingExecutionService:
         inputs: Any,
         *,
         snapshot: _ResolvedWorkflowSnapshot,
-    ) -> None:
+    ) -> asyncio.Task[None]:
         self.launch_calls.append(
             {
                 "run_id": run_id,
@@ -201,6 +201,42 @@ class _SlotHoldingExecutionService:
             await self.release_launch.wait()
         if self.launch_error is not None:
             raise self.launch_error
+
+
+class _SchedulingExecutionService(_SlotHoldingExecutionService):
+    def __init__(self) -> None:
+        super().__init__()
+        self.background_started = asyncio.Event()
+        self.background_release = asyncio.Event()
+        self.background_done = asyncio.Event()
+        self.background_tasks: list[asyncio.Task[None]] = []
+
+    async def launch_execution_from_snapshot(
+        self,
+        run_id: str,
+        workflow_id: str,
+        inputs: Any,
+        *,
+        snapshot: _ResolvedWorkflowSnapshot,
+    ) -> None:
+        self.launch_calls.append(
+            {
+                "run_id": run_id,
+                "workflow_id": workflow_id,
+                "inputs": inputs,
+                "branch": snapshot.branch,
+            }
+        )
+        task = asyncio.create_task(self._run_background())
+        self.background_tasks.append(task)
+        return task
+
+    async def _run_background(self) -> None:
+        self.background_started.set()
+        try:
+            await self.background_release.wait()
+        finally:
+            self.background_done.set()
 
 
 @pytest.mark.asyncio
@@ -420,3 +456,53 @@ async def test_invoker_releases_external_invocation_slot_after_launch_exception(
     assert _field(result, "accepted") is False
     assert _value(_field(result, "failure_code")) == "execution_launch_failed"
     assert admission.pending_external_invocations == 0
+
+
+@pytest.mark.asyncio
+async def test_invoker_holds_external_invocation_slot_until_scheduled_execution_finishes() -> None:
+    from runsight_api.logic.services.trigger_runtime import (
+        ExternalInvocationAdmission,
+        TriggerRuntimeConfig,
+    )
+
+    WorkflowRunInvoker, _ = _invoker_contract()
+    admission = ExternalInvocationAdmission(
+        TriggerRuntimeConfig(
+            external_invocation_enabled=True,
+            max_concurrent_runs=1,
+            max_pending_external_invocations=1,
+            body_limit_bytes=1_048_576,
+            public_base_url=None,
+        )
+    )
+    execution = _SchedulingExecutionService()
+    run_service = _SlotRunService()
+    invoker = WorkflowRunInvoker(
+        run_service=run_service,
+        execution_service=execution,
+        runtime_admission=admission,
+    )
+
+    first_task = asyncio.create_task(invoker.invoke(_direct_api_invocation()))
+    await asyncio.wait_for(execution.background_started.wait(), timeout=1)
+
+    assert admission.pending_external_invocations == 1
+
+    saturated = await invoker.invoke(_direct_api_invocation())
+
+    assert _field(saturated, "accepted") is False
+    assert _value(_field(saturated, "failure_code")) == "admission_saturated"
+    assert _field(saturated, "status_code") == 429
+    assert len(run_service.create_calls) == 1
+
+    execution.background_release.set()
+    await asyncio.wait_for(execution.background_done.wait(), timeout=1)
+    first = await asyncio.wait_for(first_task, timeout=1)
+
+    assert _field(first, "accepted") is True
+    assert admission.pending_external_invocations == 0
+
+    after_release = await invoker.invoke(_direct_api_invocation())
+
+    assert _field(after_release, "accepted") is True
+    assert len(run_service.create_calls) == 2

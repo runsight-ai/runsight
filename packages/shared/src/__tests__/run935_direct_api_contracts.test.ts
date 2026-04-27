@@ -89,6 +89,17 @@ function extractOperationBlock(source: string, operationName: string): string {
   return match?.[0] ?? "";
 }
 
+function extractResponseStatusBlock(operationBlock: string, status: string): string {
+  const pattern = new RegExp(
+    `\\n\\s{12}${status}: \\{[\\s\\S]*?(?=\\n\\s{12}\\d{3}: \\{|\\n\\s{8}\\};)`,
+  );
+  const match = operationBlock.match(pattern);
+
+  expect(match, `Expected generated Direct API operation to include ${status}`).not.toBeNull();
+
+  return match?.[0] ?? "";
+}
+
 function assertOnlyInputs(fields: string[]): void {
   expect(fields.sort()).toEqual(["inputs"]);
   for (const field of FORBIDDEN_EXTERNAL_FIELDS) {
@@ -125,6 +136,26 @@ describe("RUN-935 generated Direct API shared contracts", () => {
     expect(operation?.post?.responses).toHaveProperty("503");
   });
 
+  it("committed OpenAPI snapshot models Direct API errors as structured JSON", () => {
+    const operation = openapi.paths?.[DIRECT_API_PATH] as {
+      post?: {
+        responses?: Record<
+          string,
+          { content?: { "application/json"?: { schema?: unknown } } }
+        >;
+      };
+    } | undefined;
+
+    for (const status of ["404", "429", "503", "413"]) {
+      const jsonContent = operation?.post?.responses?.[status]?.content?.["application/json"];
+
+      expect(
+        jsonContent?.schema,
+        `Expected ${status} on POST ${DIRECT_API_PATH} to declare application/json content`,
+      ).toBeDefined();
+    }
+  });
+
   it("committed OpenAPI snapshot keeps the external Direct API body to inputs only", () => {
     const schema = openapi.components?.schemas?.DirectApiRunCreate;
     expect(schema, "Expected committed openapi.json to include DirectApiRunCreate").toBeDefined();
@@ -148,6 +179,20 @@ describe("RUN-935 generated Direct API shared contracts", () => {
     );
     expect(operationBlock).toContain('"application/json": components["schemas"]["RunResponse"]');
     expect(operationBlock).not.toContain('"application/json": components["schemas"]["RunCreate"]');
+  });
+
+  it("generated api.ts exposes structured JSON for Direct API error responses", () => {
+    const pathBlock = extractPathBlock(apiSource, DIRECT_API_PATH);
+    const operationName = pathBlock.match(/post: operations\["([^"]+)"\]/)?.[1];
+    const operationBlock = extractOperationBlock(apiSource, operationName ?? "");
+
+    for (const status of ["404", "429", "503", "413"]) {
+      const responseBlock = extractResponseStatusBlock(operationBlock, status);
+
+      expect(responseBlock).toContain("content: {");
+      expect(responseBlock).toContain('"application/json":');
+      expect(responseBlock).not.toContain("content?: never");
+    }
   });
 
   it("generated api.ts declares DirectApiRunCreate as inputs only and keeps RunCreate distinct", () => {

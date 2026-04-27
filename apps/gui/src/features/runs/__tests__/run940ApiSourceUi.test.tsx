@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   onOpen: vi.fn(),
   runsQueryCalls: [] as unknown[],
   refetchRuns: vi.fn(),
+  runs: [] as RunResponse[],
 }));
 
 function normalizeSources(params: unknown): string[] {
@@ -42,9 +43,14 @@ function buildRunList(items: RunResponse[]) {
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
+    const requestedSources = normalizeSources(params);
+    const runs =
+      requestedSources.length === 0
+        ? mocks.runs
+        : mocks.runs.filter((run) => requestedSources.includes(run.source));
 
     return {
-      data: buildRunList([]),
+      data: buildRunList(runs),
       isLoading: false,
       error: null,
       refetch: mocks.refetchRuns,
@@ -144,6 +150,7 @@ beforeEach(() => {
   mocks.onOpen.mockReset();
   mocks.runsQueryCalls.length = 0;
   mocks.refetchRuns.mockReset();
+  mocks.runs = [];
 });
 
 afterEach(() => {
@@ -217,5 +224,42 @@ describe("RUN-940 api run source UI", () => {
         "webhook",
       ]);
     });
+  });
+
+  it("shows filtered-empty copy instead of first-run copy when source filtering hides runs", async () => {
+    const user = userEvent.setup();
+    mocks.runs = [makeRun({ id: "run_simulation_only", source: "simulation" })];
+    renderRunsTab();
+
+    await user.click(screen.getByLabelText("Filter runs by source"));
+    await screen.findByText("Production runs");
+    await user.click(findSourceSelectOption("Production runs"));
+
+    expect(await screen.findByText("No matching runs")).toBeTruthy();
+    expect(screen.queryByText("No runs yet")).toBeNull();
+  });
+
+  it("clears local source and search filters from the RunsTab empty state", async () => {
+    const user = userEvent.setup();
+    mocks.runs = [makeRun({ id: "run_clear_filters", workflow_name: "Visible After Clear" })];
+    renderRunsTab();
+
+    await user.click(screen.getByLabelText("Filter runs by source"));
+    await screen.findByText("Production runs");
+    await user.click(findSourceSelectOption("Production runs"));
+    await user.type(screen.getByRole("searchbox", { name: "Search runs" }), "missing");
+
+    expect(await screen.findByText("No matching runs")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filter runs by source").textContent).toContain("All runs");
+    });
+    expect((screen.getByRole("searchbox", { name: "Search runs" }) as HTMLInputElement).value).toBe(
+      "",
+    );
+    expect(screen.getByText("Visible After Clear")).toBeTruthy();
+    expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([]);
   });
 });

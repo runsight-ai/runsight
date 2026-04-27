@@ -12,6 +12,7 @@ from runsight_core.redaction import RunRedactor
 
 from runsight_api.domain.entities.run import RunStatus
 from runsight_api.domain.errors import InputValidationError, WorkflowNotFound
+from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_api.main import app
 from runsight_api.transport.deps import (
@@ -399,6 +400,30 @@ def test_direct_api_workflow_missing_on_saved_main_returns_404_without_run_creat
     assert execution.launch_snapshot_calls == []
 
 
+def test_direct_api_disabled_saved_main_snapshot_returns_404_without_run_creation() -> None:
+    run_service, execution, _ = _install_services()
+    execution.resolved_snapshot = _ResolvedWorkflowSnapshot(
+        workflow=WorkflowEntity(
+            kind="workflow",
+            id=WORKFLOW_ID,
+            name="Disabled Main Workflow",
+            enabled=False,
+        )
+    )
+
+    response = client.post(
+        f"/api/workflows/{WORKFLOW_ID}/runs",
+        json={"inputs": {"query": SECRET_INPUT}},
+        headers={"authorization": SECRET_AUTH},
+    )
+
+    body = _assert_sanitized_error_response(response, 404)
+    assert body["error_code"] == "WORKFLOW_NOT_FOUND"
+    assert execution.resolve_calls == [{"workflow_id": WORKFLOW_ID, "branch": "main"}]
+    assert run_service.create_calls == []
+    assert execution.launch_snapshot_calls == []
+
+
 def test_direct_api_canonical_input_validation_returns_422_without_run_creation() -> None:
     run_service, execution, _ = _install_services(
         execution=_CanonicalExecutionService(prepare_error=_validation_error())
@@ -452,3 +477,14 @@ def test_openapi_exposes_distinct_direct_api_invocation_schema() -> None:
     assert "idempotency_key" not in schema["properties"]
     assert "source_metadata" not in schema["properties"]
     assert {"404", "422", "429", "503"}.issubset(operation["responses"])
+
+
+@pytest.mark.parametrize("status", ["404", "429", "503", "413"])
+def test_openapi_models_direct_api_error_responses_as_json(status: str) -> None:
+    app.openapi_schema = None
+    spec = app.openapi()
+
+    operation = spec["paths"]["/api/workflows/{workflow_id}/runs"]["post"]
+    response = operation["responses"][status]
+
+    assert response["content"]["application/json"]["schema"]
