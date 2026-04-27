@@ -105,6 +105,7 @@ def _ensure_sqlite_columns(engine) -> None:
     }
 
     with engine.begin() as conn:
+        table_columns: dict[str, set[str]] = {}
         for table_name, columns in additive_columns.items():
             existing = {
                 row[1]
@@ -114,15 +115,23 @@ def _ensure_sqlite_columns(engine) -> None:
                 if column_name in existing:
                     continue
                 conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
-        conn.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_run_source_created_at ON run (source, created_at)")
-        )
-        conn.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS ix_run_workflow_source_created_at "
-                "ON run (workflow_id, source, created_at)"
+                existing.add(column_name)
+            table_columns[table_name] = existing
+
+        run_columns = table_columns.get("run", set())
+        if {"source", "created_at"}.issubset(run_columns):
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_run_source_created_at ON run (source, created_at)"
+                )
             )
-        )
+        if {"workflow_id", "source", "created_at"}.issubset(run_columns):
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_run_workflow_source_created_at "
+                    "ON run (workflow_id, source, created_at)"
+                )
+            )
 
 
 def _build_alembic_config() -> AlembicConfig:

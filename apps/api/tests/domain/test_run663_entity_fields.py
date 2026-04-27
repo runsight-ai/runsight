@@ -175,6 +175,50 @@ class TestSqliteBackfillColumns:
                 "Expected _ensure_sqlite_columns to leave branch out of legacy run table backfill"
             )
 
+    def test_ensure_sqlite_columns_creates_source_indexes_when_created_at_exists(
+        self, tmp_path
+    ) -> None:
+        """Backfill must create source indexes when legacy SQLite tables support them."""
+        from sqlalchemy import create_engine
+
+        from runsight_api.main import _ensure_sqlite_columns
+
+        db_path = tmp_path / "run663_legacy_with_created_at.sqlite"
+        engine = create_engine(f"sqlite:///{db_path}")
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE run (
+                    id TEXT PRIMARY KEY,
+                    workflow_id TEXT NOT NULL,
+                    workflow_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    task_json TEXT NOT NULL,
+                    created_at FLOAT NOT NULL
+                )
+                """
+            )
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE runnode (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    node_id TEXT NOT NULL,
+                    block_type TEXT NOT NULL,
+                    status TEXT NOT NULL
+                )
+                """
+            )
+
+        _ensure_sqlite_columns(engine)
+
+        with engine.begin() as conn:
+            index_names = {
+                row[1] for row in conn.exec_driver_sql("PRAGMA index_list(run)").fetchall()
+            }
+            assert "ix_run_source_created_at" in index_names
+            assert "ix_run_workflow_source_created_at" in index_names
+
 
 class TestAlembicMigrationAddsRunWarningsJson:
     """A migration must add and drop run.warnings_json for non-SQLite DBs."""
