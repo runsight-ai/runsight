@@ -1,5 +1,6 @@
 """ExecutionService facade for execution collaborators."""
 
+import asyncio
 import copy
 import logging
 from collections.abc import Iterator, Mapping
@@ -592,10 +593,9 @@ class ExecutionService:
             raise TypeError("launch_execution inputs must be PreparedRunInputs")
 
         try:
-            prepared = self._preparation.prepare_resolved_snapshot_for_launch(
-                snapshot=snapshot.execution_snapshot(),
-                parser=parse_workflow_yaml,
-                prepare_runtime_workflow=self._prepare_runtime_workflow,
+            prepared = await asyncio.to_thread(
+                self._prepare_resolved_snapshot_for_launch,
+                snapshot,
             )
             self._store_branch_and_sha(run_id, snapshot.branch, prepared.commit_sha)
             if self._is_run_cancelled(run_id):
@@ -616,6 +616,13 @@ class ExecutionService:
 
         return self._runtime.track_background_task(
             run_id, self._run_workflow(run_id, prepared.workflow, inputs)
+        )
+
+    def _prepare_resolved_snapshot_for_launch(self, snapshot: WorkflowRunSnapshot):
+        return self._preparation.prepare_resolved_snapshot_for_launch(
+            snapshot=snapshot.execution_snapshot(),
+            parser=parse_workflow_yaml,
+            prepare_runtime_workflow=self._prepare_runtime_workflow,
         )
 
     def _resolve_git_ref_sha(self, ref: str, workflow_path: str) -> str | None:

@@ -191,7 +191,7 @@ class WorkflowRunInvoker:
             invocation.workflow_id, branch=invocation.branch
         )
         workflow_snapshot = getattr(resolved_snapshot, "workflow", None)
-        if _workflow_snapshot_is_explicitly_disabled(workflow_snapshot):
+        if _workflow_snapshot_is_explicitly_disabled(workflow_snapshot, invocation):
             raise WorkflowNotFound(
                 f"Workflow {invocation.workflow_id!r} not found on {invocation.branch!r}"
             )
@@ -259,13 +259,23 @@ class WorkflowRunInvoker:
         return True
 
 
-def _workflow_snapshot_is_explicitly_disabled(workflow_snapshot: Any) -> bool:
-    if getattr(workflow_snapshot, "enabled", True) is not False:
+def _workflow_snapshot_is_explicitly_disabled(
+    workflow_snapshot: Any,
+    invocation: WorkflowRunInvocation,
+) -> bool:
+    if workflow_snapshot is None or not hasattr(workflow_snapshot, "enabled"):
         return False
+    if getattr(workflow_snapshot, "enabled", False) is not False:
+        return False
+
+    request_path = invocation.source_metadata.get("request_path")
+    if isinstance(request_path, str) and request_path.endswith("/runs"):
+        return True
 
     fields_set = getattr(workflow_snapshot, "model_fields_set", None)
     if fields_set is None:
         fields_set = getattr(workflow_snapshot, "__fields_set__", None)
-    if isinstance(fields_set, set):
-        return "enabled" in fields_set
-    return True
+    if isinstance(fields_set, set) and "enabled" in fields_set:
+        return True
+
+    return not bool(getattr(workflow_snapshot, "yaml", None))
