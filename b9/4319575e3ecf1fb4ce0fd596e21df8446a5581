@@ -1,0 +1,25 @@
+apps/gui/src/features/dashboard/__tests__/dashboardWorkflowCreateIdentity.test.ts
+  4adca821c1af8eb3 184-187,233-240
+apps/gui/src/features/flows/__tests__/workflowCreateIdentity.test.ts
+  4adca821c1af8eb3 109-112,149-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b94319575e3ecf1fb4ce0fd596e21df8446a5581",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 56,
+      "total_deletions": 38,
+      "accepted_lines": 120482,
+      "overriden_lines": 6
+    }
+  }
+}
