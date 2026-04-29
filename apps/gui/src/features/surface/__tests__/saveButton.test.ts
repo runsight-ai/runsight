@@ -98,7 +98,7 @@ function renderTopbar(overrides: Partial<React.ComponentProps<typeof SurfaceTopb
 
   const markup = renderToStaticMarkup(
     React.createElement(SurfaceTopbar, {
-      workflowId: "wf_1",
+      workflowId: "surface_save_flow",
       activeTab: "yaml",
       onValueChange: vi.fn(),
       ...overrides,

@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => {
     ],
     blockCount: 1,
     isDirty: false,
-    yamlContent: "workflow:\n  name: Test Flow\n",
+    yamlContent: "workflow:\n  name: Run Gate Flow\n",
   };
 
   const useCanvasStore = ((selector: (store: typeof state) => unknown) =>
@@ -98,7 +98,7 @@ vi.mock("react-router", () => ({
 import { RunButton } from "../../surface/RunButton";
 
 function renderButton(
-  workflowId = "wf_1",
+  workflowId = "run_gate_flow",
   extraProps: Record<string, unknown> = {},
 ) {
   mocks.buttonProps.length = 0;
@@ -127,7 +127,7 @@ beforeEach(() => {
   ];
   mocks.state.blockCount = 1;
   mocks.state.isDirty = false;
-  mocks.state.yamlContent = "workflow:\n  name: Test Flow\n";
+  mocks.state.yamlContent = "workflow:\n  name: Run Gate Flow\n";
   mocks.getGitStatus.mockReset();
   mocks.getGitStatus.mockResolvedValue({
     branch: "main",
@@ -142,25 +142,25 @@ beforeEach(() => {
 describe("Run gating and wiring", () => {
   it("uncommitted clean workflows still create a simulation branch instead of running on main", async () => {
     mocks.createSimulationSnapshot.mockResolvedValue({
-      branch: "sim/test-flow/20260403/abc12",
+      branch: "sim/run-gate-flow/20260403/abc12",
       commit_sha: "deadbeefcafebabe",
     });
 
-    const click = renderButton("wf_uncommitted", { isCommitted: false });
+    const click = renderButton("uncommitted_run_gate_flow", { isCommitted: false });
 
     await click();
 
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
-      "wf_uncommitted",
-      "workflow:\n  name: Test Flow\n",
+      "uncommitted_run_gate_flow",
+      "workflow:\n  name: Run Gate Flow\n",
     );
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
-        workflow_id: "wf_uncommitted",
+        workflow_id: "uncommitted_run_gate_flow",
         inputs: {},
         source: "simulation",
-        branch: "sim/test-flow/20260403/abc12",
+        branch: "sim/run-gate-flow/20260403/abc12",
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
@@ -170,25 +170,25 @@ describe("Run gating and wiring", () => {
   it("committed dirty workflows still create a simulation branch instead of running on main", async () => {
     mocks.state.isDirty = true;
     mocks.createSimulationSnapshot.mockResolvedValue({
-      branch: "sim/test-flow/20260403/dirty-ab12",
+      branch: "sim/run-gate-flow/20260403/dirty-ab12",
       commit_sha: "deadbeefcafebabe",
     });
 
-    const click = renderButton("wf_committed_dirty", { isCommitted: true });
+    const click = renderButton("committed_dirty_run_gate_flow", { isCommitted: true });
 
     await click();
 
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledTimes(1);
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
-      "wf_committed_dirty",
-      "workflow:\n  name: Test Flow\n",
+      "committed_dirty_run_gate_flow",
+      "workflow:\n  name: Run Gate Flow\n",
     );
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
-        workflow_id: "wf_committed_dirty",
+        workflow_id: "committed_dirty_run_gate_flow",
         inputs: {},
         source: "simulation",
-        branch: "sim/test-flow/20260403/dirty-ab12",
+        branch: "sim/run-gate-flow/20260403/dirty-ab12",
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
@@ -196,14 +196,14 @@ describe("Run gating and wiring", () => {
   });
 
   it("committed clean workflows run on main without creating a simulation branch", async () => {
-    const click = renderButton("wf_committed_clean", { isCommitted: true });
+    const click = renderButton("committed_clean_run_gate_flow", { isCommitted: true });
 
     await click();
 
     expect(mocks.createSimulationSnapshot).not.toHaveBeenCalled();
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
-        workflow_id: "wf_committed_clean",
+        workflow_id: "committed_clean_run_gate_flow",
         inputs: {},
         source: "manual",
         branch: "main",

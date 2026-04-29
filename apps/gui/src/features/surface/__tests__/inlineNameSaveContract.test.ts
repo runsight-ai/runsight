@@ -102,7 +102,7 @@ function renderTopbar(onSave = vi.fn()) {
   mocks.stateCursor = 0;
 
   const tree = SurfaceTopbar({
-    workflowId: "wf_1",
+    workflowId: "inline_name_flow",
     activeTab: "yaml",
     onValueChange: vi.fn(),
     isDirty: true,

@@ -26,7 +26,7 @@ const mocks = vi.hoisted(() => {
     nodes: persistedCanvasState.nodes,
     blockCount: 1,
     isDirty: false,
-    yamlContent: "workflow:\n  name: Test Flow\n",
+    yamlContent: "workflow:\n  name: Simulation Branch Flow\n",
     toPersistedState: vi.fn(() => persistedCanvasState),
   };
 
@@ -116,7 +116,7 @@ vi.mock("sonner", () => ({
 
 import { RunButton } from "../RunButton";
 
-function renderButton(workflowId = "wf_1") {
+function renderButton(workflowId = "simulation_branch_flow") {
   mocks.buttonProps.length = 0;
   renderToStaticMarkup(React.createElement(RunButton, { workflowId }));
   const button = mocks.buttonProps.at(-1);
@@ -131,7 +131,7 @@ beforeEach(() => {
   mocks.state.nodes = mocks.persistedCanvasState.nodes;
   mocks.state.blockCount = 1;
   mocks.state.isDirty = false;
-  mocks.state.yamlContent = "workflow:\n  name: Test Flow\n";
+  mocks.state.yamlContent = "workflow:\n  name: Simulation Branch Flow\n";
   mocks.state.toPersistedState.mockReset();
   mocks.state.toPersistedState.mockReturnValue(mocks.persistedCanvasState);
   mocks.getGitStatus.mockReset();
@@ -148,12 +148,12 @@ beforeEach(() => {
 
 describe("RunButton simulation behavior", () => {
   it("dirty canvas snapshots the in-memory workflow before starting a simulation run", async () => {
-    const currentWorkflowId = "wf_live_42";
+    const currentWorkflowId = "live_surface_flow";
     const currentYaml = "workflow:\n  name: Live Flow\n  steps:\n    - id: latest-step\n";
     mocks.state.isDirty = true;
     mocks.state.yamlContent = currentYaml;
     mocks.createSimulationSnapshot.mockResolvedValue({
-      branch: "sim/test-flow/20260330/abc12",
+      branch: "sim/live-surface-flow/20260330/abc12",
       commit_sha: "deadbeefcafebabe",
     });
 
@@ -171,9 +171,9 @@ describe("RunButton simulation behavior", () => {
     expect(mocks.createRunMutate).toHaveBeenCalledTimes(1);
     expect(mocks.createRunMutate.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        workflow_id: "wf_live_42",
+        workflow_id: "live_surface_flow",
         source: "simulation",
-        branch: "sim/test-flow/20260330/abc12",
+        branch: "sim/live-surface-flow/20260330/abc12",
       }),
     );
     expect(mocks.createRunMutate.mock.calls[0]?.[1]).toEqual(
@@ -188,7 +188,7 @@ describe("RunButton simulation behavior", () => {
     expect(mocks.createSimulationSnapshot).not.toHaveBeenCalled();
     expect(mocks.createRunMutate).toHaveBeenCalledWith(
       {
-        workflow_id: "wf_1",
+        workflow_id: "simulation_branch_flow",
         inputs: {},
         source: "manual",
         branch: "main",
@@ -203,11 +203,11 @@ describe("RunButton simulation behavior", () => {
       new ApiError(409, "GIT_ERROR", "Simulation runs require a git repository"),
     );
 
-    const click = renderButton("wf_local_only");
+    const click = renderButton("local_only_simulation_flow");
     await click();
 
     expect(mocks.createSimulationSnapshot).toHaveBeenCalledWith(
-      "wf_local_only",
+      "local_only_simulation_flow",
       mocks.state.yamlContent,
     );
     expect(mocks.createRunMutate).not.toHaveBeenCalled();
@@ -220,7 +220,7 @@ describe("RunButton simulation behavior", () => {
     mocks.state.isDirty = true;
     mocks.createSimulationSnapshot.mockRejectedValue(new Error("Simulation snapshot failed"));
 
-    const click = renderButton("wf_sim_fail");
+    const click = renderButton("simulation_snapshot_failure_flow");
     await click();
 
     expect(mocks.createRunMutate).not.toHaveBeenCalled();

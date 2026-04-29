@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
     data: {
-      id: "wf_1",
+      id: "research_pipeline",
       name: "Research Pipeline",
       yaml: "workflow:\n  name: Research Pipeline\n",
       commit_sha: "abc123",
@@ -72,7 +72,7 @@ describe("SurfaceTopbar run controls", () => {
 
     render(
       <SurfaceTopbar
-        workflowId="wf_1"
+        workflowId="research_pipeline"
         runId="run_live"
         activeTab="canvas"
         onValueChange={() => undefined}
