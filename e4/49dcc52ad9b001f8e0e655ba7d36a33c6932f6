@@ -1,0 +1,25 @@
+apps/api/tests/domain/test_state_transition_guards.py
+  4adca821c1af8eb3 34-35,280-281,302,314,326,340,356,359,468
+apps/api/tests/unit/data/filesystem/test_provider_repo_identity.py
+  4adca821c1af8eb3 19-20,69,89,109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e449dcc52ad9b001f8e0e655ba7d36a33c6932f6",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 16,
+      "accepted_lines": 118927,
+      "overriden_lines": 0
+    }
+  }
+}
