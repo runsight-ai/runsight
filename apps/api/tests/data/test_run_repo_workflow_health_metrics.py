@@ -79,7 +79,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_run(
             db_session,
             "run_manual",
-            workflow_id="wf_1",
+            workflow_id="workflow_health_metrics",
             source="manual",
             total_cost_usd=0.10,
         )
@@ -88,7 +88,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_run(
             db_session,
             "run_webhook",
-            workflow_id="wf_1",
+            workflow_id="workflow_health_metrics",
             source="webhook",
             total_cost_usd=0.20,
         )
@@ -97,7 +97,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_run(
             db_session,
             "run_simulation",
-            workflow_id="wf_1",
+            workflow_id="workflow_health_metrics",
             source="simulation",
             total_cost_usd=9.90,
         )
@@ -105,8 +105,8 @@ class TestWorkflowHealthMetricsRepository:
         db_session.commit()
 
         repo = RunReadModel(db_session)
-        result = repo.get_workflow_health_metrics(["wf_1"])
-        metric = result["wf_1"]
+        result = repo.get_workflow_health_metrics(["workflow_health_metrics"])
+        metric = result["workflow_health_metrics"]
 
         assert _metric_value(metric, "run_count") == 2
         assert _metric_value(metric, "eval_pass_pct") == pytest.approx(50.0)
@@ -124,7 +124,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_run(
             db_session,
             "run_active",
-            workflow_id="wf_deleted",
+            workflow_id="workflow_soft_deleted",
             source="manual",
             total_cost_usd=0.40,
             created_at=100.0,
@@ -140,7 +140,7 @@ class TestWorkflowHealthMetricsRepository:
         _seed_run(
             db_session,
             "run_deleted",
-            workflow_id="wf_deleted",
+            workflow_id="workflow_soft_deleted",
             source="manual",
             total_cost_usd=9.90,
             created_at=200.0,
@@ -156,8 +156,8 @@ class TestWorkflowHealthMetricsRepository:
         db_session.commit()
 
         repo = RunReadModel(db_session)
-        result = repo.get_workflow_health_metrics(["wf_deleted"])
-        metric = result["wf_deleted"]
+        result = repo.get_workflow_health_metrics(["workflow_soft_deleted"])
+        metric = result["workflow_soft_deleted"]
 
         assert _metric_value(metric, "run_count") == 1
         assert _metric_value(metric, "eval_pass_pct") == pytest.approx(100.0)

@@ -29,8 +29,8 @@ def _make_run(*, branch: str, **overrides):
 
     defaults = dict(
         id="run-data-model",
-        workflow_id="wf-1",
-        workflow_name="Test WF",
+        workflow_id="workflow-data-model",
+        workflow_name="Data model workflow",
         task_json='{"instruction": "go"}',
         branch=branch,
     )
@@ -75,8 +75,8 @@ class TestRunBranchField:
         with pytest.raises(ValidationError):
             Run(
                 id="run-branch-required",
-                workflow_id="wf-1",
-                workflow_name="Test WF",
+                workflow_id="workflow-data-model",
+                workflow_name="Data model workflow",
                 task_json='{"instruction": "go"}',
             )
 
@@ -109,8 +109,8 @@ class TestRunBranchField:
         with pytest.raises(ValidationError):
             Run(
                 id="run-branch-missing",
-                workflow_id="wf-1",
-                workflow_name="Test WF",
+                workflow_id="workflow-data-model",
+                workflow_name="Data model workflow",
                 task_json='{"instruction": "go"}',
                 source="manual",
             )
@@ -290,8 +290,8 @@ class TestRunResponseNewFields:
         with pytest.raises(ValidationError):
             RunResponse(
                 id="run-response",
-                workflow_id="wf-1",
-                workflow_name="Test",
+                workflow_id="workflow-data-model",
+                workflow_name="Data model workflow",
                 status="pending",
                 started_at=None,
                 completed_at=None,
@@ -309,8 +309,8 @@ class TestRunResponseNewFields:
 
         resp = RunResponse(
             id="run-response",
-            workflow_id="wf-1",
-            workflow_name="Test",
+            workflow_id="workflow-data-model",
+            workflow_name="Data model workflow",
             status="pending",
             started_at=None,
             completed_at=None,
@@ -347,8 +347,8 @@ class TestRunResponseWarningsField:
         )
         resp = RunResponse(
             id="run-response",
-            workflow_id="wf-1",
-            workflow_name="Test",
+            workflow_id="workflow-data-model",
+            workflow_name="Data model workflow",
             status="pending",
             started_at=None,
             completed_at=None,
@@ -379,7 +379,7 @@ class TestRunCreateSourceField:
         """RunCreate.source defaults when not provided."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        body = RunCreate(workflow_id="wf-1", branch=EXPLICIT_BRANCH)
+        body = RunCreate(workflow_id="workflow-data-model", branch=EXPLICIT_BRANCH)
         # Should default to "manual" or None — either way, the field must exist
         assert hasattr(body, "source")
 
@@ -387,7 +387,9 @@ class TestRunCreateSourceField:
         """RunCreate.source can be set explicitly."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        body = RunCreate(workflow_id="wf-1", branch=EXPLICIT_BRANCH, source="webhook")
+        body = RunCreate(
+            workflow_id="workflow-data-model", branch=EXPLICIT_BRANCH, source="webhook"
+        )
         assert body.source == "webhook"
 
 
@@ -405,7 +407,7 @@ class TestRunCreateBranchField:
         """RunCreate omits branch to request the working-tree execution path."""
         from runsight_api.transport.schemas.runs import RunCreate
 
-        body = RunCreate(workflow_id="wf-1")
+        body = RunCreate(workflow_id="workflow-data-model")
 
         assert body.branch is None
 
@@ -424,14 +426,14 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         with pytest.raises(TypeError):
-            svc.create_run("wf-1", _prepared({"instruction": "go"}))
+            svc.create_run("workflow-data-model", _prepared({"instruction": "go"}))
 
     def test_create_run_sets_source_default(self):
         """create_run() sets source='manual' by default."""
@@ -441,13 +443,15 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
+        run = svc.create_run(
+            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+        )
 
         assert run.source == "manual"
 
@@ -459,14 +463,14 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "wf-1",
+            "workflow-data-model",
             _prepared({"instruction": "go"}),
             branch=EXPLICIT_BRANCH,
             source="webhook",
@@ -483,8 +487,8 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_workflow.warnings = [
             {
                 "message": "Tool definition warning",
@@ -496,7 +500,9 @@ class TestCreateRunPopulatesNewFields:
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
+        run = svc.create_run(
+            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+        )
 
         assert run.warnings_json == mock_workflow.warnings
         assert run.warnings_json is not mock_workflow.warnings
@@ -512,14 +518,16 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_workflow.warnings = []
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
+        run = svc.create_run(
+            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+        )
 
         assert run.warnings_json is None
 
@@ -531,14 +539,16 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         # Intentionally leave .warnings unset to exercise Mock getattr behavior.
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
+        run = svc.create_run(
+            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+        )
 
         assert run.warnings_json is None
 
@@ -550,14 +560,16 @@ class TestCreateRunPopulatesNewFields:
         mock_run_repo.create_run.side_effect = lambda r: r
 
         mock_workflow = Mock()
-        mock_workflow.name = "Test WF"
-        mock_workflow.id = "wf-1"
+        mock_workflow.name = "Data model workflow"
+        mock_workflow.id = "workflow-data-model"
         mock_workflow.warnings = Mock(name="not_a_warning_list")
         mock_wf_repo = Mock()
         mock_wf_repo.get_by_id.return_value = mock_workflow
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
-        run = svc.create_run("wf-1", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH)
+        run = svc.create_run(
+            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+        )
 
         assert run.warnings_json is None
 

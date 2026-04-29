@@ -69,8 +69,8 @@ class TestProviderEntityRejectsExtraFields:
             kind="provider",
             name="OpenAI",
             type="openai",
-            api_key="${OPENAI_API_KEY}",
-            base_url="https://api.openai.com/v1",
+            api_key="dummy-openai-key-ref",
+            base_url="https://provider.example.invalid/openai/v1",
             is_active=True,
             status="connected",
             models=["gpt-4o"],
@@ -83,13 +83,18 @@ class TestProviderEntityRejectsExtraFields:
 
 class TestWorkflowEntityPreservesExtraFields:
     def test_unknown_field_is_preserved(self):
-        wf = WorkflowEntity(kind="workflow", id="wf1", name="Pipeline", custom_meta="keep-me")
+        wf = WorkflowEntity(
+            kind="workflow",
+            id="pipeline_workflow",
+            name="Pipeline",
+            custom_meta="keep-me",
+        )
         assert hasattr(wf, "custom_meta")
         assert wf.custom_meta == "keep-me"
 
     def test_known_fields_work(self):
-        wf = WorkflowEntity(kind="workflow", id="wf1", name="Pipeline")
-        assert wf.id == "wf1"
+        wf = WorkflowEntity(kind="workflow", id="pipeline_workflow", name="Pipeline")
+        assert wf.id == "pipeline_workflow"
         assert wf.name == "Pipeline"
 
 
@@ -100,7 +105,7 @@ class TestWorkflowEntityWarningsField:
         field_info = WorkflowEntity.model_fields["warnings"]
         assert field_info.default_factory is list
 
-        wf = WorkflowEntity(kind="workflow", id="wf1")
+        wf = WorkflowEntity(kind="workflow", id="pipeline_workflow")
         assert wf.warnings == []
 
     def test_warnings_preserve_explicit_payloads(self):
@@ -112,6 +117,6 @@ class TestWorkflowEntityWarningsField:
             }
         ]
 
-        wf = WorkflowEntity(kind="workflow", id="wf1", warnings=warnings)
+        wf = WorkflowEntity(kind="workflow", id="pipeline_workflow", warnings=warnings)
 
         assert wf.warnings == warnings

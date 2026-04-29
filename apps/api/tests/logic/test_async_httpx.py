@@ -4,6 +4,11 @@ Coverage:
   - Zero sync httpx calls in provider_service
   - All HTTP calls use async with httpx.AsyncClient
   - Provider health checks still work correctly
+
+Governance boundary: API provider health checks must not add blocking HTTP calls.
+Owner: apps/api logic.
+Exit criteria: remove source/AST guards once the provider transport is injectable
+and behavior-only tests can prove the same async contract.
 """
 
 import pytest
@@ -80,7 +85,7 @@ class TestNoSyncHttpxCalls:
         source = _get_provider_service_source()
         assert "httpx.get(" not in source, (
             "Found sync httpx.get() call in provider_service.py — "
-            "must be replaced with async httpx.AsyncClient"
+            "provider_service.py must use async httpx.AsyncClient"
         )
 
     def test_no_sync_httpx_post_in_source(self):
@@ -88,7 +93,7 @@ class TestNoSyncHttpxCalls:
         source = _get_provider_service_source()
         assert "httpx.post(" not in source, (
             "Found sync httpx.post() call in provider_service.py — "
-            "must be replaced with async httpx.AsyncClient"
+            "provider_service.py must use async httpx.AsyncClient"
         )
 
     def test_no_sync_httpx_request_in_source(self):
@@ -96,7 +101,7 @@ class TestNoSyncHttpxCalls:
         source = _get_provider_service_source()
         assert "httpx.request(" not in source, (
             "Found sync httpx.request() call in provider_service.py — "
-            "must be replaced with async httpx.AsyncClient"
+            "provider_service.py must use async httpx.AsyncClient"
         )
 
     def test_async_client_is_used_in_source(self):
@@ -156,7 +161,7 @@ class TestASTNoSyncHttpx:
         sync_calls = self._find_httpx_calls(source)
         assert sync_calls == [], (
             f"Found {len(sync_calls)} sync httpx call(s) in provider_service.py: {sync_calls} — "
-            "all must be replaced with async httpx.AsyncClient methods"
+            "all provider connection paths must use async httpx.AsyncClient methods"
         )
 
 
@@ -173,7 +178,7 @@ class TestTestConnectionUsesAsyncClient:
         """test_connection for OpenAI provider must use httpx.AsyncClient."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.invalid/openai/v1",
         )
         service = _make_service(provider)
 
@@ -294,7 +299,7 @@ class TestTestConnectionUsesAsyncClient:
         provider = _make_provider(
             provider_type="mistral",
             name="Mistral",
-            base_url="https://api.mistral.ai/v1",
+            base_url="https://provider.example.invalid/mistral/v1",
         )
         service = _make_service(provider)
 
@@ -323,7 +328,7 @@ class TestTestConnectionUsesAsyncClient:
         """httpx.get (sync) must never be called — only httpx.AsyncClient.get."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.invalid/openai/v1",
         )
         service = _make_service(provider)
 
@@ -382,7 +387,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         """OpenAI health check must return discovered models via async client."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.invalid/openai/v1",
         )
         service = _make_service(provider)
 
@@ -504,7 +509,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         """A 401 response via async client must still update provider status to 'error'."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.invalid/openai/v1",
         )
         repo = Mock()
         repo.get_by_id.return_value = provider
@@ -546,7 +551,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
 
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.invalid/openai/v1",
         )
         repo = Mock()
         repo.get_by_id.return_value = provider

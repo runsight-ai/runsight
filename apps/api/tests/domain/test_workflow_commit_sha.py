@@ -35,8 +35,8 @@ class TestRunCommitShaOnly:
 
         run = Run(
             id="run-sha-1",
-            workflow_id="wf-1",
-            workflow_name="WF 1",
+            workflow_id="workflow-commit-sha",
+            workflow_name="Commit SHA workflow",
             task_json='{"instruction": "test"}',
             branch="main",
         )
@@ -48,8 +48,8 @@ class TestRunCommitShaOnly:
 
         run = Run(
             id="run-sha-2",
-            workflow_id="wf-1",
-            workflow_name="WF 1",
+            workflow_id="workflow-commit-sha",
+            workflow_name="Commit SHA workflow",
             task_json='{"instruction": "test"}',
             branch="main",
         )
@@ -62,8 +62,8 @@ class TestRunCommitShaOnly:
         sha = "abc123def456789012345678901234567890abcd"
         run = Run(
             id="run-sha-3",
-            workflow_id="wf-1",
-            workflow_name="WF 1",
+            workflow_id="workflow-commit-sha",
+            workflow_name="Commit SHA workflow",
             task_json='{"instruction": "test"}',
             branch="main",
             commit_sha=sha,
@@ -81,8 +81,8 @@ class TestRunCommitShaOnly:
         with Session(engine) as session:
             run = Run(
                 id="run-sha-db",
-                workflow_id="wf-1",
-                workflow_name="WF 1",
+                workflow_id="workflow-commit-sha",
+                workflow_name="Commit SHA workflow",
                 task_json='{"instruction": "test"}',
                 branch="main",
                 commit_sha=sha,
@@ -104,8 +104,8 @@ class TestRunCommitShaOnly:
         with Session(engine) as session:
             run = Run(
                 id="run-sha-none",
-                workflow_id="wf-1",
-                workflow_name="WF 1",
+                workflow_id="workflow-commit-sha",
+                workflow_name="Commit SHA workflow",
                 task_json='{"instruction": "test"}',
                 branch="main",
             )
@@ -209,8 +209,8 @@ class TestLaunchExecutionStoresSha:
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id="workflow_commit_sha",
+                workflow_name="Commit SHA workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -224,10 +224,10 @@ class TestLaunchExecutionStoresSha:
             "workflow:\n  name: test\n  entry: b1\n  transitions: []\n"
             "blocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         )
-        mock_entity.filename = "wf_1.yaml"
+        mock_entity.filename = "workflow_commit_sha.yaml"
         workflow_repo.get_by_id.return_value = mock_entity
         workflow_repo._get_path.return_value = Mock(
-            __str__=lambda self: "/project/custom/workflows/wf_1.yaml"
+            __str__=lambda self: "/isolated-test-workspace/workflows/workflow_commit_sha.yaml"
         )
 
         provider_repo = Mock()
@@ -260,7 +260,7 @@ class TestLaunchExecutionStoresSha:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
+                "workflow_commit_sha",
                 _prepared_inputs({"instruction": "go"}),
                 branch=None,
             )
@@ -285,8 +285,8 @@ class TestLaunchExecutionStoresSha:
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id="workflow_commit_sha",
+                workflow_name="Commit SHA workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -300,10 +300,10 @@ class TestLaunchExecutionStoresSha:
             "workflow:\n  name: test\n  entry: b1\n  transitions: []\n"
             "blocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
         )
-        mock_entity.filename = "wf_1.yaml"
+        mock_entity.filename = "workflow_commit_sha.yaml"
         workflow_repo.get_by_id.return_value = mock_entity
         workflow_repo._get_path.return_value = Mock(
-            __str__=lambda self: "/project/custom/workflows/wf_1.yaml"
+            __str__=lambda self: "/isolated-test-workspace/workflows/workflow_commit_sha.yaml"
         )
 
         provider_repo = Mock()
@@ -334,7 +334,7 @@ class TestLaunchExecutionStoresSha:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
+                "workflow_commit_sha",
                 _prepared_inputs({"instruction": "go"}),
                 branch=None,
             )

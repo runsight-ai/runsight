@@ -8,6 +8,11 @@ Verifies that:
 4. The entire codebase (excluding the placeholder removal test and this file) has zero
    PlaceholderBlock / PlaceholderBlockDef / _build_placeholder references
 
+Governance boundary: placeholder-block migration coverage across API tests,
+core schema files, and source files that previously owned placeholder fixtures.
+Owner: apps/api tests and packages/core schema/runtime owners.
+Exit criteria: delete this migration suite once PlaceholderBlock support has been
+fully absent for a release cycle and normal behavior suites cover linear blocks.
 """
 
 import json
@@ -103,7 +108,7 @@ class TestApiTestFilesMigrated:
         API_TESTS / "logic" / "test_execution_service_concurrency.py",
         API_TESTS / "logic" / "test_execution_observer.py",
         API_TESTS / "logic" / "test_execution_service_api_keys.py",
-        API_TESTS / "domain" / "test_bug_fixes.py",
+        API_TESTS / "data" / "test_workflow_repo_entity_name.py",
         API_TESTS / "logic" / "test_state_flow.py",
     ]
 
@@ -249,7 +254,7 @@ class TestApiTestFilesUseSoulRef:
         API_TESTS / "logic" / "test_execution_service.py",
         API_TESTS / "logic" / "test_execution_service_concurrency.py",
         API_TESTS / "logic" / "test_execution_service_api_keys.py",
-        API_TESTS / "domain" / "test_bug_fixes.py",
+        API_TESTS / "data" / "test_workflow_repo_entity_name.py",
         API_TESTS / "logic" / "test_state_flow.py",
     ]
 

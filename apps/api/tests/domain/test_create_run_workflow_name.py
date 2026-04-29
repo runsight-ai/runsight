@@ -66,8 +66,6 @@ class TestCreateRunUsesWorkflowName:
             branch="main",
         )
 
-        # The bug: current code does workflow_name=workflow.id
-        # It should do workflow_name=workflow.name (or fallback to id)
         assert run.workflow_name != run.workflow_id, (
             "workflow_name should be the human-readable name, not identical to workflow_id"
         )

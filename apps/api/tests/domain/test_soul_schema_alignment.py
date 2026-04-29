@@ -83,24 +83,26 @@ def test_soul_usage_response_tracks_workflow_references():
 
     usage = SoulUsageResponse(
         soul_id="researcher",
-        usages=[{"workflow_id": "wf-1", "workflow_name": "Research Flow"}],
+        usages=[{"workflow_id": "workflow-soul-usage", "workflow_name": "Research Flow"}],
         total=1,
     )
 
     assert usage.soul_id == "researcher"
     assert usage.total == 1
-    assert usage.usages[0].workflow_id == "wf-1"
+    assert usage.usages[0].workflow_id == "workflow-soul-usage"
     assert usage.usages[0].workflow_name == "Research Flow"
 
 
 def test_soul_errors_use_structured_409_metadata():
     from runsight_api.domain.errors import SoulAlreadyExists, SoulInUse
 
-    in_use = SoulInUse("Soul is in use", details={"usages": [{"workflow_id": "wf-1"}]})
+    in_use = SoulInUse(
+        "Soul is in use", details={"usages": [{"workflow_id": "workflow-soul-usage"}]}
+    )
     duplicate = SoulAlreadyExists("Soul already exists")
 
     assert in_use.to_dict()["error_code"] == "SOUL_IN_USE"
     assert in_use.to_dict()["status_code"] == 409
-    assert in_use.to_dict()["details"] == {"usages": [{"workflow_id": "wf-1"}]}
+    assert in_use.to_dict()["details"] == {"usages": [{"workflow_id": "workflow-soul-usage"}]}
     assert duplicate.to_dict()["error_code"] == "SOUL_ALREADY_EXISTS"
     assert duplicate.to_dict()["status_code"] == 409

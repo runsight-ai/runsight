@@ -5,6 +5,11 @@ Tests target:
   - apps/api/src/runsight_api/logic/observers/execution_observer.py (enum usage)
   - apps/api/src/runsight_api/logic/services/run_service.py (enum usage)
 
+Governance boundary: source-inspection checks protect the API node-status
+enum migration by rejecting reintroduced bare status string assignments.
+Owner: apps/api domain and observer/service owners.
+Exit criteria: remove source-inspection checks once node status writes are
+centralized behind behavior-only helpers or repository methods.
 """
 
 import inspect
@@ -213,8 +218,8 @@ class TestObserverIntegration:
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test_wf",
+                workflow_id="workflow_node_status",
+                workflow_name="Node status workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -230,7 +235,7 @@ class TestObserverIntegration:
 
         engine, run_id = seed_run
         obs = ExecutionObserver(engine=engine, run_id=run_id)
-        obs.on_block_start("wf", "b1", "llm")
+        obs.on_block_start("Node status workflow", "b1", "llm")
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:b1")
@@ -245,8 +250,8 @@ class TestObserverIntegration:
 
         engine, run_id = seed_run
         obs = ExecutionObserver(engine=engine, run_id=run_id)
-        obs.on_block_start("wf", "b1", "llm")
-        obs.on_block_complete("wf", "b1", "llm", 1.0, WorkflowState())
+        obs.on_block_start("Node status workflow", "b1", "llm")
+        obs.on_block_complete("Node status workflow", "b1", "llm", 1.0, WorkflowState())
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:b1")
@@ -259,8 +264,8 @@ class TestObserverIntegration:
 
         engine, run_id = seed_run
         obs = ExecutionObserver(engine=engine, run_id=run_id)
-        obs.on_block_start("wf", "b1", "llm")
-        obs.on_block_error("wf", "b1", "llm", 1.0, RuntimeError("boom"))
+        obs.on_block_start("Node status workflow", "b1", "llm")
+        obs.on_block_error("Node status workflow", "b1", "llm", 1.0, RuntimeError("boom"))
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:b1")

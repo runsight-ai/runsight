@@ -1,3 +1,13 @@
+"""Identity-message contract coverage.
+
+Governance boundary: source-template checks protect API identity errors from
+regressing to unqualified bare YAML identifiers in router, repository, and
+service messages.
+Owner: apps/api identity, repository, service, and router owners.
+Exit criteria: replace source-template checks with behavior-only contract tests
+once every identity error path has direct runtime coverage.
+"""
+
 from __future__ import annotations
 
 import json
@@ -88,7 +98,7 @@ def test_soul_service_delete_in_use_message_mentions_kind_qualified_soul_ref() -
     )
     workflow_repo.list_all.return_value = [
         _workflow_entity(
-            "wf_1",
+            "workflow_review_one",
             "Review One",
             """
 blocks:

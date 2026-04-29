@@ -39,8 +39,8 @@ def _create_run(
     session: Session,
     *,
     run_id: str,
-    workflow_id: str = "wf_parent",
-    workflow_name: str = "Parent Workflow",
+    workflow_id: str = "nested_parent_workflow",
+    workflow_name: str = "Nested parent workflow",
     status: RunStatus = RunStatus.running,
     parent_run_id: str | None = None,
     parent_node_id: str | None = None,
@@ -79,15 +79,15 @@ def _create_run(
 
 
 class TestRunModelHasParentLinkageFields:
-    """AC-1/3: Run model must have parent_run_id, parent_node_id, root_run_id, depth."""
+    """Run model exposes parent linkage fields."""
 
     def test_run_has_parent_run_id_field(self, db_engine):
         """Run model exposes a parent_run_id attribute (nullable)."""
         with Session(db_engine) as session:
             run = Run(
                 id="run_field_test_1",
-                workflow_id="wf_1",
-                workflow_name="Test",
+                workflow_id="parent_linkage_workflow",
+                workflow_name="Parent linkage workflow",
                 task_json="{}",
                 branch="main",
                 parent_run_id=None,
@@ -103,8 +103,8 @@ class TestRunModelHasParentLinkageFields:
         with Session(db_engine) as session:
             run = Run(
                 id="run_field_test_2",
-                workflow_id="wf_1",
-                workflow_name="Test",
+                workflow_id="parent_linkage_workflow",
+                workflow_name="Parent linkage workflow",
                 task_json="{}",
                 branch="main",
                 parent_node_id=None,
@@ -120,8 +120,8 @@ class TestRunModelHasParentLinkageFields:
         with Session(db_engine) as session:
             run = Run(
                 id="run_field_test_3",
-                workflow_id="wf_1",
-                workflow_name="Test",
+                workflow_id="parent_linkage_workflow",
+                workflow_name="Parent linkage workflow",
                 task_json="{}",
                 branch="main",
                 root_run_id=None,
@@ -137,8 +137,8 @@ class TestRunModelHasParentLinkageFields:
         with Session(db_engine) as session:
             run = Run(
                 id="run_field_test_4",
-                workflow_id="wf_1",
-                workflow_name="Test",
+                workflow_id="parent_linkage_workflow",
+                workflow_name="Parent linkage workflow",
                 task_json="{}",
                 branch="main",
             )
@@ -154,7 +154,7 @@ class TestRunModelHasParentLinkageFields:
             _create_run(
                 session,
                 run_id="child_rt",
-                workflow_id="wf_child",
+                workflow_id="nested_child_workflow",
                 workflow_name="Child",
                 parent_run_id="parent_rt",
                 parent_node_id="parent_rt:call_child",
@@ -177,7 +177,7 @@ class TestRunModelHasParentLinkageFields:
 
 
 class TestRunNodeModelHasChildRunIdField:
-    """AC-3/4: RunNode for workflow-call blocks must carry child_run_id."""
+    """RunNode for workflow-call blocks carries child_run_id."""
 
     def test_run_node_has_child_run_id_field(self, db_engine):
         """RunNode model exposes a child_run_id attribute (nullable)."""
@@ -220,9 +220,7 @@ class TestRunNodeModelHasChildRunIdField:
 
 
 class TestChildRunCreatedAsSeparateRecord:
-    """AC-1: Parent and child runs are separate records.
-    AC-3: Parent workflow-call node stores child_run_id.
-    """
+    """Parent and child runs are separate linked records."""
 
     def test_child_run_is_separate_from_parent(self, db_engine):
         """When a workflow-type block is executed, a child Run record should be
@@ -232,8 +230,8 @@ class TestChildRunCreatedAsSeparateRecord:
             _create_run(
                 session,
                 run_id="parent_run",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
             )
 
@@ -261,10 +259,10 @@ class TestChildRunCreatedAsSeparateRecord:
             _create_run(
                 session,
                 run_id="parent_sim_run",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
-                branch="sim/wf_parent/20260420/abc12",
+                branch="sim/nested_parent_workflow/20260420/abc12",
                 source="simulation",
                 commit_sha="abc123def456",
             )
@@ -274,7 +272,7 @@ class TestChildRunCreatedAsSeparateRecord:
 
         with Session(db_engine) as session:
             child = session.exec(select(Run).where(Run.parent_run_id == "parent_sim_run")).one()
-            assert child.branch == "sim/wf_parent/20260420/abc12"
+            assert child.branch == "sim/nested_parent_workflow/20260420/abc12"
             assert child.source == "simulation"
             assert child.commit_sha == "abc123def456"
 
@@ -284,8 +282,8 @@ class TestChildRunCreatedAsSeparateRecord:
             _create_run(
                 session,
                 run_id="parent_validation_run",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
             )
 
@@ -314,8 +312,8 @@ class TestChildRunCreatedAsSeparateRecord:
             _create_run(
                 session,
                 run_id="parent_warn_run",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
                 warnings_json=[
                     {
@@ -340,7 +338,7 @@ class TestChildRunCreatedAsSeparateRecord:
 
 
 class TestChildCompletionDoesNotFinalizeRootRun:
-    """AC-2: Child completion does not finalize the root run."""
+    """Child completion does not finalize the root run."""
 
     def test_root_stays_running_after_child_completes(self, db_engine):
         """After a child workflow completes, the root Run should remain in
@@ -349,21 +347,21 @@ class TestChildCompletionDoesNotFinalizeRootRun:
 
         This test requires the parent linkage fields to exist on Run so we
         can verify the structural relationship. If the fields don't exist
-        the test must fail.
+        this test fails.
         """
         with Session(db_engine) as session:
             _create_run(
                 session,
                 run_id="root_run",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 status=RunStatus.running,
                 depth=0,
             )
             _create_run(
                 session,
                 run_id="child_run",
-                workflow_id="wf_child",
+                workflow_id="nested_child_workflow",
                 workflow_name="Child",
                 status=RunStatus.running,
                 parent_run_id="root_run",
@@ -408,7 +406,7 @@ class TestChildCompletionDoesNotFinalizeRootRun:
 
 
 class TestParentNodeStoresChildRunId:
-    """AC-3: Parent workflow-call node stores child_run_id."""
+    """Parent workflow-call node stores child_run_id."""
 
     def test_workflow_block_node_gets_child_run_id(self, db_engine):
         """When the observer starts a workflow-type block, the resulting RunNode
@@ -417,8 +415,8 @@ class TestParentNodeStoresChildRunId:
             _create_run(
                 session,
                 run_id="parent_run_node",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
             )
 
@@ -443,8 +441,8 @@ class TestParentNodeStoresChildRunId:
             _create_run(
                 session,
                 run_id="parent_live_stream",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 status=RunStatus.running,
                 depth=0,
             )
@@ -459,7 +457,7 @@ class TestParentNodeStoresChildRunId:
             "Parent",
             "call_child",
             "WorkflowBlock",
-            child_workflow_id="wf_real_child",
+            child_workflow_id="nested_called_workflow",
             child_workflow_name="Child Workflow",
         )
 
@@ -482,8 +480,8 @@ class TestParentNodeStoresChildRunId:
             _create_run(
                 session,
                 run_id="parent_run_nested",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 status=RunStatus.running,
                 depth=0,
             )
@@ -495,7 +493,7 @@ class TestParentNodeStoresChildRunId:
             "Parent",
             "call_child",
             "WorkflowBlock",
-            child_workflow_id="wf_real_child",
+            child_workflow_id="nested_called_workflow",
             child_workflow_name="Child Workflow",
         )
 
@@ -530,7 +528,7 @@ class TestParentNodeStoresChildRunId:
             assert parent_run.status == RunStatus.running
             assert parent_node.child_run_id == child_run_id
             assert child_run.parent_run_id == "parent_run_nested"
-            assert child_run.workflow_id == "wf_real_child"
+            assert child_run.workflow_id == "nested_called_workflow"
             assert child_run.workflow_name == "Child Workflow"
             assert child_run.status == RunStatus.completed
             assert child_node.run_id == child_run_id
@@ -543,7 +541,7 @@ class TestParentNodeStoresChildRunId:
 
 
 class TestRootRunIdSetOnChild:
-    """AC-6: Child Run should have root_run_id pointing to the outermost ancestor."""
+    """Child Run root_run_id points to the outermost ancestor."""
 
     def test_child_has_root_run_id(self, db_engine):
         """A child Run created for a workflow block must have root_run_id
@@ -551,23 +549,23 @@ class TestRootRunIdSetOnChild:
         with Session(db_engine) as session:
             _create_run(
                 session,
-                run_id="root_for_607",
-                workflow_id="wf_parent",
-                workflow_name="Parent",
+                run_id="root_for_nested_child",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
             )
 
-        obs = ExecutionObserver(engine=db_engine, run_id="root_for_607")
+        obs = ExecutionObserver(engine=db_engine, run_id="root_for_nested_child")
         obs.on_block_start("Parent", "call_child", "workflow")
 
         with Session(db_engine) as session:
             children = list(
-                session.exec(select(Run).where(Run.parent_run_id == "root_for_607")).all()
+                session.exec(select(Run).where(Run.parent_run_id == "root_for_nested_child")).all()
             )
             assert len(children) == 1
             child = children[0]
-            assert child.root_run_id == "root_for_607", (
-                f"Expected root_run_id='root_for_607', got '{child.root_run_id}'"
+            assert child.root_run_id == "root_for_nested_child", (
+                f"Expected root_run_id='root_for_nested_child', got '{child.root_run_id}'"
             )
 
     def test_root_run_has_null_root_run_id(self, db_engine):
@@ -575,7 +573,7 @@ class TestRootRunIdSetOnChild:
         with Session(db_engine) as session:
             run = Run(
                 id="root_only",
-                workflow_id="wf_1",
+                workflow_id="nested_root_workflow",
                 workflow_name="Root",
                 task_json="{}",
                 branch="main",
@@ -605,15 +603,15 @@ class TestNestedChildOfChildDepth:
             _create_run(
                 session,
                 run_id="gc_root",
-                workflow_id="wf_parent",
-                workflow_name="Root",
+                workflow_id="nested_parent_workflow",
+                workflow_name="Nested parent workflow",
                 depth=0,
             )
             # Child run (created by parent's observer for a workflow block)
             _create_run(
                 session,
                 run_id="gc_child",
-                workflow_id="wf_child",
+                workflow_id="nested_child_workflow",
                 workflow_name="Child",
                 parent_run_id="gc_root",
                 parent_node_id="gc_root:call_child",
@@ -646,15 +644,15 @@ class TestNestedChildOfChildDepth:
             _create_run(
                 session,
                 run_id="parent_A",
-                workflow_id="wf_parent_a",
-                workflow_name="Parent A",
+                workflow_id="nested_parent_workflow_a",
+                workflow_name="Nested parent workflow A",
                 depth=0,
             )
             _create_run(
                 session,
                 run_id="parent_B",
-                workflow_id="wf_parent_b",
-                workflow_name="Parent B",
+                workflow_id="nested_parent_workflow_b",
+                workflow_name="Nested parent workflow B",
                 depth=0,
             )
 

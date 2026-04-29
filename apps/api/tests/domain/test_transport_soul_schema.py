@@ -131,10 +131,12 @@ def test_soul_response_exposes_new_transport_fields():
 def test_soul_usage_response_keeps_usages_and_total_shape():
     usage = SoulUsageResponse(
         soul_id="soul_1",
-        usages=[SoulUsageEntry(workflow_id="wf_1", workflow_name="Workflow 1")],
+        usages=[
+            SoulUsageEntry(workflow_id="workflow_soul_usage", workflow_name="Soul usage workflow")
+        ],
         total=1,
     )
 
     assert usage.soul_id == "soul_1"
-    assert usage.usages[0].workflow_id == "wf_1"
+    assert usage.usages[0].workflow_id == "workflow_soul_usage"
     assert usage.total == 1
