@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => {
     edges: [],
     blockCount: 2,
     edgeCount: 1,
-    yamlContent: "workflow:\n  name: Test\n",
+    yamlContent: "workflow:\n  name: Review Flow\n",
     toPersistedState: vi.fn(() => ({ nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } })),
     markSaved: vi.fn(),
     setYamlContent: vi.fn(),
@@ -79,7 +79,7 @@ vi.mock("react", async () => {
 });
 
 vi.mock("react-router", () => ({
-  useParams: () => ({ id: "wf_test" }),
+  useParams: () => ({ id: "review_flow" }),
   useBlocker: () => ({ state: "unblocked", proceed: vi.fn(), reset: vi.fn() }),
   Link: ({ children }: { children: React.ReactNode }) => React.createElement("a", null, children),
   useInRouterContext: () => true,
@@ -91,7 +91,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
-    data: { name: "Test Flow", commit_sha: null, yaml: "workflow:\n  name: Test\n" },
+    data: { name: "Review Flow", commit_sha: null, yaml: "workflow:\n  name: Review Flow\n" },
   }),
   useUpdateWorkflow: () => ({
     mutateAsync: mocks.updateWorkflowMutateAsync,
@@ -190,7 +190,7 @@ function renderSurface() {
   mocks.commitDialogProps.length = 0;
 
   renderToStaticMarkup(
-    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "wf_test" }),
+    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "review_flow" }),
   );
 
   return {
@@ -291,7 +291,7 @@ describe("WorkflowSurface renders CommitDialog", () => {
       mocks.commitDialogProps.length,
       "WorkflowSurface must render CommitDialog",
     ).toBeGreaterThan(0);
-    expect(commitDialog.workflowId).toBe("wf_test");
+    expect(commitDialog.workflowId).toBe("review_flow");
   });
 
   it("passes draft prop to CommitDialog", () => {
@@ -311,7 +311,7 @@ describe("WorkflowSurface renders CommitDialog", () => {
     ).toBeGreaterThan(0);
     expect(commitDialog.draft).toEqual(
       expect.objectContaining({
-        yaml: "workflow:\n  name: Test\n",
+        yaml: "workflow:\n  name: Review Flow\n",
       }),
     );
   });
@@ -371,7 +371,7 @@ function renderSurfaceYamlTab() {
   mocks.stateValues[4] = "yaml";
 
   renderToStaticMarkup(
-    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "wf_test" }),
+    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "review_flow" }),
   );
 
   return {
@@ -406,7 +406,7 @@ describe("onCommitSuccess clears isDirty state", () => {
     const dirtyRender = renderSurfaceYamlTab();
     expect(dirtyRender.topbar.isDirty).toBe(true);
 
-    // CommitDialog must exist for this to work — will fail if not yet rendered
+    // CommitDialog must exist before onCommitSuccess can clear isDirty.
     expect(
       dirtyRender.commitDialog,
       "WorkflowSurface must render CommitDialog so onCommitSuccess can clear isDirty",
