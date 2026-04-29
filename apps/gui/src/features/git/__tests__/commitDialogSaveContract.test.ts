@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   workflowCommitPending: false,
   genericCommitMutate: vi.fn(),
   gitDiffResult: {
-    data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
+    data: { diff: "diff --git a/custom/workflows/review_flow.yaml b/custom/workflows/review_flow.yaml" },
     isLoading: false,
   } as { data?: { diff?: string }; isLoading: boolean },
 }));
@@ -97,8 +97,8 @@ function renderDialog(overrides: Record<string, unknown> = {}) {
     open: true,
     onOpenChange: vi.fn(),
     onCommitSuccess: vi.fn(),
-    files: [{ path: "custom/workflows/wf_1.yaml", status: "A" }],
-    workflowId: "wf_1",
+    files: [{ path: "custom/workflows/review_flow.yaml", status: "A" }],
+    workflowId: "review_flow",
     draft: {
       yaml: "workflow:\n  name: Draft Flow\n",
       canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
@@ -152,7 +152,7 @@ beforeEach(() => {
   mocks.workflowCommitPending = false;
   mocks.genericCommitMutate.mockReset();
   mocks.gitDiffResult = {
-    data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
+    data: { diff: "diff --git a/custom/workflows/review_flow.yaml b/custom/workflows/review_flow.yaml" },
     isLoading: false,
   };
 });
@@ -191,7 +191,7 @@ describe("CommitDialog workflow save contract", () => {
 
     expect(mocks.genericCommitMutate).not.toHaveBeenCalled();
     expect(variables).toEqual({
-      workflowId: "wf_1",
+      workflowId: "review_flow",
       payload: {
         yaml: "workflow:\n  name: Draft Flow\n",
         canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
@@ -216,8 +216,8 @@ describe("CommitDialog workflow save contract", () => {
         open: true,
         onOpenChange: vi.fn(),
         onCommitSuccess: vi.fn(),
-        files: [{ path: "custom/workflows/wf_1.yaml", status: "A" }],
-        workflowId: "wf_1",
+        files: [{ path: "custom/workflows/review_flow.yaml", status: "A" }],
+        workflowId: "review_flow",
         draft: {
           yaml: "workflow:\n  name: Draft Flow\n",
           canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
