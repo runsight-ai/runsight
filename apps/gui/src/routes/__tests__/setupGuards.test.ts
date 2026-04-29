@@ -67,7 +67,7 @@ describe("Guards file exists and exports factory functions", () => {
 });
 
 // ===========================================================================
-// 2. ShellLayout route has a loader (AC4 — no flash)
+// 2. ShellLayout route has a loader to avoid dashboard flash
 // ===========================================================================
 
 describe("ShellLayout route has a loader property", () => {
@@ -99,7 +99,7 @@ describe("ShellLayout route has a loader property", () => {
 });
 
 // ===========================================================================
-// 3. /setup/start route has a reverse guard loader (AC3)
+// 3. /setup/start route has a reverse guard loader
 // ===========================================================================
 
 describe("/setup/start route has a reverse guard loader", () => {
@@ -123,7 +123,7 @@ describe("/setup/start route has a reverse guard loader", () => {
 });
 
 // ===========================================================================
-// 4. Guard reads onboarding_completed from app settings (AC1, AC2)
+// 4. Guard reads onboarding_completed from app settings
 // ===========================================================================
 
 describe("Guard reads onboarding_completed from app settings", () => {
@@ -160,7 +160,7 @@ describe("Guard reads onboarding_completed from app settings", () => {
 });
 
 // ===========================================================================
-// 5. Guard redirects to /setup/start when not onboarded (AC1)
+// 5. Guard redirects to /setup/start when not onboarded
 // ===========================================================================
 
 describe("Guard redirects to /setup/start when not onboarded", () => {
@@ -196,7 +196,7 @@ describe("Guard redirects to /setup/start when not onboarded", () => {
 });
 
 // ===========================================================================
-// 6. Guard allows through when onboarding is completed (AC2)
+// 6. Guard allows through when onboarding is completed
 // ===========================================================================
 
 describe("Guard allows through when onboarding is completed", () => {
@@ -209,7 +209,7 @@ describe("Guard allows through when onboarding is completed", () => {
 });
 
 // ===========================================================================
-// 7. Reverse guard redirects to / when already onboarded (AC3)
+// 7. Reverse guard redirects to / when already onboarded
 // ===========================================================================
 
 describe("Reverse guard redirects to / when already onboarded", () => {
