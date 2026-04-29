@@ -9,21 +9,21 @@ import {
 describe("shared run contracts", () => {
   it("RunCreateSchema accepts explicit branch and source for dirty simulation runs", () => {
     const result = RunCreateSchema.safeParse({
-      workflow_id: "wf_1",
-      branch: "sim/wf_1/20260330/abc12",
+      workflow_id: "workflow_run_contract",
+      branch: "sim/workflow_run_contract/20260330/abc12",
       source: "simulation",
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.branch).toBe("sim/wf_1/20260330/abc12");
+      expect(result.data.branch).toBe("sim/workflow_run_contract/20260330/abc12");
       expect(result.data.source).toBe("simulation");
     }
   });
 
   it("RunCreateSchema rejects missing branch", () => {
     const result = RunCreateSchema.safeParse({
-      workflow_id: "wf_1",
+      workflow_id: "workflow_run_contract",
       source: "simulation",
     });
 
@@ -32,9 +32,9 @@ describe("shared run contracts", () => {
 
   it("RunResponseSchema preserves branch, source, and commit_sha", () => {
     const result = RunResponseSchema.safeParse({
-      id: "run_1",
-      workflow_id: "wf_1",
-      workflow_name: "Test Flow",
+      id: "run_contract_primary",
+      workflow_id: "workflow_run_contract",
+      workflow_name: "Run contract workflow",
       status: "pending",
       started_at: null,
       completed_at: null,
@@ -42,14 +42,14 @@ describe("shared run contracts", () => {
       total_cost_usd: 0,
       total_tokens: 0,
       created_at: 123,
-      branch: "sim/wf_1/20260330/abc12",
+      branch: "sim/workflow_run_contract/20260330/abc12",
       source: "simulation",
       commit_sha: "1234567890abcdef1234567890abcdef12345678",
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.branch).toBe("sim/wf_1/20260330/abc12");
+      expect(result.data.branch).toBe("sim/workflow_run_contract/20260330/abc12");
       expect(result.data.source).toBe("simulation");
       expect(result.data.commit_sha).toBe("1234567890abcdef1234567890abcdef12345678");
     }
@@ -57,9 +57,9 @@ describe("shared run contracts", () => {
 
   it("RunResponseSchema rejects missing branch", () => {
     const result = RunResponseSchema.safeParse({
-      id: "run_1",
-      workflow_id: "wf_1",
-      workflow_name: "Test Flow",
+      id: "run_contract_primary",
+      workflow_id: "workflow_run_contract",
+      workflow_name: "Run contract workflow",
       status: "pending",
       started_at: null,
       completed_at: null,
@@ -78,9 +78,9 @@ describe("shared run contracts", () => {
     const result = RunListResponseSchema.safeParse({
       items: [
         {
-          id: "run_1",
-          workflow_id: "wf_1",
-          workflow_name: "Test Flow",
+          id: "run_contract_primary",
+          workflow_id: "workflow_run_contract",
+          workflow_name: "Run contract workflow",
           status: "completed",
           started_at: 100,
           completed_at: 101,
@@ -88,7 +88,7 @@ describe("shared run contracts", () => {
           total_cost_usd: 0.01,
           total_tokens: 42,
           created_at: 99,
-          branch: "sim/wf_1/20260330/abc12",
+          branch: "sim/workflow_run_contract/20260330/abc12",
           source: "simulation",
           commit_sha: "1234567890abcdef1234567890abcdef12345678",
         },
@@ -100,7 +100,9 @@ describe("shared run contracts", () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.items[0]?.branch).toBe("sim/wf_1/20260330/abc12");
+      expect(result.data.items[0]?.branch).toBe(
+        "sim/workflow_run_contract/20260330/abc12",
+      );
       expect(result.data.items[0]?.source).toBe("simulation");
       expect(result.data.items[0]?.commit_sha).toBe(
         "1234567890abcdef1234567890abcdef12345678",
@@ -112,9 +114,9 @@ describe("shared run contracts", () => {
     const result = RunListResponseSchema.safeParse({
       items: [
         {
-          id: "run_1",
-          workflow_id: "wf_1",
-          workflow_name: "Test Flow",
+          id: "run_contract_primary",
+          workflow_id: "workflow_run_contract",
+          workflow_name: "Run contract workflow",
           status: "completed",
           started_at: 100,
           completed_at: 101,
@@ -137,7 +139,7 @@ describe("shared run contracts", () => {
   it("RunResponseSchema preserves parent/child lineage fields", () => {
     const result = RunResponseSchema.safeParse({
       id: "run_child",
-      workflow_id: "wf_1",
+      workflow_id: "workflow_run_contract",
       workflow_name: "Child Flow",
       status: "completed",
       started_at: 100,

@@ -308,7 +308,6 @@ describe("Zod generator enum edge cases", () => {
 
 describe("Generated Zod schemas are valid", () => {
   it("exports WorkflowResponseSchema as a Zod schema", async () => {
-    // This import will fail until zod.ts is generated
     const mod = await import("../zod");
     expect(mod.WorkflowResponseSchema).toBeDefined();
     expect(typeof mod.WorkflowResponseSchema.parse).toBe("function");
@@ -387,8 +386,8 @@ describe("Generated Zod schemas are valid", () => {
     const mod = await import("../zod");
     const result = mod.RunResponseSchema.safeParse({
       id: "run-regression-primary",
-      workflow_id: "wf-1",
-      workflow_name: "Test",
+      workflow_id: "workflow-codegen-contract",
+      workflow_name: "Codegen contract workflow",
       status: "completed",
       started_at: 1000,
       completed_at: 2000,
@@ -396,7 +395,7 @@ describe("Generated Zod schemas are valid", () => {
       total_cost_usd: 0.01,
       total_tokens: 100,
       created_at: 1000,
-      branch: "sim/wf-1/20260330/abc12",
+      branch: "sim/workflow-codegen-contract/20260330/abc12",
     });
     expect(result.success).toBe(true);
   });

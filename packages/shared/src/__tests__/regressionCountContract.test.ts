@@ -25,7 +25,7 @@ describe("RunResponseSchema has regression_count field", () => {
 describe("RunResponseSchema parses regression_count", () => {
   const baseRun = {
     id: "run_regression_primary",
-    workflow_id: "wf_1",
+    workflow_id: "workflow_regression_count",
     workflow_name: "Research Flow",
     status: "completed",
     started_at: 100,
@@ -72,7 +72,7 @@ describe("RunListResponseSchema round-trips regression_count", () => {
       items: [
         {
           id: "run_regression_primary",
-          workflow_id: "wf_1",
+          workflow_id: "workflow_regression_count",
           workflow_name: "Research Flow",
           status: "completed",
           started_at: 100,
@@ -87,7 +87,7 @@ describe("RunListResponseSchema round-trips regression_count", () => {
         },
         {
           id: "run_regression_secondary",
-          workflow_id: "wf_1",
+          workflow_id: "workflow_regression_count",
           workflow_name: "Research Flow",
           status: "failed",
           started_at: 200,

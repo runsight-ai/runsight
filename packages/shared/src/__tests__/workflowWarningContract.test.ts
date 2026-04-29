@@ -54,7 +54,7 @@ describe("warning contracts", () => {
     expect(workflowSchema.shape).toHaveProperty("warnings");
 
     const parsed = workflowSchema.parse({
-      id: "wf_1",
+      id: "workflow_warning_contract",
       kind: "workflow",
       warnings: [warningPayload],
     });
@@ -66,7 +66,7 @@ describe("warning contracts", () => {
     );
 
     const nullContextResult = workflowSchema.safeParse({
-      id: "wf_1",
+      id: "workflow_warning_contract",
       kind: "workflow",
       warnings: [
         {
@@ -80,7 +80,7 @@ describe("warning contracts", () => {
     expect(nullContextResult.success).toBe(true);
     expect(
       workflowSchema.safeParse({
-        id: "wf_1",
+        id: "workflow_warning_contract",
         kind: "workflow",
         warnings: [
           {
@@ -99,9 +99,9 @@ describe("warning contracts", () => {
     expect(runSchema.shape).toHaveProperty("warnings");
 
     const parsed = runSchema.parse({
-      id: "run_1",
-      workflow_id: "wf_1",
-      workflow_name: "Workflow",
+      id: "run_warning_contract",
+      workflow_id: "workflow_warning_contract",
+      workflow_name: "Warning contract workflow",
       status: "pending",
       started_at: null,
       completed_at: null,
@@ -109,6 +109,7 @@ describe("warning contracts", () => {
       total_cost_usd: 0,
       total_tokens: 0,
       created_at: 123.0,
+      branch: "main",
       warnings: [warningPayload],
     });
 
@@ -120,9 +121,9 @@ describe("warning contracts", () => {
 
     expect(
       runSchema.safeParse({
-        id: "run_1",
-        workflow_id: "wf_1",
-        workflow_name: "Workflow",
+        id: "run_warning_contract",
+        workflow_id: "workflow_warning_contract",
+        workflow_name: "Warning contract workflow",
         status: "pending",
         started_at: null,
         completed_at: null,
@@ -130,6 +131,7 @@ describe("warning contracts", () => {
         total_cost_usd: 0,
         total_tokens: 0,
         created_at: 123.0,
+        branch: "main",
         warnings: [
           {
             message: "Tool definition warning",
