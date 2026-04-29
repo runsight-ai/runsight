@@ -489,16 +489,10 @@ config: {}
             engine=db_engine,
         )
 
-        with patch.dict("os.environ", {}, clear=False):
-            # Remove any OPENAI_API_KEY env var
-            import os
-
-            os.environ.pop("OPENAI_API_KEY", None)
-            os.environ.pop("ANTHROPIC_API_KEY", None)
-
+        with patch.dict("os.environ", {}, clear=True):
             await svc.launch_execution(
                 run_id,
-                "wf_1",
+                "missing_provider_workflow",
                 _prepared_inputs({"instruction": "test"}),
             )
             await asyncio.sleep(0.1)
