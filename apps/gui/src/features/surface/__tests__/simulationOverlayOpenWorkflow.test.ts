@@ -48,8 +48,8 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
     data: {
-      id: "wf_test",
-      name: "Test Flow",
+      id: "review_flow",
+      name: "Review Flow",
       yaml: "workflow:\n  name: Live Flow\n",
       canvas_state: null,
       commit_sha: "live_sha",
@@ -115,7 +115,7 @@ describe("WorkflowSurface simulation overlay recovery", () => {
     mocks.store.toPersistedState.mockClear();
     mocks.store.setYamlContent.mockReset();
     mocks.store.hydrateFromPersisted.mockReset();
-    window.history.pushState({}, "", "/workflows/wf_test/edit?overlayRef=sim_sha&overlaySource=simulation");
+    window.history.pushState({}, "", "/workflows/review_flow/edit?overlayRef=sim_sha&overlaySource=simulation");
   });
 
   afterEach(() => {
@@ -128,12 +128,12 @@ describe("WorkflowSurface simulation overlay recovery", () => {
       React.createElement(
         MemoryRouter,
         undefined,
-        React.createElement(WorkflowSurface, { mode: "edit", workflowId: "wf_test" }),
+        React.createElement(WorkflowSurface, { mode: "edit", workflowId: "review_flow" }),
       ),
     );
 
     await waitFor(() => {
-      expect(mocks.getGitFile).toHaveBeenCalledWith("sim_sha", "custom/workflows/wf_test.yaml");
+      expect(mocks.getGitFile).toHaveBeenCalledWith("sim_sha", "custom/workflows/review_flow.yaml");
     });
 
     await waitFor(() => {
