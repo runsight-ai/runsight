@@ -1,0 +1,86 @@
+version: "1.0"
+id: multi-provider-release-digest-orchestrator
+kind: workflow
+souls:
+  release_synthesizer:
+    id: release_synthesizer
+    kind: soul
+    name: Release Synthesizer
+    role: Release Synthesizer
+    system_prompt: Fixture soul for API assertion config tests.
+  release_gate:
+    id: release_gate
+    kind: soul
+    name: Release Gate
+    role: Release Gate
+    system_prompt: Fixture soul for API assertion config tests.
+blocks:
+  prepare_manifest:
+    type: code
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - workflow_name
+    code: |
+      def main(data):
+          return {"workflow_name": "Provider Pulse Release Digest"}
+
+  merge_round_outputs:
+    type: synthesize
+    soul_ref: release_synthesizer
+    input_block_ids:
+      - prepare_manifest
+    assertions:
+      - type: regex
+        value: \S
+      - type: word-count
+        value:
+          min: 5
+
+  round_gate:
+    type: gate
+    soul_ref: release_gate
+    eval_key: merge_round_outputs
+    assertions:
+      - type: contains-any
+        value:
+          - PASS
+          - "FAIL:"
+
+  parent_review_loop:
+    type: loop
+    inner_block_refs:
+      - merge_round_outputs
+      - round_gate
+    max_rounds: 2
+    break_on_exit: pass
+    retry_on_exit: fail
+    assertions:
+      - type: regex
+        value: ^completed_\d+_rounds$
+
+  finalize_run:
+    type: code
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - status
+    code: |
+      def main(data):
+          return {"status": "ready"}
+workflow:
+  name: Provider Pulse Release Digest
+  entry: prepare_manifest
+  transitions:
+    - from: prepare_manifest
+      to: merge_round_outputs
+    - from: merge_round_outputs
+      to: round_gate
+    - from: round_gate
+      to: parent_review_loop
+    - from: parent_review_loop
+      to: finalize_run

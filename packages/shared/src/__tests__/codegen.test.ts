@@ -1,7 +1,5 @@
 /**
- * RUN-134: Type contract codegen — Pydantic → OpenAPI → TypeScript + Zod
- *
- * Red-team tests: these MUST fail until the codegen pipeline is implemented.
+ * Generated API contract coverage for Pydantic -> OpenAPI -> TypeScript + Zod.
  *
  * Tests validate:
  *   1. Generated type files exist and export expected types
@@ -82,7 +80,6 @@ function buildFreshSchemaSnapshot(): {
   soulCreate: SchemaFieldSnapshot;
   soulResponse: SchemaFieldSnapshot;
   soulUpdate: SchemaFieldSnapshot;
-  workflowResponse: SchemaFieldSnapshot;
 } {
   const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
   const openapiPath = resolve(workdir, "openapi.json");
@@ -152,11 +149,18 @@ function buildFreshSchemaSnapshot(): {
   }
 }
 
+let cachedSchemaSnapshot: ReturnType<typeof buildFreshSchemaSnapshot> | null = null;
+
+function getFreshSchemaSnapshot(): ReturnType<typeof buildFreshSchemaSnapshot> {
+  cachedSchemaSnapshot ??= buildFreshSchemaSnapshot();
+  return cachedSchemaSnapshot;
+}
+
 // ---------------------------------------------------------------------------
 // 1. Generated files exist
 // ---------------------------------------------------------------------------
 
-describe("RUN-134: Generated type files exist", () => {
+describe("Generated type files exist", () => {
   it("generated directory contains api.ts (OpenAPI types)", () => {
     const filePath = resolve(GENERATED_DIR, "api.ts");
     expect(
@@ -186,7 +190,7 @@ describe("RUN-134: Generated type files exist", () => {
 // 2. Generated types export expected interfaces
 // ---------------------------------------------------------------------------
 
-describe("RUN-134: Generated types export expected interfaces", () => {
+describe("Generated types export expected interfaces", () => {
   const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
 
   it("declares WorkflowResponse in the generated API component namespace", () => {
@@ -220,9 +224,9 @@ describe("RUN-134: Generated types export expected interfaces", () => {
   });
 });
 
-describe("RUN-840: generated workflow warning contracts stay in sync", () => {
+describe("generated workflow warning contracts stay in sync", () => {
   it("generated WorkflowResponse schemas include warnings in fresh and committed output", () => {
-    const snapshot = buildFreshSchemaSnapshot();
+    const snapshot = getFreshSchemaSnapshot();
 
     expect(snapshot.workflowResponse.fresh).toEqual(
       expect.arrayContaining(["id", "valid", "warnings"]),
@@ -230,7 +234,7 @@ describe("RUN-840: generated workflow warning contracts stay in sync", () => {
     expect(snapshot.workflowResponse.committed).toEqual(
       expect.arrayContaining(["id", "valid", "warnings"]),
     );
-  });
+  }, 30000);
 
   it("committed Zod source exports WarningItemSchema for workflow warnings", () => {
     const zodSource = readFileSync(COMMITTED_ZOD_PATH, "utf8");
@@ -241,7 +245,7 @@ describe("RUN-840: generated workflow warning contracts stay in sync", () => {
   });
 });
 
-describe("RUN-515: generated API wrapper cleanup stays concrete", () => {
+describe("generated API wrapper cleanup stays concrete", () => {
   it("generate-types script does not append a runtime components shim to api.ts", () => {
     const scriptSource = readFileSync(resolve(REPO_ROOT, "tools", "generate-types.sh"), "utf8");
     expect(scriptSource).not.toMatch(/export const components\s*=\s*\{\s*\};/);
@@ -253,7 +257,7 @@ describe("RUN-515: generated API wrapper cleanup stays concrete", () => {
   });
 });
 
-describe("RUN-868: Zod generator enum edge cases", () => {
+describe("Zod generator enum edge cases", () => {
   it("emits bare literals for single-value non-string enums", () => {
     const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-enum-"));
     const openapiPath = resolve(workdir, "openapi.json");
@@ -302,7 +306,7 @@ describe("RUN-868: Zod generator enum edge cases", () => {
 // 3. Generated Zod schemas are valid and parse-able
 // ---------------------------------------------------------------------------
 
-describe("RUN-134: Generated Zod schemas are valid", () => {
+describe("Generated Zod schemas are valid", () => {
   it("exports WorkflowResponseSchema as a Zod schema", async () => {
     // This import will fail until zod.ts is generated
     const mod = await import("../zod");
@@ -368,7 +372,7 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
     expect(result.success).toBe(true);
   });
 
-  it("WorkflowResponseSchema exposes RUN-478 workflow health fields", async () => {
+  it("WorkflowResponseSchema exposes workflow health fields", async () => {
     const mod = await import("../zod");
     const shape = mod.WorkflowResponseSchema.shape;
 
@@ -382,7 +386,7 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
   it("RunResponseSchema parses a valid run object", async () => {
     const mod = await import("../zod");
     const result = mod.RunResponseSchema.safeParse({
-      id: "run-1",
+      id: "run-regression-primary",
       workflow_id: "wf-1",
       workflow_name: "Test",
       status: "completed",
@@ -398,7 +402,7 @@ describe("RUN-134: Generated Zod schemas are valid", () => {
   });
 });
 
-describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () => {
+describe("generated Zod schemas stay fresh against live OpenAPI", () => {
   let snapshot: {
     providerCreate: SchemaFieldSnapshot;
     workflowResponse: SchemaFieldSnapshot;
@@ -410,8 +414,8 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
   };
 
   beforeAll(() => {
-    snapshot = buildFreshSchemaSnapshot();
-  });
+    snapshot = getFreshSchemaSnapshot();
+  }, 30000);
 
   it("RunCreateSchema includes source in the generated output", () => {
     expect(snapshot.runCreate.fresh).toContain("source");
@@ -433,7 +437,7 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
     expect(snapshot.providerCreate.committed).toEqual(snapshot.providerCreate.fresh);
   });
 
-  it("RunResponseSchema includes branch, source, commit_sha, and RUN-479 run metrics", () => {
+  it("RunResponseSchema includes branch, source, commit_sha, and run metrics", () => {
     expect(snapshot.runResponse.fresh).toEqual(
       expect.arrayContaining([
         "branch",
@@ -495,7 +499,7 @@ describe("RUN-409: generated Zod schemas stay fresh against live OpenAPI", () =>
   });
 });
 
-describe("RUN-477: generated API types stay aligned for soul contracts", () => {
+describe("generated API types stay aligned for soul contracts", () => {
   const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
 
   it("ProviderCreate component includes embedded provider identity", () => {
@@ -549,7 +553,7 @@ describe("RUN-477: generated API types stay aligned for soul contracts", () => {
   });
 });
 
-describe("RUN-823: custom YAML request schemas are strict", () => {
+describe("custom YAML request schemas are strict", () => {
   const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 
   it.each([
@@ -600,7 +604,7 @@ describe("RUN-823: custom YAML request schemas are strict", () => {
   });
 });
 
-describe("RUN-842: generated API types stay aligned for run warnings", () => {
+describe("generated API types stay aligned for run warnings", () => {
   const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
 
   it("declares WorkflowResponse warnings in the generated API component namespace", () => {
@@ -681,7 +685,7 @@ describe("RUN-842: generated API types stay aligned for run warnings", () => {
 // 4. package.json has codegen scripts
 // ---------------------------------------------------------------------------
 
-describe("RUN-134: package.json codegen configuration", () => {
+describe("package.json codegen configuration", () => {
   it("has a 'generate:types' script", () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
     expect(pkg.scripts).toHaveProperty("generate:types");

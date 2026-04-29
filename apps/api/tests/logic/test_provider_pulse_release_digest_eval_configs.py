@@ -2,20 +2,17 @@ from pathlib import Path
 
 from runsight_core.yaml.parser import parse_workflow_yaml
 
-from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.logic.services.execution_service import ExecutionService
 
 
-FIXTURES_BASE = Path(__file__).resolve().parents[4] / "packages" / "core" / "tests" / "fixtures"
+FIXTURES_BASE = Path(__file__).resolve().parents[1] / "fixtures" / "provider_pulse_eval_configs"
 WORKFLOWS_DIR = FIXTURES_BASE / "custom" / "workflows"
 
 
 def _parse_runtime_workflow(workflow_stem: str):
     workflow_path = WORKFLOWS_DIR / f"{workflow_stem}.yaml"
-    raw_yaml = workflow_path.read_text(encoding="utf-8")
-    repo = WorkflowRepository(base_path=str(FIXTURES_BASE))
-    registry = repo.build_runnable_workflow_registry(workflow_stem, raw_yaml)
-    return parse_workflow_yaml(str(workflow_path), workflow_registry=registry)
+    assert workflow_path.exists(), f"API-owned workflow fixture not found: {workflow_path}"
+    return parse_workflow_yaml(str(workflow_path))
 
 
 def test_provider_pulse_orchestrator_enables_block_level_eval_configs():

@@ -1,4 +1,4 @@
-"""Red tests for RUN-288: Structured logging foundation (structlog + contextvars + Settings).
+"""Structured logging foundation (structlog + contextvars + Settings).
 
 Tests cover:
 - core/context.py: 4 ContextVars + bind/clear helpers
@@ -7,7 +7,6 @@ Tests cover:
 - main.py: calls configure_logging at startup
 - pyproject.toml: structlog dependency
 
-All tests should FAIL until the implementation is written.
 """
 
 import json
@@ -74,8 +73,8 @@ class TestBindExecutionContext:
             workflow_name,
         )
 
-        bind_execution_context(run_id="run-42", workflow_name="my_pipeline")
-        assert run_id.get() == "run-42"
+        bind_execution_context(run_id="run-structured-context", workflow_name="my_pipeline")
+        assert run_id.get() == "run-structured-context"
         assert workflow_name.get() == "my_pipeline"
 
 
@@ -100,7 +99,7 @@ class TestClearBlockContext:
             clear_block_context,
         )
 
-        bind_execution_context(run_id="run-1", workflow_name="wf")
+        bind_execution_context(run_id="run-logging-primary", workflow_name="wf")
         bind_block_context("blk-1")
         clear_block_context()
         assert block_id.get() == ""
@@ -113,10 +112,10 @@ class TestClearBlockContext:
             run_id,
         )
 
-        bind_execution_context(run_id="run-1", workflow_name="wf")
+        bind_execution_context(run_id="run-logging-primary", workflow_name="wf")
         bind_block_context("blk-1")
         clear_block_context()
-        assert run_id.get() == "run-1"
+        assert run_id.get() == "run-logging-primary"
 
 
 class TestClearExecutionContext:
@@ -129,7 +128,7 @@ class TestClearExecutionContext:
             run_id,
         )
 
-        bind_execution_context(run_id="run-1", workflow_name="wf")
+        bind_execution_context(run_id="run-logging-primary", workflow_name="wf")
         clear_execution_context()
         assert run_id.get() == ""
 
@@ -140,7 +139,7 @@ class TestClearExecutionContext:
             workflow_name,
         )
 
-        bind_execution_context(run_id="run-1", workflow_name="wf")
+        bind_execution_context(run_id="run-logging-primary", workflow_name="wf")
         clear_execution_context()
         assert workflow_name.get() == ""
 
@@ -152,7 +151,7 @@ class TestClearExecutionContext:
             clear_execution_context,
         )
 
-        bind_execution_context(run_id="run-1", workflow_name="wf")
+        bind_execution_context(run_id="run-logging-primary", workflow_name="wf")
         bind_block_context("blk-1")
         clear_execution_context()
         assert block_id.get() == ""

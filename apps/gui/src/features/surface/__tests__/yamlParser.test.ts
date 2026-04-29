@@ -1,9 +1,8 @@
 /**
- * Red-team tests for RUN-119: Parser reads ALL block fields back into StepNodeData.
+ * YAML parser per-type block field coverage.
  *
  * These tests verify that parseWorkflowYamlToGraph maps every snake_case YAML
- * field to its camelCase StepNodeData counterpart. They are expected to FAIL
- * against the current implementation (which only reads `type`).
+ * field to its camelCase StepNodeData counterpart.
  */
 import { describe, it, expect } from "vitest";
 import { dump } from "js-yaml";
@@ -336,7 +335,7 @@ describe("Universal fields parsed", () => {
 // ===========================================================================
 
 describe("Souls section parsed", () => {
-  it("YAML souls section is parsed without error (RUN-748: inline souls are valid)", () => {
+  it("YAML souls section is parsed without error (inline souls are valid)", () => {
     const yaml = makeYaml(
       { step1: { type: "linear", soul_ref: "analyst" } },
       {
@@ -351,7 +350,7 @@ describe("Souls section parsed", () => {
       },
     );
     const result = parseWorkflowYamlToGraph(yaml);
-    // RUN-748: inline souls are now valid — no deprecation warning should be emitted
+    // Inline souls are valid shorthand and should not emit a deprecation warning.
     expect(result.error).toBeUndefined();
   });
 });
@@ -629,8 +628,7 @@ describe("Deprecated retry block type", () => {
     });
     const result = parseWorkflowYamlToGraph(yaml);
 
-    // After RUN-221, "retry" is accepted as a generic unknown type (no special handling).
-    // It is NOT in the known block types set.
+    // "retry" is accepted as a generic unknown type with no special handling.
     expect(result.nodes).toHaveLength(1);
     expect(result.nodes[0].data.stepType).toBe("retry");
   });

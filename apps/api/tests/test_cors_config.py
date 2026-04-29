@@ -1,11 +1,7 @@
-"""Red tests for RUN-245: Make CORS allow_origins configurable via settings.
+"""CORS allow_origins configuration coverage.
 
-main.py currently hardcodes allow_origins=["*"]. After implementation:
-- Settings.cors_origins defaults to ["http://localhost:3000"]
-- RUNSIGHT_CORS_ORIGINS env var overrides the default (comma-separated)
-- create_app() reads origins from settings, not hardcoded
-
-These tests should all FAIL until the implementation is written.
+These tests verify Settings defaults, env overrides, and create_app middleware
+wiring for allowed origins.
 """
 
 

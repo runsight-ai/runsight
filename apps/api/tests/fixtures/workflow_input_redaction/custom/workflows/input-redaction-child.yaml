@@ -1,0 +1,47 @@
+id: input-redaction-child
+kind: workflow
+version: "1.0"
+inputs:
+  child_query:
+    type: string
+  child_mode:
+    type: string
+    required: false
+    default: summary
+  child_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  child_echo:
+    type: code
+    timeout_seconds: 5
+    inputs:
+      query:
+        from: workflow.child_query
+      token:
+        from: workflow.child_token
+    code: |
+      import time
+      def main(data):
+          time.sleep(0.25)
+          return {
+              "child_query": data["query"],
+              "child_token_echo": data["token"],
+          }
+workflow:
+  name: input_redaction_child
+  entry: child_echo
+  transitions:
+    - from: child_echo
+      to: null

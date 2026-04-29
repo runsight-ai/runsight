@@ -1,4 +1,4 @@
-"""Red tests for RUN-412: delete legacy decrypt stubs and decrypt-patching tests."""
+"""Legacy decrypt stubs and decrypt-patching tests are removed."""
 
 from __future__ import annotations
 

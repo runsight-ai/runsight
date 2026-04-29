@@ -1,20 +1,17 @@
 /**
- * RED-TEAM tests for RUN-649: Collapse contract to 3-state model (readonly/edit/sim).
+ * Workflow surface mode contract coverage.
  *
- * The contract currently has 4 modes: workflow, execution, historical, fork-draft.
- * It must become exactly 3 modes: readonly, edit, sim.
+ * The surface contract is exactly three modes: readonly, edit, and sim.
  *
  * These tests verify:
  * 1. WORKFLOW_SURFACE_MODES has exactly 3 values: readonly, edit, sim
  * 2. Per-mode contract values match the 3-state specification
- * 3. All helper functions return correct values for the new mode names
+ * 3. Helper functions return correct values for the mode names
  * 4. inspectorVisible field exists in the contract
- * 5. Old mode names (workflow, execution, historical, fork-draft) are gone
+ * 5. Retired mode names are gone
  * 6. Action buttons: Fork (readonly), Save+Run (edit), Cancel (sim)
  * 7. Tab configuration per mode
- * 8. getSaveButtonState works with new mode names
- *
- * Expected failures: the contract still has the old 4-mode model.
+ * 8. getSaveButtonState works with current mode names
  */
 
 import { describe, it, expect } from "vitest";
@@ -36,7 +33,7 @@ import {
 // 1. WORKFLOW_SURFACE_MODES — exactly 3 modes
 // ===========================================================================
 
-describe("WORKFLOW_SURFACE_MODES has exactly 3 modes (RUN-649 AC5)", () => {
+describe("WORKFLOW_SURFACE_MODES has exactly 3 modes", () => {
   it("is an array with exactly 3 modes", () => {
     expect(Array.isArray(WORKFLOW_SURFACE_MODES)).toBe(true);
     expect(WORKFLOW_SURFACE_MODES).toHaveLength(3);
@@ -80,7 +77,7 @@ describe("WORKFLOW_SURFACE_MODES has exactly 3 modes (RUN-649 AC5)", () => {
 // 2. edit mode — full contract
 // ===========================================================================
 
-describe("getContractForMode('edit') (RUN-649 AC1)", () => {
+describe("getContractForMode('edit')", () => {
   it("returns a contract object with all required panels", () => {
     const contract = getContractForMode("edit" as any);
     expect(contract).toBeDefined();
@@ -121,7 +118,7 @@ describe("getContractForMode('edit') (RUN-649 AC1)", () => {
 // 3. sim mode — full contract
 // ===========================================================================
 
-describe("getContractForMode('sim') (RUN-649 AC2)", () => {
+describe("getContractForMode('sim')", () => {
   it("returns a contract object with all required panels", () => {
     const contract = getContractForMode("sim" as any);
     expect(contract).toBeDefined();
@@ -168,7 +165,7 @@ describe("getContractForMode('sim') (RUN-649 AC2)", () => {
 // 4. readonly mode — full contract
 // ===========================================================================
 
-describe("getContractForMode('readonly') (RUN-649 AC3)", () => {
+describe("getContractForMode('readonly')", () => {
   it("returns a contract object with all required panels", () => {
     const contract = getContractForMode("readonly" as any);
     expect(contract).toBeDefined();
@@ -214,7 +211,7 @@ describe("getContractForMode('readonly') (RUN-649 AC3)", () => {
 // 5. Helper functions with new mode names
 // ===========================================================================
 
-describe("Helper functions updated for 3-state model (RUN-649 AC6)", () => {
+describe("Helper functions updated for 3-state model", () => {
   // isEditable
   it("isEditable('edit') returns true", () => {
     expect(isEditable("edit" as any)).toBe(true);
@@ -272,7 +269,7 @@ describe("Helper functions updated for 3-state model (RUN-649 AC6)", () => {
 // 6. Tab configuration per mode
 // ===========================================================================
 
-describe("getAvailableTabs per mode (RUN-649 AC6)", () => {
+describe("getAvailableTabs per mode", () => {
   it("edit: inspector tabs are Overview, Prompt, Conditions", () => {
     const tabs = getAvailableTabs("edit" as any, "inspector");
     expect(tabs).toEqual(["Overview", "Prompt", "Conditions"]);
@@ -308,7 +305,7 @@ describe("getAvailableTabs per mode (RUN-649 AC6)", () => {
 // 7. Action buttons
 // ===========================================================================
 
-describe("getActionButton for 3-state model (RUN-649 AC1-3)", () => {
+describe("getActionButton for 3-state model", () => {
   it("edit: returns Save+Run action", () => {
     const result = getActionButton("edit" as any);
     expect(result.label).toBe("Save+Run");
@@ -332,7 +329,7 @@ describe("getActionButton for 3-state model (RUN-649 AC1-3)", () => {
 // 8. getSaveButtonState with new mode names
 // ===========================================================================
 
-describe("getSaveButtonState with 3-state model (RUN-649)", () => {
+describe("getSaveButtonState with 3-state model", () => {
   it("edit + dirty: returns enabled state", () => {
     expect(getSaveButtonState("edit" as any, true)).toBe("enabled");
   });
@@ -353,7 +350,7 @@ describe("getSaveButtonState with 3-state model (RUN-649)", () => {
 });
 
 describe("getCanvasYamlToggleVisibility helper", () => {
-  it("readonly mode shows both canvas and yaml tabs (RUN-777 AC6)", () => {
+  it("readonly mode shows both canvas and yaml tabs", () => {
     expect(getCanvasYamlToggleVisibility("readonly" as any)).toEqual({
       canvas: true,
       yaml: true,
@@ -365,7 +362,7 @@ describe("getCanvasYamlToggleVisibility helper", () => {
 // 9. inspectorVisible field on the contract
 // ===========================================================================
 
-describe("inspectorVisible field in PanelContract (RUN-649 AC1-3)", () => {
+describe("inspectorVisible field in PanelContract", () => {
   it("edit mode: inspectorVisible is false", () => {
     const contract = getContractForMode("edit" as any);
     expect((contract as any).inspectorVisible).toBe(false);
@@ -386,7 +383,7 @@ describe("inspectorVisible field in PanelContract (RUN-649 AC1-3)", () => {
 // 10. Old mode names must not exist
 // ===========================================================================
 
-describe("Old mode names are removed (RUN-649 AC4)", () => {
+describe("Old mode names are removed", () => {
   it("'fork-draft' is not in WORKFLOW_SURFACE_MODES", () => {
     expect(WORKFLOW_SURFACE_MODES).not.toContain("fork-draft");
   });

@@ -11,16 +11,21 @@ def test_run_status_enum():
 
 def test_run_creation():
     run = Run(
-        id="run-1",
-        workflow_id="wf-1",
+        id="run-primary",
+        workflow_id="wf-primary",
         workflow_name="WF 1",
         task_json='{"task": "do it"}',
         branch="main",
     )
-    assert run.id == "run-1"
+    assert run.id == "run-primary"
     assert run.status == RunStatus.pending
 
 
 def test_run_node_tokens():
-    node = RunNode(id="run-1:node-1", run_id="run-1", node_id="node-1", block_type="llm")
+    node = RunNode(
+        id="run-primary:node-primary",
+        run_id="run-primary",
+        node_id="node-primary",
+        block_type="llm",
+    )
     assert node.tokens == {"prompt": 0, "completion": 0, "total": 0}

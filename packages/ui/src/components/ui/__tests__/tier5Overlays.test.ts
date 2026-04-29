@@ -1,28 +1,11 @@
 /**
- * RED-TEAM tests for RUN-302: Tier 5 Overlays & Feedback.
+ * Tier 5 overlay and feedback component coverage.
  *
  * Validates that Dialog, DropdownMenu, Command, Sheet, and Popover
  * have been updated to use Runsight design system tokens, and that Storybook
  * story files exist for all 5 components.
  *
  * Tests read component source files as strings and verify design system tokens.
- *
- * Expected failures (current state):
- *   - dialog.tsx: content uses bg-surface-primary (not surface-overlay),
- *     no elevation-overlay-shadow token, no elevation-border-raised token,
- *     DialogTitle uses text-base font-medium (not text-heading / font-size-lg),
- *     width uses sm:max-w-sm (not overlay-width-md), animation uses zoom-in-95
- *     (not scale-in)
- *   - dropdown-menu.tsx: separator uses bg-border-default (not border-subtle),
- *     icons use size-4 hardcoded (not icon-size-sm), positioner uses z-50
- *     (not z-dropdown)
- *   - command.tsx: no z-modal token, CommandShortcut uses text-xs tracking-widest
- *     (not font-mono / font-size-2xs)
- *   - sheet.tsx: uses bg-surface-primary (not surface-overlay), uses shadow-lg
- *     (not elevation-overlay-shadow), uses raw duration-200 not a DS duration token
- *   - popover.tsx: uses bg-surface-overlay (not surface-raised), uses shadow-md
- *     (not elevation-raised-shadow), no elevation-border-raised token
- *   - No story files exist yet for Dialog, DropdownMenu, Command, Sheet, or Popover
  */
 
 import { describe, it, expect } from "vitest";
@@ -52,7 +35,7 @@ function readStory(filename: string): string {
 // 1. DIALOG — surface-overlay on DialogContent (AC1)
 // ===========================================================================
 
-describe("Dialog — surface-overlay or elevation-overlay-surface token on DialogContent (AC1)", () => {
+describe("Dialog — surface-overlay or elevation-overlay-surface token on DialogContent", () => {
   it("uses surface-overlay or elevation-overlay-surface token for the dialog content background", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog content background uses --surface-overlay or --elevation-overlay-surface
@@ -64,7 +47,7 @@ describe("Dialog — surface-overlay or elevation-overlay-surface token on Dialo
 // 2. DIALOG — elevation-overlay-shadow on DialogContent (AC1)
 // ===========================================================================
 
-describe("Dialog — elevation-overlay-shadow token on DialogContent (AC1)", () => {
+describe("Dialog — elevation-overlay-shadow token on DialogContent", () => {
   it("uses elevation-overlay-shadow token for dialog shadow", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog shadow uses --elevation-overlay-shadow DS token
@@ -77,7 +60,7 @@ describe("Dialog — elevation-overlay-shadow token on DialogContent (AC1)", () 
 // 3. DIALOG — elevation-border-raised on DialogContent (AC1)
 // ===========================================================================
 
-describe("Dialog — elevation-border-raised token on DialogContent (AC1)", () => {
+describe("Dialog — elevation-border-raised token on DialogContent", () => {
   it("uses elevation-border-raised token for dialog border/ring", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog border uses --elevation-border-raised DS token
@@ -90,7 +73,7 @@ describe("Dialog — elevation-border-raised token on DialogContent (AC1)", () =
 // 4. DIALOG — text-heading token on DialogTitle (AC1)
 // ===========================================================================
 
-describe("Dialog — text-heading token on DialogTitle (AC1)", () => {
+describe("Dialog — text-heading token on DialogTitle", () => {
   it("uses text-heading token for the dialog title text color", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog header title text uses --text-heading
@@ -103,7 +86,7 @@ describe("Dialog — text-heading token on DialogTitle (AC1)", () => {
 // 5. DIALOG — font-size-lg token on DialogTitle (AC1)
 // ===========================================================================
 
-describe("Dialog — font-size-lg or text-lg token on DialogTitle (AC1)", () => {
+describe("Dialog — font-size-lg or text-lg token on DialogTitle", () => {
   it("uses font-size-lg or text-lg design system class for dialog title size", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog title font size uses --font-size-lg
@@ -116,7 +99,7 @@ describe("Dialog — font-size-lg or text-lg token on DialogTitle (AC1)", () => 
 // 6. DIALOG — overlay-width-md token for DialogContent width (AC1)
 // ===========================================================================
 
-describe("Dialog — overlay-width-md token for dialog width (AC1)", () => {
+describe("Dialog — overlay-width-md token for dialog width", () => {
   it("uses overlay-width-md token for the standard dialog width", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog width uses --overlay-width-md DS token
@@ -129,7 +112,7 @@ describe("Dialog — overlay-width-md token for dialog width (AC1)", () => {
 // 7. DIALOG — scale-in animation on DialogContent (AC1)
 // ===========================================================================
 
-describe("Dialog — scale-in animation token on DialogContent (AC1)", () => {
+describe("Dialog — scale-in animation token on DialogContent", () => {
   it("uses scale-in animation token for dialog open animation", () => {
     const source = readComponent("dialog.tsx");
     // Spec: dialog open animation uses scale-in DS animation token
@@ -142,7 +125,7 @@ describe("Dialog — scale-in animation token on DialogContent (AC1)", () => {
 // 8. DROPDOWN MENU — border-subtle token on separator (AC2)
 // ===========================================================================
 
-describe("DropdownMenu — border-subtle token on separator (AC2)", () => {
+describe("DropdownMenu — border-subtle token on separator", () => {
   it("uses border-subtle token for the dropdown menu separator", () => {
     const source = readComponent("dropdown-menu.tsx");
     // Spec: separator background/border uses --border-subtle
@@ -155,7 +138,7 @@ describe("DropdownMenu — border-subtle token on separator (AC2)", () => {
 // 9. DROPDOWN MENU — icon-size-sm token for icons (AC2)
 // ===========================================================================
 
-describe("DropdownMenu — icon-size-sm token or icon usage in items (AC2)", () => {
+describe("DropdownMenu — icon-size-sm token or icon usage in items", () => {
   it("uses icon-size-sm token or renders icons in dropdown menu items", () => {
     const source = readComponent("dropdown-menu.tsx");
     // Spec: icons use --icon-size-sm DS token; lucide icon imports indicate icon support
@@ -167,7 +150,7 @@ describe("DropdownMenu — icon-size-sm token or icon usage in items (AC2)", () 
 // 10. DROPDOWN MENU — z-dropdown token on positioner (AC2)
 // ===========================================================================
 
-describe("DropdownMenu — z-dropdown token for z-index (AC2)", () => {
+describe("DropdownMenu — z-dropdown token for z-index", () => {
   it("uses z-dropdown token for the dropdown menu z-index", () => {
     const source = readComponent("dropdown-menu.tsx");
     // Spec: dropdown z-index uses --z-dropdown DS token
@@ -180,7 +163,7 @@ describe("DropdownMenu — z-dropdown token for z-index (AC2)", () => {
 // 11. COMMAND — z-modal token (AC3)
 // ===========================================================================
 
-describe("Command — z-modal token for command palette z-index (AC3)", () => {
+describe("Command — z-modal token for command palette z-index", () => {
   it("uses z-modal token for the command palette z-index", () => {
     const source = readComponent("command.tsx");
     // Spec: command palette z-index uses --z-modal DS token
@@ -193,7 +176,7 @@ describe("Command — z-modal token for command palette z-index (AC3)", () => {
 // 12. COMMAND — font-mono token on CommandShortcut (AC3)
 // ===========================================================================
 
-describe("Command — font-mono token on CommandShortcut (AC3)", () => {
+describe("Command — font-mono token on CommandShortcut", () => {
   it("uses font-mono token for shortcut badge typography", () => {
     const source = readComponent("command.tsx");
     // Spec: shortcut badges use font-mono for monospace rendering
@@ -206,7 +189,7 @@ describe("Command — font-mono token on CommandShortcut (AC3)", () => {
 // 13. COMMAND — font-size-2xs token on CommandShortcut (AC3)
 // ===========================================================================
 
-describe("Command — font-size-2xs or text-2xs token on CommandShortcut (AC3)", () => {
+describe("Command — font-size-2xs or text-2xs token on CommandShortcut", () => {
   it("uses font-size-2xs or text-2xs design system class for shortcut badge size", () => {
     const source = readComponent("command.tsx");
     // Spec: shortcut badges use --font-size-2xs DS token
@@ -219,7 +202,7 @@ describe("Command — font-size-2xs or text-2xs token on CommandShortcut (AC3)",
 // 14. SHEET — surface-overlay token on SheetContent (AC4)
 // ===========================================================================
 
-describe("Sheet — surface-overlay or elevation-overlay-surface token on SheetContent (AC4)", () => {
+describe("Sheet — surface-overlay or elevation-overlay-surface token on SheetContent", () => {
   it("uses surface-overlay or elevation-overlay-surface token for the sheet content background", () => {
     const source = readComponent("sheet.tsx");
     // Spec: sheet background uses --surface-overlay or --elevation-overlay-surface
@@ -231,7 +214,7 @@ describe("Sheet — surface-overlay or elevation-overlay-surface token on SheetC
 // 15. SHEET — elevation-overlay-shadow on SheetContent (AC4)
 // ===========================================================================
 
-describe("Sheet — elevation-overlay-shadow token on SheetContent (AC4)", () => {
+describe("Sheet — elevation-overlay-shadow token on SheetContent", () => {
   it("uses elevation-overlay-shadow token for sheet shadow", () => {
     const source = readComponent("sheet.tsx");
     // Spec: sheet shadow uses --elevation-overlay-shadow DS token
@@ -244,7 +227,7 @@ describe("Sheet — elevation-overlay-shadow token on SheetContent (AC4)", () =>
 // 16. SHEET — DS duration or ease motion tokens (AC4)
 // ===========================================================================
 
-describe("Sheet — design system duration or ease motion tokens (AC4)", () => {
+describe("Sheet — design system duration or ease motion tokens", () => {
   it("uses a DS duration token or CSS var duration reference for sheet transition", () => {
     const source = readComponent("sheet.tsx");
     // Spec: sheet transition uses DS motion tokens; var(--duration-*) references are also acceptable
@@ -256,7 +239,7 @@ describe("Sheet — design system duration or ease motion tokens (AC4)", () => {
 // 17. POPOVER — surface-raised token on PopoverContent (AC5)
 // ===========================================================================
 
-describe("Popover — surface-raised or elevation-overlay-surface token on PopoverContent (AC5)", () => {
+describe("Popover — surface-raised or elevation-overlay-surface token on PopoverContent", () => {
   it("uses surface-raised or elevation-overlay-surface token for the popover content background", () => {
     const source = readComponent("popover.tsx");
     // Spec: popover background uses --surface-raised; elevation-overlay-surface is the CVA equivalent
@@ -268,7 +251,7 @@ describe("Popover — surface-raised or elevation-overlay-surface token on Popov
 // 18. POPOVER — elevation-raised-shadow on PopoverContent (AC5)
 // ===========================================================================
 
-describe("Popover — elevation-raised-shadow or elevation-overlay-shadow token on PopoverContent (AC5)", () => {
+describe("Popover — elevation-raised-shadow or elevation-overlay-shadow token on PopoverContent", () => {
   it("uses elevation-raised-shadow or elevation-overlay-shadow token for popover shadow", () => {
     const source = readComponent("popover.tsx");
     // Spec: popover shadow uses --elevation-raised-shadow; elevation-overlay-shadow is the CVA equivalent
@@ -280,7 +263,7 @@ describe("Popover — elevation-raised-shadow or elevation-overlay-shadow token 
 // 19. POPOVER — elevation-border-raised on PopoverContent (AC5)
 // ===========================================================================
 
-describe("Popover — elevation-border-raised token on PopoverContent (AC5)", () => {
+describe("Popover — elevation-border-raised token on PopoverContent", () => {
   it("uses elevation-border-raised token for popover border/ring", () => {
     const source = readComponent("popover.tsx");
     // Spec: popover border uses --elevation-border-raised DS token
@@ -293,7 +276,7 @@ describe("Popover — elevation-border-raised token on PopoverContent (AC5)", ()
 // 20. STORYBOOK STORIES — overlay story files exist (AC7)
 // ===========================================================================
 
-describe("Storybook stories — overlay story files exist (AC7)", () => {
+describe("Storybook stories — overlay story files exist", () => {
   it("Dialog.stories.tsx exists in src/stories/", () => {
     expect(storyExists("Dialog.stories.tsx")).toBe(true);
   });
@@ -319,7 +302,7 @@ describe("Storybook stories — overlay story files exist (AC7)", () => {
 // 23. STORYBOOK STORIES — Dialog.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Dialog.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Dialog.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Dialog.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -350,7 +333,7 @@ describe("Storybook stories — Dialog.stories.tsx structure (AC7)", () => {
 // 24. STORYBOOK STORIES — DropdownMenu.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — DropdownMenu.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — DropdownMenu.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("DropdownMenu.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -381,7 +364,7 @@ describe("Storybook stories — DropdownMenu.stories.tsx structure (AC7)", () =>
 // 25. STORYBOOK STORIES — Command.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Command.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Command.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Command.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -412,7 +395,7 @@ describe("Storybook stories — Command.stories.tsx structure (AC7)", () => {
 // 26. STORYBOOK STORIES — Sheet.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Sheet.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Sheet.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Sheet.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -443,7 +426,7 @@ describe("Storybook stories — Sheet.stories.tsx structure (AC7)", () => {
 // 27. STORYBOOK STORIES — Popover.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Popover.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Popover.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Popover.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -469,4 +452,3 @@ describe("Storybook stories — Popover.stories.tsx structure (AC7)", () => {
     expect(content).toMatch(/align|side|placement|position|top|bottom|left|right/i);
   });
 });
-

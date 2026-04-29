@@ -81,7 +81,7 @@ beforeEach(() => {
   mocks.regressionIssues = [];
 });
 
-describe("RUN-843 WorkflowRow warning badge contract", () => {
+describe("WorkflowRow warning badge contract", () => {
   it("shows an Info warning badge next to the regression badge when warnings and regressions exist", () => {
     mocks.regressionIssues = [
       {

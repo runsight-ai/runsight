@@ -1,9 +1,7 @@
-"""Red tests for RUN-128: ExecutionObserver — core WorkflowObserver → API DB persistence.
+"""ExecutionObserver persists core WorkflowObserver events to the API database.
 
 Tests target ExecutionObserver at:
   apps/api/src/runsight_api/logic/observers/execution_observer.py
-
-All tests should FAIL until the implementation exists.
 """
 
 import asyncio
@@ -20,7 +18,7 @@ from runsight_api.domain.entities.log import LogEntry
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 # ---------------------------------------------------------------------------
-# Deferred import helper (module does not exist yet)
+# Deferred import helper.
 # ---------------------------------------------------------------------------
 
 
@@ -67,7 +65,7 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_test_128"
+    run_id = "run_observer_persistence"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,

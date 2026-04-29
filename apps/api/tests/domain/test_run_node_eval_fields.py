@@ -1,4 +1,4 @@
-"""Red tests for RUN-313: New RunNode fields — prompt_hash, soul_version, eval_*.
+"""New RunNode fields — prompt_hash, soul_version, eval_*.
 
 Tests target new fields on RunNode model:
   - prompt_hash: str | None
@@ -7,7 +7,6 @@ Tests target new fields on RunNode model:
   - eval_passed: bool | None
   - eval_results: dict | None  (JSON blob)
 
-All tests should FAIL until the implementation exists.
 """
 
 import pytest

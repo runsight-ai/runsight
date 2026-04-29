@@ -1,6 +1,6 @@
-"""Red-phase tests for RUN-151: Model Catalog API endpoints.
+"""Model Catalog API endpoint coverage.
 
-Tests target two endpoints and one service layer that do NOT yet exist:
+Tests target two endpoints and one service layer:
   - GET /api/models          (filtered model list)
   - GET /api/models/providers (provider summary with is_configured flag)
   - ModelService             (service layer bridging catalog + provider config)
@@ -12,12 +12,21 @@ from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
+from runsight_api.transport.deps import get_model_service
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
 client = TestClient(app)
+
+
+def _override_model_service(*, models=None, providers=None):
+    mock_service = Mock()
+    mock_service.get_available_models.return_value = list(models or [])
+    mock_service.get_provider_summary.return_value = list(providers or [])
+    app.dependency_overrides[get_model_service] = lambda: mock_service
+    return mock_service
 
 
 def _make_model_response(
@@ -70,22 +79,28 @@ class TestGetModelsEndpoint:
 
     def test_endpoint_exists(self):
         """GET /api/models must return 200, not 404/405."""
-        response = client.get("/api/models")
-        assert response.status_code != 404, "Route /api/models not registered"
-        assert response.status_code != 405, "Method GET not allowed on /api/models"
+        _override_model_service(models=[])
+        try:
+            response = client.get("/api/models")
+            assert response.status_code != 404, "Route /api/models not registered"
+            assert response.status_code != 405, "Method GET not allowed on /api/models"
+        finally:
+            app.dependency_overrides.clear()
 
     def test_returns_list(self):
         """Response body must be a JSON list (or wrapper with 'items' list)."""
-        response = client.get("/api/models")
-        data = response.json()
-        # Accept either bare list or {"items": [...], "total": N}
-        items = data if isinstance(data, list) else data.get("items", data)
-        assert isinstance(items, list)
+        _override_model_service(models=[])
+        try:
+            response = client.get("/api/models")
+            data = response.json()
+            # Accept either bare list or {"items": [...], "total": N}
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert isinstance(items, list)
+        finally:
+            app.dependency_overrides.clear()
 
     def test_model_response_shape(self):
         """Each item must include required ModelResponse fields."""
-        from runsight_api.transport.deps import get_model_service
-
         mock_service = Mock()
         mock_service.get_available_models.return_value = [_make_model_response()]
         app.dependency_overrides[get_model_service] = lambda: mock_service
@@ -122,61 +137,106 @@ class TestGetModelsFiltering:
 
     def test_filter_by_provider(self):
         """?provider=openai must return only openai models."""
-        response = client.get("/api/models", params={"provider": "openai"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        for item in items:
-            assert item["provider"] == "openai"
+        mock_service = _override_model_service(models=[_make_model_response(provider="openai")])
+        try:
+            response = client.get("/api/models", params={"provider": "openai"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["provider"] == "openai"
+            mock_service.get_available_models.assert_called_once()
+            assert mock_service.get_available_models.call_args.kwargs["provider"] == "openai"
+        finally:
+            app.dependency_overrides.clear()
 
     def test_filter_by_mode(self):
         """?mode=chat must return only chat-mode models."""
-        response = client.get("/api/models", params={"mode": "chat"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        for item in items:
-            assert item["mode"] == "chat"
+        mock_service = _override_model_service(models=[_make_model_response(mode="chat")])
+        try:
+            response = client.get("/api/models", params={"mode": "chat"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["mode"] == "chat"
+            mock_service.get_available_models.assert_called_once()
+            assert mock_service.get_available_models.call_args.kwargs["mode"] == "chat"
+        finally:
+            app.dependency_overrides.clear()
 
     def test_filter_by_supports_vision(self):
         """?supports_vision=true must return only vision-capable models."""
-        response = client.get("/api/models", params={"supports_vision": "true"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        for item in items:
-            assert item["supports_vision"] is True
+        mock_service = _override_model_service(models=[_make_model_response(supports_vision=True)])
+        try:
+            response = client.get("/api/models", params={"supports_vision": "true"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["supports_vision"] is True
+            assert mock_service.get_available_models.call_args.kwargs["supports_vision"] is True
+        finally:
+            app.dependency_overrides.clear()
 
     def test_filter_by_supports_function_calling(self):
         """?supports_function_calling=true must return only function-calling models."""
-        response = client.get("/api/models", params={"supports_function_calling": "true"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        for item in items:
-            assert item["supports_function_calling"] is True
+        mock_service = _override_model_service(
+            models=[_make_model_response(supports_function_calling=True)]
+        )
+        try:
+            response = client.get("/api/models", params={"supports_function_calling": "true"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["supports_function_calling"] is True
+            assert (
+                mock_service.get_available_models.call_args.kwargs["supports_function_calling"]
+                is True
+            )
+        finally:
+            app.dependency_overrides.clear()
 
     def test_unknown_provider_returns_empty(self):
         """?provider=nonexistent must return empty list, not error."""
-        response = client.get("/api/models", params={"provider": "definitely_not_a_provider"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        assert items == []
+        mock_service = _override_model_service(models=[])
+        try:
+            response = client.get("/api/models", params={"provider": "definitely_not_a_provider"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert items == []
+            assert (
+                mock_service.get_available_models.call_args.kwargs["provider"]
+                == "definitely_not_a_provider"
+            )
+        finally:
+            app.dependency_overrides.clear()
 
     def test_combined_filters(self):
         """Multiple filters applied simultaneously must all be honoured."""
-        response = client.get(
-            "/api/models",
-            params={"provider": "openai", "mode": "chat", "supports_vision": "true"},
+        mock_service = _override_model_service(
+            models=[_make_model_response(provider="openai", mode="chat", supports_vision=True)]
         )
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        for item in items:
-            assert item["provider"] == "openai"
-            assert item["mode"] == "chat"
-            assert item["supports_vision"] is True
+        try:
+            response = client.get(
+                "/api/models",
+                params={"provider": "openai", "mode": "chat", "supports_vision": "true"},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["provider"] == "openai"
+                assert item["mode"] == "chat"
+                assert item["supports_vision"] is True
+            kwargs = mock_service.get_available_models.call_args.kwargs
+            assert kwargs["provider"] == "openai"
+            assert kwargs["mode"] == "chat"
+            assert kwargs["supports_vision"] is True
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ===========================================================================
@@ -189,31 +249,30 @@ class TestGetModelsAllFlag:
 
     def test_all_true_returns_all_catalog_models(self):
         """?all=true must return models even for unconfigured providers."""
-        response = client.get("/api/models", params={"all": "true"})
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        # With ?all=true the catalog should include more providers than configured
-        assert isinstance(items, list)
+        mock_service = _override_model_service(models=[_make_model_response(provider="openai")])
+        try:
+            response = client.get("/api/models", params={"all": "true"})
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert isinstance(items, list)
+            assert mock_service.get_available_models.call_args.kwargs["all_providers"] is True
+        finally:
+            app.dependency_overrides.clear()
 
     def test_default_excludes_unconfigured_providers(self):
         """Without ?all=true, only models from configured providers should appear."""
-        resp_default = client.get("/api/models")
-        resp_all = client.get("/api/models", params={"all": "true"})
-        assert resp_default.status_code == 200
-        assert resp_all.status_code == 200
-        items_default = (
-            resp_default.json()
-            if isinstance(resp_default.json(), list)
-            else resp_default.json().get("items", resp_default.json())
-        )
-        items_all = (
-            resp_all.json()
-            if isinstance(resp_all.json(), list)
-            else resp_all.json().get("items", resp_all.json())
-        )
-        # all=true must return >= default count
-        assert len(items_all) >= len(items_default)
+        mock_service = _override_model_service(models=[])
+        try:
+            resp_default = client.get("/api/models")
+            resp_all = client.get("/api/models", params={"all": "true"})
+            assert resp_default.status_code == 200
+            assert resp_all.status_code == 200
+            calls = mock_service.get_available_models.call_args_list
+            assert calls[0].kwargs["all_providers"] is False
+            assert calls[1].kwargs["all_providers"] is True
+        finally:
+            app.dependency_overrides.clear()
 
 
 # ===========================================================================
@@ -226,21 +285,27 @@ class TestGetProvidersEndpoint:
 
     def test_endpoint_exists(self):
         """GET /api/models/providers must return 200, not 404/405."""
-        response = client.get("/api/models/providers")
-        assert response.status_code != 404, "Route /api/models/providers not registered"
-        assert response.status_code != 405
+        _override_model_service(providers=[])
+        try:
+            response = client.get("/api/models/providers")
+            assert response.status_code != 404, "Route /api/models/providers not registered"
+            assert response.status_code != 405
+        finally:
+            app.dependency_overrides.clear()
 
     def test_returns_list(self):
         """Response body must be a JSON list (or wrapper with 'items' list)."""
-        response = client.get("/api/models/providers")
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        assert isinstance(items, list)
+        _override_model_service(providers=[])
+        try:
+            response = client.get("/api/models/providers")
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            assert isinstance(items, list)
+        finally:
+            app.dependency_overrides.clear()
 
     def test_provider_summary_shape(self):
         """Each item must include required ProviderSummary fields."""
-        from runsight_api.transport.deps import get_model_service
-
         mock_service = Mock()
         mock_service.get_provider_summary.return_value = [_make_provider_summary()]
         app.dependency_overrides[get_model_service] = lambda: mock_service
@@ -267,26 +332,28 @@ class TestProviderConfiguredFlag:
 
     def test_unconfigured_provider_is_false(self):
         """A catalog provider with no matching configured provider must have is_configured=False."""
-        response = client.get("/api/models/providers")
-        assert response.status_code == 200
-        data = response.json()
-        items = data if isinstance(data, list) else data.get("items", data)
-        # With a clean DB (no providers configured), every entry should be False
-        for item in items:
-            assert item["is_configured"] is False, (
-                f"Provider {item['id']} should be is_configured=False with no providers in DB"
-            )
+        _override_model_service(
+            providers=[
+                _make_provider_summary(id="openai", is_configured=False),
+                _make_provider_summary(id="anthropic", is_configured=False),
+            ]
+        )
+        try:
+            response = client.get("/api/models/providers")
+            assert response.status_code == 200
+            data = response.json()
+            items = data if isinstance(data, list) else data.get("items", data)
+            for item in items:
+                assert item["is_configured"] is False
+        finally:
+            app.dependency_overrides.clear()
 
     def test_configured_provider_is_true(self):
         """A catalog provider that IS configured must have is_configured=True.
 
-        This test relies on dependency-override or DB seeding to inject a
-        configured provider and assert the flag flips to True.
+        This test uses a dependency override to inject a configured provider
+        and assert the flag flips to True.
         """
-        # We import here to allow the test to fail at import if the dep
-        # function doesn't exist yet (proving green-phase is needed).
-        from runsight_api.transport.deps import get_model_service
-
         mock_service = Mock()
         mock_service.get_provider_summary.return_value = [
             _make_provider_summary(id="openai", is_configured=True),

@@ -1,4 +1,4 @@
-"""Red tests for strict blank-canvas workflow YAML writes."""
+"""Strict blank-canvas workflow YAML writes."""
 
 import pytest
 

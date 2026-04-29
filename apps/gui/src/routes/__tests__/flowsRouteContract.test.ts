@@ -9,7 +9,7 @@ function readSource(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
-describe("RUN-426 /flows route contract", () => {
+describe("flows route contract", () => {
   it("adds a /flows route that lazy loads the new FlowsPage feature shell", () => {
     const source = readSource(ROUTES_PATH);
 
@@ -21,7 +21,7 @@ describe("RUN-426 /flows route contract", () => {
     const source = readSource(ROUTES_PATH);
 
     expect(source).toMatch(/path:\s*["']workflows\/:id\/edit["']/);
-    // RUN-590: routes now use WorkflowSurface via WorkflowEditRoute instead of CanvasPage
+    // Workflow edit routes render the shared surface instead of the retired canvas page.
     expect(source).toMatch(/WorkflowSurface/);
   });
 

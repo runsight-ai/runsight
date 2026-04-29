@@ -22,3 +22,5 @@ The retained harness surface is intentionally small:
 
 - Playwright starts the API server on `http://localhost:8000`
 - Playwright starts or reuses the GUI dev server on `http://localhost:3000`
+
+Runtime isolation is defined in the root `AGENTS.md` test isolation contract.

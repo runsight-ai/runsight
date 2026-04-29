@@ -160,7 +160,7 @@ beforeEach(() => {
   mocks.stateCursor = 0;
 });
 
-describe("SurfaceTopbar inline rename save contract (RUN-424)", () => {
+describe("SurfaceTopbar inline rename save contract", () => {
   it("does not trigger the explicit production save path when a blurred inline rename completes", () => {
     const onSave = vi.fn();
     const initialTree = renderTopbar(onSave);

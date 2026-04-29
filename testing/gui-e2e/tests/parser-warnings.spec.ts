@@ -104,18 +104,18 @@ function rowForWorkflow(page: Page, workflowName: string) {
   return page.locator("tbody tr").filter({ hasText: workflowName }).first();
 }
 
-test.describe("RUN-845 parser warnings browser flows", () => {
+test.describe("Parser warnings browser flows", () => {
   test.beforeAll(async () => {
     const suffix = Date.now().toString(36);
-    warningSoulId = `run845-warning-soul-${suffix}`;
-    warningWorkflowId = `run845-warning-flow-${suffix}`;
-    warningWorkflowName = `RUN-845 warning flow ${suffix}`;
+    warningSoulId = `parser-warning-soul-${suffix}`;
+    warningWorkflowId = `parser-warning-flow-${suffix}`;
+    warningWorkflowName = `Parser warning flow ${suffix}`;
 
     await apiPost("/souls", {
       id: warningSoulId,
       kind: "soul",
-      name: "RUN-845 Warning Soul",
-      role: "RUN-845 Warning Soul",
+      name: "Parser Warning Soul",
+      role: "Parser Warning Soul",
       system_prompt: "Parser warning soul for e2e coverage.",
       tools: ["http"],
       provider: "openai",
@@ -194,14 +194,14 @@ test.describe("RUN-845 parser warnings browser flows", () => {
     const runs = await apiGet<RunListResponse>("/runs");
     const template = warningRunListItem ?? runs.items[0];
     if (!template) {
-      throw new Error("RUN-845 setup failed: no run template available");
+      throw new Error("Parser warning setup failed: no run template available");
     }
 
     const warningOnlyRun: RunListItem = {
       ...template,
-      id: "run845-warning-only",
-      workflow_id: "wf_run845_warning_only",
-      workflow_name: "RUN-845 warning-only",
+      id: "parser-warning-only",
+      workflow_id: "wf_parser_warning_only",
+      workflow_name: "Parser warning only",
       regression_count: 0,
       warnings: warningRunListItem?.warnings?.length
         ? warningRunListItem.warnings
@@ -212,24 +212,24 @@ test.describe("RUN-845 parser warnings browser flows", () => {
               context: "warning_only",
             },
           ],
-      run_number: 8451,
+      run_number: 101,
     };
 
     const regressionOnlyRun: RunListItem = {
       ...template,
-      id: "run845-regression-only",
-      workflow_id: "wf_run845_regression_only",
-      workflow_name: "RUN-845 regression-only",
+      id: "parser-regression-only",
+      workflow_id: "wf_parser_regression_only",
+      workflow_name: "Parser regression only",
       regression_count: 4,
       warnings: [],
-      run_number: 8452,
+      run_number: 102,
     };
 
     const bothBadgesRun: RunListItem = {
       ...template,
-      id: "run845-both-badges",
-      workflow_id: "wf_run845_both_badges",
-      workflow_name: "RUN-845 both-badges",
+      id: "parser-both-badges",
+      workflow_id: "wf_parser_both_badges",
+      workflow_name: "Parser both badges",
       regression_count: 2,
       warnings: [
         {
@@ -238,7 +238,7 @@ test.describe("RUN-845 parser warnings browser flows", () => {
           context: "lookup_profile",
         },
       ],
-      run_number: 8453,
+      run_number: 103,
     };
 
     await page.route("**/api/runs*", async (route) => {
@@ -260,7 +260,7 @@ test.describe("RUN-845 parser warnings browser flows", () => {
       });
     });
 
-    await page.route("**/api/runs/run845-regression-only/regressions", async (route) => {
+    await page.route("**/api/runs/parser-regression-only/regressions", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -268,7 +268,7 @@ test.describe("RUN-845 parser warnings browser flows", () => {
       });
     });
 
-    await page.route("**/api/runs/run845-both-badges/regressions", async (route) => {
+    await page.route("**/api/runs/parser-both-badges/regressions", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -278,18 +278,18 @@ test.describe("RUN-845 parser warnings browser flows", () => {
 
     await gotoShellRoute(page, "/runs");
 
-    const warningOnlyRow = rowForWorkflow(page, "RUN-845 warning-only");
+    const warningOnlyRow = rowForWorkflow(page, "Parser warning only");
     await expect(warningOnlyRow).toBeVisible();
     await expect(warningOnlyRow.getByRole("status", { name: /warning/i })).toBeVisible();
     await expect(warningOnlyRow.locator("td").first()).not.toHaveClass(/before:bg-warning-9/);
 
-    const regressionOnlyRow = rowForWorkflow(page, "RUN-845 regression-only");
+    const regressionOnlyRow = rowForWorkflow(page, "Parser regression only");
     await expect(regressionOnlyRow).toBeVisible();
     await expect(regressionOnlyRow.getByRole("status", { name: /warning/i })).toHaveCount(0);
     await expect(regressionOnlyRow.locator('span[style*="--warning-11"]')).toBeVisible();
     await expect(regressionOnlyRow.locator("td").first()).toHaveClass(/before:bg-warning-9/);
 
-    const bothBadgesRow = rowForWorkflow(page, "RUN-845 both-badges");
+    const bothBadgesRow = rowForWorkflow(page, "Parser both badges");
     await expect(bothBadgesRow).toBeVisible();
     await expect(bothBadgesRow.getByRole("status", { name: /warning/i })).toBeVisible();
     await expect(bothBadgesRow.locator('span[style*="--warning-11"]')).toBeVisible();

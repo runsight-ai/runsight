@@ -54,11 +54,11 @@ describe("WorkflowRegressionSchema", () => {
       node_name: "Validator",
       type: "assertion_regression",
       delta: {},
-      run_id: "run-1",
+      run_id: "run-regression-primary",
       run_number: 5,
     };
     const result = WorkflowRegressionSchema.parse(input);
-    expect(result.run_id).toBe("run-1");
+    expect(result.run_id).toBe("run-regression-primary");
     expect(result.run_number).toBe(5);
   });
 

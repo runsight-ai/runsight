@@ -1,14 +1,12 @@
 """
-Red tests for RUN-232: FileSystemProviderRepo — YAML-backed provider storage.
+FileSystemProviderRepo YAML-backed provider storage.
 
 Tests the public API of FileSystemProviderRepo:
   list_all, get_by_id, get_by_type, create, update, delete
 
-All tests should FAIL (ImportError) until the implementation is written.
-
-Acceptance criteria covered:
+Coverage includes:
   - FileSystemProviderRepo implements all CRUD methods
-  - Provider ID is filename stem (no ID stored inside YAML)
+  - Provider ID is embedded in YAML and matches the filename stem
   - Path traversal protection rejects ../ in provider IDs
   - Atomic writes via temp file + rename
   - list_all skips malformed YAML files with logged warning
@@ -87,7 +85,7 @@ def providers_dir(tmp_path):
 
 
 # ===========================================================================
-# AC: custom/providers/ remains lazy until provider persistence needs it
+# custom/providers/ remains lazy until provider persistence needs it
 # ===========================================================================
 
 
@@ -114,7 +112,7 @@ class TestDirectoryCreationContract:
 
 
 # ===========================================================================
-# AC: FileSystemProviderRepo implements all CRUD methods
+# FileSystemProviderRepo implements all CRUD methods
 # ===========================================================================
 
 
@@ -182,7 +180,7 @@ class TestCreate:
 
 
 class TestCreateDuplicates:
-    """AC: Two providers with same name: create raises ValueError."""
+    """Two providers with the same name cannot be created."""
 
     def test_create_duplicate_name_raises_value_error(self, repo):
         """Creating two providers with the same name must raise ValueError."""
@@ -418,12 +416,12 @@ class TestDelete:
 
 
 # ===========================================================================
-# AC: Provider ID is filename stem (no ID stored inside YAML)
+# Provider ID is embedded in YAML and matches the filename stem
 # ===========================================================================
 
 
-class TestIdNotStoredInYaml:
-    def test_id_not_written_to_yaml_file(self, repo, providers_dir):
+class TestEmbeddedIdMatchesFilename:
+    def test_id_is_written_to_yaml_file(self, repo, providers_dir):
         """The 'id' field is embedded in the YAML file and must match the filename stem."""
         entity = repo.create(_make_provider_data(name="OpenAI"))
         yaml_path = providers_dir / f"{entity.id}.yaml"
@@ -446,7 +444,7 @@ class TestIdNotStoredInYaml:
 
 
 # ===========================================================================
-# AC: Path traversal protection rejects ../ in provider IDs
+# Path traversal protection rejects ../ in provider IDs
 # ===========================================================================
 
 
@@ -487,7 +485,7 @@ class TestPathTraversalProtection:
 
 
 # ===========================================================================
-# AC: Atomic writes via temp file + rename
+# Atomic writes via temp file + rename
 # ===========================================================================
 
 
@@ -531,7 +529,7 @@ class TestAtomicWrites:
 
 
 # ===========================================================================
-# AC: list_all skips malformed YAML files with logged warning
+# list_all skips malformed YAML files with logged warning
 # ===========================================================================
 
 
@@ -578,13 +576,13 @@ class TestMalformedYamlHandling:
 
 
 # ===========================================================================
-# AC: YAML schema matches epic spec
+# YAML schema matches the FileSystemProviderRepo contract
 # ===========================================================================
 
 
 class TestYamlSchema:
-    def test_yaml_matches_epic_schema(self, repo, providers_dir):
-        """The on-disk YAML must match the schema from the epic."""
+    def test_yaml_matches_provider_repo_schema(self, repo, providers_dir):
+        """The on-disk YAML must match the provider repository schema."""
         data = _make_provider_data()
         entity = repo.create(data)
         yaml_path = providers_dir / f"{entity.id}.yaml"
@@ -592,7 +590,7 @@ class TestYamlSchema:
         with open(yaml_path) as f:
             on_disk = yaml.safe_load(f)
 
-        # All epic-defined fields must be present
+        # All provider repository fields must be present.
         assert "name" in on_disk
         assert "type" in on_disk
         assert "api_key" in on_disk

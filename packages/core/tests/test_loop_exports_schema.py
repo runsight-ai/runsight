@@ -456,7 +456,7 @@ class TestNoRetryBlockReferences:
                 "--include=*.yml",
                 "-l",
                 "type: retry",
-                str(REPO_ROOT / "custom"),
+                str(CUSTOM_WORKFLOWS),
             ],
             capture_output=True,
             text=True,

@@ -519,7 +519,7 @@ beforeEach(() => {
   mocks.jsxElements.length = 0;
 });
 
-describe("RUN-426 FlowsPage tabs", () => {
+describe("FlowsPage tabs", () => {
   const flowsSource = readFileSync(resolve(__dirname, "..", "FlowsPage.tsx"), "utf-8");
 
   it("renders the New Workflow header action on /flows while the workflows tab is active", () => {
@@ -554,7 +554,7 @@ describe("RUN-426 FlowsPage tabs", () => {
   });
 });
 
-describe("RUN-426 WorkflowsTab behavior", () => {
+describe("WorkflowsTab behavior", () => {
   it("renders the workflows collection inside a semantic list container", async () => {
     const view = await renderWorkflowsTab();
 

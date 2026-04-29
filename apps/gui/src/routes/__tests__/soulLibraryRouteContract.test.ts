@@ -62,7 +62,7 @@ beforeEach(() => {
   mocks.soulFormPageComponent.mockClear();
 });
 
-describe("RUN-452 route wiring", () => {
+describe("route wiring", () => {
   it("routes /souls to SoulLibraryPage without importing the legacy sidebar SoulList", async () => {
     const { router } = await import("../index");
     const { readFileSync } = await import("node:fs");

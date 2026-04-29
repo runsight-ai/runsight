@@ -27,11 +27,15 @@ runsight = { workspace = true }
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "packages/core/tests"]
 asyncio_mode = "auto"
-addopts = ""
+# Pytest is single-process by default. Keep broad accidental runs bounded:
+# stop on first failure and disable xdist worker fan-out if the plugin is present.
+addopts = "--maxfail=1 -p no:xdist"
 markers = [
     "integration: requires tmux and/or agent CLIs",
     "e2e: full system end-to-end tests",
     "future_backlog: tests for future phases (Phase 1.1+)",
+    "governance: static or policy tests that enforce repository boundaries",
+    "migration: temporary compatibility or cleanup tests with an explicit exit path",
 ]
 
 [tool.ruff]
@@ -48,4 +52,4 @@ indent-style = "space"
 line-ending = "lf"
 
 [tool.ruff.lint.per-file-ignores]
-"apps/api/tests/test_run134_openapi_codegen.py" = ["F401"]
+"apps/api/tests/test_openapi_codegen.py" = ["F401"]

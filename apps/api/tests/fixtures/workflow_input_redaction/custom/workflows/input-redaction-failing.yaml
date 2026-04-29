@@ -1,0 +1,33 @@
+id: input-redaction-failing
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  api_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: Check the request.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  fail_with_secret:
+    type: linear
+    soul_ref: analyst
+    inputs:
+      token:
+        from: workflow.api_token
+workflow:
+  name: input_redaction_failing
+  entry: fail_with_secret
+  transitions:
+    - from: fail_with_secret
+      to: null

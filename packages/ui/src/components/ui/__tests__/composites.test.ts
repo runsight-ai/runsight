@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-303: Composite Components.
+ * Composite component coverage.
  *
  * Validates that three composite components have been created/updated to use
  * the Runsight Product Design System tokens:
@@ -10,14 +10,6 @@
  *
  *   2. EmptyState  — EXISTING file at src/components/shared/EmptyState.tsx
  *      - Must be updated to use design system tokens
- *
- * Expected failures (current state):
- *   - node-card.tsx does not exist
- *   - EmptyState.tsx uses generic Tailwind classes (gap-3, p-8, h-12, w-12,
- *     rounded-lg, text-sm, font-medium, text-xs) instead of design system
- *     tokens (space-6, icon-size-xl, text-heading, font-size-lg, text-secondary,
- *     font-size-sm, text-muted)
- *   - No story files exist for NodeCard or EmptyState
  */
 
 import { describe, it, expect } from "vitest";
@@ -63,7 +55,7 @@ function readStory(filename: string): string {
 // 1. NODE CARD — file exists and exports (AC1)
 // ===========================================================================
 
-describe("NodeCard — file exists and exports default or named export (AC1)", () => {
+describe("NodeCard — file exists and exports default or named export", () => {
   it("node-card.tsx exists in src/components/ui/", () => {
     expect(componentExists("node-card.tsx")).toBe(true);
   });
@@ -84,7 +76,7 @@ describe("NodeCard — file exists and exports default or named export (AC1)", (
 // 2. NODE CARD — block category stripe tokens (AC1)
 // ===========================================================================
 
-describe("NodeCard — block-agent stripe token (AC1)", () => {
+describe("NodeCard — block-agent stripe token", () => {
   it("uses block-agent token for agent category stripe", () => {
     const source = readComponent("node-card.tsx");
     // Top 3px stripe for agent category nodes
@@ -92,28 +84,28 @@ describe("NodeCard — block-agent stripe token (AC1)", () => {
   });
 });
 
-describe("NodeCard — block-logic stripe token (AC1)", () => {
+describe("NodeCard — block-logic stripe token", () => {
   it("uses block-logic token for logic category stripe", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/block-logic/);
   });
 });
 
-describe("NodeCard — block-control stripe token (AC1)", () => {
+describe("NodeCard — block-control stripe token", () => {
   it("uses block-control token for control category stripe", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/block-control/);
   });
 });
 
-describe("NodeCard — block-utility stripe token (AC1)", () => {
+describe("NodeCard — block-utility stripe token", () => {
   it("uses block-utility token for utility category stripe", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/block-utility/);
   });
 });
 
-describe("NodeCard — block-custom stripe token (AC1)", () => {
+describe("NodeCard — block-custom stripe token", () => {
   it("uses block-custom token for custom category stripe", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/block-custom/);
@@ -124,7 +116,7 @@ describe("NodeCard — block-custom stripe token (AC1)", () => {
 // 3. NODE CARD — surface and border tokens (AC1)
 // ===========================================================================
 
-describe("NodeCard — surface token for card background (AC1)", () => {
+describe("NodeCard — surface token for card background", () => {
   it("uses surface-secondary or surface-tertiary token for card surface", () => {
     const source = readComponent("node-card.tsx");
     // Both surface-secondary and surface-tertiary are valid DS surface tokens for card backgrounds
@@ -132,7 +124,7 @@ describe("NodeCard — surface token for card background (AC1)", () => {
   });
 });
 
-describe("NodeCard — border token for card border (AC1)", () => {
+describe("NodeCard — border token for card border", () => {
   it("uses border-subtle or neutral scale token for card border", () => {
     const source = readComponent("node-card.tsx");
     // border-subtle or neutral-N scale tokens are valid for card borders
@@ -140,7 +132,7 @@ describe("NodeCard — border token for card border (AC1)", () => {
   });
 });
 
-describe("NodeCard — selected state styling (AC1)", () => {
+describe("NodeCard — selected state styling", () => {
   it("applies visual styling for selected state", () => {
     const source = readComponent("node-card.tsx");
     // Selected state can use border-accent, surface-selected, or inline HSL values
@@ -154,7 +146,7 @@ describe("NodeCard — selected state styling (AC1)", () => {
   });
 });
 
-describe("NodeCard — radius-lg token for card shape (AC1)", () => {
+describe("NodeCard — radius-lg token for card shape", () => {
   it("uses radius-lg token for card corner radius", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/radius-lg/);
@@ -165,14 +157,14 @@ describe("NodeCard — radius-lg token for card shape (AC1)", () => {
 // 4. NODE CARD — header text tokens (AC1)
 // ===========================================================================
 
-describe("NodeCard — text-heading token for header text (AC1)", () => {
+describe("NodeCard — text-heading token for header text", () => {
   it("uses text-heading token for node header text color", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/text-heading/);
   });
 });
 
-describe("NodeCard — small font token for header text size (AC1)", () => {
+describe("NodeCard — small font token for header text size", () => {
   it("uses font-size-sm token or small pixel size for node header font size", () => {
     const source = readComponent("node-card.tsx");
     // font-size-sm (13px) or text-[13px] are both valid for the node header
@@ -184,14 +176,14 @@ describe("NodeCard — small font token for header text size (AC1)", () => {
 // 5. NODE CARD — cost badge tokens (AC1)
 // ===========================================================================
 
-describe("NodeCard — font-mono token for cost badge (AC1)", () => {
+describe("NodeCard — font-mono token for cost badge", () => {
   it("uses font-mono token for cost display", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/font-mono/);
   });
 });
 
-describe("NodeCard — font-size-2xs token for cost badge text (AC1)", () => {
+describe("NodeCard — font-size-2xs token for cost badge text", () => {
   it("uses font-size-2xs token for cost badge text size", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/font-size-2xs/);
@@ -202,14 +194,14 @@ describe("NodeCard — font-size-2xs token for cost badge text (AC1)", () => {
 // 6. NODE CARD — execution state tokens (AC1)
 // ===========================================================================
 
-describe("NodeCard — accent-9 token for running state (AC1)", () => {
+describe("NodeCard — accent-9 token for running state", () => {
   it("uses accent-9 token for running execution state", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/accent-9/);
   });
 });
 
-describe("NodeCard — success token for success state (AC1)", () => {
+describe("NodeCard — success token for success state", () => {
   it("uses success scale token for success execution state", () => {
     const source = readComponent("node-card.tsx");
     // success-7 or success-9 are both valid DS success tokens
@@ -217,7 +209,7 @@ describe("NodeCard — success token for success state (AC1)", () => {
   });
 });
 
-describe("NodeCard — danger token for error state (AC1)", () => {
+describe("NodeCard — danger token for error state", () => {
   it("uses danger scale token for error/danger execution state", () => {
     const source = readComponent("node-card.tsx");
     // danger-7 or danger-9 are both valid DS danger tokens
@@ -225,7 +217,7 @@ describe("NodeCard — danger token for error state (AC1)", () => {
   });
 });
 
-describe("NodeCard — neutral token for skipped state (AC1)", () => {
+describe("NodeCard — neutral token for skipped state", () => {
   it("uses neutral scale token for skipped execution state", () => {
     const source = readComponent("node-card.tsx");
     // neutral-4 through neutral-7 are all valid DS neutral tokens for muted/skipped states
@@ -237,7 +229,7 @@ describe("NodeCard — neutral token for skipped state (AC1)", () => {
 // 7. NODE CARD — port handle token (AC1)
 // ===========================================================================
 
-describe("NodeCard — interactive-default token for port handles (AC1)", () => {
+describe("NodeCard — interactive-default token for port handles", () => {
   it("uses interactive-default token for port handle styling", () => {
     const source = readComponent("node-card.tsx");
     expect(source).toMatch(/interactive-default/);
@@ -248,7 +240,7 @@ describe("NodeCard — interactive-default token for port handles (AC1)", () => 
 // 8. EMPTY STATE — existing file has design system tokens (AC3)
 // ===========================================================================
 
-describe("EmptyState — text-muted token for icon color (AC3)", () => {
+describe("EmptyState — text-muted token for icon color", () => {
   it("uses text-muted token for icon color (not generic Tailwind)", () => {
     const source = readShared("EmptyState.tsx");
     // text-muted is present in current code but via generic usage;
@@ -258,7 +250,7 @@ describe("EmptyState — text-muted token for icon color (AC3)", () => {
   });
 });
 
-describe("EmptyState — icon size for icon dimensions (AC3)", () => {
+describe("EmptyState — icon size for icon dimensions", () => {
   it("uses icon-size-xl token or size utility for icon size", () => {
     const source = readShared("EmptyState.tsx");
     // icon-size-xl DS token or w-12/h-12 equivalent Tailwind utilities are valid
@@ -266,7 +258,7 @@ describe("EmptyState — icon size for icon dimensions (AC3)", () => {
   });
 });
 
-describe("EmptyState — text color token for title (AC3)", () => {
+describe("EmptyState — text color token for title", () => {
   it("uses text-heading or text-primary token for title color", () => {
     const source = readShared("EmptyState.tsx");
     // text-heading or text-primary are both valid DS text tokens for titles
@@ -274,7 +266,7 @@ describe("EmptyState — text color token for title (AC3)", () => {
   });
 });
 
-describe("EmptyState — font-size-lg token for title size (AC3)", () => {
+describe("EmptyState — font-size-lg token for title size", () => {
   it("uses font-size-lg token for title font size (not text-sm inline)", () => {
     const source = readShared("EmptyState.tsx");
     // Current code uses text-sm for the h3; must use font-size-lg DS token
@@ -282,7 +274,7 @@ describe("EmptyState — font-size-lg token for title size (AC3)", () => {
   });
 });
 
-describe("EmptyState — text-secondary token for description color (AC3)", () => {
+describe("EmptyState — text-secondary token for description color", () => {
   it("uses text-secondary token for description text (not text-muted)", () => {
     const source = readShared("EmptyState.tsx");
     // Current code uses text-muted for description; must be text-secondary per spec
@@ -290,7 +282,7 @@ describe("EmptyState — text-secondary token for description color (AC3)", () =
   });
 });
 
-describe("EmptyState — font-size-sm token for description size (AC3)", () => {
+describe("EmptyState — font-size-sm token for description size", () => {
   it("uses font-size-sm token for description font size (not text-xs inline)", () => {
     const source = readShared("EmptyState.tsx");
     // Current code uses text-xs for description; must use font-size-sm DS token
@@ -298,7 +290,7 @@ describe("EmptyState — font-size-sm token for description size (AC3)", () => {
   });
 });
 
-describe("EmptyState — spacing for gap between elements (AC3)", () => {
+describe("EmptyState — spacing for gap between elements", () => {
   it("uses space-6 token or gap utility for element spacing", () => {
     const source = readShared("EmptyState.tsx");
     // space-6 DS token or gap utilities are valid for spacing
@@ -306,7 +298,7 @@ describe("EmptyState — spacing for gap between elements (AC3)", () => {
   });
 });
 
-describe("EmptyState — no BEM class names (AC3)", () => {
+describe("EmptyState — no BEM class names", () => {
   it("does not use BEM class names like empty-state__icon", () => {
     const source = readShared("EmptyState.tsx");
     // Must use CVA+Tailwind, not BEM
@@ -318,7 +310,7 @@ describe("EmptyState — no BEM class names (AC3)", () => {
 // 12. STORYBOOK STORIES — all 3 story files exist (AC4)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC4)", () => {
+describe("Storybook stories — existence", () => {
   it("NodeCard.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("NodeCard.stories.tsx")).toBe(true);
   });
@@ -332,7 +324,7 @@ describe("Storybook stories — existence (AC4)", () => {
 // 13. STORYBOOK STORIES — NodeCard.stories.tsx structure (AC4)
 // ===========================================================================
 
-describe("Storybook stories — NodeCard.stories.tsx structure (AC4)", () => {
+describe("Storybook stories — NodeCard.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("NodeCard.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -368,7 +360,7 @@ describe("Storybook stories — NodeCard.stories.tsx structure (AC4)", () => {
 // 14. STORYBOOK STORIES — EmptyState.stories.tsx structure (AC4)
 // ===========================================================================
 
-describe("Storybook stories — EmptyState.stories.tsx structure (AC4)", () => {
+describe("Storybook stories — EmptyState.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("EmptyState.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);

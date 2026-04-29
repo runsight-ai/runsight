@@ -51,7 +51,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe("RUN-496 routed setup guard fallback", () => {
+describe("routed setup guard fallback", () => {
   it("allows protected-route navigation when onboarding_completed is explicitly true", async () => {
     const { router } = renderGuardRouter("/", async () => ({
       onboarding_completed: true,

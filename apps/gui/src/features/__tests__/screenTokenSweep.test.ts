@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-296: Screen Token Reference Sweep.
+ * Screen token reference sweep coverage.
  *
  * Validates that the shipped non-UI-component files in apps/gui/src/ have been
  * updated to use the Runsight Product Design System token names. Tests read
@@ -8,12 +8,9 @@
  *   2. No OLD extended var() references remain (screen-specific tokens)
  *
  * Scope: pages, layouts, shared components, canvas nodes, utilities.
- * Excludes: components/ui/ (done in RUN-295), __tests__/ dirs.
+ * Excludes: components/ui/ and __tests__/ dirs.
  *
- * Expected failures (current state):
- *   - Some shipped files still reference old shadcn/custom token names
- *
- * Standard Tailwind class mapping (same as RUN-295):
+ * Standard Tailwind class mapping:
  *   bg-background        -> bg-surface-primary
  *   bg-card              -> bg-surface-secondary
  *   bg-popover           -> bg-surface-overlay
@@ -74,7 +71,7 @@ function readFile(relativePath: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Old Tailwind class token detector (identical patterns to RUN-295)
+// Old Tailwind class token detector
 // ---------------------------------------------------------------------------
 
 /**
@@ -139,7 +136,7 @@ function findOldTailwindTokens(source: string): string[] {
 /**
  * Returns all old CSS var() references found in the source string.
  *
- * Standard tokens (same as RUN-295) plus extended screen-specific tokens.
+ * Standard tokens plus extended screen-specific tokens.
  * All patterns use literal closing paren `\)` to avoid matching longer
  * variant names, e.g.:
  *   var(--primary)   must NOT match var(--primary-hover)
@@ -150,7 +147,7 @@ function findOldTailwindTokens(source: string): string[] {
  */
 function findOldVarRefs(source: string): string[] {
   const patterns: Array<[string, RegExp]> = [
-    // Standard tokens (shared with RUN-295)
+    // Standard tokens shared with the UI token sweep
     ["var(--background)", /var\(--background\)/g],
     ["var(--foreground)", /var\(--foreground\)/g],
     // var(--primary) exact — NOT var(--primary-hover) or var(--primary-12)
@@ -242,7 +239,7 @@ const ALL_FILES = [
   ...UTILITIES,
 ];
 
-describe("RUN-511 dead leaf files are not treated as shipped screens", () => {
+describe("dead leaf files are not treated as shipped screens", () => {
   it("stops tracking deleted dead leaves in the token sweep", () => {
     expect(SHARED_COMPONENTS).not.toContain("components/shared/CrudListPage.tsx");
     expect(OTHER_FEATURES).not.toContain("features/health/HealthPage.tsx");
@@ -322,10 +319,10 @@ describe("No old var() refs — provider", () => {
 });
 
 // ===========================================================================
-// 5. RUN-508 boundary — retired sidebar files are not part of the sweep
+// 5. Retired sidebar files are not part of the sweep
 // ===========================================================================
 
-describe("RUN-508 retired sidebar boundary", () => {
+describe("retired sidebar boundary", () => {
   it("does not track retired sidebar CRUD files in the token sweep", () => {
     expect(ALL_FILES).not.toContain("features/sidebar/SoulList.tsx");
     expect(ALL_FILES).not.toContain("features/sidebar/SoulModals.tsx");

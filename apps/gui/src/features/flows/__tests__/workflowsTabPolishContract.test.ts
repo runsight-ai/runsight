@@ -139,7 +139,7 @@ async function renderFlowsRoute(initialPath = "/flows") {
   return { router, user };
 }
 
-describe("RUN-430 /flows search polish", () => {
+describe("flows search polish", () => {
   it("autofocuses the Search workflows input when the workflows page loads", async () => {
     await renderWorkflowsTab();
 

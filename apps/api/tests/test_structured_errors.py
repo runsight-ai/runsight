@@ -1,4 +1,4 @@
-"""Red tests for RUN-289: Structured error base class + enriched error handler.
+"""Structured error base class and enriched error handler coverage.
 
 Tests cover:
 - RunsightError structured fields: error_code, status_code, to_dict()
@@ -9,7 +9,6 @@ Tests cover:
 - Error handler uses to_dict() + request_id from contextvar
 - Unhandled exceptions return 500 with no details leaked
 
-All tests should FAIL until the implementation is written.
 """
 
 import pytest
@@ -80,9 +79,9 @@ class TestRunsightErrorToDict:
     def test_to_dict_includes_run_id_when_set(self):
         from runsight_api.domain.errors import RunsightError
 
-        err = RunsightError("fail", run_id="run-123")
+        err = RunsightError("fail", run_id="run-error-explicit")
         result = err.to_dict()
-        assert result["run_id"] == "run-123"
+        assert result["run_id"] == "run-error-explicit"
 
     def test_to_dict_includes_block_id_when_set(self):
         from runsight_api.domain.errors import RunsightError
@@ -127,10 +126,10 @@ class TestAutoReadContextVars:
         from runsight_api.core.context import bind_execution_context, clear_execution_context
         from runsight_api.domain.errors import RunsightError
 
-        bind_execution_context(run_id="ctx-run-1", workflow_name="ctx-wf")
+        bind_execution_context(run_id="ctx-run-primary", workflow_name="ctx-wf")
         try:
             err = RunsightError("auto")
-            assert err.to_dict()["run_id"] == "ctx-run-1"
+            assert err.to_dict()["run_id"] == "ctx-run-primary"
         finally:
             clear_execution_context()
 
@@ -138,10 +137,10 @@ class TestAutoReadContextVars:
         from runsight_api.core.context import bind_execution_context, clear_execution_context
         from runsight_api.domain.errors import RunsightError
 
-        bind_execution_context(run_id="ctx-run-2", workflow_name="ctx-wf-2")
+        bind_execution_context(run_id="ctx-run-secondary", workflow_name="ctx-wf-secondary")
         try:
             err = RunsightError("auto")
-            assert err.to_dict()["workflow_name"] == "ctx-wf-2"
+            assert err.to_dict()["workflow_name"] == "ctx-wf-secondary"
         finally:
             clear_execution_context()
 

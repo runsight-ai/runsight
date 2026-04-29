@@ -1,0 +1,8 @@
+id: openai
+kind: provider
+name: openai
+type: openai
+api_key: ${OPENAI_API_KEY}
+is_active: true
+models:
+  - gpt-4o

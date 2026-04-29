@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-7: Live canvas — real-time node status updates during execution.
+ * Live canvas node status update coverage.
  *
  * These tests verify:
  * 1. Canvas store exposes `setNodeStatus(nodeId, status)` to update a single node's data.status
@@ -8,12 +8,6 @@
  * 4. Canvas store exposes `runCost` / `setRunCost` for tracking total run cost
  * 5. A pure function `mapSSEEventToStoreAction` maps SSE event types to store action calls
  * 6. A pure function `getStatusBorderColor(status)` returns the correct CSS class per status
- *
- * All tests are expected to FAIL against the current implementation because:
- * - `useCanvasStore` has no `setNodeStatus`, `resetNodeStatuses`, `activeRunId`,
- *   `setActiveRunId`, `runCost`, or `setRunCost` fields
- * - `mapSSEEventToStoreAction` does not exist yet
- * - `getStatusBorderColor` does not exist yet
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -47,7 +41,7 @@ function makeNode(id: string, status: RunStatus = "idle"): Node<StepNodeData> {
 // 1. Canvas store: setNodeStatus
 // ===========================================================================
 
-describe("useCanvasStore — setNodeStatus (RUN-7)", () => {
+describe("useCanvasStore — setNodeStatus", () => {
   beforeEach(() => {
     useCanvasStore.getState().reset();
   });
@@ -118,7 +112,7 @@ describe("useCanvasStore — setNodeStatus (RUN-7)", () => {
 // 2. Canvas store: resetNodeStatuses
 // ===========================================================================
 
-describe("useCanvasStore — resetNodeStatuses (RUN-7)", () => {
+describe("useCanvasStore — resetNodeStatuses", () => {
   beforeEach(() => {
     useCanvasStore.getState().reset();
   });
@@ -168,7 +162,7 @@ describe("useCanvasStore — resetNodeStatuses (RUN-7)", () => {
 // 3. Canvas store: activeRunId / setActiveRunId
 // ===========================================================================
 
-describe("useCanvasStore — activeRunId (RUN-7)", () => {
+describe("useCanvasStore — activeRunId", () => {
   beforeEach(() => {
     useCanvasStore.getState().reset();
   });
@@ -186,13 +180,13 @@ describe("useCanvasStore — activeRunId (RUN-7)", () => {
   });
 
   it("sets activeRunId to a run ID string", () => {
-    useCanvasStore.getState().setActiveRunId("run-abc-123");
+    useCanvasStore.getState().setActiveRunId("run-live-active");
 
-    expect(useCanvasStore.getState().activeRunId).toBe("run-abc-123");
+    expect(useCanvasStore.getState().activeRunId).toBe("run-live-active");
   });
 
   it("clears activeRunId when set to null", () => {
-    useCanvasStore.getState().setActiveRunId("run-abc-123");
+    useCanvasStore.getState().setActiveRunId("run-live-active");
     useCanvasStore.getState().setActiveRunId(null);
 
     expect(useCanvasStore.getState().activeRunId).toBeNull();
@@ -210,7 +204,7 @@ describe("useCanvasStore — activeRunId (RUN-7)", () => {
 // 4. Canvas store: runCost / setRunCost
 // ===========================================================================
 
-describe("useCanvasStore — runCost (RUN-7)", () => {
+describe("useCanvasStore — runCost", () => {
   beforeEach(() => {
     useCanvasStore.getState().reset();
   });
@@ -252,7 +246,7 @@ describe("useCanvasStore — runCost (RUN-7)", () => {
 // 5. SSE event mapping — mapSSEEventToStoreAction
 // ===========================================================================
 
-describe("mapSSEEventToStoreAction (RUN-7)", () => {
+describe("mapSSEEventToStoreAction", () => {
   // The function should be importable from the canvas feature's useRunStream module
   let mapSSEEventToStoreAction: typeof MapSSEEventToStoreActionFn;
 
@@ -307,26 +301,26 @@ describe("mapSSEEventToStoreAction (RUN-7)", () => {
 
   it("maps 'run_completed' event to setActiveRunId(null) and setRunCost", () => {
     const result = mapSSEEventToStoreAction("run_completed", {
-      run_id: "run-123",
+      run_id: "run-live-canvas-primary",
       total_cost_usd: 0.01,
     });
 
     expect(result).toEqual({
       action: "runCompleted",
-      runId: "run-123",
+      runId: "run-live-canvas-primary",
       totalCost: 0.01,
     });
   });
 
   it("maps 'run_failed' event to runFailed action", () => {
     const result = mapSSEEventToStoreAction("run_failed", {
-      run_id: "run-456",
+      run_id: "run-live-canvas-secondary",
       error: "Workflow execution error",
     });
 
     expect(result).toEqual({
       action: "runFailed",
-      runId: "run-456",
+      runId: "run-live-canvas-secondary",
       error: "Workflow execution error",
     });
   });
@@ -354,7 +348,7 @@ describe("mapSSEEventToStoreAction (RUN-7)", () => {
 // 6. Node status border color mapping — getStatusBorderColor
 // ===========================================================================
 
-describe("getStatusBorderColor (RUN-7)", () => {
+describe("getStatusBorderColor", () => {
   let getStatusBorderColor: typeof GetStatusBorderColorFn;
 
   beforeEach(async () => {
@@ -425,7 +419,7 @@ describe("getStatusBorderColor (RUN-7)", () => {
 // 7. Integration contract: store + SSE mapping work together
 // ===========================================================================
 
-describe("Store + SSE integration contract (RUN-7)", () => {
+describe("Store + SSE integration contract", () => {
   let mapSSEEventToStoreAction: typeof MapSSEEventToStoreActionFn;
 
   beforeEach(async () => {

@@ -65,7 +65,7 @@ function isUiOwnedImportPath(importPath: string) {
   return /^@runsight\/ui(?:\/|$)/.test(importPath);
 }
 
-describe("RUN-513 GUI cn import convergence", () => {
+describe("GUI cn import convergence", () => {
   it("moves GUI cn consumers onto a packages/ui-owned import path", () => {
     const cnImports = collectCnImports();
     const localImports = cnImports.filter(
@@ -92,7 +92,7 @@ describe("RUN-513 GUI cn import convergence", () => {
   });
 });
 
-describe("RUN-513 GUI duplicate helper removal", () => {
+describe("GUI duplicate helper removal", () => {
   it("removes the duplicate apps/gui cn helper exports from steady-state code", () => {
     const duplicateExports = findDuplicateCnExports();
 

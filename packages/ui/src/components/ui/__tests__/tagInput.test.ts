@@ -10,7 +10,7 @@ function readComponent(): string {
   return readFileSync(COMPONENT_PATH, "utf-8");
 }
 
-describe("TagInput component file (RUN-446)", () => {
+describe("TagInput component file", () => {
   it("creates tag-input.tsx under packages/ui/src/components/ui", () => {
     expect(existsSync(COMPONENT_PATH)).toBe(true);
   });
@@ -23,7 +23,7 @@ describe("TagInput component file (RUN-446)", () => {
   });
 });
 
-describe("TagInput public API (RUN-446)", () => {
+describe("TagInput public API", () => {
   it("exports a TagInput component", () => {
     const source = readComponent();
     expect(source).toMatch(/export\s+(function|const)\s+TagInput/);
@@ -39,7 +39,7 @@ describe("TagInput public API (RUN-446)", () => {
   });
 });
 
-describe("TagInput behavior contracts (RUN-446)", () => {
+describe("TagInput behavior contracts", () => {
   it("adds tags on Enter or comma and prevents the native input action", () => {
     const source = readComponent();
     expect(source).toMatch(/e\.key\s*===\s*"Enter"/);
@@ -72,7 +72,7 @@ describe("TagInput behavior contracts (RUN-446)", () => {
   });
 });
 
-describe("TagInput visual contract (RUN-446)", () => {
+describe("TagInput visual contract", () => {
   it("uses the required focus ring and border token classes on the container", () => {
     const source = readComponent();
     expect(source).toMatch(/flex\s+flex-wrap\s+gap-1\.5/);

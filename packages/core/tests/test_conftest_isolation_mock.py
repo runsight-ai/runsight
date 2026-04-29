@@ -390,11 +390,11 @@ class TestMockReturnsValidResultEnvelope:
 
 
 class TestIsolationFilesAreExcluded:
-    """Files matching test_iso_* and related prefixes must NOT have
+    """Files matching test_isolation_* and related prefixes must NOT have
     SubprocessHarness.run patched — they exercise the real path."""
 
-    def test_exclusion_prefixes_include_test_iso(self):
-        """The conftest _ISOLATION_TEST_PREFIXES must include 'test_iso_'."""
+    def test_exclusion_prefixes_include_test_isolation(self):
+        """The conftest _ISOLATION_TEST_PREFIXES must include 'test_isolation_'."""
         # Import conftest directly to inspect its constant.
         import importlib.util
         from pathlib import Path
@@ -409,13 +409,13 @@ class TestIsolationFilesAreExcluded:
             "_ISOLATION_TEST_PREFIXES is not defined in conftest. "
             "The fixture cannot selectively exclude isolation tests."
         )
-        assert "test_iso_" in prefixes, (
-            "'test_iso_' is not in _ISOLATION_TEST_PREFIXES. "
+        assert "test_isolation_" in prefixes, (
+            "'test_isolation_' is not in _ISOLATION_TEST_PREFIXES. "
             "Isolation-specific tests will have harness patched incorrectly."
         )
 
     def test_exclusion_prefixes_include_harness_test_files(self):
-        """_ISOLATION_TEST_PREFIXES must cover the known ISO test file prefixes."""
+        """_ISOLATION_TEST_PREFIXES must cover the known isolation test file prefixes."""
         import importlib.util
         from pathlib import Path
 
@@ -425,8 +425,13 @@ class TestIsolationFilesAreExcluded:
         spec.loader.exec_module(conftest_mod)
 
         prefixes = getattr(conftest_mod, "_ISOLATION_TEST_PREFIXES", ())
-        # test_run817–test_run820 are IPC extraction tests that rely on real harness
-        for expected in ("test_run817", "test_run818", "test_run819", "test_run820"):
+        # IPC extraction tests rely on the real harness.
+        for expected in (
+            "test_ipc_models_extract",
+            "test_interceptors_extract",
+            "test_worker_proxies_extract",
+            "test_worker_support_extract",
+        ):
             assert expected in prefixes, (
                 f"'{expected}' is not in _ISOLATION_TEST_PREFIXES. "
                 "Those tests exercise real isolation and must not be patched."

@@ -31,6 +31,12 @@ include = ["runsight_core*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Core tests should default to a single Python process and fail fast.
+addopts = "--maxfail=1 -p no:xdist"
+markers = [
+    "governance: static or policy tests that enforce repository boundaries",
+    "migration: temporary compatibility or cleanup tests with an explicit exit path",
+]
 
 [tool.mypy]
 python_version = "3.11"

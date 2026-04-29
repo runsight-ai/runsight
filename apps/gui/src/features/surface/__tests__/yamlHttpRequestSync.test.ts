@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-216: HTTP block frontend sync.
+ * HTTP request block frontend YAML sync coverage.
  *
  * Validates:
  * - `http_request` exists in StepType union
@@ -9,8 +9,6 @@
  * - Parser accepts `type: http_request` without error
  * - Parser maps snake_case HTTP fields to camelCase node data
  * - Round-trip: http_request nodes survive compile -> parse -> compile
- *
- * These tests MUST FAIL until the Green Team implements the feature.
  */
 
 import { describe, it, expect } from "vitest";
@@ -87,12 +85,12 @@ function roundTrip(input: CompileInput) {
 // 1. Type existence tests
 // ===========================================================================
 
-describe("Type existence: http_request", () => {
+describe("HTTP request canvas schema", () => {
   it("StepType should accept 'http_request' as a valid value", () => {
     // This validates http_request is in the StepType union.
     // If it's missing, TypeScript compilation will fail on the mockNode call.
     const node = mockNode("http_block", "http_request" as StepType, {
-      url: "https://api.example.com/data",
+      url: "https://api.example.test/data",
     } as Partial<StepNodeData>);
 
     expect(node.data.stepType).toBe("http_request");
@@ -100,7 +98,7 @@ describe("Type existence: http_request", () => {
 
   it("StepNodeData should accept HTTP-specific fields without type errors", () => {
     const node = mockNode("http_block", "http_request" as StepType, {
-      url: "https://api.example.com/data",
+      url: "https://api.example.test/data",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: '{"key": "value"}',
@@ -114,7 +112,7 @@ describe("Type existence: http_request", () => {
       allowPrivateIps: false,
     } as Partial<StepNodeData>);
 
-    expect(node.data.url).toBe("https://api.example.com/data");
+    expect(node.data.url).toBe("https://api.example.test/data");
     expect(node.data.method).toBe("POST");
     expect((node.data as Record<string, unknown>).bodyType).toBe("json");
     expect((node.data as Record<string, unknown>).authType).toBe("bearer");
@@ -127,7 +125,7 @@ describe("Type existence: http_request", () => {
   it("BlockDef should accept HTTP-specific snake_case fields without type errors", () => {
     const block: BlockDef = {
       type: "http_request" as StepType,
-      url: "https://api.example.com",
+      url: "https://api.example.test",
       method: "GET",
       headers: { Authorization: "Bearer token" },
       body: "{}",
@@ -142,7 +140,7 @@ describe("Type existence: http_request", () => {
     } as BlockDef;
 
     expect(block.type).toBe("http_request");
-    expect((block as Record<string, unknown>).url).toBe("https://api.example.com");
+    expect((block as Record<string, unknown>).url).toBe("https://api.example.test");
     expect((block as Record<string, unknown>).body_type).toBe("json");
     expect((block as Record<string, unknown>).auth_type).toBe("bearer");
     expect((block as Record<string, unknown>).retry_count).toBe(3);
@@ -154,10 +152,10 @@ describe("Type existence: http_request", () => {
 // 2. Compiler tests
 // ===========================================================================
 
-describe("Compiler: http_request block", () => {
+describe("HTTP request YAML compiler", () => {
   it("compiles http_request node with url field", () => {
     const node = mockNode("api_call", "http_request" as StepType, {
-      url: "https://api.example.com/data",
+      url: "https://api.example.test/data",
     } as Partial<StepNodeData>);
 
     const { workflowDocument: doc } = compileGraphToWorkflowYaml({
@@ -167,12 +165,12 @@ describe("Compiler: http_request block", () => {
 
     const block = doc.blocks["api_call"] as Record<string, unknown>;
     expect(block.type).toBe("http_request");
-    expect(block.url).toBe("https://api.example.com/data");
+    expect(block.url).toBe("https://api.example.test/data");
   });
 
   it("emits 'type: http_request' in YAML output", () => {
     const node = mockNode("api_call", "http_request" as StepType, {
-      url: "https://api.example.com/data",
+      url: "https://api.example.test/data",
     } as Partial<StepNodeData>);
 
     const { yaml } = compileGraphToWorkflowYaml({
@@ -181,12 +179,12 @@ describe("Compiler: http_request block", () => {
     });
 
     expect(yaml).toContain("type: http_request");
-    expect(yaml).toContain("url: https://api.example.com/data");
+    expect(yaml).toContain("url: https://api.example.test/data");
   });
 
   it("includes all http_request-specific fields when set", () => {
     const node = mockNode("full_http", "http_request" as StepType, {
-      url: "https://api.example.com/submit",
+      url: "https://api.example.test/submit",
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Key": "key123" },
       body: '{"payload": true}',
@@ -207,7 +205,7 @@ describe("Compiler: http_request block", () => {
 
     const block = doc.blocks["full_http"] as Record<string, unknown>;
     expect(block.type).toBe("http_request");
-    expect(block.url).toBe("https://api.example.com/submit");
+    expect(block.url).toBe("https://api.example.test/submit");
     expect(block.method).toBe("POST");
     expect(block.headers).toEqual({ "Content-Type": "application/json", "X-Api-Key": "key123" });
     expect(block.body).toBe('{"payload": true}');
@@ -223,7 +221,7 @@ describe("Compiler: http_request block", () => {
 
   it("omits undefined http_request fields (no noise)", () => {
     const node = mockNode("minimal_http", "http_request" as StepType, {
-      url: "https://api.example.com",
+      url: "https://api.example.test",
     } as Partial<StepNodeData>);
 
     const { workflowDocument: doc } = compileGraphToWorkflowYaml({
@@ -233,7 +231,7 @@ describe("Compiler: http_request block", () => {
 
     const block = doc.blocks["minimal_http"] as Record<string, unknown>;
     expect(block.type).toBe("http_request");
-    expect(block.url).toBe("https://api.example.com");
+    expect(block.url).toBe("https://api.example.test");
     // Fields not set should NOT appear
     expect(block).not.toHaveProperty("method");
     expect(block).not.toHaveProperty("headers");
@@ -249,7 +247,7 @@ describe("Compiler: http_request block", () => {
 
   it("camelCase fields convert to snake_case in compiled output", () => {
     const node = mockNode("snake_test", "http_request" as StepType, {
-      url: "https://api.example.com",
+      url: "https://api.example.test",
       bodyType: "json",
       authType: "bearer",
       authConfig: { token: "t" },
@@ -290,7 +288,7 @@ describe("Compiler: http_request block", () => {
 
   it("snake_case field names appear in YAML string output", () => {
     const node = mockNode("yaml_snake", "http_request" as StepType, {
-      url: "https://example.com",
+      url: "https://api.example.test",
       bodyType: "raw",
       authType: "api_key",
       timeoutSeconds: 15,
@@ -327,14 +325,14 @@ describe("Compiler: http_request block", () => {
 // 3. Parser tests
 // ===========================================================================
 
-describe("Parser: http_request block", () => {
+describe("HTTP request YAML parser", () => {
   it("parser accepts type: http_request without error", () => {
     const yamlText = `
 version: "1.0"
 blocks:
   api_call:
     type: http_request
-    url: https://api.example.com/data
+    url: https://api.example.test/data
 workflow:
   name: Workflow
   entry: api_call
@@ -356,7 +354,7 @@ version: "1.0"
 blocks:
   api_call:
     type: http_request
-    url: https://api.example.com
+    url: https://api.example.test
     method: POST
     body: '{"key": "value"}'
     body_type: json
@@ -381,7 +379,7 @@ workflow:
 
     expect(node).toBeDefined();
     expect(node!.data.stepType).toBe("http_request");
-    expect((node!.data as Record<string, unknown>).url).toBe("https://api.example.com");
+    expect((node!.data as Record<string, unknown>).url).toBe("https://api.example.test");
     expect((node!.data as Record<string, unknown>).method).toBe("POST");
     expect((node!.data as Record<string, unknown>).body).toBe('{"key": "value"}');
     expect((node!.data as Record<string, unknown>).bodyType).toBe("json");
@@ -400,7 +398,7 @@ version: "1.0"
 blocks:
   full_http:
     type: http_request
-    url: https://api.example.com/submit
+    url: https://api.example.test/submit
     method: PUT
     headers:
       Content-Type: application/json
@@ -430,7 +428,7 @@ workflow:
     expect(node).toBeDefined();
     // Verify every field is preserved
     const data = node!.data as Record<string, unknown>;
-    expect(data.url).toBe("https://api.example.com/submit");
+    expect(data.url).toBe("https://api.example.test/submit");
     expect(data.method).toBe("PUT");
     expect(data.headers).toEqual({ "Content-Type": "application/json", "X-Custom": "value" });
     expect(data.body).toBe('{"data": 42}');
@@ -450,7 +448,7 @@ version: "1.0"
 blocks:
   simple_get:
     type: http_request
-    url: https://httpbin.org/get
+    url: https://api.example.test/get
 workflow:
   name: Workflow
   entry: simple_get
@@ -462,7 +460,7 @@ workflow:
 
     expect(node).toBeDefined();
     expect(node!.data.stepType).toBe("http_request");
-    expect((node!.data as Record<string, unknown>).url).toBe("https://httpbin.org/get");
+    expect((node!.data as Record<string, unknown>).url).toBe("https://api.example.test/get");
     expect(result.error).toBeUndefined();
   });
 });
@@ -471,10 +469,10 @@ workflow:
 // 4. Round-trip tests
 // ===========================================================================
 
-describe("Round-trip: http_request block", () => {
+describe("HTTP request YAML round trip", () => {
   it("http_request node with all fields survives compile -> parse -> compile", () => {
     const node = mockNode("full_http", "http_request" as StepType, {
-      url: "https://api.example.com/submit",
+      url: "https://api.example.test/submit",
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
       body: '{"payload": true}',
@@ -500,7 +498,7 @@ describe("Round-trip: http_request block", () => {
     expect(block2.type).toBe("http_request");
 
     // Verify all fields survived
-    expect(block1.url).toBe("https://api.example.com/submit");
+    expect(block1.url).toBe("https://api.example.test/submit");
     expect(block1.method).toBe("POST");
     expect(block1.body_type).toBe("json");
     expect(block1.auth_type).toBe("bearer");
@@ -516,7 +514,7 @@ describe("Round-trip: http_request block", () => {
 
   it("http_request node with only url (minimal) survives round-trip", () => {
     const node = mockNode("simple_http", "http_request" as StepType, {
-      url: "https://httpbin.org/get",
+      url: "https://api.example.test/get",
     } as Partial<StepNodeData>);
 
     const { doc1, doc2, yaml1, yaml2 } = roundTrip({ nodes: [node], edges: [] });
@@ -525,7 +523,7 @@ describe("Round-trip: http_request block", () => {
 
     const block1 = doc1.blocks["simple_http"] as Record<string, unknown>;
     expect(block1.type).toBe("http_request");
-    expect(block1.url).toBe("https://httpbin.org/get");
+    expect(block1.url).toBe("https://api.example.test/get");
     // Only type and url should be present
     expect(Object.keys(block1)).toEqual(expect.arrayContaining(["type", "url"]));
 
@@ -536,7 +534,7 @@ describe("Round-trip: http_request block", () => {
     const nodes = [
       mockNode("plan", "linear", { soulRef: "planner" }),
       mockNode("fetch_data", "http_request" as StepType, {
-        url: "https://api.example.com/data",
+        url: "https://api.example.test/data",
         method: "GET",
         headers: { Accept: "application/json" },
         timeoutSeconds: 15,
@@ -548,7 +546,7 @@ describe("Round-trip: http_request block", () => {
         allowedImports: ["json"],
       }),
       mockNode("submit_result", "http_request" as StepType, {
-        url: "https://api.example.com/results",
+        url: "https://api.example.test/results",
         method: "POST",
         bodyType: "json",
         authType: "bearer",
@@ -576,17 +574,17 @@ describe("Round-trip: http_request block", () => {
     // Verify http_request blocks specifically
     const fetchBlock = doc1.blocks["fetch_data"] as Record<string, unknown>;
     expect(fetchBlock.type).toBe("http_request");
-    expect(fetchBlock.url).toBe("https://api.example.com/data");
+    expect(fetchBlock.url).toBe("https://api.example.test/data");
 
     const submitBlock = doc1.blocks["submit_result"] as Record<string, unknown>;
     expect(submitBlock.type).toBe("http_request");
-    expect(submitBlock.url).toBe("https://api.example.com/results");
+    expect(submitBlock.url).toBe("https://api.example.test/results");
     expect(submitBlock.body_type).toBe("json");
 
     // Transitions
     expect(doc2.workflow.transitions).toEqual(doc1.workflow.transitions);
 
-    // Souls no longer emitted (RUN-574)
+    // Souls are no longer emitted by canvas YAML.
     expect(doc1).not.toHaveProperty("souls");
     expect(doc2).not.toHaveProperty("souls");
 
@@ -596,7 +594,7 @@ describe("Round-trip: http_request block", () => {
 
   it("http_request with universal fields (stateful, output_conditions) round-trips", () => {
     const node = mockNode("http_with_universal", "http_request" as StepType, {
-      url: "https://api.example.com/check",
+      url: "https://api.example.test/check",
       method: "GET",
       expectedStatusCodes: [200, 404],
       stateful: true,
@@ -610,7 +608,7 @@ describe("Round-trip: http_request block", () => {
 
     const block1 = doc1.blocks["http_with_universal"] as Record<string, unknown>;
     expect(block1.type).toBe("http_request");
-    expect(block1.url).toBe("https://api.example.com/check");
+    expect(block1.url).toBe("https://api.example.test/check");
     expect(block1.stateful).toBe(true);
     expect(block1.output_conditions).toBeDefined();
     expect(block1.expected_status_codes).toEqual([200, 404]);
@@ -623,10 +621,10 @@ describe("Round-trip: http_request block", () => {
 // 5. Edge cases
 // ===========================================================================
 
-describe("Edge cases: http_request block", () => {
+describe("HTTP request YAML edge cases", () => {
   it("http_request with empty headers object round-trips", () => {
     const node = mockNode("empty_headers", "http_request" as StepType, {
-      url: "https://api.example.com",
+      url: "https://api.example.test",
       headers: {},
     } as Partial<StepNodeData>);
 
@@ -637,7 +635,7 @@ describe("Edge cases: http_request block", () => {
 
   it("http_request with single expected status code round-trips", () => {
     const node = mockNode("single_status", "http_request" as StepType, {
-      url: "https://api.example.com",
+      url: "https://api.example.test",
       expectedStatusCodes: [200],
     } as Partial<StepNodeData>);
 
@@ -650,7 +648,7 @@ describe("Edge cases: http_request block", () => {
 
   it("http_request combined with retry_config (universal) round-trips", () => {
     const node = mockNode("http_retry", "http_request" as StepType, {
-      url: "https://api.example.com/flaky",
+      url: "https://api.example.test/flaky",
       method: "POST",
       retryCount: 3,
       retryBackoff: "exponential",

@@ -35,11 +35,11 @@ def _mock_eval_svc():
     return mock_eval
 
 
-def _make_mock_run(run_id="run_123", *, branch: str):
+def _make_mock_run(run_id="run_transport_primary", *, branch: str):
     mock_run = Mock()
     mock_run.id = run_id
-    mock_run.workflow_id = "wf_1"
-    mock_run.workflow_name = "wf_1"
+    mock_run.workflow_id = "wf_runs_router"
+    mock_run.workflow_name = "Runs Router Workflow"
     mock_run.status = RunStatus.pending
     mock_run.started_at = 123.0
     mock_run.completed_at = None
@@ -103,13 +103,13 @@ def test_runs_list():
     assert "items" in data
     assert "total" in data
     assert len(data["items"]) == 1
-    assert data["items"][0]["id"] == "run_123"
+    assert data["items"][0]["id"] == "run_transport_primary"
     assert data["items"][0]["warnings"] == mock_run.warnings_json
     app.dependency_overrides.clear()
 
 
 def test_runs_list_with_real_read_model_preserves_enriched_metrics_contract():
-    db_path = Path(tempfile.mkdtemp(prefix="run958-runs-router-")) / "runsight.db"
+    db_path = Path(tempfile.mkdtemp(prefix="runs-router-db-")) / "runsight.db"
     engine = create_engine(
         f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
@@ -237,9 +237,9 @@ def test_runs_get():
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
-    response = client.get("/api/runs/run_123")
+    response = client.get("/api/runs/run_transport_primary")
     assert response.status_code == 200
-    assert response.json()["id"] == "run_123"
+    assert response.json()["id"] == "run_transport_primary"
     assert response.json()["warnings"] == []
     app.dependency_overrides.clear()
 
@@ -263,7 +263,7 @@ def test_runs_get_does_not_inject_main_branch_for_missing_branch():
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
-    response = client.get("/api/runs/run_123")
+    response = client.get("/api/runs/run_transport_primary")
     assert response.status_code == 500
     app.dependency_overrides.clear()
 
@@ -365,7 +365,7 @@ def test_runs_post():
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_1", "inputs": {}, "branch": TEST_BRANCH},
+        json={"workflow_id": "wf_runs_router", "inputs": {}, "branch": TEST_BRANCH},
     )
     assert response.status_code == 200
     assert response.json()["id"] == "run_new"
@@ -389,7 +389,7 @@ def test_runs_post_passes_source_and_branch_to_services():
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
     payload = {
-        "workflow_id": "wf_1",
+        "workflow_id": "wf_runs_router",
         "inputs": {"instruction": "go"},
         "branch": TEST_BRANCH,
         "source": "simulation",
@@ -401,14 +401,14 @@ def test_runs_post_passes_source_and_branch_to_services():
     assert response.json()["branch"] == TEST_BRANCH
     assert response.json()["source"] == "simulation"
     mock_service.create_run.assert_called_once_with(
-        "wf_1",
+        "wf_runs_router",
         prepared,
         source="simulation",
         branch=TEST_BRANCH,
     )
     mock_exec_service.launch_execution.assert_called_once_with(
         "run_branch_source",
-        "wf_1",
+        "wf_runs_router",
         prepared,
         branch=TEST_BRANCH,
     )
@@ -430,24 +430,24 @@ def test_runs_post_allows_omitted_branch_and_persists_main():
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_1", "inputs": {"instruction": "go"}},
+        json={"workflow_id": "wf_runs_router", "inputs": {"instruction": "go"}},
     )
 
     assert response.status_code == 200
     mock_exec_service.prepare_run_inputs.assert_called_once_with(
-        "wf_1",
+        "wf_runs_router",
         {"instruction": "go"},
         branch=None,
     )
     mock_service.create_run.assert_called_once_with(
-        "wf_1",
+        "wf_runs_router",
         prepared,
         branch="main",
         source="manual",
     )
     mock_exec_service.launch_execution.assert_awaited_once_with(
         "run_missing_branch",
-        "wf_1",
+        "wf_runs_router",
         prepared,
         branch=None,
     )
@@ -473,7 +473,7 @@ def test_runs_cancel():
     mock_service.cancel_run.return_value = mock_run
     app.dependency_overrides[get_run_service] = lambda: mock_service
 
-    response = client.post("/api/runs/run_123/cancel")
+    response = client.post("/api/runs/run_transport_primary/cancel")
     assert response.status_code == 200
     assert response.json()["status"] == "cancelled"
     app.dependency_overrides.clear()
@@ -484,7 +484,7 @@ def test_runs_logs():
     mock_service.get_run_logs.return_value = []
     app.dependency_overrides[get_run_service] = lambda: mock_service
 
-    response = client.get("/api/runs/run_123/logs")
+    response = client.get("/api/runs/run_transport_primary/logs")
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -497,7 +497,7 @@ def test_runs_nodes():
     mock_service.get_run_nodes.return_value = []
     app.dependency_overrides[get_run_service] = lambda: mock_service
 
-    response = client.get("/api/runs/run_123/nodes")
+    response = client.get("/api/runs/run_transport_primary/nodes")
     assert response.status_code == 200
     assert response.json() == []
     app.dependency_overrides.clear()
@@ -519,7 +519,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
 
     payload = {
-        "workflow_id": "wf_1",
+        "workflow_id": "wf_runs_router",
         "inputs": {"instruction": "go"},
         "source": "simulation",
         "branch": TEST_BRANCH,
@@ -528,14 +528,14 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     response = client.post("/api/runs", json=payload)
     assert response.status_code == 200
     mock_service.create_run.assert_called_once_with(
-        "wf_1",
+        "wf_runs_router",
         prepared,
         branch=TEST_BRANCH,
         source="simulation",
     )
     mock_exec_service.launch_execution.assert_awaited_once_with(
         "run_sim",
-        "wf_1",
+        "wf_runs_router",
         prepared,
         branch=TEST_BRANCH,
     )
@@ -543,7 +543,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
 
 
 # ===========================================================================
-# RUN-339: Status filter on GET /api/runs
+# Status filter on GET /api/runs
 # ===========================================================================
 
 
@@ -590,9 +590,9 @@ def _stub_service_with_runs(runs):
 def test_runs_list_status_filter_running():
     """GET /api/runs?status=running returns only running runs."""
     runs = [
-        _make_mock_run_with_status("run_1", RunStatus.running, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_2", RunStatus.pending, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_3", RunStatus.completed, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_running", RunStatus.running, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_pending", RunStatus.pending, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_completed", RunStatus.completed, branch=TEST_BRANCH),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -603,17 +603,17 @@ def test_runs_list_status_filter_running():
     data = response.json()
     assert all(item["status"] == "running" for item in data["items"])
     assert len(data["items"]) == 1
-    assert data["items"][0]["id"] == "run_1"
+    assert data["items"][0]["id"] == "run_status_running"
     app.dependency_overrides.clear()
 
 
 def test_runs_list_status_filter_multiple():
     """GET /api/runs?status=running&status=pending returns running + pending runs."""
     runs = [
-        _make_mock_run_with_status("run_1", RunStatus.running, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_2", RunStatus.pending, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_3", RunStatus.completed, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_4", RunStatus.failed, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_running", RunStatus.running, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_pending", RunStatus.pending, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_completed", RunStatus.completed, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_failed", RunStatus.failed, branch=TEST_BRANCH),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -631,9 +631,9 @@ def test_runs_list_status_filter_multiple():
 def test_runs_list_no_status_filter_returns_all():
     """GET /api/runs without status param returns all runs (backwards compatible)."""
     runs = [
-        _make_mock_run_with_status("run_1", RunStatus.running, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_2", RunStatus.pending, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_3", RunStatus.completed, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_running", RunStatus.running, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_pending", RunStatus.pending, branch=TEST_BRANCH),
+        _make_mock_run_with_status("run_status_completed", RunStatus.completed, branch=TEST_BRANCH),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -649,8 +649,16 @@ def test_runs_list_no_status_filter_returns_all():
 def test_runs_list_status_filter_empty_result():
     """GET /api/runs?status=running returns empty list when no runs match."""
     runs = [
-        _make_mock_run_with_status("run_1", RunStatus.completed, branch=TEST_BRANCH),
-        _make_mock_run_with_status("run_2", RunStatus.failed, branch=TEST_BRANCH),
+        _make_mock_run_with_status(
+            "run_status_completed_only",
+            RunStatus.completed,
+            branch=TEST_BRANCH,
+        ),
+        _make_mock_run_with_status(
+            "run_status_failed_only",
+            RunStatus.failed,
+            branch=TEST_BRANCH,
+        ),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service

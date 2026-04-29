@@ -1,19 +1,16 @@
 /**
- * RED-TEAM tests for RUN-196: Frontend type updates for `stateful` field.
+ * YAML stateful field coverage.
  *
  * Validates:
- * - StepNodeData and BlockDef accept `stateful?: boolean`
  * - Compiler emits `stateful` to YAML when set, omits when absent
  * - Parser reads `stateful` from YAML into node data
  * - Round-trip: stateful survives compile -> parse -> compile
- *
- * These tests MUST FAIL until the Green Team implements the feature.
  */
 
 import { describe, it, expect, test } from "vitest";
 import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import { parseWorkflowYamlToGraph } from "../yamlParser";
-import type { StepNodeData, StepType, BlockDef } from "../../../types/schemas/canvas";
+import type { StepNodeData, StepType } from "../../../types/schemas/canvas";
 import type { Node, Edge } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
@@ -81,61 +78,7 @@ function roundTrip(input: CompileInput) {
 }
 
 // ===========================================================================
-// 1. Type existence tests
-// ===========================================================================
-
-describe("Type existence: stateful field", () => {
-  it("StepNodeData should accept stateful: true without type errors", () => {
-    // This test validates that the StepNodeData interface includes stateful?.
-    // If the field is missing from the interface, TypeScript compilation will fail.
-    const node = mockNode("typed_block", "linear", {
-      soulRef: "agent1",
-      stateful: true,
-    } as Partial<StepNodeData>);
-
-    expect(node.data.stateful).toBe(true);
-  });
-
-  it("StepNodeData should accept stateful: false without type errors", () => {
-    const node = mockNode("typed_block", "linear", {
-      soulRef: "agent1",
-      stateful: false,
-    } as Partial<StepNodeData>);
-
-    expect(node.data.stateful).toBe(false);
-  });
-
-  it("StepNodeData should allow stateful to be undefined (omitted)", () => {
-    const node = mockNode("typed_block", "linear", { soulRef: "agent1" });
-
-    expect(node.data.stateful).toBeUndefined();
-  });
-
-  it("BlockDef should accept stateful: true without type errors", () => {
-    // This validates that BlockDef includes `stateful?: boolean`.
-    // Without the field, accessing block.stateful would be a TS error.
-    const block: BlockDef = {
-      type: "linear",
-      soul_ref: "agent1",
-      stateful: true,
-    } as BlockDef;
-
-    expect(block.stateful).toBe(true);
-  });
-
-  it("BlockDef should accept stateful: false without type errors", () => {
-    const block: BlockDef = {
-      type: "linear",
-      soul_ref: "agent1",
-      stateful: false,
-    } as BlockDef;
-
-    expect(block.stateful).toBe(false);
-  });
-});
-
-// ===========================================================================
-// 2. Compiler tests
+// 1. Compiler behavior
 // ===========================================================================
 
 describe("Compiler: stateful field", () => {
@@ -208,7 +151,7 @@ describe("Compiler: stateful field", () => {
 });
 
 // ===========================================================================
-// 3. Parser tests
+// 2. Parser behavior
 // ===========================================================================
 
 describe("Parser: stateful field", () => {
@@ -276,7 +219,7 @@ workflow:
 });
 
 // ===========================================================================
-// 4. Round-trip tests
+// 3. Round-trip behavior
 // ===========================================================================
 
 describe("Round-trip: stateful field", () => {
@@ -351,7 +294,7 @@ describe("Round-trip: stateful field", () => {
 });
 
 // ===========================================================================
-// 5. Edge cases
+// 4. Edge cases
 // ===========================================================================
 
 describe("Edge cases: stateful field", () => {

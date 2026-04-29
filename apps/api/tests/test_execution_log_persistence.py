@@ -1,4 +1,4 @@
-"""Red tests for RUN-291: execution_log persistence via ExecutionObserver high-water mark.
+"""execution_log persistence via ExecutionObserver high-water mark.
 
 ExecutionObserver must persist WorkflowState.execution_log entries to the
 LogEntry table using a high-water mark (_log_hwm) so that each
@@ -8,8 +8,6 @@ on_workflow_complete must do a final flush for any remaining entries.
 Context-binding functions (bind_execution_context, bind_block_context, etc.)
 must be called at the appropriate lifecycle points.
 
-All tests target behaviour that does NOT exist yet — every test should FAIL
-until the implementation is written.
 """
 
 import time

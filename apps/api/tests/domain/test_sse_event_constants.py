@@ -1,4 +1,4 @@
-"""RED tests for RUN-332: SSE event type constants.
+"""SSE event type constants.
 
 Problem: SSE event types are magic strings scattered across streaming_observer.py,
 execution_service.py, and frontend code. This creates a maintenance hazard where

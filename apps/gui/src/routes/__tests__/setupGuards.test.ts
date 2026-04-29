@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-352: Redirect logic — / -> /setup/start when not onboarded.
+ * Setup guard routing coverage for / -> /setup/start when not onboarded.
  *
  * Source-reading pattern: verify structural properties by reading source files.
  *
@@ -11,16 +11,11 @@
  *     a dedicated routed unavailable state
  *   - Reverse guard on /setup/start: if onboarding_completed === true -> redirect('/')
  *
- * AC:
- *   AC1: First visit (no settings) redirects to /setup/start
- *   AC2: After completing setup, / shows dashboard
- *   AC3: Direct URL to /setup/start after onboarding -> reverse guard redirects to /
- *   AC4: No flash of dashboard content before redirect
- *
- * Expected failures (current state):
- *   - routes/guards.ts does not exist
- *   - routes/index.tsx has no loader on ShellLayout route
- *   - routes/index.tsx has no loader on /setup/start route
+ * Behavior covered:
+ *   - First visit without completed onboarding redirects to /setup/start
+ *   - Completed setup allows / to show the dashboard
+ *   - Direct /setup/start visit after onboarding redirects to /
+ *   - Route loaders prevent a flash of dashboard content before redirect
  */
 
 import { describe, it, expect } from "vitest";
@@ -168,7 +163,7 @@ describe("Guard reads onboarding_completed from app settings", () => {
 // 5. Guard redirects to /setup/start when not onboarded (AC1)
 // ===========================================================================
 
-describe("Guard redirects to /setup/start when not onboarded (AC1)", () => {
+describe("Guard redirects to /setup/start when not onboarded", () => {
   it("guards.ts imports redirect from react-router", () => {
     const source = readSource(GUARDS_PATH);
     expect(source).toMatch(/import.*redirect.*from.*["']react-router["']/);
@@ -204,7 +199,7 @@ describe("Guard redirects to /setup/start when not onboarded (AC1)", () => {
 // 6. Guard allows through when onboarding is completed (AC2)
 // ===========================================================================
 
-describe("Guard allows through when onboarding is completed (AC2)", () => {
+describe("Guard allows through when onboarding is completed", () => {
   it("guard returns null when onboarding_completed is true", () => {
     const source = readSource(GUARDS_PATH);
     // When onboarding is complete, the loader should return null (no redirect).
@@ -217,7 +212,7 @@ describe("Guard allows through when onboarding is completed (AC2)", () => {
 // 7. Reverse guard redirects to / when already onboarded (AC3)
 // ===========================================================================
 
-describe("Reverse guard redirects to / when already onboarded (AC3)", () => {
+describe("Reverse guard redirects to / when already onboarded", () => {
   it("reverse guard throws redirect to / when onboarding_completed is true", () => {
     const source = readSource(GUARDS_PATH);
     // Should redirect to root when already onboarded

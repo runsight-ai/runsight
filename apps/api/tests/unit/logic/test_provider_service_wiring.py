@@ -1,15 +1,13 @@
-"""Red tests for RUN-235: Wire routers to filesystem repos.
+"""Router wiring to filesystem repos.
 
-Tests verify the NEW wiring — ProviderService and ExecutionService use
+Tests verify ProviderService and ExecutionService use
 FileSystemProviderRepo + SecretsEnvLoader instead of SQLite + encrypt/decrypt.
 
-All tests should FAIL until the implementation is wired.
-
-Acceptance criteria covered:
+Coverage includes:
   - ProviderService accepts SecretsEnvLoader, uses store_key/resolve instead of encrypt/decrypt
   - Provider CRUD stores ${ENV_VAR} references in YAML, raw keys go to secrets.env
   - API key resolution in test_connection goes through SecretsEnvLoader.resolve
-  - SSRF validation is still called during test_connection (no regression)
+  - SSRF validation is still called during test_connection
   - API response contract unchanged: api_key_env shows "configured" or ""
   - ExecutionService._resolve_api_keys uses SecretsEnvLoader
   - No SQLite session dependency for provider/settings endpoints
@@ -198,9 +196,16 @@ class TestTestConnectionUsesSecrets:
             name="OpenAI",
             api_key="sk-real-key",
             provider_type="openai",
+            base_url="https://provider.example.invalid/v1",
         )
 
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+        with (
+            patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+            patch(
+                "runsight_api.logic.services.provider_service.validate_ssrf",
+                new_callable=AsyncMock,
+            ) as mock_validate_ssrf,
+        ):
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
@@ -213,6 +218,7 @@ class TestTestConnectionUsesSecrets:
             result = await service.test_connection("openai")
 
         assert result["success"] is True
+        mock_validate_ssrf.assert_awaited()
         # Verify the HTTP call used the real key, not the ${ENV_VAR} reference
         call_kwargs = mock_client.get.call_args
         auth_header = call_kwargs[1]["headers"]["Authorization"]
@@ -241,7 +247,7 @@ class TestTestConnectionUsesSecrets:
 
 
 # ===========================================================================
-# 5. SSRF validation preserved (no regression from RUN-225)
+# SSRF validation remains wired after provider service rewiring
 # ===========================================================================
 
 

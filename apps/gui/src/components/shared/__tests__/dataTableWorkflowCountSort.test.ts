@@ -102,7 +102,7 @@ beforeEach(() => {
   mocks.tableRowProps.length = 0;
 });
 
-describe("RUN-452 Used In numeric ordering", () => {
+describe("Used In numeric ordering", () => {
   it("sorts workflow_count numerically after the Used In header is activated", () => {
     const columns = [
       { key: "role", header: "Name", sortable: true },

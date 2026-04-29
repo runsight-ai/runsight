@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.toastError.mockReset();
 });
 
-describe("workflow commit data layer (RUN-424)", () => {
+describe("workflow commit data layer", () => {
   it("posts workflow save payloads through the API client to /workflows/:id/commits", async () => {
     mocks.apiPost.mockResolvedValue({
       hash: "abc123def456",

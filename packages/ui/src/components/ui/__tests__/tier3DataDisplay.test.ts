@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-300: Tier 3 Data Display.
+ * Tier 3 data display component coverage.
  *
  * Validates that Table and Card have been updated to use the Runsight design
  * system tokens, and that StatCard and CodeBlock have been created
@@ -10,18 +10,6 @@
  *   1. Existing components (table, card): required design system tokens present
  *   2. New components (stat-card, code-block): file exists, exports, tokens
  *   3. All 4: story files exist with proper Storybook structure
- *
- * Expected failures (current state):
- *   - table.tsx: missing surface-secondary on header, text-secondary, font-size-xs,
- *     surface-hover on rows, border-subtle for borders, density-row-height or density
- *     token for row height, font-mono for mono values
- *   - card.tsx: missing border-subtle token (uses ring-foreground/10 instead),
- *     radius-lg token (uses rounded-xl inline class instead),
- *     space-4 token for padding (uses py-4 inline class instead),
- *     text-heading token for header text (uses font-medium text-base inline instead)
- *   - stat-card.tsx does not exist
- *   - code-block.tsx does not exist
- *   - No story files exist for any of the 4 components
  */
 
 import { describe, it, expect } from "vitest";
@@ -62,7 +50,7 @@ function readStory(filename: string): string {
 // 1. TABLE — header background token (AC1)
 // ===========================================================================
 
-describe("Table — surface-secondary token on header (AC1)", () => {
+describe("Table — surface-secondary token on header", () => {
   it("uses surface-secondary or surface-primary token for table header background", () => {
     const source = readComponent("table.tsx");
     // Spec: header background is --surface-secondary (or surface-primary for sticky header)
@@ -74,7 +62,7 @@ describe("Table — surface-secondary token on header (AC1)", () => {
 // 2. TABLE — header text color token (AC1)
 // ===========================================================================
 
-describe("Table — text-secondary or text-muted token on header cells (AC1)", () => {
+describe("Table — text-secondary or text-muted token on header cells", () => {
   it("uses text-secondary or text-muted token for header cell text color", () => {
     const source = readComponent("table.tsx");
     // Spec: header cell text uses --text-secondary or --text-muted (muted is the migrated equivalent)
@@ -86,7 +74,7 @@ describe("Table — text-secondary or text-muted token on header cells (AC1)", (
 // 3. TABLE — header font-size token (AC1)
 // ===========================================================================
 
-describe("Table — font-size-xs or text-2xs token on header cells (AC1)", () => {
+describe("Table — font-size-xs or text-2xs token on header cells", () => {
   it("uses font-size-xs or text-2xs token for header cell font size", () => {
     const source = readComponent("table.tsx");
     // Spec: header cells use --font-size-xs; text-2xs is the Tailwind CVA equivalent
@@ -98,7 +86,7 @@ describe("Table — font-size-xs or text-2xs token on header cells (AC1)", () =>
 // 4. TABLE — header uppercase text transform (AC1)
 // ===========================================================================
 
-describe("Table — uppercase text transform on header cells (AC1)", () => {
+describe("Table — uppercase text transform on header cells", () => {
   it("applies uppercase text transform to header cells", () => {
     const source = readComponent("table.tsx");
     // Spec: header cell labels are uppercase
@@ -111,7 +99,7 @@ describe("Table — uppercase text transform on header cells (AC1)", () => {
 // 5. TABLE — row hover token (AC1)
 // ===========================================================================
 
-describe("Table — surface-hover token on row hover (AC1)", () => {
+describe("Table — surface-hover token on row hover", () => {
   it("uses surface-hover token for row hover state", () => {
     const source = readComponent("table.tsx");
     // Spec: row hover uses --surface-hover
@@ -124,7 +112,7 @@ describe("Table — surface-hover token on row hover (AC1)", () => {
 // 6. TABLE — border token (AC1)
 // ===========================================================================
 
-describe("Table — border-subtle token for borders (AC1)", () => {
+describe("Table — border-subtle token for borders", () => {
   it("uses border-subtle token for table borders", () => {
     const source = readComponent("table.tsx");
     // Spec: borders use --border-subtle
@@ -137,7 +125,7 @@ describe("Table — border-subtle token for borders (AC1)", () => {
 // 7. TABLE — row height density token (AC1)
 // ===========================================================================
 
-describe("Table — density-row-height token for row height (AC1)", () => {
+describe("Table — density-row-height token for row height", () => {
   it("uses density-row-height or density token for row height", () => {
     const source = readComponent("table.tsx");
     // Spec: row height uses --density-row-height DS token
@@ -150,7 +138,7 @@ describe("Table — density-row-height token for row height (AC1)", () => {
 // 8. TABLE — mono font token (AC1)
 // ===========================================================================
 
-describe("Table — font-mono token for mono values (AC1)", () => {
+describe("Table — font-mono token for mono values", () => {
   it("uses font-mono design system token for monospaced values", () => {
     const source = readComponent("table.tsx");
     // Spec: mono values use --font-mono DS token
@@ -163,7 +151,7 @@ describe("Table — font-mono token for mono values (AC1)", () => {
 // 9. CARD — border-subtle token (AC2)
 // ===========================================================================
 
-describe("Card — border-subtle token for border (AC2)", () => {
+describe("Card — border-subtle token for border", () => {
   it("uses border-subtle token for card border", () => {
     const source = readComponent("card.tsx");
     // Spec: card border uses --border-subtle
@@ -176,7 +164,7 @@ describe("Card — border-subtle token for border (AC2)", () => {
 // 10. CARD — radius-lg token (AC2)
 // ===========================================================================
 
-describe("Card — radius-lg or rounded-lg token for border radius (AC2)", () => {
+describe("Card — radius-lg or rounded-lg token for border radius", () => {
   it("uses radius-lg or rounded-lg for card border radius", () => {
     const source = readComponent("card.tsx");
     // Spec: radius uses --radius-lg DS token; rounded-lg is the Tailwind CVA equivalent
@@ -188,7 +176,7 @@ describe("Card — radius-lg or rounded-lg token for border radius (AC2)", () =>
 // 11. CARD — space-4 token for padding (AC2)
 // ===========================================================================
 
-describe("Card — space-4 or p-4 token for padding (AC2)", () => {
+describe("Card — space-4 or p-4 token for padding", () => {
   it("uses space-4 or p-4 for card padding", () => {
     const source = readComponent("card.tsx");
     // Spec: padding uses --space-4 DS token; p-4 is the Tailwind CVA equivalent
@@ -200,7 +188,7 @@ describe("Card — space-4 or p-4 token for padding (AC2)", () => {
 // 12. CARD — text-heading token for header (AC2)
 // ===========================================================================
 
-describe("Card — text-heading token for header text (AC2)", () => {
+describe("Card — text-heading token for header text", () => {
   it("uses text-heading token for card header text", () => {
     const source = readComponent("card.tsx");
     // Spec: header text uses --text-heading DS token
@@ -213,7 +201,7 @@ describe("Card — text-heading token for header text (AC2)", () => {
 // 13. STAT CARD — file exists (AC3)
 // ===========================================================================
 
-describe("StatCard — component file exists (AC3)", () => {
+describe("StatCard — component file exists", () => {
   it("stat-card.tsx exists in src/components/ui/", () => {
     expect(componentExists("stat-card.tsx")).toBe(true);
   });
@@ -223,7 +211,7 @@ describe("StatCard — component file exists (AC3)", () => {
 // 14. STAT CARD — named export (AC3)
 // ===========================================================================
 
-describe("StatCard — named export (AC3)", () => {
+describe("StatCard — named export", () => {
   it("exports a StatCard component", () => {
     const source = readComponent("stat-card.tsx");
     expect(source).toMatch(/export.*\bStatCard\b/);
@@ -234,7 +222,7 @@ describe("StatCard — named export (AC3)", () => {
 // 15. STAT CARD — design system tokens (AC3)
 // ===========================================================================
 
-describe("StatCard — design system tokens (AC3)", () => {
+describe("StatCard — design system tokens", () => {
   it("uses text-secondary or text-muted token for label", () => {
     const source = readComponent("stat-card.tsx");
     // Spec: label text color uses --text-secondary or --text-muted (muted is the CVA equivalent)
@@ -270,7 +258,7 @@ describe("StatCard — design system tokens (AC3)", () => {
 // 16. STAT CARD — category stripe (AC3)
 // ===========================================================================
 
-describe("StatCard — top 3px category stripe (AC3)", () => {
+describe("StatCard — top 3px category stripe", () => {
   it("renders a top category stripe (3px border-top or decorative bar)", () => {
     const source = readComponent("stat-card.tsx");
     // Spec: top 3px category stripe — check for stripe indicator
@@ -282,7 +270,7 @@ describe("StatCard — top 3px category stripe (AC3)", () => {
 // 17. STAT CARD — uppercase label (AC3)
 // ===========================================================================
 
-describe("StatCard — uppercase label text transform (AC3)", () => {
+describe("StatCard — uppercase label text transform", () => {
   it("applies uppercase text transform to the label", () => {
     const source = readComponent("stat-card.tsx");
     // Spec: label is uppercase
@@ -294,7 +282,7 @@ describe("StatCard — uppercase label text transform (AC3)", () => {
 // 18. STAT CARD — optional delta badge (AC3)
 // ===========================================================================
 
-describe("StatCard — optional delta badge support (AC3)", () => {
+describe("StatCard — optional delta badge support", () => {
   it("supports an optional delta/change indicator prop", () => {
     const source = readComponent("stat-card.tsx");
     // Spec: optional delta badge (positive/negative change indicator)
@@ -306,7 +294,7 @@ describe("StatCard — optional delta badge support (AC3)", () => {
 // 19. CODE BLOCK — file exists (AC4)
 // ===========================================================================
 
-describe("CodeBlock — component file exists (AC4)", () => {
+describe("CodeBlock — component file exists", () => {
   it("code-block.tsx exists in src/components/ui/", () => {
     expect(componentExists("code-block.tsx")).toBe(true);
   });
@@ -316,7 +304,7 @@ describe("CodeBlock — component file exists (AC4)", () => {
 // 20. CODE BLOCK — named export (AC4)
 // ===========================================================================
 
-describe("CodeBlock — named export (AC4)", () => {
+describe("CodeBlock — named export", () => {
   it("exports a CodeBlock component", () => {
     const source = readComponent("code-block.tsx");
     expect(source).toMatch(/export.*\bCodeBlock\b/);
@@ -327,7 +315,7 @@ describe("CodeBlock — named export (AC4)", () => {
 // 21. CODE BLOCK — design system tokens (AC4)
 // ===========================================================================
 
-describe("CodeBlock — design system tokens (AC4)", () => {
+describe("CodeBlock — design system tokens", () => {
   it("uses neutral-2 or surface-primary token for background", () => {
     const source = readComponent("code-block.tsx");
     // Spec: background uses --neutral-2; bg-surface-primary is the CVA equivalent
@@ -369,7 +357,7 @@ describe("CodeBlock — design system tokens (AC4)", () => {
 // 22. CODE BLOCK — copy button (AC4)
 // ===========================================================================
 
-describe("CodeBlock — copy button (AC4)", () => {
+describe("CodeBlock — copy button", () => {
   it("renders a copy button", () => {
     const source = readComponent("code-block.tsx");
     // Spec: copy button for clipboard interaction
@@ -381,7 +369,7 @@ describe("CodeBlock — copy button (AC4)", () => {
 // 23. STORYBOOK STORIES — all 4 component story files exist (AC6)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC6)", () => {
+describe("Storybook stories — existence", () => {
   it("Table.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Table.stories.tsx")).toBe(true);
   });
@@ -404,7 +392,7 @@ describe("Storybook stories — existence (AC6)", () => {
 // 29. STORYBOOK STORIES — Table.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Table.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Table.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Table.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -435,7 +423,7 @@ describe("Storybook stories — Table.stories.tsx structure (AC6)", () => {
 // 30. STORYBOOK STORIES — Card.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Card.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Card.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Card.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -466,7 +454,7 @@ describe("Storybook stories — Card.stories.tsx structure (AC6)", () => {
 // 31. STORYBOOK STORIES — StatCard.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — StatCard.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — StatCard.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("StatCard.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -497,7 +485,7 @@ describe("Storybook stories — StatCard.stories.tsx structure (AC6)", () => {
 // 32. STORYBOOK STORIES — CodeBlock.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — CodeBlock.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — CodeBlock.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("CodeBlock.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -523,4 +511,3 @@ describe("Storybook stories — CodeBlock.stories.tsx structure (AC6)", () => {
     expect(content).toMatch(/copy|Copy|clipboard|Clipboard/i);
   });
 });
-

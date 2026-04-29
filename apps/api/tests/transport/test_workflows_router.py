@@ -17,6 +17,8 @@ WARNING_PAYLOAD = {
     "source": "tool_definitions",
     "context": "lookup_profile",
 }
+WORKFLOW_ID = "wf_workflows_router"
+WORKFLOW_NAME = "Workflow router flow"
 
 
 def teardown_function():
@@ -27,8 +29,8 @@ def test_workflows_list():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
-        name="Test Flow",
+        id=WORKFLOW_ID,
+        name=WORKFLOW_NAME,
         blocks={},
         edges=[],
         warnings=[WARNING_PAYLOAD],
@@ -42,7 +44,7 @@ def test_workflows_list():
     assert "items" in data
     assert "total" in data
     assert len(data["items"]) == 1
-    assert data["items"][0]["id"] == "wf_1"
+    assert data["items"][0]["id"] == WORKFLOW_ID
     assert data["items"][0]["warnings"] == [WARNING_PAYLOAD]
 
 
@@ -50,15 +52,15 @@ def test_workflows_get():
     mock_service = Mock()
     mock_service.get_workflow.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
-        name="Test Flow",
+        id=WORKFLOW_ID,
+        name=WORKFLOW_NAME,
         blocks={},
         edges=[],
     )
     mock_service.get_workflow_detail.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
-        name="Test Flow",
+        id=WORKFLOW_ID,
+        name=WORKFLOW_NAME,
         blocks={},
         edges=[],
         commit_sha="abc123def456",
@@ -66,12 +68,12 @@ def test_workflows_get():
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.get("/api/workflows/wf_1")
+    response = client.get(f"/api/workflows/{WORKFLOW_ID}")
     assert response.status_code == 200
-    assert response.json()["id"] == "wf_1"
+    assert response.json()["id"] == WORKFLOW_ID
     assert response.json()["commit_sha"] == "abc123def456"
     assert response.json()["warnings"] == [WARNING_PAYLOAD]
-    mock_service.get_workflow_detail.assert_called_once_with("wf_1")
+    mock_service.get_workflow_detail.assert_called_once_with(WORKFLOW_ID)
     mock_service.get_workflow.assert_not_called()
 
 
@@ -79,7 +81,7 @@ def test_workflows_get_404():
     mock_service = Mock()
     mock_service.get_workflow.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_404",
+        id="wf_not_found",
         name="Existing Flow",
         blocks={},
         edges=[],
@@ -140,7 +142,7 @@ def test_workflows_put():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id=WORKFLOW_ID,
         name="Updated Flow",
         blocks={},
         edges=[],
@@ -150,7 +152,7 @@ def test_workflows_put():
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.put(
-        "/api/workflows/wf_1",
+        f"/api/workflows/{WORKFLOW_ID}",
         json={"name": "Updated Flow", "yaml": "workflow:\n  name: Updated Flow\n"},
     )
     assert response.status_code == 200
@@ -162,14 +164,14 @@ def test_workflows_put_requires_yaml():
     mock_service = Mock()
     mock_service.update_workflow.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id=WORKFLOW_ID,
         name="Updated Flow",
         blocks={},
         edges=[],
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.put("/api/workflows/wf_1", json={"name": "Updated Flow"})
+    response = client.put(f"/api/workflows/{WORKFLOW_ID}", json={"name": "Updated Flow"})
 
     assert response.status_code == 422
     mock_service.update_workflow.assert_not_called()
@@ -186,7 +188,7 @@ def test_workflows_put_with_canvas_state():
     }
     mock_wf = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id=WORKFLOW_ID,
         name="Updated Flow",
         blocks={},
         edges=[],
@@ -197,7 +199,7 @@ def test_workflows_put_with_canvas_state():
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.put(
-        "/api/workflows/wf_1",
+        f"/api/workflows/{WORKFLOW_ID}",
         json={
             "yaml": "workflow:\n  name: Updated Flow\n",
             "canvas_state": canvas_state,
@@ -217,7 +219,7 @@ def test_workflows_put_with_invalid_canvas_mode_422():
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.put(
-        "/api/workflows/wf_1",
+        f"/api/workflows/{WORKFLOW_ID}",
         json={
             "canvas_state": {
                 "nodes": [],
@@ -251,7 +253,7 @@ def test_workflows_post_commit_returns_commit_metadata():
         "message": "Save workflow to main",
     }
 
-    response = client.post("/api/workflows/wf_1/commits", json=draft)
+    response = client.post(f"/api/workflows/{WORKFLOW_ID}/commits", json=draft)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -259,7 +261,7 @@ def test_workflows_post_commit_returns_commit_metadata():
         "message": "Save workflow to main",
     }
     mock_service.commit_workflow.assert_called_once_with(
-        "wf_1",
+        WORKFLOW_ID,
         {
             "yaml": "workflow:\n  name: Updated Flow\n",
             "canvas_state": {
@@ -279,7 +281,7 @@ def test_workflows_post_commit_requires_commit_message():
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.post(
-        "/api/workflows/wf_1/commits",
+        f"/api/workflows/{WORKFLOW_ID}/commits",
         json={"yaml": "workflow:\n  name: Updated Flow\n"},
     )
 
@@ -296,7 +298,7 @@ def test_workflows_post_commit_requires_yaml():
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.post(
-        "/api/workflows/wf_1/commits",
+        f"/api/workflows/{WORKFLOW_ID}/commits",
         json={"message": "Save workflow to main"},
     )
 
@@ -307,32 +309,32 @@ def test_workflows_post_commit_requires_yaml():
 def test_workflows_delete():
     mock_service = Mock()
     mock_service.delete_workflow.return_value = {
-        "id": "wf_1",
+        "id": WORKFLOW_ID,
         "deleted": True,
         "runs_deleted": 2,
     }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.delete("/api/workflows/wf_1")
+    response = client.delete(f"/api/workflows/{WORKFLOW_ID}")
     assert response.status_code == 200
     assert response.json()["deleted"] is True
     assert response.json()["runs_deleted"] == 2
-    mock_service.delete_workflow.assert_called_once_with("wf_1", force=False)
+    mock_service.delete_workflow.assert_called_once_with(WORKFLOW_ID, force=False)
 
 
 def test_workflows_delete_force_true_forwards_and_returns_runs_deleted():
     mock_service = Mock()
     mock_service.delete_workflow.return_value = {
-        "id": "wf_1",
+        "id": WORKFLOW_ID,
         "deleted": True,
         "runs_deleted": 4,
     }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.delete("/api/workflows/wf_1?force=true")
+    response = client.delete(f"/api/workflows/{WORKFLOW_ID}?force=true")
     assert response.status_code == 200
-    assert response.json() == {"id": "wf_1", "deleted": True, "runs_deleted": 4}
-    mock_service.delete_workflow.assert_called_once_with("wf_1", force=True)
+    assert response.json() == {"id": WORKFLOW_ID, "deleted": True, "runs_deleted": 4}
+    mock_service.delete_workflow.assert_called_once_with(WORKFLOW_ID, force=True)
 
 
 def test_workflows_delete_active_runs_returns_409():
@@ -340,11 +342,11 @@ def test_workflows_delete_active_runs_returns_409():
 
     mock_service = Mock()
     mock_service.delete_workflow.side_effect = WorkflowHasActiveRuns(
-        "Workflow wf_1 has active runs"
+        f"Workflow {WORKFLOW_ID} has active runs"
     )
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
-    response = client.delete("/api/workflows/wf_1")
+    response = client.delete(f"/api/workflows/{WORKFLOW_ID}")
     assert response.status_code == 409
     assert response.json()["error_code"] == "WORKFLOW_HAS_ACTIVE_RUNS"
 
@@ -353,20 +355,20 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     mock_service = Mock()
     posted_yaml = "workflow:\n  name: Sim Snapshot\n  steps:\n    - id: latest-step\n"
     mock_service.create_simulation.return_value = {
-        "branch": "sim/wf_123/20260330/abc12",
+        "branch": "sim/wf_simulation_route/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
         "input_schema": {},
     }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.post(
-        "/api/workflows/wf_123/simulations",
+        "/api/workflows/wf_simulation_route/simulations",
         json={"yaml": posted_yaml},
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "branch": "sim/wf_123/20260330/abc12",
+        "branch": "sim/wf_simulation_route/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
         "input_schema": {},
     }
@@ -374,9 +376,9 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     args, kwargs = mock_service.create_simulation.call_args
     forwarded_workflow_id = kwargs.get("workflow_id")
     if forwarded_workflow_id is None:
-        forwarded_workflow_id = next((arg for arg in args if arg == "wf_123"), None)
+        forwarded_workflow_id = next((arg for arg in args if arg == "wf_simulation_route"), None)
     forwarded_yaml = kwargs.get("yaml")
     if forwarded_yaml is None:
         forwarded_yaml = next((arg for arg in args if arg == posted_yaml), None)
-    assert forwarded_workflow_id == "wf_123"
+    assert forwarded_workflow_id == "wf_simulation_route"
     assert forwarded_yaml == posted_yaml

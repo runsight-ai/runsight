@@ -16,21 +16,26 @@ def session_fixture():
 def test_run_repository(session: Session):
     repo = RunRepository(session)
     run = Run(
-        id="run-1",
-        workflow_id="wf-1",
+        id="run-primary",
+        workflow_id="wf-primary",
         workflow_name="WF",
         task_json="{}",
         branch="main",
     )
     repo.create_run(run)
 
-    fetched_run = repo.get_run("run-1")
+    fetched_run = repo.get_run("run-primary")
     assert fetched_run is not None
-    assert fetched_run.id == "run-1"
+    assert fetched_run.id == "run-primary"
 
-    node = RunNode(id="run-1:node-1", run_id="run-1", node_id="node-1", block_type="llm")
+    node = RunNode(
+        id="run-primary:node-primary",
+        run_id="run-primary",
+        node_id="node-primary",
+        block_type="llm",
+    )
     repo.create_node(node)
 
-    nodes = repo.list_nodes_for_run("run-1")
+    nodes = repo.list_nodes_for_run("run-primary")
     assert len(nodes) == 1
-    assert nodes[0].id == "run-1:node-1"
+    assert nodes[0].id == "run-primary:node-primary"

@@ -143,8 +143,6 @@ export function SurfaceCanvas({
               switch (node.type) {
                 case "soul":
                   return "var(--soul)";
-                case "task":
-                  return "var(--task)";
                 case "start":
                   return "var(--text-muted)";
                 default:

@@ -1,8 +1,7 @@
 /**
- * RED-TEAM tests for RUN-120: Round-trip tests + schema conformance.
+ * YAML round-trip and schema conformance coverage.
  *
  * Validates: compile -> parse -> compile is lossless.
- * These tests may FAIL if there are round-trip bugs — that is the point.
  */
 
 import { describe, it, expect, test } from "vitest";
@@ -63,7 +62,7 @@ function roundTrip(input: CompileInput) {
   const { yaml: yaml1, workflowDocument: doc1 } = compileGraphToWorkflowYaml(input);
   const parsed = parseWorkflowYamlToGraph(yaml1);
 
-  // Rebuild compile input from parsed result (souls no longer propagated — RUN-574)
+  // Rebuild compile input from parsed result; inline souls are not propagated.
   const input2: CompileInput = {
     nodes: parsed.nodes,
     edges: parsed.edges,
@@ -110,7 +109,7 @@ describe("Per-type round-trip", () => {
 // 2. Souls round-trip
 // ===========================================================================
 
-describe("Souls round-trip (RUN-574: souls no longer emitted)", () => {
+describe("Souls round-trip (souls no longer emitted)", () => {
   it("souls are never present in compiled output", () => {
     const { doc1, doc2 } = roundTrip({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
@@ -306,7 +305,7 @@ describe("Conditional transitions round-trip", () => {
 // ===========================================================================
 
 describe("Full workflow round-trip", () => {
-  it("complex workflow with multiple types, edges, and config (RUN-574: no souls)", () => {
+  it("complex workflow with multiple types, edges, and config (no souls)", () => {
     const config: Record<string, unknown> = {
       max_concurrency: 8,
       timeout: 600,
@@ -353,7 +352,7 @@ describe("Full workflow round-trip", () => {
     // Blocks
     expect(doc2.blocks).toEqual(doc1.blocks);
 
-    // Souls are no longer emitted (RUN-574)
+    // Souls are no longer emitted.
     expect(doc1).not.toHaveProperty("souls");
     expect(doc2).not.toHaveProperty("souls");
 
@@ -544,7 +543,7 @@ describe("Edge cases", () => {
 });
 
 // ===========================================================================
-// 8. RUN-646 dispatch-only round-trip contract
+// 8. Dispatch-only round-trip contract
 // ===========================================================================
 
 describe("Dispatch round-trip contract", () => {

@@ -1,7 +1,6 @@
 """Tests for SSRF protection in ProviderService.test_connection().
 
-RUN-225: The provider_service uses user-supplied base_url directly in
-httpx.get() calls without SSRF validation. These tests verify that:
+These tests verify that:
 - Private IPs, loopback, link-local, and cloud metadata endpoints are blocked
 - Normal public URLs continue to work
 - Ollama providers are allowed to use localhost (intentional)
@@ -22,7 +21,7 @@ from runsight_api.logic.services.provider_service import ProviderService
 
 def _make_provider(
     *,
-    provider_id: str = "prov_test123",
+    provider_id: str = "prov_ssrf_safe",
     name: str = "Test Provider",
     provider_type: str = "openai",
     api_key: str | None = "configured_key",
@@ -80,8 +79,9 @@ class TestSharedSSRFUtilityExists:
         """The shared validator should not raise for public URLs."""
         from runsight_core.security import validate_ssrf
 
-        # Should not raise
-        await validate_ssrf("https://api.openai.com/v1/models")
+        # Should not raise. Use an example domain so the test never depends on
+        # live third-party DNS or service availability.
+        await validate_ssrf("https://provider.example.com/v1/models")
 
     @pytest.mark.asyncio
     async def test_shared_validator_respects_allow_private_flag(self):
@@ -105,7 +105,7 @@ class TestSharedSSRFUtilityExists:
 
 
 # ===========================================================================
-# 2. SSRF-blocking tests — these should FAIL until protection is added
+# 2. SSRF-blocking behavior.
 # ===========================================================================
 
 
@@ -118,7 +118,7 @@ class TestSSRFBlocksPrivateIPs:
         provider = _make_provider(base_url="http://192.168.1.1/v1")
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -129,7 +129,7 @@ class TestSSRFBlocksPrivateIPs:
         provider = _make_provider(base_url="http://10.0.0.1:8080/admin")
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -140,7 +140,7 @@ class TestSSRFBlocksPrivateIPs:
         provider = _make_provider(base_url="http://172.16.0.1/v1/models")
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -158,7 +158,7 @@ class TestSSRFBlocksLoopback:
         )
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -172,7 +172,7 @@ class TestSSRFBlocksLoopback:
         )
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -186,7 +186,7 @@ class TestSSRFBlocksLoopback:
         )
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -203,7 +203,7 @@ class TestSSRFBlocksLinkLocal:
         )
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -216,7 +216,7 @@ class TestSSRFBlocksLinkLocal:
         )
         service, _ = _make_service_and_repo(provider)
 
-        result = await service.test_connection("prov_test123")
+        result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         assert "ssrf" in result["message"].lower() or "blocked" in result["message"].lower()
@@ -251,7 +251,7 @@ class TestOllamaLocalhostException:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_httpx.AsyncClient.return_value = mock_client
 
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is True
         # The request should have been made (not blocked)
@@ -278,7 +278,7 @@ class TestOllamaLocalhostException:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_httpx.AsyncClient.return_value = mock_client
 
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is True
         mock_client.get.assert_called_once()
@@ -304,7 +304,7 @@ class TestOllamaLocalhostException:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_httpx.AsyncClient.return_value = mock_client
 
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is True
 
@@ -318,11 +318,11 @@ class TestPublicURLsStillWork:
     """Normal public URLs should not be affected by SSRF protection."""
 
     @pytest.mark.asyncio
-    async def test_public_openai_url_works(self):
-        """Public OpenAI URL should pass SSRF validation."""
+    async def test_public_provider_url_works(self):
+        """Public provider URL should pass SSRF validation."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://api.openai.com/v1",
+            base_url="https://provider.example.com/v1",
         )
         service, _ = _make_service_and_repo(provider)
 
@@ -336,7 +336,7 @@ class TestPublicURLsStillWork:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_httpx.AsyncClient.return_value = mock_client
 
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is True
         mock_client.get.assert_called_once()
@@ -360,7 +360,7 @@ class TestPublicURLsStillWork:
             mock_client.__aexit__ = AsyncMock(return_value=False)
             mock_httpx.AsyncClient.return_value = mock_client
 
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is True
         mock_client.get.assert_called_once()
@@ -381,7 +381,7 @@ class TestSSRFValidationOrder:
         service, _ = _make_service_and_repo(provider)
 
         with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         # The HTTP client must NOT have been called
@@ -396,7 +396,7 @@ class TestSSRFValidationOrder:
         service, _ = _make_service_and_repo(provider)
 
         with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         mock_httpx.get.assert_not_called()
@@ -411,7 +411,7 @@ class TestSSRFValidationOrder:
         service, _ = _make_service_and_repo(provider)
 
         with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            result = await service.test_connection("prov_test123")
+            result = await service.test_connection("prov_ssrf_safe")
 
         assert result["success"] is False
         mock_httpx.get.assert_not_called()

@@ -275,7 +275,7 @@ function findStream(runId: string): MockEventSource {
   return source as MockEventSource;
 }
 
-describe("RUN-974 active runs dashboard behavior", () => {
+describe("active runs dashboard behavior", () => {
   let activeRunsData: RunResponse[] = [];
 
   beforeEach(() => {

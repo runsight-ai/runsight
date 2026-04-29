@@ -1,6 +1,6 @@
-"""Red tests for RUN-315: EvalObserver — run-mode assertion execution.
+"""EvalObserver run-mode assertion execution.
 
-Tests target the new EvalObserver that lives in the CompositeObserver chain:
+Tests target the EvalObserver in the CompositeObserver chain:
   - No-op when no assertions configured
   - Runs assertion engine on on_block_complete
   - Persists eval_score, eval_passed, eval_results on RunNode
@@ -9,8 +9,6 @@ Tests target the new EvalObserver that lives in the CompositeObserver chain:
   - Delta is None when no baseline exists
   - Defensive — never raises
   - Run-level aggregate on on_workflow_complete
-
-All tests should FAIL until the implementation exists.
 """
 
 import ast
@@ -33,7 +31,7 @@ from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.services.execution_runtime import build_assertion_configs
 
 # ---------------------------------------------------------------------------
-# Deferred import — EvalObserver does not exist yet
+# Deferred import keeps observer module loading inside each test.
 # ---------------------------------------------------------------------------
 
 
@@ -59,7 +57,7 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_315_eval"
+    run_id = "run_eval_observer"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
@@ -791,7 +789,7 @@ class TestEvalObserverWorkflowComplete:
         self, db_engine, sse_queue, sample_soul
     ):
         """on_workflow_complete computes avg eval_score across all evaluated nodes."""
-        run_id = "run_315_wf_complete"
+        run_id = "run_eval_workflow_complete"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
@@ -845,7 +843,7 @@ class TestEvalObserverWorkflowComplete:
     @pytest.mark.asyncio
     async def test_workflow_complete_no_eval_nodes_is_noop(self, db_engine, sse_queue):
         """on_workflow_complete with no eval nodes is a no-op (no error)."""
-        run_id = "run_315_no_eval"
+        run_id = "run_without_eval_config"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
@@ -882,7 +880,7 @@ class TestEvalObserverWorkflowComplete:
     @pytest.mark.asyncio
     async def test_workflow_complete_single_eval_node(self, db_engine, sse_queue):
         """on_workflow_complete with a single evaluated node uses that score as aggregate."""
-        run_id = "run_315_single"
+        run_id = "run_single_eval"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
@@ -958,9 +956,9 @@ class TestEvalObserverChildStreamIsolation:
             assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
         )
 
-        child = parent.clone_for_child_run(child_run_id="run_973_child")
+        child = parent.clone_for_child_run(child_run_id="run_eval_child")
 
-        assert child.run_id == "run_973_child"
+        assert child.run_id == "run_eval_child"
         assert child.sse_queue is not parent.sse_queue, (
             "Child eval observers must own a dedicated SSE queue so child eval traffic "
             "cannot bleed into the parent's live stream."
@@ -975,8 +973,8 @@ class TestEvalObserverChildStreamIsolation:
         sample_soul,
         contains_assertion_configs,
     ):
-        parent_run_id = "run_973_eval_parent"
-        child_run_id = "run_973_eval_child"
+        parent_run_id = "run_eval_parent"
+        child_run_id = "run_eval_child"
 
         with Session(db_engine) as session:
             session.add(
@@ -1043,9 +1041,9 @@ class TestEvalObserverChildStreamIsolation:
         sample_soul,
         contains_assertion_configs,
     ):
-        parent_run_id = "run_973_eval_parent_siblings"
-        child_a_run_id = "run_973_eval_child_a"
-        child_b_run_id = "run_973_eval_child_b"
+        parent_run_id = "run_eval_parent_siblings"
+        child_a_run_id = "run_eval_child_a"
+        child_b_run_id = "run_eval_child_b"
 
         with Session(db_engine) as session:
             for run_id, workflow_id in [
@@ -1110,7 +1108,7 @@ class TestEvalObserverChildAssertionOwnership:
         db_engine,
         sse_queue,
     ):
-        parent_run_id = "run_973_eval_parent_config"
+        parent_run_id = "run_eval_parent_config"
         block_id = "asserted_block"
 
         class AssertionEchoBlock(BaseBlock):

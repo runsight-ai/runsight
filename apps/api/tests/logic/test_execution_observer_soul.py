@@ -1,12 +1,10 @@
-"""Red tests for RUN-313: ExecutionObserver soul parameter integration.
+"""ExecutionObserver soul parameter integration.
 
 Tests target ExecutionObserver changes:
   - on_block_start  accepts soul keyword argument
   - on_block_complete  accepts soul keyword argument
   - on_block_complete  with soul populates prompt_hash and soul_version on RunNode
   - on_block_complete  without soul (None) leaves prompt_hash/soul_version as None
-
-All tests should FAIL until the implementation exists.
 """
 
 import hashlib
@@ -45,7 +43,7 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_313_soul"
+    run_id = "run_observer_soul"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,

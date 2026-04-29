@@ -117,13 +117,23 @@ def block_output_from_state(block_id, before, after):
 
 
 _ISOLATION_TEST_PREFIXES = (
-    "test_iso_",
-    "test_run817",
-    "test_run818",
-    "test_run819",
-    "test_run820",
-    "test_run812",
-    "test_tool_integration",
+    "test_isolation_",
+    "test_ipc_models_extract",
+    "test_interceptors_extract",
+    "test_worker_proxies_extract",
+    "test_worker_support_extract",
+    "test_assertion_isolation",
+    "test_tool_builtin_http_pipeline",
+    "test_tool_custom_executor_pipeline",
+    "test_tool_custom_request_resolution",
+    "test_tool_delegate_behavior",
+    "test_tool_ipc_tool_calls",
+    "test_tool_isolated_execution_envelope",
+    "test_tool_parse_validation",
+    "test_tool_pipeline_execution",
+    "test_tool_request_executor_pipeline",
+    "test_tool_runner_behaviors",
+    "test_tool_workflow_fixtures",
 )
 
 

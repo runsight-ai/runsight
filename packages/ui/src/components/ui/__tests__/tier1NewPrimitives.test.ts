@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-304: 5 New Tier 1 Primitive Components.
+ * New Tier 1 primitive component coverage.
  *
  * Validates that Spinner, Skeleton, Progress, StatusDot, and Toast
  * have been created to match the Runsight design system component spec,
@@ -13,14 +13,6 @@
  *   5. ARIA compliance — required ARIA attributes referenced
  *   6. Animation support — keyframe/animation references
  *   7. Story files exist with proper Storybook structure
- *
- * Expected failures (current state):
- *   - spinner.tsx does not exist
- *   - skeleton.tsx does not exist
- *   - progress.tsx does not exist
- *   - status-dot.tsx does not exist
- *   - toast.tsx does not exist
- *   - No story files exist for any of the 5 new components
  */
 
 import { describe, it, expect } from "vitest";
@@ -71,7 +63,7 @@ describe("Spinner — component file exists", () => {
 // 2. SPINNER — named export
 // ===========================================================================
 
-describe("Spinner — named export (AC1)", () => {
+describe("Spinner — named export", () => {
   it("exports a Spinner component", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/export.*\bSpinner\b/);
@@ -82,7 +74,7 @@ describe("Spinner — named export (AC1)", () => {
 // 3. SPINNER — size variants (AC1)
 // ===========================================================================
 
-describe("Spinner — size variants present (AC1)", () => {
+describe("Spinner — size variants present", () => {
   it("supports a `sm` size variant", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/["']?sm["']?\s*:/);
@@ -103,7 +95,7 @@ describe("Spinner — size variants present (AC1)", () => {
 // 4. SPINNER — variant support (AC1)
 // ===========================================================================
 
-describe("Spinner — visual variants present (AC1)", () => {
+describe("Spinner — visual variants present", () => {
   it("supports a `default` visual variant", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/["']?default["']?\s*:/);
@@ -119,7 +111,7 @@ describe("Spinner — visual variants present (AC1)", () => {
 // 5. SPINNER — design system tokens (AC1)
 // ===========================================================================
 
-describe("Spinner — design system tokens used (AC1)", () => {
+describe("Spinner — design system tokens used", () => {
   it("uses --icon-size-sm, --icon-size-md, or --icon-size-xl token for sizing", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/icon-size/);
@@ -150,7 +142,7 @@ describe("Spinner — design system tokens used (AC1)", () => {
 // 6. SPINNER — animation (AC1)
 // ===========================================================================
 
-describe("Spinner — animation support (AC1)", () => {
+describe("Spinner — animation support", () => {
   it("uses a spin keyframe or animate-spin class", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/spin/);
@@ -161,7 +153,7 @@ describe("Spinner — animation support (AC1)", () => {
 // 7. SPINNER — ARIA compliance (AC1)
 // ===========================================================================
 
-describe("Spinner — ARIA compliance (AC1)", () => {
+describe("Spinner — ARIA compliance", () => {
   it("has role='status'", () => {
     const source = readComponent("spinner.tsx");
     expect(source).toMatch(/role\s*=\s*["']status["']/);
@@ -187,7 +179,7 @@ describe("Skeleton — component file exists", () => {
 // 9. SKELETON — named export
 // ===========================================================================
 
-describe("Skeleton — named export (AC2)", () => {
+describe("Skeleton — named export", () => {
   it("exports a Skeleton component", () => {
     const source = readComponent("skeleton.tsx");
     expect(source).toMatch(/export.*\bSkeleton\b/);
@@ -198,7 +190,7 @@ describe("Skeleton — named export (AC2)", () => {
 // 10. SKELETON — variants (AC2)
 // ===========================================================================
 
-describe("Skeleton — variants present (AC2)", () => {
+describe("Skeleton — variants present", () => {
   it("supports a `text` variant", () => {
     const source = readComponent("skeleton.tsx");
     expect(source).toMatch(/["']?text["']?\s*:/);
@@ -229,7 +221,7 @@ describe("Skeleton — variants present (AC2)", () => {
 // 11. SKELETON — design system tokens (AC2)
 // ===========================================================================
 
-describe("Skeleton — design system tokens used (AC2)", () => {
+describe("Skeleton — design system tokens used", () => {
   it("uses --neutral-3 token for skeleton background", () => {
     const source = readComponent("skeleton.tsx");
     expect(source).toMatch(/neutral-3/);
@@ -245,7 +237,7 @@ describe("Skeleton — design system tokens used (AC2)", () => {
 // 12. SKELETON — shimmer animation (AC2)
 // ===========================================================================
 
-describe("Skeleton — shimmer animation (AC2)", () => {
+describe("Skeleton — shimmer animation", () => {
   it("uses a shimmer animation or pulse animation", () => {
     const source = readComponent("skeleton.tsx");
     expect(source).toMatch(/shimmer|pulse|animate/);
@@ -256,7 +248,7 @@ describe("Skeleton — shimmer animation (AC2)", () => {
 // 13. SKELETON — ARIA compliance (AC2)
 // ===========================================================================
 
-describe("Skeleton — ARIA compliance (AC2)", () => {
+describe("Skeleton — ARIA compliance", () => {
   it("has aria-busy='true'", () => {
     const source = readComponent("skeleton.tsx");
     expect(source).toMatch(/aria-busy/);
@@ -282,7 +274,7 @@ describe("Progress — component file exists", () => {
 // 15. PROGRESS — named export
 // ===========================================================================
 
-describe("Progress — named export (AC3)", () => {
+describe("Progress — named export", () => {
   it("exports a Progress component", () => {
     const source = readComponent("progress.tsx");
     expect(source).toMatch(/export.*\bProgress\b/);
@@ -293,7 +285,7 @@ describe("Progress — named export (AC3)", () => {
 // 16. PROGRESS — variants (AC3)
 // ===========================================================================
 
-describe("Progress — variants present (AC3)", () => {
+describe("Progress — variants present", () => {
   it("supports a `default` variant", () => {
     const source = readComponent("progress.tsx");
     expect(source).toMatch(/["']?default["']?\s*:/);
@@ -324,7 +316,7 @@ describe("Progress — variants present (AC3)", () => {
 // 17. PROGRESS — design system tokens (AC3)
 // ===========================================================================
 
-describe("Progress — design system tokens used (AC3)", () => {
+describe("Progress — design system tokens used", () => {
   it("uses --neutral-3 token for track background", () => {
     const source = readComponent("progress.tsx");
     expect(source).toMatch(/neutral-3/);
@@ -350,7 +342,7 @@ describe("Progress — design system tokens used (AC3)", () => {
 // 18. PROGRESS — ARIA compliance (AC3)
 // ===========================================================================
 
-describe("Progress — ARIA compliance (AC3)", () => {
+describe("Progress — ARIA compliance", () => {
   it("has role='progressbar'", () => {
     const source = readComponent("progress.tsx");
     expect(source).toMatch(/role\s*=\s*["']progressbar["']/);
@@ -386,7 +378,7 @@ describe("StatusDot — component file exists", () => {
 // 20. STATUS DOT — named export
 // ===========================================================================
 
-describe("StatusDot — named export (AC4)", () => {
+describe("StatusDot — named export", () => {
   it("exports a StatusDot component", () => {
     const source = readComponent("status-dot.tsx");
     expect(source).toMatch(/export.*\bStatusDot\b/);
@@ -397,7 +389,7 @@ describe("StatusDot — named export (AC4)", () => {
 // 21. STATUS DOT — variants (AC4)
 // ===========================================================================
 
-describe("StatusDot — variants present (AC4)", () => {
+describe("StatusDot — variants present", () => {
   it("supports a `neutral` variant", () => {
     const source = readComponent("status-dot.tsx");
     expect(source).toMatch(/["']?neutral["']?\s*:/);
@@ -428,7 +420,7 @@ describe("StatusDot — variants present (AC4)", () => {
 // 22. STATUS DOT — design system tokens (AC4)
 // ===========================================================================
 
-describe("StatusDot — design system tokens used (AC4)", () => {
+describe("StatusDot — design system tokens used", () => {
   it("uses --neutral-9 token for neutral variant", () => {
     const source = readComponent("status-dot.tsx");
     expect(source).toMatch(/neutral-9/);
@@ -469,7 +461,7 @@ describe("StatusDot — design system tokens used (AC4)", () => {
 // 23. STATUS DOT — animations (AC4)
 // ===========================================================================
 
-describe("StatusDot — animations (AC4)", () => {
+describe("StatusDot — animations", () => {
   it("supports a pulse animation for running/waiting states", () => {
     const source = readComponent("status-dot.tsx");
     expect(source).toMatch(/pulse/);
@@ -495,7 +487,7 @@ describe("Toast — component file exists", () => {
 // 25. TOAST — named export
 // ===========================================================================
 
-describe("Toast — named export (AC5)", () => {
+describe("Toast — named export", () => {
   it("exports a Toast component", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/export.*\bToast\b/);
@@ -506,7 +498,7 @@ describe("Toast — named export (AC5)", () => {
 // 26. TOAST — variants (AC5)
 // ===========================================================================
 
-describe("Toast — variants present (AC5)", () => {
+describe("Toast — variants present", () => {
   it("supports a `success` variant", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/["']?success["']?\s*:/);
@@ -532,7 +524,7 @@ describe("Toast — variants present (AC5)", () => {
 // 27. TOAST — design system tokens (AC5)
 // ===========================================================================
 
-describe("Toast — design system tokens used (AC5)", () => {
+describe("Toast — design system tokens used", () => {
   it("uses --surface-raised or elevation-overlay-surface token for background", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/surface-raised|elevation-overlay-surface/);
@@ -563,7 +555,7 @@ describe("Toast — design system tokens used (AC5)", () => {
 // 28. TOAST — sub-components (AC5)
 // ===========================================================================
 
-describe("Toast — sub-components present (AC5)", () => {
+describe("Toast — sub-components present", () => {
   it("has a title sub-component or prop", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/title|Title/);
@@ -584,7 +576,7 @@ describe("Toast — sub-components present (AC5)", () => {
 // 29. TOAST — ARIA compliance (AC5)
 // ===========================================================================
 
-describe("Toast — ARIA compliance (AC5)", () => {
+describe("Toast — ARIA compliance", () => {
   it("has role='status' or role='alert'", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/role\s*=\s*["'](status|alert)["']/);
@@ -595,7 +587,7 @@ describe("Toast — ARIA compliance (AC5)", () => {
 // 30. STORYBOOK STORIES — all 5 new component story files exist (AC6)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC6)", () => {
+describe("Storybook stories — existence", () => {
   it("Spinner.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Spinner.stories.tsx")).toBe(true);
   });
@@ -621,7 +613,7 @@ describe("Storybook stories — existence (AC6)", () => {
 // 31. STORYBOOK STORIES — Spinner.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Spinner.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Spinner.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Spinner.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -652,7 +644,7 @@ describe("Storybook stories — Spinner.stories.tsx structure (AC6)", () => {
 // 32. STORYBOOK STORIES — Skeleton.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Skeleton.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Skeleton.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Skeleton.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -683,7 +675,7 @@ describe("Storybook stories — Skeleton.stories.tsx structure (AC6)", () => {
 // 33. STORYBOOK STORIES — Progress.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Progress.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Progress.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Progress.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -714,7 +706,7 @@ describe("Storybook stories — Progress.stories.tsx structure (AC6)", () => {
 // 34. STORYBOOK STORIES — StatusDot.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — StatusDot.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — StatusDot.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("StatusDot.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -745,7 +737,7 @@ describe("Storybook stories — StatusDot.stories.tsx structure (AC6)", () => {
 // 35. STORYBOOK STORIES — Toast.stories.tsx structure (AC6)
 // ===========================================================================
 
-describe("Storybook stories — Toast.stories.tsx structure (AC6)", () => {
+describe("Storybook stories — Toast.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Toast.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);

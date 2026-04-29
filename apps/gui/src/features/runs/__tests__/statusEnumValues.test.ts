@@ -1,23 +1,13 @@
 /**
- * RED-TEAM tests for RUN-405: Fix frontend status enum mismatch in RunList.
+ * Run status query parameter coverage.
  *
- * Bug: RunList.tsx line 542 sends `status: "active"` and `status: "completed,failed"`
- * as single strings to useRuns(). Backend expects `List[str]` with actual RunStatus
- * enum values (`running`, `pending`, `completed`, `failed`). `"active"` is not a valid
- * enum value; `"completed,failed"` is a single string containing a comma.
+ * Run list filters must send backend RunStatus enum values as separate query
+ * parameters. Behavioral tests mock `fetch`, call `runsApi.listRuns()`, and
+ * verify the actual URL query string sent to the backend.
  *
- * Approach: Behavioral testing at the API boundary. We mock `fetch`, call
- * `runsApi.listRuns()` with the params that RunList currently passes, and verify
- * the actual URL query string sent to the backend. No source-code regex analysis.
- *
- * Test structure:
- *   - Group 1 (Active tab): asserts correct behavior → FAILS with current buggy params
- *   - Group 2 (History tab): asserts correct behavior → FAILS with current buggy params
- *   - Group 3 (Contract): validates that URLSearchParams fix path produces correct URLs → PASSES
- *
- * Green Team: fix RunList to pass URLSearchParams with separate status values to
- * useRuns(), then update the params in Groups 1 & 2 to match the new calling convention.
- * All tests should then pass.
+ * - Active tab sends running and pending as separate status params
+ * - History tab sends completed and failed as separate status params
+ * - No comma-separated or UI-only status aliases reach the API boundary
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -86,14 +76,10 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // 1. Active tab: must produce URL with status=running AND status=pending
-//
-//    RunList currently passes { status: "active" } which yields ?status=active.
-//    After fix it should yield ?status=running&status=pending.
 // ---------------------------------------------------------------------------
 
-describe("Active tab status params (RUN-405)", () => {
+describe("Active tab status params", () => {
   it("should include 'running' in status query params", async () => {
-    // Current buggy params from RunList line 542
     const url = await callListRunsAndGetUrl({ status: "active" });
     const values = getQueryParamValues(url, "status");
 
@@ -117,14 +103,10 @@ describe("Active tab status params (RUN-405)", () => {
 
 // ---------------------------------------------------------------------------
 // 2. History tab: must produce URL with status=completed AND status=failed
-//
-//    RunList currently passes { status: "completed,failed" } which yields
-//    ?status=completed%2Cfailed. After fix: ?status=completed&status=failed.
 // ---------------------------------------------------------------------------
 
-describe("History tab status params (RUN-405)", () => {
+describe("History tab status params", () => {
   it("should include 'completed' as a separate status query param", async () => {
-    // Current buggy params from RunList line 542
     const url = await callListRunsAndGetUrl({ status: "completed,failed" });
     const values = getQueryParamValues(url, "status");
 
@@ -155,7 +137,7 @@ describe("History tab status params (RUN-405)", () => {
 //    the API layer correctly sends multiple status params.
 // ---------------------------------------------------------------------------
 
-describe("URLSearchParams produces correct multi-value status URLs (RUN-405)", () => {
+describe("URLSearchParams produces correct multi-value status URLs", () => {
   it("running + pending sent as separate status params", async () => {
     const params = new URLSearchParams();
     params.append("status", "running");

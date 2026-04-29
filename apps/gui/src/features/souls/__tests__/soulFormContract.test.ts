@@ -11,7 +11,7 @@ function read(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
-describe("RUN-447 file creation", () => {
+describe("file creation", () => {
   it("creates useSoulForm.ts under features/souls", () => {
     expect(existsSync(HOOK_PATH)).toBe(true);
   });
@@ -21,7 +21,7 @@ describe("RUN-447 file creation", () => {
   });
 });
 
-describe("SoulAvatarColorPicker contract (RUN-447)", () => {
+describe("SoulAvatarColorPicker contract", () => {
   it("exports a SoulAvatarColorPicker component", () => {
     const source = read(PICKER_PATH);
     expect(source).toMatch(/export\s+(function|const)\s+SoulAvatarColorPicker/);
@@ -37,7 +37,7 @@ describe("SoulAvatarColorPicker contract (RUN-447)", () => {
   });
 });
 
-describe("useSoulForm public shape (RUN-447)", () => {
+describe("useSoulForm public shape", () => {
   it("exports a useSoulForm hook", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/export\s+(function|const)\s+useSoulForm/);
@@ -64,7 +64,7 @@ describe("useSoulForm public shape (RUN-447)", () => {
   });
 });
 
-describe("useSoulForm behavior contract (RUN-447)", () => {
+describe("useSoulForm behavior contract", () => {
   it("tracks dirty state and exposes a setField-style update path", () => {
     const source = read(HOOK_PATH);
     expect(source).toMatch(/\bisDirty\b/);

@@ -54,7 +54,7 @@ class TestSchemaParsingIntegration:
         with pytest.raises(ValidationError, match="workflow_ref"):
             adapter.validate_python({"type": "workflow"})
 
-    def test_schema_allows_workflow_with_run922_fields(self) -> None:
+    def test_schema_allows_workflow_with_contract_fields(self) -> None:
         adapter = TypeAdapter(BlockDef)
 
         block_def = adapter.validate_python(

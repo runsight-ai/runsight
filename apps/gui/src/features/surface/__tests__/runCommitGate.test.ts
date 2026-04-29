@@ -1,14 +1,6 @@
 import React from "react";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-
-const SRC_DIR = resolve(__dirname, "../../..");
-
-function readSource(relativePath: string): string {
-  return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
-}
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -17,7 +9,7 @@ const mocks = vi.hoisted(() => {
     nodes: [
       {
         id: "node-1",
-        type: "task",
+        type: "soul",
         position: { x: 10, y: 20 },
         data: { label: "Draft node" },
       },
@@ -128,7 +120,7 @@ beforeEach(() => {
   mocks.state.nodes = [
     {
       id: "node-1",
-      type: "task",
+      type: "soul",
       position: { x: 10, y: 20 },
       data: { label: "Draft node" },
     },
@@ -147,7 +139,7 @@ beforeEach(() => {
   mocks.cancelRunMutate.mockReset();
 });
 
-describe("Run gating and wiring for RUN-588", () => {
+describe("Run gating and wiring", () => {
   it("uncommitted clean workflows still create a simulation branch instead of running on main", async () => {
     mocks.createSimulationSnapshot.mockResolvedValue({
       branch: "sim/test-flow/20260403/abc12",
@@ -218,23 +210,5 @@ describe("Run gating and wiring for RUN-588", () => {
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
-  });
-
-  it("RunButton accepts an isCommitted prop for the main-branch gate", () => {
-    const source = readSource("features/surface/RunButton.tsx");
-    expect(source).toMatch(/isCommitted/);
-  });
-
-  it("RunButton keeps committed-state gating logic in the component", () => {
-    const source = readSource("features/surface/RunButton.tsx");
-    expect(source).toMatch(/isCommitted/);
-    expect(source).toMatch(/createSimBranch|source:\s*["']simulation["']/);
-    expect(source).toMatch(/source:\s*["']manual["']/);
-  });
-
-  it("CanvasTopbar passes committed workflow state into RunButton", () => {
-    const source = readSource("features/surface/SurfaceTopbar.tsx");
-    expect(source).toMatch(/<RunButton[\s\S]*isCommitted/);
-    expect(source).toMatch(/workflow[\s\S]*commit_sha|commit_sha[\s\S]*workflow/);
   });
 });

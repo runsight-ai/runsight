@@ -369,7 +369,7 @@ const renderedComponentEvidence: Record<CoveredSubpath, Record<string, RenderedE
   "./key-value": {
     KeyValue: evidence(
       "renders key-value pairs with monospace values by default and body text when requested",
-      "run_123",
+      "run_display_primary",
     ),
     KeyValueList: evidence(
       "renders key-value pairs with monospace values by default and body text when requested",
@@ -420,7 +420,7 @@ const renderedComponentEvidence: Record<CoveredSubpath, Record<string, RenderedE
     TableFooter: evidence("renders table wrappers, sortable headers, and monospace data cells", "tfoot"),
     TableHead: evidence("renders table wrappers, sortable headers, and monospace data cells", "aria-sort"),
     TableHeader: evidence("renders table wrappers, sortable headers, and monospace data cells", "columnheader"),
-    TableMonoCell: evidence("renders table wrappers, sortable headers, and monospace data cells", "run_123"),
+    TableMonoCell: evidence("renders table wrappers, sortable headers, and monospace data cells", "run_display_primary"),
     TableRow: evidence("renders table wrappers, sortable headers, and monospace data cells", "aria-selected"),
   },
   "./tag-input": {
@@ -481,7 +481,7 @@ function hasRenderedJsxTag(source: string, componentName: string) {
   return new RegExp(`<${componentName}(?:[\\s>/])`).test(source);
 }
 
-describe("RUN-977 rendered component coverage structure", () => {
+describe("rendered component coverage structure", () => {
   it("assigns every retained component export to a rendered baseline suite", () => {
     expect(Object.keys(renderedBaselineCoverage).sort()).toEqual(readRetainedComponentExports());
   });

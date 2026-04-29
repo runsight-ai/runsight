@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-350: Delete LandingPage + OnboardingWizard + stale routes.
+ * Deleted route cleanup coverage.
  *
  * After this cleanup the old onboarding surfaces are gone:
  *   - features/landing/LandingPage.tsx           (deleted)
@@ -12,11 +12,8 @@
  *   - features/settings/AddProviderDialog.tsx      (serves Settings page)
  *   - queries/settings.ts                          (provider CRUD queries)
  *
- * Expected failures (current state):
- *   - All three files still exist on disk
- *   - routes/index.tsx still defines /landing, /onboarding, /templates
- *   - routes/index.tsx still imports the deleted modules
- *   - screenTokenSweep.test.ts still lists the deleted files
+ * These source-structure checks protect the retired route boundary while
+ * keeping provider setup and settings surfaces intact.
  */
 
 import { describe, it, expect } from "vitest";

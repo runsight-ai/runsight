@@ -1,0 +1,27 @@
+id: input-redaction-conflict-seed
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  seed:
+    type: code
+    timeout_seconds: 5
+    code: |
+      def main(data):
+          return {"query": "input-redaction-conflicting-results-workflow-query"}
+workflow:
+  name: input_redaction_conflict_seed
+  entry: seed
+  transitions:
+    - from: seed
+      to: null

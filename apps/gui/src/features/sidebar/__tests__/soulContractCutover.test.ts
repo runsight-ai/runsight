@@ -8,7 +8,7 @@ function readSource(relativePath: string): string {
   return readFileSync(resolve(SRC_DIR, relativePath), "utf-8");
 }
 
-describe("RUN-508 soul surface cleanup", () => {
+describe("soul surface cleanup", () => {
   it("deletes the legacy sidebar soul modules", () => {
     expect(
       existsSync(resolve(SRC_DIR, "features/sidebar/SoulList.tsx")),

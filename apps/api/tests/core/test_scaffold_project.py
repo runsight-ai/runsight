@@ -1,4 +1,4 @@
-"""Tests for workspace scaffolding under the RUN-963 contract."""
+"""Workspace scaffolding contract coverage."""
 
 import logging
 import subprocess

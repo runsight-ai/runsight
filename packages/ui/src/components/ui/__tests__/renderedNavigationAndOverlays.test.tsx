@@ -160,7 +160,7 @@ describe("rendered navigation and overlay contracts", () => {
         <TableBody>
           <TableRow aria-selected="true">
             <TableCell>Completed</TableCell>
-            <TableMonoCell>run_123</TableMonoCell>
+            <TableMonoCell>run_display_primary</TableMonoCell>
           </TableRow>
         </TableBody>
         <TableFooter>
@@ -174,8 +174,8 @@ describe("rendered navigation and overlay contracts", () => {
 
     const wrapper = container.querySelector("[data-slot='table-container']");
     const header = screen.getByRole("columnheader", { name: "Status" });
-    const row = screen.getByRole("row", { name: /Completed run_123/ });
-    const monoCell = screen.getByText("run_123");
+    const row = screen.getByRole("row", { name: /Completed run_display_primary/ });
+    const monoCell = screen.getByText("run_display_primary");
 
     expect(wrapper?.className).toContain("overflow-x-auto");
     expect(header.getAttribute("aria-sort")).toBe("ascending");

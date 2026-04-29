@@ -25,7 +25,7 @@ def test_workflow_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        # Test Create — id is embedded in the YAML (RUN-822)
+        # Test Create — id is embedded in the YAML
         wf_id = "test-workflow"
         workflow_data = {
             "name": "Test Workflow",
@@ -180,7 +180,7 @@ def test_workflow_create_does_not_mutate_input():
 
 
 def test_workflow_id_stored_in_yaml_file():
-    """RUN-822: id IS stored inside the YAML file content as canonical identity."""
+    """id IS stored inside the YAML file content as canonical identity."""
     import yaml
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -201,7 +201,7 @@ def test_workflow_id_stored_in_yaml_file():
 
 
 def test_workflow_list_includes_hand_authored_files():
-    """Files with a matching embedded id are listed (RUN-822)."""
+    """Files with a matching embedded id are listed."""
     import yaml
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -231,7 +231,7 @@ def test_workflow_list_includes_hand_authored_files():
 
 
 def test_workflow_get_returns_none_for_malformed_yaml():
-    """Malformed YAML cannot be parsed, so get_by_id returns None (RUN-822)."""
+    """Malformed YAML cannot be parsed, so get_by_id returns None."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
         yaml_path = repo.workflows_dir / "broken-workflow.yaml"
@@ -243,7 +243,7 @@ def test_workflow_get_returns_none_for_malformed_yaml():
 
 
 def test_workflow_list_skips_malformed_yaml():
-    """Malformed YAML files are silently skipped in list_all (RUN-822)."""
+    """Malformed YAML files are silently skipped in list_all."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
         (repo.workflows_dir / "legacy-broken.yaml").write_text("not: valid: yaml: {{{}}")

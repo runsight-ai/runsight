@@ -1,20 +1,14 @@
-"""
-Red tests for RUN-234: SecretsEnvLoader — read/write .runsight/secrets.env.
+"""SecretsEnvLoader read/write behavior for isolated secrets.env files.
 
 Tests the public API of SecretsEnvLoader:
-  resolve, store_key, remove_key, is_configured
-
-All tests should FAIL (ImportError) until the implementation is written.
-
-Acceptance criteria covered:
-  - Resolution order: os.environ → secrets.env → None
+  - resolve, store_key, remove_key, is_configured
+  - Resolution order: os.environ -> secrets.env -> None
   - store_key writes to secrets.env and returns ${ENV_VAR} reference
   - remove_key removes the line from secrets.env
   - File created on first store_key with '# Managed by Runsight' header
   - Values with = signs handled correctly (split on first = only)
-  - Real env var takes precedence over secrets.env value
+  - Process env var takes precedence over secrets.env value
   - Atomic writes
-  - Unit tests for resolution order, store/remove, missing file, env var override
 """
 
 import os
@@ -41,7 +35,7 @@ def secrets_file(tmp_path):
 
 
 # ===========================================================================
-# AC: Resolution order — os.environ → secrets.env → None
+# Resolution order — os.environ → secrets.env → None
 # ===========================================================================
 
 
@@ -83,7 +77,7 @@ class TestResolveOrder:
 
 
 # ===========================================================================
-# AC: store_key writes to secrets.env and returns ${ENV_VAR} reference
+# store_key writes to secrets.env and returns ${ENV_VAR} reference
 # ===========================================================================
 
 
@@ -143,7 +137,7 @@ class TestStoreKey:
 
 
 # ===========================================================================
-# AC: File created on first store_key with '# Managed by Runsight' header
+# File created on first store_key with '# Managed by Runsight' header
 # ===========================================================================
 
 
@@ -184,7 +178,7 @@ class TestFileCreation:
 
 
 # ===========================================================================
-# AC: remove_key removes the line from secrets.env
+# remove_key removes the line from secrets.env
 # ===========================================================================
 
 
@@ -233,7 +227,7 @@ class TestRemoveKey:
 
 
 # ===========================================================================
-# AC: is_configured returns True/False
+# is_configured returns True/False
 # ===========================================================================
 
 
@@ -258,7 +252,7 @@ class TestIsConfigured:
 
 
 # ===========================================================================
-# AC: Values with = signs handled correctly (split on first = only)
+# Values with = signs handled correctly (split on first = only)
 # ===========================================================================
 
 
@@ -354,7 +348,7 @@ class TestDotenvFormat:
 
 
 # ===========================================================================
-# AC: Atomic writes
+# Atomic writes
 # ===========================================================================
 
 

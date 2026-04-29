@@ -96,7 +96,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("RUN-426 WorkflowRow behavior", () => {
+describe("WorkflowRow behavior", () => {
   it("renders the two-line workflow content from the enhanced workflow payload", async () => {
     await renderWorkflowRow({
       workflow: fixtures.populatedWorkflow,

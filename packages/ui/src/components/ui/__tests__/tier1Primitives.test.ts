@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-298: Tier 1 Primitives Update.
+ * Tier 1 primitive component coverage.
  *
  * Validates that Button, Badge, Input, Textarea, Label, and Tooltip
  * have been updated to match the Runsight design system component spec, and
@@ -11,19 +11,6 @@
  *   3. Design system tokens are used
  *   4. New structural features (loading state, dot indicator) are present
  *   5. Story files exist with proper Storybook structure
- *
- * Expected failures (current state):
- *   - button.tsx still has variants: default, outline, destructive, link
- *     and sizes: default, icon, icon-xs, icon-sm, icon-lg
- *     Missing: primary, danger, icon-only; loading state not present
- *   - badge.tsx still has variants: default, destructive, ghost, link
- *     Missing: accent, success, warning, info, neutral; dot indicator absent
- *   - input.tsx does not use --control-height-sm or --surface-tertiary
- *   - textarea.tsx does not use --control-height-sm or --surface-tertiary
- *   - label.tsx does not use --font-size-sm, --font-weight-medium, --text-secondary
- *   - tooltip.tsx uses bg-text-primary / text-surface-primary instead of
- *     surface-raised / text-primary / font-size-xs
- *   - No story files exist for any of the 6 components
  */
 
 import { describe, it, expect } from "vitest";
@@ -70,7 +57,7 @@ function hasVariantKey(source: string, key: string): boolean {
 // 1. BUTTON — variant names (AC1)
 // ===========================================================================
 
-describe("Button — new variant names present (AC1)", () => {
+describe("Button — new variant names present", () => {
   it("has a `primary` variant in buttonVariants", () => {
     const source = readComponent("button.tsx");
     expect(hasVariantKey(source, "primary")).toBe(true);
@@ -102,7 +89,7 @@ describe("Button — new variant names present (AC1)", () => {
 // 2. BUTTON — old variant names removed (AC1)
 // ===========================================================================
 
-describe("Button — old variant names removed (AC1)", () => {
+describe("Button — old variant names removed", () => {
   it("no longer has a `default` variant key in buttonVariants", () => {
     const source = readComponent("button.tsx");
     // `default:` as a CVA variant key — must be gone.
@@ -135,7 +122,7 @@ describe("Button — old variant names removed (AC1)", () => {
 // 3. BUTTON — size names (AC1)
 // ===========================================================================
 
-describe("Button — new size names present (AC1)", () => {
+describe("Button — new size names present", () => {
   it("has a `xs` size in buttonVariants", () => {
     const source = readComponent("button.tsx");
     expect(hasVariantKey(source, "xs")).toBe(true);
@@ -157,7 +144,7 @@ describe("Button — new size names present (AC1)", () => {
   });
 });
 
-describe("Button — old size names removed (AC1)", () => {
+describe("Button — old size names removed", () => {
   it("no longer has a standalone `icon` size (not icon-only)", () => {
     const source = readComponent("button.tsx");
     // Old: `icon:` as a size key. New spec replaces it with icon-only variant.
@@ -191,7 +178,7 @@ describe("Button — old size names removed (AC1)", () => {
 // 4. BUTTON — design system token usage (AC1)
 // ===========================================================================
 
-describe("Button — design system tokens used (AC1)", () => {
+describe("Button — design system tokens used", () => {
   it("uses --interactive-default or interactive-default token for primary variant", () => {
     const source = readComponent("button.tsx");
     // The primary variant should reference interactive token (bg-interactive or var(--interactive-default))
@@ -237,7 +224,7 @@ describe("Button — design system tokens used (AC1)", () => {
 // 5. BUTTON — loading state support (AC1)
 // ===========================================================================
 
-describe("Button — loading state support (AC1)", () => {
+describe("Button — loading state support", () => {
   it("accepts a `loading` prop or data-loading attribute", () => {
     const source = readComponent("button.tsx");
     // Loading state can be implemented as prop, data attr, or aria-busy
@@ -249,7 +236,7 @@ describe("Button — loading state support (AC1)", () => {
 // 6. BADGE — new variant names present (AC2)
 // ===========================================================================
 
-describe("Badge — new semantic variant names present (AC2)", () => {
+describe("Badge — new semantic variant names present", () => {
   it("has an `accent` variant in badgeVariants", () => {
     const source = readComponent("badge.tsx");
     expect(hasVariantKey(source, "accent")).toBe(true);
@@ -290,7 +277,7 @@ describe("Badge — new semantic variant names present (AC2)", () => {
 // 7. BADGE — old variant names removed (AC2)
 // ===========================================================================
 
-describe("Badge — old variant names removed (AC2)", () => {
+describe("Badge — old variant names removed", () => {
   it("no longer has a `default` variant key in badgeVariants", () => {
     const source = readComponent("badge.tsx");
     expect(source).not.toMatch(/variant:\s*\{[^}]*\bdefault\s*:/s);
@@ -322,7 +309,7 @@ describe("Badge — old variant names removed (AC2)", () => {
 // 8. BADGE — design system token usage (AC2)
 // ===========================================================================
 
-describe("Badge — design system tokens used (AC2)", () => {
+describe("Badge — design system tokens used", () => {
   it("uses --font-mono for font family", () => {
     const source = readComponent("badge.tsx");
     expect(source).toMatch(/font-mono/);
@@ -374,7 +361,7 @@ describe("Badge — design system tokens used (AC2)", () => {
 // 9. BADGE — dot indicator (AC2)
 // ===========================================================================
 
-describe("Badge — dot indicator support (AC2)", () => {
+describe("Badge — dot indicator support", () => {
   it("supports a dot indicator (dot prop, variant, or boolean)", () => {
     const source = readComponent("badge.tsx");
     // Dot indicator can be a prop, a `dot` variant key, or a dot class
@@ -413,7 +400,7 @@ describe("Button — base-ui import patterns preserved", () => {
 // 12. INPUT — design system token usage (AC3)
 // ===========================================================================
 
-describe("Input — design system tokens used (AC3)", () => {
+describe("Input — design system tokens used", () => {
   it("uses --control-height-sm or control-height-sm for height", () => {
     const source = readComponent("input.tsx");
     expect(source).toMatch(/control-height-sm/);
@@ -446,7 +433,7 @@ describe("Input — design system tokens used (AC3)", () => {
 // 13. TEXTAREA — design system token usage (AC3)
 // ===========================================================================
 
-describe("Textarea — design system tokens used (AC3)", () => {
+describe("Textarea — design system tokens used", () => {
   it("uses --control-height-sm or control-height-sm for min-height reference", () => {
     const source = readComponent("textarea.tsx");
     expect(source).toMatch(/control-height-sm/);
@@ -479,7 +466,7 @@ describe("Textarea — design system tokens used (AC3)", () => {
 // 14. LABEL — design system token usage (AC4)
 // ===========================================================================
 
-describe("Label — design system tokens used (AC4)", () => {
+describe("Label — design system tokens used", () => {
   it("uses --font-size-sm or font-size-sm or text-sm utility for label text size", () => {
     const source = readComponent("label.tsx");
     // CVA+Tailwind: text-sm maps to --font-size-sm via @theme inline
@@ -503,7 +490,7 @@ describe("Label — design system tokens used (AC4)", () => {
 // 16. TOOLTIP — design system token usage (AC6)
 // ===========================================================================
 
-describe("Tooltip — design system tokens used (AC6)", () => {
+describe("Tooltip — design system tokens used", () => {
   it("uses --surface-raised or surface-raised for tooltip background", () => {
     const source = readComponent("tooltip.tsx");
     expect(source).toMatch(/surface-raised/);
@@ -543,7 +530,7 @@ describe("Tooltip — design system tokens used (AC6)", () => {
 // 17. STORYBOOK STORIES — all 7 component story files exist (AC7)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC7)", () => {
+describe("Storybook stories — existence", () => {
   it("Button.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Button.stories.tsx")).toBe(true);
   });
@@ -573,7 +560,7 @@ describe("Storybook stories — existence (AC7)", () => {
 // 18. STORYBOOK STORIES — proper structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Button.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Button.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Button.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -605,7 +592,7 @@ describe("Storybook stories — Button.stories.tsx structure (AC7)", () => {
   });
 });
 
-describe("Storybook stories — Badge.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Badge.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Badge.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -632,7 +619,7 @@ describe("Storybook stories — Badge.stories.tsx structure (AC7)", () => {
   });
 });
 
-describe("Storybook stories — Input.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Input.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Input.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -649,7 +636,7 @@ describe("Storybook stories — Input.stories.tsx structure (AC7)", () => {
   });
 });
 
-describe("Storybook stories — Textarea.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Textarea.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Textarea.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -666,7 +653,7 @@ describe("Storybook stories — Textarea.stories.tsx structure (AC7)", () => {
   });
 });
 
-describe("Storybook stories — Label.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Label.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Label.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -683,7 +670,7 @@ describe("Storybook stories — Label.stories.tsx structure (AC7)", () => {
   });
 });
 
-describe("Storybook stories — Tooltip.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Tooltip.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Tooltip.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);

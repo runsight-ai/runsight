@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => {
     nodes: [
       {
         id: "node-1",
-        type: "task",
+        type: "soul",
         position: { x: 10, y: 20 },
         data: { label: "Draft node" },
       },
@@ -146,7 +146,7 @@ beforeEach(() => {
   mocks.toastError.mockReset();
 });
 
-describe("RunButton simulation behavior (RUN-423)", () => {
+describe("RunButton simulation behavior", () => {
   it("dirty canvas snapshots the in-memory workflow before starting a simulation run", async () => {
     const currentWorkflowId = "wf_live_42";
     const currentYaml = "workflow:\n  name: Live Flow\n  steps:\n    - id: latest-step\n";

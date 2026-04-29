@@ -1,19 +1,14 @@
 /**
- * RED-TEAM tests for RUN-221: Generic Block Round-Trip.
+ * Generic block round-trip coverage.
  *
  * The frontend must accept ANY block type string and round-trip ALL fields
- * faithfully -- including types it has never seen before. After this ticket,
+ * faithfully -- including types it has never seen before. With this behavior,
  * adding a new block type on the backend requires ZERO frontend code changes.
  *
- * These tests MUST FAIL until the Green Team implements:
+ * Tests verify:
  *  - Parser: accept any string as a valid block type (no VALID_STEP_TYPES rejection)
  *  - Parser: generic snake_case -> camelCase field mapping for unknown fields
  *  - Compiler: generic camelCase -> snake_case field emission for unknown types
- *
- * Failure reasons against current implementation:
- *  - `toStepType()` falls back to "linear" for unknown types
- *  - `buildNodeData()` only maps fields via explicit if-chains
- *  - `toCompiledBlock()` only emits fields listed in BLOCK_TYPE_FIELDS
  */
 
 import { describe, it, expect } from "vitest";
@@ -132,7 +127,6 @@ describe("Parser: unknown block type accepted", () => {
     });
     const data = parseFirst(yaml);
 
-    // FAILS: toStepType() falls back to "linear" for unknown types
     expect(data.stepType).toBe("custom_thing");
   });
 
@@ -142,7 +136,6 @@ describe("Parser: unknown block type accepted", () => {
     });
     const result = parseWorkflowYamlToGraph(yaml);
 
-    // FAILS: toStepType() returns an error for unknown types
     expect(result.error).toBeUndefined();
   });
 
@@ -176,7 +169,6 @@ describe("Parser: unknown fields mapped snake_case -> camelCase", () => {
     });
     const data = parseFirst(yaml);
 
-    // FAILS: buildNodeData() only maps known fields via explicit if-chains
     expect(data.stepType).toBe("custom_thing");
     expect((data as Record<string, unknown>).fooBar).toBe(42);
     expect((data as Record<string, unknown>).bazQux).toBe("hello");
@@ -270,7 +262,6 @@ describe("Compiler: unknown block type emits all fields", () => {
 
     const { block } = compileOne(node);
 
-    // FAILS: BLOCK_TYPE_FIELDS lookup returns undefined for "custom_thing"
     expect(block.type).toBe("custom_thing");
     expect(block.foo_bar).toBe(42);
     expect(block.baz_qux).toBe("hello");
@@ -372,7 +363,6 @@ describe("Full round-trip: custom_thing block", () => {
     const block1 = getBlock(doc1, "step1");
     const block2 = getBlock(doc2, "step1");
 
-    // FAILS: type falls back to "linear", fields are lost
     expect(block1.type).toBe("custom_thing");
     expect(block1.foo_bar).toBe(42);
     expect(block1.baz_qux).toBe("hello");
@@ -420,7 +410,7 @@ describe("Mixed known + unknown types round-trip", () => {
         bazQux: "hello",
       } as unknown as Partial<StepNodeData>),
       mockNode("fetch", "http_request", {
-        url: "https://api.example.com/data",
+        url: "https://api.example.test/data",
         method: "GET",
         timeoutSeconds: 15,
       }),
@@ -440,7 +430,7 @@ describe("Mixed known + unknown types round-trip", () => {
 
     const fetchBlock = getBlock(doc1, "fetch");
     expect(fetchBlock.type).toBe("http_request");
-    expect(fetchBlock.url).toBe("https://api.example.com/data");
+    expect(fetchBlock.url).toBe("https://api.example.test/data");
 
     // Unknown type should also work
     const transformBlock = getBlock(doc1, "transform");
@@ -465,7 +455,7 @@ describe("Mixed known + unknown types round-trip", () => {
         validationRules: ["not_empty", "is_json"],
       } as unknown as Partial<StepNodeData>),
       mockNode("step3", "webhook_sender", {
-        webhookUrl: "https://hooks.example.com/notify",
+        webhookUrl: "https://hooks.example.test/notify",
         payloadTemplate: '{"status": "done"}',
       } as unknown as Partial<StepNodeData>),
     ];
@@ -485,7 +475,7 @@ describe("Mixed known + unknown types round-trip", () => {
     // All fields must survive
     expect(getBlock(doc1, "step1").transform_fn).toBe("normalize");
     expect(getBlock(doc1, "step2").model_ref).toBe("gpt-4");
-    expect(getBlock(doc1, "step3").webhook_url).toBe("https://hooks.example.com/notify");
+    expect(getBlock(doc1, "step3").webhook_url).toBe("https://hooks.example.test/notify");
 
     expect(doc2.blocks).toEqual(doc1.blocks);
     expect(yaml2).toBe(yaml1);
@@ -503,7 +493,6 @@ describe("Empty block round-trip", () => {
     const { doc1, doc2 } = roundTrip({ nodes: [node], edges: [] });
 
     const block1 = getBlock(doc1, "step1");
-    // FAILS: type falls back to "linear"
     expect(block1).toEqual({ type: "empty_block" });
     expect(doc2.blocks["step1"]).toEqual(doc1.blocks["step1"]);
   });
@@ -789,7 +778,7 @@ describe("Existing known types unaffected by generic changes", () => {
 
   it("http_request block still round-trips", () => {
     const node = mockNode("b1", "http_request", {
-      url: "https://api.example.com",
+      url: "https://api.example.test",
       method: "POST",
       bodyType: "json",
       timeoutSeconds: 30,

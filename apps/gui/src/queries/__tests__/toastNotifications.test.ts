@@ -1,17 +1,13 @@
 /**
- * RED-TEAM tests for RUN-240: Toast notifications for all mutation operations.
+ * Toast notification coverage for mutation operations.
  *
  * These tests verify that every mutation hook in the query layer calls:
  * 1. toast.success(...) in its onSuccess callback
  * 2. toast.error(...) in its onError callback
  * 3. The toast import from "sonner" exists in each file
  *
- * Approach: Source-level analysis (same pattern as runDetailPolling.test.ts).
+ * Approach: Source-level analysis.
  * We read each query file and assert that mutation functions contain toast calls.
- *
- * All 25 mutations across 7 files must have both
- * success and error toasts. Currently NONE of them do -- these tests should
- * all FAIL.
  */
 
 import { describe, it, expect } from "vitest";
@@ -119,7 +115,7 @@ function expectOnErrorCallback(source: string, hookName: string) {
 // 1. souls.ts — 3 mutations
 // ---------------------------------------------------------------------------
 
-describe("souls.ts toast notifications (RUN-240)", () => {
+describe("souls.ts toast notifications", () => {
   expectToastImport(soulsSource, "souls.ts");
 
   expectSuccessToast(soulsSource, "useCreateSoul", "Soul created");
@@ -139,7 +135,7 @@ describe("souls.ts toast notifications (RUN-240)", () => {
 // 2. Retired task/step query files are no longer required here once deleted
 // ---------------------------------------------------------------------------
 
-describe("retired tasks/steps toast coverage cleanup (RUN-508)", () => {
+describe("retired tasks/steps toast coverage cleanup", () => {
   it("does not require the retired steps query file to remain", () => {
     expect(existsSync(stepsPath)).toBe(false);
   });
@@ -153,7 +149,7 @@ describe("retired tasks/steps toast coverage cleanup (RUN-508)", () => {
 // 4. workflows.ts — 3 mutations
 // ---------------------------------------------------------------------------
 
-describe("workflows.ts toast notifications (RUN-240)", () => {
+describe("workflows.ts toast notifications", () => {
   expectToastImport(workflowsSource, "workflows.ts");
 
   expectSuccessToast(workflowsSource, "useCreateWorkflow", "Workflow created");
@@ -173,7 +169,7 @@ describe("workflows.ts toast notifications (RUN-240)", () => {
 // 5. runs.ts — 3 mutations
 // ---------------------------------------------------------------------------
 
-describe("runs.ts toast notifications (RUN-240)", () => {
+describe("runs.ts toast notifications", () => {
   expectToastImport(runsSource, "runs.ts");
 
   expectSuccessToast(runsSource, "useCreateRun", "Run started");
@@ -193,7 +189,7 @@ describe("runs.ts toast notifications (RUN-240)", () => {
 // 6. settings.ts — 9 mutations
 // ---------------------------------------------------------------------------
 
-describe("settings.ts toast notifications (RUN-240)", () => {
+describe("settings.ts toast notifications", () => {
   expectToastImport(settingsSource, "settings.ts");
 
   expectSuccessToast(settingsSource, "useCreateProvider", "Provider added");
@@ -221,7 +217,7 @@ describe("settings.ts toast notifications (RUN-240)", () => {
 // 7. git.ts — 1 mutation (useCommit)
 // ---------------------------------------------------------------------------
 
-describe("git.ts toast notifications (RUN-240)", () => {
+describe("git.ts toast notifications", () => {
   expectToastImport(gitSource, "git.ts");
 
   expectSuccessToast(gitSource, "useCommit", "Changes committed");
@@ -233,7 +229,7 @@ describe("git.ts toast notifications (RUN-240)", () => {
 // 8. Cross-cutting: Only mutations have toasts, not queries
 // ---------------------------------------------------------------------------
 
-describe("Only mutations have toasts, not queries (RUN-240)", () => {
+describe("Only mutations have toasts, not queries", () => {
   const queryFunctions = [
     { source: soulsSource, names: ["useSouls", "useSoul"] },
     { source: workflowsSource, names: ["useWorkflows", "useWorkflow"] },
@@ -264,7 +260,7 @@ describe("Only mutations have toasts, not queries (RUN-240)", () => {
 // 9. Error toasts include the error message via description
 // ---------------------------------------------------------------------------
 
-describe("Error toasts include error.message in description (RUN-240)", () => {
+describe("Error toasts include error.message in description", () => {
   const allMutations: Array<{ source: string; hookName: string; file: string }> = [
     // souls.ts
     { source: soulsSource, hookName: "useCreateSoul", file: "souls.ts" },

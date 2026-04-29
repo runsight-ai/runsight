@@ -1,0 +1,22 @@
+id: input-redaction-legacy-interface
+kind: workflow
+version: "1.0"
+interface:
+  inputs:
+    - name: query
+      target: shared_memory.query
+inputs:
+  query:
+    type: string
+blocks:
+  expose:
+    type: code
+    code: |
+      def main(data):
+          return {"ok": True}
+workflow:
+  name: input_redaction_legacy_interface
+  entry: expose
+  transitions:
+    - from: expose
+      to: null

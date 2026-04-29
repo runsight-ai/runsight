@@ -19,7 +19,7 @@ function read(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
-describe("RUN-448 file creation", () => {
+describe("file creation", () => {
   it("creates SoulFormBody and all section components under features/souls", () => {
     expect(existsSync(SECTION_PATHS.body)).toBe(true);
     expect(existsSync(SECTION_PATHS.section)).toBe(true);
@@ -31,7 +31,7 @@ describe("RUN-448 file creation", () => {
   });
 });
 
-describe("SoulFormSection contract (RUN-448)", () => {
+describe("SoulFormSection contract", () => {
   it("exports a reusable section container with title, collapsible support, and tokenized heading styles", () => {
     const source = read(SECTION_PATHS.section);
     expect(source).toMatch(/export\s+(function|const)\s+SoulFormSection/);
@@ -46,7 +46,7 @@ describe("SoulFormSection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulIdentitySection contract (RUN-448)", () => {
+describe("SoulIdentitySection contract", () => {
   it("renders Name input plus SoulAvatarColorPicker", () => {
     const source = read(SECTION_PATHS.identity);
     expect(source).toMatch(/export\s+(function|const)\s+SoulIdentitySection/);
@@ -59,7 +59,7 @@ describe("SoulIdentitySection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulModelSection contract (RUN-448)", () => {
+describe("SoulModelSection contract", () => {
   it("uses configured providers plus the model catalog to drive provider and model selects without a legacy provider mirror prop", () => {
     const source = read(SECTION_PATHS.model);
     expect(source).toMatch(/export\s+(function|const)\s+SoulModelSection/);
@@ -101,7 +101,7 @@ describe("SoulModelSection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulPromptSection contract (RUN-448)", () => {
+describe("SoulPromptSection contract", () => {
   it("renders a system-prompt textarea", () => {
     const source = read(SECTION_PATHS.prompt);
     expect(source).toMatch(/export\s+(function|const)\s+SoulPromptSection/);
@@ -111,7 +111,7 @@ describe("SoulPromptSection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulToolsSection contract (RUN-448)", () => {
+describe("SoulToolsSection contract", () => {
   it("renders workflow-context tool states instead of a hardcoded assignable-only picker", () => {
     const source = read(SECTION_PATHS.tools);
     expect(source).toMatch(/export\s+(function|const)\s+SoulToolsSection/);
@@ -130,7 +130,7 @@ describe("SoulToolsSection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulAdvancedSection contract (RUN-448)", () => {
+describe("SoulAdvancedSection contract", () => {
   it("renders temperature, max tokens, and max tool iterations controls", () => {
     const source = read(SECTION_PATHS.advanced);
     expect(source).toMatch(/export\s+(function|const)\s+SoulAdvancedSection/);
@@ -147,7 +147,7 @@ describe("SoulAdvancedSection contract (RUN-448)", () => {
   });
 });
 
-describe("SoulFormBody composition contract (RUN-448)", () => {
+describe("SoulFormBody composition contract", () => {
   it("composes all five content sections and passes form bindings through", () => {
     const source = read(SECTION_PATHS.body);
     expect(source).toMatch(/export\s+(function|const)\s+SoulFormBody/);

@@ -126,7 +126,7 @@ test.describe("Settings: Providers CRUD", () => {
     const saveButton = modal.getByRole("button", { name: "Save" });
     await expect(saveButton).toBeDisabled();
 
-    await modal.getByPlaceholder("sk-proj-...").fill("sk-test-local-only");
+    await modal.locator('input[type="password"]').fill("test-provider-key-local-only");
     await expect(modal.getByRole("status")).toContainText("Connected", {
       timeout: 5000,
     });

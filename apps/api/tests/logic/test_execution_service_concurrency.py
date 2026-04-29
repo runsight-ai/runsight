@@ -1,7 +1,7 @@
-"""Red tests for RUN-5: Concurrent run limits via asyncio.Semaphore.
+"""Concurrent run limits via asyncio.Semaphore.
 
 These tests verify that ExecutionService caps concurrent workflow executions
-using an asyncio.Semaphore. All tests should FAIL until the implementation exists.
+using an asyncio.Semaphore.
 """
 
 import asyncio
@@ -104,24 +104,24 @@ class TestConcurrencyLimit:
         total_runs = max_concurrent + 2
         svc, *_ = _make_service(max_concurrent_runs=max_concurrent)
 
-        currently_running = 0
+        active_runs = 0
         max_observed = 0
         lock = asyncio.Lock()
         gate = asyncio.Event()
         all_entered = asyncio.Event()
 
         async def tracked_run(*args, **kwargs):
-            nonlocal currently_running, max_observed
+            nonlocal active_runs, max_observed
             async with lock:
-                currently_running += 1
-                if currently_running > max_observed:
-                    max_observed = currently_running
-                if currently_running >= max_concurrent:
+                active_runs += 1
+                if active_runs > max_observed:
+                    max_observed = active_runs
+                if active_runs >= max_concurrent:
                     all_entered.set()
             # Wait at the gate so runs pile up
             await gate.wait()
             async with lock:
-                currently_running -= 1
+                active_runs -= 1
             from runsight_core.state import WorkflowState
 
             return WorkflowState()
@@ -167,23 +167,23 @@ class TestConcurrencyLimit:
         svc, *_ = _make_service()  # No max_concurrent_runs — should default to 5
         total_runs = 7
 
-        currently_running = 0
+        active_runs = 0
         max_observed = 0
         lock = asyncio.Lock()
         gate = asyncio.Event()
         five_entered = asyncio.Event()
 
         async def tracked_run(*args, **kwargs):
-            nonlocal currently_running, max_observed
+            nonlocal active_runs, max_observed
             async with lock:
-                currently_running += 1
-                if currently_running > max_observed:
-                    max_observed = currently_running
-                if currently_running >= 5:
+                active_runs += 1
+                if active_runs > max_observed:
+                    max_observed = active_runs
+                if active_runs >= 5:
                     five_entered.set()
             await gate.wait()
             async with lock:
-                currently_running -= 1
+                active_runs -= 1
             from runsight_core.state import WorkflowState
 
             return WorkflowState()

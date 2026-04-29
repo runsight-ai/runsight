@@ -1,0 +1,49 @@
+id: input-redaction-conflicting-workflow-result
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  api_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  seed_facade:
+    type: workflow
+    workflow_ref: input-redaction-conflict-seed
+    outputs:
+      results.workflow: results.seed
+  consume:
+    type: code
+    timeout_seconds: 5
+    inputs:
+      query:
+        from: workflow.query
+    code: |
+      def main(data):
+          expected = "input-redaction-workflow-state-source-query"
+          if data["query"] != expected:
+              return {
+                  "source": "synthetic_results_workflow",
+                  "observed": data["query"],
+              }
+          return {"source": "workflow_inputs", "observed": data["query"]}
+workflow:
+  name: input_redaction_conflicting_workflow_result
+  entry: seed_facade
+  transitions:
+    - from: seed_facade
+      to: consume
+    - from: consume
+      to: null

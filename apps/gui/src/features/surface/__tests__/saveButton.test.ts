@@ -120,7 +120,7 @@ beforeEach(() => {
   });
 });
 
-describe("SurfaceTopbar save behavior (RUN-433)", () => {
+describe("SurfaceTopbar save behavior", () => {
   it("renders a quiet save button when the canvas is clean", () => {
     const { markup, saveButton } = renderTopbar({ isDirty: false });
 

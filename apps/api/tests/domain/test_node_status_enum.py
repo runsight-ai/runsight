@@ -1,11 +1,10 @@
-"""Red tests for RUN-330: NodeStatus enum — replace magic strings on RunNode.
+"""NodeStatus enum coverage for replacing magic strings on RunNode.
 
 Tests target:
   - apps/api/src/runsight_api/domain/entities/run.py (NodeStatus enum, RunNode.status type)
   - apps/api/src/runsight_api/logic/observers/execution_observer.py (enum usage)
   - apps/api/src/runsight_api/logic/services/run_service.py (enum usage)
 
-All tests should FAIL until the implementation exists.
 """
 
 import inspect
@@ -210,7 +209,7 @@ class TestObserverIntegration:
 
     @pytest.fixture
     def seed_run(self, db_engine):
-        run_id = "run_330"
+        run_id = "run_node_status"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,

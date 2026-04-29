@@ -1,11 +1,9 @@
 /**
- * RED-TEAM tests for RUN-116: Compiler full per-type block field emission.
+ * YAML compiler per-type block field emission coverage.
  *
  * These tests verify that `toCompiledBlock()` (via `compileGraphToWorkflowYaml`)
  * emits ALL valid fields per block type with snake_case keys, and excludes
  * runtime-only / cross-type fields.
- *
- * Expected to FAIL against the current implementation (which only emits `{ type }`).
  */
 
 import { describe, it, expect } from "vitest";
@@ -716,7 +714,7 @@ describe("YAML string output uses snake_case keys", () => {
 });
 
 // ===========================================================================
-// 9. Souls and config top-level sections (RUN-117)
+// 9. Souls and config top-level sections
 // ===========================================================================
 
 describe("Souls and config top-level sections", () => {
@@ -733,7 +731,7 @@ describe("Souls and config top-level sections", () => {
     timeout: 300,
   };
 
-  it("souls are NOT included in compiled output even when provided (RUN-574)", () => {
+  it("souls are NOT included in compiled output even when provided", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
@@ -751,7 +749,7 @@ describe("Souls and config top-level sections", () => {
     expect(result.workflowDocument.config).toEqual(sampleConfig);
   });
 
-  it("souls do NOT appear in YAML string output even when provided (RUN-574)", () => {
+  it("souls do NOT appear in YAML string output even when provided", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear", { soulRef: "planner" })],
       edges: [],
@@ -771,7 +769,7 @@ describe("Souls and config top-level sections", () => {
     expect(result.yaml).toContain("timeout: 300");
   });
 
-  it("empty souls object is omitted (RUN-574)", () => {
+  it("empty souls object is omitted", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear")],
       edges: [],
@@ -791,7 +789,7 @@ describe("Souls and config top-level sections", () => {
     expect(result.yaml).not.toContain("config:");
   });
 
-  it("undefined souls/config are omitted (RUN-574)", () => {
+  it("undefined souls/config are omitted", () => {
     const result = compileGraphToWorkflowYaml({
       nodes: [mockNode("b1", "linear")],
       edges: [],
@@ -802,7 +800,7 @@ describe("Souls and config top-level sections", () => {
     expect(result.yaml).not.toContain("config:");
   });
 
-  it("soul fields are NOT serialized to top-level souls section (RUN-574)", () => {
+  it("soul fields are NOT serialized to top-level souls section", () => {
     const fullSoul: SoulDef = {
       id: "coder",
       role: "engineer",
@@ -815,7 +813,7 @@ describe("Souls and config top-level sections", () => {
       edges: [],
       souls: { coder: fullSoul },
     });
-    // After RUN-574, souls are never emitted in the compiled output
+    // Souls are never emitted in the compiled output.
     expect(result.workflowDocument).not.toHaveProperty("souls");
     expect(result.yaml).not.toMatch(/^souls:/m);
     // But soul_ref on blocks should still work
@@ -845,19 +843,9 @@ describe("Souls and config top-level sections", () => {
 });
 
 // ===========================================================================
-// 10. Conditional transitions compilation (RUN-118)
+// 10. Conditional transitions compilation
 // ===========================================================================
 
-/**
- * RED-TEAM tests for RUN-118: conditional_transitions emission.
- *
- * Edges from nodes WITH output_conditions should go into
- * `workflow.conditional_transitions`; edges from nodes WITHOUT
- * output_conditions stay in `workflow.transitions`.
- *
- * Expected to FAIL against the current implementation which puts ALL
- * edges into `workflow.transitions` regardless of output_conditions.
- */
 describe("Conditional transitions compilation", () => {
   // ── helpers ──────────────────────────────────────────────────────────────
 

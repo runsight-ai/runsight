@@ -1,4 +1,4 @@
-"""Red-phase tests for RUN-130: Git status, commit, diff, and log endpoints.
+"""Git status, commit, diff, and log endpoint coverage.
 
 These tests exercise the git router at /api/git/*.  Each test creates an
 isolated temporary git repo so we never touch the real runsight repo.

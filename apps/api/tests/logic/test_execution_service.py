@@ -1,7 +1,7 @@
-"""Red tests for RUN-127 and RUN-423: ExecutionService background execution.
+"""ExecutionService background execution.
 
-These tests target the new ExecutionService that wires POST /runs to workflow.run()
-with background asyncio execution. All tests should FAIL until the implementation exists.
+These tests target the ExecutionService wiring from POST /runs to workflow.run()
+with background asyncio execution.
 """
 
 import asyncio
@@ -16,7 +16,7 @@ from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
-# --- Import target (does not exist yet — tests must fail on import) ---
+# --- Import target ---
 
 
 def _import_execution_service():
@@ -226,7 +226,7 @@ class TestLaunchExecution:
 
     @pytest.mark.asyncio
     async def test_launch_execution_reads_yaml_from_requested_branch(self, tmp_path: Path):
-        """RUN-423: requested simulation branches must supply their own YAML content."""
+        """Requested simulation branches must supply their own YAML content."""
         ExecutionService = _import_execution_service()
         from runsight_api.logic.services.git_service import GitService
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository

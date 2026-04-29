@@ -1,0 +1,44 @@
+id: input-redaction-direct
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  limit:
+    type: number
+    required: false
+    default: 5
+  api_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  expose:
+    type: code
+    timeout_seconds: 5
+    inputs:
+      query:
+        from: workflow.query
+      token:
+        from: workflow.api_token
+    code: |
+      import time
+      def main(data):
+          time.sleep(0.25)
+          return {"ok": True, "echoed_token": data["token"]}
+workflow:
+  name: input_redaction_direct
+  entry: expose
+  transitions:
+    - from: expose
+      to: null

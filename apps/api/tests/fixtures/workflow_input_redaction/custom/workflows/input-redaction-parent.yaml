@@ -1,0 +1,33 @@
+id: input-redaction-parent
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  api_token:
+    type: string
+    sensitive: true
+config:
+  model_name: gpt-4o
+souls:
+  bootstrap:
+    id: bootstrap
+    kind: soul
+    name: Bootstrap
+    role: Bootstrap
+    system_prompt: Parser bootstrap model holder.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  invoke_child:
+    type: workflow
+    workflow_ref: input-redaction-child
+    inputs:
+      child_query: workflow.query
+      child_token: workflow.api_token
+workflow:
+  name: input_redaction_parent
+  entry: invoke_child
+  transitions:
+    - from: invoke_child
+      to: null

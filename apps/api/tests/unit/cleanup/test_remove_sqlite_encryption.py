@@ -1,5 +1,5 @@
 """
-Red-phase tests for RUN-237: Remove SQLite provider/settings tables and encryption module.
+SQLite provider/settings tables and encryption module cleanup.
 
 These tests verify that all cleanup actions have been completed:
 - Deleted files no longer exist on disk
@@ -28,7 +28,7 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 
 
 # =========================================================================
-# AC1 / AC5: Deleted files must not exist
+# Deleted SQLite settings/provider storage files must not exist
 # =========================================================================
 
 
@@ -49,7 +49,7 @@ class TestDeletedFiles:
 
 
 # =========================================================================
-# AC1 / AC5: No stale imports of deleted modules in source code
+# Source code must not import deleted modules
 # =========================================================================
 
 
@@ -62,7 +62,7 @@ class TestNoStaleImports:
     """No source file should reference deleted modules."""
 
     def test_no_encryption_imports(self):
-        """AC5: grep -r 'from.*encryption import' apps/api/ returns zero results."""
+        """Source files must not import the removed encryption module."""
         hits: list[str] = []
         for py in _python_source_files():
             text = py.read_text()
@@ -105,12 +105,12 @@ class TestNoStaleImports:
 
 
 # =========================================================================
-# AC4: No api_key_encrypted references
+# Provider secret fields must not reference removed encrypted columns
 # =========================================================================
 
 
 class TestNoApiKeyEncrypted:
-    """AC4: grep -r 'api_key_encrypted' apps/api/ returns zero results."""
+    """Source files must not reference removed api_key_encrypted columns."""
 
     def test_no_api_key_encrypted_in_source(self):
         hits: list[str] = []
@@ -123,12 +123,12 @@ class TestNoApiKeyEncrypted:
 
 
 # =========================================================================
-# AC2: cryptography removed from pyproject.toml
+# Deleted encryption dependency must stay removed
 # =========================================================================
 
 
 class TestCryptographyDependency:
-    """AC2: cryptography package removed from dependencies."""
+    """The cryptography package is no longer an API dependency."""
 
     def test_cryptography_not_in_pyproject(self):
         text = _PYPROJECT.read_text()
@@ -292,7 +292,7 @@ class TestRepositoriesInitCleaned:
 
 
 # =========================================================================
-# AC3: SQLite DB still works for Run, RunNode, LogEntry
+# Runtime SQLite tables remain functional
 # =========================================================================
 
 

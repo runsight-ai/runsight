@@ -1,257 +1,69 @@
 /**
- * RED-TEAM tests for RUN-154: Git frontend data layer.
+ * Git frontend data layer coverage.
  *
- * Tests cover three layers:
- * 1. Zod schemas  — valid/invalid parsing, field presence
- * 2. API client   — correct endpoints, Zod parsing
- * 3. React Query hooks — query keys, polling, cache invalidation
- *
- * All tests must FAIL until Green-team implements:
- * - packages/shared/src/zod.ts (Git schemas)
- * - apps/gui/src/api/git.ts
- * - apps/gui/src/queries/git.ts
+ * Tests cover GUI-owned layers:
+ * 1. API client — correct endpoints and response parsing calls
+ * 2. React Query hooks — query keys, polling, cache invalidation
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ---------------------------------------------------------------------------
-// Helpers: path constants
-// ---------------------------------------------------------------------------
+type QueryConfig = {
+  queryKey: readonly unknown[];
+  queryFn: () => Promise<unknown>;
+  refetchInterval?: number;
+  enabled?: boolean;
+};
 
-const SCHEMAS_PATH = resolve(
-  __dirname,
-  "../../../../../../packages/shared/src/zod.ts",
-);
-const API_CLIENT_PATH = resolve(__dirname, "../../../api/git.ts");
-const HOOKS_PATH = resolve(__dirname, "../../../queries/git.ts");
-const KEYS_PATH = resolve(__dirname, "../../../queries/keys.ts");
-// ===========================================================================
-// SECTION 1: Zod Schemas
-// ===========================================================================
+type MutationConfig = {
+  mutationFn: (variables: unknown) => Promise<unknown>;
+  onSuccess?: (data?: unknown, variables?: unknown) => void;
+  onError?: (error: Error) => void;
+};
 
-describe("Git Zod schemas (RUN-154)", () => {
-  // Guard: file must exist before any schema test runs
-  it("schema file exists at packages/shared/src/zod.ts", () => {
-    expect(existsSync(SCHEMAS_PATH)).toBe(true);
-  });
+async function loadGitHooksWithMocks() {
+  const queryClient = { invalidateQueries: vi.fn() };
+  const useQuery = vi.fn((config: QueryConfig) => config);
+  const useMutation = vi.fn((config: MutationConfig) => config);
+  const gitApi = {
+    getStatus: vi.fn().mockResolvedValue({ is_clean: true, uncommitted_files: [] }),
+    getLog: vi.fn().mockResolvedValue([]),
+    getDiff: vi.fn().mockResolvedValue({ diff: "diff --git a/file b/file" }),
+    commit: vi.fn().mockResolvedValue({ hash: "abc123", message: "save" }),
+    commitWorkflow: vi.fn().mockResolvedValue({ hash: "def456", message: "save workflow" }),
+  };
+  const toast = {
+    success: vi.fn(),
+    error: vi.fn(),
+  };
 
-  // We dynamically import so the rest of the suite still reports useful failures
-  // even when the file is missing (the guard test above catches that).
+  vi.resetModules();
+  vi.doMock("@tanstack/react-query", () => ({
+    useQuery,
+    useMutation,
+    useQueryClient: () => queryClient,
+  }));
+  vi.doMock("sonner", () => ({ toast }));
+  vi.doMock("../../../api/git", () => ({ gitApi }));
 
-  describe("UncommittedFileSchema", () => {
-    it("parses a valid file status object", async () => {
-      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
-      const result = UncommittedFileSchema.safeParse({
-        path: "src/app.ts",
-        status: "modified",
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.path).toBe("src/app.ts");
-        expect(result.data.status).toBe("modified");
-      }
-    });
+  const hooks = await import("../../../queries/git");
 
-    it("rejects when path is missing", async () => {
-      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
-      const result = UncommittedFileSchema.safeParse({ status: "modified" });
-      expect(result.success).toBe(false);
-    });
+  return { gitApi, hooks, queryClient, toast, useMutation, useQuery };
+}
 
-    it("rejects when status is missing", async () => {
-      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
-      const result = UncommittedFileSchema.safeParse({ path: "foo.ts" });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects non-string path", async () => {
-      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
-      const result = UncommittedFileSchema.safeParse({ path: 123, status: "modified" });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects non-string status", async () => {
-      const { UncommittedFileSchema } = await import("@runsight/shared/zod");
-      const result = UncommittedFileSchema.safeParse({ path: "foo.ts", status: true });
-      expect(result.success).toBe(false);
-    });
-  });
-
-  describe("StatusResponseSchema", () => {
-    it("parses a valid status response", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const data = {
-        branch: "main",
-        uncommitted_files: [
-          { path: "src/app.ts", status: "modified" },
-          { path: "README.md", status: "untracked" },
-        ],
-        is_clean: false,
-      };
-      const result = StatusResponseSchema.safeParse(data);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.branch).toBe("main");
-        expect(result.data.uncommitted_files).toHaveLength(2);
-        expect(result.data.is_clean).toBe(false);
-      }
-    });
-
-    it("parses a clean repo response", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const result = StatusResponseSchema.safeParse({
-        branch: "feat/foo",
-        uncommitted_files: [],
-        is_clean: true,
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects when branch is missing", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const result = StatusResponseSchema.safeParse({
-        uncommitted_files: [],
-        is_clean: true,
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects when uncommitted_files is not an array", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const result = StatusResponseSchema.safeParse({
-        branch: "main",
-        uncommitted_files: "not-an-array",
-        is_clean: true,
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects when is_clean is missing", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const result = StatusResponseSchema.safeParse({
-        branch: "main",
-        uncommitted_files: [],
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("has exactly the fields: branch, uncommitted_files, is_clean", async () => {
-      const { StatusResponseSchema } = await import("@runsight/shared/zod");
-      const keys = Object.keys(StatusResponseSchema.shape).sort();
-      expect(keys).toEqual(["branch", "is_clean", "uncommitted_files"]);
-    });
-  });
-
-  describe("CommitResponseSchema", () => {
-    it("parses a valid commit response", async () => {
-      const { CommitResponseSchema } = await import("@runsight/shared/zod");
-      const result = CommitResponseSchema.safeParse({
-        hash: "abc123def456",
-        message: "feat: add git integration",
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.hash).toBe("abc123def456");
-        expect(result.data.message).toBe("feat: add git integration");
-      }
-    });
-
-    it("rejects when hash is missing", async () => {
-      const { CommitResponseSchema } = await import("@runsight/shared/zod");
-      const result = CommitResponseSchema.safeParse({ message: "hi" });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects when message is missing", async () => {
-      const { CommitResponseSchema } = await import("@runsight/shared/zod");
-      const result = CommitResponseSchema.safeParse({ hash: "abc123" });
-      expect(result.success).toBe(false);
-    });
-
-    it("has exactly the fields: hash, message", async () => {
-      const { CommitResponseSchema } = await import("@runsight/shared/zod");
-      const keys = Object.keys(CommitResponseSchema.shape).sort();
-      expect(keys).toEqual(["hash", "message"]);
-    });
-  });
-
-  describe("CommitEntrySchema", () => {
-    it("parses a valid log entry", async () => {
-      const { CommitEntrySchema } = await import("@runsight/shared/zod");
-      const result = CommitEntrySchema.safeParse({
-        hash: "abc123",
-        message: "initial commit",
-        date: "2026-03-18 10:00:00 -0700",
-        author: "Jane Doe",
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.hash).toBe("abc123");
-        expect(result.data.author).toBe("Jane Doe");
-      }
-    });
-
-    it("rejects when any required field is missing", async () => {
-      const { CommitEntrySchema } = await import("@runsight/shared/zod");
-      // Missing author
-      const result = CommitEntrySchema.safeParse({
-        hash: "abc",
-        message: "msg",
-        date: "2026-01-01",
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("has exactly the fields: hash, message, date, author", async () => {
-      const { CommitEntrySchema } = await import("@runsight/shared/zod");
-      const keys = Object.keys(CommitEntrySchema.shape).sort();
-      expect(keys).toEqual(["author", "date", "hash", "message"]);
-    });
-  });
-
-  describe("DiffResponseSchema", () => {
-    it("parses a valid diff response", async () => {
-      const { DiffResponseSchema } = await import("@runsight/shared/zod");
-      const result = DiffResponseSchema.safeParse({
-        diff: "--- a/foo.ts\n+++ b/foo.ts\n@@ -1 +1 @@\n-old\n+new",
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.diff).toContain("foo.ts");
-      }
-    });
-
-    it("parses an empty diff string", async () => {
-      const { DiffResponseSchema } = await import("@runsight/shared/zod");
-      const result = DiffResponseSchema.safeParse({ diff: "" });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects when diff is missing", async () => {
-      const { DiffResponseSchema } = await import("@runsight/shared/zod");
-      const result = DiffResponseSchema.safeParse({});
-      expect(result.success).toBe(false);
-    });
-
-    it("has exactly the field: diff", async () => {
-      const { DiffResponseSchema } = await import("@runsight/shared/zod");
-      const keys = Object.keys(DiffResponseSchema.shape).sort();
-      expect(keys).toEqual(["diff"]);
-    });
-  });
+beforeEach(() => {
+  vi.resetModules();
+  vi.unmock("@tanstack/react-query");
+  vi.unmock("sonner");
+  vi.unmock("../../../api/git");
+  vi.unmock("../../../api/client");
 });
 
 // ===========================================================================
-// SECTION 2: API Client
+// SECTION 1: API Client
 // ===========================================================================
 
-describe("Git API client (RUN-154)", () => {
-  it("api client file exists at api/git.ts", () => {
-    expect(existsSync(API_CLIENT_PATH)).toBe(true);
-  });
-
+describe("Git API client", () => {
   describe("gitApi.getStatus()", () => {
     it("calls GET /git/status and parses with GitStatusResponseSchema", async () => {
       // Mock the underlying fetch/api client
@@ -399,184 +211,117 @@ describe("Git API client (RUN-154)", () => {
       vi.doUnmock("../../../api/client");
     });
   });
-
-  describe("API client source-level checks", () => {
-    it("imports from api/client", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/import\s*\{[^}]*api[^}]*\}\s*from\s*["']\.\/client["']/);
-    });
-
-    it("imports Zod schemas from @runsight/shared/zod", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']@runsight\/shared\/zod["']/);
-    });
-
-    it("calls .parse() on responses for type safety", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      // Each endpoint should parse with the corresponding schema
-      expect(source).toMatch(/StatusResponseSchema\.parse/);
-      expect(source).toMatch(/CommitResponseSchema\.parse/);
-      expect(source).toMatch(/DiffResponseSchema\.parse/);
-    });
-
-    it("exports gitApi object with all four methods", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/export\s+const\s+gitApi/);
-      expect(source).toContain("getStatus");
-      expect(source).toContain("commit");
-      expect(source).toContain("getDiff");
-      expect(source).toContain("getLog");
-    });
-
-    it("getStatus calls GET /git/status", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/api\.get.*\/git\/status/);
-    });
-
-    it("commit calls POST /git/commit", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/api\.post.*\/git\/commit/);
-    });
-
-    it("getDiff calls GET /git/diff", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/api\.get.*\/git\/diff/);
-    });
-
-    it("getLog calls GET /git/log", () => {
-      const source = readFileSync(API_CLIENT_PATH, "utf-8");
-      expect(source).toMatch(/api\.get.*\/git\/log/);
-    });
-  });
 });
 
 // ===========================================================================
-// SECTION 3: React Query Hooks
+// SECTION 2: React Query Hooks
 // ===========================================================================
 
-describe("Git React Query hooks (RUN-154)", () => {
-  it("hooks file exists at queries/git.ts", () => {
-    expect(existsSync(HOOKS_PATH)).toBe(true);
-  });
-
-  describe("Source-level contract checks", () => {
-    it("imports from @tanstack/react-query", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']@tanstack\/react-query["']/);
-    });
-
-    it("imports gitApi from api/git", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']\.\.\/api\/git["']/);
-    });
-
-    it("imports queryKeys from ./keys", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/from\s*["']\.\/keys["']/);
-    });
-
-    it("exports useGitStatus hook", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/export\s+function\s+useGitStatus/);
-    });
-
-    it("exports useGitLog hook", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/export\s+function\s+useGitLog/);
-    });
-
-    it("exports useGitDiff hook", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/export\s+function\s+useGitDiff/);
-    });
-
-    it("exports useCommit mutation hook", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/export\s+function\s+useCommit/);
-    });
-  });
-
+describe("Git React Query hooks", () => {
   describe("useGitStatus polling", () => {
-    it("uses POLL_INTERVALS.gitStatus (5000ms) as refetchInterval", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      // Should reference POLL_INTERVALS.gitStatus or the 5_000 / 5000 value
-      expect(source).toMatch(/POLL_INTERVALS\.gitStatus|refetchInterval.*5.?000/);
-    });
+    it("registers the git status query with polling and enabled option", async () => {
+      const { gitApi, hooks, useQuery } = await loadGitHooksWithMocks();
 
-    it("imports POLL_INTERVALS from utils/constants", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/import.*POLL_INTERVALS.*from\s*["']\.\.\/utils\/constants["']/);
-    });
+      hooks.useGitStatus({ enabled: false });
 
-    it("supports an enabled option to disable polling", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      // The useGitStatus function should accept options with enabled
-      expect(source).toMatch(/enabled/);
-    });
+      const config = useQuery.mock.calls[0]?.[0] as QueryConfig;
+      expect(config.queryKey).toEqual(["git", "status"]);
+      expect(config.enabled).toBe(false);
+      expect(config.refetchInterval).toBe(5000);
 
-    it("uses queryKeys.git.status as the query key", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/queryKeys\.git\.status/);
+      await config.queryFn();
+
+      expect(gitApi.getStatus).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("useGitLog", () => {
-    it("includes limit in the query key", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      // The query key should include the limit parameter for proper caching
-      expect(source).toMatch(/queryKey.*git.*log.*limit|queryKey.*\[.*queryKeys\.git\.log.*limit/);
-    });
+    it("includes limit in the query key and passes it to the API", async () => {
+      const { gitApi, hooks, useQuery } = await loadGitHooksWithMocks();
 
-    it("uses queryKeys.git.log as the base query key", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/queryKeys\.git\.log/);
+      hooks.useGitLog(10);
+
+      const config = useQuery.mock.calls[0]?.[0] as QueryConfig;
+      expect(config.queryKey).toEqual(["git", "log", 10]);
+
+      await config.queryFn();
+
+      expect(gitApi.getLog).toHaveBeenCalledWith(10);
     });
   });
 
   describe("useGitDiff", () => {
-    it("uses a git diff query key", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/queryKeys\.git\.diff|queryKey.*["']git["'].*["']diff["']/);
+    it("uses the git diff query key and calls the diff API", async () => {
+      const { gitApi, hooks, useQuery } = await loadGitHooksWithMocks();
+
+      hooks.useGitDiff();
+
+      const config = useQuery.mock.calls[0]?.[0] as QueryConfig;
+      expect(config.queryKey).toEqual(["git", "diff"]);
+
+      await config.queryFn();
+
+      expect(gitApi.getDiff).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("useCommit mutation", () => {
-    it("uses useMutation", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/useMutation/);
-    });
+    it("commits through gitApi and invalidates git status and log on success", async () => {
+      const { gitApi, hooks, queryClient, toast, useMutation } =
+        await loadGitHooksWithMocks();
 
-    it("calls gitApi.commit as the mutationFn", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/gitApi\.commit|mutationFn.*commit/);
-    });
+      hooks.useCommit();
 
-    it("invalidates git status cache on success", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/invalidateQueries.*git.*status|queryKeys\.git\.status/);
-    });
+      const config = useMutation.mock.calls[0]?.[0] as MutationConfig;
+      await config.mutationFn("save changes");
+      config.onSuccess?.();
 
-    it("invalidates git log cache on success", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/invalidateQueries.*git.*log|queryKeys\.git\.log/);
-    });
-
-    it("uses useQueryClient for cache invalidation", () => {
-      const source = readFileSync(HOOKS_PATH, "utf-8");
-      expect(source).toMatch(/useQueryClient/);
+      expect(gitApi.commit).toHaveBeenCalledWith("save changes");
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["git", "status"],
+      });
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["git", "log"],
+      });
+      expect(toast.success).toHaveBeenCalledWith("Changes committed");
     });
   });
-});
 
-// ===========================================================================
-// SECTION 4: Query Keys integration
-// ===========================================================================
+  describe("useCommitWorkflow mutation", () => {
+    it("commits workflow drafts and invalidates workflow and git caches", async () => {
+      const { gitApi, hooks, queryClient, toast, useMutation } =
+        await loadGitHooksWithMocks();
 
-describe("Query keys for git (RUN-154)", () => {
-  it("queryKeys.git.diff is defined in keys.ts", () => {
-    const source = readFileSync(KEYS_PATH, "utf-8");
-    expect(source).toMatch(/diff\s*:/);
-    // Verify it is inside the git block
-    expect(source).toMatch(/git\s*:\s*\{[^}]*diff/);
+      hooks.useCommitWorkflow();
+
+      const config = useMutation.mock.calls[0]?.[0] as MutationConfig;
+      const variables = {
+        workflowId: "wf_git_save",
+        payload: {
+          yaml: "workflow:\n  name: Git Save\n",
+          message: "save workflow",
+        },
+      };
+
+      await config.mutationFn(variables);
+      config.onSuccess?.({ hash: "def456", message: "save workflow" }, variables);
+
+      expect(gitApi.commitWorkflow).toHaveBeenCalledWith(
+        "wf_git_save",
+        variables.payload,
+      );
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["workflows", "wf_git_save"],
+      });
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["git", "status"],
+      });
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["git", "log"],
+      });
+      expect(toast.success).toHaveBeenCalledWith("Saved to main (def456)", {
+        description: "save workflow",
+      });
+    });
   });
 });

@@ -98,7 +98,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe("RUN-429 WorkflowRow enabled toggle", () => {
+describe("WorkflowRow enabled toggle", () => {
   it("renders an accessible switch that reflects the workflow enabled state", async () => {
     await renderWorkflowRow({
       workflow: buildWorkflow({ enabled: true }),

@@ -49,7 +49,7 @@ function getExplicitUiExports() {
   return new Set(Object.keys(exportsMap).filter((subpath) => subpath !== "./*" && subpath !== "./styles.css"));
 }
 
-describe("RUN-514 GUI runtime uses supported @runsight/ui exports", () => {
+describe("GUI runtime uses supported @runsight/ui exports", () => {
   it("does not rely on a wildcard ui export for product runtime imports", () => {
     const wildcardExport = readUiPackageJson().exports?.["./*"];
 

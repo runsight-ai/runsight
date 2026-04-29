@@ -1,10 +1,10 @@
-"""Red tests for RUN-326 + RUN-333: single status writer + explicit repo contract.
+"""Single status writer and explicit lifecycle repo contract.
 
-RUN-326: _run_workflow must NOT call _set_run_status for completed/failed.
-         ExecutionObserver is the sole writer of terminal Run status.
+_run_workflow must not call _set_run_status for completed/failed outcomes;
+ExecutionObserver is the sole writer of terminal Run status.
 
-RUN-333: engine-backed ExecutionService must still use the supplied lifecycle
-         persistence repo when error-path writes are required.
+Engine-backed ExecutionService must still use the supplied lifecycle
+persistence repo when error-path writes are required.
 """
 
 import asyncio
@@ -20,7 +20,7 @@ from runsight_api.logic.services.execution_service import ExecutionService, Prep
 from runsight_core.redaction import RunRedactor
 
 # ======================================================================
-# C1 — Single status writer (RUN-326)
+# Single status writer.
 # ======================================================================
 
 
@@ -74,7 +74,7 @@ class TestObserverWritesTerminalStatus:
 
 
 # ======================================================================
-# C8 — Fresh session per operation (RUN-333)
+# Fresh session per operation.
 # ======================================================================
 
 

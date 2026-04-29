@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-295: Component Token Reference Sweep.
+ * Component token reference sweep coverage.
  *
  * Validates that all 17 UI components have been updated to use the Runsight
  * Product Design System token names. Tests read each component file as a
@@ -7,13 +7,6 @@
  *   1. No OLD shadcn token class names or var() references remain
  *   2. At least some NEW design system token names are present (proving
  *      the file was updated, not just emptied)
- *
- * Expected failures (current state):
- *   - All components still reference old shadcn token names
- *   - bg-primary, bg-secondary, bg-muted, bg-card, bg-background, etc.
- *   - text-foreground, text-primary-foreground, text-muted-foreground, etc.
- *   - border-border, border-input, ring-ring
- *   - var(--background), var(--foreground), var(--primary), etc.
  *
  * Token mapping (old -> new):
  *   bg-background        -> bg-surface-primary
@@ -496,10 +489,10 @@ describe("No old var() refs — tooltip.tsx", () => {
 // 4. CVA variant names are unchanged (AC5) — spot-check key components
 // ===========================================================================
 
-// Updated by RUN-298: badge variants migrated to design system spec
+// Badge variants use the design system semantic variant set
 // Old variants (default, secondary, destructive, ghost, link) replaced with
 // semantic variants (accent, success, warning, danger, info, neutral, outline)
-describe("CVA variant names updated — badge.tsx (RUN-298)", () => {
+describe("CVA variant names updated — badge.tsx", () => {
   it("exports badgeVariants with new semantic variants: accent, success, warning, danger, info, neutral, outline", () => {
     const source = readComponent("badge.tsx");
     expect(source).toMatch(/export.*badgeVariants/);
@@ -515,10 +508,10 @@ describe("CVA variant names updated — badge.tsx (RUN-298)", () => {
   });
 });
 
-// Updated by RUN-298: button variants migrated to design system spec
+// Button variants use the design system semantic variant set
 // Old variants (default, outline, destructive, link) replaced with
 // new variants (primary, danger, icon-only) and updated secondary/ghost
-describe("CVA variant names updated — button.tsx (RUN-298)", () => {
+describe("CVA variant names updated — button.tsx", () => {
   it("exports buttonVariants with new design system variants: primary, secondary, ghost, danger, icon-only", () => {
     const source = readComponent("button.tsx");
     expect(source).toMatch(/export.*buttonVariants/);

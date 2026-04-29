@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-299: Tier 2 Form Controls.
+ * Tier 2 form control component coverage.
  *
  * Validates that Select and Switch have been updated to use the
  * Runsight design system tokens, and that Checkbox, Radio, and Slider have
@@ -10,16 +10,6 @@
  *   1. Existing components (select, switch): required tokens present
  *   2. New components (checkbox, radio, slider): file exists, exports, tokens, ARIA
  *   3. All 5: story files exist with proper Storybook structure
- *
- * Expected failures (current state):
- *   - select.tsx: missing control-height-sm, surface-tertiary tokens on trigger
- *   - switch.tsx: uses bg-input for off-state instead of neutral-5/neutral-6;
- *     uses bg-surface-primary for thumb instead of neutral-12; missing explicit
- *     neutral-5, neutral-6, neutral-12, interactive-default token references
- *   - checkbox.tsx does not exist
- *   - radio.tsx does not exist
- *   - slider.tsx does not exist
- *   - No story files exist for any of the 6 components
  */
 
 import { describe, it, expect } from "vitest";
@@ -60,7 +50,7 @@ function readStory(filename: string): string {
 // 1. SELECT — trigger height token (AC1)
 // ===========================================================================
 
-describe("Select — control-height token on trigger (AC1)", () => {
+describe("Select — control-height token on trigger", () => {
   it("uses --control-height-sm or control-height-sm for trigger height", () => {
     const source = readComponent("select.tsx");
     // Spec: Height uses --control-height-sm design token on SelectTrigger
@@ -73,7 +63,7 @@ describe("Select — control-height token on trigger (AC1)", () => {
 // 2. SELECT — border tokens (AC1)
 // ===========================================================================
 
-describe("Select — border tokens (AC1)", () => {
+describe("Select — border tokens", () => {
   it("uses border-default token for trigger border", () => {
     const source = readComponent("select.tsx");
     // Spec: border uses --border-default
@@ -93,7 +83,7 @@ describe("Select — border tokens (AC1)", () => {
 // 3. SELECT — background tokens (AC1)
 // ===========================================================================
 
-describe("Select — background tokens (AC1)", () => {
+describe("Select — background tokens", () => {
   it("uses surface-tertiary token for trigger background", () => {
     const source = readComponent("select.tsx");
     // Spec: trigger background is --surface-tertiary
@@ -113,7 +103,7 @@ describe("Select — background tokens (AC1)", () => {
 // 4. SELECT — text token (AC1)
 // ===========================================================================
 
-describe("Select — text token (AC1)", () => {
+describe("Select — text token", () => {
   it("uses text-primary token for selected value text", () => {
     const source = readComponent("select.tsx");
     // Spec: text uses --text-primary
@@ -126,7 +116,7 @@ describe("Select — text token (AC1)", () => {
 // 5. SELECT — elevation shadow on dropdown (AC1)
 // ===========================================================================
 
-describe("Select — elevation shadow on dropdown (AC1)", () => {
+describe("Select — elevation shadow on dropdown", () => {
   it("uses elevation-overlay-shadow or shadow-overlay token on dropdown content", () => {
     const source = readComponent("select.tsx");
     // Spec: dropdown uses --elevation-overlay-shadow
@@ -139,7 +129,7 @@ describe("Select — elevation shadow on dropdown (AC1)", () => {
 // 6. SWITCH — track off-state token (AC2)
 // ===========================================================================
 
-describe("Switch — track off-state token (AC2)", () => {
+describe("Switch — track off-state token", () => {
   it("uses neutral-5 or neutral-6 token for the unchecked track", () => {
     const source = readComponent("switch.tsx");
     // Spec: unchecked track background is --neutral-5 or --neutral-6
@@ -152,7 +142,7 @@ describe("Switch — track off-state token (AC2)", () => {
 // 7. SWITCH — track on-state token (AC2)
 // ===========================================================================
 
-describe("Switch — track on-state token (AC2)", () => {
+describe("Switch — track on-state token", () => {
   it("uses interactive-default token for the checked track", () => {
     const source = readComponent("switch.tsx");
     // Spec: checked track background is --interactive-default
@@ -165,7 +155,7 @@ describe("Switch — track on-state token (AC2)", () => {
 // 8. SWITCH — thumb token (AC2)
 // ===========================================================================
 
-describe("Switch — thumb token (AC2)", () => {
+describe("Switch — thumb token", () => {
   it("uses neutral-12 token for the switch thumb", () => {
     const source = readComponent("switch.tsx");
     // Spec: thumb background is --neutral-12
@@ -178,7 +168,7 @@ describe("Switch — thumb token (AC2)", () => {
 // 9. SWITCH — old input token removed (AC2)
 // ===========================================================================
 
-describe("Switch — old bg-input token removed (AC2)", () => {
+describe("Switch — old bg-input token removed", () => {
   it("does not use bg-input for the unchecked track (replaced by neutral-5/neutral-6)", () => {
     const source = readComponent("switch.tsx");
     // Old: data-unchecked:bg-input — must be replaced with neutral-5/neutral-6
@@ -190,7 +180,7 @@ describe("Switch — old bg-input token removed (AC2)", () => {
 // 10. CHECKBOX — file exists (AC4)
 // ===========================================================================
 
-describe("Checkbox — component file exists (AC4)", () => {
+describe("Checkbox — component file exists", () => {
   it("checkbox.tsx exists in src/components/ui/", () => {
     expect(componentExists("checkbox.tsx")).toBe(true);
   });
@@ -200,7 +190,7 @@ describe("Checkbox — component file exists (AC4)", () => {
 // 13. CHECKBOX — named export (AC4)
 // ===========================================================================
 
-describe("Checkbox — named export (AC4)", () => {
+describe("Checkbox — named export", () => {
   it("exports a Checkbox component", () => {
     const source = readComponent("checkbox.tsx");
     expect(source).toMatch(/export.*\bCheckbox\b/);
@@ -211,7 +201,7 @@ describe("Checkbox — named export (AC4)", () => {
 // 14. CHECKBOX — design system tokens (AC4)
 // ===========================================================================
 
-describe("Checkbox — design system tokens (AC4)", () => {
+describe("Checkbox — design system tokens", () => {
   it("uses interactive-default token for checked state", () => {
     const source = readComponent("checkbox.tsx");
     expect(source).toMatch(/interactive-default/);
@@ -238,7 +228,7 @@ describe("Checkbox — design system tokens (AC4)", () => {
 // 15. CHECKBOX — states (AC4)
 // ===========================================================================
 
-describe("Checkbox — state support (AC4)", () => {
+describe("Checkbox — state support", () => {
   it("supports an indeterminate state", () => {
     const source = readComponent("checkbox.tsx");
     expect(source).toMatch(/indeterminate/);
@@ -254,7 +244,7 @@ describe("Checkbox — state support (AC4)", () => {
 // 16. CHECKBOX — ARIA (AC4)
 // ===========================================================================
 
-describe("Checkbox — ARIA compliance (AC4)", () => {
+describe("Checkbox — ARIA compliance", () => {
   it("uses a native checkbox input or role='checkbox'", () => {
     const source = readComponent("checkbox.tsx");
     // ARIA: native input[type=checkbox] or role="checkbox"
@@ -266,7 +256,7 @@ describe("Checkbox — ARIA compliance (AC4)", () => {
 // 17. RADIO — file exists (AC5)
 // ===========================================================================
 
-describe("Radio — component file exists (AC5)", () => {
+describe("Radio — component file exists", () => {
   it("radio.tsx exists in src/components/ui/", () => {
     expect(componentExists("radio.tsx")).toBe(true);
   });
@@ -276,7 +266,7 @@ describe("Radio — component file exists (AC5)", () => {
 // 18. RADIO — named export (AC5)
 // ===========================================================================
 
-describe("Radio — named export (AC5)", () => {
+describe("Radio — named export", () => {
   it("exports a Radio component", () => {
     const source = readComponent("radio.tsx");
     expect(source).toMatch(/export.*\bRadio\b/);
@@ -287,7 +277,7 @@ describe("Radio — named export (AC5)", () => {
 // 19. RADIO — design system tokens (AC5)
 // ===========================================================================
 
-describe("Radio — design system tokens (AC5)", () => {
+describe("Radio — design system tokens", () => {
   it("uses interactive-default token for selected state", () => {
     const source = readComponent("radio.tsx");
     expect(source).toMatch(/interactive-default/);
@@ -313,7 +303,7 @@ describe("Radio — design system tokens (AC5)", () => {
 // 20. RADIO — layout support (AC5)
 // ===========================================================================
 
-describe("Radio — layout support (AC5)", () => {
+describe("Radio — layout support", () => {
   it("supports vertical layout (default radio-group orientation)", () => {
     const source = readComponent("radio.tsx");
     // RadioGroup must support vertical stacking
@@ -331,7 +321,7 @@ describe("Radio — layout support (AC5)", () => {
 // 21. RADIO — states (AC5)
 // ===========================================================================
 
-describe("Radio — state support (AC5)", () => {
+describe("Radio — state support", () => {
   it("supports a disabled state", () => {
     const source = readComponent("radio.tsx");
     expect(source).toMatch(/disabled/);
@@ -342,7 +332,7 @@ describe("Radio — state support (AC5)", () => {
 // 22. RADIO — ARIA (AC5)
 // ===========================================================================
 
-describe("Radio — ARIA compliance (AC5)", () => {
+describe("Radio — ARIA compliance", () => {
   it("uses a native radio input or role='radio'", () => {
     const source = readComponent("radio.tsx");
     // ARIA: native input[type=radio] or role="radio"
@@ -354,7 +344,7 @@ describe("Radio — ARIA compliance (AC5)", () => {
 // 23. SLIDER — file exists (AC6)
 // ===========================================================================
 
-describe("Slider — component file exists (AC6)", () => {
+describe("Slider — component file exists", () => {
   it("slider.tsx exists in src/components/ui/", () => {
     expect(componentExists("slider.tsx")).toBe(true);
   });
@@ -364,7 +354,7 @@ describe("Slider — component file exists (AC6)", () => {
 // 24. SLIDER — named export (AC6)
 // ===========================================================================
 
-describe("Slider — named export (AC6)", () => {
+describe("Slider — named export", () => {
   it("exports a Slider component", () => {
     const source = readComponent("slider.tsx");
     expect(source).toMatch(/export.*\bSlider\b/);
@@ -375,7 +365,7 @@ describe("Slider — named export (AC6)", () => {
 // 25. SLIDER — design system tokens (AC6)
 // ===========================================================================
 
-describe("Slider — design system tokens (AC6)", () => {
+describe("Slider — design system tokens", () => {
   it("uses surface-tertiary or neutral-5 token for track background", () => {
     const source = readComponent("slider.tsx");
     expect(source).toMatch(/surface-tertiary|neutral-5/);
@@ -406,7 +396,7 @@ describe("Slider — design system tokens (AC6)", () => {
 // 26. SLIDER — ARIA (AC6)
 // ===========================================================================
 
-describe("Slider — ARIA compliance (AC6)", () => {
+describe("Slider — ARIA compliance", () => {
   it("uses a native range input or role='slider'", () => {
     const source = readComponent("slider.tsx");
     // ARIA: native input[type=range] or role="slider"
@@ -418,7 +408,7 @@ describe("Slider — ARIA compliance (AC6)", () => {
 // 27. STORYBOOK STORIES — all 6 component story files exist (AC7)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC7)", () => {
+describe("Storybook stories — existence", () => {
   it("Select.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Select.stories.tsx")).toBe(true);
   });
@@ -444,7 +434,7 @@ describe("Storybook stories — existence (AC7)", () => {
 // 28. STORYBOOK STORIES — Select.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Select.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Select.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Select.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -475,7 +465,7 @@ describe("Storybook stories — Select.stories.tsx structure (AC7)", () => {
 // 29. STORYBOOK STORIES — Switch.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Switch.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Switch.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Switch.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -506,7 +496,7 @@ describe("Storybook stories — Switch.stories.tsx structure (AC7)", () => {
 // 30. STORYBOOK STORIES — Checkbox.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Checkbox.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Checkbox.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Checkbox.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -542,7 +532,7 @@ describe("Storybook stories — Checkbox.stories.tsx structure (AC7)", () => {
 // 32. STORYBOOK STORIES — Radio.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Radio.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Radio.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Radio.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -578,7 +568,7 @@ describe("Storybook stories — Radio.stories.tsx structure (AC7)", () => {
 // 33. STORYBOOK STORIES — Slider.stories.tsx structure (AC7)
 // ===========================================================================
 
-describe("Storybook stories — Slider.stories.tsx structure (AC7)", () => {
+describe("Storybook stories — Slider.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Slider.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);

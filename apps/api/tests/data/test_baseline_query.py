@@ -1,4 +1,4 @@
-"""Red tests for RUN-313: RunReadModel.get_baseline() query.
+"""RunReadModel.get_baseline() query.
 
 Tests target the baseline query method on RunReadModel:
   - get_baseline(soul_id, soul_version, limit=100) -> BaselineStats | None
@@ -9,7 +9,6 @@ Tests target the baseline query method on RunReadModel:
 
 Also tests the BaselineStats model itself.
 
-All tests should FAIL until the implementation exists.
 """
 
 import pytest

@@ -120,7 +120,7 @@ beforeEach(() => {
   resetMocks();
 });
 
-describe("RUN-452 SoulLibraryPage behavior", () => {
+describe("SoulLibraryPage behavior", () => {
   it("builds the page from PageHeader and DataTable directly, with canonical tool identity surfaced in the tools column", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 

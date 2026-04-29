@@ -1,4 +1,4 @@
-"""Tests for RUN-227: error message sanitization in global exception handler.
+"""Error message sanitization in global exception handler.
 
 The global exception handler must NOT leak internal details (file paths,
 stack traces, DB schema) to the client.  Unhandled exceptions should return
@@ -71,7 +71,7 @@ client = TestClient(_app, raise_server_exceptions=False)
 
 
 # ===================================================================
-# Tests that should FAIL (unhandled exceptions are not yet sanitized)
+# Unhandled exception sanitization behavior.
 # ===================================================================
 
 

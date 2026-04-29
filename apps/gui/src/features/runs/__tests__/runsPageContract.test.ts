@@ -267,7 +267,7 @@ function getVisibleWorkflowOrder() {
     .map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
-describe("RUN-487 canonical /runs page", () => {
+describe("canonical /runs page", () => {
   it("autofocuses the Search runs input when the runs page loads", async () => {
     await renderRunsRoute("/runs");
 

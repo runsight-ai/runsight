@@ -1,0 +1,82 @@
+version: "1.0"
+souls:
+  writer:
+    id: writer
+    kind: soul
+    name: Content Writer
+    role: Content Writer
+    system_prompt: Generate structured JSON output.
+  evaluator:
+    id: evaluator
+    kind: soul
+    name: Quality Evaluator
+    role: Quality Evaluator
+    system_prompt: Evaluate content quality.
+blocks:
+  linear_block:
+    type: linear
+    soul_ref: writer
+  code_block:
+    type: code
+    inputs:
+      linear_output:
+        from: linear_block
+    code: |
+      import json
+      def main(data):
+          linear_output = data["linear_output"]
+          parsed = json.loads(linear_output)
+          return {
+              "transformed": True,
+              "title": parsed["title"].upper(),
+              "word_count": len(parsed["body"].split()),
+              "source": "linear_block"
+          }
+  quality_gate:
+    type: gate
+    soul_ref: evaluator
+    eval_key: code_block
+    pass: pass_handler
+    fail: fail_handler
+  pass_handler:
+    type: code
+    inputs:
+      gate_result:
+        from: quality_gate
+      code_result:
+        from: code_block
+    code: |
+      import json
+      def main(data):
+          gate_result = data["gate_result"]
+          code_result = json.loads(data["code_result"])
+          return {
+              "branch": "pass",
+              "gate_said": gate_result,
+              "title_from_code": code_result["title"]
+          }
+  fail_handler:
+    type: code
+    inputs:
+      gate_result:
+        from: quality_gate
+      code_result:
+        from: code_block
+    code: |
+      import json
+      def main(data):
+          gate_result = data["gate_result"]
+          code_result = json.loads(data["code_result"])
+          return {
+              "branch": "fail",
+              "gate_said": gate_result,
+              "title_from_code": code_result["title"]
+          }
+workflow:
+  name: mixed_pipeline
+  entry: linear_block
+  transitions:
+    - from: linear_block
+      to: code_block
+    - from: code_block
+      to: quality_gate

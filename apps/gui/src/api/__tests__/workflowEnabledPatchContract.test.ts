@@ -51,7 +51,7 @@ const workflowResponsePayload = {
   },
 };
 
-describe("RUN-566 setWorkflowEnabled uses PATCH endpoint", () => {
+describe("setWorkflowEnabled uses PATCH endpoint", () => {
   it("calls PATCH /workflows/:id/enabled with { enabled } body", async () => {
     testState.apiPatch.mockResolvedValue(workflowResponsePayload);
 

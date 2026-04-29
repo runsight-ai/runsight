@@ -450,7 +450,7 @@ beforeEach(() => {
   setDeleteOutcome("success");
 });
 
-describe("SoulDeleteDialog behavior (RUN-451)", () => {
+describe("SoulDeleteDialog behavior", () => {
   it("does not request usages when the dialog is closed", async () => {
     await renderDialog({ open: false });
 

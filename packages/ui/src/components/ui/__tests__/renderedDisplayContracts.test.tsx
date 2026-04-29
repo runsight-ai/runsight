@@ -156,9 +156,9 @@ describe("rendered display contracts", () => {
   });
 
   it("renders key-value pairs with monospace values by default and body text when requested", () => {
-    const { rerender } = render(<KeyValue label="Run ID" value="run_123" />);
+    const { rerender } = render(<KeyValue label="Run ID" value="run_display_primary" />);
 
-    const monoValue = screen.getByText("run_123");
+    const monoValue = screen.getByText("run_display_primary");
     expect(monoValue.className).toContain("font-mono");
 
     rerender(

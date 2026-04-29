@@ -9,7 +9,7 @@ function getCopyButtons() {
   return screen.getAllByRole("button", { name: "Copy" }) as HTMLButtonElement[]
 }
 
-describe("CodeBlock copy behavior (RUN-966)", () => {
+describe("CodeBlock copy behavior", () => {
   it("copies the clicked block's tokenized code content", async () => {
     const user = createUser()
     const { writeText } = mockClipboard()

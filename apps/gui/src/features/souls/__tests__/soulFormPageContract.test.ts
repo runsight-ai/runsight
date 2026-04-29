@@ -12,14 +12,14 @@ function read(path: string): string {
   return readFileSync(path, "utf-8");
 }
 
-describe("RUN-449 file creation", () => {
+describe("file creation", () => {
   it("creates SoulFormPage and SoulFormFooter under features/souls", () => {
     expect(existsSync(PAGE_PATH)).toBe(true);
     expect(existsSync(FOOTER_PATH)).toBe(true);
   });
 });
 
-describe("RUN-449 route wiring", () => {
+describe("route wiring", () => {
   it("adds /souls/new and /souls/:id/edit routes that lazy-load SoulFormPage", () => {
     const routesSource = read(ROUTES_PATH);
     expect(routesSource).toMatch(/path:\s*["']souls\/new["']/);
@@ -28,7 +28,7 @@ describe("RUN-449 route wiring", () => {
   });
 });
 
-describe("SoulFormFooter contract (RUN-449)", () => {
+describe("SoulFormFooter contract", () => {
   it("exports a sticky footer with mode/returnUrl label switching", () => {
     const source = read(FOOTER_PATH);
     expect(source).toMatch(/export\s+(function|const)\s+SoulFormFooter/);
@@ -46,7 +46,7 @@ describe("SoulFormFooter contract (RUN-449)", () => {
   });
 });
 
-describe("SoulFormPage contract (RUN-449)", () => {
+describe("SoulFormPage contract", () => {
   it("exports a page component that assembles useSoul, useSoulForm, SoulFormBody, and SoulFormFooter", () => {
     const source = read(PAGE_PATH);
     expect(source).toMatch(/export\s+(function|const)\s+(Component|SoulFormPage)/);

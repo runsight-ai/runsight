@@ -1,4 +1,4 @@
-"""RED phase tests for RUN-6: SSE stream real-time execution events.
+"""SSE stream real-time execution event contracts.
 
 Tests target:
 - GET /api/runs/{run_id}/stream — SSE endpoint
@@ -33,8 +33,8 @@ SSE_STREAM_PATH = (
 def _make_mock_run(run_id="run_sse_1", status=RunStatus.running):
     mock_run = Mock()
     mock_run.id = run_id
-    mock_run.workflow_id = "wf_1"
-    mock_run.workflow_name = "wf_1"
+    mock_run.workflow_id = "wf_sse_stream"
+    mock_run.workflow_name = "wf_sse_stream"
     mock_run.status = status
     mock_run.started_at = 100.0
     mock_run.completed_at = None
@@ -619,7 +619,7 @@ class TestObserverRegistry:
 
 
 # ---------------------------------------------------------------------------
-# 9. RUN-410 replay failure logging
+# 9. Replay failure logging
 # ---------------------------------------------------------------------------
 
 

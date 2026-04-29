@@ -41,7 +41,7 @@ const WARNING_MULTI: WarningItem[] = [
   },
 ];
 
-describe("RUN-843 warning badge utilities", () => {
+describe("warning badge utilities", () => {
   it("exports warning badge utilities and tooltip body component", async () => {
     const module = await loadWarningBadgeModule();
 

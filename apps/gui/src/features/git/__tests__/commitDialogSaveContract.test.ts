@@ -157,7 +157,7 @@ beforeEach(() => {
   };
 });
 
-describe("CommitDialog workflow save contract (RUN-424)", () => {
+describe("CommitDialog workflow save contract", () => {
   it("requires an editable commit message and routes save through the workflow commit mutation", () => {
     const initialTree = renderDialog();
     const messageInput = findElement(initialTree, (element) => element.type === "textarea");

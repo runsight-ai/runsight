@@ -94,7 +94,7 @@ function hasUiTestCoverage(componentSubpath: string) {
     .some((filePath) => exactCoveragePatterns.some((pattern) => pattern.test(readFile(filePath))));
 }
 
-describe("RUN-514 explicit design-system surface", () => {
+describe("explicit design-system surface", () => {
   it("does not leave the supported public surface on an unbounded wildcard export", () => {
     const exportsMap = readPackageJson().exports ?? {};
 
@@ -119,7 +119,7 @@ describe("RUN-514 explicit design-system surface", () => {
   });
 });
 
-describe("RUN-514 retained vs unsupported public exports", () => {
+describe("retained vs unsupported public exports", () => {
   it("allows non-runtime exports to remain only when they have intentional story or test coverage", () => {
     const explicitExports = getExplicitExportMap();
     const runtimeImports = getGuiUiImportSubpaths();

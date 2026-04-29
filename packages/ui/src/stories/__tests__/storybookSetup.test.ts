@@ -1,16 +1,8 @@
 /**
- * RED-TEAM tests for RUN-297: Storybook Init + Design Token Integration.
+ * Storybook design-token integration coverage.
  *
  * Verifies that Storybook config files exist, are properly configured with
  * the design system, and that the DesignTokens documentation story is in place.
- *
- * Expected failures (current state):
- * - .storybook/ directory does not exist
- * - .storybook/main.ts does not exist
- * - .storybook/preview.ts does not exist
- * - src/stories/DesignTokens.stories.tsx does not exist
- * - package.json missing storybook / build-storybook scripts
- * - package.json missing @storybook/react-vite and storybook devDependencies
  */
 
 import { describe, it, expect } from "vitest";

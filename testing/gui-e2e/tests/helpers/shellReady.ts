@@ -1,10 +1,10 @@
 import { expect } from "@playwright/test";
 import type { Page, test as PlaywrightTest } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
+
+import { getE2ERuntimeRoot } from "./runtimeRoot";
 
 export const API = "http://localhost:8000/api";
 
@@ -27,9 +27,6 @@ export type WorkspaceSnapshot = {
   providerFiles: Map<string, string>;
   settingsContent: string | null;
 };
-
-const workspaceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const repoRoot = path.resolve(workspaceDir, "..", "..");
 
 const READY_PROVIDER: ProviderFixture = {
   id: "openai",
@@ -56,39 +53,7 @@ export function buildBlankWorkflowYaml(id: string, name = "Untitled Workflow") {
   });
 }
 
-function detectApiProjectRoot() {
-  if (process.env.RUNSIGHT_E2E_PROJECT_ROOT) {
-    return process.env.RUNSIGHT_E2E_PROJECT_ROOT;
-  }
-
-  try {
-    const pids = execFileSync("lsof", ["-t", "-i", "tcp:8000"], {
-      encoding: "utf-8",
-    })
-      .split(/\s+/)
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    for (const pid of pids) {
-      const cwdOutput = execFileSync("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"], {
-        encoding: "utf-8",
-      });
-      const cwdLine = cwdOutput
-        .split("\n")
-        .map((line) => line.trim())
-        .find((line) => line.startsWith("n/"));
-      if (cwdLine) {
-        return cwdLine.slice(1);
-      }
-    }
-  } catch {
-    return repoRoot;
-  }
-
-  return repoRoot;
-}
-
-const projectRoot = detectApiProjectRoot();
+const projectRoot = getE2ERuntimeRoot();
 const providersDir = path.join(projectRoot, "custom", "providers");
 const settingsDir = path.join(projectRoot, ".runsight");
 const settingsFile = path.join(settingsDir, "settings.yaml");

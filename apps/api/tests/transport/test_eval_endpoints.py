@@ -1,13 +1,13 @@
-"""Red-team tests for RUN-316: Delta Detection + Regression API.
+"""Eval delta and regression API contracts.
 
 Tests cover:
-- AC1: GET /api/runs/{run_id}/eval returns per-node assertion results
-- AC2: Each node includes delta vs baseline (cost_pct, tokens_pct, score_delta, baseline_run_count)
-- AC3: If no baseline exists (first run of this soul_version), delta is null
-- AC4: GET /api/souls/{soul_id}/eval/history returns time-series of eval scores
-- AC5: History endpoint shows soul_version boundaries (when prompt changed)
-- AC6: Both endpoints return 404 for non-existent run/soul
-- AC7: Response is JSON-serializable
+- GET /api/runs/{run_id}/eval returns per-node assertion results
+- Each node includes delta vs baseline (cost_pct, tokens_pct, score_delta, baseline_run_count)
+- If no baseline exists (first run of this soul_version), delta is null
+- GET /api/souls/{soul_id}/eval/history returns time-series of eval scores
+- History endpoint shows soul_version boundaries when prompts change
+- Both endpoints return 404 for non-existent run/soul
+- Responses are JSON-serializable
 """
 
 from unittest.mock import Mock
@@ -15,7 +15,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-# -- Imports that will fail until Green creates these modules ----------------
+# -- Eval API imports --------------------------------------------------------
 from runsight_api.logic.services.eval_service import EvalService
 from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service
@@ -86,12 +86,12 @@ def _make_version_entry(**overrides):
 
 
 # ===========================================================================
-# TestEvalSchemas — Pydantic model validation (AC7: JSON-serializable)
+# TestEvalSchemas — Pydantic model validation and JSON serialization
 # ===========================================================================
 
 
 class TestEvalSchemas:
-    """Test that the new Pydantic response schemas validate and serialize."""
+    """Pydantic response schemas validate and serialize."""
 
     def test_eval_delta_validates(self):
         """EvalDelta model accepts valid field values."""
@@ -115,12 +115,12 @@ class TestEvalSchemas:
         assert node.delta.baseline_run_count == 487
 
     def test_node_eval_result_with_null_delta_validates(self):
-        """NodeEvalResult with delta=None validates (AC3)."""
+        """NodeEvalResult with delta=None validates."""
         node = _make_node_eval_result(with_delta=False)
         assert node.delta is None
 
     def test_run_eval_response_serializes_to_json(self):
-        """RunEvalResponse round-trips to JSON dict (AC7)."""
+        """RunEvalResponse round-trips to JSON dict."""
         resp = _make_run_eval_response()
         data = resp.model_dump(mode="json")
         assert data["run_id"] == "run_abc123"
@@ -138,7 +138,7 @@ class TestEvalSchemas:
         assert entry.run_count == 487
 
     def test_soul_eval_history_response_serializes_to_json(self):
-        """SoulEvalHistoryResponse round-trips to JSON dict (AC7)."""
+        """SoulEvalHistoryResponse round-trips to JSON dict."""
         resp = SoulEvalHistoryResponse(
             soul_id="researcher_v1",
             versions=[_make_version_entry()],
@@ -151,7 +151,7 @@ class TestEvalSchemas:
 
 
 # ===========================================================================
-# TestEvalService — get_run_eval (AC1, AC2, AC3)
+# TestEvalService — get_run_eval
 # ===========================================================================
 
 
@@ -165,7 +165,7 @@ class TestEvalServiceGetRunEval:
         return EvalService(repo, run_read_model=run_read_model)
 
     def test_returns_per_node_results_for_run_with_eval_data(self):
-        """AC1: returns per-node assertion results for a run."""
+        """Returns per-node assertion results for a run."""
         repo = Mock()
         # Simulate RunNodes with eval data
         node1 = Mock(
@@ -193,7 +193,7 @@ class TestEvalServiceGetRunEval:
         assert result.nodes[0].node_id == "analyze"
 
     def test_includes_eval_fields_per_node(self):
-        """AC1: each node contains eval_score, passed, assertions."""
+        """Each node contains eval_score, passed, and assertions."""
         repo = Mock()
         node1 = Mock(
             node_id="analyze",
@@ -247,15 +247,15 @@ class TestEvalServiceGetRunEval:
             tokens={"total": 200},
         )
         repo.list_nodes_for_run.return_value = [node1, node2]
-        repo.get_run.return_value = Mock(id="run_123")
+        repo.get_run.return_value = Mock(id="run_eval_endpoint")
         service = self._service(repo, baseline=None)
-        result = service.get_run_eval("run_123")
+        result = service.get_run_eval("run_eval_endpoint")
 
         # Mean of 0.90 and 0.80 = 0.85
         assert result.aggregate_score == pytest.approx(0.85)
 
     def test_includes_delta_when_baseline_exists(self):
-        """AC2: delta populated with cost_pct, tokens_pct, score_delta, baseline_run_count."""
+        """delta populated with cost_pct, tokens_pct, score_delta, baseline_run_count."""
         repo = Mock()
         node1 = Mock(
             node_id="analyze",
@@ -292,7 +292,7 @@ class TestEvalServiceGetRunEval:
         assert isinstance(delta.score_delta, float)
 
     def test_delta_is_none_when_no_baseline(self):
-        """AC3: delta is null when this is the first run of a soul_version."""
+        """delta is null when this is the first run of a soul_version."""
         repo = Mock()
         node1 = Mock(
             node_id="analyze",
@@ -314,7 +314,7 @@ class TestEvalServiceGetRunEval:
         assert result.nodes[0].delta is None
 
     def test_returns_none_for_nonexistent_run(self):
-        """AC6: returns None for a non-existent run_id."""
+        """Returns None for a non-existent run_id."""
         repo = Mock()
         repo.get_run.return_value = None
 
@@ -351,9 +351,9 @@ class TestEvalServiceGetRunEval:
             tokens={"total": 0},
         )
         repo.list_nodes_for_run.return_value = [node_with_eval, node_without_eval]
-        repo.get_run.return_value = Mock(id="run_123")
+        repo.get_run.return_value = Mock(id="run_eval_endpoint")
         service = self._service(repo, baseline=None)
-        result = service.get_run_eval("run_123")
+        result = service.get_run_eval("run_eval_endpoint")
 
         assert len(result.nodes) == 1
         assert result.nodes[0].node_id == "analyze"
@@ -386,15 +386,15 @@ class TestEvalServiceGetRunEval:
             tokens={"total": 100},
         )
         repo.list_nodes_for_run.return_value = [node_pass, node_fail]
-        repo.get_run.return_value = Mock(id="run_123")
+        repo.get_run.return_value = Mock(id="run_eval_endpoint")
         service = self._service(repo, baseline=None)
-        result = service.get_run_eval("run_123")
+        result = service.get_run_eval("run_eval_endpoint")
 
         assert result.passed is False
 
 
 # ===========================================================================
-# TestEvalServiceGetSoulHistory — (AC4, AC5)
+# TestEvalServiceGetSoulHistory
 # ===========================================================================
 
 
@@ -402,7 +402,7 @@ class TestEvalServiceGetSoulHistory:
     """Test EvalService.get_soul_eval_history() business logic."""
 
     def test_returns_versions_grouped_by_soul_version(self):
-        """AC4+AC5: returns entries grouped by soul_version."""
+        """Returns entries grouped by soul_version."""
         repo = Mock()
         # Two nodes with different soul_versions
         node1 = Mock(
@@ -436,7 +436,7 @@ class TestEvalServiceGetSoulHistory:
         assert len(result.versions) == 2
 
     def test_returns_empty_versions_for_nonexistent_soul(self):
-        """AC6: returns empty versions list for unknown soul_id."""
+        """Returns an empty versions list for unknown soul_id."""
         repo = Mock()
         repo.list_nodes_for_soul.return_value = []
 
@@ -448,7 +448,7 @@ class TestEvalServiceGetSoulHistory:
         assert result.versions == []
 
     def test_includes_avg_score_avg_cost_run_count_per_version(self):
-        """AC4: each version entry has avg_score, avg_cost, run_count."""
+        """Each version entry has avg_score, avg_cost, and run_count."""
         repo = Mock()
         node1 = Mock(
             soul_id="s1",
@@ -475,7 +475,7 @@ class TestEvalServiceGetSoulHistory:
         assert version.run_count == 2
 
     def test_orders_versions_by_first_seen(self):
-        """AC5: versions ordered chronologically by first_seen."""
+        """versions ordered chronologically by first_seen."""
         repo = Mock()
         # v2 appears earlier in time than v1 — output should respect time order
         node_v2 = Mock(
@@ -502,7 +502,7 @@ class TestEvalServiceGetSoulHistory:
         assert result.versions[0].first_seen <= result.versions[1].first_seen
 
     def test_includes_first_seen_and_last_seen_timestamps(self):
-        """AC4: each version entry has first_seen and last_seen."""
+        """Each version entry has first_seen and last_seen."""
         repo = Mock()
         node1 = Mock(
             soul_id="s1",
@@ -530,7 +530,7 @@ class TestEvalServiceGetSoulHistory:
 
 
 # ===========================================================================
-# TestEvalRouter — route registration (AC1, AC4)
+# TestEvalRouter — route registration
 # ===========================================================================
 
 
@@ -554,7 +554,7 @@ class TestEvalRouter:
         assert "/api/souls/{soul_id}/eval/history" in routes
 
     def test_get_run_eval_returns_404_for_missing_run(self):
-        """AC6: GET /api/runs/{run_id}/eval returns 404 for non-existent run."""
+        """GET /api/runs/{run_id}/eval returns 404 for non-existent run."""
         mock_service = Mock()
         mock_service.get_run_eval.return_value = None
         app.dependency_overrides[get_eval_service] = lambda: mock_service
@@ -564,7 +564,7 @@ class TestEvalRouter:
         app.dependency_overrides.clear()
 
     def test_get_run_eval_returns_200_with_data(self):
-        """AC1: GET /api/runs/{run_id}/eval returns eval data."""
+        """GET /api/runs/{run_id}/eval returns eval data."""
         mock_service = Mock()
         mock_service.get_run_eval.return_value = _make_run_eval_response()
         app.dependency_overrides[get_eval_service] = lambda: mock_service
@@ -578,7 +578,7 @@ class TestEvalRouter:
         app.dependency_overrides.clear()
 
     def test_get_soul_eval_history_returns_200(self):
-        """AC4: GET /api/souls/{soul_id}/eval/history returns history."""
+        """GET /api/souls/{soul_id}/eval/history returns history."""
         mock_service = Mock()
         mock_service.get_soul_eval_history.return_value = SoulEvalHistoryResponse(
             soul_id="researcher_v1",
@@ -594,7 +594,7 @@ class TestEvalRouter:
         app.dependency_overrides.clear()
 
     def test_get_soul_eval_history_returns_empty_for_unknown_soul(self):
-        """AC6: returns empty versions for non-existent soul."""
+        """Returns empty versions for a non-existent soul."""
         mock_service = Mock()
         mock_service.get_soul_eval_history.return_value = SoulEvalHistoryResponse(
             soul_id="unknown_soul",

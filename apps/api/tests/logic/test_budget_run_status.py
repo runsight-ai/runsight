@@ -1,14 +1,10 @@
-"""Red tests for RUN-717: RunStatus mapping for budget_exceeded terminal state.
+"""RunStatus mapping for budget_exceeded terminal state.
 
 When BudgetKilledException propagates out with no error route, the run-tracking
 layer must map it to a structured terminal state:
   - RunStatus.failed
   - fail_reason = "budget_exceeded"
   - fail_metadata = {scope, block_id, limit_kind, limit_value, actual_value}
-
-Tests fail because:
-  1. Run model lacks fail_reason / fail_metadata fields
-  2. ExecutionService._run_workflow() has no BudgetKilledException-specific handling
 """
 
 import asyncio
@@ -52,7 +48,7 @@ class TestRunModelBudgetFields:
         assert run.fail_reason is None, "fail_reason default must be None"
 
     def test_run_has_fail_metadata_field(self):
-        """Run model must have a fail_metadata: Optional[Dict[str, Any]] field, defaulting to None."""
+        """Run model exposes fail_metadata with a None default."""
         run = Run(
             id="run_fm_1",
             workflow_id="wf_1",

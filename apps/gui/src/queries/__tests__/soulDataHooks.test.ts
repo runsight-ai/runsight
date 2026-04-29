@@ -41,7 +41,7 @@ beforeEach(() => {
   mocks.toastError.mockReset();
 });
 
-describe("soul data API helpers (RUN-444)", () => {
+describe("soul data API helpers", () => {
   it("adds soulsApi.getSoulUsages and calls /souls/:id/usages", async () => {
     mocks.apiGet.mockResolvedValue({
       soul_id: "researcher",
@@ -204,7 +204,7 @@ describe("soul data API helpers (RUN-444)", () => {
   });
 });
 
-describe("soul data query keys (RUN-444)", () => {
+describe("soul data query keys", () => {
   it("adds queryKeys.souls.usages(id)", async () => {
     const { queryKeys } = await import("../keys");
     const usagesKey = (queryKeys.souls as Record<string, unknown>).usages;
@@ -237,7 +237,7 @@ describe("soul data query keys (RUN-444)", () => {
   });
 });
 
-describe("soul data query hooks (RUN-444)", () => {
+describe("soul data query hooks", () => {
   it("adds useSoulUsages and wires useQuery to soulsApi.getSoulUsages", async () => {
     const { useSoulUsages } = await import("../souls");
     const { queryKeys } = await import("../keys");

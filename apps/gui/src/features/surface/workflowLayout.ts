@@ -10,6 +10,7 @@ const VERTICAL_SPACING = 180;
 const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
 type SurfaceNodeType = "start" | "soul";
+const RENDERABLE_SURFACE_NODE_TYPES = new Set<string>(["start", "soul"]);
 
 function getPersistedPositions(
   canvasState: PersistedCanvasState | null | undefined,
@@ -142,7 +143,8 @@ export function hasRenderableCanvasState(
   const nodes = (canvasState as PersistedCanvasState | undefined)?.nodes;
   return (
     Array.isArray(nodes)
-    && nodes.some((node) => {
+    && nodes.length > 0
+    && nodes.every((node) => {
       if (typeof node !== "object" || node === null) {
         return false;
       }
@@ -150,7 +152,12 @@ export function hasRenderableCanvasState(
         type?: unknown;
         data?: unknown;
       };
-      return typeof candidate.type === "string" && typeof candidate.data === "object";
+      return (
+        typeof candidate.type === "string"
+        && RENDERABLE_SURFACE_NODE_TYPES.has(candidate.type)
+        && typeof candidate.data === "object"
+        && candidate.data !== null
+      );
     })
   );
 }

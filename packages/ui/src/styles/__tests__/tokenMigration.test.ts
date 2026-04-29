@@ -1,16 +1,9 @@
 /**
- * RED-TEAM tests for RUN-293: Token Migration + Tailwind Bridge.
+ * Token migration and Tailwind bridge coverage.
  *
  * Validates that globals.css has been rewritten to adopt the Runsight Product
  * Design System token architecture. Tests read the CSS file as a string and
  * make structural assertions about token names, patterns, and structures.
- *
- * Expected failures (current state):
- * - globals.css still uses old shadcn hex tokens
- * - No design system reference/system tokens
- * - No @font-face declarations
- * - @theme inline block has old shadcn mappings
- * - fontsource-variable imports still present
  */
 
 import { describe, it, expect } from "vitest";

@@ -1,4 +1,4 @@
-"""Tests for RUN-248: get_execution_service return type must be Optional[ExecutionService].
+"""Tests for get_execution_service return type must be Optional[ExecutionService].
 
 These tests verify via source inspection that:
 1. The return type annotation includes Optional or None union

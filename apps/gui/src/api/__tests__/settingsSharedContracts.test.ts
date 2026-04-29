@@ -191,9 +191,9 @@ const providerItemPayload = {
   name: "OpenAI",
   type: "openai",
   status: "connected",
-  api_key_env: "OPENAI_API_KEY",
-  api_key_preview: "sk-proj...abcd",
-  base_url: "https://api.openai.com/v1",
+  api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+  api_key_preview: "test-key...abcd",
+  base_url: "https://provider.example.test/v1",
   models: ["gpt-4.1"],
   model_count: 1,
   is_configured: true,
@@ -225,7 +225,7 @@ const providerTestPayload = {
   latency_ms: 123.4,
 };
 
-describe("RUN-512 settings API canonical shared contracts", () => {
+describe("settings API canonical shared contracts", () => {
   it("sources settings-surface parse calls from the canonical @runsight/shared/zod path", () => {
     const importBindings = collectCanonicalImportBindings(settingsSource, "@runsight/shared/zod");
     const parseExpectations = [
@@ -351,8 +351,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
           id: "openai",
           kind: "provider",
           name: "OpenAI",
-          api_key_env: "OPENAI_API_KEY",
-          base_url: "https://api.openai.com/v1",
+          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+          base_url: "https://provider.example.test/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(
@@ -375,8 +375,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
           id: "openai",
           kind: "provider",
           name: "OpenAI",
-          api_key_env: "OPENAI_API_KEY",
-          base_url: "https://api.openai.com/v1",
+          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+          base_url: "https://provider.example.test/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(
@@ -482,8 +482,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
         settingsApi.testProviderCredentials({
           provider_type: "openai",
           name: "OpenAI",
-          api_key_env: "OPENAI_API_KEY",
-          base_url: "https://api.openai.com/v1",
+          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+          base_url: "https://provider.example.test/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(providerTestPayload));
@@ -509,8 +509,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       id: "openai",
       kind: "provider",
       name: "OpenAI",
-      api_key_env: "OPENAI_API_KEY",
-      base_url: "https://api.openai.com/v1",
+      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+      base_url: "https://provider.example.test/v1",
     });
     await settingsApi.updateProvider("openai", {
       id: "openai",
@@ -522,8 +522,8 @@ describe("RUN-512 settings API canonical shared contracts", () => {
       id: "openai",
       kind: "provider",
       name: "OpenAI",
-      api_key_env: "OPENAI_API_KEY",
-      base_url: "https://api.openai.com/v1",
+      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+      base_url: "https://provider.example.test/v1",
     });
     expect(testState.apiPut).toHaveBeenCalledWith("/settings/providers/openai", {
       id: "openai",

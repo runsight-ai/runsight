@@ -67,8 +67,7 @@ def seed_runs(db_engine):
 
 
 # ---------------------------------------------------------------------------
-# Import the function under test.  It does NOT exist yet, so every test
-# that calls it will fail with ImportError — exactly what Red phase wants.
+# Import lazily so the test exercises the production startup recovery function.
 # ---------------------------------------------------------------------------
 
 

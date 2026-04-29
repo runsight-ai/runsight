@@ -1,5 +1,5 @@
 /**
- * RED-TEAM tests for RUN-301: Tier 4 Navigation.
+ * Tier 4 navigation component coverage.
  *
  * Validates that Tabs and the ShellLayout sidebar have been updated to use
  * Runsight design system tokens, and that Breadcrumb and Pagination have been
@@ -11,21 +11,6 @@
  *   2. New: Breadcrumb (breadcrumb.tsx) — file exists, exports, tokens
  *   3. New: Pagination (pagination.tsx) — file exists, exports, tokens
  *   4. All 3: story files exist with proper Storybook structure
- *
- * Expected failures (current state):
- *   - tabs.tsx: missing border-subtle (no border token on list),
- *     text-secondary (inactive tabs use text-primary/60 / dark:text-muted instead),
- *     text-heading (active tabs use text-primary instead),
- *     interactive-default (active indicator uses bg-foreground not interactive-default),
- *     density-nav-item-height (list uses h-8 hardcoded instead of DS token)
- *   - ShellLayout.tsx: missing surface-secondary on sidebar bg (uses bg-sidebar alias
- *     without direct token reference), surface-hover (uses bg-surface-elevated instead),
- *     sidebar-active-indicator (active uses bg-interactive/12 not sidebar-active-indicator),
- *     sidebar-width-collapsed / sidebar-width-expanded (uses hardcoded w-[240px] / w-[52px]),
- *     icon-size-md (uses size-[18px] hardcoded instead of DS token)
- *   - breadcrumb.tsx does not exist
- *   - pagination.tsx does not exist
- *   - No story files exist for Tabs, Sidebar, Breadcrumb, or Pagination
  */
 
 import { describe, it, expect } from "vitest";
@@ -66,7 +51,7 @@ function readStory(filename: string): string {
 // 1. TABS — border-subtle token on list (AC1)
 // ===========================================================================
 
-describe("Tabs — border-subtle token on list border (AC1)", () => {
+describe("Tabs — border-subtle token on list border", () => {
   it("uses border-subtle token for the tabs list bottom border", () => {
     const source = readComponent("tabs.tsx");
     // Spec: tabs list border uses --border-subtle
@@ -79,7 +64,7 @@ describe("Tabs — border-subtle token on list border (AC1)", () => {
 // 2. TABS — text-secondary token for inactive tabs (AC1)
 // ===========================================================================
 
-describe("Tabs — text-secondary token for inactive tab text (AC1)", () => {
+describe("Tabs — text-secondary token for inactive tab text", () => {
   it("uses text-secondary token for inactive tab text color", () => {
     const source = readComponent("tabs.tsx");
     // Spec: inactive tab text uses --text-secondary
@@ -92,7 +77,7 @@ describe("Tabs — text-secondary token for inactive tab text (AC1)", () => {
 // 3. TABS — text-heading token for active tab (AC1)
 // ===========================================================================
 
-describe("Tabs — text-heading token for active tab text (AC1)", () => {
+describe("Tabs — text-heading token for active tab text", () => {
   it("uses text-heading token for active tab text color", () => {
     const source = readComponent("tabs.tsx");
     // Spec: active tab text uses --text-heading
@@ -105,7 +90,7 @@ describe("Tabs — text-heading token for active tab text (AC1)", () => {
 // 4. TABS — interactive-default token for active underline (AC1)
 // ===========================================================================
 
-describe("Tabs — interactive-default token for active tab underline (AC1)", () => {
+describe("Tabs — interactive-default token for active tab underline", () => {
   it("uses interactive-default token for the active tab 2px underline indicator", () => {
     const source = readComponent("tabs.tsx");
     // Spec: active underline uses --interactive-default
@@ -118,7 +103,7 @@ describe("Tabs — interactive-default token for active tab underline (AC1)", ()
 // 5. TABS — font-size-sm token (AC1)
 // ===========================================================================
 
-describe("Tabs — font-size-sm or text-sm token for tab font size (AC1)", () => {
+describe("Tabs — font-size-sm or text-sm token for tab font size", () => {
   it("uses font-size-sm or text-sm design system class for tab font size", () => {
     const source = readComponent("tabs.tsx");
     // Spec: tabs font size uses --font-size-sm; text-sm maps to this token in Tailwind
@@ -130,7 +115,7 @@ describe("Tabs — font-size-sm or text-sm token for tab font size (AC1)", () =>
 // 6. TABS — font-medium token (AC1)
 // ===========================================================================
 
-describe("Tabs — font-medium or font-weight-medium token for tab weight (AC1)", () => {
+describe("Tabs — font-medium or font-weight-medium token for tab weight", () => {
   it("uses font-medium or font-weight-medium for tab font weight", () => {
     const source = readComponent("tabs.tsx");
     // Spec: tabs font weight uses --font-weight-medium
@@ -142,7 +127,7 @@ describe("Tabs — font-medium or font-weight-medium token for tab weight (AC1)"
 // 7. TABS — density-nav-item-height token (AC1)
 // ===========================================================================
 
-describe("Tabs — density-nav-item-height or py-2 token for tab height (AC1)", () => {
+describe("Tabs — density-nav-item-height or py-2 token for tab height", () => {
   it("uses density-nav-item-height token or vertical padding for tab height", () => {
     const source = readComponent("tabs.tsx");
     // Spec: tab height uses --density-nav-item-height DS token; py-2 is the CVA equivalent
@@ -154,7 +139,7 @@ describe("Tabs — density-nav-item-height or py-2 token for tab height (AC1)", 
 // 8. BREADCRUMB — file exists (AC3)
 // ===========================================================================
 
-describe("Breadcrumb — component file exists (AC3)", () => {
+describe("Breadcrumb — component file exists", () => {
   it("breadcrumb.tsx exists in src/components/ui/", () => {
     expect(componentExists("breadcrumb.tsx")).toBe(true);
   });
@@ -164,7 +149,7 @@ describe("Breadcrumb — component file exists (AC3)", () => {
 // 15. BREADCRUMB — named exports (AC3)
 // ===========================================================================
 
-describe("Breadcrumb — named exports (AC3)", () => {
+describe("Breadcrumb — named exports", () => {
   it("exports a Breadcrumb component", () => {
     const source = readComponent("breadcrumb.tsx");
     expect(source).toMatch(/export.*\bBreadcrumb\b/);
@@ -181,7 +166,7 @@ describe("Breadcrumb — named exports (AC3)", () => {
 // 16. BREADCRUMB — design system tokens (AC3)
 // ===========================================================================
 
-describe("Breadcrumb — design system tokens (AC3)", () => {
+describe("Breadcrumb — design system tokens", () => {
   it("uses text-muted token for separator color", () => {
     const source = readComponent("breadcrumb.tsx");
     // Spec: separator color uses --text-muted
@@ -217,7 +202,7 @@ describe("Breadcrumb — design system tokens (AC3)", () => {
 // 17. BREADCRUMB — separator element (AC3)
 // ===========================================================================
 
-describe("Breadcrumb — separator element (AC3)", () => {
+describe("Breadcrumb — separator element", () => {
   it("renders a separator between breadcrumb items", () => {
     const source = readComponent("breadcrumb.tsx");
     // Spec: visual separator between items (slash, chevron, or similar)
@@ -229,7 +214,7 @@ describe("Breadcrumb — separator element (AC3)", () => {
 // 18. PAGINATION — file exists (AC4)
 // ===========================================================================
 
-describe("Pagination — component file exists (AC4)", () => {
+describe("Pagination — component file exists", () => {
   it("pagination.tsx exists in src/components/ui/", () => {
     expect(componentExists("pagination.tsx")).toBe(true);
   });
@@ -239,7 +224,7 @@ describe("Pagination — component file exists (AC4)", () => {
 // 19. PAGINATION — named export (AC4)
 // ===========================================================================
 
-describe("Pagination — named export (AC4)", () => {
+describe("Pagination — named export", () => {
   it("exports a Pagination component", () => {
     const source = readComponent("pagination.tsx");
     expect(source).toMatch(/export.*\bPagination\b/);
@@ -250,7 +235,7 @@ describe("Pagination — named export (AC4)", () => {
 // 20. PAGINATION — design system tokens (AC4)
 // ===========================================================================
 
-describe("Pagination — design system tokens (AC4)", () => {
+describe("Pagination — design system tokens", () => {
   it("uses interactive-default or surface-selected token for active page background", () => {
     const source = readComponent("pagination.tsx");
     // Spec: active page button uses --interactive-default; surface-selected is the CVA equivalent
@@ -268,7 +253,7 @@ describe("Pagination — design system tokens (AC4)", () => {
 // 21. PAGINATION — ghost buttons for page navigation (AC4)
 // ===========================================================================
 
-describe("Pagination — ghost variant page buttons (AC4)", () => {
+describe("Pagination — ghost variant page buttons", () => {
   it("uses ghost button variant or transparent background for page number buttons", () => {
     const source = readComponent("pagination.tsx");
     // Spec: page buttons are ghost style (no filled background when inactive)
@@ -281,7 +266,7 @@ describe("Pagination — ghost variant page buttons (AC4)", () => {
 // 22. PAGINATION — range display with "of" pattern (AC4)
 // ===========================================================================
 
-describe("Pagination — range display with 'of' pattern (AC4)", () => {
+describe("Pagination — range display with 'of' pattern", () => {
   it("supports a range display pattern like '1-10 of 100'", () => {
     const source = readComponent("pagination.tsx");
     // Spec: shows range e.g. "1-10 of 100" — check for "of" keyword in context
@@ -293,7 +278,7 @@ describe("Pagination — range display with 'of' pattern (AC4)", () => {
 // 17. STORYBOOK STORIES — navigation story files exist (AC5)
 // ===========================================================================
 
-describe("Storybook stories — existence (AC5)", () => {
+describe("Storybook stories — existence", () => {
   it("Tabs.stories.tsx exists in src/stories/ or src/components/ui/", () => {
     expect(storyExists("Tabs.stories.tsx")).toBe(true);
   });
@@ -311,7 +296,7 @@ describe("Storybook stories — existence (AC5)", () => {
 // 24. STORYBOOK STORIES — Tabs.stories.tsx structure (AC5)
 // ===========================================================================
 
-describe("Storybook stories — Tabs.stories.tsx structure (AC5)", () => {
+describe("Storybook stories — Tabs.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Tabs.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -343,7 +328,7 @@ describe("Storybook stories — Tabs.stories.tsx structure (AC5)", () => {
 // 19. STORYBOOK STORIES — Breadcrumb.stories.tsx structure (AC5)
 // ===========================================================================
 
-describe("Storybook stories — Breadcrumb.stories.tsx structure (AC5)", () => {
+describe("Storybook stories — Breadcrumb.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Breadcrumb.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
@@ -374,7 +359,7 @@ describe("Storybook stories — Breadcrumb.stories.tsx structure (AC5)", () => {
 // 27. STORYBOOK STORIES — Pagination.stories.tsx structure (AC5)
 // ===========================================================================
 
-describe("Storybook stories — Pagination.stories.tsx structure (AC5)", () => {
+describe("Storybook stories — Pagination.stories.tsx structure", () => {
   it("has a default export (meta object)", () => {
     const content = readStory("Pagination.stories.tsx");
     expect(content).toMatch(/export\s+default\s+/);
