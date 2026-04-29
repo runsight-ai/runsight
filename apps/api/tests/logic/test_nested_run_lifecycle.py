@@ -85,7 +85,7 @@ class TestRunModelHasParentLinkageFields:
         """Run model exposes a parent_run_id attribute (nullable)."""
         with Session(db_engine) as session:
             run = Run(
-                id="run_field_test_1",
+                id="parent_run_id_field_run",
                 workflow_id="parent_linkage_workflow",
                 workflow_name="Parent linkage workflow",
                 task_json="{}",
@@ -102,7 +102,7 @@ class TestRunModelHasParentLinkageFields:
         """Run model exposes a parent_node_id attribute (nullable)."""
         with Session(db_engine) as session:
             run = Run(
-                id="run_field_test_2",
+                id="parent_node_id_field_run",
                 workflow_id="parent_linkage_workflow",
                 workflow_name="Parent linkage workflow",
                 task_json="{}",
@@ -119,7 +119,7 @@ class TestRunModelHasParentLinkageFields:
         """Run model exposes a root_run_id attribute (nullable)."""
         with Session(db_engine) as session:
             run = Run(
-                id="run_field_test_3",
+                id="root_run_id_field_run",
                 workflow_id="parent_linkage_workflow",
                 workflow_name="Parent linkage workflow",
                 task_json="{}",
@@ -136,7 +136,7 @@ class TestRunModelHasParentLinkageFields:
         """Run model exposes a depth attribute (int, default 0)."""
         with Session(db_engine) as session:
             run = Run(
-                id="run_field_test_4",
+                id="depth_field_run",
                 workflow_id="parent_linkage_workflow",
                 workflow_name="Parent linkage workflow",
                 task_json="{}",
@@ -183,8 +183,8 @@ class TestRunNodeModelHasChildRunIdField:
         """RunNode model exposes a child_run_id attribute (nullable)."""
         with Session(db_engine) as session:
             node = RunNode(
-                id="run_1:call_child",
-                run_id="run_1",
+                id="parent_run_for_child_field:call_child",
+                run_id="parent_run_for_child_field",
                 node_id="call_child",
                 block_type="workflow",
                 child_run_id=None,
@@ -199,19 +199,19 @@ class TestRunNodeModelHasChildRunIdField:
         """child_run_id survives a DB round-trip with a non-null value."""
         with Session(db_engine) as session:
             node = RunNode(
-                id="run_1:call_child",
-                run_id="run_1",
+                id="parent_run_for_child_field:call_child",
+                run_id="parent_run_for_child_field",
                 node_id="call_child",
                 block_type="workflow",
-                child_run_id="child_run_1",
+                child_run_id="child_run_for_field",
             )
             session.add(node)
             session.commit()
 
         with Session(db_engine) as session:
-            node = session.get(RunNode, "run_1:call_child")
+            node = session.get(RunNode, "parent_run_for_child_field:call_child")
             assert node is not None
-            assert node.child_run_id == "child_run_1"
+            assert node.child_run_id == "child_run_for_field"
 
 
 # ---------------------------------------------------------------------------

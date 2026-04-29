@@ -62,9 +62,9 @@ class TestCancelExecutionCallsTaskCancel:
         task.cancel() on the corresponding asyncio.Task."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._runtime.running_tasks["run_1"] = mock_task
+        svc._runtime.running_tasks["cancellable_run"] = mock_task
 
-        svc.cancel_execution("run_1")
+        svc.cancel_execution("cancellable_run")
 
         mock_task.cancel.assert_called_once()
 
@@ -72,9 +72,9 @@ class TestCancelExecutionCallsTaskCancel:
         """task.cancel() should be called without arguments (standard usage)."""
         svc = _make_service()
         mock_task = _make_mock_task()
-        svc._runtime.running_tasks["run_2"] = mock_task
+        svc._runtime.running_tasks["second_cancellable_run"] = mock_task
 
-        svc.cancel_execution("run_2")
+        svc.cancel_execution("second_cancellable_run")
 
         mock_task.cancel.assert_called_once_with()
 

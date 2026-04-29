@@ -40,8 +40,8 @@ class TestObserverWritesTerminalStatus:
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id="observer_status_workflow",
+                workflow_name="Observer status workflow",
                 status=RunStatus.running,
                 task_json="{}",
                 branch="main",
@@ -56,7 +56,7 @@ class TestObserverWritesTerminalStatus:
 
         obs = ExecutionObserver(engine=db_engine, run_id=run_in_db)
         state = WorkflowState()
-        obs.on_workflow_complete("test_wf", state, duration_s=1.0)
+        obs.on_workflow_complete("observer_status_workflow", state, duration_s=1.0)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_in_db)
@@ -66,7 +66,7 @@ class TestObserverWritesTerminalStatus:
         """ExecutionObserver.on_workflow_error sets Run.status = failed."""
         obs = ExecutionObserver(engine=db_engine, run_id=run_in_db)
         error = RuntimeError("something broke")
-        obs.on_workflow_error("test_wf", error, duration_s=0.5)
+        obs.on_workflow_error("observer_status_workflow", error, duration_s=0.5)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_in_db)
@@ -125,8 +125,8 @@ class TestExplicitLifecycleRepoContract:
 
         run = SimpleNamespace(
             id="run_session_test",
-            workflow_id="wf_missing",
-            workflow_name="wf_missing",
+            workflow_id="missing_workflow",
+            workflow_name="missing_workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -153,7 +153,7 @@ class TestExplicitLifecycleRepoContract:
 
         await svc.launch_execution(
             "run_session_test",
-            "wf_missing",
+            "missing_workflow",
             _prepared_inputs({"instruction": "test"}),
         )
         await asyncio.sleep(0.05)
