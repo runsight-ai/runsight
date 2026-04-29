@@ -45,7 +45,7 @@ describe("soul data API helpers", () => {
   it("adds soulsApi.getSoulUsages and calls /souls/:id/usages", async () => {
     mocks.apiGet.mockResolvedValue({
       soul_id: "researcher",
-      usages: [{ workflow_id: "wf_1", workflow_name: "Research Flow" }],
+      usages: [{ workflow_id: "research_flow", workflow_name: "Research Flow" }],
       total: 1,
     });
 
@@ -65,7 +65,7 @@ describe("soul data API helpers", () => {
     expect(mocks.apiGet).toHaveBeenCalledWith("/souls/researcher/usages");
     expect(result).toEqual({
       soul_id: "researcher",
-      usages: [{ workflow_id: "wf_1", workflow_name: "Research Flow" }],
+      usages: [{ workflow_id: "research_flow", workflow_name: "Research Flow" }],
       total: 1,
     });
   });

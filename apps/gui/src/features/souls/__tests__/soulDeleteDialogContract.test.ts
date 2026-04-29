@@ -496,9 +496,9 @@ describe("SoulDeleteDialog behavior", () => {
   it("renders three workflow names and a Delete anyway action when the soul has three usages", async () => {
     setUsageState({
       usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
+        { workflow_id: "research_flow", workflow_name: "Research Flow" },
+        { workflow_id: "review_flow", workflow_name: "Review Flow" },
+        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
       ],
     });
 
@@ -516,27 +516,27 @@ describe("SoulDeleteDialog behavior", () => {
   it("caps the usage list at five workflow names and shows a +2 more indicator", async () => {
     setUsageState({
       usages: [
-        { workflow_id: "wf_1", workflow_name: "Workflow 1" },
-        { workflow_id: "wf_2", workflow_name: "Workflow 2" },
-        { workflow_id: "wf_3", workflow_name: "Workflow 3" },
-        { workflow_id: "wf_4", workflow_name: "Workflow 4" },
-        { workflow_id: "wf_5", workflow_name: "Workflow 5" },
-        { workflow_id: "wf_6", workflow_name: "Workflow 6" },
-        { workflow_id: "wf_7", workflow_name: "Workflow 7" },
+        { workflow_id: "research_flow", workflow_name: "Research Flow" },
+        { workflow_id: "review_flow", workflow_name: "Review Flow" },
+        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
+        { workflow_id: "qa_flow", workflow_name: "QA Flow" },
+        { workflow_id: "publish_flow", workflow_name: "Publish Flow" },
+        { workflow_id: "archive_flow", workflow_name: "Archive Flow" },
+        { workflow_id: "audit_flow", workflow_name: "Audit Flow" },
       ],
     });
 
     const tree = await renderDialog();
     const html = markup(tree);
 
-    expect(html).toContain("Workflow 1");
-    expect(html).toContain("Workflow 2");
-    expect(html).toContain("Workflow 3");
-    expect(html).toContain("Workflow 4");
-    expect(html).toContain("Workflow 5");
+    expect(html).toContain("Research Flow");
+    expect(html).toContain("Review Flow");
+    expect(html).toContain("Deploy Flow");
+    expect(html).toContain("QA Flow");
+    expect(html).toContain("Publish Flow");
     expect(html).toContain("+2 more");
-    expect(html).not.toContain("Workflow 6");
-    expect(html).not.toContain("Workflow 7");
+    expect(html).not.toContain("Archive Flow");
+    expect(html).not.toContain("Audit Flow");
   });
 
   it("shows a caution warning and keeps delete enabled when usage lookup fails", async () => {
@@ -579,9 +579,9 @@ describe("SoulDeleteDialog behavior", () => {
   it("uses force-delete plumbing and closes on a successful confirm", async () => {
     setUsageState({
       usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
+        { workflow_id: "research_flow", workflow_name: "Research Flow" },
+        { workflow_id: "review_flow", workflow_name: "Review Flow" },
+        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
       ],
     });
     setDeleteOutcome("success");
@@ -602,9 +602,9 @@ describe("SoulDeleteDialog behavior", () => {
   it("surfaces delete failures to the user after confirm", async () => {
     setUsageState({
       usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
+        { workflow_id: "research_flow", workflow_name: "Research Flow" },
+        { workflow_id: "review_flow", workflow_name: "Review Flow" },
+        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
       ],
     });
     setDeleteOutcome("error", new Error("Delete failed"));
