@@ -48,8 +48,10 @@ describe("query key for children", () => {
     expect(queryKeys.runs).toHaveProperty("children");
     expect(typeof queryKeys.runs.children).toBe("function");
 
-    const key = (queryKeys.runs.children as (id: string) => readonly string[])("run_1");
+    const key = (queryKeys.runs.children as (id: string) => readonly string[])(
+      "run_parent_drilldown",
+    );
     expect(key).toContain("runs");
-    expect(key).toContain("run_1");
+    expect(key).toContain("run_parent_drilldown");
   });
 });

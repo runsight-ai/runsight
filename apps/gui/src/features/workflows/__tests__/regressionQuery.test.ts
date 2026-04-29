@@ -137,8 +137,6 @@ describe("WorkflowRegressionsResponseSchema", () => {
 
 describe("workflowsApi.getWorkflowRegressions", () => {
   it("is exported as a function from the workflows API module", async () => {
-    // Dynamic import so the test file itself compiles even if the module
-    // doesn't exist yet — the test will fail at runtime with a clear message.
     const { workflowsApi } = await import("../../../api/workflows");
     expect(typeof workflowsApi.getWorkflowRegressions).toBe("function");
   });
@@ -151,8 +149,8 @@ describe("workflowsApi.getWorkflowRegressions", () => {
 describe("queryKeys.workflows.regressions", () => {
   it("produces a namespaced key tuple with workflow id", async () => {
     const { queryKeys } = await import("../../../queries/keys");
-    const key = queryKeys.workflows.regressions("wf-123");
-    expect(key).toEqual(["workflows", "wf-123", "regressions"]);
+    const key = queryKeys.workflows.regressions("workflow-regression-query");
+    expect(key).toEqual(["workflows", "workflow-regression-query", "regressions"]);
   });
 });
 
