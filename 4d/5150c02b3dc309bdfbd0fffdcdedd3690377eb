@@ -1,0 +1,23 @@
+packages/shared/src/__tests__/nodeResponseContract.test.ts
+  4adca821c1af8eb3 47-49,129-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4d5150c02b3dc309bdfbd0fffdcdedd3690377eb",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 6,
+      "accepted_lines": 119078,
+      "overriden_lines": 6
+    }
+  }
+}
