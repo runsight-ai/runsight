@@ -1,0 +1,27 @@
+apps/api/tests/logic/test_execution_service_api_keys.py
+  4adca821c1af8eb3 31,35,48-49,59,86,89,134,137,156-157
+apps/api/tests/logic/test_provider_service.py
+  4adca821c1af8eb3 102,123-124,132-134,140,152-154,162,168,177,216,222,230-231,240,244-245,267,275,282,294,302,346,355,474,480-481,506,525,531,570,576
+apps/api/tests/logic/test_disabled_provider_policy.py
+  4adca821c1af8eb3 153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "19893e9d0345e67df128229e330fb2931121ae54",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 61,
+      "total_deletions": 59,
+      "accepted_lines": 118177,
+      "overriden_lines": 0
+    }
+  }
+}
