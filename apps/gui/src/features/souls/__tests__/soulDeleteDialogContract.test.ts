@@ -321,7 +321,7 @@ vi.mock("@/queries/souls", () => ({
 
 function makeSoul(overrides: Partial<SoulLike> = {}): SoulLike {
   return {
-    id: "soul_123",
+    id: "research_soul",
     role: "Researcher",
     provider: "openai",
     model_name: "gpt-4o",
@@ -420,7 +420,7 @@ function setUsageState({
     usages === undefined
       ? undefined
       : {
-          soul_id: "soul_123",
+          soul_id: "research_soul",
           usages,
           total: usages.length,
         };
@@ -464,9 +464,9 @@ describe("SoulDeleteDialog behavior", () => {
   });
 
   it("requests usages for the active soul id when open", async () => {
-    await renderDialog({ open: true, soul: makeSoul({ id: "soul_456" }) });
+    await renderDialog({ open: true, soul: makeSoul({ id: "review_soul" }) });
 
-    expect(mocks.useSoulUsages).toHaveBeenCalledWith("soul_456");
+    expect(mocks.useSoulUsages).toHaveBeenCalledWith("review_soul");
   });
 
   it("shows a loading state that disables delete while usages are loading", async () => {
@@ -592,10 +592,10 @@ describe("SoulDeleteDialog behavior", () => {
     confirmButton?.props.onClick?.();
 
     expect(mocks.mutateCalls[0]?.variables).toEqual({
-      id: "soul_123",
+      id: "research_soul",
       force: true,
     });
-    expect(mocks.api.deleteSoul).toHaveBeenCalledWith("soul_123", true);
+    expect(mocks.api.deleteSoul).toHaveBeenCalledWith("research_soul", true);
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
   });
 
