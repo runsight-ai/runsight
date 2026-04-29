@@ -106,7 +106,10 @@ describe("FlowsPage workflow create identity", () => {
         options?: { onSuccess?: (workflow: { id: string }) => void },
       ) => {
         mocks.workflowPayloads.push(payload as Record<string, unknown>);
-        options?.onSuccess?.({ id: `wf_${mocks.workflowPayloads.length}` });
+        const createdWorkflowIds = ["created_research_flow", "created_review_flow"];
+        options?.onSuccess?.({
+          id: createdWorkflowIds[mocks.workflowPayloads.length - 1] ?? "created_extra_flow",
+        });
       },
     );
   });
@@ -143,7 +146,13 @@ describe("FlowsPage workflow create identity", () => {
     expect(String(secondPayload.yaml)).toContain(String(secondYaml.id));
     expect(firstYaml.kind).toBe("workflow");
     expect(secondYaml.kind).toBe("workflow");
-    expect(mocks.navigate).toHaveBeenNthCalledWith(1, "/workflows/wf_1/edit");
-    expect(mocks.navigate).toHaveBeenNthCalledWith(2, "/workflows/wf_2/edit");
+    expect(mocks.navigate).toHaveBeenNthCalledWith(
+      1,
+      "/workflows/created_research_flow/edit",
+    );
+    expect(mocks.navigate).toHaveBeenNthCalledWith(
+      2,
+      "/workflows/created_review_flow/edit",
+    );
   });
 });

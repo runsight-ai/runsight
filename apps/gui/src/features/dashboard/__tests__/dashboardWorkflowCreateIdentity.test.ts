@@ -181,7 +181,10 @@ describe("Dashboard workflow create identity", () => {
         payload: { yaml?: string; commit?: boolean },
       ): Promise<{ id: string }> => {
         mocks.workflowPayloads.push(payload as Record<string, unknown>);
-        return { id: `wf_${mocks.workflowPayloads.length}` };
+        const createdWorkflowIds = ["created_research_flow", "created_review_flow"];
+        return {
+          id: createdWorkflowIds[mocks.workflowPayloads.length - 1] ?? "created_extra_flow",
+        };
       },
     );
   });
@@ -227,7 +230,13 @@ describe("Dashboard workflow create identity", () => {
 
     expect(firstYaml).toContain(String(firstDoc.id));
     expect(secondYaml).toContain(String(secondDoc.id));
-    expect(mocks.navigate).toHaveBeenNthCalledWith(1, "/workflows/wf_1/edit");
-    expect(mocks.navigate).toHaveBeenNthCalledWith(2, "/workflows/wf_2/edit");
+    expect(mocks.navigate).toHaveBeenNthCalledWith(
+      1,
+      "/workflows/created_research_flow/edit",
+    );
+    expect(mocks.navigate).toHaveBeenNthCalledWith(
+      2,
+      "/workflows/created_review_flow/edit",
+    );
   });
 });
