@@ -161,7 +161,7 @@ vi.mock("@/queries/runs", () => ({
 
 vi.mock("@/queries/settings", () => ({
   useProviders: () => ({
-    data: { items: [{ id: "provider-1", is_active: true }] },
+    data: { items: [{ id: "active-provider", is_active: true }] },
   }),
 }));
 
