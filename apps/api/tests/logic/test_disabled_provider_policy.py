@@ -150,7 +150,7 @@ class TestExecutionServiceDisabledProviders:
             secrets=secrets,
         )
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-env-disabled"}, clear=False):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "dummy-disabled-openai-key"}, clear=True):
             result = service._resolve_api_keys()
 
         assert "openai" not in result

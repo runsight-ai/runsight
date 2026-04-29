@@ -28,11 +28,11 @@ class TestResolveApiKeys:
         # Two active providers
         openai_provider = Mock()
         openai_provider.type = "openai"
-        openai_provider.api_key = "${OPENAI_API_KEY}"
+        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
 
         anthropic_provider = Mock()
         anthropic_provider.type = "anthropic"
-        anthropic_provider.api_key = "${ANTHROPIC_API_KEY}"
+        anthropic_provider.api_key = "${TEST_ANTHROPIC_PROVIDER_KEY}"
 
         provider_repo.list_all.return_value = [openai_provider, anthropic_provider]
         secrets.resolve.side_effect = lambda x: f"decrypted-{x}"
@@ -45,8 +45,8 @@ class TestResolveApiKeys:
 
         assert isinstance(result, dict)
         assert result == {
-            "openai": "decrypted-${OPENAI_API_KEY}",
-            "anthropic": "decrypted-${ANTHROPIC_API_KEY}",
+            "openai": "decrypted-${TEST_OPENAI_PROVIDER_KEY}",
+            "anthropic": "decrypted-${TEST_ANTHROPIC_PROVIDER_KEY}",
         }
 
     def test_resolve_api_keys_skips_providers_without_key(self):
@@ -56,7 +56,7 @@ class TestResolveApiKeys:
 
         openai_provider = Mock()
         openai_provider.type = "openai"
-        openai_provider.api_key = "${OPENAI_API_KEY}"
+        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
 
         empty_provider = Mock()
         empty_provider.type = "anthropic"
@@ -83,10 +83,10 @@ class TestResolveApiKeys:
 
         svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo)
 
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-env-openai"}, clear=True):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "dummy-env-openai-key"}, clear=True):
             result = svc._resolve_api_keys()
 
-        assert result.get("openai") == "sk-env-openai"
+        assert result.get("openai") == "dummy-env-openai-key"
 
 
 class TestLaunchExecutionPassesApiKeys:
@@ -131,10 +131,10 @@ config: {}
         openai_provider.type = "openai"
         openai_provider.is_active = True
         openai_provider.models = ["gpt-4o"]
-        openai_provider.api_key = "${OPENAI_API_KEY}"
+        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
         provider_repo.list_all.return_value = [openai_provider]
         provider_repo.get_by_type.return_value = openai_provider
-        secrets.resolve.return_value = "sk-decrypted-openai"
+        secrets.resolve.return_value = "dummy-decrypted-openai-key"
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -153,8 +153,8 @@ config: {}
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_1",
-                "wf_1",
+                "api_key_resolution_run",
+                "api_key_resolution_workflow",
                 _prepared_inputs({"instruction": "test"}),
                 branch=None,
             )
