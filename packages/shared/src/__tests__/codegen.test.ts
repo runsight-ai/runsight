@@ -351,9 +351,9 @@ describe("Generated Zod schemas are valid", () => {
   it("WorkflowResponseSchema parses a valid workflow object", async () => {
     const mod = await import("../zod");
     const result = mod.WorkflowResponseSchema.safeParse({
-      id: "test-id",
+      id: "review_workflow",
       kind: "workflow",
-      name: "Test Workflow",
+      name: "Review Workflow",
       yaml: "steps: []",
       valid: true,
       block_count: 3,

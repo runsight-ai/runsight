@@ -44,9 +44,9 @@ describe("RunNodeResponseSchema has enrichment fields", () => {
 
 describe("RunNodeResponseSchema parses enriched payloads", () => {
   const baseNode = {
-    id: "run_1:step_1",
-    run_id: "run_1",
-    node_id: "step_1",
+    id: "research_run:writer_step",
+    run_id: "research_run",
+    node_id: "writer_step",
     block_type: "llm",
     status: "completed",
     started_at: 1000,
@@ -126,9 +126,9 @@ describe("RunNodeResponseSchema parses enriched payloads", () => {
 describe("RunNodeResponseSchema all 6 fields round-trip", () => {
   it("a fully enriched node round-trips all 6 fields through parse", () => {
     const input = {
-      id: "run_1:step_1",
-      run_id: "run_1",
-      node_id: "step_1",
+      id: "research_run:writer_step",
+      run_id: "research_run",
+      node_id: "writer_step",
       block_type: "llm",
       status: "completed",
       started_at: 1000,
