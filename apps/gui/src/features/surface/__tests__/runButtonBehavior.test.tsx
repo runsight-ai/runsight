@@ -15,7 +15,7 @@ const harness = vi.hoisted(() => {
     setActiveRunId: vi.fn((value: string | null) => {
       canvasState.activeRunId = value;
     }),
-    nodes: [{ id: "node_1" }] as Array<Record<string, unknown>>,
+    nodes: [{ id: "runnable_node" }] as Array<Record<string, unknown>>,
     blockCount: 1,
     isDirty: false,
     yamlContent: "workflow:\n  name: Runnable\n",
@@ -23,8 +23,8 @@ const harness = vi.hoisted(() => {
 
   return {
     canvasState,
-    providers: [{ id: "provider_1", is_active: true }] as Array<Record<string, unknown>>,
-    workflow: { id: "wf_run", name: "Runnable", input_schema: null, commit_sha: "abc" },
+    providers: [{ id: "active_provider", is_active: true }] as Array<Record<string, unknown>>,
+    workflow: { id: "runnable_workflow", name: "Runnable", input_schema: null, commit_sha: "main_commit_sha" },
     activeRun: undefined as RunRecord | undefined,
     createRunMutate: vi.fn(),
     cancelRunMutate: vi.fn(),
@@ -33,7 +33,7 @@ const harness = vi.hoisted(() => {
 });
 
 harness.createRunMutate.mockImplementation((variables, options) => {
-  options?.onSuccess?.({ id: "run_created" }, variables, undefined);
+  options?.onSuccess?.({ id: "created_manual_run" }, variables, undefined);
 });
 
 vi.mock("@runsight/ui/button", () => ({
@@ -116,17 +116,17 @@ vi.mock("../RunInputsModal", () => ({
 import { RunButton } from "../RunButton";
 
 function renderRunButton(onAddApiKey = vi.fn()) {
-  render(<RunButton workflowId="wf_run" isCommitted onAddApiKey={onAddApiKey} />);
+  render(<RunButton workflowId="runnable_workflow" isCommitted onAddApiKey={onAddApiKey} />);
   return { onAddApiKey };
 }
 
 beforeEach(() => {
   harness.canvasState.activeRunId = null;
-  harness.canvasState.nodes = [{ id: "node_1" }];
+  harness.canvasState.nodes = [{ id: "runnable_node" }];
   harness.canvasState.blockCount = 1;
   harness.canvasState.isDirty = false;
   harness.canvasState.yamlContent = "workflow:\n  name: Runnable\n";
-  harness.providers = [{ id: "provider_1", is_active: true }];
+  harness.providers = [{ id: "active_provider", is_active: true }];
   harness.activeRun = undefined;
   harness.createRunMutate.mockClear();
   harness.cancelRunMutate.mockClear();
@@ -166,7 +166,7 @@ describe("RunButton run and cancel behavior", () => {
     await waitFor(() => {
       expect(harness.createRunMutate).toHaveBeenCalledWith(
         {
-          workflow_id: "wf_run",
+          workflow_id: "runnable_workflow",
           inputs: {},
           source: "manual",
           branch: "main",
@@ -174,8 +174,8 @@ describe("RunButton run and cancel behavior", () => {
         expect.objectContaining({ onSuccess: expect.any(Function) }),
       );
     });
-    expect(harness.canvasState.setActiveRunId).toHaveBeenCalledWith("run_created");
-    expect(harness.navigate).toHaveBeenCalledWith("/runs/run_created");
+    expect(harness.canvasState.setActiveRunId).toHaveBeenCalledWith("created_manual_run");
+    expect(harness.navigate).toHaveBeenCalledWith("/runs/created_manual_run");
   });
 
   it("uses YAML content as runnable workflow content even when the canvas has no nodes", () => {
