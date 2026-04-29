@@ -1,0 +1,23 @@
+apps/gui/src/features/surface/__tests__/saveCommitsToMain.test.ts
+  4adca821c1af8eb3 25,82,94,193,294,314,374,409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "64680d459454dc8ab2088db3b6b983efe932d9c1",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 8,
+      "accepted_lines": 120081,
+      "overriden_lines": 8
+    }
+  }
+}
