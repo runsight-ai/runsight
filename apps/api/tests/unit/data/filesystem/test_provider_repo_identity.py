@@ -16,8 +16,8 @@ def _provider_payload(**overrides):
         "kind": "provider",
         "name": "OpenAI",
         "type": "openai",
-        "api_key": "${OPENAI_API_KEY}",
-        "base_url": "https://api.openai.com/v1",
+        "api_key": "dummy-provider-key",
+        "base_url": "https://provider.example.invalid/v1",
         "is_active": True,
         "status": "connected",
         "models": ["gpt-4o", "gpt-4o-mini"],
@@ -66,7 +66,7 @@ def test_list_all_does_not_infer_provider_id_from_filename_stem_when_yaml_id_dif
         _write_provider_file(
             providers_dir / "legacy-provider.yaml",
             {
-                "id": "provider-1",
+                "id": "embedded-provider",
                 "kind": "provider",
                 "name": "Legacy Provider",
                 "type": "custom",
@@ -86,7 +86,7 @@ def test_get_by_id_does_not_return_provider_from_filename_stem_when_yaml_id_diff
         _write_provider_file(
             providers_dir / "legacy-provider.yaml",
             {
-                "id": "provider-1",
+                "id": "embedded-provider",
                 "kind": "provider",
                 "name": "Legacy Provider",
                 "type": "custom",
@@ -106,7 +106,7 @@ def test_update_does_not_accept_provider_filename_stem_when_yaml_id_differs() ->
         _write_provider_file(
             providers_dir / "legacy-provider.yaml",
             {
-                "id": "provider-1",
+                "id": "embedded-provider",
                 "kind": "provider",
                 "name": "Legacy Provider",
                 "type": "custom",

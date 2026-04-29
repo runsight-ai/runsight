@@ -31,8 +31,8 @@ def _make_run(*, status: RunStatus, **overrides) -> Run:
     """Build a Run with sensible defaults."""
     defaults = dict(
         id=f"run_{uuid.uuid4().hex[:8]}",
-        workflow_id="wf_test",
-        workflow_name="Test Workflow",
+        workflow_id="state_guard_workflow",
+        workflow_name="State Guard Workflow",
         task_json="{}",
         branch="main",
         created_at=time.time(),
@@ -277,8 +277,8 @@ def _seed_run(engine, *, status: RunStatus) -> str:
     with Session(engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_test",
-            workflow_name="Test Workflow",
+            workflow_id="state_guard_workflow",
+            workflow_name="State Guard Workflow",
             status=status,
             task_json="{}",
             branch="main",
@@ -299,7 +299,7 @@ class TestObserverRespectsGuard:
 
         run_id = _seed_run(db_engine, status=RunStatus.cancelled)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
-        obs.on_workflow_complete("wf", WorkflowState(), 5.0)
+        obs.on_workflow_complete("state_guard_workflow", WorkflowState(), 5.0)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_id)
@@ -311,7 +311,7 @@ class TestObserverRespectsGuard:
 
         run_id = _seed_run(db_engine, status=RunStatus.completed)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
-        obs.on_workflow_error("wf", RuntimeError("late error"), 1.0)
+        obs.on_workflow_error("state_guard_workflow", RuntimeError("late error"), 1.0)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_id)
@@ -323,7 +323,7 @@ class TestObserverRespectsGuard:
 
         run_id = _seed_run(db_engine, status=RunStatus.cancelled)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
-        obs.on_workflow_error("wf", RuntimeError("late"), 1.0)
+        obs.on_workflow_error("state_guard_workflow", RuntimeError("late"), 1.0)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_id)
@@ -337,7 +337,7 @@ class TestObserverRespectsGuard:
 
         run_id = _seed_run(db_engine, status=RunStatus.failed)
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
-        obs.on_workflow_start("wf", WorkflowState())
+        obs.on_workflow_start("state_guard_workflow", WorkflowState())
 
         with Session(db_engine) as session:
             run = session.get(Run, run_id)
@@ -353,10 +353,10 @@ class TestObserverRespectsGuard:
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
 
         # First: cancel via CancelledError
-        obs.on_workflow_error("wf", asyncio.CancelledError(), 1.0)
+        obs.on_workflow_error("state_guard_workflow", asyncio.CancelledError(), 1.0)
 
         # Then: a late on_workflow_complete arrives
-        obs.on_workflow_complete("wf", WorkflowState(), 2.0)
+        obs.on_workflow_complete("state_guard_workflow", WorkflowState(), 2.0)
 
         with Session(db_engine) as session:
             run = session.get(Run, run_id)
@@ -465,7 +465,7 @@ class TestGuardLogging:
         obs = ExecutionObserver(engine=db_engine, run_id=run_id)
 
         with caplog.at_level(logging.WARNING):
-            obs.on_workflow_error("wf", RuntimeError("late"), 1.0)
+            obs.on_workflow_error("state_guard_workflow", RuntimeError("late"), 1.0)
 
         # Should have logged a warning about the invalid transition
         assert any("transition" in record.message.lower() for record in caplog.records), (

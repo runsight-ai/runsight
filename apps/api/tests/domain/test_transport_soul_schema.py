@@ -12,7 +12,7 @@ from runsight_api.transport.schemas.souls import (
 
 def test_soul_create_accepts_new_transport_fields():
     soul = SoulCreate(
-        id="soul_1",
+        id="research_soul",
         kind="soul",
         name="Researcher",
         role="Researcher",
@@ -23,7 +23,7 @@ def test_soul_create_accepts_new_transport_fields():
         avatar_color="#44aa88",
     )
 
-    assert soul.id == "soul_1"
+    assert soul.id == "research_soul"
     assert soul.provider == "openai"
     assert soul.temperature == 0.7
     assert soul.max_tokens == 4096
@@ -46,7 +46,7 @@ def test_soul_create_rejects_missing_kind():
     with pytest.raises(ValidationError):
         SoulCreate.model_validate(
             {
-                "id": "soul_1",
+                "id": "research_soul",
                 "name": "Researcher",
                 "role": "Researcher",
                 "system_prompt": "Study the issue.",
@@ -58,7 +58,7 @@ def test_soul_create_rejects_missing_name():
     with pytest.raises(ValidationError):
         SoulCreate.model_validate(
             {
-                "id": "soul_1",
+                "id": "research_soul",
                 "kind": "soul",
                 "role": "Researcher",
                 "system_prompt": "Study the issue.",
@@ -111,7 +111,7 @@ def test_soul_update_accepts_new_transport_fields():
 
 def test_soul_response_exposes_new_transport_fields():
     soul = SoulResponse(
-        id="soul_1",
+        id="review_soul",
         kind="soul",
         name="Reviewer",
         role="Reviewer",
@@ -130,13 +130,13 @@ def test_soul_response_exposes_new_transport_fields():
 
 def test_soul_usage_response_keeps_usages_and_total_shape():
     usage = SoulUsageResponse(
-        soul_id="soul_1",
+        soul_id="review_soul",
         usages=[
             SoulUsageEntry(workflow_id="workflow_soul_usage", workflow_name="Soul usage workflow")
         ],
         total=1,
     )
 
-    assert usage.soul_id == "soul_1"
+    assert usage.soul_id == "review_soul"
     assert usage.usages[0].workflow_id == "workflow_soul_usage"
     assert usage.total == 1
