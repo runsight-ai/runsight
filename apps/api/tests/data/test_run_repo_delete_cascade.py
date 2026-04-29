@@ -78,33 +78,33 @@ class TestRunRepositoryDeleteRunsForWorkflow:
 
         _seed_run(
             db_session,
-            "run_target_1",
-            workflow_id="wf_target",
+            "target_workflow_run_first",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             created_at=100.0,
         )
-        _seed_node(db_session, "run_target_1", "node_1")
-        _seed_log(db_session, "run_target_1", "node_1", "target log 1")
+        _seed_node(db_session, "target_workflow_run_first", "cleanup_node")
+        _seed_log(db_session, "target_workflow_run_first", "cleanup_node", "target log 1")
 
         _seed_run(
             db_session,
-            "run_target_2",
-            workflow_id="wf_target",
+            "target_workflow_run_second",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             created_at=200.0,
         )
-        _seed_node(db_session, "run_target_2", "node_1")
-        _seed_log(db_session, "run_target_2", "node_1", "target log 2")
+        _seed_node(db_session, "target_workflow_run_second", "cleanup_node")
+        _seed_log(db_session, "target_workflow_run_second", "cleanup_node", "target log 2")
 
         _seed_run(
             db_session,
-            "run_other",
-            workflow_id="wf_other",
+            "other_workflow_run",
+            workflow_id="other_workflow",
             workflow_name="Other Flow",
             created_at=300.0,
         )
-        _seed_node(db_session, "run_other", "node_1")
-        _seed_log(db_session, "run_other", "node_1", "other log")
+        _seed_node(db_session, "other_workflow_run", "cleanup_node")
+        _seed_log(db_session, "other_workflow_run", "cleanup_node", "other log")
         db_session.commit()
 
         commit_calls = 0
@@ -118,33 +118,39 @@ class TestRunRepositoryDeleteRunsForWorkflow:
         monkeypatch.setattr(db_session, "commit", counted_commit)
 
         repo = RunRepository(db_session)
-        runs_deleted = repo.delete_runs_for_workflow("wf_target")
+        runs_deleted = repo.delete_runs_for_workflow("target_workflow")
 
         assert runs_deleted == 2
         assert commit_calls == 1
-        assert db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all() == []
+        assert db_session.exec(select(Run).where(Run.workflow_id == "target_workflow")).all() == []
         assert (
             db_session.exec(
-                select(RunNode).where(RunNode.run_id.in_(["run_target_1", "run_target_2"]))
+                select(RunNode).where(
+                    RunNode.run_id.in_(["target_workflow_run_first", "target_workflow_run_second"])
+                )
             ).all()
             == []
         )
         assert (
             db_session.exec(
-                select(LogEntry).where(LogEntry.run_id.in_(["run_target_1", "run_target_2"]))
+                select(LogEntry).where(
+                    LogEntry.run_id.in_(["target_workflow_run_first", "target_workflow_run_second"])
+                )
             ).all()
             == []
         )
 
-        remaining_runs = db_session.exec(select(Run).where(Run.workflow_id == "wf_other")).all()
+        remaining_runs = db_session.exec(
+            select(Run).where(Run.workflow_id == "other_workflow")
+        ).all()
         remaining_nodes = db_session.exec(
-            select(RunNode).where(RunNode.run_id == "run_other")
+            select(RunNode).where(RunNode.run_id == "other_workflow_run")
         ).all()
         remaining_logs = db_session.exec(
-            select(LogEntry).where(LogEntry.run_id == "run_other")
+            select(LogEntry).where(LogEntry.run_id == "other_workflow_run")
         ).all()
-        assert [run.id for run in remaining_runs] == ["run_other"]
-        assert [node.id for node in remaining_nodes] == ["run_other:node_1"]
+        assert [run.id for run in remaining_runs] == ["other_workflow_run"]
+        assert [node.id for node in remaining_nodes] == ["other_workflow_run:cleanup_node"]
         assert len(remaining_logs) == 1
 
     def test_delete_runs_for_workflow_raises_when_active_runs_exist_without_force(
@@ -157,15 +163,15 @@ class TestRunRepositoryDeleteRunsForWorkflow:
 
         _seed_run(
             db_session,
-            "run_pending",
-            workflow_id="wf_target",
+            "pending_target_run",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             status=RunStatus.pending,
         )
         _seed_run(
             db_session,
-            "run_completed",
-            workflow_id="wf_target",
+            "completed_target_run",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             status=RunStatus.completed,
             created_at=200.0,
@@ -175,10 +181,12 @@ class TestRunRepositoryDeleteRunsForWorkflow:
         repo = RunRepository(db_session)
 
         with pytest.raises(WorkflowHasActiveRuns):
-            repo.delete_runs_for_workflow("wf_target", force=False)
+            repo.delete_runs_for_workflow("target_workflow", force=False)
 
-        remaining_runs = db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all()
-        assert {run.id for run in remaining_runs} == {"run_pending", "run_completed"}
+        remaining_runs = db_session.exec(
+            select(Run).where(Run.workflow_id == "target_workflow")
+        ).all()
+        assert {run.id for run in remaining_runs} == {"pending_target_run", "completed_target_run"}
 
     def test_delete_runs_for_workflow_force_true_deletes_even_with_active_runs(
         self,
@@ -189,22 +197,28 @@ class TestRunRepositoryDeleteRunsForWorkflow:
 
         _seed_run(
             db_session,
-            "run_running",
-            workflow_id="wf_target",
+            "running_target_run",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             status=RunStatus.running,
         )
-        _seed_node(db_session, "run_running", "node_1")
-        _seed_log(db_session, "run_running", "node_1", "running log")
+        _seed_node(db_session, "running_target_run", "cleanup_node")
+        _seed_log(db_session, "running_target_run", "cleanup_node", "running log")
         db_session.commit()
 
         repo = RunRepository(db_session)
-        runs_deleted = repo.delete_runs_for_workflow("wf_target", force=True)
+        runs_deleted = repo.delete_runs_for_workflow("target_workflow", force=True)
 
         assert runs_deleted == 1
-        assert db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all() == []
-        assert db_session.exec(select(RunNode).where(RunNode.run_id == "run_running")).all() == []
-        assert db_session.exec(select(LogEntry).where(LogEntry.run_id == "run_running")).all() == []
+        assert db_session.exec(select(Run).where(Run.workflow_id == "target_workflow")).all() == []
+        assert (
+            db_session.exec(select(RunNode).where(RunNode.run_id == "running_target_run")).all()
+            == []
+        )
+        assert (
+            db_session.exec(select(LogEntry).where(LogEntry.run_id == "running_target_run")).all()
+            == []
+        )
 
     def test_delete_runs_for_workflow_raises_when_running_runs_exist_without_force(
         self,
@@ -216,15 +230,15 @@ class TestRunRepositoryDeleteRunsForWorkflow:
 
         _seed_run(
             db_session,
-            "run_running",
-            workflow_id="wf_target",
+            "running_target_run",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             status=RunStatus.running,
         )
         _seed_run(
             db_session,
-            "run_completed",
-            workflow_id="wf_target",
+            "completed_target_run",
+            workflow_id="target_workflow",
             workflow_name="Target Flow",
             status=RunStatus.completed,
             created_at=200.0,
@@ -234,7 +248,9 @@ class TestRunRepositoryDeleteRunsForWorkflow:
         repo = RunRepository(db_session)
 
         with pytest.raises(WorkflowHasActiveRuns):
-            repo.delete_runs_for_workflow("wf_target", force=False)
+            repo.delete_runs_for_workflow("target_workflow", force=False)
 
-        remaining_runs = db_session.exec(select(Run).where(Run.workflow_id == "wf_target")).all()
-        assert {run.id for run in remaining_runs} == {"run_running", "run_completed"}
+        remaining_runs = db_session.exec(
+            select(Run).where(Run.workflow_id == "target_workflow")
+        ).all()
+        assert {run.id for run in remaining_runs} == {"running_target_run", "completed_target_run"}

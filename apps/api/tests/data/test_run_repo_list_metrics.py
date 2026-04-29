@@ -73,28 +73,28 @@ class TestRunReadModelListMetrics:
 
         _seed_run(
             db_session,
-            "run_old",
-            workflow_id="wf_alpha",
+            "alpha_run_early",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=100.0,
         )
-        _seed_node(db_session, "run_old", "node_1", eval_passed=True)
-        _seed_node(db_session, "run_old", "node_2", eval_passed=False)
+        _seed_node(db_session, "alpha_run_early", "primary_eval_node", eval_passed=True)
+        _seed_node(db_session, "alpha_run_early", "secondary_eval_node", eval_passed=False)
 
         _seed_run(
             db_session,
-            "run_new",
-            workflow_id="wf_alpha",
+            "alpha_run_late",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=200.0,
         )
-        _seed_node(db_session, "run_new", "node_1", eval_passed=True)
-        _seed_node(db_session, "run_new", "node_2", eval_passed=True)
+        _seed_node(db_session, "alpha_run_late", "primary_eval_node", eval_passed=True)
+        _seed_node(db_session, "alpha_run_late", "secondary_eval_node", eval_passed=True)
 
         _seed_run(
             db_session,
-            "run_other",
-            workflow_id="wf_beta",
+            "beta_run",
+            workflow_id="beta_workflow",
             workflow_name="Beta",
             created_at=150.0,
         )
@@ -104,7 +104,7 @@ class TestRunReadModelListMetrics:
         items, total = read_model.list_runs_paginated(offset=0, limit=10)
 
         assert total == 3
-        assert [run.id for run in items] == ["run_new", "run_other", "run_old"]
+        assert [run.id for run in items] == ["alpha_run_late", "beta_run", "alpha_run_early"]
 
         assert items[0].run_number == 2
         assert items[0].eval_pass_pct == pytest.approx(100.0)
@@ -124,19 +124,19 @@ class TestRunReadModelListMetrics:
 
         _seed_run(
             db_session,
-            "run_keep",
-            workflow_id="wf_alpha",
+            "kept_manual_run",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=300.0,
             source="manual",
             branch="main",
         )
-        _seed_node(db_session, "run_keep", "node_1", eval_passed=True)
+        _seed_node(db_session, "kept_manual_run", "primary_eval_node", eval_passed=True)
 
         _seed_run(
             db_session,
-            "run_wrong_source",
-            workflow_id="wf_alpha",
+            "filtered_simulation_run",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=250.0,
             source="simulation",
@@ -144,8 +144,8 @@ class TestRunReadModelListMetrics:
         )
         _seed_run(
             db_session,
-            "run_wrong_branch",
-            workflow_id="wf_alpha",
+            "filtered_branch_run",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=200.0,
             source="manual",
@@ -162,7 +162,7 @@ class TestRunReadModelListMetrics:
         )
 
         assert total == 1
-        assert [run.id for run in items] == ["run_keep"]
+        assert [run.id for run in items] == ["kept_manual_run"]
         assert items[0].run_number == 1
         assert items[0].eval_pass_pct == pytest.approx(100.0)
 
@@ -175,30 +175,30 @@ class TestRunReadModelListMetrics:
 
         _seed_run(
             db_session,
-            "run_manual",
-            workflow_id="wf_alpha",
+            "manual_alpha_run",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=100.0,
             source="manual",
         )
-        _seed_node(db_session, "run_manual", "node_1", eval_passed=True)
+        _seed_node(db_session, "manual_alpha_run", "primary_eval_node", eval_passed=True)
 
         _seed_run(
             db_session,
-            "run_sim",
-            workflow_id="wf_alpha",
+            "simulation_alpha_run",
+            workflow_id="alpha_workflow",
             workflow_name="Alpha",
             created_at=200.0,
             source="simulation",
         )
-        _seed_node(db_session, "run_sim", "node_1", eval_passed=False)
+        _seed_node(db_session, "simulation_alpha_run", "primary_eval_node", eval_passed=False)
         db_session.commit()
 
         read_model = RunReadModel(db_session)
         items, total = read_model.list_runs_paginated(offset=0, limit=10)
 
         assert total == 2
-        assert [run.id for run in items] == ["run_sim", "run_manual"]
+        assert [run.id for run in items] == ["simulation_alpha_run", "manual_alpha_run"]
         assert items[0].source == "simulation"
         assert items[0].run_number == 2
         assert items[0].eval_pass_pct == pytest.approx(0.0)
