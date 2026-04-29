@@ -61,8 +61,8 @@ function makeWarning(message: string): WarningItem {
 
 function makeRun(overrides: Partial<RunResponse> = {}): RunResponse {
   return {
-    id: "surface_run_1",
-    workflow_id: "wf_1",
+    id: "surface_warning_run",
+    workflow_id: "surface_warning_flow",
     workflow_name: "Surface Workflow",
     status: "completed",
     started_at: 1_776_120_000,

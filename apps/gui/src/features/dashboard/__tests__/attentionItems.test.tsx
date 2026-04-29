@@ -40,8 +40,8 @@ function attentionItem(overrides: Partial<AttentionItem>): AttentionItem {
     type: "regression",
     title: "Regression · summarize",
     description: "Score dropped",
-    run_id: "run_1",
-    workflow_id: "wf_1",
+    run_id: "run_review_attention",
+    workflow_id: "review_flow",
     node_id: "summarize",
     severity: "warning",
     created_at: 1_710_000_000,
@@ -51,8 +51,8 @@ function attentionItem(overrides: Partial<AttentionItem>): AttentionItem {
 
 function runInfo(overrides: Partial<RunResponse>): RunResponse {
   return {
-    id: "run_1",
-    workflow_id: "wf_1",
+    id: "run_review_attention",
+    workflow_id: "review_flow",
     workflow_name: "Review Flow",
     status: "completed",
     error: null,
@@ -92,15 +92,43 @@ afterEach(() => {
 describe("AttentionItems", () => {
   it("shows the first three attention items with run context and opens the selected run", () => {
     const items = [
-      attentionItem({ run_id: "run_1", title: "Regression · summarize" }),
-      attentionItem({ run_id: "run_2", title: "Regression · review" }),
-      attentionItem({ run_id: "run_3", title: "New baseline · draft", type: "new_baseline" }),
-      attentionItem({ run_id: "run_4", title: "Regression · hidden" }),
+      attentionItem({
+        run_id: "run_review_attention",
+        title: "Regression · summarize",
+      }),
+      attentionItem({ run_id: "run_audit_attention", title: "Regression · review" }),
+      attentionItem({
+        run_id: "run_draft_attention",
+        title: "New baseline · draft",
+        type: "new_baseline",
+      }),
+      attentionItem({ run_id: "run_hidden_attention", title: "Regression · hidden" }),
     ];
     const recentRunsById = new Map<string, RunResponse>([
-      ["run_1", runInfo({ id: "run_1", workflow_name: "Review Flow", run_number: 12 })],
-      ["run_2", runInfo({ id: "run_2", workflow_name: "Audit Flow", run_number: 8 })],
-      ["run_3", runInfo({ id: "run_3", workflow_name: "Draft Flow", run_number: null })],
+      [
+        "run_review_attention",
+        runInfo({
+          id: "run_review_attention",
+          workflow_name: "Review Flow",
+          run_number: 12,
+        }),
+      ],
+      [
+        "run_audit_attention",
+        runInfo({
+          id: "run_audit_attention",
+          workflow_name: "Audit Flow",
+          run_number: 8,
+        }),
+      ],
+      [
+        "run_draft_attention",
+        runInfo({
+          id: "run_draft_attention",
+          workflow_name: "Draft Flow",
+          run_number: null,
+        }),
+      ],
     ]);
 
     render(<AttentionItems items={items} recentRunsById={recentRunsById} />);
@@ -113,17 +141,17 @@ describe("AttentionItems", () => {
 
     fireEvent.click(screen.getByText("Review Flow #12"));
 
-    expect(harness.navigate).toHaveBeenCalledWith("/runs/run_1");
+    expect(harness.navigate).toHaveBeenCalledWith("/runs/run_review_attention");
   });
 
   it("links to the full attention-filtered runs list when more than three items exist", () => {
     render(
       <AttentionItems
         items={[
-          attentionItem({ run_id: "run_1" }),
-          attentionItem({ run_id: "run_2" }),
-          attentionItem({ run_id: "run_3" }),
-          attentionItem({ run_id: "run_4" }),
+          attentionItem({ run_id: "run_review_attention" }),
+          attentionItem({ run_id: "run_audit_attention" }),
+          attentionItem({ run_id: "run_draft_attention" }),
+          attentionItem({ run_id: "run_hidden_attention" }),
         ]}
         recentRunsById={new Map()}
       />,

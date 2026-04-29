@@ -94,9 +94,9 @@ function makeWarning(message: string): WarningItem {
 
 function makeRun(overrides: Partial<RunResponse> = {}): RunResponse {
   return {
-    id: "run_1",
-    workflow_id: "wf_1",
-    workflow_name: "Workflow One",
+    id: "run_warning_badge",
+    workflow_id: "warning_badge_flow",
+    workflow_name: "Warning Badge Flow",
     status: "completed",
     started_at: 1_776_120_000,
     completed_at: 1_776_120_030,

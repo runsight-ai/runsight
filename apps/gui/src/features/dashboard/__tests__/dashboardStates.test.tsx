@@ -173,7 +173,7 @@ describe("DashboardOrOnboarding states", () => {
   });
 
   it("shows the no-runs state after workflows exist but no runs were created today", () => {
-    harness.workflows = [{ id: "wf_1", name: "Review Flow" }];
+    harness.workflows = [{ id: "review_flow", name: "Review Flow" }];
 
     render(<DashboardOrOnboarding />);
 
@@ -186,7 +186,7 @@ describe("DashboardOrOnboarding states", () => {
   });
 
   it("shows a retryable error banner while preserving loaded dashboard sections", () => {
-    harness.workflows = [{ id: "wf_1", name: "Review Flow" }];
+    harness.workflows = [{ id: "review_flow", name: "Review Flow" }];
     harness.isError = true;
     harness.isRunsError = true;
 
@@ -201,9 +201,9 @@ describe("DashboardOrOnboarding states", () => {
   });
 
   it("renders attention and active-run sections only when dashboard data calls for them", () => {
-    harness.workflows = [{ id: "wf_1", name: "Review Flow" }];
+    harness.workflows = [{ id: "review_flow", name: "Review Flow" }];
     harness.kpis.runs_today = 3;
-    harness.attentionItems = [{ run_id: "run_1" }];
+    harness.attentionItems = [{ run_id: "run_review_attention" }];
     harness.activeRuns = [{ id: "run_active" }];
 
     render(<DashboardOrOnboarding />);
