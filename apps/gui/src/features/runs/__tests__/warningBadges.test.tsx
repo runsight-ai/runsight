@@ -250,7 +250,7 @@ describe("RunRow warnings + regressions cell", () => {
     mocks.runRegressionsById[run.id] = {
       issues: [
         {
-          node_id: "node_1",
+          node_id: "writer_node",
           node_name: "Writer",
           type: "assertion_regression",
           delta: {},

@@ -87,8 +87,7 @@ function roundTrip(input: CompileInput) {
 
 describe("HTTP request canvas schema", () => {
   it("StepType should accept 'http_request' as a valid value", () => {
-    // This validates http_request is in the StepType union.
-    // If it's missing, TypeScript compilation will fail on the mockNode call.
+    // This validates http_request is in the StepType union through mockNode.
     const node = mockNode("http_block", "http_request" as StepType, {
       url: "https://api.example.test/data",
     } as Partial<StepNodeData>);
