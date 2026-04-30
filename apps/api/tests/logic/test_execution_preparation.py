@@ -29,7 +29,7 @@ from runsight_api.logic.services.run_service import RunService
 
 BRANCH_ONLY_YAML = """\
 version: "1.0"
-id: wf_branch_only
+id: branch-only-workflow
 kind: workflow
 workflow:
   name: Branch Only Workflow
@@ -55,7 +55,7 @@ config: {}
 
 PREP_REGISTRY_YAML = """\
 version: "1.0"
-id: wf_prepare_parent
+id: prepare-parent-workflow
 kind: workflow
 workflow:
   name: Prepare Parent Workflow
@@ -66,7 +66,7 @@ workflow:
 blocks:
   child:
     type: workflow
-    workflow_ref: wf_prepare_child
+    workflow_ref: prepare-child-workflow
 config: {}
 """
 
@@ -78,7 +78,7 @@ def _db_engine():
     return engine
 
 
-def _seed_run(engine, run_id: str, workflow_id: str = "wf_1") -> None:
+def _seed_run(engine, run_id: str, workflow_id: str = "branch-only-workflow") -> None:
     with Session(engine) as session:
         session.add(
             Run(
@@ -296,14 +296,16 @@ class TestRequestedSnapshotSourceOfTruth:
         """
 
         engine = _db_engine()
-        run_id = "run_snapshot_coherent"
-        workflow_id = "wf_prepare_parent"
+        run_id = "coherent-snapshot-run"
+        workflow_id = "prepare-parent-workflow"
         requested_sha = "a" * 40
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = None
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_prepare_parent.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/prepare-parent-workflow.yaml"
+        )
         workflow_repo.build_runnable_workflow_registry.return_value = Mock()
         provider_repo = Mock()
         provider_repo.list_all.return_value = []
@@ -363,12 +365,14 @@ class TestRequestedSnapshotSourceOfTruth:
         """
 
         engine = _db_engine()
-        run_id = "run_missing_sha"
+        run_id = "missing-sha-run"
         _seed_run(engine, run_id)
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml="working-tree-yaml")
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/branch-only-workflow.yaml"
+        )
         provider_repo = Mock()
         provider_repo.list_all.return_value = [_provider()]
         git_service = Mock()
@@ -393,7 +397,7 @@ class TestRequestedSnapshotSourceOfTruth:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_1",
+                "branch-only-workflow",
                 _prepared_inputs({"instruction": "require exact requested snapshot"}),
                 branch="feature/sim",
             )
@@ -420,12 +424,14 @@ class TestRequestedSnapshotSourceOfTruth:
         """Fallback-eligible git snapshot read errors must still fail closed."""
 
         engine = _db_engine()
-        run_id = "run_no_working_tree_fallback"
+        run_id = "no-working-tree-fallback-run"
         _seed_run(engine, run_id)
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml=BRANCH_ONLY_YAML)
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/branch-only-workflow.yaml"
+        )
         provider_repo = Mock()
         provider_repo.list_all.return_value = [_provider()]
         git_service = Mock()
@@ -453,7 +459,7 @@ class TestRequestedSnapshotSourceOfTruth:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_1",
+                "branch-only-workflow",
                 _prepared_inputs({"instruction": "require git snapshot"}),
                 branch=branch,
             )
@@ -475,12 +481,14 @@ class TestRequestedSnapshotSourceOfTruth:
     @pytest.mark.asyncio
     async def test_launch_execution_explicit_main_snapshot_requires_git_service(self):
         engine = _db_engine()
-        run_id = "run_main_snapshot_requires_git"
+        run_id = "main-snapshot-requires-git-run"
         _seed_run(engine, run_id)
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml=BRANCH_ONLY_YAML)
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/branch-only-workflow.yaml"
+        )
         provider_repo = Mock()
         provider_repo.list_all.return_value = [_provider()]
 
@@ -501,7 +509,7 @@ class TestRequestedSnapshotSourceOfTruth:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_1",
+                "branch-only-workflow",
                 _prepared_inputs({"instruction": "require explicit main snapshot"}),
                 branch="main",
             )
@@ -527,7 +535,7 @@ class TestPrepareTimeCancellation:
         """A cancel that lands during requested-snapshot loading must win."""
 
         engine = _db_engine()
-        run_id = "run_cancel_read"
+        run_id = "cancel-during-read-run"
         _seed_run(engine, run_id)
 
         read_started = threading.Event()
@@ -545,7 +553,9 @@ class TestPrepareTimeCancellation:
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml="working-tree-yaml")
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/branch-only-workflow.yaml"
+        )
         provider_repo = Mock()
         provider_repo.list_all.return_value = [_provider()]
         git_service = Mock()
@@ -576,7 +586,7 @@ class TestPrepareTimeCancellation:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_1",
+                "branch-only-workflow",
                 _prepared_inputs({"instruction": "cancel during snapshot read"}),
                 branch="feature/sim",
             )
@@ -600,8 +610,8 @@ class TestPrepareTimeCancellation:
         """Cancellation during downstream prepare work must not resurrect the run."""
 
         engine = _db_engine()
-        run_id = "run_cancel_registry"
-        _seed_run(engine, run_id, workflow_id="wf_prepare_parent")
+        run_id = "cancel-during-registry-run"
+        _seed_run(engine, run_id, workflow_id="prepare-parent-workflow")
 
         registry_started = threading.Event()
         allow_registry_return = threading.Event()
@@ -618,7 +628,9 @@ class TestPrepareTimeCancellation:
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml="working-tree-yaml")
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_prepare_parent.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/prepare-parent-workflow.yaml"
+        )
 
         def blocked_registry(*args, **kwargs):
             registry_started.set()
@@ -651,7 +663,7 @@ class TestPrepareTimeCancellation:
         ):
             await service.launch_execution(
                 run_id,
-                "wf_prepare_parent",
+                "prepare-parent-workflow",
                 _prepared_inputs({"instruction": "cancel during registry build"}),
                 branch="feature/sim",
             )
@@ -675,7 +687,7 @@ class TestPrepareTimeCancellation:
         """Prepare-time errors after a winning cancel must not rewrite the run to failed."""
 
         engine = _db_engine()
-        run_id = "run_cancel_then_prepare_error"
+        run_id = "cancel-before-prepare-error-run"
         _seed_run(engine, run_id)
 
         read_started = threading.Event()
@@ -693,7 +705,9 @@ class TestPrepareTimeCancellation:
 
         workflow_repo = Mock()
         workflow_repo.get_by_id.return_value = Mock(yaml="working-tree-yaml")
-        workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+        workflow_repo._get_path.return_value = Path(
+            "/tmp/custom/workflows/branch-only-workflow.yaml"
+        )
         provider_repo = Mock()
         provider_repo.list_all.return_value = [_provider()]
         git_service = Mock()
@@ -717,7 +731,7 @@ class TestPrepareTimeCancellation:
         with patch.object(service, "_run_workflow", run_workflow):
             await service.launch_execution(
                 run_id,
-                "wf_1",
+                "branch-only-workflow",
                 _prepared_inputs({"instruction": "cancel before prepare error"}),
                 branch="feature/sim",
             )
@@ -740,12 +754,12 @@ class TestPrepareTimeCancellation:
 @pytest.mark.asyncio
 async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens() -> None:
     engine = _db_engine()
-    run_id = "run_cancelled_before_start"
+    run_id = "cancelled-before-start-run"
     _seed_run(engine, run_id)
 
     workflow_repo = Mock()
     workflow_repo.get_by_id.return_value = Mock(yaml=BRANCH_ONLY_YAML)
-    workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/wf_1.yaml")
+    workflow_repo._get_path.return_value = Path("/tmp/custom/workflows/branch-only-workflow.yaml")
     provider_repo = Mock()
     provider_repo.list_all.return_value = [_provider()]
 
@@ -768,7 +782,7 @@ async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens
     ):
         await service.launch_execution(
             run_id,
-            "wf_1",
+            "branch-only-workflow",
             _prepared_inputs({"instruction": "queued cancel should win"}),
         )
         await asyncio.sleep(0)
@@ -795,7 +809,7 @@ class TestSnapshotDiscoveryFailsClosed:
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
         from runsight_api.logic.services.git_service import GitService
 
-        workflow_id = "wf_snapshot_missing_soul"
+        workflow_id = "snapshot-missing-soul-workflow"
         repo = _init_git_repo_with_files(
             tmp_path,
             files={
@@ -807,7 +821,7 @@ class TestSnapshotDiscoveryFailsClosed:
         _write_repo_files(repo, {"custom/souls/reviewer.yaml": _working_tree_external_soul()})
 
         engine = _db_engine()
-        run_id = "run_missing_soul_snapshot"
+        run_id = "missing-soul-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
         service = ExecutionService(
@@ -850,7 +864,7 @@ class TestSnapshotDiscoveryFailsClosed:
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
         from runsight_api.logic.services.git_service import GitService
 
-        workflow_id = "wf_snapshot_missing_tool"
+        workflow_id = "snapshot-missing-tool-workflow"
         repo = _init_git_repo_with_files(
             tmp_path,
             files={
@@ -860,7 +874,7 @@ class TestSnapshotDiscoveryFailsClosed:
         _write_repo_files(repo, {"custom/tools/helper_tool.yaml": _working_tree_tool_definition()})
 
         engine = _db_engine()
-        run_id = "run_missing_tool_snapshot"
+        run_id = "missing-tool-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
         provider_repo = Mock()
@@ -903,7 +917,7 @@ class TestSnapshotDiscoveryFailsClosed:
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
         from runsight_api.logic.services.git_service import GitService
 
-        workflow_id = "wf_snapshot_missing_assertion"
+        workflow_id = "snapshot-missing-assertion-workflow"
         assertion_id = "snapshot_guard"
         repo = _init_git_repo_with_files(
             tmp_path,
@@ -925,7 +939,7 @@ class TestSnapshotDiscoveryFailsClosed:
         )
 
         engine = _db_engine()
-        run_id = "run_missing_assertion_snapshot"
+        run_id = "missing-assertion-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
         service = ExecutionService(
@@ -961,8 +975,8 @@ class TestSnapshotDiscoveryFailsClosed:
     @pytest.mark.asyncio
     async def test_launch_execution_logs_requested_ref_when_prepare_fails(self, caplog) -> None:
         engine = _db_engine()
-        run_id = "run_prepare_log_context"
-        workflow_id = "wf_prepare_log_context"
+        run_id = "prepare-log-context-run"
+        workflow_id = "prepare-log-context-workflow"
         requested_ref = "feature/snapshot-review"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
