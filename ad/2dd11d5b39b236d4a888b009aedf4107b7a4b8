@@ -1,0 +1,37 @@
+packages/core/tests/test_assertion_scanner.py
+  4adca821c1af8eb3 1
+packages/core/tests/test_eval_debt_integration.py
+  4adca821c1af8eb3 2,4-10
+packages/core/tests/test_eval_yaml_schema.py
+  4adca821c1af8eb3 27,29
+packages/core/tests/assertions/test_custom_adapter.py
+  4adca821c1af8eb3 24,27,105,108,400,403
+packages/core/tests/test_custom_assertion_eval_e2e.py
+  4adca821c1af8eb3 1,53,64
+packages/core/tests/test_eval_integration.py
+  4adca821c1af8eb3 1,3-6,402-403
+packages/core/tests/test_eval_runner.py
+  4adca821c1af8eb3 1,4,6,8,21,44,81,113,147,185,212,286,291,431,436,498,521,526,601,694
+packages/core/tests/test_custom_assertion_registration.py
+  4adca821c1af8eb3 1,142-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ad2dd11d5b39b236d4a888b009aedf4107b7a4b8",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 59,
+      "total_deletions": 59,
+      "accepted_lines": 78846,
+      "overriden_lines": 0
+    }
+  }
+}
