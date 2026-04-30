@@ -107,11 +107,11 @@ async function ensureActiveProvider(): Promise<string | null> {
     return null;
   }
 
-  const id = `${TEST_PREFIX}-provider-openai`;
+  const id = `${TEST_PREFIX}-provider-fixture`;
   const created = await apiPost<ProviderResponse>("/settings/providers", {
     id,
     kind: "provider",
-    name: `${TEST_PREFIX}-provider-openai`,
+    name: `${TEST_PREFIX}-provider-fixture`,
   });
   return created.id;
 }
