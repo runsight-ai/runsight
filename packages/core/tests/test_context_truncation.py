@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-258: P2 context truncation utility.
+Tests for P2 context truncation utility.
 
 Tests cover:
 - _truncate_context is importable from budget module

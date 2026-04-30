@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-259: fit_to_budget() Phase 1 — P1 accounting and safety valve.
+Tests for fit_to_budget() Phase 1 — P1 accounting and safety valve.
 
 Tests cover:
 - fit_to_budget is importable and callable

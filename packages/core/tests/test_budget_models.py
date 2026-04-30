@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-257: Data models, get_model_budget(), and _count_tokens()
+Tests for Data models, get_model_budget(), and _count_tokens()
 with repetitive content defense.
 
 Tests cover:

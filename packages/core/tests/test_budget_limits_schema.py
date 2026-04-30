@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-709: WorkflowLimitsDef + BlockLimitsDef — YAML schema models.
+Tests for WorkflowLimitsDef + BlockLimitsDef — YAML schema models.
 
 Tests cover:
 - WorkflowLimitsDef and BlockLimitsDef exist and are importable from runsight_core.yaml.schema

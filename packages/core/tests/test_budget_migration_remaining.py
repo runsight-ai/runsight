@@ -1,7 +1,7 @@
 """
-RUN-263 (updated for RUN-875): LoopBlock carry_context integration tests.
+LoopBlock carry_context integration tests.
 
-After RUN-875, LinearBlock reads _resolved_inputs from shared_memory
+After task-context migration, LinearBlock reads _resolved_inputs from shared_memory
 instead of state.current_task. runner.execute() is used instead of execute_task().
 
 The LoopBlock still injects carry_context into shared_memory and into
@@ -108,7 +108,7 @@ def _make_mock_runner(round_counter: list[int]):
 
 class TestLoopCarryContextBudgetIntegration:
     """Run a LoopBlock with 22 rounds, carry_context mode='all', and a stateful
-    inner LinearBlock.  After RUN-875, the inner block uses runner.execute()
+    inner LinearBlock.  After task-context migration, the inner block uses runner.execute()
     and reads _resolved_inputs, not current_task.
 
     With 22 rounds of ~200 tokens each (~4400 total) accumulated in

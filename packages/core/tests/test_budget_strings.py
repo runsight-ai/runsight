@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-870: BudgetedContext — return strings instead of Task.
+Tests for BudgetedContext — return strings instead of Task.
 
 Tests cover:
 - BudgetedContext has `instruction: str` and `context: str | None` fields
@@ -61,21 +61,19 @@ class TestBudgetedContextHasStringFields:
     def test_has_instruction_field(self):
         """BudgetedContext must expose an `instruction` field."""
         field_names = {f.name for f in dataclass_fields(BudgetedContext)}
-        assert "instruction" in field_names, (
-            "BudgetedContext is missing the `instruction` field (RUN-870)"
-        )
+        assert "instruction" in field_names, "BudgetedContext is missing the `instruction` field"
 
     def test_has_context_field(self):
         """BudgetedContext must expose a `context` field."""
         field_names = {f.name for f in dataclass_fields(BudgetedContext)}
-        assert "context" in field_names, "BudgetedContext is missing the `context` field (RUN-870)"
+        assert "context" in field_names, "BudgetedContext is missing the `context` field"
 
     def test_does_not_have_task_field(self):
-        """BudgetedContext must NOT have a `task` field after RUN-870."""
+        """BudgetedContext must NOT have a `task` field."""
         field_names = {f.name for f in dataclass_fields(BudgetedContext)}
         assert "task" not in field_names, (
             "BudgetedContext still has `task` field — should be replaced by "
-            "`instruction` and `context` (RUN-870)"
+            "`instruction` and `context`"
         )
 
     def test_instruction_field_type_is_str(self):
@@ -231,7 +229,7 @@ class TestNoBudgetTaskImport:
                 if node.module and node.module == "runsight_core.primitives":
                     imported_names = [alias.name for alias in node.names]
                     assert "Task" not in imported_names, (
-                        "budget.py must not import Task from runsight_core.primitives (RUN-870)"
+                        "budget.py must not import Task from runsight_core.primitives"
                     )
 
     def test_no_task_import_at_all(self):
@@ -242,12 +240,12 @@ class TestNoBudgetTaskImport:
             if isinstance(node, ast.ImportFrom):
                 imported_names = [alias.name for alias in node.names]
                 assert "Task" not in imported_names, (
-                    f"budget.py imports Task from '{node.module}' — must be removed (RUN-870)"
+                    f"budget.py imports Task from '{node.module}' — must be removed"
                 )
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     assert alias.name != "Task", (
-                        "budget.py has a bare `import Task` — must be removed (RUN-870)"
+                        "budget.py has a bare `import Task` — must be removed"
                     )
 
     def test_no_task_string_in_source(self):
@@ -255,5 +253,5 @@ class TestNoBudgetTaskImport:
         source = _BUDGET_PY.read_text()
         # Check that the literal string 'Task(' does not appear (catches function calls)
         assert "Task(" not in source, (
-            "budget.py still contains 'Task(' — Task instantiation must be removed (RUN-870)"
+            "budget.py still contains 'Task(' — Task instantiation must be removed"
         )

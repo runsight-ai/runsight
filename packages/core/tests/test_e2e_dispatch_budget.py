@@ -1,5 +1,5 @@
 """
-RUN-728 — E2E tests for DispatchBlock branch budget isolation.
+E2E tests for DispatchBlock branch budget isolation.
 
 Full-path integration: YAML parse -> Workflow.run() -> execute_block() ->
 IsolatedBlockWrapper (fallback) -> DispatchBlock._gather_with_budget_isolation()
@@ -70,7 +70,7 @@ def _make_litellm_response(
 
 _YAML_DISPATCH_WITH_COST_CAP = """\
 version: "1.0"
-id: test-workflow
+id: dispatch-budget-workflow
 kind: workflow
 souls:
   worker-a:
@@ -126,7 +126,7 @@ limits:
 
 _YAML_DISPATCH_NO_LIMITS = """\
 version: "1.0"
-id: test-workflow
+id: dispatch-budget-workflow
 kind: workflow
 souls:
   worker-a:

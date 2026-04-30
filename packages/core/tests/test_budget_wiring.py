@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-714: budget enforcement wiring — parser, entry point, execute_block.
+Tests for budget enforcement wiring — parser, entry point, execute_block.
 
 Three parts:
 1. Parser reads `limits:` from YAML and sets `max_duration_seconds` on block instances
@@ -171,7 +171,7 @@ class SlowBlock(BaseBlock):
 
 def _make_ctx(
     *,
-    workflow_name: str = "test_workflow",
+    workflow_name: str = "budget-wiring-workflow",
     blocks=None,
     observer=None,
 ) -> BlockExecutionContext:

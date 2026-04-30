@@ -1,12 +1,12 @@
 """
-Failing tests for RUN-715: DispatchBlock branch session isolation via copy_context.
+Tests for DispatchBlock branch session isolation via copy_context.
 
 DispatchBlock runs branches in parallel via asyncio.gather(). Without isolation,
 concurrent branches sharing a parent BudgetSession create race conditions. Solution:
 each branch gets an isolated child session via copy_context().run(), costs reconciled
 to parent after gather.
 
-Tests cover all acceptance criteria:
+Tests cover branch budget isolation behavior:
 - Each asyncio.gather branch runs with its own isolated BudgetSession
 - Branch costs do NOT accrue to parent during parallel execution
 - After gather returns, all branch costs reconciled to parent via reconcile_child()

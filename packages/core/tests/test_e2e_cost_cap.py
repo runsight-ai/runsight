@@ -1,5 +1,5 @@
 """
-RUN-726 — E2E tests for workflow cost cap enforcement.
+E2E tests for workflow cost cap enforcement.
 
 Full-path integration: YAML parse -> Workflow.run() -> execute_block() ->
 LinearBlock -> RunsightTeamRunner -> LiteLLMClient.achat() -> BudgetSession
@@ -72,7 +72,7 @@ def _make_litellm_response(
 
 _YAML_WORKFLOW_COST_CAP = """\
 version: "1.0"
-id: test-workflow
+id: cost-cap-workflow
 kind: workflow
 souls:
   worker:
@@ -105,7 +105,7 @@ limits:
 
 _YAML_BLOCK_COST_CAP_WITH_ERROR_ROUTE = """\
 version: "1.0"
-id: test-workflow
+id: cost-cap-workflow
 kind: workflow
 souls:
   worker:
@@ -139,7 +139,7 @@ workflow:
 
 _YAML_NO_LIMITS = """\
 version: "1.0"
-id: test-workflow
+id: cost-cap-workflow
 kind: workflow
 souls:
   worker:
