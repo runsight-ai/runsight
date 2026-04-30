@@ -194,7 +194,7 @@ function runNode(
     error,
     output: status === "completed" ? `${nodeId} output` : null,
     soul_id: nodeId === "declared_code" ? null : "analyst",
-    model_name: nodeId === "declared_code" ? null : "gpt-4o",
+    model_name: nodeId === "declared_code" ? null : "context-audit-fixture-model",
   };
 }
 
