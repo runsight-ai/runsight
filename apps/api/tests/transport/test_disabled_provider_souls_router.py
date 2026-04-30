@@ -24,10 +24,10 @@ def _write_provider(
                 "kind": "provider",
                 "name": provider_id.capitalize(),
                 "type": provider_type,
-                "api_key": "${%s_API_KEY}" % provider_type.upper(),
+                "api_key": "dummy-fixture-provider-key-ref",
                 "status": "connected",
                 "is_active": is_active,
-                "models": ["claude-sonnet-4" if provider_type == "anthropic" else "gpt-4o"],
+                "models": ["fixture-disabled-model"],
             },
             sort_keys=False,
         )
@@ -37,7 +37,12 @@ def _write_provider(
 def test_post_soul_rejects_disabled_provider_with_validation_error(tmp_path, monkeypatch):
     monkeypatch.setattr(deps_module.settings, "base_path", str(tmp_path))
     app.dependency_overrides[get_git_service] = lambda: Mock()
-    _write_provider(tmp_path, provider_id="anthropic", provider_type="anthropic", is_active=False)
+    _write_provider(
+        tmp_path,
+        provider_id="fixture-provider",
+        provider_type="fixture-provider",
+        is_active=False,
+    )
 
     try:
         response = client.post(
@@ -48,8 +53,8 @@ def test_post_soul_rejects_disabled_provider_with_validation_error(tmp_path, mon
                 "name": "Analyst",
                 "role": "Analyst",
                 "system_prompt": "You analyze inputs.",
-                "provider": "anthropic",
-                "model_name": "claude-sonnet-4",
+                "provider": "fixture-provider",
+                "model_name": "fixture-disabled-model",
             },
         )
     finally:
@@ -65,7 +70,12 @@ def test_put_soul_rejects_switching_to_disabled_provider_with_validation_error(
 ):
     monkeypatch.setattr(deps_module.settings, "base_path", str(tmp_path))
     app.dependency_overrides[get_git_service] = lambda: Mock()
-    _write_provider(tmp_path, provider_id="anthropic", provider_type="anthropic", is_active=False)
+    _write_provider(
+        tmp_path,
+        provider_id="fixture-provider",
+        provider_type="fixture-provider",
+        is_active=False,
+    )
     SoulRepository(str(tmp_path)).create(
         {
             "id": "soul_existing",
@@ -82,8 +92,8 @@ def test_put_soul_rejects_switching_to_disabled_provider_with_validation_error(
         response = client.put(
             "/api/souls/soul_existing",
             json={
-                "provider": "anthropic",
-                "model_name": "claude-sonnet-4",
+                "provider": "fixture-provider",
+                "model_name": "fixture-disabled-model",
             },
         )
     finally:
@@ -97,7 +107,12 @@ def test_put_soul_rejects_switching_to_disabled_provider_with_validation_error(
 def test_get_soul_keeps_existing_disabled_provider_readable(tmp_path, monkeypatch):
     monkeypatch.setattr(deps_module.settings, "base_path", str(tmp_path))
     app.dependency_overrides[get_git_service] = lambda: Mock()
-    _write_provider(tmp_path, provider_id="anthropic", provider_type="anthropic", is_active=False)
+    _write_provider(
+        tmp_path,
+        provider_id="fixture-provider",
+        provider_type="fixture-provider",
+        is_active=False,
+    )
     SoulRepository(str(tmp_path)).create(
         {
             "id": "soul_disabled_existing",
@@ -105,8 +120,8 @@ def test_get_soul_keeps_existing_disabled_provider_readable(tmp_path, monkeypatc
             "name": "Existing Soul",
             "role": "Existing Soul",
             "system_prompt": "Keep working.",
-            "provider": "anthropic",
-            "model_name": "claude-sonnet-4",
+            "provider": "fixture-provider",
+            "model_name": "fixture-disabled-model",
         }
     )
 
@@ -116,5 +131,5 @@ def test_get_soul_keeps_existing_disabled_provider_readable(tmp_path, monkeypatc
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()["provider"] == "anthropic"
-    assert response.json()["model_name"] == "claude-sonnet-4"
+    assert response.json()["provider"] == "fixture-provider"
+    assert response.json()["model_name"] == "fixture-disabled-model"

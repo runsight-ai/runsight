@@ -36,14 +36,14 @@ class TestSoulEntityRejectsExtraFields:
             name="Alpha",
             role="Alpha",
             system_prompt="Prompt",
-            model_name="gpt-4o",
+            model_name="fixture-soul-model",
             tools=["web_search"],
             max_tool_iterations=7,
         )
         assert soul.id == "soul-alpha"
         assert soul.role == "Alpha"
         assert soul.system_prompt == "Prompt"
-        assert soul.model_name == "gpt-4o"
+        assert soul.model_name == "fixture-soul-model"
         assert soul.tools == ["web_search"]
         assert soul.max_tool_iterations == 7
 
@@ -52,33 +52,38 @@ class TestProviderEntityRejectsExtraFields:
     def test_unknown_field_is_rejected(self):
         with pytest.raises(ValidationError):
             ProviderEntity(
-                id="openai",
+                id="fixture-provider",
                 kind="provider",
-                name="OpenAI",
-                type="openai",
+                name="Fixture Provider",
+                type="fixture-provider",
                 custom_notes="unsupported",
             )
 
     def test_typo_field_is_rejected(self):
         with pytest.raises(ValidationError):
-            ProviderEntity(id="openai", kind="provider", name="OpenAI", tpye="openai")
+            ProviderEntity(
+                id="fixture-provider",
+                kind="provider",
+                name="Fixture Provider",
+                tpye="fixture-provider",
+            )
 
     def test_known_fields_work(self):
         provider = ProviderEntity(
-            id="openai",
+            id="fixture-provider",
             kind="provider",
-            name="OpenAI",
-            type="openai",
-            api_key="dummy-openai-key-ref",
-            base_url="https://provider.example.invalid/openai/v1",
+            name="Fixture Provider",
+            type="fixture-provider",
+            api_key="dummy-fixture-provider-key-ref",
+            base_url="http://localhost/fixture-provider/v1",
             is_active=True,
             status="connected",
-            models=["gpt-4o"],
+            models=["fixture-chat-model"],
         )
-        assert provider.id == "openai"
-        assert provider.name == "OpenAI"
-        assert provider.type == "openai"
-        assert provider.models == ["gpt-4o"]
+        assert provider.id == "fixture-provider"
+        assert provider.name == "Fixture Provider"
+        assert provider.type == "fixture-provider"
+        assert provider.models == ["fixture-chat-model"]
 
 
 class TestWorkflowEntityPreservesExtraFields:
