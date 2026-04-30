@@ -30,6 +30,9 @@ type RunListItem = {
   workflow_id: string;
   workflow_name: string;
   status: string;
+  started_at: number | null;
+  completed_at: number | null;
+  duration_seconds: number | null;
   total_cost_usd: number;
   total_tokens: number;
   created_at: number;
@@ -45,22 +48,11 @@ type RunListItem = {
   [key: string]: unknown;
 };
 
-type RunListResponse = {
-  items: RunListItem[];
-  total: number;
-  offset: number;
-  limit: number;
-};
-
 type WorkflowResponse = {
   id: string;
   kind: "workflow";
   name?: string | null;
-};
-
-type WorkflowSimulationResponse = {
-  branch: string;
-  commit_sha: string;
+  warnings?: WarningItem[];
 };
 
 const CANVAS_STATE = {
@@ -74,15 +66,12 @@ const CANVAS_STATE = {
 let warningSoulId = "";
 let warningWorkflowId = "";
 let warningWorkflowName = "";
-let warningRunId = "";
 let warningRunListItem: RunListItem | null = null;
 
 function warningWorkflowYaml(workflowId: string, soulId: string, workflowName: string) {
   return `version: "1.0"
 id: ${workflowId}
 kind: workflow
-config:
-  model_name: gpt-4o
 blocks:
   analyze:
     type: linear
@@ -104,6 +93,57 @@ function rowForWorkflow(page: Page, workflowName: string) {
   return page.locator("tbody tr").filter({ hasText: workflowName }).first();
 }
 
+function buildWarningRunListItem(warnings: WarningItem[]): RunListItem {
+  return {
+    id: "parser-warning-run",
+    workflow_id: warningWorkflowId,
+    workflow_name: warningWorkflowName,
+    status: "completed",
+    started_at: 1_776_000_000,
+    completed_at: 1_776_000_003,
+    duration_seconds: 3,
+    total_cost_usd: 0,
+    total_tokens: 0,
+    created_at: Date.now() / 1000,
+    branch: "main",
+    source: "simulation",
+    commit_sha: "parser-warning-fixture",
+    run_number: 100,
+    eval_pass_pct: null,
+    eval_score_avg: null,
+    regression_count: 0,
+    warnings,
+    node_summary: {
+      total: 1,
+      completed: 1,
+      running: 0,
+      pending: 0,
+      failed: 0,
+    },
+  };
+}
+
+async function routeRunsWithParserWarning(page: Page) {
+  await page.route("**/api/runs*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== "/api/runs" || !warningRunListItem) {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [warningRunListItem],
+        total: 1,
+        offset: 0,
+        limit: 20,
+      }),
+    });
+  });
+}
+
 test.describe("Parser warnings browser flows", () => {
   test.beforeAll(async () => {
     const suffix = Date.now().toString(36);
@@ -118,8 +158,8 @@ test.describe("Parser warnings browser flows", () => {
       role: "Parser Warning Soul",
       system_prompt: "Parser warning soul for e2e coverage.",
       tools: ["http"],
-      provider: "openai",
-      model_name: "gpt-4.1-mini",
+      provider: "shell-ready-fixture-provider",
+      model_name: "shell-ready-fixture-model",
     });
 
     const workflow = await apiPost<WorkflowResponse>("/workflows", {
@@ -130,28 +170,15 @@ test.describe("Parser warnings browser flows", () => {
     });
     warningWorkflowId = workflow.id;
 
-    const simulation = await apiPost<WorkflowSimulationResponse>(
-      `/workflows/${warningWorkflowId}/simulations`,
-      { yaml: warningWorkflowYaml(warningWorkflowId, warningSoulId, warningWorkflowName) },
-    );
-    const createdRun = await apiPost<{ id: string; warnings: WarningItem[] }>("/runs", {
-      workflow_id: warningWorkflowId,
-      inputs: {},
-      source: "simulation",
-      branch: simulation.branch,
-    });
-    warningRunId = createdRun.id;
-
     await expect
       .poll(async () => {
-        const runs = await apiGet<RunListResponse>("/runs");
-        const item = runs.items.find((run) => run.id === warningRunId);
-        return item?.warnings?.length ?? 0;
+        const currentWorkflow = await apiGet<WorkflowResponse>(`/workflows/${warningWorkflowId}`);
+        return currentWorkflow.warnings?.length ?? 0;
       })
       .toBeGreaterThan(0);
 
-    const runs = await apiGet<RunListResponse>("/runs");
-    warningRunListItem = runs.items.find((run) => run.id === warningRunId) ?? null;
+    const currentWorkflow = await apiGet<WorkflowResponse>(`/workflows/${warningWorkflowId}`);
+    warningRunListItem = buildWarningRunListItem(currentWorkflow.warnings ?? []);
   });
 
   test.afterAll(async () => {
@@ -166,6 +193,7 @@ test.describe("Parser warnings browser flows", () => {
   test("runs page shows warning badge/tooltip, warnings column, and warning-only runs in Needs attention", async ({
     page,
   }) => {
+    await routeRunsWithParserWarning(page);
     await gotoShellRoute(page, "/runs");
 
     await expect(page.getByRole("columnheader", { name: "Warnings" })).toBeVisible();
@@ -191,8 +219,7 @@ test.describe("Parser warnings browser flows", () => {
   test("run warning/regression badges keep regression-only behavior and render both badges together", async ({
     page,
   }) => {
-    const runs = await apiGet<RunListResponse>("/runs");
-    const template = warningRunListItem ?? runs.items[0];
+    const template = warningRunListItem;
     if (!template) {
       throw new Error("Parser warning setup failed: no run template available");
     }
