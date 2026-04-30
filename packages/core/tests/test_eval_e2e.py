@@ -1,16 +1,9 @@
-"""E2E tests for RUN-700: Eval harness full user flow.
+"""Eval harness flow and integration coverage.
 
-Three user flows:
-  Flow 1 — Fixture-mode eval with transforms — full YAML to result
-  Flow 2 — Multi-case eval with mixed pass/fail
-  Flow 3 — Normal execution ignores eval section
-
-Five architectural invariants:
-  INV-1 — eval: is optional and backward-compatible
-  INV-2 — run_eval() is read-only
-  INV-3 — Transform failures are assertions, not exceptions
-  INV-4 — Fixture mode is zero-side-effect
-  INV-5 — One assertion engine, not two
+Behavior boundary: fixture-mode eval with transforms, mixed-case scoring,
+workflow parsing with eval metadata, read-only eval execution, transform
+failure reporting, fixture-mode executor isolation, and shared assertion
+registry integration.
 """
 
 from __future__ import annotations
@@ -18,8 +11,8 @@ from __future__ import annotations
 import json
 
 import pytest
-import runsight_core.assertions.deterministic  # noqa: F401 — registers handlers
-import runsight_core.yaml.parser  # noqa: F401 — rebuilds block union for model_validate
+import runsight_core.assertions.deterministic  # noqa: F401 - registers handlers
+import runsight_core.yaml.parser  # noqa: F401 - rebuilds block union for model_validate
 import yaml
 from runsight_core.assertions.base import GradingResult
 from runsight_core.assertions.registry import (
@@ -36,12 +29,12 @@ from runsight_core.yaml.schema import EvalSectionDef, RunsightWorkflowFile
 # YAML templates
 # ---------------------------------------------------------------------------
 
-_FLOW_1_YAML = """\
+_FIXTURE_TRANSFORM_YAML = """\
 version: "1.0"
 souls:
   researcher:
     id: researcher
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "You are a research assistant."
 blocks:
   analyze:
@@ -49,7 +42,7 @@ blocks:
     soul: researcher
     prompt_template: "Analyze: {topic}"
 workflow:
-  name: flow1_pipeline
+  name: fixture_transform_pipeline
   entry: analyze
   transitions:
     - from: analyze
@@ -67,12 +60,12 @@ eval:
             transform: "json_path:$.summary"
 """
 
-_FLOW_2_YAML = """\
+_MIXED_CASE_YAML = """\
 version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -80,7 +73,7 @@ blocks:
     soul: default
     prompt_template: "Analyze."
 workflow:
-  name: flow2_multi_case
+  name: mixed_case_eval
   entry: analyze
   transitions:
     - from: analyze
@@ -88,21 +81,21 @@ workflow:
 eval:
   threshold: 0.6
   cases:
-    - id: case_pass
+    - id: matching_fixture
       fixtures:
         analyze: "LLMs are powerful transformer models."
       expected:
         analyze:
           - type: contains
             value: "transformer"
-    - id: case_fail
+    - id: missing_keyword
       fixtures:
         analyze: "The weather is sunny today."
       expected:
         analyze:
           - type: contains
-            value: "NONEXISTENT_KEYWORD"
-    - id: case_threshold
+            value: "absent keyword"
+    - id: partial_threshold
       fixtures:
         analyze: "Neural networks use backpropagation for training."
       expected:
@@ -110,14 +103,14 @@ eval:
           - type: contains
             value: "backpropagation"
           - type: contains
-            value: "MISSING_VALUE"
+            value: "missing value"
 """
 
-# Flow 3 and Invariant 1 YAML must conform to RunsightWorkflowFile schema
+# Normal execution and eval-optional YAML must conform to RunsightWorkflowFile schema
 # (valid block types like "code", SoulDef with "role" not "model").
 
-_FLOW_3_YAML = """\
-id: flow3-workflow
+_NORMAL_EXECUTION_WITH_EVAL_YAML = """\
+id: normal-execution-workflow
 kind: workflow
 version: "1.0"
 souls:
@@ -132,7 +125,7 @@ blocks:
     type: code
     code: "result = 'fixture'"
 workflow:
-  name: flow3_ignores_eval
+  name: normal_execution_ignores_eval
   entry: analyze
   transitions:
     - from: analyze
@@ -174,11 +167,11 @@ workflow:
 
 
 # ===========================================================================
-# Flow 1 — Fixture-mode eval with transforms — full YAML to result
+# Fixture-mode eval with transforms
 # ===========================================================================
 
 
-class TestFlow1FixtureModeWithTransforms:
+class TestFixtureModeWithTransforms:
     """Given: complete workflow YAML with analyze block, eval section with 1
     case, fixture containing JSON, expected assertion with
     {type: contains, value: "transform", transform: "json_path:$.summary"},
@@ -192,14 +185,14 @@ class TestFlow1FixtureModeWithTransforms:
     """
 
     async def test_suite_passes_with_transform(self):
-        result = await run_eval(_FLOW_1_YAML)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
 
         assert isinstance(result, EvalSuiteResult)
         assert result.passed is True
         assert result.score >= 0.9
 
     async def test_single_case_result_structure(self):
-        result = await run_eval(_FLOW_1_YAML)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
 
         assert len(result.case_results) == 1
         cr = result.case_results[0]
@@ -208,7 +201,7 @@ class TestFlow1FixtureModeWithTransforms:
         assert cr.passed is True
 
     async def test_block_assertion_passes(self):
-        result = await run_eval(_FLOW_1_YAML)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
 
         cr = result.case_results[0]
         assert "analyze" in cr.block_results
@@ -219,9 +212,9 @@ class TestFlow1FixtureModeWithTransforms:
 
     async def test_assertion_evaluated_against_extracted_field(self):
         """The assertion checks 'transform' in 'LLMs transform software',
-        NOT in the full JSON blob. Prove it by verifying the reason mentions
+        not in the full JSON blob. Prove it by verifying the reason mentions
         the extracted value, not the raw JSON."""
-        result = await run_eval(_FLOW_1_YAML)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
 
         grading = result.case_results[0].block_results["analyze"].results[0]
         assert grading.passed is True
@@ -230,9 +223,9 @@ class TestFlow1FixtureModeWithTransforms:
 
     async def test_transform_actually_narrows_evaluation(self):
         """If transform is working, 'details' from the JSON root should
-        NOT be visible to the assertion. A check for 'Deep dive' (in
-        $.details) via $.summary transform should FAIL."""
-        yaml_str = _FLOW_1_YAML.replace(
+        not be visible to the assertion. A check for 'Deep dive' in
+        $.details via $.summary transform should fail."""
+        yaml_str = _FIXTURE_TRANSFORM_YAML.replace(
             'value: "transform"',
             'value: "Deep dive"',
         )
@@ -244,13 +237,12 @@ class TestFlow1FixtureModeWithTransforms:
 
 
 # ===========================================================================
-# Flow 2 — Multi-case eval with mixed pass/fail
+# Multi-case eval with mixed pass/fail results
 # ===========================================================================
 
 
-class TestFlow2MultiCaseMixedResults:
-    """Given: YAML with 3 cases: case_pass (fixture matches), case_fail
-    (fixture doesn't match), case_threshold (partial match). threshold: 0.6.
+class TestMultiCaseMixedResults:
+    """Given: YAML with 3 cases: matching, failing, and partial.
 
     When: run_eval(yaml_string).
 
@@ -259,50 +251,50 @@ class TestFlow2MultiCaseMixedResults:
     """
 
     async def test_three_case_results_returned(self):
-        result = await run_eval(_FLOW_2_YAML)
+        result = await run_eval(_MIXED_CASE_YAML)
 
         assert len(result.case_results) == 3
         case_ids = {cr.case_id for cr in result.case_results}
-        assert case_ids == {"case_pass", "case_fail", "case_threshold"}
+        assert case_ids == {"matching_fixture", "missing_keyword", "partial_threshold"}
 
-    async def test_case_pass_scores_1(self):
-        result = await run_eval(_FLOW_2_YAML)
+    async def test_matching_fixture_scores_1(self):
+        result = await run_eval(_MIXED_CASE_YAML)
 
-        cr = next(c for c in result.case_results if c.case_id == "case_pass")
+        cr = next(c for c in result.case_results if c.case_id == "matching_fixture")
         assert cr.passed is True
         assert cr.score == 1.0
 
-    async def test_case_fail_scores_0(self):
-        result = await run_eval(_FLOW_2_YAML)
+    async def test_missing_keyword_scores_0(self):
+        result = await run_eval(_MIXED_CASE_YAML)
 
-        cr = next(c for c in result.case_results if c.case_id == "case_fail")
+        cr = next(c for c in result.case_results if c.case_id == "missing_keyword")
         assert cr.passed is False
         assert cr.score == 0.0
 
-    async def test_case_threshold_partial_score(self):
-        """case_threshold has 2 assertions: one passes, one fails -> score 0.5."""
-        result = await run_eval(_FLOW_2_YAML)
+    async def test_partial_threshold_scores_half(self):
+        """partial_threshold has 2 assertions: one passes, one fails -> score 0.5."""
+        result = await run_eval(_MIXED_CASE_YAML)
 
-        cr = next(c for c in result.case_results if c.case_id == "case_threshold")
+        cr = next(c for c in result.case_results if c.case_id == "partial_threshold")
         assert cr.passed is False
         assert cr.score == 0.5
 
     async def test_aggregate_score_is_average(self):
         """Average of (1.0, 0.0, 0.5) = 0.5."""
-        result = await run_eval(_FLOW_2_YAML)
+        result = await run_eval(_MIXED_CASE_YAML)
 
         assert result.score == pytest.approx(0.5)
 
     async def test_suite_passed_reflects_threshold(self):
         """Score 0.5 < threshold 0.6 -> suite fails."""
-        result = await run_eval(_FLOW_2_YAML)
+        result = await run_eval(_MIXED_CASE_YAML)
 
         assert result.threshold == 0.6
         assert result.passed is False
 
     async def test_lowered_threshold_allows_pass(self):
         """Same cases but with threshold 0.4 -> suite passes."""
-        yaml_with_low_threshold = _FLOW_2_YAML.replace("threshold: 0.6", "threshold: 0.4")
+        yaml_with_low_threshold = _MIXED_CASE_YAML.replace("threshold: 0.6", "threshold: 0.4")
         result = await run_eval(yaml_with_low_threshold)
 
         assert result.score == pytest.approx(0.5)
@@ -311,11 +303,11 @@ class TestFlow2MultiCaseMixedResults:
 
 
 # ===========================================================================
-# Flow 3 — Normal execution ignores eval section
+# Normal execution ignores eval section
 # ===========================================================================
 
 
-class TestFlow3NormalExecutionIgnoresEval:
+class TestNormalExecutionIgnoresEval:
     """Given: workflow YAML with both workflow AND eval sections.
 
     When: parse via RunsightWorkflowFile.model_validate().
@@ -326,16 +318,16 @@ class TestFlow3NormalExecutionIgnoresEval:
 
     def test_yaml_with_eval_parses_into_workflow_file(self):
         """RunsightWorkflowFile accepts YAML containing an eval section."""
-        raw = yaml.safe_load(_FLOW_3_YAML)
+        raw = yaml.safe_load(_NORMAL_EXECUTION_WITH_EVAL_YAML)
         wf_file = RunsightWorkflowFile.model_validate(raw)
 
-        assert wf_file.workflow.name == "flow3_ignores_eval"
+        assert wf_file.workflow.name == "normal_execution_ignores_eval"
         assert wf_file.eval is not None
         assert isinstance(wf_file.eval, EvalSectionDef)
 
     def test_eval_section_accessible_separately(self):
         """The eval section can be read independently of the workflow."""
-        raw = yaml.safe_load(_FLOW_3_YAML)
+        raw = yaml.safe_load(_NORMAL_EXECUTION_WITH_EVAL_YAML)
         wf_file = RunsightWorkflowFile.model_validate(raw)
 
         assert len(wf_file.eval.cases) == 1
@@ -345,8 +337,8 @@ class TestFlow3NormalExecutionIgnoresEval:
     def test_workflow_fields_unaffected_by_eval(self):
         """The workflow definition (name, entry, transitions, blocks, souls)
         is identical whether or not eval is present."""
-        raw_with = yaml.safe_load(_FLOW_3_YAML)
-        raw_without = yaml.safe_load(_FLOW_3_YAML)
+        raw_with = yaml.safe_load(_NORMAL_EXECUTION_WITH_EVAL_YAML)
+        raw_without = yaml.safe_load(_NORMAL_EXECUTION_WITH_EVAL_YAML)
         del raw_without["eval"]
 
         wf_with = RunsightWorkflowFile.model_validate(raw_with)
@@ -369,11 +361,11 @@ class TestFlow3NormalExecutionIgnoresEval:
 
 
 # ===========================================================================
-# Architectural Invariant 1 — eval: is optional and backward-compatible
+# Eval section is optional and backward-compatible
 # ===========================================================================
 
 
-class TestInvariant1EvalOptionalBackwardCompat:
+class TestEvalOptionalBackwardCompat:
     """eval: is Optional[EvalSectionDef] and defaults to None. Existing YAML
     without eval: parses identically.
 
@@ -401,7 +393,7 @@ class TestInvariant1EvalOptionalBackwardCompat:
             "threshold": 0.5,
             "cases": [
                 {
-                    "id": "test",
+                    "id": "eval_extension_case",
                     "fixtures": {"greet": "hi"},
                     "expected": {"greet": [{"type": "contains", "value": "hi"}]},
                 }
@@ -428,11 +420,11 @@ class TestInvariant1EvalOptionalBackwardCompat:
 
 
 # ===========================================================================
-# Architectural Invariant 2 — run_eval() is read-only
+# run_eval is read-only
 # ===========================================================================
 
 
-class TestInvariant2RunEvalReadOnly:
+class TestRunEvalReadOnly:
     """run_eval() never mutates the workflow YAML string or models.
 
     Falsifiability: if run_eval modified the YAML string or the parsed raw
@@ -440,7 +432,7 @@ class TestInvariant2RunEvalReadOnly:
     """
 
     async def test_yaml_string_unchanged_after_run_eval(self):
-        original = _FLOW_1_YAML
+        original = _FIXTURE_TRANSFORM_YAML
         copy = str(original)  # snapshot
 
         await run_eval(original)
@@ -448,14 +440,14 @@ class TestInvariant2RunEvalReadOnly:
         assert original == copy, "run_eval mutated the YAML string"
 
     async def test_reparsed_yaml_identical_after_run_eval(self):
-        """Parse the YAML before and after run_eval — both produce identical
+        """Parse the YAML before and after run_eval; both produce identical
         structures."""
-        raw_before = yaml.safe_load(_FLOW_1_YAML)
+        raw_before = yaml.safe_load(_FIXTURE_TRANSFORM_YAML)
         before_snapshot = json.dumps(raw_before, sort_keys=True)
 
-        await run_eval(_FLOW_1_YAML)
+        await run_eval(_FIXTURE_TRANSFORM_YAML)
 
-        raw_after = yaml.safe_load(_FLOW_1_YAML)
+        raw_after = yaml.safe_load(_FIXTURE_TRANSFORM_YAML)
         after_snapshot = json.dumps(raw_after, sort_keys=True)
 
         assert before_snapshot == after_snapshot
@@ -463,10 +455,10 @@ class TestInvariant2RunEvalReadOnly:
     async def test_eval_section_model_unchanged_after_run(self):
         """The EvalSectionDef model parsed from YAML is identical before
         and after run_eval."""
-        raw = yaml.safe_load(_FLOW_2_YAML)
+        raw = yaml.safe_load(_MIXED_CASE_YAML)
         eval_before = EvalSectionDef.model_validate(raw["eval"])
 
-        await run_eval(_FLOW_2_YAML)
+        await run_eval(_MIXED_CASE_YAML)
 
         eval_after = EvalSectionDef.model_validate(raw["eval"])
         assert eval_before.threshold == eval_after.threshold
@@ -478,11 +470,11 @@ class TestInvariant2RunEvalReadOnly:
 
 
 # ===========================================================================
-# Architectural Invariant 3 — Transform failures are assertions, not exceptions
+# Transform failures are assertions, not exceptions
 # ===========================================================================
 
 
-class TestInvariant3TransformFailuresAreAssertions:
+class TestTransformFailuresAreAssertions:
     """Transform failures produce GradingResult(passed=False) with a
     descriptive reason. They never raise exceptions or crash the runner.
 
@@ -497,7 +489,7 @@ version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -522,7 +514,7 @@ eval:
             value: "anything"
             transform: "json_path:$.field"
 """
-        # Must NOT raise — should complete with failed assertion
+        # This should complete with a failed assertion instead of raising.
         result = await run_eval(yaml_str)
 
         assert isinstance(result, EvalSuiteResult)
@@ -539,7 +531,7 @@ version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -580,7 +572,7 @@ version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -621,7 +613,7 @@ version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -657,11 +649,11 @@ eval:
 
 
 # ===========================================================================
-# Architectural Invariant 4 — Fixture mode is zero-side-effect
+# Fixture mode is zero-side-effect
 # ===========================================================================
 
 
-class TestInvariant4FixtureModeZeroSideEffect:
+class TestFixtureModeZeroSideEffect:
     """Fixture mode never calls the executor. Even if an executor is provided,
     it must not be invoked when all expected blocks have fixtures.
 
@@ -670,7 +662,7 @@ class TestInvariant4FixtureModeZeroSideEffect:
     """
 
     async def test_executor_never_called_in_fixture_mode(self):
-        """Provide a tracking executor alongside fixture YAML — it must
+        """Provide a tracking executor alongside fixture YAML; it must
         never be invoked."""
         call_log = []
 
@@ -680,7 +672,7 @@ class TestInvariant4FixtureModeZeroSideEffect:
             state.results["analyze"] = BlockResult(output="executor output")
             return state
 
-        result = await run_eval(_FLOW_1_YAML, executor=tracking_executor)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML, executor=tracking_executor)
 
         assert len(call_log) == 0, (
             f"Executor was called {len(call_log)} time(s) during fixture-only eval"
@@ -689,18 +681,18 @@ class TestInvariant4FixtureModeZeroSideEffect:
 
     async def test_fixture_mode_with_none_executor_succeeds(self):
         """Fixture-only eval works fine with executor=None (the default)."""
-        result = await run_eval(_FLOW_1_YAML, executor=None)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML, executor=None)
         assert isinstance(result, EvalSuiteResult)
         assert result.passed is True
 
     async def test_fixture_mode_without_executor_kwarg_succeeds(self):
         """Fixture-only eval works fine when executor kwarg is omitted."""
-        result = await run_eval(_FLOW_1_YAML)
+        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
         assert isinstance(result, EvalSuiteResult)
         assert result.passed is True
 
     async def test_multi_case_all_fixtures_never_calls_executor(self):
-        """Multiple cases all with fixtures — executor never called."""
+        """Multiple cases all with fixtures never call the executor."""
         call_count = {"n": 0}
 
         async def counting_executor(workflow, inputs):
@@ -708,18 +700,18 @@ class TestInvariant4FixtureModeZeroSideEffect:
             state = WorkflowState()
             return state
 
-        result = await run_eval(_FLOW_2_YAML, executor=counting_executor)
+        result = await run_eval(_MIXED_CASE_YAML, executor=counting_executor)
 
         assert call_count["n"] == 0
         assert len(result.case_results) == 3
 
 
 # ===========================================================================
-# Architectural Invariant 5 — One assertion engine, not two
+# Eval runner uses the shared assertion engine
 # ===========================================================================
 
 
-class TestInvariant5OneAssertionEngine:
+class TestSharedAssertionEngine:
     """The eval runner uses the exact same run_assertions() function from
     runsight_core.assertions.registry. Verify by registering a custom
     assertion type and confirming it's available in run_eval().
@@ -733,7 +725,7 @@ class TestInvariant5OneAssertionEngine:
         If run_eval uses the same registry, the custom type works."""
 
         class AlwaysPassAssertion:
-            type = "e2e-custom-always-pass"
+            type = "eval-custom-always-pass"
 
             def __init__(self, value=None, threshold=None):
                 pass
@@ -743,10 +735,10 @@ class TestInvariant5OneAssertionEngine:
                     passed=True,
                     score=1.0,
                     reason="Custom assertion: always passes",
-                    assertion_type="e2e-custom-always-pass",
+                    assertion_type="eval-custom-always-pass",
                 )
 
-        register_assertion("e2e-custom-always-pass", AlwaysPassAssertion)
+        register_assertion("eval-custom-always-pass", AlwaysPassAssertion)
 
         try:
             yaml_str = """\
@@ -754,7 +746,7 @@ version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -775,7 +767,7 @@ eval:
         analyze: "any output text"
       expected:
         analyze:
-          - type: e2e-custom-always-pass
+          - type: eval-custom-always-pass
 """
             result = await run_eval(yaml_str)
 
@@ -784,22 +776,22 @@ eval:
             assert cr.passed is True
             grading = cr.block_results["analyze"].results[0]
             assert grading.passed is True
-            assert grading.assertion_type == "e2e-custom-always-pass"
+            assert grading.assertion_type == "eval-custom-always-pass"
             assert "Custom assertion" in grading.reason
         finally:
             # Clean up custom registration
-            _REGISTRY.pop("e2e-custom-always-pass", None)
+            _REGISTRY.pop("eval-custom-always-pass", None)
 
     async def test_unregistered_type_raises_in_eval(self):
-        """Using an assertion type that is NOT registered causes a KeyError
-        propagated from the shared registry — proving the eval runner doesn't
+        """Using an unregistered assertion type causes a KeyError
+        propagated from the shared registry, proving the eval runner doesn't
         have its own fallback logic."""
         yaml_str = """\
 version: "1.0"
 souls:
   default:
     id: default
-    model: gpt-4o
+    model: fixture-model
     system_prompt: "Assistant."
 blocks:
   analyze:
@@ -820,9 +812,9 @@ eval:
         analyze: "any output"
       expected:
         analyze:
-          - type: e2e-nonexistent-type-xyz
+          - type: eval-nonexistent-type
 """
-        with pytest.raises(KeyError, match="e2e-nonexistent-type-xyz"):
+        with pytest.raises(KeyError, match="eval-nonexistent-type"):
             await run_eval(yaml_str)
 
     async def test_eval_uses_same_run_assertions_function(self):
@@ -831,14 +823,14 @@ eval:
         from runsight_core.eval import runner as eval_runner_module
 
         assert eval_runner_module.run_assertions is run_assertions, (
-            "run_eval imports a different run_assertions function — "
+            "run_eval imports a different run_assertions function; "
             "the eval runner has a separate assertion engine"
         )
 
     async def test_deterministic_assertions_available_in_eval(self):
         """The 15 deterministic assertion types registered by
         `import runsight_core.assertions.deterministic` are all available
-        to run_eval — not just a hardcoded subset."""
+        to run_eval, not just a hardcoded subset."""
         expected_types = {
             "equals",
             "contains",
