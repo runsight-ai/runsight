@@ -1,16 +1,11 @@
-"""
-Failing tests for RUN-398: ISO-008 — Credential injection + URL allowlists.
+"""Isolation credential and HTTP/file access coverage.
 
-Tests cover every AC item:
-1.  LLM API key passed via env var — ONE key per subprocess
-2.  HTTP tool: credentials injected by engine at IPC time, subprocess never sees token
-3.  HTTP tool: URL allowlist enforced (requests to non-allowed hosts rejected)
-4.  HTTP tool: SSRF blocks private/reserved IPs
-5.  File I/O: base_dir scoped per workflow, not CWD
-6.  File I/O: path traversal blocked (.. in path parts rejected)
-7.  ${ENV_VAR} resolved at engine level (existing SecretsEnvLoader pattern)
-8.  Undefined ${ENV_VAR} produces clear error at parse time (not silent empty string)
-9.  Subprocess memory has ONE API key only, no other secrets
+Tests cover:
+- subprocess credential isolation
+- engine-side HTTP credential injection
+- URL allowlists and SSRF rejection
+- scoped file I/O access
+- engine-side environment variable resolution
 """
 
 from __future__ import annotations
@@ -38,7 +33,7 @@ from runsight_core.isolation import (
 
 def _make_context_envelope(
     *,
-    block_id: str = "block-1",
+    block_id: str = "credential-linear-block",
     block_type: str = "linear",
     block_config: dict[str, Any] | None = None,
     tools: list | None = None,
@@ -49,14 +44,14 @@ def _make_context_envelope(
         block_type=block_type,
         block_config=block_config or {},
         soul=SoulEnvelope(
-            id="soul-1",
+            id="credential-soul",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o-mini",
             max_tool_iterations=3,
         ),
         tools=tools or [],
-        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="credential-prompt", instruction="Do the thing.", context={}),
         scoped_results={},
         scoped_shared_memory={},
         conversation_history=[],
@@ -110,7 +105,7 @@ async def _tool_call_boom(args: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# AC1 + AC9: ONE API key per subprocess, no other secrets in env
+# Behavior coverage
 # NOTE: _build_subprocess_env already exists and passes basic checks.
 #       These tests verify the NEW credential-scoped envelope building
 #       where the harness resolves tool credentials at envelope construction
@@ -124,28 +119,34 @@ class TestSubprocessCredentialScoping:
     def test_harness_accepts_tool_credentials(self):
         """SubprocessHarness accepts a tool_credentials dict for IPC handler setup."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key"},
-            tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-secret"}},
+            api_keys={"openai": "dummy-openai-key"},
+            tool_credentials={
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-secret-token"}
+            },
         )
         assert harness is not None
 
     def test_tool_credentials_not_in_subprocess_env(self):
         """Tool credentials must NOT appear in the subprocess environment."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key"},
-            tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-tool-secret"}},
+            api_keys={"openai": "dummy-openai-key"},
+            tool_credentials={
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-tool-secret"}
+            },
         )
         env = harness._build_subprocess_env(socket_path="/tmp/test.sock")
 
         # The tool credential value must not appear anywhere in the env
         all_env_values = " ".join(env.values())
-        assert "sk-tool-secret" not in all_env_values
+        assert "dummy-tool-secret" not in all_env_values
 
     def test_harness_creates_handlers_with_credentials(self):
         """Harness builds IPC handlers that have the tool credentials baked in."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key"},
-            tool_credentials={"http_tool_1": {"Authorization": "Bearer sk-injected"}},
+            api_keys={"openai": "dummy-openai-key"},
+            tool_credentials={
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-injected-token"}
+            },
         )
         handlers = harness._build_ipc_handlers()
         assert "http" in handlers
@@ -153,7 +154,7 @@ class TestSubprocessCredentialScoping:
 
 
 # ---------------------------------------------------------------------------
-# RUN-529: Generic tool_call IPC handler
+# Generic tool_call IPC handler
 # ---------------------------------------------------------------------------
 
 
@@ -217,7 +218,7 @@ class TestGenericToolCallHandler:
 
 
 # ---------------------------------------------------------------------------
-# RUN-813: LLM handler budget ownership
+# LLM handler budget ownership
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +263,7 @@ class TestLLMHandlerBudgetOwnership:
         session = BudgetSession(scope_name="workflow:test", cost_cap_usd=0.001)
         token = _active_budget.set(session)
         try:
-            handler = make_llm_call_handler({"openai": "sk-test-openai"})
+            handler = make_llm_call_handler({"openai": "dummy-openai-key"})
             with (
                 patch(
                     "runsight_core.llm.client.acompletion",
@@ -289,7 +290,7 @@ class TestLLMHandlerBudgetOwnership:
 
 
 # ---------------------------------------------------------------------------
-# AC2: HTTP tool — credentials injected by engine at IPC time
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -308,7 +309,7 @@ class TestHTTPCredentialInjection:
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer sk-engine-secret-token"}}
+        credentials = {"api.example.com": {"Authorization": "Bearer dummy-engine-secret-token"}}
         handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
         with (
@@ -330,7 +331,7 @@ class TestHTTPCredentialInjection:
         assert "error" not in result
         assert perform_request.await_args.kwargs["headers"] == {
             "Accept": "application/json",
-            "Authorization": "Bearer sk-engine-secret-token",
+            "Authorization": "Bearer dummy-engine-secret-token",
         }
 
     @pytest.mark.asyncio
@@ -340,7 +341,7 @@ class TestHTTPCredentialInjection:
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer sk-super-secret"}}
+        credentials = {"api.example.com": {"Authorization": "Bearer dummy-super-secret"}}
         handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
         with (
@@ -361,7 +362,7 @@ class TestHTTPCredentialInjection:
 
         # Response must not contain the injected credential
         result_str = json.dumps(result)
-        assert "sk-super-secret" not in result_str
+        assert "dummy-super-secret" not in result_str
 
     @pytest.mark.asyncio
     async def test_subprocess_request_has_no_credential_fields(self, tmp_path: Path):
@@ -370,7 +371,7 @@ class TestHTTPCredentialInjection:
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer sk-injected"}}
+        credentials = {"api.example.com": {"Authorization": "Bearer dummy-injected-token"}}
         handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
 
         # Simulate a subprocess request with NO auth header
@@ -391,11 +392,14 @@ class TestHTTPCredentialInjection:
             result = await handler(subprocess_request)
 
         assert "error" not in result
-        assert perform_request.await_args.kwargs["headers"]["Authorization"] == "Bearer sk-injected"
+        assert (
+            perform_request.await_args.kwargs["headers"]["Authorization"]
+            == "Bearer dummy-injected-token"
+        )
 
 
 # ---------------------------------------------------------------------------
-# AC3: HTTP tool — URL allowlist enforced
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -519,7 +523,7 @@ class TestHTTPURLAllowlist:
 
 
 # ---------------------------------------------------------------------------
-# AC4: HTTP tool — SSRF blocks private/reserved IPs
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -620,12 +624,12 @@ class TestHTTPSSRFProtection:
 
 
 # ---------------------------------------------------------------------------
-# RUN-811: Real HTTP transport contract (httpx + allowlist + SSRF)
+# Real HTTP transport contract (httpx + allowlist + SSRF)
 # ---------------------------------------------------------------------------
 
 
 class TestRealHTTPHandlerContract:
-    """RUN-811: make_http_handler must perform real httpx requests with strict controls."""
+    """make_http_handler must perform real httpx requests with strict controls."""
 
     @pytest.mark.asyncio
     async def test_allowed_host_uses_httpx_and_returns_actual_body_status_headers(
@@ -915,7 +919,7 @@ class TestRealHTTPHandlerContract:
 
 
 # ---------------------------------------------------------------------------
-# AC5: File I/O — base_dir scoped per workflow
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -1045,7 +1049,7 @@ class TestFileIOBaseDir:
 
 
 # ---------------------------------------------------------------------------
-# AC6: File I/O — path traversal blocked
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -1155,7 +1159,7 @@ class TestFileIOPathTraversal:
 
 
 # ---------------------------------------------------------------------------
-# AC7: ${ENV_VAR} resolved at engine level
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 
@@ -1211,7 +1215,7 @@ class TestEnvVarResolution:
 
 
 # ---------------------------------------------------------------------------
-# AC8: Undefined ${ENV_VAR} produces clear error
+# Behavior coverage
 # ---------------------------------------------------------------------------
 
 

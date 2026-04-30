@@ -1,15 +1,11 @@
-"""
-Failing tests for RUN-392: ISO-001 — ContextEnvelope + ResultEnvelope + HeartbeatMessage.
+"""Isolation envelope model coverage.
 
 Tests cover:
-- All models are Pydantic BaseModel with model_validate_json support (AC1)
-- ContextEnvelope JSON round-trip (AC2)
-- ResultEnvelope JSON round-trip (AC3)
-- HeartbeatMessage serializes to single JSON line (AC4)
-- ContextEnvelope has ALL required fields (AC5)
-- ResultEnvelope has ALL required fields (AC6)
-- HeartbeatMessage has ALL required fields (AC7)
-- Sub-models: SoulEnvelope, ToolDefEnvelope, PromptEnvelope, DelegateArtifact
+- Pydantic model behavior and model_validate_json support
+- ContextEnvelope and ResultEnvelope JSON round trips
+- single-line HeartbeatMessage serialization
+- required ContextEnvelope, ResultEnvelope, and HeartbeatMessage fields
+- SoulEnvelope, ToolDefEnvelope, PromptEnvelope, and DelegateArtifact submodels
 """
 
 import json
@@ -18,7 +14,7 @@ from datetime import datetime
 import pytest
 
 # ==============================================================================
-# AC1: All models are Pydantic BaseModel with model_validate_json
+# Behavior coverage
 # ==============================================================================
 
 
@@ -66,7 +62,7 @@ class TestModelsArePydanticBaseModel:
 
 
 # ==============================================================================
-# AC5: ContextEnvelope fields
+# Behavior coverage
 # ==============================================================================
 
 
@@ -83,7 +79,7 @@ class TestContextEnvelopeFields:
         )
 
         soul = SoulEnvelope(
-            id="soul-1",
+            id="envelope-soul",
             role="assistant",
             system_prompt="You are helpful.",
             model_name="gpt-4",
@@ -99,12 +95,12 @@ class TestContextEnvelopeFields:
             tool_type="builtin",
         )
         prompt = PromptEnvelope(
-            id="task-1",
+            id="envelope-prompt",
             instruction="Do the thing.",
             context={"input": "data"},
         )
         return ContextEnvelope(
-            block_id="block-1",
+            block_id="envelope-block",
             block_type="llm",
             block_config={"temperature": 0.7},
             soul=soul,
@@ -120,7 +116,7 @@ class TestContextEnvelopeFields:
     def test_context_envelope_has_block_id(self):
         """ContextEnvelope has block_id field."""
         env = self._make_minimal_context_envelope()
-        assert env.block_id == "block-1"
+        assert env.block_id == "envelope-block"
 
     def test_context_envelope_has_block_type(self):
         """ContextEnvelope has block_type field."""
@@ -138,7 +134,7 @@ class TestContextEnvelopeFields:
 
         env = self._make_minimal_context_envelope()
         assert isinstance(env.soul, SoulEnvelope)
-        assert env.soul.id == "soul-1"
+        assert env.soul.id == "envelope-soul"
         assert env.soul.role == "assistant"
         assert env.soul.system_prompt == "You are helpful."
         assert env.soul.model_name == "gpt-4"
@@ -169,7 +165,7 @@ class TestContextEnvelopeFields:
 
         env = self._make_minimal_context_envelope()
         assert isinstance(env.prompt, PromptEnvelope)
-        assert env.prompt.id == "task-1"
+        assert env.prompt.id == "envelope-prompt"
         assert env.prompt.instruction == "Do the thing."
         assert env.prompt.context == {"input": "data"}
 
@@ -205,7 +201,7 @@ class TestContextEnvelopeFields:
 
 
 # ==============================================================================
-# AC2: ContextEnvelope JSON round-trip
+# Behavior coverage
 # ==============================================================================
 
 
@@ -222,11 +218,11 @@ class TestContextEnvelopeRoundTrip:
         )
 
         original = ContextEnvelope(
-            block_id="b1",
+            block_id="roundtrip-context-block",
             block_type="llm",
             block_config={"temp": 0.5},
             soul=SoulEnvelope(
-                id="s1",
+                id="roundtrip-soul",
                 role="agent",
                 system_prompt="prompt",
                 model_name="gpt-4",
@@ -243,7 +239,7 @@ class TestContextEnvelopeRoundTrip:
                     tool_type="http",
                 ),
             ],
-            prompt=PromptEnvelope(id="t1", instruction="run", context={}),
+            prompt=PromptEnvelope(id="roundtrip-prompt", instruction="run", context={}),
             scoped_results={"x": {"out": "val"}},
             scoped_shared_memory={"mem": 42},
             conversation_history=[{"role": "assistant", "content": "hey"}],
@@ -283,18 +279,18 @@ class TestContextEnvelopeRoundTrip:
         )
 
         env = ContextEnvelope(
-            block_id="b1",
+            block_id="roundtrip-context-block",
             block_type="code",
             block_config={},
             soul=SoulEnvelope(
-                id="s1",
+                id="roundtrip-soul",
                 role="worker",
-                system_prompt="go",
+                system_prompt="Execute the code task.",
                 model_name="claude-3",
                 max_tool_iterations=1,
             ),
             tools=[],
-            prompt=PromptEnvelope(id="t1", instruction="exec", context={}),
+            prompt=PromptEnvelope(id="roundtrip-prompt", instruction="exec", context={}),
             scoped_results={},
             scoped_shared_memory={},
             conversation_history=[],
@@ -309,7 +305,7 @@ class TestContextEnvelopeRoundTrip:
 
 
 # ==============================================================================
-# AC6: ResultEnvelope fields
+# Behavior coverage
 # ==============================================================================
 
 
@@ -320,7 +316,7 @@ class TestResultEnvelopeFields:
         from runsight_core.isolation import DelegateArtifact, ResultEnvelope
 
         return ResultEnvelope(
-            block_id="block-1",
+            block_id="envelope-block",
             output="result text",
             exit_handle="done",
             cost_usd=0.0042,
@@ -336,7 +332,7 @@ class TestResultEnvelopeFields:
 
     def test_result_envelope_has_block_id(self):
         env = self._make_result_envelope()
-        assert env.block_id == "block-1"
+        assert env.block_id == "envelope-block"
 
     def test_result_envelope_has_output(self):
         env = self._make_result_envelope()
@@ -380,7 +376,7 @@ class TestResultEnvelopeFields:
         from runsight_core.isolation import ResultEnvelope
 
         env = ResultEnvelope(
-            block_id="block-2",
+            block_id="error-envelope-block",
             output=None,
             exit_handle="error",
             cost_usd=0.001,
@@ -396,7 +392,7 @@ class TestResultEnvelopeFields:
 
 
 # ==============================================================================
-# AC3: ResultEnvelope JSON round-trip
+# Behavior coverage
 # ==============================================================================
 
 
@@ -407,7 +403,7 @@ class TestResultEnvelopeRoundTrip:
         from runsight_core.isolation import DelegateArtifact, ResultEnvelope
 
         original = ResultEnvelope(
-            block_id="b1",
+            block_id="roundtrip-context-block",
             output="done",
             exit_handle="success",
             cost_usd=0.01,
@@ -416,7 +412,7 @@ class TestResultEnvelopeRoundTrip:
             delegate_artifacts={
                 "main": DelegateArtifact(prompt="write report"),
             },
-            conversation_history=[{"role": "user", "content": "go"}],
+            conversation_history=[{"role": "user", "content": "start the report"}],
             error=None,
             error_type=None,
         )
@@ -437,7 +433,7 @@ class TestResultEnvelopeRoundTrip:
 
 
 # ==============================================================================
-# AC7: HeartbeatMessage fields
+# Behavior coverage
 # ==============================================================================
 
 
@@ -491,7 +487,7 @@ class TestHeartbeatMessageFields:
 
 
 # ==============================================================================
-# AC4: HeartbeatMessage serializes to single JSON line
+# Behavior coverage
 # ==============================================================================
 
 

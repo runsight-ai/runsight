@@ -1,19 +1,11 @@
-"""
-Failing tests for RUN-397: ISO-007 — Monitoring (heartbeat, stall detection,
-ghost runs, per-block timeout).
+"""Isolation monitoring coverage.
 
-Tests cover every AC item:
-1.  Heartbeat stall kills subprocess (no heartbeat for N seconds)
-2.  Phase stall kills subprocess (same phase for >threshold)
-3.  Phase thresholds YAML-configurable per block via stall_thresholds
-4.  timeout_seconds YAML-configurable per block, default 300s
-5.  on_block_heartbeat fires for each heartbeat received
-6.  LoggingObserver, FileObserver, CompositeObserver all implement on_block_heartbeat
-7.  StreamingObserver pushes heartbeat phase to SSE queue
-8.  ExecutionObserver updates RunNode with last phase
-9.  Ghost runs detected and failed on server startup
-10. llm_call phase for 90s does NOT trigger stall (under 120s default)
-11. llm_call phase for 130s DOES trigger stall and kills subprocess
+Tests cover:
+- heartbeat and phase-stall subprocess termination
+- configurable stall thresholds and block timeouts
+- heartbeat propagation through observers
+- startup recovery for ghost runs
+- long-running llm_call phase thresholds
 """
 
 from __future__ import annotations
@@ -59,7 +51,7 @@ def _make_heartbeat(
 
 def _make_context_envelope(
     *,
-    block_id: str = "block-1",
+    block_id: str = "monitoring-linear-block",
     block_type: str = "linear",
     timeout_seconds: int = 30,
 ) -> ContextEnvelope:
@@ -68,14 +60,14 @@ def _make_context_envelope(
         block_type=block_type,
         block_config={},
         soul=SoulEnvelope(
-            id="soul-1",
+            id="monitoring-soul",
             role="Tester",
             system_prompt="You test things.",
             model_name="gpt-4o-mini",
             max_tool_iterations=3,
         ),
         tools=[],
-        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="monitoring-prompt", instruction="Do the thing.", context={}),
         scoped_results={},
         scoped_shared_memory={},
         conversation_history=[],
@@ -85,7 +77,7 @@ def _make_context_envelope(
 
 
 # ===========================================================================
-# AC1: Heartbeat stall kills subprocess (no heartbeat for N seconds)
+# Behavior coverage
 # ===========================================================================
 
 
@@ -97,7 +89,7 @@ class TestHeartbeatStallKill:
         """If the subprocess sends no heartbeats within the heartbeat timeout,
         _monitor_heartbeats must return True (killed) and terminate the process."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=0.1,  # 100ms for fast test
         )
 
@@ -117,7 +109,7 @@ class TestHeartbeatStallKill:
     async def test_regular_heartbeats_keep_process_alive(self):
         """If heartbeats arrive within the timeout, the process is not killed."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=1.0,
         )
 
@@ -149,7 +141,7 @@ class TestHeartbeatStallKill:
 
 
 # ===========================================================================
-# AC2: Phase stall kills subprocess (same phase for >threshold)
+# Behavior coverage
 # ===========================================================================
 
 
@@ -193,7 +185,7 @@ class TestPhaseStallKill:
         """The harness monitor loop must detect phase stalls and kill the process.
         This requires the monitor to use the HeartbeatTracker and per-phase thresholds."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=5.0,  # Long — so we don't trigger heartbeat stall
             phase_timeout=0.05,  # Short phase stall threshold
         )
@@ -226,7 +218,7 @@ class TestPhaseStallKill:
 
 
 # ===========================================================================
-# AC3: Phase thresholds YAML-configurable per block via stall_thresholds
+# Behavior coverage
 # ===========================================================================
 
 
@@ -275,7 +267,7 @@ class TestStallThresholdsConfigurable:
         to the HeartbeatTracker it creates."""
         thresholds = {"parsing": 10, "llm_call": 120}
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test"},
+            api_keys={"openai": "dummy-openai-key"},
             stall_thresholds=thresholds,
         )
 
@@ -284,7 +276,7 @@ class TestStallThresholdsConfigurable:
 
 
 # ===========================================================================
-# AC4: timeout_seconds YAML-configurable per block, default 300s
+# Behavior coverage
 # ===========================================================================
 
 
@@ -305,12 +297,12 @@ class TestTimeoutSecondsConfigurable:
 
     def test_harness_default_timeout_is_300(self):
         """SubprocessHarness default timeout_seconds is 300."""
-        harness = SubprocessHarness(api_keys={"openai": "sk-test"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         assert harness._timeout_seconds == 300
 
 
 # ===========================================================================
-# AC5: on_block_heartbeat fires for each heartbeat received
+# Behavior coverage
 # ===========================================================================
 
 
@@ -341,7 +333,7 @@ class TestOnBlockHeartbeatProtocol:
         # Simulate calling on_block_heartbeat
         observer.on_block_heartbeat(
             workflow_name="test-wf",
-            block_id="block-1",
+            block_id="monitoring-linear-block",
             phase="initializing",
             detail="starting up",
             timestamp=datetime.now(timezone.utc),
@@ -350,7 +342,7 @@ class TestOnBlockHeartbeatProtocol:
 
 
 # ===========================================================================
-# AC6: LoggingObserver, FileObserver, CompositeObserver implement on_block_heartbeat
+# Behavior coverage
 # ===========================================================================
 
 
@@ -371,7 +363,7 @@ class TestCoreObserversHeartbeat:
         with caplog.at_level(logging.INFO, logger="runsight.workflow"):
             obs.on_block_heartbeat(
                 workflow_name="test-wf",
-                block_id="block-1",
+                block_id="monitoring-linear-block",
                 phase="llm_call",
                 detail="calling model",
                 timestamp=datetime.now(timezone.utc),
@@ -393,7 +385,7 @@ class TestCoreObserversHeartbeat:
         obs = FileObserver(str(log_path))
         obs.on_block_heartbeat(
             workflow_name="test-wf",
-            block_id="block-1",
+            block_id="monitoring-linear-block",
             phase="parsing",
             detail="",
             timestamp=datetime.now(timezone.utc),
@@ -403,7 +395,7 @@ class TestCoreObserversHeartbeat:
         assert len(lines) == 1
         entry = json.loads(lines[0])
         assert entry["event"] == "block_heartbeat"
-        assert entry["block_id"] == "block-1"
+        assert entry["block_id"] == "monitoring-linear-block"
         assert entry["phase"] == "parsing"
 
     def test_composite_observer_fans_out_heartbeat(self):
@@ -416,7 +408,7 @@ class TestCoreObserversHeartbeat:
         composite = CompositeObserver(child1, child2)
         composite.on_block_heartbeat(
             workflow_name="test-wf",
-            block_id="block-1",
+            block_id="monitoring-linear-block",
             phase="initializing",
             detail="",
             timestamp=datetime.now(timezone.utc),
@@ -427,7 +419,7 @@ class TestCoreObserversHeartbeat:
 
 
 # ===========================================================================
-# AC7: StreamingObserver pushes heartbeat phase to SSE queue
+# Behavior coverage
 # ===========================================================================
 
 
@@ -438,7 +430,7 @@ class TestStreamingObserverHeartbeat:
         """StreamingObserver must have on_block_heartbeat method."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
-        obs = StreamingObserver(run_id="run-1")
+        obs = StreamingObserver(run_id="monitoring-run")
         assert hasattr(obs, "on_block_heartbeat")
         assert callable(obs.on_block_heartbeat)
 
@@ -446,10 +438,10 @@ class TestStreamingObserverHeartbeat:
         """StreamingObserver.on_block_heartbeat must push a heartbeat event to the queue."""
         from runsight_api.logic.observers.streaming_observer import StreamingObserver
 
-        obs = StreamingObserver(run_id="run-1")
+        obs = StreamingObserver(run_id="monitoring-run")
         obs.on_block_heartbeat(
             workflow_name="test-wf",
-            block_id="block-1",
+            block_id="monitoring-linear-block",
             phase="llm_call",
             detail="calling gpt-4o",
             timestamp=datetime.now(timezone.utc),
@@ -458,12 +450,12 @@ class TestStreamingObserverHeartbeat:
         assert not obs.queue.empty()
         event = obs.queue.get_nowait()
         assert event["event"] == "node_heartbeat"
-        assert event["data"]["node_id"] == "block-1"
+        assert event["data"]["node_id"] == "monitoring-linear-block"
         assert event["data"]["phase"] == "llm_call"
 
 
 # ===========================================================================
-# AC8: ExecutionObserver updates RunNode with last phase
+# Behavior coverage
 # ===========================================================================
 
 
@@ -475,7 +467,7 @@ class TestExecutionObserverHeartbeat:
         from runsight_api.logic.observers.execution_observer import ExecutionObserver
 
         engine = MagicMock()
-        obs = ExecutionObserver(engine=engine, run_id="run-1")
+        obs = ExecutionObserver(engine=engine, run_id="monitoring-run")
         assert hasattr(obs, "on_block_heartbeat")
         assert callable(obs.on_block_heartbeat)
 
@@ -494,10 +486,10 @@ class TestExecutionObserverHeartbeat:
             MockSession.return_value.__exit__ = MagicMock(return_value=False)
             mock_session.get.return_value = mock_run_node
 
-            obs = ExecutionObserver(engine=mock_engine, run_id="run-1")
+            obs = ExecutionObserver(engine=mock_engine, run_id="monitoring-run")
             obs.on_block_heartbeat(
                 workflow_name="test-wf",
-                block_id="block-1",
+                block_id="monitoring-linear-block",
                 phase="executing",
                 detail="",
                 timestamp=datetime.now(timezone.utc),
@@ -507,7 +499,7 @@ class TestExecutionObserverHeartbeat:
 
 
 # ===========================================================================
-# AC9: Ghost runs detected and failed on server startup
+# Behavior coverage
 # ===========================================================================
 
 
@@ -579,7 +571,7 @@ class TestGhostRunDetection:
 
 
 # ===========================================================================
-# AC10: llm_call phase for 90s does NOT trigger stall (under 120s default)
+# Behavior coverage
 # ===========================================================================
 
 
@@ -605,7 +597,7 @@ class TestLlmCallPhaseNoStall:
 
 
 # ===========================================================================
-# AC11: llm_call phase for 130s DOES trigger stall and kills subprocess
+# Behavior coverage
 # ===========================================================================
 
 
@@ -630,7 +622,7 @@ class TestLlmCallPhaseStall:
     async def test_llm_call_stall_kills_subprocess(self):
         """When llm_call phase exceeds threshold, the harness must kill the subprocess."""
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=5.0,
             phase_timeout=60.0,
             stall_thresholds={"llm_call": 0.05},  # 50ms for fast test
