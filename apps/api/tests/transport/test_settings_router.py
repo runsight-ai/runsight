@@ -43,7 +43,11 @@ def _assert_provider_test_contract(payload: dict):
 def test_settings_providers_list():
     mock_service = Mock()
     mock_service.list_providers.return_value = [
-        _mock_provider(provider_id="openai", name="OpenAI", models=["gpt-4.1", "gpt-4o"]),
+        _mock_provider(
+            provider_id="fixture-provider",
+            name="Fixture Provider",
+            models=["fixture-response-model", "fixture-chat-model"],
+        ),
         _mock_provider(provider_id="empty-provider", name="Empty Provider", models=[]),
     ]
     app.dependency_overrides[get_provider_service] = lambda: mock_service
@@ -60,9 +64,9 @@ def test_settings_providers_list():
 def test_settings_providers_list_keeps_disabled_provider_visible_for_management():
     mock_service = Mock()
     disabled_provider = _mock_provider(
-        provider_id="anthropic",
-        name="Anthropic",
-        models=["claude-sonnet-4"],
+        provider_id="backup-provider",
+        name="Backup Provider",
+        models=["fixture-fallback-model"],
     )
     disabled_provider.is_active = False
     mock_service.list_providers.return_value = [disabled_provider]
@@ -72,7 +76,7 @@ def test_settings_providers_list_keeps_disabled_provider_visible_for_management(
         response = client.get("/api/settings/providers")
         assert response.status_code == 200
         payload = response.json()
-        assert payload["items"][0]["id"] == "anthropic"
+        assert payload["items"][0]["id"] == "backup-provider"
         assert payload["items"][0]["is_active"] is False
     finally:
         app.dependency_overrides.clear()
@@ -90,17 +94,24 @@ def test_settings_providers_get_404():
 
 def test_settings_providers_post():
     mock_service = Mock()
-    mock_provider = _mock_provider(provider_id="openai", name="OpenAI", models=[])
+    mock_provider = _mock_provider(
+        provider_id="fixture-provider", name="Fixture Provider", models=[]
+    )
     mock_service.create_provider.return_value = mock_provider
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     response = client.post(
         "/api/settings/providers",
-        json={"id": "openai", "kind": "provider", "name": "OpenAI", "api_key_env": "dummy-xxx"},
+        json={
+            "id": "fixture-provider",
+            "kind": "provider",
+            "name": "Fixture Provider",
+            "api_key_env": "dummy-xxx",
+        },
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == "openai"
+    assert data["id"] == "fixture-provider"
     assert data["model_count"] == 0
     app.dependency_overrides.clear()
 
@@ -117,7 +128,9 @@ def test_settings_provider_update_request_requires_embedded_identity_fields():
 
 def test_settings_providers_post_passes_embedded_identity_to_service():
     mock_service = Mock()
-    mock_provider = _mock_provider(provider_id="openai", name="OpenAI", models=[])
+    mock_provider = _mock_provider(
+        provider_id="fixture-provider", name="Fixture Provider", models=[]
+    )
     mock_service.create_provider.return_value = mock_provider
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
@@ -125,17 +138,17 @@ def test_settings_providers_post_passes_embedded_identity_to_service():
         response = client.post(
             "/api/settings/providers",
             json={
-                "id": "openai",
+                "id": "fixture-provider",
                 "kind": "provider",
-                "name": "OpenAI",
+                "name": "Fixture Provider",
                 "api_key_env": "dummy-xxx",
             },
         )
         assert response.status_code == 200
         mock_service.create_provider.assert_called_once_with(
-            id="openai",
+            id="fixture-provider",
             kind="provider",
-            name="OpenAI",
+            name="Fixture Provider",
             api_key="dummy-xxx",
             base_url=None,
         )
@@ -152,8 +165,8 @@ def test_settings_providers_post_422():
 def test_settings_providers_post_rejects_unknown_fields():
     mock_service = Mock()
     mock_service.create_provider.return_value = _mock_provider(
-        provider_id="openai",
-        name="OpenAI",
+        provider_id="fixture-provider",
+        name="Fixture Provider",
         models=[],
     )
     app.dependency_overrides[get_provider_service] = lambda: mock_service
@@ -162,7 +175,7 @@ def test_settings_providers_post_rejects_unknown_fields():
         response = client.post(
             "/api/settings/providers",
             json={
-                "name": "OpenAI",
+                "name": "Fixture Provider",
                 "api_key_env": "dummy-xxx",
                 "custom_notes": "unsupported",
             },
@@ -189,15 +202,15 @@ def test_settings_providers_put_404():
 def test_settings_providers_put_rejects_unknown_fields():
     mock_service = Mock()
     mock_service.update_provider.return_value = _mock_provider(
-        provider_id="openai",
-        name="OpenAI",
+        provider_id="fixture-provider",
+        name="Fixture Provider",
         models=[],
     )
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     try:
         response = client.put(
-            "/api/settings/providers/openai",
+            "/api/settings/providers/fixture-provider",
             json={"name": "Updated", "custom_notes": "unsupported"},
         )
         assert response.status_code == 422
@@ -222,13 +235,13 @@ def test_settings_providers_test():
         return_value={
             "success": True,
             "message": "Connected - 1 models available",
-            "models": ["gpt-4o"],
+            "models": ["fixture-chat-model"],
         }
     )
     app.dependency_overrides[get_provider_service] = lambda: mock_service
 
     try:
-        response = client.post("/api/settings/providers/openai/test")
+        response = client.post("/api/settings/providers/fixture-provider/test")
         assert response.status_code == 200
         _assert_provider_test_contract(response.json())
     finally:
@@ -250,9 +263,9 @@ def test_settings_providers_test_credentials_returns_setup_contract_shape():
         response = client.post(
             "/api/settings/providers/test",
             json={
-                "provider_type": "openai",
+                "provider_type": "fixture-provider",
                 "api_key_env": "dummy-test",
-                "base_url": "https://provider.example.invalid/v1",
+                "base_url": "http://localhost/fixture-provider/v1",
             },
         )
         assert response.status_code == 200
@@ -265,11 +278,11 @@ def test_settings_fallbacks_list():
     mock_service = Mock()
     mock_service.get_fallback_targets.return_value = [
         {
-            "id": "openai",
-            "provider_id": "openai",
-            "provider_name": "OpenAI",
-            "fallback_provider_id": "anthropic",
-            "fallback_model_id": "claude-sonnet-4",
+            "id": "fixture-provider",
+            "provider_id": "fixture-provider",
+            "provider_name": "Fixture Provider",
+            "fallback_provider_id": "backup-provider",
+            "fallback_model_id": "fixture-fallback-model",
         }
     ]
     app.dependency_overrides[get_settings_service] = lambda: mock_service
@@ -280,11 +293,11 @@ def test_settings_fallbacks_list():
         assert response.json() == {
             "items": [
                 {
-                    "id": "openai",
-                    "provider_id": "openai",
-                    "provider_name": "OpenAI",
-                    "fallback_provider_id": "anthropic",
-                    "fallback_model_id": "claude-sonnet-4",
+                    "id": "fixture-provider",
+                    "provider_id": "fixture-provider",
+                    "provider_name": "Fixture Provider",
+                    "fallback_provider_id": "backup-provider",
+                    "fallback_model_id": "fixture-fallback-model",
                 }
             ],
             "total": 1,
@@ -297,29 +310,29 @@ def test_settings_fallbacks_list():
 def test_settings_fallbacks_put_updates_fallback_pair():
     mock_service = Mock()
     mock_service.update_fallback_target.return_value = {
-        "id": "openai",
-        "provider_id": "openai",
-        "provider_name": "OpenAI",
-        "fallback_provider_id": "anthropic",
-        "fallback_model_id": "claude-sonnet-4",
+        "id": "fixture-provider",
+        "provider_id": "fixture-provider",
+        "provider_name": "Fixture Provider",
+        "fallback_provider_id": "backup-provider",
+        "fallback_model_id": "fixture-fallback-model",
     }
     app.dependency_overrides[get_settings_service] = lambda: mock_service
 
     try:
         response = client.put(
-            "/api/settings/fallbacks/openai",
+            "/api/settings/fallbacks/fixture-provider",
             json={
-                "fallback_provider_id": "anthropic",
-                "fallback_model_id": "claude-sonnet-4",
+                "fallback_provider_id": "backup-provider",
+                "fallback_model_id": "fixture-fallback-model",
             },
         )
         assert response.status_code == 200
-        assert response.json()["fallback_provider_id"] == "anthropic"
-        assert response.json()["fallback_model_id"] == "claude-sonnet-4"
+        assert response.json()["fallback_provider_id"] == "backup-provider"
+        assert response.json()["fallback_model_id"] == "fixture-fallback-model"
         mock_service.update_fallback_target.assert_called_once_with(
-            provider_id="openai",
-            fallback_provider_id="anthropic",
-            fallback_model_id="claude-sonnet-4",
+            provider_id="fixture-provider",
+            fallback_provider_id="backup-provider",
+            fallback_model_id="fixture-fallback-model",
         )
     finally:
         app.dependency_overrides.clear()
@@ -328,9 +341,9 @@ def test_settings_fallbacks_put_updates_fallback_pair():
 def test_settings_fallbacks_put_allows_clearing_with_empty_strings():
     mock_service = Mock()
     mock_service.update_fallback_target.return_value = {
-        "id": "openai",
-        "provider_id": "openai",
-        "provider_name": "OpenAI",
+        "id": "fixture-provider",
+        "provider_id": "fixture-provider",
+        "provider_name": "Fixture Provider",
         "fallback_provider_id": None,
         "fallback_model_id": None,
     }
@@ -338,7 +351,7 @@ def test_settings_fallbacks_put_allows_clearing_with_empty_strings():
 
     try:
         response = client.put(
-            "/api/settings/fallbacks/openai",
+            "/api/settings/fallbacks/fixture-provider",
             json={"fallback_provider_id": "", "fallback_model_id": ""},
         )
         assert response.status_code == 200
@@ -401,7 +414,7 @@ def test_app_settings_put_rejects_unsupported_fields():
     try:
         response = client.put(
             "/api/settings/app",
-            json={"default_provider": "openai"},
+            json={"default_provider": "fixture-provider"},
         )
         assert response.status_code == 422
         mock_repo.update_settings.assert_not_called()

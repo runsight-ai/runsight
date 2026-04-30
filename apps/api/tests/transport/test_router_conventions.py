@@ -280,9 +280,9 @@ class TestModelsListResponseShape:
         from runsight_api.transport.deps import get_model_service
 
         mock_model = SimpleNamespace(
-            provider="openai",
-            provider_name="Openai",
-            model_id="gpt-4o",
+            provider="fixture-provider",
+            provider_name="Fixture Provider",
+            model_id="fixture-chat-model",
             mode="chat",
             max_tokens=4096,
             input_cost_per_token=0.00003,
