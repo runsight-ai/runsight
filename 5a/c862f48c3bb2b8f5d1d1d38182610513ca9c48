@@ -1,0 +1,23 @@
+packages/core/tests/test_wire_soul_ref_to_library.py
+  4adca821c1af8eb3 1,3-6,37,45-46,64-77,82,87,90,93,98,101,123,126,131,134,155,158-159,164,167,196,199-200,205,208,237,245,265,268,293-295,310,313,326,334,342,345-346,351,354,376,381,384,408,411,429,432,437,440,458,469-470,475,478,480,482-483,485,488,490-492,505,518-523,526-527,549,557,572,575,590,600,605,608,655,658,682,684,689-690,699,702,706,718-719
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5ac862f48c3bb2b8f5d1d1d38182610513ca9c48",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 117,
+      "accepted_lines": 94875,
+      "overriden_lines": 0
+    }
+  }
+}
