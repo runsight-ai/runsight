@@ -1,0 +1,27 @@
+apps/api/tests/fixtures/workflow_input_redaction/custom/workflows/input-redaction-failing.yaml
+  4adca821c1af8eb3 11-12,14-18,22
+apps/api/tests/test_workflow_input_redaction_integration.py
+  4adca821c1af8eb3 10,12,49,62-63,340,394-406,410,412-417,474,566,622,656
+apps/api/tests/fixtures/workflow_input_redaction/custom/providers/input-redaction-fixture-provider.yaml
+  4adca821c1af8eb3 1,3-5,8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0d579ec98b452057c52cab022476b5056136546d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 46,
+      "total_deletions": 97,
+      "accepted_lines": 90167,
+      "overriden_lines": 0
+    }
+  }
+}
