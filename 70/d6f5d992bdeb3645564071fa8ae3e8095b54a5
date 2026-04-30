@@ -1,0 +1,29 @@
+packages/core/tests/test_interceptors_extract.py
+  4adca821c1af8eb3 1,3,114,118,127,139,194
+packages/core/tests/test_worker_support_extract.py
+  4adca821c1af8eb3 1,3,110,114,126,144
+packages/core/tests/test_ipc_models_extract.py
+  4adca821c1af8eb3 1,3,108,112,136,162
+packages/core/tests/test_worker_proxies_extract.py
+  4adca821c1af8eb3 1,3,106,110,122,140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "70d6f5d992bdeb3645564071fa8ae3e8095b54a5",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 29,
+      "accepted_lines": 87551,
+      "overriden_lines": 0
+    }
+  }
+}
