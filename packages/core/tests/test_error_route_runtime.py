@@ -1,4 +1,4 @@
-"""Failing runtime tests for RUN-670 error_route handling in Workflow.run()."""
+"""Runtime tests for error_route handling in Workflow.run()."""
 
 from __future__ import annotations
 
@@ -157,7 +157,7 @@ def _workflow_with_entry(name: str, *blocks: BaseBlock, entry: str) -> Workflow:
 
 @pytest.mark.asyncio
 class TestErrorRouteRuntimeHandling:
-    """RUN-670 covers runtime error routing after block failures."""
+    """Runtime error routing handles block failures."""
 
     async def test_error_route_catches_failure_and_continues_at_handler(self):
         risky = _AlwaysFailBlock("risky", message="primary explosion")

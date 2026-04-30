@@ -1,4 +1,4 @@
-"""Failing tests for RUN-669: gate pass/fail shorthand routing."""
+"""Tests for gate pass/fail shorthand routing."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     lines = content.lstrip().splitlines()
     first_key = lines[0].split(":")[0].strip() if lines else ""
     if first_key != "id":
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: gate-shortcuts-workflow\nkind: workflow\n" + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
@@ -45,7 +45,7 @@ class TestGateShortcutSchema:
     def test_model_validate_accepts_pass_fail_yaml_aliases(self):
         file_def = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-workflow",
+                "id": "gate-shortcuts-workflow",
                 "kind": "workflow",
                 "workflow": {"name": "gate_shortcuts", "entry": "quality_gate"},
                 "blocks": {

@@ -1,16 +1,16 @@
 """
-RUN-629 — E2E: Dispatch — soul calls delegate tool -> exit routing -> downstream block runs.
+E2E tests for Dispatch — soul calls delegate tool -> exit routing -> downstream block runs.
 
 Dispatch block, the delegate tool, and the agentic tool loop are each well
 unit-tested in isolation. These integration tests wire them together end-to-end
 through parse_workflow_yaml() -> Workflow.run() and verify that:
 
-  AC1: Full dispatch routing E2E — YAML workflow with a block whose soul uses the
+  Full routing E2E — YAML workflow with a block whose soul uses the
        delegate tool -> runtime routes to the correct exit block -> exit block result
        present in final state.
-  AC2: Multi-exit dispatch — soul picks port B -> only port B block executes,
+  Multi-exit routing: Multi-exit dispatch — soul picks port B -> only port B block executes,
        port A block result absent from final state.
-  AC3: Dispatch -> downstream block — result from dispatch exit feeds a subsequent
+  Downstream routing: Dispatch -> downstream block — result from dispatch exit feeds a subsequent
        linear block that executes after the exit block.
 
 All tests use mocked LLM (no real API keys). Mocking strategy:
@@ -130,11 +130,11 @@ def _two_exit_workflow() -> Dict[str, Any]:
 
     Flow:
       router (linear, with delegate tool)
-        -> port_a: block_a (linear)
-        -> port_b: block_b (linear)
+        -> port_a: port_a_handler_block (linear)
+        -> port_b: port_b_handler_block (linear)
     """
     return {
-        "id": "test-workflow",
+        "id": "dispatch-e2e-workflow",
         "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
@@ -152,11 +152,11 @@ def _two_exit_workflow() -> Dict[str, Any]:
                     {"id": "port_b", "label": "Port B"},
                 ],
             },
-            "block_a": {
+            "port_a_handler_block": {
                 "type": "linear",
                 "soul_ref": "worker_a",
             },
-            "block_b": {
+            "port_b_handler_block": {
                 "type": "linear",
                 "soul_ref": "worker_b",
             },
@@ -165,14 +165,14 @@ def _two_exit_workflow() -> Dict[str, Any]:
             "name": "dispatch_e2e_two_exit",
             "entry": "router",
             "transitions": [
-                {"from": "block_a", "to": None},
-                {"from": "block_b", "to": None},
+                {"from": "port_a_handler_block", "to": None},
+                {"from": "port_b_handler_block", "to": None},
             ],
             "conditional_transitions": [
                 {
                     "from": "router",
-                    "port_a": "block_a",
-                    "port_b": "block_b",
+                    "port_a": "port_a_handler_block",
+                    "port_b": "port_b_handler_block",
                 },
             ],
         },
@@ -182,15 +182,15 @@ def _two_exit_workflow() -> Dict[str, Any]:
 def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
     """Build a YAML dict for a workflow where:
       router (linear, delegate tool, 3 exits)
-        -> port_a: exit_block_a
-        -> port_b: exit_block_b
-        -> port_c: exit_block_c
-      exit_block_b -> downstream_block (linear, sequential after exit)
+        -> port_a: exit_port_a_handler_block
+        -> port_b: exit_port_b_handler_block
+        -> port_c: port_c_exit_block
+      exit_port_b_handler_block -> downstream_linear_block (linear, sequential after exit)
 
-    This tests AC3: result from dispatch exit feeds a subsequent linear block.
+    This verifies downstream routing: result from dispatch exit feeds a subsequent linear block.
     """
     return {
-        "id": "test-workflow",
+        "id": "dispatch-e2e-workflow",
         "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
@@ -228,19 +228,19 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
                     {"id": "port_c", "label": "Port C"},
                 ],
             },
-            "exit_block_a": {
+            "exit_port_a_handler_block": {
                 "type": "linear",
                 "soul_ref": "worker_a",
             },
-            "exit_block_b": {
+            "exit_port_b_handler_block": {
                 "type": "linear",
                 "soul_ref": "worker_b",
             },
-            "exit_block_c": {
+            "port_c_exit_block": {
                 "type": "linear",
                 "soul_ref": "worker_c",
             },
-            "downstream_block": {
+            "downstream_linear_block": {
                 "type": "linear",
                 "soul_ref": "downstream",
             },
@@ -249,17 +249,17 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
             "name": "dispatch_e2e_three_exit_downstream",
             "entry": "router",
             "transitions": [
-                {"from": "exit_block_a", "to": None},
-                {"from": "exit_block_b", "to": "downstream_block"},
-                {"from": "exit_block_c", "to": None},
-                {"from": "downstream_block", "to": None},
+                {"from": "exit_port_a_handler_block", "to": None},
+                {"from": "exit_port_b_handler_block", "to": "downstream_linear_block"},
+                {"from": "port_c_exit_block", "to": None},
+                {"from": "downstream_linear_block", "to": None},
             ],
             "conditional_transitions": [
                 {
                     "from": "router",
-                    "port_a": "exit_block_a",
-                    "port_b": "exit_block_b",
-                    "port_c": "exit_block_c",
+                    "port_a": "exit_port_a_handler_block",
+                    "port_b": "exit_port_b_handler_block",
+                    "port_c": "port_c_exit_block",
                 },
             ],
         },
@@ -267,7 +267,7 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
 
 
 # ===========================================================================
-# AC1: Full dispatch routing E2E
+# Full dispatch routing E2E
 # ===========================================================================
 
 
@@ -277,15 +277,17 @@ class TestFullDispatchRoutingE2E:
     routes to the correct exit block -> exit block result in final state."""
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_delegate_to_port_a_routes_to_block_a(self, mock_achat: AsyncMock) -> None:
-        """Router soul calls delegate(port='port_a') -> block_a executes,
-        block_a result present in final state."""
+    async def test_delegate_to_port_a_routes_to_port_a_handler_block(
+        self, mock_achat: AsyncMock
+    ) -> None:
+        """Router soul calls delegate(port='port_a') -> port_a_handler_block executes,
+        port_a_handler_block result present in final state."""
         workflow = parse_workflow_yaml(_two_exit_workflow())
 
         # LLM call sequence:
         # 1. Router block: LLM returns delegate tool call for port_a
         # 2. Router block: LLM returns final text after tool result
-        # 3. block_a: LLM returns text output
+        # 3. port_a_handler_block: LLM returns text output
         mock_achat.side_effect = [
             _tool_call_response(
                 "delegate",
@@ -311,21 +313,23 @@ class TestFullDispatchRoutingE2E:
             f"Got exit_handle={router_result.exit_handle!r}"
         )
 
-        # block_a must have executed as the routed target
-        assert "block_a" in final.results, (
-            "block_a must execute as the routed exit target for port_a. "
+        # port_a_handler_block must have executed as the routed target
+        assert "port_a_handler_block" in final.results, (
+            "port_a_handler_block must execute as the routed exit target for port_a. "
             f"Results contain: {list(final.results.keys())}"
         )
-        assert final.results["block_a"].output == "Port A completed the task."
+        assert final.results["port_a_handler_block"].output == "Port A completed the task."
 
-        # block_b must NOT have executed
-        assert "block_b" not in final.results, (
-            "block_b must NOT execute when router delegates to port_a"
+        # port_b_handler_block must NOT have executed
+        assert "port_b_handler_block" not in final.results, (
+            "port_b_handler_block must NOT execute when router delegates to port_a"
         )
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_delegate_to_port_b_routes_to_block_b(self, mock_achat: AsyncMock) -> None:
-        """Router soul calls delegate(port='port_b') -> block_b executes."""
+    async def test_delegate_to_port_b_routes_to_port_b_handler_block(
+        self, mock_achat: AsyncMock
+    ) -> None:
+        """Router soul calls delegate(port='port_b') -> port_b_handler_block executes."""
         workflow = parse_workflow_yaml(_two_exit_workflow())
 
         mock_achat.side_effect = [
@@ -347,17 +351,17 @@ class TestFullDispatchRoutingE2E:
             "Router result must have exit_handle='port_b'"
         )
 
-        assert "block_b" in final.results, (
-            "block_b must execute when router delegates to port_b. "
+        assert "port_b_handler_block" in final.results, (
+            "port_b_handler_block must execute when router delegates to port_b. "
             f"Results contain: {list(final.results.keys())}"
         )
-        assert "block_a" not in final.results, (
-            "block_a must NOT execute when router delegates to port_b"
+        assert "port_a_handler_block" not in final.results, (
+            "port_a_handler_block must NOT execute when router delegates to port_b"
         )
 
 
 # ===========================================================================
-# AC2: Multi-exit dispatch — soul picks port B, only port B block executes
+# Multi-exit dispatch — soul picks port B, only port B block executes
 # ===========================================================================
 
 
@@ -368,7 +372,7 @@ class TestMultiExitDispatchRouting:
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_three_exits_pick_port_b_only_b_executes(self, mock_achat: AsyncMock) -> None:
-        """Router with 3 exits picks port_b -> only exit_block_b executes."""
+        """Router with 3 exits picks port_b -> only exit_port_b_handler_block executes."""
         workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
 
         mock_achat.side_effect = [
@@ -379,9 +383,9 @@ class TestMultiExitDispatchRouting:
                 call_id="del_3",
             ),
             _text_response("Routed to port B."),
-            # exit_block_b executes
+            # exit_port_b_handler_block executes
             _text_response("Exit block B output."),
-            # downstream_block executes (connected after exit_block_b)
+            # downstream_linear_block executes (connected after exit_port_b_handler_block)
             _text_response("Downstream processed B's result."),
         ]
 
@@ -393,21 +397,21 @@ class TestMultiExitDispatchRouting:
         assert "router" in final.results
         assert final.results["router"].exit_handle == "port_b"
 
-        # Only exit_block_b executed
-        assert "exit_block_b" in final.results, (
-            f"exit_block_b must execute when port_b selected. Results: {list(final.results.keys())}"
+        # Only exit_port_b_handler_block executed
+        assert "exit_port_b_handler_block" in final.results, (
+            f"exit_port_b_handler_block must execute when port_b selected. Results: {list(final.results.keys())}"
         )
-        assert "exit_block_a" not in final.results, (
-            "exit_block_a must NOT execute when port_b selected"
+        assert "exit_port_a_handler_block" not in final.results, (
+            "exit_port_a_handler_block must NOT execute when port_b selected"
         )
-        assert "exit_block_c" not in final.results, (
-            "exit_block_c must NOT execute when port_b selected"
+        assert "port_c_exit_block" not in final.results, (
+            "port_c_exit_block must NOT execute when port_b selected"
         )
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_three_exits_pick_port_c_only_c_executes(self, mock_achat: AsyncMock) -> None:
-        """Router with 3 exits picks port_c -> only exit_block_c runs,
-        downstream_block does NOT run (it's only connected to exit_block_b)."""
+        """Router with 3 exits picks port_c -> only port_c_exit_block runs,
+        downstream_linear_block does NOT run (it's only connected to exit_port_b_handler_block)."""
         workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
 
         mock_achat.side_effect = [
@@ -418,7 +422,7 @@ class TestMultiExitDispatchRouting:
                 call_id="del_4",
             ),
             _text_response("Routed to port C."),
-            # exit_block_c executes
+            # port_c_exit_block executes
             _text_response("Exit block C output."),
         ]
 
@@ -429,20 +433,20 @@ class TestMultiExitDispatchRouting:
         assert "router" in final.results
         assert final.results["router"].exit_handle == "port_c"
 
-        assert "exit_block_c" in final.results, (
-            f"exit_block_c must execute when port_c selected. Results: {list(final.results.keys())}"
+        assert "port_c_exit_block" in final.results, (
+            f"port_c_exit_block must execute when port_c selected. Results: {list(final.results.keys())}"
         )
-        assert "exit_block_a" not in final.results
-        assert "exit_block_b" not in final.results
-        # downstream_block is only after exit_block_b, should not run
-        assert "downstream_block" not in final.results, (
-            "downstream_block must NOT run when port_c is selected "
-            "(it is only connected after exit_block_b)"
+        assert "exit_port_a_handler_block" not in final.results
+        assert "exit_port_b_handler_block" not in final.results
+        # downstream_linear_block is only after exit_port_b_handler_block, should not run
+        assert "downstream_linear_block" not in final.results, (
+            "downstream_linear_block must NOT run when port_c is selected "
+            "(it is only connected after exit_port_b_handler_block)"
         )
 
 
 # ===========================================================================
-# AC3: Dispatch -> downstream block — exit result feeds subsequent block
+# Downstream dispatch -> downstream block — exit result feeds subsequent block
 # ===========================================================================
 
 
@@ -453,8 +457,8 @@ class TestDispatchExitFeedsDownstream:
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_exit_block_result_reaches_downstream(self, mock_achat: AsyncMock) -> None:
-        """Router -> port_b -> exit_block_b -> downstream_block.
-        downstream_block must execute and its result must be in final state."""
+        """Router -> port_b -> exit_port_b_handler_block -> downstream_linear_block.
+        downstream_linear_block must execute and its result must be in final state."""
         workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
 
         mock_achat.side_effect = [
@@ -465,9 +469,9 @@ class TestDispatchExitFeedsDownstream:
                 call_id="del_5",
             ),
             _text_response("Delegated to B."),
-            # exit_block_b
+            # exit_port_b_handler_block
             _text_response("Report summary from B."),
-            # downstream_block (connected after exit_block_b)
+            # downstream_linear_block (connected after exit_port_b_handler_block)
             _text_response("Final processing of B's output."),
         ]
 
@@ -475,25 +479,27 @@ class TestDispatchExitFeedsDownstream:
 
         final = await workflow.run(state)
 
-        # Full chain executed: router -> exit_block_b -> downstream_block
+        # Full chain executed: router -> exit_port_b_handler_block -> downstream_linear_block
         assert "router" in final.results
-        assert "exit_block_b" in final.results, (
-            f"exit_block_b must execute as port_b target. Results: {list(final.results.keys())}"
+        assert "exit_port_b_handler_block" in final.results, (
+            f"exit_port_b_handler_block must execute as port_b target. Results: {list(final.results.keys())}"
         )
-        assert "downstream_block" in final.results, (
-            "downstream_block must execute after exit_block_b. "
+        assert "downstream_linear_block" in final.results, (
+            "downstream_linear_block must execute after exit_port_b_handler_block. "
             f"Results: {list(final.results.keys())}"
         )
-        assert final.results["downstream_block"].output == "Final processing of B's output."
+        assert final.results["downstream_linear_block"].output == "Final processing of B's output."
 
         # Other exit blocks must not have run
-        assert "exit_block_a" not in final.results
-        assert "exit_block_c" not in final.results
+        assert "exit_port_a_handler_block" not in final.results
+        assert "port_c_exit_block" not in final.results
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_downstream_block_count_matches_chain_length(self, mock_achat: AsyncMock) -> None:
-        """Verify that exactly 3 blocks executed: router, exit_block_b,
-        downstream_block — confirming the chain is correct."""
+    async def test_downstream_linear_block_count_matches_chain_length(
+        self, mock_achat: AsyncMock
+    ) -> None:
+        """Verify that exactly 3 blocks executed: router, exit_port_b_handler_block,
+        downstream_linear_block — confirming the chain is correct."""
         workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
 
         mock_achat.side_effect = [
@@ -512,7 +518,7 @@ class TestDispatchExitFeedsDownstream:
         final = await workflow.run(state)
 
         executed_blocks = set(final.results.keys())
-        expected_blocks = {"router", "exit_block_b", "downstream_block"}
+        expected_blocks = {"router", "exit_port_b_handler_block", "downstream_linear_block"}
         assert expected_blocks <= executed_blocks, (
             f"Expected {expected_blocks} to execute, but got {executed_blocks}"
         )

@@ -1,4 +1,4 @@
-"""Failing tests for RUN-671: inline routes shorthand on BaseBlockDef."""
+"""Tests for inline routes shorthand on BaseBlockDef."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
     lines = content.lstrip().splitlines()
     first_key = lines[0].split(":")[0].strip() if lines else ""
     if first_key != "id":
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: routes-shorthand-workflow\nkind: workflow\n" + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
@@ -29,7 +29,7 @@ class TestRoutesSchema:
     def test_model_validate_accepts_routes_definitions(self):
         file_def = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-workflow",
+                "id": "routes-shorthand-workflow",
                 "kind": "workflow",
                 "workflow": {"name": "routes_schema", "entry": "review"},
                 "blocks": {

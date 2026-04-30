@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-680: CodeBlock exit_handle on success path.
+Tests for CodeBlock exit_handle on success path.
 
 CodeBlock currently sets exit_handle="error" on failure but returns NO exit_handle
 on the success path. When a CodeBlock lives inside a LoopBlock, it can never signal
@@ -9,11 +9,11 @@ New behavior: if the returned JSON is a dict containing an "exit_handle" key (st
 value), CodeBlock extracts it, pops it from the result, and passes it to BlockResult.
 
 Tests cover:
-- AC1: Code returns {"exit_handle": "done", "value": 42} -> exit_handle="done", output={"value": 42}
-- AC2: Code returns {"value": 42} (no exit_handle key) -> exit_handle is None, output={"value": 42}
-- AC3: Code returns a plain string -> exit_handle is None (no extraction attempted)
-- AC4: CodeBlock inside LoopBlock with break_on_exit="pass" -> loop breaks when code returns "pass"
-- AC5: Code fails (non-zero exit) -> exit_handle="error" (existing behavior, should PASS)
+- Code returns {"exit_handle": "done", "value": 42} -> exit_handle="done", output={"value": 42}
+- Code returns {"value": 42} (no exit_handle key) -> exit_handle is None, output={"value": 42}
+- Code returns a plain string -> exit_handle is None (no extraction attempted)
+- CodeBlock inside LoopBlock with break_on_exit="pass" -> loop breaks when code returns "pass"
+- Code fails (non-zero exit) -> exit_handle="error" (existing failure behavior is preserved)
 - Edge: {"exit_handle": 123} (non-string) -> ignore, exit_handle is None
 - Edge: {"exit_handle": ""} (empty string) -> treat as None
 - Edge: exit_handle key is popped from result before serialization
@@ -55,7 +55,7 @@ def _make_state(**overrides) -> WorkflowState:
 
 
 # ---------------------------------------------------------------------------
-# AC1: exit_handle extracted from dict result
+# Full dispatch routing: exit_handle extracted from dict result
 # ---------------------------------------------------------------------------
 
 
@@ -81,7 +81,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# AC2: no exit_handle key -> exit_handle is None
+# Multi-exit dispatch: no exit_handle key -> exit_handle is None
 # ---------------------------------------------------------------------------
 
 
@@ -106,7 +106,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# AC3: plain string return -> exit_handle is None
+# Downstream dispatch: plain string return -> exit_handle is None
 # ---------------------------------------------------------------------------
 
 
@@ -130,7 +130,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# AC4: CodeBlock + LoopBlock integration — break_on_exit
+# CodeBlock + LoopBlock integration — break_on_exit
 # ---------------------------------------------------------------------------
 
 
@@ -177,7 +177,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# AC5: failure path — exit_handle="error" (existing behavior, should PASS)
+# failure path — exit_handle="error" (existing failure behavior is preserved)
 # ---------------------------------------------------------------------------
 
 

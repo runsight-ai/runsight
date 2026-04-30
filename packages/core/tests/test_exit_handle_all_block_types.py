@@ -1,14 +1,14 @@
 """
-E2E tests for RUN-684: Exit handle coverage for all block types in loops.
+E2E tests for Exit handle coverage for all block types in loops.
 
 Verifies that every block type correctly propagates exit_handle through
 LoopBlock's break_on_exit mechanism. Covers:
 
 1. GateBlock exits loop (regression guard)
 2. WorkflowBlock exits loop on child completion
-3. CodeBlock exits loop on success (RUN-680 feature)
+3. CodeBlock exits loop on success
 4. CodeBlock exits loop on error (existing behavior)
-5. LinearBlock exits loop via exit_conditions (RUN-681 feature)
+5. LinearBlock exits loop via exit_conditions
 6. LinearBlock with regex exit_conditions
 7. SynthesizeBlock has no exit_handle (regression guard — loop runs to max_rounds)
 8. DispatchBlock inside LoopBlock (regression guard — no break on combined result)
@@ -74,7 +74,7 @@ def _make_state(**overrides) -> WorkflowState:
 
 def _make_ctx(
     blocks: dict[str, BaseBlock],
-    workflow_name: str = "test_wf",
+    workflow_name: str = "exit-handle-loop-workflow",
 ) -> BlockExecutionContext:
     return BlockExecutionContext(
         workflow_name=workflow_name,
@@ -307,7 +307,7 @@ class TestScenario2WorkflowBlockExitsLoop:
 
 
 # ===========================================================================
-# Scenario 3: CodeBlock exits loop on success (RUN-680 feature)
+# Scenario 3: CodeBlock exits loop on success
 # ===========================================================================
 
 
@@ -404,7 +404,7 @@ def main(data):
 
 
 # ===========================================================================
-# Scenario 5: Block with exit_conditions (contains) exits loop (RUN-681)
+# Scenario 5: Block with exit_conditions (contains) exits loop
 # ===========================================================================
 
 

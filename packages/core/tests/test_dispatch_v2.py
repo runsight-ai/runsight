@@ -1,10 +1,10 @@
 """
-Failing tests for RUN-286: Rewrite DispatchBlock for per-exit tasks and per-exit result keying.
+Tests for Rewrite DispatchBlock for per-exit tasks and per-exit result keying.
 
 Each branch (exit) gets its own soul + task instruction. Results are keyed per-exit
 at state.results["{block_id}.{exit_id}"] and combined at state.results["{block_id}"].
 
-Tests cover ALL acceptance criteria:
+Tests cover dispatch behavior:
 - Per-exit task differentiation (each branch gets unique instruction)
 - Per-exit result keying (state.results["{block_id}.{exit_id}"])
 - Combined result at state.results["{block_id}"]

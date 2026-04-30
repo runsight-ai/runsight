@@ -1,5 +1,5 @@
 """
-Integration tests for RUN-287: Dispatch v2 + SynthesizeBlock end-to-end pipeline.
+Integration tests for Dispatch v2 + SynthesizeBlock end-to-end pipeline.
 
 Tests the full integration chain:
 1. Full pipeline: parse YAML -> DispatchBlock (per-exit tasks) -> SynthesizeBlock -> verify

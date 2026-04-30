@@ -1,7 +1,7 @@
 """
-Failing tests for RUN-874: DispatchBlock — stop reading state.current_task.context.
+Tests for DispatchBlock — stop reading state.current_task.context.
 
-Acceptance Criteria:
+Behavior covered:
 - DispatchBlock no longer imports Task or reads state.current_task
 - Per-exit branch instructions still work correctly
 - Context inheritance works via shared_memory or explicit parameter
@@ -10,7 +10,7 @@ Acceptance Criteria:
 Issues being fixed (all must be verified by these tests):
 1. `from runsight_core.primitives import ... Task` — import must go
 2. `context = state.current_task.context if state.current_task is not None else None` — reads current_task
-3. Stateful path: creates Task(...) using budgeted.task.instruction/context (budgeted.task gone after RUN-870)
+3. Stateful path: creates Task(...) using budgeted task instruction/context strings
 4. Stateful path: calls runner.execute_task() — should use runner.execute()
 5. Stateful path: calls runner._build_prompt(budgeted.task) — needs strings
 6. Stateless path: creates Task(...) and calls runner.execute_task() — same fix

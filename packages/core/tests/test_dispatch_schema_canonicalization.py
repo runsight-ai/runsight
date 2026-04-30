@@ -1,5 +1,5 @@
 """
-RED tests for RUN-645: canonicalize workflow schema and generated artifacts to dispatch.
+Tests for canonicalize workflow schema and generated artifacts to dispatch.
 
 These tests assert schema-source and generated-artifact contracts:
 - checked-in schema artifact must match generated schema source of truth

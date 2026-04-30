@@ -1,10 +1,10 @@
 """
-E2E tests for RUN-703: Dispatch inside Loop + assertions on loop-iterated blocks.
+E2E tests for Dispatch inside Loop + assertions on loop-iterated blocks.
 
-Two acceptance criteria:
-  AC1 — LoopBlock with DispatchBlock inner block: loop runs 2 rounds, dispatch
+Behavior covered:
+  Dispatch loop: LoopBlock with DispatchBlock inner block: loop runs 2 rounds, dispatch
         routes correctly each round, per-round exit results present in final state.
-  AC2 — Block with assertions inside loop: observer fires on_block_complete each
+  Loop assertions: Block with assertions inside loop: observer fires on_block_complete each
         round with the correct per-round state, so assertion evaluation can happen
         per-round. Assertion configs are accessible on the runtime block.
 
@@ -143,7 +143,7 @@ def _make_workflow_with_loop(
 
 
 # ===========================================================================
-# AC1 — LoopBlock with DispatchBlock inner block
+# Dispatch loop: LoopBlock with DispatchBlock inner block
 # ===========================================================================
 
 
@@ -348,7 +348,7 @@ class TestDispatchInsideLoop:
         composition and the runtime executes both rounds.
         """
         yaml_content = dedent("""\
-            id: test-workflow
+            id: dispatch-in-loop-workflow
             kind: workflow
             version: "1.0"
             souls:
@@ -417,7 +417,7 @@ class TestDispatchInsideLoop:
 
 
 # ===========================================================================
-# AC2 — Block with assertions inside loop
+# Loop assertions: Block with assertions inside loop
 # ===========================================================================
 
 
@@ -440,7 +440,7 @@ class TestAssertionsInsideLoop:
         """When a block definition has assertions: config in YAML, the parser
         bridges those configs onto the runtime block as block.assertions."""
         yaml_content = dedent("""\
-            id: test-workflow
+            id: dispatch-in-loop-workflow
             kind: workflow
             version: "1.0"
             souls:
@@ -648,7 +648,7 @@ class TestAssertionsInsideLoop:
         assertions config is accessible and the workflow executes correctly
         with the observer receiving per-round events."""
         yaml_content = dedent("""\
-            id: test-workflow
+            id: dispatch-in-loop-workflow
             kind: workflow
             version: "1.0"
             souls:
@@ -723,10 +723,10 @@ class TestAssertionsInsideLoop:
     @pytest.mark.asyncio
     async def test_dispatch_with_assertions_inside_loop(self, tmp_path):
         """Combined scenario: a dispatch block with assertions inside a loop.
-        Verifies both AC1 (dispatch routing per round) and AC2 (assertions
+        Verifies dispatch routing per round and assertions
         config accessible + observer fires per round) together."""
         yaml_content = dedent("""\
-            id: test-workflow
+            id: dispatch-in-loop-workflow
             kind: workflow
             version: "1.0"
             souls:

@@ -70,7 +70,7 @@ class TestDispatchParserIntegration:
 
     def test_parse_workflow_yaml_accepts_dispatch_block_type(self):
         yaml_content = """
-id: test-workflow
+id: dispatch-runtime-rename-workflow
 kind: workflow
 version: "1.0"
 blocks:

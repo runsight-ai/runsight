@@ -1,17 +1,17 @@
 """
-Failing tests for RUN-268: GateBlock returns exit_handle pass/fail, delete GateError.
+Tests for GateBlock returns exit_handle pass/fail, delete GateError.
 
 GateBlock.execute() returns BlockResult(exit_handle="pass") or BlockResult(exit_handle="fail")
 instead of raising GateError. GateError class deleted entirely. Auto-inject default exits.
 
 Tests cover:
-- AC1: GateBlock.execute() never raises on FAIL — returns state normally
-- AC2: PASS returns BlockResult with exit_handle="pass"
-- AC3: FAIL returns BlockResult with exit_handle="fail"
-- AC4: GateError class deleted (no longer importable from gate.py)
-- AC5: No metadata writes in GateBlock (no {id}_decision in metadata)
-- AC6: Gate with conditional_transitions works standalone (not inside loop)
-- AC7: Auto-injected exits: pass and fail when block_def.exits is None
+- GateBlock.execute() never raises on FAIL — returns state normally
+- PASS returns BlockResult with exit_handle="pass"
+- FAIL returns BlockResult with exit_handle="fail"
+- GateError class deleted (no longer importable from gate.py)
+- No metadata writes in GateBlock (no {id}_decision in metadata)
+- Gate with conditional_transitions works standalone (not inside loop)
+- Auto-injected exits: pass and fail when block_def.exits is None
 - Extra: GateError import removed from loop.py
 """
 
@@ -33,7 +33,11 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
     runner.model_name = "gpt-4o"
     runner.execute = AsyncMock(
         return_value=ExecutionResult(
-            task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens
+            task_id="gate-exit-task",
+            soul_id="gate-exit-soul",
+            output=output,
+            cost_usd=cost,
+            total_tokens=tokens,
         )
     )
     return runner
@@ -43,7 +47,7 @@ def _make_soul(soul_id: str = "gate_soul") -> Soul:
     return Soul(id=soul_id, kind="soul", name="Gate", role="Gate", system_prompt="Evaluate quality")
 
 
-def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):
+def _make_gate(block_id: str = "default-gate", eval_key: str = "content", **kwargs):
     """Create a GateBlock with sensible defaults."""
     from runsight_core.blocks.gate import GateBlock
 
@@ -59,7 +63,7 @@ def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):
 
 
 # ==============================================================================
-# AC1: GateBlock.execute() never raises on FAIL — returns state normally
+# Gate failure returns state: GateBlock.execute() never raises on FAIL — returns state normally
 # ==============================================================================
 
 
@@ -70,10 +74,10 @@ class TestGateNeverRaisesOnFail:
     async def test_fail_returns_state_not_exception(self):
         """When runner returns FAIL, execute() must return a WorkflowState, not raise."""
         runner = _mock_runner("FAIL: bad quality")
-        block = _make_gate(block_id="gate_f1", runner=runner)
+        block = _make_gate(block_id="fail-return-gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft text")})
 
-        # Current code raises GateError — after RUN-268 this must return normally.
+        # Current code raises GateError — after gate failure routing this must return normally.
         result_state = await execute_block_for_test(block, state)
 
         assert isinstance(result_state, WorkflowState)
@@ -82,7 +86,7 @@ class TestGateNeverRaisesOnFail:
     async def test_fail_does_not_raise_gate_error(self):
         """Ensure no GateError is raised — it should be deleted entirely."""
         runner = _mock_runner("FAIL: needs improvement")
-        block = _make_gate(block_id="gate_f2", runner=runner)
+        block = _make_gate(block_id="fail-no-error-gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some draft")})
 
         # Must not raise any exception
@@ -93,7 +97,7 @@ class TestGateNeverRaisesOnFail:
     async def test_fail_preserves_cost_propagation(self):
         """On FAIL, cost and tokens must still be propagated in the returned state."""
         runner = _mock_runner("FAIL: poor structure", cost=0.03, tokens=150)
-        block = _make_gate(block_id="gate_f3", runner=runner)
+        block = _make_gate(block_id="fail-gate-error-check", runner=runner)
         state = WorkflowState(
             results={"content": BlockResult(output="Draft")},
             total_cost_usd=1.0,
@@ -107,7 +111,7 @@ class TestGateNeverRaisesOnFail:
 
 
 # ==============================================================================
-# AC2: PASS returns BlockResult with exit_handle="pass"
+# PASS returns BlockResult with exit_handle="pass"
 # ==============================================================================
 
 
@@ -158,7 +162,7 @@ class TestGatePassExitHandle:
 
 
 # ==============================================================================
-# AC3: FAIL returns BlockResult with exit_handle="fail"
+# FAIL returns BlockResult with exit_handle="fail"
 # ==============================================================================
 
 
@@ -202,7 +206,7 @@ class TestGateFailExitHandle:
 
 
 # ==============================================================================
-# AC4: GateError class deleted — no longer importable
+# GateError class deleted — no longer importable
 # ==============================================================================
 
 
@@ -222,7 +226,7 @@ class TestGateErrorDeleted:
 
 
 # ==============================================================================
-# AC5: No metadata writes — no {id}_decision in metadata
+# No metadata writes — no {id}_decision in metadata
 # ==============================================================================
 
 
@@ -269,7 +273,7 @@ class TestNoMetadataWrites:
 
 
 # ==============================================================================
-# AC6: Gate with conditional_transitions works standalone (not inside loop)
+# Gate with conditional_transitions works standalone (not inside loop)
 # ==============================================================================
 
 
@@ -319,7 +323,7 @@ class TestGateStandaloneWithConditionalTransitions:
 
 
 # ==============================================================================
-# AC7: Auto-injected exits: pass and fail when block_def.exits is None
+# Auto-injected exits: pass and fail when block_def.exits is None
 # ==============================================================================
 
 

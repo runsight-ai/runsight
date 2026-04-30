@@ -1,5 +1,5 @@
 """
-RUN-192: Failing tests for DispatchBlock stateful conversation history.
+Tests for DispatchBlock stateful conversation history.
 
 Tests verify that when stateful=True, DispatchBlock:
 - Reads N independent histories (one per soul) keyed {block_id}_{soul_id}
@@ -125,7 +125,7 @@ def _setup_runner_side_effect(mock_runner, soul_output_map):
 
 
 # ---------------------------------------------------------------------------
-# AC: First invocation — each soul gets its own history entry
+# First invocation — each soul gets its own history entry
 # ---------------------------------------------------------------------------
 
 
@@ -218,7 +218,7 @@ async def test_stateful_first_invocation_user_message_uses_branch_instruction(
 
 
 # ---------------------------------------------------------------------------
-# AC: Round 2 — each soul sees only its own prior history
+# Round 2 — each soul sees only its own prior history
 # ---------------------------------------------------------------------------
 
 
@@ -318,7 +318,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(mock_runner, soul
 
 
 # ---------------------------------------------------------------------------
-# AC: Parallel history independence — soul A's history != soul B's
+# Parallel history independence — soul A's history != soul B's
 # ---------------------------------------------------------------------------
 
 
@@ -405,7 +405,7 @@ async def test_stateful_three_souls_independent_histories(
 
 
 # ---------------------------------------------------------------------------
-# AC: N histories written in single state update (no partial writes)
+# N histories written in single state update (no partial writes)
 # ---------------------------------------------------------------------------
 
 
@@ -467,7 +467,7 @@ async def test_stateful_preserves_other_block_histories(mock_runner, soul_alpha,
 
 
 # ---------------------------------------------------------------------------
-# AC: History key format is {block_id}_{soul_id}
+# History key format is {block_id}_{soul_id}
 # ---------------------------------------------------------------------------
 
 
@@ -493,7 +493,7 @@ async def test_stateful_history_key_format(mock_runner, soul_alpha, soul_beta):
 
 
 # ---------------------------------------------------------------------------
-# AC: Budget fitting is applied per-soul
+# Budget fitting is applied per-soul
 # ---------------------------------------------------------------------------
 
 
@@ -585,7 +585,7 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
 
 
 # ---------------------------------------------------------------------------
-# AC: Different model per soul → budget fitting uses correct model
+# Different model per soul → budget fitting uses correct model
 # ---------------------------------------------------------------------------
 
 
@@ -703,7 +703,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(mock_runner, soul_a
 
 
 # ---------------------------------------------------------------------------
-# AC: No system messages stored in conversation_histories
+# No system messages stored in conversation_histories
 # ---------------------------------------------------------------------------
 
 
@@ -736,7 +736,7 @@ async def test_stateful_no_system_messages_stored(mock_runner, soul_alpha, soul_
 
 
 # ---------------------------------------------------------------------------
-# AC: Non-stateful DispatchBlock unchanged
+# Non-stateful DispatchBlock unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -816,7 +816,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(mock_runner, soul_a
 
 
 # ---------------------------------------------------------------------------
-# AC: Stateful block still produces standard results, log, cost, tokens
+# Stateful block still produces standard results, log, cost, tokens
 # ---------------------------------------------------------------------------
 
 

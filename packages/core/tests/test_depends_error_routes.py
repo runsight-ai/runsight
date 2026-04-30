@@ -1,4 +1,4 @@
-"""Failing tests for RUN-668: depends shorthand and error_route plumbing."""
+"""Tests for depends shorthand and error_route plumbing."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
     content = dedent(yaml_content)
     if "id: " not in content:
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: depends-error-routes-workflow\nkind: workflow\n" + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
@@ -91,9 +91,9 @@ class TestSchemaAcceptsDependsAndErrorRoute:
     def test_model_validate_accepts_depends_and_error_route_fields(self):
         file_def = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-workflow",
+                "id": "depends-error-routes-workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "fetch"},
+                "workflow": {"name": "depends_error_routes_workflow", "entry": "fetch"},
                 "blocks": {
                     "fetch": {"type": "linear", "soul_ref": "writer"},
                     "analyze": {
@@ -118,7 +118,7 @@ class TestSchemaAcceptsDependsAndErrorRoute:
         with pytest.raises((ValidationError, ValueError), match=r"depends"):
             RunsightWorkflowFile.model_validate(
                 {
-                    "workflow": {"name": "test", "entry": "fetch"},
+                    "workflow": {"name": "depends_error_routes_workflow", "entry": "fetch"},
                     "blocks": {
                         "fetch": {"type": "linear", "soul_ref": "writer"},
                         "analyze": {
