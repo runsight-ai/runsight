@@ -217,11 +217,15 @@ def test_provider_service_create_uses_embedded_id_and_writes_filename(tmp_path: 
     repo = FileSystemProviderRepo(base_path=str(tmp_path))
     service = ProviderService(repo, Mock())
 
-    provider = service.create_provider(id="openai", kind="provider", name="OpenAI")
+    provider = service.create_provider(
+        id="fixture-provider",
+        kind="provider",
+        name="Fixture Provider",
+    )
 
-    assert provider.id == "openai"
+    assert provider.id == "fixture-provider"
     assert provider.kind == "provider"
-    assert (tmp_path / "custom" / "providers" / "openai.yaml").exists()
+    assert (tmp_path / "custom" / "providers" / "fixture-provider.yaml").exists()
 
 
 def test_soul_service_create_and_list_round_trip_embedded_identity(tmp_path: Path) -> None:

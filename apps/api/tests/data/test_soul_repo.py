@@ -24,19 +24,19 @@ def test_soul_repo():
                 "name": "Test Soul",
                 "role": "Test Soul",
                 "system_prompt": "Test prompt",
-                "model_name": "gpt-4o",
+                "model_name": "fixture-chat-model",
             }
         )
         assert created.id == "test-soul"
         assert created.role == "Test Soul"
         assert created.system_prompt == "Test prompt"
-        assert created.model_name == "gpt-4o"
+        assert created.model_name == "fixture-chat-model"
 
         # Test get
         fetched = repo.get_by_id("test-soul")
         assert fetched.role == "Test Soul"
         assert fetched.system_prompt == "Test prompt"
-        assert fetched.model_name == "gpt-4o"
+        assert fetched.model_name == "fixture-chat-model"
 
         # Test update
         repo.update(
@@ -47,13 +47,13 @@ def test_soul_repo():
                 "name": "Updated Soul",
                 "role": "Updated Soul",
                 "system_prompt": "Updated prompt",
-                "model_name": "claude-sonnet",
+                "model_name": "fixture-update-model",
             },
         )
         updated = repo.get_by_id("test-soul")
         assert updated.role == "Updated Soul"
         assert updated.system_prompt == "Updated prompt"
-        assert updated.model_name == "claude-sonnet"
+        assert updated.model_name == "fixture-update-model"
 
         # Test delete
         repo.delete("test-soul")

@@ -95,8 +95,8 @@ def test_update_keeps_yaml_and_canvas_persistence_in_separate_workflow_contract_
             name: Analyst
             role: Analyst
             system_prompt: You are a careful analyst.
-            provider: openai
-            model_name: gpt-4o
+            provider: fixture-provider
+            model_name: fixture-chat-model
         config: {}
         """
         ).strip()
