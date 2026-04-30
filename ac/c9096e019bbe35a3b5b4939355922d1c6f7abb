@@ -1,0 +1,23 @@
+packages/core/tests/test_linearblock_migration.py
+  4adca821c1af8eb3 1-7,25-27,38,52-56,86,90,97-98,111,119-120,137-138,158-159,175,180,182-183,197,201,210-211,217,232,239,243-244,248,269-270,279-280,286-287,295-300,313,324,328,339-340,359,388-389,409,435-436,448,452,464-465,498-499,528-529,559,563-564,568,574
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "acc9096e019bbe35a3b5b4939355922d1c6f7abb",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 87,
+      "total_deletions": 98,
+      "accepted_lines": 93773,
+      "overriden_lines": 0
+    }
+  }
+}
