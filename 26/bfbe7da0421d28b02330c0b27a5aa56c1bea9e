@@ -1,0 +1,51 @@
+packages/core/tests/test_depends_error_routes.py
+  4adca821c1af8eb3 1,46,94,96,121
+packages/core/tests/test_dispatch_in_loop_e2e.py
+  4adca821c1af8eb3 2,4-5,7,146,351,420,443,651,726,729
+packages/core/tests/unit/test_gate_exit_handle.py
+  4adca821c1af8eb3 2,8-14,36-40,50,66,77,80,89,100,114,165,209,229,276,326
+packages/core/tests/test_dispatch_synthesize_integration.py
+  4adca821c1af8eb3 2
+packages/core/tests/test_dispatch_runtime_rename.py
+  4adca821c1af8eb3 73
+packages/core/tests/test_dispatch_e2e.py
+  4adca821c1af8eb3 2,8,11,13,133-134,137,155,159,168-169,174-175,185-188,190,193,231,235,239,243,252-255,260-262,270,280-284,290,316-318,321,323-325,329-332,354-355,358-359,364,375,386,388,400-402,404-405,407-408,413-414,425,436-437,439-444,449,460-461,472,474,482,484-485,487-488,491,494-495,498-502,521
+packages/core/tests/test_dispatch_block_stateful.py
+  4adca821c1af8eb3 2,128,221,321,408,470,496,588,706,739,819
+packages/core/tests/test_error_route_runtime.py
+  4adca821c1af8eb3 1,160
+packages/core/tests/test_gate_shortcuts.py
+  4adca821c1af8eb3 1,37,48
+packages/core/tests/test_exit_handle_all_block_types.py
+  4adca821c1af8eb3 2,9,11,77,310,407
+packages/core/tests/test_routes_shorthand.py
+  4adca821c1af8eb3 1,21,32
+packages/core/tests/test_dispatch_execute.py
+  4adca821c1af8eb3 2,4,13
+packages/core/tests/test_dispatch_v2.py
+  4adca821c1af8eb3 2,7
+packages/core/tests/test_codeblock_exit_handle.py
+  4adca821c1af8eb3 2,12-16,58,84,109,133,180
+packages/core/tests/test_dispatch_schema_canonicalization.py
+  4adca821c1af8eb3 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "26bfbe7da0421d28b02330c0b27a5aa56c1bea9e",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 206,
+      "total_deletions": 196,
+      "accepted_lines": 75677,
+      "overriden_lines": 0
+    }
+  }
+}
