@@ -31,26 +31,26 @@ type SettingsFixture = {
   }>;
 };
 
-const OPENAI_ENABLED: ProviderFixture = {
-  id: "openai",
-  name: "OpenAI",
-  type: "openai",
+const PRIMARY_ENABLED: ProviderFixture = {
+  id: "primary-fixture-provider",
+  name: "Primary Fixture",
+  type: "primary-fixture-provider",
   status: "connected",
   is_active: true,
-  models: ["gpt-4o", "gpt-4.1"],
+  models: ["primary-fast", "primary-deep"],
 };
 
-const ANTHROPIC_ENABLED: ProviderFixture = {
-  id: "anthropic",
-  name: "Anthropic",
-  type: "anthropic",
+const BACKUP_ENABLED: ProviderFixture = {
+  id: "backup-fixture-provider",
+  name: "Backup Fixture",
+  type: "backup-fixture-provider",
   status: "connected",
   is_active: true,
-  models: ["claude-sonnet-4", "claude-haiku-4-5"],
+  models: ["backup-balanced", "backup-fast"],
 };
 
-const ANTHROPIC_DISABLED: ProviderFixture = {
-  ...ANTHROPIC_ENABLED,
+const BACKUP_DISABLED: ProviderFixture = {
+  ...BACKUP_ENABLED,
   is_active: false,
 };
 
@@ -65,6 +65,14 @@ async function readOptionalFile(filePath: string): Promise<string | null> {
   }
 }
 
+async function listYamlFiles(dir: string): Promise<string[]> {
+  try {
+    return (await readdir(dir)).filter((fileName) => fileName.endsWith(".yaml"));
+  } catch {
+    return [];
+  }
+}
+
 async function apiGet<T>(apiPath: string): Promise<T> {
   const response = await fetch(`${API}${apiPath}`);
   expect(response.ok).toBe(true);
@@ -73,8 +81,7 @@ async function apiGet<T>(apiPath: string): Promise<T> {
 
 async function snapshotWorkspace() {
   originalProviderFiles = new Map<string, string>();
-  for (const fileName of await readdir(providersDir)) {
-    if (!fileName.endsWith(".yaml")) continue;
+  for (const fileName of await listYamlFiles(providersDir)) {
     originalProviderFiles.set(fileName, await readFile(path.join(providersDir, fileName), "utf-8"));
   }
   originalSettingsContent = await readOptionalFile(settingsFile);
@@ -82,10 +89,8 @@ async function snapshotWorkspace() {
 
 async function restoreWorkspace() {
   await mkdir(providersDir, { recursive: true });
-  for (const fileName of await readdir(providersDir)) {
-    if (fileName.endsWith(".yaml")) {
-      await rm(path.join(providersDir, fileName));
-    }
+  for (const fileName of await listYamlFiles(providersDir)) {
+    await rm(path.join(providersDir, fileName));
   }
   for (const [fileName, content] of originalProviderFiles.entries()) {
     await writeFile(path.join(providersDir, fileName), content, "utf-8");
@@ -101,10 +106,8 @@ async function restoreWorkspace() {
 
 async function seedProviders(providers: ProviderFixture[]) {
   await mkdir(providersDir, { recursive: true });
-  for (const fileName of await readdir(providersDir)) {
-    if (fileName.endsWith(".yaml")) {
-      await rm(path.join(providersDir, fileName));
-    }
+  for (const fileName of await listYamlFiles(providersDir)) {
+    await rm(path.join(providersDir, fileName));
   }
   for (const provider of providers) {
     await writeFile(
@@ -185,7 +188,7 @@ test.describe("Per-provider fallback configuration", () => {
   });
 
   test("one enabled provider keeps fallback disabled and hides rows", async ({ page }) => {
-    await applyFixture([OPENAI_ENABLED], { fallback_enabled: false, fallback_map: [] });
+    await applyFixture([PRIMARY_ENABLED], { fallback_enabled: false, fallback_map: [] });
 
     await openFallbackTab(page);
 
@@ -196,14 +199,14 @@ test.describe("Per-provider fallback configuration", () => {
         "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
       ),
     ).toBeVisible();
-    await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
+    await expect(page.getByLabel("Fallback provider for Primary Fixture")).toHaveCount(0);
   });
 
   test("two enabled providers render rows greyed out while the toggle is off by default", async ({
     page,
   }) => {
     await applyFixture(
-      [OPENAI_ENABLED, ANTHROPIC_ENABLED],
+      [PRIMARY_ENABLED, BACKUP_ENABLED],
       { fallback_enabled: false, fallback_map: [] },
     );
 
@@ -213,17 +216,17 @@ test.describe("Per-provider fallback configuration", () => {
 
     await expect(page.getByLabel("Enable fallback")).toHaveAttribute("aria-checked", "false");
     await expect(disabledRows).toHaveCount(1);
-    await expect(page.getByLabel("Fallback provider for OpenAI")).toBeDisabled();
-    await expect(page.getByLabel("Fallback provider for Anthropic")).toBeDisabled();
-    await expect(page.getByLabel("Fallback model for OpenAI")).toBeDisabled();
-    await expect(page.getByLabel("Fallback model for Anthropic")).toBeDisabled();
+    await expect(page.getByLabel("Fallback provider for Primary Fixture")).toBeDisabled();
+    await expect(page.getByLabel("Fallback provider for Backup Fixture")).toBeDisabled();
+    await expect(page.getByLabel("Fallback model for Primary Fixture")).toBeDisabled();
+    await expect(page.getByLabel("Fallback model for Backup Fixture")).toBeDisabled();
   });
 
   test("pair-only save persists across navigation and returns after eligibility is restored", async ({
     page,
   }) => {
     await applyFixture(
-      [OPENAI_ENABLED, ANTHROPIC_ENABLED],
+      [PRIMARY_ENABLED, BACKUP_ENABLED],
       {
         fallback_enabled: true,
         fallback_map: [],
@@ -243,16 +246,16 @@ test.describe("Per-provider fallback configuration", () => {
     await openFallbackTab(page);
 
     await expect(page.getByLabel("Enable fallback")).toHaveAttribute("aria-checked", "true");
-    await chooseSelectOption(page, "Fallback provider for OpenAI", "Anthropic");
-    await expect(page.getByLabel("Fallback model for OpenAI")).toBeEnabled();
+    await chooseSelectOption(page, "Fallback provider for Primary Fixture", "Backup Fixture");
+    await expect(page.getByLabel("Fallback model for Primary Fixture")).toBeEnabled();
     expect(updateBodies).toHaveLength(0);
 
-    await chooseSelectOption(page, "Fallback model for OpenAI", "claude-sonnet-4");
+    await chooseSelectOption(page, "Fallback model for Primary Fixture", "backup-balanced");
 
     await expect.poll(() => updateBodies.length).toBe(1);
     expect(updateBodies[0]).toEqual({
-      fallback_provider_id: "anthropic",
-      fallback_model_id: "claude-sonnet-4",
+      fallback_provider_id: "backup-fixture-provider",
+      fallback_model_id: "backup-balanced",
     });
 
     await expect.poll(async () => {
@@ -263,25 +266,25 @@ test.describe("Per-provider fallback configuration", () => {
           fallback_model_id: string | null;
         }>;
       }>("/settings/fallbacks");
-      const openaiRow = data.items.find((item) => item.id === "openai");
-      return `${openaiRow?.fallback_provider_id ?? "null"}|${openaiRow?.fallback_model_id ?? "null"}`;
-    }).toBe("anthropic|claude-sonnet-4");
+      const primaryRow = data.items.find((item) => item.id === "primary-fixture-provider");
+      return `${primaryRow?.fallback_provider_id ?? "null"}|${primaryRow?.fallback_model_id ?? "null"}`;
+    }).toBe("backup-fixture-provider|backup-balanced");
 
     await page.getByRole("tab", { name: "Providers" }).click();
     await page.getByRole("tab", { name: "Fallback" }).click();
 
-    await expect(page.getByLabel("Fallback provider for OpenAI")).toContainText("Anthropic");
-    await expect(page.getByLabel("Fallback model for OpenAI")).toContainText("claude-sonnet-4");
+    await expect(page.getByLabel("Fallback provider for Primary Fixture")).toContainText("Backup Fixture");
+    await expect(page.getByLabel("Fallback model for Primary Fixture")).toContainText("backup-balanced");
 
     await applyFixture(
-      [OPENAI_ENABLED, ANTHROPIC_DISABLED],
+      [PRIMARY_ENABLED, BACKUP_DISABLED],
       {
         fallback_enabled: true,
         fallback_map: [
           {
-            provider_id: "openai",
-            fallback_provider_id: "anthropic",
-            fallback_model_id: "claude-sonnet-4",
+            provider_id: "primary-fixture-provider",
+            fallback_provider_id: "backup-fixture-provider",
+            fallback_model_id: "backup-balanced",
           },
         ],
       },
@@ -295,17 +298,17 @@ test.describe("Per-provider fallback configuration", () => {
         "Enable at least two providers to configure runtime fallback. Once two providers are enabled, you can choose one fallback target per provider.",
       ),
     ).toBeVisible();
-    await expect(page.getByLabel("Fallback provider for OpenAI")).toHaveCount(0);
+    await expect(page.getByLabel("Fallback provider for Primary Fixture")).toHaveCount(0);
 
     await applyFixture(
-      [OPENAI_ENABLED, ANTHROPIC_ENABLED],
+      [PRIMARY_ENABLED, BACKUP_ENABLED],
       {
         fallback_enabled: true,
         fallback_map: [
           {
-            provider_id: "openai",
-            fallback_provider_id: "anthropic",
-            fallback_model_id: "claude-sonnet-4",
+            provider_id: "primary-fixture-provider",
+            fallback_provider_id: "backup-fixture-provider",
+            fallback_model_id: "backup-balanced",
           },
         ],
       },
@@ -314,8 +317,8 @@ test.describe("Per-provider fallback configuration", () => {
     await openFallbackTab(page);
 
     await expect(page.getByLabel("Enable fallback")).toHaveAttribute("aria-checked", "true");
-    await expect(page.getByLabel("Fallback provider for OpenAI")).toContainText("Anthropic");
-    await expect(page.getByLabel("Fallback model for OpenAI")).toContainText("claude-sonnet-4");
+    await expect(page.getByLabel("Fallback provider for Primary Fixture")).toContainText("Backup Fixture");
+    await expect(page.getByLabel("Fallback model for Primary Fixture")).toContainText("backup-balanced");
 
     page.off("request", onRequest);
   });
