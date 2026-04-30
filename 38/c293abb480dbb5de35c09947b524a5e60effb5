@@ -1,0 +1,27 @@
+apps/api/tests/transport/test_dashboard_kpis.py
+  4adca821c1af8eb3 29,37-38,156-157,169-170,181,192,205-208,246-248
+apps/api/tests/transport/test_workflow_health_router.py
+  4adca821c1af8eb3 27,153,174,196,210,277,280,290
+apps/api/tests/transport/test_workflow_filter.py
+  4adca821c1af8eb3 23,83,88,90-92,100,104,106-107,119,121-122,130,145,148-150,153,156-158,167,171,173-174,181,186,188-190,212,214-216,224,229,231,237,243,250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "38c293abb480dbb5de35c09947b524a5e60effb5",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 75,
+      "total_deletions": 69,
+      "accepted_lines": 111611,
+      "overriden_lines": 0
+    }
+  }
+}
