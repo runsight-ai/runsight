@@ -1,11 +1,9 @@
-"""
-Tests for RUN-137: CodeBlock async subprocess migration.
+"""CodeBlock async subprocess behavior coverage.
 
 CodeBlock.execute() must use asyncio.create_subprocess_exec() instead of
 synchronous subprocess.run(), so the event loop is never blocked.
-
-These tests are RED — they will fail against the current implementation
-that uses subprocess.run().
+This suite intentionally exercises local subprocess execution with in-memory
+code snippets and does not read or write runtime state.
 """
 
 import asyncio
@@ -49,7 +47,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# 1. Uses asyncio subprocess, not subprocess.run()
+# Async subprocess execution
 # ---------------------------------------------------------------------------
 
 
@@ -58,8 +56,8 @@ class TestAsyncSubprocessUsed:
 
     @pytest.mark.asyncio
     async def test_no_subprocess_run_call(self):
-        """subprocess.run must NOT be called during execute()."""
-        block = CodeBlock("cb1", SIMPLE_CODE)
+        """subprocess.run is not called during execute()."""
+        block = CodeBlock("simple_code_block", SIMPLE_CODE)
         state = _make_state()
 
         with patch(
@@ -73,7 +71,7 @@ class TestAsyncSubprocessUsed:
     @pytest.mark.asyncio
     async def test_asyncio_create_subprocess_exec_called(self):
         """asyncio.create_subprocess_exec must be called during execute()."""
-        block = CodeBlock("cb1", SIMPLE_CODE)
+        block = CodeBlock("simple_code_block", SIMPLE_CODE)
         state = _make_state()
 
         with patch(
@@ -94,12 +92,12 @@ class TestAsyncSubprocessUsed:
 
 
 # ---------------------------------------------------------------------------
-# 2. Event loop is not blocked
+# Event loop responsiveness
 # ---------------------------------------------------------------------------
 
 
 class TestEventLoopNotBlocked:
-    """Execution must not block the event loop — other coroutines must run concurrently."""
+    """Execution must not block the event loop so other coroutines can run."""
 
     @pytest.mark.asyncio
     async def test_concurrent_coroutines_run_during_execute(self):
@@ -108,7 +106,7 @@ class TestEventLoopNotBlocked:
         coroutine must be able to make progress. With synchronous subprocess.run(),
         the event loop is blocked and the sentinel never runs.
         """
-        block = CodeBlock("cb_slow", SLOW_CODE, timeout_seconds=5)
+        block = CodeBlock("slow_code_block", SLOW_CODE, timeout_seconds=5)
         state = _make_state()
 
         sentinel_ran = False
@@ -125,8 +123,7 @@ class TestEventLoopNotBlocked:
         await asyncio.gather(execute_task, sentinel_task)
 
         assert sentinel_ran, (
-            "Sentinel coroutine did not run — event loop was blocked "
-            "(subprocess.run is synchronous)"
+            "Sentinel coroutine did not run; event loop was blocked (subprocess.run is synchronous)"
         )
 
     @pytest.mark.asyncio
@@ -135,7 +132,7 @@ class TestEventLoopNotBlocked:
         Measure that another coroutine can complete *before* execute() finishes.
         If subprocess.run blocks, the fast coroutine only runs after the slow one.
         """
-        block = CodeBlock("cb_slow2", SLOW_CODE, timeout_seconds=5)
+        block = CodeBlock("slow_code_block_measurement", SLOW_CODE, timeout_seconds=5)
         state = _make_state()
 
         timestamps = []
@@ -156,17 +153,17 @@ class TestEventLoopNotBlocked:
         fast_time = timestamps[0][1] - start
         # fast coroutine should complete in <0.1s, while execute takes ~0.5s
         assert fast_time < 0.2, (
-            f"Fast coroutine took {fast_time:.3f}s — event loop was likely blocked"
+            f"Fast coroutine took {fast_time:.3f}s; event loop was likely blocked"
         )
 
 
 # ---------------------------------------------------------------------------
-# 3. Timeout uses asyncio.wait_for (not subprocess timeout)
+# Async timeout behavior
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncTimeout:
-    """Timeout must be enforced via asyncio.wait_for, not subprocess.TimeoutExpired."""
+    """Timeout must be enforced via asyncio.wait_for."""
 
     @pytest.mark.asyncio
     async def test_timeout_still_raises_timeout_error(self):
@@ -176,7 +173,7 @@ def main(data):
     while True:
         pass
 """)
-        block = CodeBlock("cb_timeout", code, timeout_seconds=1)
+        block = CodeBlock("timeout_code_block", code, timeout_seconds=1)
         state = _make_state()
 
         with pytest.raises(TimeoutError, match="timed out"):
@@ -185,7 +182,7 @@ def main(data):
     @pytest.mark.asyncio
     async def test_timeout_does_not_use_subprocess_timeout_expired(self):
         """
-        The implementation must NOT raise subprocess.TimeoutExpired internally.
+        The implementation raises TimeoutError rather than subprocess.TimeoutExpired.
         We patch subprocess.run so that if it's called, the old path is exercised
         and the test fails.
         """
@@ -194,7 +191,7 @@ def main(data):
     while True:
         pass
 """)
-        block = CodeBlock("cb_timeout2", code, timeout_seconds=1)
+        block = CodeBlock("timeout_code_block_subprocess_guard", code, timeout_seconds=1)
         state = _make_state()
 
         # If the code still uses subprocess.run, it would catch subprocess.TimeoutExpired.
@@ -214,7 +211,7 @@ def main(data):
     while True:
         pass
 """)
-        block = CodeBlock("cb_timeout3", code, timeout_seconds=1)
+        block = CodeBlock("timeout_code_block_responsive_loop", code, timeout_seconds=1)
         state = _make_state()
 
         sentinel_ran = False
@@ -234,7 +231,7 @@ def main(data):
 
 
 # ---------------------------------------------------------------------------
-# 4. macOS env var handling — env={} must include minimal required vars
+# macOS environment handling
 # ---------------------------------------------------------------------------
 
 
@@ -248,13 +245,13 @@ class TestMacOSEnvVars:
     @pytest.mark.asyncio
     async def test_subprocess_env_not_empty(self):
         """
-        The subprocess must be launched with env that is NOT an empty dict.
+        The subprocess must be launched with env that is not an empty dict.
         An empty env can cause Python to fail on macOS.
 
         We intercept asyncio.create_subprocess_exec to inspect the env argument.
         After the fix, env should contain minimal required vars.
         """
-        block = CodeBlock("cb_env", SIMPLE_CODE)
+        block = CodeBlock("environment_code_block", SIMPLE_CODE)
         state = _make_state()
 
         captured_env = None
@@ -274,13 +271,13 @@ class TestMacOSEnvVars:
 
         assert captured_env is not None, "env was not passed to subprocess"
         assert len(captured_env) > 0, (
-            "env is empty dict — will fail on macOS (missing DYLD_LIBRARY_PATH etc.)"
+            "env is empty dict; can fail on macOS (missing DYLD_LIBRARY_PATH etc.)"
         )
 
     @pytest.mark.asyncio
     async def test_subprocess_env_contains_path(self):
         """The subprocess env must include PATH so that the Python binary can be found."""
-        block = CodeBlock("cb_env2", SIMPLE_CODE)
+        block = CodeBlock("environment_path_code_block", SIMPLE_CODE)
         state = _make_state()
 
         captured_env = None
@@ -307,14 +304,13 @@ class TestMacOSEnvVars:
         crashing due to missing env vars. This catches the env={} bug on macOS
         where the subprocess can't even start.
         """
-        block = CodeBlock("cb_platform", SIMPLE_CODE)
+        block = CodeBlock("platform_smoke_code_block", SIMPLE_CODE)
         state = _make_state()
         result = await execute_block_for_test(block, state)
 
-        assert "cb_platform" in result.results
-        # Should NOT be an error — should be successful
-        assert "Error" not in result.results["cb_platform"].output, (
-            f"CodeBlock failed (likely env issue): {result.results['cb_platform']}"
+        assert "platform_smoke_code_block" in result.results
+        assert "Error" not in result.results["platform_smoke_code_block"].output, (
+            f"CodeBlock failed (likely env issue): {result.results['platform_smoke_code_block']}"
         )
-        parsed = json.loads(result.results["cb_platform"].output)
+        parsed = json.loads(result.results["platform_smoke_code_block"].output)
         assert parsed["value"] == 42
