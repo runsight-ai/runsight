@@ -268,12 +268,12 @@ class TestSSEStreamErrorShape:
     def test_execution_service_unavailable_has_runsight_shape(self):
         mock_run_service = Mock()
         mock_run = Mock()
-        mock_run.id = "run_1"
+        mock_run.id = "streamable-run"
         mock_run_service.get_run.return_value = mock_run
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: None
         try:
-            response = client.get("/api/runs/run_1/stream")
+            response = client.get("/api/runs/streamable-run/stream")
             body = assert_runsight_error_shape(response, 503)
             assert body["error_code"] == "SERVICE_UNAVAILABLE"
         finally:

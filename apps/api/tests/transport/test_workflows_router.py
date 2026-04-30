@@ -17,7 +17,7 @@ WARNING_PAYLOAD = {
     "source": "tool_definitions",
     "context": "lookup_profile",
 }
-WORKFLOW_ID = "wf_workflows_router"
+WORKFLOW_ID = "workflow-router-flow"
 WORKFLOW_NAME = "Workflow router flow"
 
 
@@ -81,7 +81,7 @@ def test_workflows_get_404():
     mock_service = Mock()
     mock_service.get_workflow.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_not_found",
+        id="workflow-hidden-from-detail",
         name="Existing Flow",
         blocks={},
         edges=[],
@@ -97,7 +97,7 @@ def test_workflows_post():
     mock_service = Mock()
     mock_wf = WorkflowEntity(
         kind="workflow",
-        id="wf_new",
+        id="new-workflow",
         name="New Workflow",
         blocks={},
         edges=[],
@@ -111,7 +111,7 @@ def test_workflows_post():
         json={"name": "New Workflow", "yaml": "workflow:\n  name: New Workflow\n"},
     )
     assert response.status_code == 200
-    assert response.json()["id"] == "wf_new"
+    assert response.json()["id"] == "new-workflow"
     assert response.json()["warnings"] == [WARNING_PAYLOAD]
 
 
@@ -119,7 +119,7 @@ def test_workflows_post_requires_yaml():
     mock_service = Mock()
     mock_service.create_workflow.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_new",
+        id="new-workflow",
         name="New Workflow",
         blocks={},
         edges=[],
@@ -180,10 +180,10 @@ def test_workflows_put_requires_yaml():
 def test_workflows_put_with_canvas_state():
     mock_service = Mock()
     canvas_state = {
-        "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+        "nodes": [{"id": "router-canvas-node", "position": {"x": 10, "y": 20}}],
         "edges": [],
         "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-        "selected_node_id": "node-1",
+        "selected_node_id": "router-canvas-node",
         "canvas_mode": "dag",
     }
     mock_wf = WorkflowEntity(
@@ -206,7 +206,7 @@ def test_workflows_put_with_canvas_state():
         },
     )
     assert response.status_code == 200
-    assert response.json()["canvas_state"]["selected_node_id"] == "node-1"
+    assert response.json()["canvas_state"]["selected_node_id"] == "router-canvas-node"
     assert response.json()["warnings"] == [WARNING_PAYLOAD]
     mock_service.update_workflow.assert_called_once()
     _, called_data = mock_service.update_workflow.call_args.args
@@ -244,10 +244,10 @@ def test_workflows_post_commit_returns_commit_metadata():
     draft = {
         "yaml": "workflow:\n  name: Updated Flow\n",
         "canvas_state": {
-            "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+            "nodes": [{"id": "router-canvas-node", "position": {"x": 10, "y": 20}}],
             "edges": [],
             "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-            "selected_node_id": "node-1",
+            "selected_node_id": "router-canvas-node",
             "canvas_mode": "dag",
         },
         "message": "Save workflow to main",
@@ -265,10 +265,10 @@ def test_workflows_post_commit_returns_commit_metadata():
         {
             "yaml": "workflow:\n  name: Updated Flow\n",
             "canvas_state": {
-                "nodes": [{"id": "node-1", "position": {"x": 10, "y": 20}}],
+                "nodes": [{"id": "router-canvas-node", "position": {"x": 10, "y": 20}}],
                 "edges": [],
                 "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-                "selected_node_id": "node-1",
+                "selected_node_id": "router-canvas-node",
                 "canvas_mode": "dag",
             },
         },
@@ -355,20 +355,20 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     mock_service = Mock()
     posted_yaml = "workflow:\n  name: Sim Snapshot\n  steps:\n    - id: latest-step\n"
     mock_service.create_simulation.return_value = {
-        "branch": "sim/wf_simulation_route/20260330/abc12",
+        "branch": "sim/simulation-route-workflow/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
         "input_schema": {},
     }
     app.dependency_overrides[get_workflow_service] = lambda: mock_service
 
     response = client.post(
-        "/api/workflows/wf_simulation_route/simulations",
+        "/api/workflows/simulation-route-workflow/simulations",
         json={"yaml": posted_yaml},
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "branch": "sim/wf_simulation_route/20260330/abc12",
+        "branch": "sim/simulation-route-workflow/20260330/abc12",
         "commit_sha": "1234567890abcdef1234567890abcdef12345678",
         "input_schema": {},
     }
@@ -376,9 +376,12 @@ def test_workflows_post_simulations_returns_branch_and_commit_sha():
     args, kwargs = mock_service.create_simulation.call_args
     forwarded_workflow_id = kwargs.get("workflow_id")
     if forwarded_workflow_id is None:
-        forwarded_workflow_id = next((arg for arg in args if arg == "wf_simulation_route"), None)
+        forwarded_workflow_id = next(
+            (arg for arg in args if arg == "simulation-route-workflow"),
+            None,
+        )
     forwarded_yaml = kwargs.get("yaml")
     if forwarded_yaml is None:
         forwarded_yaml = next((arg for arg in args if arg == posted_yaml), None)
-    assert forwarded_workflow_id == "wf_simulation_route"
+    assert forwarded_workflow_id == "simulation-route-workflow"
     assert forwarded_yaml == posted_yaml
