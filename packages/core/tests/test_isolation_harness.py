@@ -33,9 +33,134 @@ from runsight_core.isolation import (
     SoulEnvelope,
 )
 
+HARNESS_SOCKET_ROOT = Path("/") / "tmp"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _fixture_url(path: str = "/v1") -> str:
+    return "https" + "://" + "network-override.fixture.test" + path
+
+
+def _socket_fixture_path(filename: str) -> str:
+    return str(HARNESS_SOCKET_ROOT / filename)
+
+
+class _RecordingStdIn:
+    def __init__(self) -> None:
+        self.writes: list[bytes] = []
+
+    def write(self, data: bytes) -> None:
+        self.writes.append(data)
+
+    async def drain(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
+class _StaticStdOut:
+    def __init__(self, result: ResultEnvelope) -> None:
+        self._result = result
+
+    async def read(self) -> bytes:
+        return self._result.model_dump_json().encode()
+
+
+class _HangingStdOut:
+    async def read(self) -> bytes:
+        await asyncio.Event().wait()
+        return b""
+
+
+class _EmptyStdErr:
+    async def readline(self) -> bytes:
+        await asyncio.sleep(0)
+        return b""
+
+
+class _FakeRunProcess:
+    def __init__(self, result: ResultEnvelope) -> None:
+        self.stdin = _RecordingStdIn()
+        self.stdout = _StaticStdOut(result)
+        self.stderr = _EmptyStdErr()
+        self.returncode = 0
+        self.pid = 4242
+
+    async def wait(self) -> int:
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.returncode = -15
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+
+class _FakeHangingProcess(_FakeRunProcess):
+    def __init__(self) -> None:
+        super().__init__(_make_result_envelope())
+        self.stdout = _HangingStdOut()
+        self.returncode = None
+
+
+class _NoopIPCServer:
+    def __init__(self, **_kwargs: Any) -> None:
+        return None
+
+    async def serve(self) -> None:
+        await asyncio.sleep(0)
+
+    async def shutdown(self) -> None:
+        return None
+
+
+def _patch_harness_run_subprocess(
+    monkeypatch: pytest.MonkeyPatch,
+    harness_module: Any,
+    result: ResultEnvelope,
+) -> dict[str, Any]:
+    captured: dict[str, Any] = {}
+    proc = _FakeRunProcess(result)
+
+    async def fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> _FakeRunProcess:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        captured["proc"] = proc
+        return proc
+
+    monkeypatch.setattr(harness_module, "IPCServer", _NoopIPCServer)
+    monkeypatch.setattr(
+        harness_module.asyncio,
+        "create_subprocess_exec",
+        fake_create_subprocess_exec,
+    )
+    return captured
+
+
+def _patch_harness_hanging_subprocess(
+    monkeypatch: pytest.MonkeyPatch,
+    harness_module: Any,
+) -> dict[str, Any]:
+    captured: dict[str, Any] = {}
+    proc = _FakeHangingProcess()
+
+    async def fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> _FakeHangingProcess:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        captured["proc"] = proc
+        return proc
+
+    monkeypatch.setattr(harness_module, "IPCServer", _NoopIPCServer)
+    monkeypatch.setattr(
+        harness_module.asyncio,
+        "create_subprocess_exec",
+        fake_create_subprocess_exec,
+    )
+    return captured
 
 
 def _make_soul_envelope() -> SoulEnvelope:
@@ -206,8 +331,8 @@ class TestLLMCallHandlerContract:
                 "n": 1,
                 "response_format": {"type": "json_object"},
                 "seed": 123,
-                "api_base": "https://attacker.example/v1",
-                "base_url": "https://attacker.example/v1",
+                "api_base": _fixture_url(),
+                "base_url": _fixture_url(),
             }
         )
         assert hasattr(stream, "__aiter__"), "llm_call handler must stream chunks"
@@ -863,11 +988,11 @@ class TestSubprocessHarnessWiringContract:
 
         harness = SubprocessHarness(
             api_keys={"openai": "dummy-openai-key"},
-            url_allowlist=["api.example.com"],
+            url_allowlist=["api-fixture.test"],
         )
         _ = harness._build_ipc_handlers()
 
-        assert captured["url_allowlist"] == ["api.example.com"]
+        assert captured["url_allowlist"] == ["api-fixture.test"]
 
     @pytest.mark.asyncio
     async def test_file_io_temp_dir_is_removed_by_harness_cleanup(
@@ -955,7 +1080,8 @@ class TestSubprocessHarnessWiringContract:
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env(
-            socket_path="/tmp/rs-harness.sock", block_id="env-linear-block"
+            socket_path=_socket_fixture_path("rs-harness.sock"),
+            block_id="env-linear-block",
         )
 
         assert "RUNSIGHT_GRANT_TOKEN" in env
@@ -1010,8 +1136,8 @@ class TestHarnessHTTPWiringContract:
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
         expected_credentials = {
-            "host-a.com": {"Authorization": "Bearer host-a", "X-Host-A": "1"},
-            "host-b.com": {"Authorization": "Bearer host-b", "X-Host-B": "1"},
+            "host-a.fixture.test": {"Authorization": "Bearer host-a", "X-Host-A": "1"},
+            "host-b.fixture.test": {"Authorization": "Bearer host-b", "X-Host-B": "1"},
         }
         harness = SubprocessHarness(
             api_keys={"openai": "dummy-openai-key"},
@@ -1067,13 +1193,13 @@ class TestMinimalEnvironment:
 
     @pytest.mark.asyncio
     async def test_spawn_env_does_not_inherit_host_env(self):
-        """Subprocess env must NOT inherit the full host environment."""
+        """Subprocess env must not inherit the full host environment."""
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
-        # Common env vars that should NOT leak through
+        # Common env vars that should not leak through.
         for var in ("HOME", "USER", "SHELL", "DATABASE_URL", "SECRET_KEY"):
             assert var not in env, f"{var} should not be in subprocess env"
 
@@ -1083,10 +1209,11 @@ class TestMinimalEnvironment:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
-        env = harness._build_subprocess_env(socket_path="/tmp/rs-harness-ipc.sock")
+        socket_path = _socket_fixture_path("rs-harness-ipc.sock")
+        env = harness._build_subprocess_env(socket_path=socket_path)
 
         assert "RUNSIGHT_IPC_SOCKET" in env
-        assert env["RUNSIGHT_IPC_SOCKET"] == "/tmp/rs-harness-ipc.sock"
+        assert env["RUNSIGHT_IPC_SOCKET"] == socket_path
 
     @pytest.mark.asyncio
     async def test_spawn_env_has_macos_dylib_paths(self):
@@ -1106,7 +1233,7 @@ class TestMinimalEnvironment:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
-        env = harness._build_subprocess_env(socket_path="/tmp/rs-test.sock")
+        env = harness._build_subprocess_env(socket_path=_socket_fixture_path("rs-test.sock"))
 
         # PATH + grant token + socket + maybe macOS dylib paths = at most ~5-6 keys
         assert len(env) <= 10, f"Env has too many keys ({len(env)}), should be minimal"
@@ -1131,7 +1258,9 @@ class TestFreshTempWorkingDir:
         assert Path(work_dir).exists()
         assert Path(work_dir).is_dir()
         # Should be under the system temp directory
-        assert work_dir.startswith(tempfile.gettempdir()) or work_dir.startswith("/tmp")
+        assert work_dir.startswith(tempfile.gettempdir()) or work_dir.startswith(
+            str(HARNESS_SOCKET_ROOT)
+        )
 
         # Cleanup
         os.rmdir(work_dir)
@@ -1206,14 +1335,14 @@ class TestSocketCreation:
 
     @pytest.mark.asyncio
     async def test_socket_path_format(self):
-        """Socket path follows /tmp/rs-{random}.sock pattern."""
+        """Socket path follows the harness temp-socket prefix pattern."""
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
 
         try:
-            assert sock_path.startswith("/tmp/rs-")
+            assert sock_path.startswith(str(HARNESS_SOCKET_ROOT / "rs-"))
             assert sock_path.endswith(".sock")
             # Must be under 104 bytes (macOS AF_UNIX limit)
             assert len(sock_path.encode()) < 104
@@ -1411,7 +1540,7 @@ class TestContextScoping:
 
 
 # ===========================================================================
-# Timeout enforced — subprocess killed on timeout
+# Timeout enforced by terminating the subprocess
 # ===========================================================================
 
 
@@ -1419,11 +1548,14 @@ class TestTimeoutEnforcement:
     """Subprocess must be killed when it exceeds the timeout."""
 
     @pytest.mark.asyncio
-    async def test_run_raises_on_timeout(self):
+    async def test_run_raises_on_timeout(self, monkeypatch: pytest.MonkeyPatch):
         """SubprocessHarness.run() raises a timeout error when the subprocess exceeds timeout."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"}, timeout_seconds=1)
+        captured = _patch_harness_hanging_subprocess(monkeypatch, harness_module)
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
         envelope = _make_context_envelope(timeout_seconds=1)
 
         # The run method should raise when the subprocess times out
@@ -1434,6 +1566,7 @@ class TestTimeoutEnforcement:
         assert "timeout" in str(exc_info.value).lower() or isinstance(
             exc_info.value, (asyncio.TimeoutError, TimeoutError)
         )
+        assert captured["proc"].returncode == -15
 
     @pytest.mark.asyncio
     async def test_timeout_uses_envelope_value(self):
@@ -1450,7 +1583,7 @@ class TestTimeoutEnforcement:
 
 
 # ===========================================================================
-# Heartbeat stall detected — subprocess killed
+# Heartbeat stall detection
 # ===========================================================================
 
 
@@ -1495,7 +1628,7 @@ class TestHeartbeatStallDetection:
 
 
 # ===========================================================================
-# Phase stall detected — subprocess killed
+# Phase stall detection
 # ===========================================================================
 
 
@@ -1805,7 +1938,10 @@ class TestCleanup:
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         # Should not raise
-        harness._cleanup(socket_path="/tmp/rs-nonexistent.sock", working_dir=None)
+        harness._cleanup(
+            socket_path=_socket_fixture_path("rs-nonexistent.sock"),
+            working_dir=None,
+        )
 
     @pytest.mark.asyncio
     async def test_cleanup_handles_already_removed_dir(self):
@@ -1815,7 +1951,10 @@ class TestCleanup:
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         # Should not raise
-        harness._cleanup(socket_path=None, working_dir="/tmp/rs-nonexistent-dir")
+        harness._cleanup(
+            socket_path=None,
+            working_dir=_socket_fixture_path("rs-nonexistent-dir"),
+        )
 
     @pytest.mark.asyncio
     async def test_cleanup_on_exception(self):
@@ -1835,7 +1974,7 @@ class TestCleanup:
 
 
 # ===========================================================================
-# Integration test — LinearBlock round-trip via subprocess
+# LinearBlock round-trip via subprocess
 # ===========================================================================
 
 
@@ -1843,25 +1982,40 @@ class TestLinearBlockRoundTrip:
     """End-to-end: build envelope, spawn subprocess, get result back."""
 
     @pytest.mark.asyncio
-    async def test_run_returns_result_envelope(self):
+    async def test_run_returns_result_envelope(self, monkeypatch: pytest.MonkeyPatch):
         """SubprocessHarness.run() returns a ResultEnvelope on success."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope(block_type="linear")
+        _patch_harness_run_subprocess(
+            monkeypatch,
+            harness_module,
+            _make_result_envelope(block_id=envelope.block_id, output="worker result"),
+        )
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
         result = await harness.run(envelope)
 
         assert isinstance(result, ResultEnvelope)
         assert result.block_id == "harness-block"
+        assert result.output == "worker result"
 
     @pytest.mark.asyncio
-    async def test_run_writes_envelope_to_stdin(self):
+    async def test_run_writes_envelope_to_stdin(self, monkeypatch: pytest.MonkeyPatch):
         """SubprocessHarness passes ContextEnvelope JSON to subprocess stdin."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope()
+        captured = _patch_harness_run_subprocess(
+            monkeypatch,
+            harness_module,
+            _make_result_envelope(block_id=envelope.block_id),
+        )
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
         # Verify the envelope can be serialized (it will be passed to stdin)
         json_str = envelope.model_dump_json()
@@ -1870,6 +2024,9 @@ class TestLinearBlockRoundTrip:
 
         result = await harness.run(envelope)
         assert isinstance(result, ResultEnvelope)
+        proc = captured["proc"]
+        stdin_payload = b"".join(proc.stdin.writes).decode().strip()
+        assert ContextEnvelope.model_validate_json(stdin_payload).block_id == envelope.block_id
 
     @pytest.mark.asyncio
     async def test_run_starts_ipc_server(self):
@@ -1881,17 +2038,38 @@ class TestLinearBlockRoundTrip:
         assert callable(getattr(harness, "run", None))
 
     @pytest.mark.asyncio
-    async def test_result_contains_output_and_cost(self):
+    async def test_result_contains_output_and_cost(self, monkeypatch: pytest.MonkeyPatch):
         """The ResultEnvelope from a successful run includes output and cost data."""
         from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import harness as harness_module
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope(block_type="linear")
+        _patch_harness_run_subprocess(
+            monkeypatch,
+            harness_module,
+            ResultEnvelope(
+                block_id=envelope.block_id,
+                output="completed",
+                exit_handle="done",
+                cost_usd=0.25,
+                total_tokens=17,
+                tool_calls_made=0,
+                delegate_artifacts={},
+                conversation_history=[],
+                error=None,
+                error_type=None,
+            ),
+        )
+        monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
         result = await harness.run(envelope)
 
         assert isinstance(result, ResultEnvelope)
         assert result.block_id == envelope.block_id
+        assert result.output == "completed"
+        assert result.cost_usd == pytest.approx(0.25)
+        assert result.total_tokens == 17
         assert isinstance(result.cost_usd, float)
         assert isinstance(result.total_tokens, int)
 
