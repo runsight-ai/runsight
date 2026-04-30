@@ -1,0 +1,27 @@
+packages/ui/src/components/ui/__tests__/componentTokenSweep.test.ts
+  4adca821c1af8eb3 225,357,489,528-529,562
+packages/ui/src/components/ui/__tests__/tier3DataDisplay.test.ts
+  4adca821c1af8eb3 50,62,74,86,99,112,125,138,151,164,176,188,201,211,222,258,270,282,294,304,315,357,369,392,423,454,485
+packages/ui/src/components/ui/__tests__/tier2FormControls.test.ts
+  4adca821c1af8eb3 50,63,83,103,116,129,142,155,168,180,190,201,228,244,256,266,277,303,321,332,344,354,365,396,408,434,465,496,532,568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f79e529387e2909a64bd7a8670ef2cda1a577ef3",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 125,
+      "total_deletions": 125,
+      "accepted_lines": 84339,
+      "overriden_lines": 1
+    }
+  }
+}
