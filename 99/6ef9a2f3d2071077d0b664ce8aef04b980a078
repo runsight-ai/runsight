@@ -1,0 +1,29 @@
+apps/api/tests/logic/test_soul_update_preservation.py
+  4adca821c1af8eb3 20,26,71
+apps/api/tests/transport/test_node_response_enrichment.py
+  4adca821c1af8eb3 116,118,239,247,300,315,361,375
+apps/api/tests/domain/test_transport_soul_schema.py
+  4adca821c1af8eb3 20,27,100,106,119,125
+apps/api/tests/transport/test_souls_router.py
+  4adca821c1af8eb3 21,48,57,79,92,98,163,173,178,190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "996ef9a2f3d2071077d0b664ce8aef04b980a078",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 27,
+      "accepted_lines": 90185,
+      "overriden_lines": 0
+    }
+  }
+}
