@@ -1,17 +1,8 @@
-"""
-Failing tests for RUN-872: GateBlock — use runner.execute() and budgeted.instruction.
+"""GateBlock runner execution contract tests.
 
-GateBlock must stop using Task entirely and call runner.execute() with string args
-(instruction, context) derived from budgeted.instruction / budgeted.context.
-
-Tests cover:
-- AC1: gate.py has no 'from runsight_core.primitives import Task' import
-- AC2: gate.py source has no 'Task(' instantiation
-- AC3: GateBlock calls runner.execute() (not execute_task()) for the LLM call
-- AC4: runner.execute() receives string instruction, not a Task object
-- AC5: runner.execute() receives string context, not a Task object
-- AC6: GateBlock still produces PASS result with correct exit_handle
-- AC7: GateBlock still produces FAIL result with correct exit_handle and feedback
+The suite verifies GateBlock calls runner.execute() with string instruction and
+context arguments, keeps Task wiring out of the module, and preserves
+PASS/FAIL result behavior.
 """
 
 import inspect
@@ -33,12 +24,20 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
     runner.model_name = "gpt-4o"
     runner.execute = AsyncMock(
         return_value=ExecutionResult(
-            task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens
+            task_id="gate-eval-task",
+            soul_id="gate-eval-soul",
+            output=output,
+            cost_usd=cost,
+            total_tokens=tokens,
         )
     )
     runner.execute_task = AsyncMock(
         return_value=ExecutionResult(
-            task_id="test", soul_id="test", output=output, cost_usd=cost, total_tokens=tokens
+            task_id="legacy-gate-task",
+            soul_id="gate-eval-soul",
+            output=output,
+            cost_usd=cost,
+            total_tokens=tokens,
         )
     )
     return runner
@@ -50,7 +49,7 @@ def _make_soul(soul_id: str = "gate_soul") -> Soul:
     )
 
 
-def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):
+def _make_gate(block_id: str = "quality_gate", eval_key: str = "content", **kwargs):
     """Create a GateBlock with sensible defaults."""
     from runsight_core.blocks.gate import GateBlock
 
@@ -66,7 +65,7 @@ def _make_gate(block_id: str = "gate1", eval_key: str = "content", **kwargs):
 
 
 # ==============================================================================
-# AC1: gate.py must NOT import Task from primitives
+# Gate module does not import Task from primitives
 # ==============================================================================
 
 
@@ -85,8 +84,7 @@ class TestNoTaskImport:
             if "import" in line and "primitives" in line and "Task" in line
         ]
         assert import_lines_with_task == [], (
-            f"gate.py still imports Task from primitives — must be removed (RUN-872): "
-            f"{import_lines_with_task}"
+            f"gate.py still imports Task from primitives: {import_lines_with_task}"
         )
 
     def test_gate_source_has_no_task_in_import_line(self):
@@ -103,13 +101,11 @@ class TestNoTaskImport:
         """Task must not be accessible as an attribute of the gate module."""
         import runsight_core.blocks.gate as gate_mod
 
-        assert not hasattr(gate_mod, "Task"), (
-            "Task is still accessible from the gate module namespace — remove the import"
-        )
+        assert not hasattr(gate_mod, "Task"), "Task is still accessible from gate module namespace"
 
 
 # ==============================================================================
-# AC2: gate.py source must have no Task( instantiation
+# Gate module does not instantiate Task
 # ==============================================================================
 
 
@@ -117,26 +113,22 @@ class TestNoTaskInstantiation:
     """gate.py must contain no 'Task(' call anywhere in its source."""
 
     def test_gate_source_has_no_task_instantiation(self):
-        """gate.py must not contain 'Task(' — Task object creation must be removed."""
+        """gate.py must not contain 'Task(' instantiation."""
         import runsight_core.blocks.gate as gate_mod
 
         source = inspect.getsource(gate_mod)
-        assert "Task(" not in source, (
-            "gate.py still instantiates Task — the gate_task = Task(...) block must be removed (RUN-872)"
-        )
+        assert "Task(" not in source, "gate.py still instantiates Task"
 
     def test_gate_source_has_no_gate_task_variable(self):
         """gate.py must not contain 'gate_task' variable anywhere."""
         import runsight_core.blocks.gate as gate_mod
 
         source = inspect.getsource(gate_mod)
-        assert "gate_task" not in source, (
-            "gate.py still uses gate_task variable — it must be removed (RUN-872)"
-        )
+        assert "gate_task" not in source, "gate.py still uses gate_task variable"
 
 
 # ==============================================================================
-# AC3: GateBlock calls runner.execute() not execute_task()
+# GateBlock calls runner.execute() instead of execute_task()
 # ==============================================================================
 
 
@@ -147,7 +139,7 @@ class TestRunnerExecuteCalled:
     async def test_runner_execute_called_on_pass(self):
         """On PASS path, runner.execute() must be called (not execute_task)."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_exec1", runner=runner)
+        block = _make_gate(block_id="pass_execute_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Good content")})
 
         await execute_block_for_test(block, state)
@@ -158,7 +150,7 @@ class TestRunnerExecuteCalled:
     async def test_runner_execute_called_on_fail(self):
         """On FAIL path, runner.execute() must be called (not execute_task)."""
         runner = _mock_runner("FAIL: needs improvement")
-        block = _make_gate(block_id="gate_exec2", runner=runner)
+        block = _make_gate(block_id="fail_execute_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft content")})
 
         await execute_block_for_test(block, state)
@@ -167,9 +159,9 @@ class TestRunnerExecuteCalled:
 
     @pytest.mark.asyncio
     async def test_runner_execute_task_not_called(self):
-        """runner.execute_task() must NOT be called — GateBlock uses runner.execute() now."""
+        """runner.execute_task() must not be called because GateBlock uses runner.execute()."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_exec3", runner=runner)
+        block = _make_gate(block_id="execute_only_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
         await execute_block_for_test(block, state)
@@ -178,9 +170,9 @@ class TestRunnerExecuteCalled:
 
     @pytest.mark.asyncio
     async def test_runner_execute_task_not_called_on_fail(self):
-        """execute_task() must NOT be called on FAIL path either."""
+        """execute_task() must not be called on FAIL path either."""
         runner = _mock_runner("FAIL: poor quality")
-        block = _make_gate(block_id="gate_exec4", runner=runner)
+        block = _make_gate(block_id="fail_execute_only_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
         await execute_block_for_test(block, state)
@@ -189,7 +181,7 @@ class TestRunnerExecuteCalled:
 
 
 # ==============================================================================
-# AC4: runner.execute() receives string instruction (not a Task object)
+# runner.execute() receives string instruction
 # ==============================================================================
 
 
@@ -200,7 +192,7 @@ class TestRunnerExecuteReceivesStringInstruction:
     async def test_execute_first_arg_is_string(self):
         """runner.execute() first arg (instruction) must be a plain string."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_str1", runner=runner)
+        block = _make_gate(block_id="instruction_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some content")})
 
         await execute_block_for_test(block, state)
@@ -213,9 +205,9 @@ class TestRunnerExecuteReceivesStringInstruction:
 
     @pytest.mark.asyncio
     async def test_execute_first_arg_is_not_task(self):
-        """runner.execute() must not receive a Task object as first arg — must be a string."""
+        """runner.execute() must not receive a Task object as first arg."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_str2", runner=runner)
+        block = _make_gate(block_id="string_instruction_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
         await execute_block_for_test(block, state)
@@ -230,7 +222,7 @@ class TestRunnerExecuteReceivesStringInstruction:
     async def test_execute_instruction_contains_eval_directive(self):
         """The instruction string passed to runner.execute() must contain evaluation directive text."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_str3", runner=runner)
+        block = _make_gate(block_id="directive_instruction_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content to evaluate")})
 
         await execute_block_for_test(block, state)
@@ -242,7 +234,7 @@ class TestRunnerExecuteReceivesStringInstruction:
 
 
 # ==============================================================================
-# AC5: runner.execute() receives string context (not a Task object)
+# runner.execute() receives string context
 # ==============================================================================
 
 
@@ -253,7 +245,7 @@ class TestRunnerExecuteReceivesStringContext:
     async def test_execute_second_arg_is_string_or_none(self):
         """runner.execute() second arg (context) must be str or None."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_ctx1", runner=runner)
+        block = _make_gate(block_id="context_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="The actual content")})
 
         await execute_block_for_test(block, state)
@@ -269,7 +261,7 @@ class TestRunnerExecuteReceivesStringContext:
     async def test_execute_second_arg_is_not_task(self):
         """runner.execute() second arg must be str or None, not a Task object."""
         runner = _mock_runner("FAIL: needs work")
-        block = _make_gate(block_id="gate_ctx2", runner=runner)
+        block = _make_gate(block_id="string_context_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Some draft")})
 
         await execute_block_for_test(block, state)
@@ -286,7 +278,7 @@ class TestRunnerExecuteReceivesStringContext:
         """runner.execute() third arg must be the gate_soul (a Soul instance)."""
         runner = _mock_runner("PASS")
         soul = _make_soul("my_gate_soul")
-        block = _make_gate(block_id="gate_ctx3", soul=soul, runner=runner)
+        block = _make_gate(block_id="soul_context_gate", soul=soul, runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
         await execute_block_for_test(block, state)
@@ -301,7 +293,7 @@ class TestRunnerExecuteReceivesStringContext:
 
 
 # ==============================================================================
-# AC6 & AC7: GateBlock still produces correct PASS/FAIL results
+# GateBlock produces correct PASS/FAIL results
 # ==============================================================================
 
 
@@ -312,40 +304,40 @@ class TestGateResultsCorrect:
     async def test_pass_exit_handle_is_pass(self):
         """On PASS response, BlockResult must have exit_handle='pass'."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_res1", runner=runner)
+        block = _make_gate(block_id="pass_result_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="High quality content")})
 
         result_state = await execute_block_for_test(block, state)
 
-        assert result_state.results["gate_res1"].exit_handle == "pass"
+        assert result_state.results["pass_result_gate"].exit_handle == "pass"
 
     @pytest.mark.asyncio
     async def test_fail_exit_handle_is_fail(self):
         """On FAIL response, BlockResult must have exit_handle='fail'."""
         runner = _mock_runner("FAIL: missing citations")
-        block = _make_gate(block_id="gate_res2", runner=runner)
+        block = _make_gate(block_id="fail_result_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft text")})
 
         result_state = await execute_block_for_test(block, state)
 
-        assert result_state.results["gate_res2"].exit_handle == "fail"
+        assert result_state.results["fail_result_gate"].exit_handle == "fail"
 
     @pytest.mark.asyncio
     async def test_fail_output_contains_feedback(self):
         """On FAIL, BlockResult output must contain the feedback reason."""
         runner = _mock_runner("FAIL: incomplete argument")
-        block = _make_gate(block_id="gate_res3", runner=runner)
+        block = _make_gate(block_id="fail_feedback_gate", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Draft")})
 
         result_state = await execute_block_for_test(block, state)
 
-        assert "incomplete argument" in result_state.results["gate_res3"].output
+        assert "incomplete argument" in result_state.results["fail_feedback_gate"].output
 
     @pytest.mark.asyncio
     async def test_pass_cost_propagated(self):
         """On PASS, cost from runner.execute() result must be added to state."""
         runner = _mock_runner("PASS", cost=0.05, tokens=200)
-        block = _make_gate(block_id="gate_res4", runner=runner)
+        block = _make_gate(block_id="pass_cost_gate", runner=runner)
         state = WorkflowState(
             results={"content": BlockResult(output="Good")},
             total_cost_usd=1.0,
@@ -361,7 +353,7 @@ class TestGateResultsCorrect:
     async def test_fail_cost_propagated(self):
         """On FAIL, cost from runner.execute() result must be added to state."""
         runner = _mock_runner("FAIL: poor quality", cost=0.03, tokens=150)
-        block = _make_gate(block_id="gate_res5", runner=runner)
+        block = _make_gate(block_id="fail_cost_gate", runner=runner)
         state = WorkflowState(
             results={"content": BlockResult(output="Draft")},
             total_cost_usd=2.0,
@@ -377,7 +369,7 @@ class TestGateResultsCorrect:
     async def test_missing_eval_key_raises(self):
         """GateBlock must raise ValueError when eval_key is not in state.results."""
         runner = _mock_runner("PASS")
-        block = _make_gate(block_id="gate_res6", eval_key="missing_key", runner=runner)
+        block = _make_gate(block_id="missing_eval_gate", eval_key="missing_key", runner=runner)
         state = WorkflowState(results={"content": BlockResult(output="Content")})
 
         with pytest.raises(ValueError, match="missing_key"):
