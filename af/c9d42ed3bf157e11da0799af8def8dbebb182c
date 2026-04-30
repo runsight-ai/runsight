@@ -1,0 +1,37 @@
+packages/core/tests/test_e2e_warn_and_flow_timeout.py
+  4adca821c1af8eb3 2,77,99,115,134,147,166,507,544,598,657,714
+packages/core/tests/test_e2e_block_timeout.py
+  4adca821c1af8eb3 2,73,105,138
+packages/core/tests/test_block_timeout_enforcement.py
+  4adca821c1af8eb3 1,76
+packages/core/tests/test_runtime_depth_parity.py
+  4adca821c1af8eb3 2,16,19,41,52,76,106,189
+packages/core/tests/test_composite_observer_isolation.py
+  4adca821c1af8eb3 1,37,45,47,54,56-58,66-68,70-72,80,82-84,92,94,102,104,108,117,126,139,147,156,158,166,168-173,183-188
+packages/core/tests/test_mixed_pipeline_e2e.py
+  4adca821c1af8eb3 1,8-12,71,80,185,277,359
+packages/core/tests/test_retry_stateful.py
+  4adca821c1af8eb3 2,59,386,442,488
+packages/core/tests/test_state_isolation_verification.py
+  4adca821c1af8eb3 2,50,58,60,63,68-71,76-79,87,98-101,107,124-127,136,151-154,163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "afc9d42ed3bf157e11da0799af8def8dbebb182c",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 119,
+      "total_deletions": 116,
+      "accepted_lines": 68885,
+      "overriden_lines": 0
+    }
+  }
+}
