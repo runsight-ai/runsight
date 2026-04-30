@@ -1,0 +1,33 @@
+packages/core/tests/test_code_block_parser_and_achat.py
+  4adca821c1af8eb3 2,47,59,72,95,111,286-287
+packages/core/tests/test_linear_resolved_inputs.py
+  4adca821c1af8eb3 2,4,10
+packages/core/tests/test_synthesize_execute.py
+  4adca821c1af8eb3 2,8-13,86,104,129,143,152,157,210,262,321
+packages/core/tests/test_codeblock_access_governance.py
+  4adca821c1af8eb3 2,46
+packages/core/tests/test_runner_execute.py
+  4adca821c1af8eb3 2,5-8,134,232,326,433,438,513
+packages/core/tests/test_runner_get_client_api_key.py
+  4adca821c1af8eb3 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "13120748a96d0d726786629f4bdfe299307d646d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 52,
+      "accepted_lines": 67176,
+      "overriden_lines": 0
+    }
+  }
+}
