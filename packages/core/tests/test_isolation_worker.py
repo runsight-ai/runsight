@@ -1,17 +1,15 @@
-"""
-Failing tests for RUN-399: ISO-004 — Worker entry point (subprocess main loop).
+"""Isolation worker subprocess contract coverage.
 
-Tests cover every AC item:
-1.  LiteLLMClient direct LLM calls
-2.  IPCClient for tools only
-3.  Heartbeat with phase on stderr
-4.  Errors in ResultEnvelope
-5.  fit_to_budget local
-6.  Stateful history round-trips
-7.  Zero workflow/observer/api imports
-8.  Missing RUNSIGHT_GRANT_TOKEN env var: exit 1 with clear error
-9.  Missing RUNSIGHT_IPC_SOCKET env var: exit 1 with clear error
-10. Exit 0/1
+Tests cover:
+1. LLM calls routed through the proxied IPC client.
+2. Tool calls routed through IPC stubs.
+3. Heartbeats emitted with phase details on stderr.
+4. Errors serialized in ResultEnvelope.
+5. Local fit_to_budget handling.
+6. Stateful conversation history round-trips.
+7. Worker import boundaries.
+8. Required worker environment variables.
+9. Worker exit codes and envelope parsing.
 """
 
 from __future__ import annotations
@@ -22,7 +20,9 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -55,6 +55,12 @@ _SAFE_SUBPROCESS_ENV_KEYS = (
 _WORKER_SUBPROCESS_TIMEOUT_SECONDS = 30.0
 
 
+def _worker_socket_path(label: str = "fixture") -> str:
+    """Return a unique nonexistent socket path for worker subprocess tests."""
+    safe_label = "".join(ch if ch.isalnum() else "-" for ch in label)[:12] or "fixture"
+    return str(Path(tempfile.gettempdir()) / f"rsw-{safe_label}-{uuid.uuid4().hex[:12]}.sock")
+
+
 def _minimal_worker_env(
     env_extra: dict[str, str] | None = None,
     *,
@@ -67,8 +73,8 @@ def _minimal_worker_env(
     if os.environ.get("PYTHONPATH"):
         pythonpath.append(os.environ["PYTHONPATH"])
     env["PYTHONPATH"] = os.pathsep.join(pythonpath)
-    env.setdefault("RUNSIGHT_GRANT_TOKEN", "grant-token-123")
-    env.setdefault("RUNSIGHT_IPC_SOCKET", "/tmp/test_ipc.sock")
+    env.setdefault("RUNSIGHT_GRANT_TOKEN", "grant-token-fixture")
+    env.setdefault("RUNSIGHT_IPC_SOCKET", _worker_socket_path())
     if env_extra:
         env.update(env_extra)
     for key in omit:
@@ -79,11 +85,11 @@ def _minimal_worker_env(
 def _make_context_envelope(**overrides) -> ContextEnvelope:
     """Build a minimal valid ContextEnvelope for test purposes."""
     defaults = dict(
-        block_id="blk_1",
+        block_id="worker_block",
         block_type="linear",
         block_config={},
         soul=SoulEnvelope(
-            id="soul_1",
+            id="worker_soul",
             name="Tester",
             role="Tester",
             system_prompt="You test things.",
@@ -92,7 +98,7 @@ def _make_context_envelope(**overrides) -> ContextEnvelope:
         ),
         tools=[],
         prompt=PromptEnvelope(
-            id="task_1",
+            id="worker_prompt",
             instruction="Say hello",
             context={},
         ),
@@ -125,7 +131,7 @@ def _run_worker(
 
 
 # ==============================================================================
-# RUN-395: ProxiedLLMClient for subprocess-side LLM calls over IPC
+# ProxiedLLMClient for subprocess-side LLM calls over IPC
 # ==============================================================================
 
 
@@ -358,7 +364,7 @@ class TestProxiedLLMClientContract:
 
         soul = reconstruct_soul(
             SoulEnvelope(
-                id="soul_1",
+                id="worker_soul",
                 name="Tester",
                 role="Tester",
                 system_prompt="You test things.",
@@ -378,7 +384,7 @@ class TestProxiedLLMClientContract:
 
 
 # ==============================================================================
-# AC2: IPCClient for tools only — tools are IPC stubs, not real implementations
+# IPCClient for tools only: tools are IPC stubs, not real implementations
 # ==============================================================================
 
 
@@ -393,7 +399,7 @@ class TestWorkerIPCToolStubs:
         tool_defs = [
             ToolDefEnvelope(
                 source="http",
-                config={"url": "https://example.com"},
+                config={"url": "worker-fixture-url"},
                 exits=["done"],
                 name="http_lookup",
                 description="Look up a URL",
@@ -412,7 +418,7 @@ class TestWorkerIPCToolStubs:
         tool_defs = [
             ToolDefEnvelope(
                 source="http",
-                config={"url": "https://example.com"},
+                config={"url": "worker-fixture-url"},
                 exits=["done"],
                 name="http_lookup",
                 description="Look up a URL",
@@ -429,7 +435,7 @@ class TestWorkerIPCToolStubs:
 
         tool_defs = [
             ToolDefEnvelope(
-                source="custom/echo",
+                source="fixture/echo",
                 config={},
                 exits=["done"],
                 name="echo_tool",
@@ -461,7 +467,7 @@ class TestWorkerIPCToolStubs:
 
         tool_defs = [
             ToolDefEnvelope(
-                source="custom/echo",
+                source="fixture/echo",
                 config={},
                 exits=["done"],
                 name="echo_tool",
@@ -490,7 +496,7 @@ class TestWorkerIPCToolStubs:
 
         tool_defs = [
             ToolDefEnvelope(
-                source="custom/echo",
+                source="fixture/echo",
                 config={},
                 exits=["done"],
                 name="echo_tool",
@@ -510,7 +516,7 @@ class TestWorkerIPCToolStubs:
 
 
 # ==============================================================================
-# AC3: Heartbeat with phase on stderr
+# Heartbeat with phase on stderr
 # ==============================================================================
 
 
@@ -572,7 +578,7 @@ class TestWorkerHeartbeat:
 
 
 # ==============================================================================
-# AC4: Errors in ResultEnvelope
+# Errors in ResultEnvelope
 # ==============================================================================
 
 
@@ -595,11 +601,11 @@ class TestWorkerErrorsInResultEnvelope:
         envelope = _make_context_envelope(block_type="nonexistent_block_type_xyz")
         result = _run_worker(envelope)
         result_env = ResultEnvelope.model_validate_json(result.stdout.strip())
-        assert result_env.block_id == "blk_1"
+        assert result_env.block_id == "worker_block"
 
 
 # ==============================================================================
-# AC5: fit_to_budget local
+# fit_to_budget local handling
 # ==============================================================================
 
 
@@ -625,12 +631,12 @@ class TestWorkerFitToBudget:
             instruction="Say hello",
             conversation_history=long_history,
         )
-        # Budget should trim — result must be shorter than input
+        # Budget should trim, so the result must be shorter than input.
         assert len(trimmed) < len(long_history)
 
 
 # ==============================================================================
-# AC6: Stateful history round-trips
+# Stateful history round-trips
 # ==============================================================================
 
 
@@ -707,7 +713,7 @@ class TestWorkerBlockContextInputs:
 
         result_env, exit_code = await worker._execute_envelope(
             envelope=envelope,
-            ipc_socket="/tmp/rs-inputs.sock",
+            ipc_socket=_worker_socket_path("inputs"),
         )
 
         assert exit_code == 0
@@ -716,12 +722,12 @@ class TestWorkerBlockContextInputs:
 
 
 # ==============================================================================
-# AC7: Zero workflow/observer/api imports
+# Zero workflow/observer/api imports
 # ==============================================================================
 
 
 class TestWorkerImportBoundary:
-    """Worker must NOT import runsight_core.workflow, observer, or api modules."""
+    """Worker must not import runsight_core.workflow, observer, or api modules."""
 
     def test_no_workflow_import(self):
         """Worker source must not import runsight_core.workflow."""
@@ -761,7 +767,7 @@ class TestWorkerImportBoundary:
 
 
 # ==============================================================================
-# AC8: Missing RUNSIGHT_GRANT_TOKEN → exit 1 with clear error
+# Missing RUNSIGHT_GRANT_TOKEN exits with a clear error
 # ==============================================================================
 
 
@@ -772,7 +778,7 @@ class TestWorkerMissingGrantToken:
         """Worker exits with code 1 when RUNSIGHT_GRANT_TOKEN is absent."""
         envelope = _make_context_envelope()
         env_override = _minimal_worker_env(
-            {"RUNSIGHT_IPC_SOCKET": "/tmp/test.sock"},
+            {"RUNSIGHT_IPC_SOCKET": _worker_socket_path("missing-grant")},
             omit=("RUNSIGHT_GRANT_TOKEN",),
         )
         result = subprocess.run(
@@ -794,7 +800,7 @@ class TestWorkerMissingGrantToken:
         """ResultEnvelope on stdout describes the missing grant token."""
         envelope = _make_context_envelope()
         env_override = _minimal_worker_env(
-            {"RUNSIGHT_IPC_SOCKET": "/tmp/test.sock"},
+            {"RUNSIGHT_IPC_SOCKET": _worker_socket_path("grant-error")},
             omit=("RUNSIGHT_GRANT_TOKEN",),
         )
         result = subprocess.run(
@@ -813,7 +819,7 @@ class TestWorkerMissingGrantToken:
 
 
 class TestWorkerGrantTokenContract:
-    """RUN-398: worker authenticates via grant token, not raw API key env injection."""
+    """Worker authenticates via grant token, not raw API key env injection."""
 
     def test_worker_source_does_not_reference_block_api_key_env_var(self):
         """Security contract: worker must not read RUNSIGHT_BLOCK_API_KEY at all."""
@@ -827,8 +833,8 @@ class TestWorkerGrantTokenContract:
         envelope = _make_context_envelope(block_type="nonexistent_block_type_xyz")
         env_override = _minimal_worker_env(
             {
-                "RUNSIGHT_GRANT_TOKEN": "grant-token-123",
-                "RUNSIGHT_IPC_SOCKET": "/tmp/test.sock",
+                "RUNSIGHT_GRANT_TOKEN": "grant-token-fixture",
+                "RUNSIGHT_IPC_SOCKET": _worker_socket_path("grant-contract"),
             },
             omit=("RUNSIGHT_BLOCK_API_KEY",),
         )
@@ -850,7 +856,7 @@ class TestWorkerGrantTokenContract:
 
 
 class TestWorkerCapabilityNegotiationStartup:
-    """RUN-396: worker startup uses IPCClient.connect capability handshake."""
+    """Worker startup uses IPCClient.connect capability handshake."""
 
     @pytest.mark.asyncio
     async def test_tool_stub_uses_connect_handshake_without_legacy_capability_request(self):
@@ -858,7 +864,7 @@ class TestWorkerCapabilityNegotiationStartup:
 
         tool_defs = [
             ToolDefEnvelope(
-                source="custom/echo",
+                source="fixture/echo",
                 config={},
                 exits=["done"],
                 name="echo_tool",
@@ -877,15 +883,15 @@ class TestWorkerCapabilityNegotiationStartup:
             async def connect(self):
                 call_log.append(("connect", None))
                 return {
-                    "id": "cap-1",
+                    "id": "cap-worker-capability",
                     "done": True,
                     "accepted": True,
                     "active_actions": ["tool_call"],
                     "engine_context": {
                         "budget_remaining_usd": 15.0,
-                        "trace_id": "trace-worker-396",
-                        "run_id": "run-worker-396",
-                        "block_id": "blk_1",
+                        "trace_id": "trace-worker-capability",
+                        "run_id": "worker-capability-run",
+                        "block_id": "worker_block",
                     },
                     "error": None,
                 }
@@ -896,7 +902,7 @@ class TestWorkerCapabilityNegotiationStartup:
                     return {"output": f"echo:{payload['arguments']['value']}"}
                 return {"error": "unexpected action"}
 
-        ipc_client = FakeIPCClient(socket_path="/tmp/test.sock")
+        ipc_client = FakeIPCClient(socket_path=_worker_socket_path("capability"))
         await ipc_client.connect()
         stub = create_tool_stubs(tool_defs, ipc_client=ipc_client)[0]
         result = await stub.execute({"value": "hello"})
@@ -907,8 +913,8 @@ class TestWorkerCapabilityNegotiationStartup:
         assert result == "echo:hello"
 
 
-class TestWorkerRedesignContract:
-    """RUN-399: single shared IPC client + expanded block type creation."""
+class TestWorkerSharedIPCClientContract:
+    """Worker uses a single shared IPC client and expanded block type creation."""
 
     @pytest.mark.asyncio
     async def test_create_tool_stubs_uses_shared_authenticated_ipc_client(self):
@@ -916,7 +922,7 @@ class TestWorkerRedesignContract:
 
         tool_defs = [
             ToolDefEnvelope(
-                source="custom/echo",
+                source="fixture/echo",
                 config={},
                 exits=["done"],
                 name="echo_tool",
@@ -984,7 +990,7 @@ class TestWorkerRedesignContract:
         envelope = _make_context_envelope(
             tools=[
                 ToolDefEnvelope(
-                    source="custom/echo",
+                    source="fixture/echo",
                     config={},
                     exits=["done"],
                     name="echo_tool",
@@ -1008,7 +1014,7 @@ class TestWorkerRedesignContract:
             async def connect(self):
                 self.connect_calls += 1
                 return {
-                    "id": "cap-399",
+                    "id": "cap-worker-shared",
                     "done": True,
                     "accepted": True,
                     "active_actions": ["llm_call", "tool_call"],
@@ -1083,8 +1089,8 @@ class TestWorkerRedesignContract:
         def _fake_create_block(envelope_arg, soul_arg, runner_arg):
             return _FakeBlock(envelope_arg.block_id, soul_arg, runner_arg)
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-399")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run399.sock")
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-worker-shared")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", _worker_socket_path("shared-ipc"))
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
@@ -1121,7 +1127,7 @@ class TestWorkerRedesignContract:
                 "eval_key": "result_a",
                 "extract_field": "summary",
                 "gate_soul": {
-                    "id": "gate_soul_1",
+                    "id": "gate_quality_soul",
                     "role": "Gate Reviewer",
                     "system_prompt": "Evaluate result quality",
                     "model_name": "gpt-4o-mini",
@@ -1134,7 +1140,7 @@ class TestWorkerRedesignContract:
         assert isinstance(block, GateBlock)
         assert block.eval_key == "result_a"
         assert block.extract_field == "summary"
-        assert block.gate_soul.id == "gate_soul_1"
+        assert block.gate_soul.id == "gate_quality_soul"
 
     @pytest.mark.parametrize("block_type", ["SynthesizeBlock", "synthesize"])
     def test_create_block_supports_synthesize_aliases_with_synthesizer_soul(
@@ -1149,7 +1155,7 @@ class TestWorkerRedesignContract:
             block_config={
                 "input_block_ids": ["a", "b"],
                 "synthesizer_soul": {
-                    "id": "synth_soul_1",
+                    "id": "synthesis_merge_soul",
                     "role": "Synthesis Agent",
                     "system_prompt": "Merge findings",
                     "model_name": "gpt-4.1-mini",
@@ -1161,7 +1167,7 @@ class TestWorkerRedesignContract:
 
         assert isinstance(block, SynthesizeBlock)
         assert block.input_block_ids == ["a", "b"]
-        assert block.synthesizer_soul.id == "synth_soul_1"
+        assert block.synthesizer_soul.id == "synthesis_merge_soul"
 
     @pytest.mark.parametrize("block_type", ["DispatchBlock", "dispatch"])
     def test_create_block_supports_dispatch_aliases(self, block_type: str):
@@ -1177,7 +1183,7 @@ class TestWorkerRedesignContract:
                         "label": "Branch A",
                         "task_instruction": "Do A",
                         "soul": {
-                            "id": "dispatch_soul_1",
+                            "id": "dispatch_branch_soul",
                             "role": "Dispatch Agent",
                             "system_prompt": "Handle branch A",
                             "model_name": "gpt-4o-mini",
@@ -1192,17 +1198,17 @@ class TestWorkerRedesignContract:
         assert isinstance(block, DispatchBlock)
         assert len(block.branches) == 1
         assert block.branches[0].exit_id == "branch_a"
-        assert block.branches[0].soul.id == "dispatch_soul_1"
+        assert block.branches[0].soul.id == "dispatch_branch_soul"
 
 
 class TestWorkerAssertionBlockContract:
-    """RUN-812: worker must construct assertion adapters for assertion block envelopes."""
+    """Worker must construct assertion adapters for assertion block envelopes."""
 
     def test_create_block_supports_assertion_block_type_and_returns_executable_adapter(self):
         from runsight_core.isolation.worker_support import _create_block, reconstruct_soul
 
         envelope = _make_context_envelope(
-            block_id="assertion_1",
+            block_id="assertion_quality_block",
             block_type="assertion",
             block_config={
                 "assertion": {
@@ -1211,7 +1217,7 @@ class TestWorkerAssertionBlockContract:
                 },
                 "output_to_grade": "Candidate response to grade",
                 "judge_soul": {
-                    "id": "judge_soul_1",
+                    "id": "judge_quality_soul",
                     "role": "LLM Judge",
                     "system_prompt": "Grade this answer against the rubric.",
                     "model_name": "gpt-4o-mini",
@@ -1261,7 +1267,7 @@ class TestWorkerAssertionBlockContract:
                     },
                     "output_to_grade": "Candidate response to grade",
                     "judge_soul": {
-                        "id": "judge_soul_1",
+                        "id": "judge_quality_soul",
                         "role": "LLM Judge",
                         "system_prompt": "Grade this answer against the rubric.",
                         "model_name": "gpt-4o-mini",
@@ -1316,7 +1322,7 @@ class TestWorkerAssertionBlockContract:
                 "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
                 "output_to_grade": "Candidate response",
                 "judge_soul": {
-                    "id": "judge_soul_1",
+                    "id": "judge_quality_soul",
                     "role": "LLM Judge",
                     "system_prompt": "Grade this answer against the rubric.",
                     "model_name": "gpt-4o-mini",
@@ -1335,7 +1341,7 @@ class TestWorkerAssertionBlockContract:
             async def connect(self):
                 self.connect_calls += 1
                 return {
-                    "id": "cap-812",
+                    "id": "cap-assertion",
                     "done": True,
                     "accepted": False,
                     "active_actions": [],
@@ -1349,8 +1355,8 @@ class TestWorkerAssertionBlockContract:
             create_block_called["value"] = True
             raise AssertionError("_create_block must not run when capability auth fails")
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-assertion")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", _worker_socket_path("assert-auth"))
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
@@ -1385,7 +1391,7 @@ class TestWorkerAssertionBlockContract:
                 "assertion": {"type": "llm_judge", "config": {"rubric": "strict"}},
                 "output_to_grade": "Candidate response",
                 "judge_soul": {
-                    "id": "judge_soul_1",
+                    "id": "judge_quality_soul",
                     "role": "LLM Judge",
                     "system_prompt": "Grade this answer against the rubric.",
                     "model_name": "gpt-4o-mini",
@@ -1405,7 +1411,7 @@ class TestWorkerAssertionBlockContract:
             async def connect(self):
                 self.connect_calls += 1
                 return {
-                    "id": "cap-812",
+                    "id": "cap-assertion",
                     "done": True,
                     "accepted": True,
                     "active_actions": ["llm_call", "tool_call"],
@@ -1442,8 +1448,8 @@ class TestWorkerAssertionBlockContract:
             assert envelope_arg.block_type == "assertion"
             return _FakeAssertionBlock(envelope_arg.block_id)
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-run812.sock")
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-assertion")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", _worker_socket_path("assert-ok"))
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
@@ -1467,7 +1473,7 @@ class TestWorkerAssertionBlockContract:
 
 
 # ==============================================================================
-# AC9: Missing RUNSIGHT_IPC_SOCKET → exit 1 with clear error
+# Missing RUNSIGHT_IPC_SOCKET exits with a clear error
 # ==============================================================================
 
 
@@ -1478,7 +1484,7 @@ class TestWorkerMissingIpcSocket:
         """Worker exits with code 1 when RUNSIGHT_IPC_SOCKET is absent."""
         envelope = _make_context_envelope()
         env_override = _minimal_worker_env(
-            {"RUNSIGHT_GRANT_TOKEN": "grant-token-123"},
+            {"RUNSIGHT_GRANT_TOKEN": "grant-token-fixture"},
             omit=("RUNSIGHT_IPC_SOCKET",),
         )
         result = subprocess.run(
@@ -1500,7 +1506,7 @@ class TestWorkerMissingIpcSocket:
         """ResultEnvelope on stdout describes the missing IPC socket."""
         envelope = _make_context_envelope()
         env_override = _minimal_worker_env(
-            {"RUNSIGHT_GRANT_TOKEN": "grant-token-123"},
+            {"RUNSIGHT_GRANT_TOKEN": "grant-token-fixture"},
             omit=("RUNSIGHT_IPC_SOCKET",),
         )
         result = subprocess.run(
@@ -1519,7 +1525,7 @@ class TestWorkerMissingIpcSocket:
 
 
 # ==============================================================================
-# AC10: Exit 0 on success, exit 1 on error
+# Exit 0 on success and exit 1 on error
 # ==============================================================================
 
 
@@ -1549,11 +1555,11 @@ class TestWorkerExitCodes:
         assert stdout, "Expected ResultEnvelope on stdout"
         # Must parse as valid ResultEnvelope
         result_env = ResultEnvelope.model_validate_json(stdout)
-        assert result_env.block_id == "blk_1"
+        assert result_env.block_id == "worker_block"
 
 
 # ==============================================================================
-# AC3 supplement: stdin → ContextEnvelope parsing
+# stdin to ContextEnvelope parsing
 # ==============================================================================
 
 
@@ -1567,14 +1573,14 @@ class TestWorkerEnvelopeParsing:
         envelope = _make_context_envelope()
         parsed = parse_context_envelope(envelope.model_dump_json())
         assert isinstance(parsed, ContextEnvelope)
-        assert parsed.block_id == "blk_1"
+        assert parsed.block_id == "worker_block"
 
     def test_invalid_json_produces_error_result(self):
         """Malformed JSON input yields exit 1 with error in ResultEnvelope."""
         env = _minimal_worker_env(
             {
-                "RUNSIGHT_GRANT_TOKEN": "grant-token-123",
-                "RUNSIGHT_IPC_SOCKET": "/tmp/test.sock",
+                "RUNSIGHT_GRANT_TOKEN": "grant-token-fixture",
+                "RUNSIGHT_IPC_SOCKET": _worker_socket_path("invalid-json"),
             }
         )
         result = subprocess.run(
@@ -1606,7 +1612,7 @@ class TestWorkerSoulReconstruction:
         from runsight_core.isolation.worker_support import reconstruct_soul
 
         soul_env = SoulEnvelope(
-            id="soul_1",
+            id="worker_soul",
             name="Tester",
             role="Tester",
             system_prompt="You test things.",
@@ -1617,7 +1623,7 @@ class TestWorkerSoulReconstruction:
         from runsight_core.primitives import Soul
 
         assert isinstance(soul, Soul)
-        assert soul.id == "soul_1"
+        assert soul.id == "worker_soul"
         assert soul.role == "Tester"
         assert soul.system_prompt == "You test things."
         assert soul.model_name == "gpt-4o"
@@ -1629,7 +1635,7 @@ class TestWorkerSoulReconstruction:
         from runsight_core.tools import ToolInstance
 
         soul_env = SoulEnvelope(
-            id="soul_1",
+            id="worker_soul",
             name="Tester",
             role="Tester",
             system_prompt="You test things.",
