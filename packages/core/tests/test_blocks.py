@@ -30,28 +30,32 @@ def mock_runner():
 def sample_soul():
     """Sample soul for testing."""
     return Soul(
-        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+        id="analysis_soul",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Analyze the task.",
     )
 
 
 @pytest.mark.asyncio
 async def test_linear_block_execution(mock_runner, sample_soul):
-    """AC-5: LinearBlock executes task and stores result."""
+    """LinearBlock executes a task and stores the result."""
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Test output"
+        task_id="analysis_task", soul_id="analysis_soul", output="Analysis output"
     )
 
-    block = LinearBlock("linear1", sample_soul, mock_runner)
-    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Test task"}})
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Review task"}})
 
     ctx = build_block_context(block, state)
     output = await block.execute(ctx)
     result_state = apply_block_output(state, block.block_id, output)
 
-    assert result_state.results["linear1"].output == "Test output"
+    assert result_state.results["analysis_block"].output == "Analysis output"
     assert len(result_state.execution_log) == 1
-    assert "[Block linear1]" in result_state.execution_log[0]["content"]
-    assert "Completed: Test output" in result_state.execution_log[0]["content"]
+    assert "[Block analysis_block]" in result_state.execution_log[0]["content"]
+    assert "Completed: Analysis output" in result_state.execution_log[0]["content"]
     assert mock_runner.execute.called
 
 
@@ -59,15 +63,15 @@ async def test_linear_block_execution(mock_runner, sample_soul):
 async def test_linear_block_none_task(mock_runner, sample_soul):
     """LinearBlock works even when current_task is None (reads _resolved_inputs instead)."""
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="output"
+        task_id="empty_input_analysis_task", soul_id="analysis_soul", output="output"
     )
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
     state = WorkflowState()
 
     ctx = build_block_context(block, state)
     output = await block.execute(ctx)
     result_state = apply_block_output(state, block.block_id, output)
-    assert "linear1" in result_state.results
+    assert "analysis_block" in result_state.results
 
 
 @pytest.mark.asyncio
@@ -77,19 +81,19 @@ async def test_linear_block_message_truncation(mock_runner, sample_soul):
     long_output = "A" * 300
 
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output=long_output
+        task_id="long_output_analysis_task", soul_id="analysis_soul", output=long_output
     )
 
-    block = LinearBlock("linear1", sample_soul, mock_runner)
-    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Test task"}})
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
+    state = WorkflowState(shared_memory={"_resolved_inputs": {"upstream": "Review task"}})
 
     ctx = build_block_context(block, state)
     output = await block.execute(ctx)
     result_state = apply_block_output(state, block.block_id, output)
 
     # Full output stored in results
-    assert result_state.results["linear1"].output == long_output
-    assert len(result_state.results["linear1"].output) == 300
+    assert result_state.results["analysis_block"].output == long_output
+    assert len(result_state.results["analysis_block"].output) == 300
 
     # But message content is truncated to 200 chars + "..."
     message_content = result_state.execution_log[0]["content"]
@@ -102,12 +106,12 @@ async def test_linear_block_message_truncation(mock_runner, sample_soul):
 async def test_linear_block_preserves_existing_results(mock_runner, sample_soul):
     """LinearBlock preserves existing results when adding new ones."""
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="New output"
+        task_id="result_merge_analysis_task", soul_id="analysis_soul", output="New output"
     )
 
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
     state = WorkflowState(
-        shared_memory={"_resolved_inputs": {"upstream": "Test task"}},
+        shared_memory={"_resolved_inputs": {"upstream": "Review task"}},
         results={"previous_block": BlockResult(output="Previous output")},
     )
 
@@ -117,20 +121,20 @@ async def test_linear_block_preserves_existing_results(mock_runner, sample_soul)
 
     # Both old and new results should be present
     assert result_state.results["previous_block"].output == "Previous output"
-    assert result_state.results["linear1"].output == "New output"
+    assert result_state.results["analysis_block"].output == "New output"
 
 
 @pytest.mark.asyncio
 async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul):
     """LinearBlock appends to existing messages."""
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Output"
+        task_id="log_append_analysis_task", soul_id="analysis_soul", output="Output"
     )
 
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
     existing_messages = [{"role": "system", "content": "Previous message"}]
     state = WorkflowState(
-        shared_memory={"_resolved_inputs": {"upstream": "Test task"}},
+        shared_memory={"_resolved_inputs": {"upstream": "Review task"}},
         execution_log=existing_messages,
     )
 
@@ -141,32 +145,56 @@ async def test_linear_block_preserves_existing_messages(mock_runner, sample_soul
     # Should have 2 messages: existing + new
     assert len(result_state.execution_log) == 2
     assert result_state.execution_log[0]["content"] == "Previous message"
-    assert "[Block linear1]" in result_state.execution_log[1]["content"]
+    assert "[Block analysis_block]" in result_state.execution_log[1]["content"]
 
 
 @pytest.mark.asyncio
 async def test_dispatch_block_parallel(mock_runner):
-    """AC-6: DispatchBlock executes multiple branches in parallel."""
+    """DispatchBlock executes multiple branches in parallel."""
     from runsight_core.blocks.dispatch import DispatchBranch
 
     souls = [
-        Soul(id="soul-s1", kind="soul", name="R1", role="R1", system_prompt="P1"),
-        Soul(id="soul-s2", kind="soul", name="R2", role="R2", system_prompt="P2"),
-        Soul(id="soul-s3", kind="soul", name="R3", role="R3", system_prompt="P3"),
+        Soul(
+            id="strategy_reviewer",
+            kind="soul",
+            name="Strategy Reviewer",
+            role="Strategy",
+            system_prompt="Review strategy risks.",
+        ),
+        Soul(
+            id="quality_reviewer",
+            kind="soul",
+            name="Quality Reviewer",
+            role="Quality",
+            system_prompt="Review quality risks.",
+        ),
+        Soul(
+            id="delivery_reviewer",
+            kind="soul",
+            name="Delivery Reviewer",
+            role="Delivery",
+            system_prompt="Review delivery risks.",
+        ),
     ]
-    exit_ids = ["exit_s1", "exit_s2", "exit_s3"]
+    exit_ids = ["strategy_exit", "quality_exit", "delivery_exit"]
     branches = [
         DispatchBranch(exit_id=exit_ids[i], label=s.role, soul=s, task_instruction="Review this")
         for i, s in enumerate(souls)
     ]
 
     mock_runner.execute.side_effect = [
-        ExecutionResult(task_id="t1", soul_id="s1", output="Output from s1"),
-        ExecutionResult(task_id="t1", soul_id="s2", output="Output from s2"),
-        ExecutionResult(task_id="t1", soul_id="s3", output="Output from s3"),
+        ExecutionResult(
+            task_id="strategy_review", soul_id="strategy_reviewer", output="Strategy output"
+        ),
+        ExecutionResult(
+            task_id="quality_review", soul_id="quality_reviewer", output="Quality output"
+        ),
+        ExecutionResult(
+            task_id="delivery_review", soul_id="delivery_reviewer", output="Delivery output"
+        ),
     ]
 
-    block = DispatchBlock("dispatch1", branches, mock_runner)
+    block = DispatchBlock("parallel_review_dispatch", branches, mock_runner)
     state = WorkflowState()
 
     ctx = build_block_context(block, state)
@@ -174,11 +202,11 @@ async def test_dispatch_block_parallel(mock_runner):
     result_state = apply_block_output(state, block.block_id, block_output)
 
     # Verify JSON output format (now uses exit_id instead of soul_id)
-    outputs = json.loads(result_state.results["dispatch1"].output)
+    outputs = json.loads(result_state.results["parallel_review_dispatch"].output)
     assert len(outputs) == 3
-    assert outputs[0] == {"exit_id": "exit_s1", "output": "Output from s1"}
-    assert outputs[1] == {"exit_id": "exit_s2", "output": "Output from s2"}
-    assert outputs[2] == {"exit_id": "exit_s3", "output": "Output from s3"}
+    assert outputs[0] == {"exit_id": "strategy_exit", "output": "Strategy output"}
+    assert outputs[1] == {"exit_id": "quality_exit", "output": "Quality output"}
+    assert outputs[2] == {"exit_id": "delivery_exit", "output": "Delivery output"}
 
     # Verify all branches called
     assert mock_runner.execute.call_count == 3
@@ -188,22 +216,29 @@ async def test_dispatch_block_parallel(mock_runner):
 async def test_dispatch_block_empty_branches(mock_runner):
     """DispatchBlock raises ValueError for empty branches list."""
     with pytest.raises(ValueError, match="branches"):
-        DispatchBlock("dispatch1", [], mock_runner)
+        DispatchBlock("empty_review_dispatch", [], mock_runner)
 
 
 @pytest.mark.asyncio
 async def test_synthesize_block_combination(mock_runner, sample_soul):
-    """AC-7: SynthesizeBlock combines multiple inputs."""
+    """SynthesizeBlock combines multiple inputs."""
     mock_runner.model_name = "gpt-4o"
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="synth_task", soul_id="test_soul", output="Synthesized result combining both inputs"
+        task_id="risk_summary_task",
+        soul_id="analysis_soul",
+        output="Synthesized result combining both inputs",
     )
 
-    block = SynthesizeBlock("synth1", ["block_a", "block_b"], sample_soul, mock_runner)
+    block = SynthesizeBlock(
+        "risk_summary_synthesizer",
+        ["strategy_notes", "quality_notes"],
+        sample_soul,
+        mock_runner,
+    )
     state = WorkflowState(
         results={
-            "block_a": BlockResult(output="Output A"),
-            "block_b": BlockResult(output="Output B"),
+            "strategy_notes": BlockResult(output="Strategy notes"),
+            "quality_notes": BlockResult(output="Quality notes"),
         }
     )
 
@@ -211,20 +246,28 @@ async def test_synthesize_block_combination(mock_runner, sample_soul):
     output = await block.execute(ctx)
     result_state = apply_block_output(state, block.block_id, output)
 
-    assert result_state.results["synth1"].output == "Synthesized result combining both inputs"
+    assert (
+        result_state.results["risk_summary_synthesizer"].output
+        == "Synthesized result combining both inputs"
+    )
 
     # Verify synthesis includes both inputs in context arg to runner.execute
     call_args = mock_runner.execute.call_args
     context_arg = call_args[0][1]  # Second positional arg is context
-    assert "Output A" in context_arg
-    assert "Output B" in context_arg
+    assert "Strategy notes" in context_arg
+    assert "Quality notes" in context_arg
 
 
 @pytest.mark.asyncio
 async def test_synthesize_block_missing_input(mock_runner, sample_soul):
     """SynthesizeBlock raises ValueError for missing inputs."""
-    block = SynthesizeBlock("synth1", ["block_a", "block_b"], sample_soul, mock_runner)
-    state = WorkflowState(results={"block_a": BlockResult(output="Output A")})  # Missing block_b
+    block = SynthesizeBlock(
+        "risk_summary_synthesizer",
+        ["strategy_notes", "quality_notes"],
+        sample_soul,
+        mock_runner,
+    )
+    state = WorkflowState(results={"strategy_notes": BlockResult(output="Strategy notes")})
 
     with pytest.raises(ValueError, match="source result missing"):
         build_block_context(block, state)
@@ -232,21 +275,25 @@ async def test_synthesize_block_missing_input(mock_runner, sample_soul):
 
 @pytest.mark.asyncio
 async def test_synthesize_block_empty_inputs(mock_runner, sample_soul):
-    """SynthesizeBlock raises ValueError for empty input_block_ids (tech lead issue #5)."""
+    """SynthesizeBlock raises ValueError for empty input_block_ids."""
     with pytest.raises(ValueError, match="input_block_ids cannot be empty"):
-        SynthesizeBlock("synth1", [], sample_soul, mock_runner)
+        SynthesizeBlock("risk_summary_synthesizer", [], sample_soul, mock_runner)
 
 
 @pytest.mark.asyncio
 async def test_linear_block_aggregates_cost_and_tokens(mock_runner, sample_soul):
     """LinearBlock aggregates cost_usd and total_tokens in returned state."""
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Test output", cost_usd=0.25, total_tokens=500
+        task_id="cost_tracking_analysis_task",
+        soul_id="analysis_soul",
+        output="Analysis output",
+        cost_usd=0.25,
+        total_tokens=500,
     )
 
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", sample_soul, mock_runner)
     state = WorkflowState(
-        shared_memory={"_resolved_inputs": {"upstream": "Test task"}},
+        shared_memory={"_resolved_inputs": {"upstream": "Review task"}},
         total_cost_usd=0.1,
         total_tokens=100,
     )

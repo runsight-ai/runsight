@@ -1,4 +1,4 @@
-"""Red tests for RUN-676: extract module-level execute_block()."""
+"""Tests for module-level execute_block dispatch and retry behavior."""
 
 from __future__ import annotations
 
@@ -47,9 +47,7 @@ class RetryProbeBlock(BaseBlock):
 def _require_execute_block():
     execute_block = getattr(workflow_module, "execute_block", None)
     if execute_block is None:
-        pytest.fail(
-            "RUN-676 requires module-level execute_block(block, state, ctx) in runsight_core.workflow"
-        )
+        pytest.fail("runsight_core.workflow must expose execute_block(block, state, ctx)")
     return execute_block
 
 

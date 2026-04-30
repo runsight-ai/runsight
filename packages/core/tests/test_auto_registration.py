@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-219: Auto-Registration Infrastructure.
+Tests for block definition auto-registration infrastructure.
 
 Tests cover:
 - _registry.py: register, get, duplicate detection, empty state
@@ -71,11 +71,11 @@ class TestBlockDefRegistry:
         class FakeBlockDef:
             pass
 
-        register_block_def("fake_test_type", FakeBlockDef)
-        assert BLOCK_DEF_REGISTRY.get("fake_test_type") is FakeBlockDef
+        register_block_def("sample_registry_type", FakeBlockDef)
+        assert BLOCK_DEF_REGISTRY.get("sample_registry_type") is FakeBlockDef
 
         # Cleanup
-        BLOCK_DEF_REGISTRY.pop("fake_test_type", None)
+        BLOCK_DEF_REGISTRY.pop("sample_registry_type", None)
 
     def test_register_block_def_duplicate_same_class_is_ok(self):
         """Registering the same class for the same type is idempotent."""
@@ -87,12 +87,12 @@ class TestBlockDefRegistry:
         class FakeBlockDef:
             pass
 
-        register_block_def("dup_test_type", FakeBlockDef)
+        register_block_def("stable_registry_type", FakeBlockDef)
         # Same class again — should not raise
-        register_block_def("dup_test_type", FakeBlockDef)
+        register_block_def("stable_registry_type", FakeBlockDef)
 
         # Cleanup
-        BLOCK_DEF_REGISTRY.pop("dup_test_type", None)
+        BLOCK_DEF_REGISTRY.pop("stable_registry_type", None)
 
     def test_register_block_def_duplicate_different_class_raises(self):
         """Registering a different class for an already-registered type raises."""
@@ -124,11 +124,11 @@ class TestBlockDefRegistry:
         def fake_builder():
             pass
 
-        register_block_builder("test_builder_type", fake_builder)
-        assert BLOCK_BUILDER_REGISTRY.get("test_builder_type") is fake_builder
+        register_block_builder("sample_builder_type", fake_builder)
+        assert BLOCK_BUILDER_REGISTRY.get("sample_builder_type") is fake_builder
 
         # Cleanup
-        BLOCK_BUILDER_REGISTRY.pop("test_builder_type", None)
+        BLOCK_BUILDER_REGISTRY.pop("sample_builder_type", None)
 
     def test_register_block_builder_is_idempotent_for_same_callable(self):
         """register_block_builder permits re-registering the same callable."""
@@ -384,11 +384,15 @@ class TestHelpers:
         from runsight_core.primitives import Soul
 
         soul = Soul(
-            id="soul-s1", kind="soul", name="Tester", role="Tester", system_prompt="Test prompt"
+            id="reviewer_soul",
+            kind="soul",
+            name="Reviewer",
+            role="Reviewer",
+            system_prompt="Review the workflow.",
         )
-        souls_map = {"test_soul": soul}
+        souls_map = {"reviewer_soul": soul}
 
-        result = resolve_soul("test_soul", souls_map)
+        result = resolve_soul("reviewer_soul", souls_map)
         assert result is soul
 
     def test_resolve_soul_not_found_raises(self):
@@ -436,11 +440,17 @@ class TestHelpers:
         from runsight_core.blocks._helpers import resolve_soul
         from runsight_core.primitives import Soul
 
-        soul = Soul(id="soul-s1", kind="soul", name="Test Role", role="R", system_prompt="P")
-        souls_map = {"ref": soul}
+        soul = Soul(
+            id="reviewer_soul",
+            kind="soul",
+            name="Reviewer",
+            role="Reviewer",
+            system_prompt="Review the workflow.",
+        )
+        souls_map = {"reviewer_ref": soul}
 
         # Should behave identically to the original
-        assert resolve_soul("ref", souls_map) is soul
+        assert resolve_soul("reviewer_ref", souls_map) is soul
         with pytest.raises(ValueError):
             resolve_soul("nope", souls_map)
 
@@ -484,7 +494,7 @@ class TestParserFallback:
 
         # 1. Create a mock builder that returns a BaseBlock-compatible object
         fake_block = Mock(spec=BaseBlock)
-        fake_block.block_id = "b1"
+        fake_block.block_id = "custom_review_block"
         mock_builder = Mock(return_value=fake_block)
 
         # 2. Register the mock builder for our custom type
@@ -502,29 +512,29 @@ class TestParserFallback:
             fake_block_def.output_conditions = []
 
             fake_soul_def = Mock()
-            fake_soul_def.id = "soul-s1"
+            fake_soul_def.id = "reviewer_soul"
             fake_soul_def.kind = "soul"
-            fake_soul_def.name = "Test Role"
-            fake_soul_def.role = "R"
-            fake_soul_def.system_prompt = "P"
+            fake_soul_def.name = "Reviewer"
+            fake_soul_def.role = "Reviewer"
+            fake_soul_def.system_prompt = "Review the workflow."
             fake_soul_def.tools = None
             fake_soul_def.max_tool_iterations = 1
             fake_soul_def.model_name = None
 
             fake_transition = Mock()
-            fake_transition.from_ = "b1"
+            fake_transition.from_ = "custom_review_block"
             fake_transition.to = None
 
             fake_workflow_def = Mock()
-            fake_workflow_def.name = "test_wf"
-            fake_workflow_def.entry = "b1"
+            fake_workflow_def.name = "builder_fallback_workflow"
+            fake_workflow_def.entry = "custom_review_block"
             fake_workflow_def.transitions = [fake_transition]
             fake_workflow_def.conditional_transitions = []
 
             fake_file_def = Mock()
             fake_file_def.version = "1.0"
-            fake_file_def.souls = {"soul-s1": fake_soul_def}
-            fake_file_def.blocks = {"b1": fake_block_def}
+            fake_file_def.souls = {"reviewer_soul": fake_soul_def}
+            fake_file_def.blocks = {"custom_review_block": fake_block_def}
             fake_file_def.workflow = fake_workflow_def
             fake_file_def.config = {}
 
@@ -537,7 +547,7 @@ class TestParserFallback:
             # 4. Assert the mock builder was called with expected args
             mock_builder.assert_called_once()
             call_args = mock_builder.call_args
-            assert call_args[0][0] == "b1"  # block_id
+            assert call_args[0][0] == "custom_review_block"
             assert call_args[0][1] is fake_block_def  # block_def
 
         finally:
@@ -586,32 +596,32 @@ class TestEdgeCases:
 
         # A valid workflow file should still parse correctly
         valid_data = {
-            "id": "test-workflow",
+            "id": "workflow-auto-registration",
             "kind": "workflow",
             "version": "1.0",
             "souls": {
-                "soul-s1": {
-                    "id": "soul-s1",
+                "reviewer_soul": {
+                    "id": "reviewer_soul",
                     "kind": "soul",
-                    "name": "Test Role",
-                    "role": "R",
-                    "system_prompt": "P",
+                    "name": "Reviewer",
+                    "role": "Reviewer",
+                    "system_prompt": "Review the workflow.",
                 }
             },
             "blocks": {
-                "b1": {
+                "review_block": {
                     "type": "linear",
-                    "soul_ref": "soul-s1",
+                    "soul_ref": "reviewer_soul",
                 }
             },
             "workflow": {
-                "name": "wf",
-                "entry": "b1",
-                "transitions": [{"from": "b1", "to": None}],
+                "name": "nested_validation_workflow",
+                "entry": "review_block",
+                "transitions": [{"from": "review_block", "to": None}],
             },
         }
         result = RunsightWorkflowFile.model_validate(valid_data)
-        assert result.workflow.name == "wf"
+        assert result.workflow.name == "nested_validation_workflow"
 
     def test_auto_discover_handles_import_errors_gracefully(self):
         """_auto_discover_blocks does not crash if a block module fails to import."""

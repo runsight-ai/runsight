@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-183: ArtifactStore ABC + InMemoryArtifactStore.
+Tests for ArtifactStore ABC and InMemoryArtifactStore behavior.
 
 Tests cover:
 - ArtifactStore ABC cannot be instantiated directly

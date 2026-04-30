@@ -1,4 +1,4 @@
-"""Red tests for RUN-150: Core ModelCatalogPort Protocol + LiteLLMModelCatalog.
+"""Tests for ModelCatalogPort and LiteLLMModelCatalog behavior.
 
 Tests cover:
 - ModelInfo and ProviderInfo dataclass creation + frozen enforcement
@@ -9,7 +9,6 @@ Tests cover:
 - Graceful handling of missing fields, empty catalog, unavailable litellm
 - Import boundary: litellm must not leak outside LiteLLMModelCatalog
 
-All tests should FAIL until the implementation exists.
 """
 
 import dataclasses
@@ -21,7 +20,7 @@ from unittest.mock import patch
 import pytest
 
 # ---------------------------------------------------------------------------
-# Import targets (will fail until implementation exists)
+# Import targets for catalog behavior under test
 # ---------------------------------------------------------------------------
 from runsight_core.llm.model_catalog import (
     LiteLLMModelCatalog,

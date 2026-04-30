@@ -1,5 +1,5 @@
 """
-RUN-862: Verify dependency manifest correctness for packages/core.
+Tests for packages/core dependency manifest boundaries.
 
 These tests inspect pyproject.toml directly — no imports, no installs required.
 """

@@ -1,5 +1,5 @@
 """
-RUN-838: failing tests for the core ValidationResult model.
+Tests for the core ValidationResult model.
 
 These tests describe the canonical warning payload shape and the public
 ValidationResult API expected to live in runsight_core.yaml.validation.

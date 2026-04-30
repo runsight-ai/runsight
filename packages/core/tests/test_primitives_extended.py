@@ -23,24 +23,27 @@ def mock_runner():
 def sample_soul():
     """Sample soul for testing."""
     return Soul(
-        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+        id="step_analyst_soul",
+        kind="soul",
+        name="Step Analyst",
+        role="Analyst",
+        system_prompt="Analyze the task.",
     )
 
 
 @pytest.mark.asyncio
 async def test_step_executes_hooks(mock_runner, sample_soul):
     """
-    AC-1: pytest packages/core/tests/test_primitives_extended.py::test_step_executes_hooks -v passes
-    - pre_hook runs, then block, then post_hook
-    - state flows through all three phases
+    pre_hook runs before the block, post_hook runs after it, and state flows
+    through all three phases.
     """
     # Setup mock runner to return a result
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Block output"
+        task_id="step_hook_task", soul_id="step_analyst_soul", output="Block output"
     )
 
     # Create a LinearBlock as the wrapped block
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("step_analysis_block", sample_soul, mock_runner)
     initial_state = WorkflowState()
 
     # Define hooks that track execution order by mutating state.metadata
@@ -80,24 +83,23 @@ async def test_step_executes_hooks(mock_runner, sample_soul):
     assert result_state.metadata["execution_order"] == ["pre_hook", "post_hook"]
 
     # Verify block executed successfully
-    assert result_state.results["linear1"].output == "Block output"
+    assert result_state.results["step_analysis_block"].output == "Block output"
     assert len(result_state.execution_log) == 1
-    assert "[Block linear1]" in result_state.execution_log[0]["content"]
+    assert "[Block step_analysis_block]" in result_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio
 async def test_step_no_hooks(mock_runner, sample_soul):
     """
-    AC-4: Hooks can be None, in which case that phase is skipped.
-    Test with both hooks as None - verify block executes normally.
+    Hooks can be None, in which case the block executes normally.
     """
     # Setup mock runner
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Block output"
+        task_id="step_without_hooks_task", soul_id="step_analyst_soul", output="Block output"
     )
 
     # Create block and state
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("step_analysis_block", sample_soul, mock_runner)
     initial_state = WorkflowState()
 
     # Create Step with no hooks
@@ -107,23 +109,23 @@ async def test_step_no_hooks(mock_runner, sample_soul):
     result_state = await step.execute(initial_state)
 
     # Verify block executed normally
-    assert result_state.results["linear1"].output == "Block output"
+    assert result_state.results["step_analysis_block"].output == "Block output"
     assert len(result_state.execution_log) == 1
-    assert "[Block linear1]" in result_state.execution_log[0]["content"]
+    assert "[Block step_analysis_block]" in result_state.execution_log[0]["content"]
 
 
 @pytest.mark.asyncio
 async def test_step_only_pre_hook(mock_runner, sample_soul):
     """
-    AC-4: Test with only pre_hook present, post_hook=None.
+    A pre_hook can run without a post_hook.
     """
     # Setup mock runner
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Block output"
+        task_id="pre_hook_step_task", soul_id="step_analyst_soul", output="Block output"
     )
 
     # Create block and state
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("step_analysis_block", sample_soul, mock_runner)
     initial_state = WorkflowState()
 
     # Define only pre_hook
@@ -140,21 +142,21 @@ async def test_step_only_pre_hook(mock_runner, sample_soul):
     assert result_state.metadata["pre_hook_ran"] is True
 
     # Verify block executed
-    assert result_state.results["linear1"].output == "Block output"
+    assert result_state.results["step_analysis_block"].output == "Block output"
 
 
 @pytest.mark.asyncio
 async def test_step_only_post_hook(mock_runner, sample_soul):
     """
-    AC-4: Test with only post_hook present, pre_hook=None.
+    A post_hook can run without a pre_hook.
     """
     # Setup mock runner
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Block output"
+        task_id="post_hook_step_task", soul_id="step_analyst_soul", output="Block output"
     )
 
     # Create block and state
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("step_analysis_block", sample_soul, mock_runner)
     initial_state = WorkflowState()
 
     # Define only post_hook
@@ -171,7 +173,7 @@ async def test_step_only_post_hook(mock_runner, sample_soul):
     assert result_state.metadata["post_hook_ran"] is True
 
     # Verify block executed
-    assert result_state.results["linear1"].output == "Block output"
+    assert result_state.results["step_analysis_block"].output == "Block output"
 
 
 @pytest.mark.asyncio
@@ -184,11 +186,11 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     """
     # Setup mock runner
     mock_runner.execute.return_value = ExecutionResult(
-        task_id="t1", soul_id="test_soul", output="Block output"
+        task_id="state_flow_step_task", soul_id="step_analyst_soul", output="Block output"
     )
 
     # Create block and state
-    block = LinearBlock("linear1", sample_soul, mock_runner)
+    block = LinearBlock("step_analysis_block", sample_soul, mock_runner)
     initial_state = WorkflowState()
 
     # Define hooks that add to shared_memory to track state flow
@@ -200,7 +202,7 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     def post_hook(state: WorkflowState) -> WorkflowState:
         # Post hook can see both pre_hook's addition and block's result
         assert state.shared_memory["pre_value"] == "from_pre"
-        assert state.results["linear1"].output == "Block output"
+        assert state.results["step_analysis_block"].output == "Block output"
         return state.model_copy(
             update={"shared_memory": {**state.shared_memory, "post_value": "from_post"}}
         )
@@ -214,4 +216,4 @@ async def test_step_state_flows_through_phases(mock_runner, sample_soul):
     # Verify all state modifications are present in final state
     assert result_state.shared_memory["pre_value"] == "from_pre"
     assert result_state.shared_memory["post_value"] == "from_post"
-    assert result_state.results["linear1"].output == "Block output"
+    assert result_state.results["step_analysis_block"].output == "Block output"

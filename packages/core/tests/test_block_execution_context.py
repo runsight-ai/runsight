@@ -1,4 +1,4 @@
-"""Red tests for RUN-675: BlockExecutionContext dataclass."""
+"""Tests for BlockExecutionContext construction and immutability."""
 
 from __future__ import annotations
 
