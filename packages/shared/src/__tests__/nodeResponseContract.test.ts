@@ -70,9 +70,9 @@ describe("RunNodeResponseSchema parses enriched payloads", () => {
   });
 
   it("parsed output preserves model_name field value", () => {
-    const enriched = { ...baseNode, model_name: "gpt-4.1" };
+    const enriched = { ...baseNode, model_name: "fixture-run-model" };
     const result = RunNodeResponseSchema.parse(enriched);
-    expect(result).toHaveProperty("model_name", "gpt-4.1");
+    expect(result).toHaveProperty("model_name", "fixture-run-model");
   });
 
   it("parsed output preserves eval_score field value", () => {
@@ -139,7 +139,7 @@ describe("RunNodeResponseSchema all 6 fields round-trip", () => {
       error: null,
       output: "Full LLM response",
       soul_id: "soul_planner",
-      model_name: "claude-3-5-sonnet",
+      model_name: "fixture-eval-model",
       eval_score: 0.88,
       eval_passed: true,
       eval_results: { check_1: { passed: true, score: 1.0 } },

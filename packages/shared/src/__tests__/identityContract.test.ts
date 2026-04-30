@@ -37,11 +37,11 @@ describe("generated shared identity contracts", () => {
     expect(ProviderCreateSchema.shape).toHaveProperty("name");
 
     const valid = ProviderCreateSchema.safeParse({
-      id: "openai",
+      id: "fixture-provider",
       kind: "provider",
-      name: "OpenAI",
-      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-      base_url: "https://provider.example.test/v1",
+      name: "Fixture Provider",
+      api_key_env: "DUMMY_PROVIDER_KEY",
+      base_url: "http://localhost/fixture-provider/v1",
     });
 
     expect(valid.success).toBe(true);
@@ -92,9 +92,9 @@ describe("generated shared identity contracts", () => {
     expect(SettingsProviderResponseSchema.shape).toHaveProperty("kind");
 
     const valid = SettingsProviderResponseSchema.safeParse({
-      id: "openai",
+      id: "fixture-provider",
       kind: "provider",
-      name: "OpenAI",
+      name: "Fixture Provider",
       status: "connected",
       is_active: true,
     });

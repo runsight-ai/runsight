@@ -40,9 +40,9 @@ def test_workflow_response_exposes_embedded_kind() -> None:
 
 def test_settings_provider_response_requires_embedded_kind() -> None:
     response = SettingsProviderResponse(
-        id="openai",
+        id="fixture-provider",
         kind="provider",
-        name="OpenAI",
+        name="Fixture Provider",
         status="connected",
     )
 
@@ -51,8 +51,8 @@ def test_settings_provider_response_requires_embedded_kind() -> None:
     with pytest.raises(ValidationError):
         SettingsProviderResponse.model_validate(
             {
-                "id": "openai",
-                "name": "OpenAI",
+                "id": "fixture-provider",
+                "name": "Fixture Provider",
                 "status": "connected",
             }
         )

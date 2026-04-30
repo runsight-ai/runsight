@@ -13,7 +13,7 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
         system_prompt="Research the topic",
         tools=["web_search", "summarize"],
         max_tool_iterations=6,
-        model_name="gpt-4o",
+        model_name="fixture-soul-model",
         avatar_color="lime",
     )
 
@@ -22,7 +22,7 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
     assert soul.system_prompt == "Research the topic"
     assert soul.tools == ["web_search", "summarize"]
     assert soul.max_tool_iterations == 6
-    assert soul.model_name == "gpt-4o"
+    assert soul.model_name == "fixture-soul-model"
     assert soul.avatar_color == "lime"
 
 
@@ -37,7 +37,12 @@ def test_soul_entity_rejects_legacy_name_and_models_fields():
     from runsight_api.domain.value_objects import SoulEntity
 
     with pytest.raises(ValidationError):
-        SoulEntity(id="legacy", kind="soul", name="Legacy Soul", models=["gpt-4o"])
+        SoulEntity(
+            id="legacy",
+            kind="soul",
+            name="Legacy Soul",
+            models=["fixture-soul-model"],
+        )
 
 
 def test_soul_create_requires_role_and_system_prompt():
@@ -71,11 +76,11 @@ def test_soul_response_includes_workflow_count_default_zero():
         name="Reviewer",
         role="Reviewer",
         system_prompt="Review carefully",
-        model_name="gpt-4o-mini",
+        model_name="fixture-response-model",
     )
 
     assert soul.workflow_count == 0
-    assert soul.model_name == "gpt-4o-mini"
+    assert soul.model_name == "fixture-response-model"
 
 
 def test_soul_usage_response_tracks_workflow_references():
