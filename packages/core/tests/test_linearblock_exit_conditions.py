@@ -1,27 +1,9 @@
-"""
-Failing tests for RUN-681: LinearBlock exit_handle via exit conditions.
+"""Exit-condition behavior for block execution and loop breaks.
 
-Block-level exit_conditions — evaluated in execute_block() after block.execute()
-returns — should set exit_handle on BlockResult based on output content matching.
-
-ExitCondition model:
-    contains: Optional[str]  — substring match
-    regex: Optional[str]     — regex match
-    exit_handle: str         — value to set on match
-
-Evaluation rules:
-- Evaluated AFTER block.execute() returns, inside execute_block()
-- Only applies when BlockResult.exit_handle is None (explicit takes precedence)
-- First-match wins
-- Both contains and regex on same condition: contains checked first
-
-Tests cover:
-- AC1: contains match → exit_handle set
-- AC2: contains no match → exit_handle stays None
-- AC3: regex match → exit_handle set
-- AC4: LoopBlock integration: exit_conditions + break_on_exit triggers loop break
-- AC5: Block with explicit exit_handle + exit_conditions → explicit takes precedence
-- AC6: Multiple conditions, output matches second → second condition's exit_handle used
+Behavior boundary: block-level exit_conditions are evaluated after
+block.execute(), set BlockResult.exit_handle based on output content matching,
+respect explicit exit handles, use first-match semantics, and integrate with
+LoopBlock break_on_exit.
 """
 
 from __future__ import annotations
@@ -37,7 +19,7 @@ from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, Workflow, execute_block
 
 # ---------------------------------------------------------------------------
-# Stand-in for the ExitCondition model (doesn't exist yet in source)
+# Lightweight condition fixture attached to helper blocks in these tests
 # ---------------------------------------------------------------------------
 
 
@@ -80,7 +62,7 @@ class ExplicitExitBlock(BaseBlock):
 
 
 class RoundAwareOutputBlock(BaseBlock):
-    """Block that emits different output based on loop round, used for AC4."""
+    """Block that emits different output based on loop round."""
 
     def __init__(self, block_id: str) -> None:
         super().__init__(block_id)
@@ -90,7 +72,7 @@ class RoundAwareOutputBlock(BaseBlock):
     async def execute(self, ctx):
         self.calls += 1
         round_num = self.calls
-        # On round >= 2, output contains "APPROVED" to trigger exit_conditions
+        # On round >= 2, output contains "APPROVED" to trigger exit_conditions.
         if round_num >= 2:
             output = "Review result: APPROVED"
         else:
@@ -105,7 +87,7 @@ class RoundAwareOutputBlock(BaseBlock):
 
 def _make_ctx(
     blocks: dict[str, BaseBlock],
-    workflow_name: str = "test_wf",
+    workflow_name: str = "exit_condition_workflow",
 ) -> BlockExecutionContext:
     return BlockExecutionContext(
         workflow_name=workflow_name,
@@ -128,7 +110,7 @@ def _make_state(**overrides) -> WorkflowState:
 
 
 # ===========================================================================
-# AC1: contains match -> exit_handle set
+# Contains match sets exit_handle
 # ===========================================================================
 
 
@@ -138,7 +120,7 @@ class TestContainsExitConditionMatch:
         """A block with exit_conditions [{contains: "PASS", exit_handle: "pass"}]
         and output containing "PASS" should have exit_handle=="pass" after
         execute_block() returns."""
-        block = OutputBlock("checker", "Test result: PASS — all checks passed")
+        block = OutputBlock("checker", "Test result: PASS - all checks passed")
         block.exit_conditions = [
             ExitCondition(contains="PASS", exit_handle="pass"),
         ]
@@ -154,16 +136,16 @@ class TestContainsExitConditionMatch:
 
 
 # ===========================================================================
-# AC2: contains no match -> exit_handle stays None
+# Non-matching contains condition leaves exit_handle unset
 # ===========================================================================
 
 
 class TestNonMatchingContainsCondition:
     @pytest.mark.asyncio
     async def test_exit_conditions_no_match_leaves_exit_handle_none(self):
-        """When exit_conditions contains pattern is NOT found in output,
+        """When exit_conditions contains pattern is not found in output,
         exit_handle should remain None."""
-        block = OutputBlock("checker", "Test result: FAIL — needs revision")
+        block = OutputBlock("checker", "Test result: FAIL - needs revision")
         block.exit_conditions = [
             ExitCondition(contains="PASS", exit_handle="pass"),
         ]
@@ -179,7 +161,7 @@ class TestNonMatchingContainsCondition:
 
 
 # ===========================================================================
-# AC3: regex match -> exit_handle set
+# Regex match sets exit_handle
 # ===========================================================================
 
 
@@ -188,7 +170,7 @@ class TestRegexExitConditionMatch:
     async def test_exit_conditions_regex_match_sets_exit_handle(self):
         """A block with exit_conditions using regex pattern that matches
         the output should set exit_handle accordingly."""
-        block = OutputBlock("validator", "Score: 95/100 — GRADE_A")
+        block = OutputBlock("validator", "Score: 95/100 - GRADE_A")
         block.exit_conditions = [
             ExitCondition(regex=r"GRADE_[AB]", exit_handle="high_grade"),
         ]
@@ -205,7 +187,7 @@ class TestRegexExitConditionMatch:
     @pytest.mark.asyncio
     async def test_exit_conditions_regex_no_match_leaves_none(self):
         """Regex that does not match should leave exit_handle as None."""
-        block = OutputBlock("validator", "Score: 40/100 — GRADE_F")
+        block = OutputBlock("validator", "Score: 40/100 - GRADE_F")
         block.exit_conditions = [
             ExitCondition(regex=r"GRADE_[AB]", exit_handle="high_grade"),
         ]
@@ -221,7 +203,7 @@ class TestRegexExitConditionMatch:
 
 
 # ===========================================================================
-# AC4: LoopBlock integration — exit_conditions + break_on_exit
+# LoopBlock breaks on matching exit condition
 # ===========================================================================
 
 
@@ -241,23 +223,23 @@ class TestLoopBlockBreaksOnExitCondition:
         ]
 
         loop_block = LoopBlock(
-            "loop",
+            "review_loop",
             inner_block_refs=["critic"],
             max_rounds=5,
             break_on_exit="approved",
         )
 
-        wf = Workflow("test_loop_exit_cond")
+        wf = Workflow("exit_condition_loop")
         wf.add_block(loop_block)
         wf.add_block(critic)
-        wf.set_entry("loop")
-        wf.add_transition("loop", None)
+        wf.set_entry("review_loop")
+        wf.add_transition("review_loop", None)
 
         state = _make_state()
         result_state = await wf.run(state)
 
         # Loop should have broken early on round 2
-        loop_meta = result_state.shared_memory.get("__loop__loop")
+        loop_meta = result_state.shared_memory.get("__loop__review_loop")
         assert loop_meta is not None
         assert loop_meta["broke_early"] is True
         assert loop_meta["rounds_completed"] == 2
@@ -270,7 +252,7 @@ class TestLoopBlockBreaksOnExitCondition:
 
 
 # ===========================================================================
-# AC5: Explicit exit_handle takes precedence over exit_conditions
+# Explicit exit_handle takes precedence over exit_conditions
 # ===========================================================================
 
 
@@ -278,7 +260,7 @@ class TestExplicitExitHandlePrecedence:
     @pytest.mark.asyncio
     async def test_explicit_exit_handle_not_overridden_by_exit_conditions(self):
         """A block that sets exit_handle explicitly (e.g., GateBlock pattern)
-        should NOT have it overridden by exit_conditions evaluation.
+        should not have it overridden by exit_conditions evaluation.
 
         The block's output contains "PASS" which would match the exit_condition,
         but the explicit exit_handle="explicit_gate" takes precedence."""
@@ -294,12 +276,12 @@ class TestExplicitExitHandlePrecedence:
 
         br = result_state.results["gate"]
         assert isinstance(br, BlockResult)
-        # Explicit exit_handle must be preserved, NOT overridden by exit_conditions
+        # Explicit exit_handle must be preserved.
         assert br.exit_handle == "explicit_gate"
 
 
 # ===========================================================================
-# AC6: Multiple conditions — second match wins (first-match semantics)
+# Multiple conditions use first-match semantics
 # ===========================================================================
 
 
@@ -308,19 +290,19 @@ class TestMultipleExitConditionsUseFirstMatch:
     async def test_multiple_conditions_first_match_wins(self):
         """With multiple exit_conditions, the first condition that matches
         should set the exit_handle. Output matches second but not first."""
-        block = OutputBlock("multi", "The review says: NEEDS_WORK on section 3")
+        block = OutputBlock("multi_condition_block", "The review says: NEEDS_WORK on section 3")
         block.exit_conditions = [
             ExitCondition(contains="APPROVED", exit_handle="approved"),
             ExitCondition(contains="NEEDS_WORK", exit_handle="revision"),
             ExitCondition(contains="REJECTED", exit_handle="rejected"),
         ]
 
-        ctx = _make_ctx({"multi": block})
+        ctx = _make_ctx({"multi_condition_block": block})
         state = _make_state()
 
         result_state = await execute_block(block, state, ctx)
 
-        br = result_state.results["multi"]
+        br = result_state.results["multi_condition_block"]
         assert isinstance(br, BlockResult)
         # Only second condition matches -> exit_handle should be "revision"
         assert br.exit_handle == "revision"
@@ -328,24 +310,24 @@ class TestMultipleExitConditionsUseFirstMatch:
     @pytest.mark.asyncio
     async def test_multiple_conditions_none_match(self):
         """When no conditions match in a list, exit_handle stays None."""
-        block = OutputBlock("multi_none", "Everything is fine, no flags here")
+        block = OutputBlock("no_condition_match_block", "Everything is fine, no flags here")
         block.exit_conditions = [
             ExitCondition(contains="APPROVED", exit_handle="approved"),
             ExitCondition(contains="REJECTED", exit_handle="rejected"),
         ]
 
-        ctx = _make_ctx({"multi_none": block})
+        ctx = _make_ctx({"no_condition_match_block": block})
         state = _make_state()
 
         result_state = await execute_block(block, state, ctx)
 
-        br = result_state.results["multi_none"]
+        br = result_state.results["no_condition_match_block"]
         assert isinstance(br, BlockResult)
         assert br.exit_handle is None
 
 
 # ===========================================================================
-# Edge: contains + regex on same condition — contains checked first
+# Combined contains and regex condition checks contains first
 # ===========================================================================
 
 
@@ -355,7 +337,7 @@ class TestEdgeCombinedContainsAndRegex:
         """When a single ExitCondition has both contains and regex,
         contains is checked first. If contains matches, exit_handle is set
         regardless of regex."""
-        block = OutputBlock("combo", "PASS: score=95")
+        block = OutputBlock("contains_regex_block", "PASS: score=95")
         block.exit_conditions = [
             ExitCondition(
                 contains="PASS",
@@ -364,20 +346,20 @@ class TestEdgeCombinedContainsAndRegex:
             ),
         ]
 
-        ctx = _make_ctx({"combo": block})
+        ctx = _make_ctx({"contains_regex_block": block})
         state = _make_state()
 
         result_state = await execute_block(block, state, ctx)
 
-        br = result_state.results["combo"]
+        br = result_state.results["contains_regex_block"]
         assert isinstance(br, BlockResult)
         assert br.exit_handle == "matched"
 
     @pytest.mark.asyncio
     async def test_contains_fails_regex_matches_on_same_condition(self):
-        """When contains does NOT match but regex DOES, exit_handle
+        """When contains does not match but regex does, exit_handle
         should still be set (regex acts as fallback within same condition)."""
-        block = OutputBlock("combo2", "Result: score=88")
+        block = OutputBlock("regex_fallback_block", "Result: score=88")
         block.exit_conditions = [
             ExitCondition(
                 contains="PASS",
@@ -386,11 +368,11 @@ class TestEdgeCombinedContainsAndRegex:
             ),
         ]
 
-        ctx = _make_ctx({"combo2": block})
+        ctx = _make_ctx({"regex_fallback_block": block})
         state = _make_state()
 
         result_state = await execute_block(block, state, ctx)
 
-        br = result_state.results["combo2"]
+        br = result_state.results["regex_fallback_block"]
         assert isinstance(br, BlockResult)
         assert br.exit_handle == "regex_fallback"
