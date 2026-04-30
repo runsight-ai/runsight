@@ -96,7 +96,7 @@ def test_settings_providers_post():
 
     response = client.post(
         "/api/settings/providers",
-        json={"id": "openai", "kind": "provider", "name": "OpenAI", "api_key_env": "sk-xxx"},
+        json={"id": "openai", "kind": "provider", "name": "OpenAI", "api_key_env": "dummy-xxx"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -128,7 +128,7 @@ def test_settings_providers_post_passes_embedded_identity_to_service():
                 "id": "openai",
                 "kind": "provider",
                 "name": "OpenAI",
-                "api_key_env": "sk-xxx",
+                "api_key_env": "dummy-xxx",
             },
         )
         assert response.status_code == 200
@@ -136,7 +136,7 @@ def test_settings_providers_post_passes_embedded_identity_to_service():
             id="openai",
             kind="provider",
             name="OpenAI",
-            api_key="sk-xxx",
+            api_key="dummy-xxx",
             base_url=None,
         )
     finally:
@@ -163,7 +163,7 @@ def test_settings_providers_post_rejects_unknown_fields():
             "/api/settings/providers",
             json={
                 "name": "OpenAI",
-                "api_key_env": "sk-xxx",
+                "api_key_env": "dummy-xxx",
                 "custom_notes": "unsupported",
             },
         )
@@ -251,8 +251,8 @@ def test_settings_providers_test_credentials_returns_setup_contract_shape():
             "/api/settings/providers/test",
             json={
                 "provider_type": "openai",
-                "api_key_env": "sk-test",
-                "base_url": "https://api.openai.com/v1",
+                "api_key_env": "dummy-test",
+                "base_url": "https://provider.example.invalid/v1",
             },
         )
         assert response.status_code == 200

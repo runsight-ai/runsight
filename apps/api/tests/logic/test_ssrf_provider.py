@@ -45,7 +45,7 @@ def _make_service_and_repo(provider: ProviderEntity) -> tuple[ProviderService, M
     repo.update.return_value = provider
     secrets = Mock()
     secrets.is_configured.return_value = bool(provider.api_key)
-    secrets.resolve.return_value = "sk-xxx"
+    secrets.resolve.return_value = "dummy-xxx"
     return ProviderService(repo, secrets), repo
 
 

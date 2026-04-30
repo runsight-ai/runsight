@@ -13,7 +13,7 @@ These tests exercise the FULL streaming pipeline:
 The LLM mock uses an asyncio.Event gate to hold execution until the stream
 consumer is connected, ensuring we capture all events.
 
-All mocked — no real API calls. Only LiteLLMClient.achat is mocked.
+All mocked: no external API calls. Only LiteLLMClient.achat is mocked.
 """
 
 import asyncio
@@ -237,7 +237,7 @@ def _mock_provider():
     mock = Mock()
     mock.id = "openai"
     mock.type = "openai"
-    mock.api_key = "sk-test"
+    mock.api_key = "dummy-test"
     mock.is_active = True
     mock.models = ["gpt-4o"]
     return mock
@@ -319,7 +319,7 @@ def execution_service(db_engine, base_dir):
     git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-e2e")
     execution_session = Session(db_engine)
 
     yield ExecutionService(
@@ -421,7 +421,7 @@ async def _run_and_collect(
 
 
 # ===========================================================================
-# AC1 — Run workflow -> SSE stream produces block_started and block_completed
+# Run workflow -> SSE stream produces block_started and block_completed
 #        events for each block
 # ===========================================================================
 
@@ -501,7 +501,7 @@ class TestSSEStreamProducesBlockEvents:
 
 
 # ===========================================================================
-# AC2 — Child WorkflowBlock -> SSE stream keeps child raw traffic on child stream
+# Child WorkflowBlock -> SSE stream keeps child raw traffic on child stream
 # ===========================================================================
 
 
@@ -561,7 +561,7 @@ class TestSSEStreamContainsChildSummaryOnly:
 
 
 # ===========================================================================
-# AC3 — Event payloads contain run_id, node_id, block type
+# Event payloads contain run_id, node_id, block type
 # ===========================================================================
 
 
@@ -658,7 +658,7 @@ class TestSSEEventPayloadMetadata:
 
 
 # ===========================================================================
-# AC4 — No RUN_COMPLETED event fires before all blocks complete
+# No RUN_COMPLETED event fires before all blocks complete
 # ===========================================================================
 
 
@@ -744,16 +744,16 @@ class TestRunCompletedIsLastEvent:
 
 
 # ===========================================================================
-# AC5 — All mocked: no real API calls
+# All mocked: no external API calls
 # ===========================================================================
 
 
-class TestNoRealAPICalls:
-    """The entire pipeline must work without real LLM API keys."""
+class TestNoExternalAPICalls:
+    """The entire pipeline must work without external LLM API keys."""
 
     @pytest.mark.asyncio
-    async def test_pipeline_works_without_real_api_keys(self, execution_service, db_engine):
-        """The full streaming pipeline must succeed with no real API keys."""
+    async def test_pipeline_works_without_external_api_keys(self, execution_service, db_engine):
+        """The full streaming pipeline must succeed with no external API keys."""
         import os
 
         run_id = "run_sse_no_keys"

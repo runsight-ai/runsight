@@ -7,9 +7,9 @@ tests skip the API layer.  No existing test covers the full path:
         ->  workflow engine  ->  mocked LLM  ->  ExecutionObserver writes Run/RunNode to DB
 
 These tests exercise that full path with:
-- Real FastAPI app (httpx.AsyncClient hitting real endpoints)
-- Real DB (in-memory SQLite with schema created via SQLModel.metadata.create_all)
-- Real ExecutionService, real engine, real observers
+- FastAPI app with in-process ASGI transport
+- In-memory SQLite DB with schema created via SQLModel.metadata.create_all
+- Actual ExecutionService, engine, and observers
 - ONLY the LLM is mocked (LiteLLMClient.achat)
 """
 
@@ -56,7 +56,7 @@ workflow:
       to: null
 """
 
-# A workflow with a block that will fail when the LLM raises an exception
+# A workflow with a block that exercises LLM exception handling.
 FAILING_WORKFLOW_YAML = """\
 id: failing-workflow
 kind: workflow
@@ -121,11 +121,11 @@ def _write_provider_file(base_dir: Path) -> None:
 
 
 def _write_secrets_file(base_dir: Path) -> None:
-    """Create a real secrets.env at .runsight/secrets.env with a fake test key."""
+    """Create an isolated secrets.env at .runsight/secrets.env with a dummy test key."""
     secrets_dir = base_dir / ".runsight"
     secrets_dir.mkdir(parents=True, exist_ok=True)
     (secrets_dir / "secrets.env").write_text(
-        "# Managed by Runsight\nOPENAI_API_KEY=sk-fake-test-key-for-e2e\n",
+        "# Managed by Runsight\nOPENAI_API_KEY=dummy-fake-test-key-for-e2e\n",
         encoding="utf-8",
     )
 
@@ -249,7 +249,7 @@ def app_with_real_services(db_engine, base_dir):
     # Real provider repo — discovers openai.yaml from the temp filesystem
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
 
-    # Real secrets loader — reads sk-fake-test-key-for-e2e from .runsight/secrets.env
+    # Isolated secrets loader reads the dummy key from the temp .runsight/secrets.env.
     secrets = SecretsEnvLoader(base_path=str(base_dir))
     git_service = _git_service_for(base_dir)
     execution_session = Session(db_engine)
@@ -291,7 +291,7 @@ def app_with_real_services(db_engine, base_dir):
 
 
 # ---------------------------------------------------------------------------
-# AC1 — Successful execution: HTTP POST -> completed run with node records
+# Successful execution: HTTP POST -> completed run with node records
 # ---------------------------------------------------------------------------
 
 
@@ -430,18 +430,18 @@ class TestSuccessfulRunE2E:
         assert node.status == "completed", f"Expected node status 'completed', got '{node.status}'"
 
     @pytest.mark.asyncio
-    async def test_no_real_api_keys_required(self, app_with_real_services, db_engine):
-        """The test must succeed with no real API keys set in the environment.
+    async def test_no_external_api_keys_required(self, app_with_real_services, db_engine):
+        """The test must succeed with no external API keys set in the environment.
 
-        The secrets.env file on the temp filesystem provides the fake key.
-        Real API key env vars are removed so SecretsEnvLoader falls through to
+        The secrets.env file on the temp filesystem provides the dummy key.
+        External API key env vars are removed so SecretsEnvLoader falls through to
         secrets.env as the key source, and the mocked LLM completes successfully.
         """
         import os
 
         from httpx import ASGITransport, AsyncClient
 
-        # Remove real API keys from os.environ so SecretsEnvLoader falls through
+        # Remove external API keys from os.environ so SecretsEnvLoader falls through
         # to the secrets.env file written during fixture setup.
         keys_to_remove = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
         saved = {k: os.environ.pop(k) for k in keys_to_remove if k in os.environ}
@@ -453,7 +453,7 @@ class TestSuccessfulRunE2E:
                 with patch(
                     "runsight_core.llm.client.LiteLLMClient.achat",
                     new_callable=AsyncMock,
-                    return_value=_make_achat_response("Result without real keys"),
+                    return_value=_make_achat_response("Result without external keys"),
                 ):
                     response = await client.post(
                         "/api/runs",
@@ -470,13 +470,13 @@ class TestSuccessfulRunE2E:
             os.environ.update(saved)
 
         assert run.status == RunStatus.completed, (
-            f"Run should complete with mocked LLM, no real keys. "
+            f"Run should complete with mocked LLM, no external keys. "
             f"Got status='{run.status}', error='{run.error}'"
         )
 
 
 # ---------------------------------------------------------------------------
-# AC2 — Failing execution: HTTP POST -> failed run with error in DB
+# Failing execution: HTTP POST -> failed run with error in DB
 # ---------------------------------------------------------------------------
 
 

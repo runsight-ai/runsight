@@ -302,7 +302,7 @@ def app_with_real_services(db_engine, base_dir):
     git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-e2e")
     execution_session = Session(db_engine)
 
     execution_service = ExecutionService(
@@ -344,7 +344,7 @@ def mock_provider():
     provider = Mock()
     provider.id = "openai"
     provider.type = "openai"
-    provider.api_key = "sk-test"
+    provider.api_key = "dummy-test"
     provider.is_active = True
     provider.models = ["gpt-4o"]
     return provider

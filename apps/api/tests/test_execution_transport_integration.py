@@ -99,7 +99,7 @@ def _write_secrets_file(base_dir: Path) -> None:
     secrets_dir = base_dir / ".runsight"
     secrets_dir.mkdir(parents=True, exist_ok=True)
     (secrets_dir / "secrets.env").write_text(
-        "# Managed by Runsight\nOPENAI_API_KEY=sk-fake-test-key-for-execution-transport\n",
+        "# Managed by Runsight\nOPENAI_API_KEY=dummy-fake-test-key-for-execution-transport\n",
         encoding="utf-8",
     )
 

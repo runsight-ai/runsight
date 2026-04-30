@@ -7,7 +7,7 @@ unit tests. These tests exercise the FULL execution pipeline via the HTTP layer:
         ->  workflow engine  ->  mocked LLM  ->  EvalObserver.on_block_complete
             ->  _run_assertions_sync  ->  write eval_passed / eval_score / eval_results to DB
 
-The LLM is mocked via LiteLLMClient.achat so no real API calls are made.
+The LLM is mocked via LiteLLMClient.achat so no external API calls are made.
 Results are verified through GET /api/runs/{run_id}/nodes (HTTP layer, not direct DB reads).
 """
 
@@ -209,7 +209,7 @@ def app_with_real_services(db_engine, base_dir):
     git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="sk-fake-test-key-for-e2e")
+    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-e2e")
     execution_session = Session(db_engine)
 
     execution_service = ExecutionService(
@@ -252,14 +252,14 @@ def mock_provider():
     provider = Mock()
     provider.id = "openai"
     provider.type = "openai"
-    provider.api_key = "sk-test"
+    provider.api_key = "dummy-test"
     provider.is_active = True
     provider.models = ["gpt-4o"]
     return provider
 
 
 # ---------------------------------------------------------------------------
-# AC1 — contains assertion passes when LLM output includes target string
+# Contains assertion passes when LLM output includes target string
 # ---------------------------------------------------------------------------
 
 
@@ -361,7 +361,7 @@ class TestContainsAssertionPasses:
 
 
 # ---------------------------------------------------------------------------
-# AC2 — contains assertion fails when LLM output does NOT include target
+# Contains assertion fails when LLM output does not include target
 # ---------------------------------------------------------------------------
 
 
@@ -503,7 +503,7 @@ class TestContainsAssertionFails:
 
 
 # ---------------------------------------------------------------------------
-# AC3 — cost assertion evaluates correctly against known cost_usd
+# Cost assertion evaluates correctly against known cost_usd
 # ---------------------------------------------------------------------------
 
 
@@ -651,7 +651,7 @@ class TestCostAssertionEvaluation:
 
 
 # ---------------------------------------------------------------------------
-# AC4 — assertions fire via EvalObserver during execution, not offline
+# Assertions fire via EvalObserver during execution, not offline
 # ---------------------------------------------------------------------------
 
 

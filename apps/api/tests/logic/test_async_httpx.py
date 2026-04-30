@@ -50,7 +50,7 @@ def _make_service(provider: ProviderEntity) -> ProviderService:
     repo.update.return_value = provider
     secrets = Mock()
     secrets.is_configured.return_value = bool(provider.api_key)
-    secrets.resolve.return_value = "sk-xxx"
+    secrets.resolve.return_value = "dummy-xxx"
     return ProviderService(repo, secrets)
 
 
@@ -516,7 +516,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         repo.update.return_value = provider
         secrets = Mock()
         secrets.is_configured.return_value = True
-        secrets.resolve.return_value = "sk-bad-key"
+        secrets.resolve.return_value = "dummy-bad-key"
         service = ProviderService(repo, secrets)
 
         mock_resp = Mock()
@@ -558,7 +558,7 @@ class TestHealthCheckBehaviorWithAsyncClient:
         repo.update.return_value = provider
         secrets = Mock()
         secrets.is_configured.return_value = True
-        secrets.resolve.return_value = "sk-xxx"
+        secrets.resolve.return_value = "dummy-xxx"
         service = ProviderService(repo, secrets)
 
         mock_client = AsyncMock()

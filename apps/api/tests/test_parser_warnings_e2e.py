@@ -264,7 +264,7 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
     if include_execution:
         provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
         mock_secrets = Mock()
-        mock_secrets.resolve = Mock(return_value="sk-fake-parser-warning")
+        mock_secrets.resolve = Mock(return_value="dummy-fake-parser-warning")
         git_service = _git_service_for(base_dir)
         execution_session = Session(db_engine)
         execution_service = ExecutionService(
@@ -327,8 +327,8 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
     prepared = _prepared_inputs({})
     fake_execution.prepare_run_inputs.return_value = prepared
     fake_execution.launch_execution = AsyncMock()
-    app_without_execution.dependency_overrides[get_execution_service] = (
-        lambda request=None: fake_execution
+    app_without_execution.dependency_overrides[get_execution_service] = lambda request=None: (
+        fake_execution
     )
 
     async with AsyncClient(

@@ -117,7 +117,7 @@ def _context_audit_event(node_id: str = "call_child") -> ContextAuditEventV1:
                 status="resolved",
                 severity="allow",
                 value_type="str",
-                preview="sk-live-secret",
+                preview="dummy-live-secret",
                 reason=None,
             )
         ],
