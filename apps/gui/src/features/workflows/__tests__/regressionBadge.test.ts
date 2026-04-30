@@ -23,7 +23,7 @@ const REGRESSIONS_SINGLE: WorkflowRegression[] = [
 const REGRESSIONS_EMPTY: WorkflowRegression[] = [];
 
 // ---------------------------------------------------------------------------
-// AC-4: Badge and tooltip hidden when 0 regressions
+// Badge and tooltip hidden when 0 regressions
 // ---------------------------------------------------------------------------
 
 describe("shouldShowRegressionBadge", () => {
@@ -45,7 +45,7 @@ describe("shouldShowRegressionBadge", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: Tooltip lists per-issue regression summary (type + node name)
+// Tooltip lists per-issue regression summary (type + node name)
 // ---------------------------------------------------------------------------
 
 describe("formatRegressionTooltip", () => {
@@ -86,7 +86,7 @@ describe("formatRegressionTooltip", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: "View runs →" CTA navigates to /runs?workflow=:id
+// "View runs →" CTA navigates to /runs?workflow=:id
 // ---------------------------------------------------------------------------
 
 describe("buildRunsFilterUrl", () => {

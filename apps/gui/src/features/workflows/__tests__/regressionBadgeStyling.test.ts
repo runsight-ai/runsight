@@ -5,7 +5,7 @@ import {
 } from "../regressionBadge.styles";
 
 // ---------------------------------------------------------------------------
-// AC-5: Badge styling matches spec tokens
+// Badge styling matches spec tokens
 // ---------------------------------------------------------------------------
 
 describe("REGRESSION_BADGE_CLASSES", () => {
