@@ -32,8 +32,8 @@ def db_engine():
 @pytest.fixture()
 def workflow_repo():
     workflow = Mock()
-    workflow.id = "wf_delete_run"
-    workflow.name = "Test Workflow"
+    workflow.id = "delete-run-workflow"
+    workflow.name = "Deletable workflow"
     repo = Mock()
     repo.get_by_id.return_value = workflow
     return repo
@@ -51,12 +51,12 @@ def run_service(db_engine, workflow_repo):
 
 def _create_run_via_repo(db_engine) -> str:
     """Insert a minimal Run record directly and return its id."""
-    run_id = "run_delete_completed"
+    run_id = "completed-run-for-delete"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_delete_run",
-            workflow_name="Test Workflow",
+            workflow_id="delete-run-workflow",
+            workflow_name="Deletable workflow",
             status=RunStatus.completed,
             task_json="{}",
             branch="main",
@@ -68,12 +68,12 @@ def _create_run_via_repo(db_engine) -> str:
 
 def _create_active_run_via_repo(db_engine, status: RunStatus = RunStatus.running) -> str:
     """Insert a minimal active Run record directly and return its id."""
-    run_id = "run_delete_active"
+    run_id = "active-run-for-delete"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_delete_run",
-            workflow_name="Test Workflow",
+            workflow_id="delete-run-workflow",
+            workflow_name="Deletable workflow",
             status=status,
             task_json="{}",
             branch="main",
@@ -103,7 +103,7 @@ class TestDeleteRunEndpoint:
         """DELETE /api/runs/{id} must return 404 when run does not exist."""
         app.dependency_overrides[get_run_service] = lambda: run_service
         try:
-            response = client.delete("/api/runs/run_delete_missing")
+            response = client.delete("/api/runs/missing-run-for-delete")
 
             assert response.status_code == 404
         finally:

@@ -22,7 +22,7 @@ CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
 class TestToolingPathPreconditions:
-    """Lock in the already-supported entry points this ticket must preserve."""
+    """Lock in the supported entry points the tooling migration must preserve."""
 
     def test_shared_package_uses_tools_for_supported_codegen_commands(self):
         package_json = json.loads(SHARED_PACKAGE_JSON.read_text(encoding="utf-8"))

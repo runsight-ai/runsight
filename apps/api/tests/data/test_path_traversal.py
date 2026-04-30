@@ -74,8 +74,8 @@ class TestNormalIdsAccepted:
     """Ensure normal, safe IDs do not raise errors."""
 
     SAFE_IDS = [
-        "my-soul-123",
-        "test_soul",
+        "editorial-soul",
+        "editorial_soul_profile",
         "simple",
         "CamelCase",
         "with-dashes-and-123",
