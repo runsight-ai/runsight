@@ -1,14 +1,13 @@
-"""
-RUN-890: Failing tests for LoopBlock migration to BlockContext/BlockOutput.
+"""LoopBlock BlockContext/BlockOutput migration coverage.
 
-Tests verify that after migration:
-AC-1: LoopBlock.execute accepts BlockContext and returns BlockOutput
-AC-2: No direct state mutation in LoopBlock.execute — uses state_snapshot internally
-AC-3: Inner blocks get fresh BlockContext each round via execute_block
-AC-4: carry_context flows correctly through shared_memory_updates across rounds
-AC-5: Round tracking metadata in shared_memory_updates is correct
-AC-6: Nested loops — inner loop context doesn't leak to outer
-AC-7: All existing LoopBlock behaviours preserved (backward compat via legacy path)
+Tests verify:
+- LoopBlock.execute accepts BlockContext and returns BlockOutput.
+- LoopBlock uses state_snapshot internally without direct state mutation.
+- Inner blocks receive fresh BlockContext values each round via execute_block.
+- carry_context flows through shared_memory_updates across rounds.
+- Round tracking metadata in shared_memory_updates is correct.
+- Nested loop context does not leak to the outer loop.
+- execute_block dispatches LoopBlock through the BlockContext path.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -46,7 +45,7 @@ def _make_mock_runner(output: str = "done", cost: float = 0.01, tokens: int = 10
     return runner
 
 
-def _make_linear_block(block_id: str, runner=None, soul_id: str = "soul_1") -> LinearBlock:
+def _make_linear_block(block_id: str, runner=None, soul_id: str = "loop_soul") -> LinearBlock:
     soul = Soul(
         id=soul_id, kind="soul", name="Test Agent", role="Agent", system_prompt="You are an agent."
     )
@@ -84,7 +83,7 @@ def _make_loop_block_context(
 
 def _make_block_execution_ctx(blocks: dict) -> BlockExecutionContext:
     return BlockExecutionContext(
-        workflow_name="test_wf",
+        workflow_name="loop_fixture_workflow",
         blocks=blocks,
         call_stack=[],
         workflow_registry=None,
@@ -93,7 +92,7 @@ def _make_block_execution_ctx(blocks: dict) -> BlockExecutionContext:
 
 
 # ---------------------------------------------------------------------------
-# AC-1: LoopBlock.execute accepts BlockContext and returns BlockOutput
+# LoopBlock.execute accepts BlockContext and returns BlockOutput
 # ---------------------------------------------------------------------------
 
 
@@ -116,7 +115,7 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
         assert isinstance(result, BlockOutput), (
             f"Expected BlockOutput but got {type(result).__name__}. "
-            "LoopBlock.execute must return BlockOutput after RUN-890 migration."
+            "LoopBlock.execute should return BlockOutput after BlockContext migration."
         )
 
     @pytest.mark.asyncio
@@ -176,11 +175,11 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
             f"Expected total_tokens=400 (2 rounds x 200), got {result.total_tokens}"
         )
 
-    # Legacy WorkflowState path removed — shim deleted in RUN-906
+    # Legacy WorkflowState shim removed.
 
 
 # ---------------------------------------------------------------------------
-# AC-2: Uses state_snapshot internally — returns BlockOutput, not WorkflowState
+# Uses state_snapshot internally and returns BlockOutput
 # ---------------------------------------------------------------------------
 
 
@@ -268,7 +267,7 @@ class TestLoopUsesStateSnapshot:
 
 
 # ---------------------------------------------------------------------------
-# AC-3: Inner blocks get fresh BlockContext per round via execute_block
+# Inner blocks get fresh BlockContext per round via execute_block
 # ---------------------------------------------------------------------------
 
 
@@ -363,7 +362,7 @@ class TestLoopInnerBlocksGetFreshContext:
 
 
 # ---------------------------------------------------------------------------
-# AC-4: carry_context flows through shared_memory_updates
+# carry_context flows through shared_memory_updates
 # ---------------------------------------------------------------------------
 
 
@@ -486,7 +485,7 @@ class TestLoopCarryContextFlows:
 
 
 # ---------------------------------------------------------------------------
-# AC-5: Round tracking metadata in shared_memory_updates is correct
+# Round tracking metadata in shared_memory_updates is correct
 # ---------------------------------------------------------------------------
 
 
@@ -634,7 +633,7 @@ class TestLoopRoundTrackingMetadata:
 
 
 # ---------------------------------------------------------------------------
-# AC-6: Nested loops — inner loop context doesn't leak to outer
+# Nested loop context does not leak to outer loop
 # ---------------------------------------------------------------------------
 
 
@@ -726,19 +725,19 @@ class TestNestedLoopsAvoidContextLeak:
             "'outer_ctx' must be in outer loop's shared_memory_updates"
         )
 
-        # Inner ctx should NOT bleed directly into outer's shared_memory_updates
+        # Inner ctx should not bleed directly into outer's shared_memory_updates.
         # (inner ctx belongs to the inner loop's own BlockOutput, not the outer's diff)
         # This ensures inner loop context doesn't directly overwrite outer namespace
         outer_ctx_val = result.shared_memory_updates.get("outer_ctx")
         assert outer_ctx_val is not None
         assert "inner_ctx" not in result.shared_memory_updates, (
-            "'inner_ctx' must not appear in outer loop's shared_memory_updates — "
+            "'inner_ctx' must not appear in outer loop's shared_memory_updates; "
             "inner loop carry_context must not bleed into outer loop's namespace."
         )
 
 
 # ---------------------------------------------------------------------------
-# AC-7: End-to-end via execute_block — LoopBlock dispatches through new path
+# execute_block dispatches LoopBlock through the BlockContext path
 # ---------------------------------------------------------------------------
 
 

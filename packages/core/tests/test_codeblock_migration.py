@@ -1,14 +1,12 @@
-"""
-RUN-889: Failing tests for CodeBlock migration to BlockContext/BlockOutput.
+"""CodeBlock BlockContext/BlockOutput migration coverage.
 
-Tests verify that after migration:
-AC-1: CodeBlock.execute accepts BlockContext and returns BlockOutput (not WorkflowState)
-AC-2: stdin_data to subprocess is byte-identical to current path
-AC-3: Error cases produce correct BlockOutput with exit_handle="error"
-AC-4: exit_handle extraction from dict results still works
-AC-5: build_block_context detects CodeBlock (has `code` attribute) without requiring
-      current_task or LLM state.
-AC-6: End-to-end via execute_block dispatches CodeBlock through new path
+Tests verify:
+- CodeBlock.execute accepts BlockContext and returns BlockOutput.
+- ctx.inputs are passed to the subprocess unchanged.
+- Error cases produce BlockOutput with exit_handle="error".
+- exit_handle extraction from dict results still works.
+- build_block_context detects CodeBlock without current_task or LLM state.
+- execute_block dispatches CodeBlock through the BlockContext path.
 """
 
 import json
@@ -107,7 +105,7 @@ def _make_code_block_context(
 
 
 # ===========================================================================
-# AC-1: CodeBlock.execute accepts BlockContext and returns BlockOutput
+# CodeBlock.execute accepts BlockContext and returns BlockOutput
 # ===========================================================================
 
 
@@ -123,7 +121,7 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
         assert isinstance(result, BlockOutput), (
             f"Expected BlockOutput but got {type(result).__name__}. "
-            "CodeBlock.execute must return BlockOutput after RUN-889 migration."
+            "CodeBlock.execute should return BlockOutput after BlockContext migration."
         )
 
     @pytest.mark.asyncio
@@ -141,7 +139,7 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
     @pytest.mark.asyncio
     async def test_block_output_cost_is_zero(self):
-        """CodeBlock makes no LLM calls — cost_usd must be exactly 0."""
+        """CodeBlock makes no LLM calls, so cost_usd is exactly 0."""
         block = CodeBlock("cb_cost", SIMPLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -155,7 +153,7 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
     @pytest.mark.asyncio
     async def test_block_output_tokens_is_zero(self):
-        """CodeBlock makes no LLM calls — total_tokens must be exactly 0."""
+        """CodeBlock makes no LLM calls, so total_tokens is exactly 0."""
         block = CodeBlock("cb_tokens", SIMPLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -184,7 +182,7 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
     @pytest.mark.asyncio
     async def test_execute_does_not_return_workflow_state(self):
-        """After migration, CodeBlock.execute(BlockContext) must NOT return WorkflowState."""
+        """CodeBlock.execute(BlockContext) must not return WorkflowState."""
         block = CodeBlock("cb2", SIMPLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -195,11 +193,11 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
             "CodeBlock.execute(BlockContext) must return BlockOutput, not WorkflowState"
         )
 
-    # Legacy WorkflowState path removed — shim deleted in RUN-906
+    # Legacy WorkflowState shim removed.
 
 
 # ===========================================================================
-# AC-2: governed ctx.inputs are passed through to stdin
+# Governed ctx.inputs are passed through to stdin
 # ===========================================================================
 
 
@@ -257,15 +255,18 @@ class TestStdinDataByteIdentical:
     @pytest.mark.asyncio
     async def test_stdin_local_mapping_matches_declared_payload(self):
         """ctx.inputs preserves local mapping payloads."""
-        state = _make_state(metadata={"blueprint": "test_wf", "run_id": "run-123"})
+        state = _make_state(metadata={"blueprint": "fixture_workflow", "run_id": "fixture-run"})
         block = CodeBlock("cb_meta", SIMPLE_CODE)
         ctx = _make_code_block_context(
             block,
             state,
-            inputs={"run_context": {"blueprint": "test_wf", "run_id": "run-123"}},
+            inputs={"run_context": {"blueprint": "fixture_workflow", "run_id": "fixture-run"}},
         )
 
-        assert ctx.inputs["run_context"] == {"blueprint": "test_wf", "run_id": "run-123"}
+        assert ctx.inputs["run_context"] == {
+            "blueprint": "fixture_workflow",
+            "run_id": "fixture-run",
+        }
 
     @pytest.mark.asyncio
     async def test_stdin_local_nested_inputs_are_preserved(self):
@@ -282,14 +283,14 @@ class TestStdinDataByteIdentical:
 
 
 # ===========================================================================
-# AC-3: Error cases produce correct BlockOutput with exit_handle="error"
+# Error cases produce correct BlockOutput with exit_handle="error"
 # ===========================================================================
 
 
 class TestCodeBlockErrorCases:
     @pytest.mark.asyncio
     async def test_nonzero_exit_code_returns_block_output_with_error_exit_handle(self):
-        """Non-zero subprocess exit → BlockOutput with exit_handle='error'."""
+        """Non-zero subprocess exit returns BlockOutput with exit_handle='error'."""
         block = CodeBlock("cb_err", ERROR_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -303,7 +304,7 @@ class TestCodeBlockErrorCases:
 
     @pytest.mark.asyncio
     async def test_nonzero_exit_code_output_contains_error_prefix(self):
-        """Non-zero exit → BlockOutput.output must start with 'Error:'."""
+        """Non-zero exit makes BlockOutput.output start with 'Error:'."""
         block = CodeBlock("cb_err2", ERROR_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -317,7 +318,7 @@ class TestCodeBlockErrorCases:
 
     @pytest.mark.asyncio
     async def test_nonzero_exit_code_output_contains_error_message(self):
-        """Non-zero exit → BlockOutput.output must contain the error message."""
+        """Non-zero exit makes BlockOutput.output contain the error message."""
         block = CodeBlock("cb_err3", ERROR_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -329,7 +330,7 @@ class TestCodeBlockErrorCases:
 
     @pytest.mark.asyncio
     async def test_invalid_json_stdout_returns_block_output_with_error(self):
-        """Non-JSON stdout → BlockOutput with error message (no exit_handle='error' required)."""
+        """Non-JSON stdout returns BlockOutput with an error message."""
         block = CodeBlock("cb_nonjson", NON_JSON_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -343,7 +344,7 @@ class TestCodeBlockErrorCases:
 
     @pytest.mark.asyncio
     async def test_timeout_raises_timeout_error(self):
-        """Timeout → TimeoutError raised (same as current behaviour, not swallowed)."""
+        """Timeout raises TimeoutError rather than being swallowed."""
         block = CodeBlock("cb_timeout", TIMEOUT_CODE, timeout_seconds=1)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -368,14 +369,14 @@ class TestCodeBlockErrorCases:
 
 
 # ===========================================================================
-# AC-4: exit_handle extraction from dict results
+# exit_handle extraction from dict results
 # ===========================================================================
 
 
 class TestCodeBlockExitHandleExtraction:
     @pytest.mark.asyncio
     async def test_dict_with_exit_handle_extracts_handle(self):
-        """Code returns dict with 'exit_handle' key → extracted as exit_handle, popped from output."""
+        """Code returning dict with exit_handle extracts it and removes it from output."""
         block = CodeBlock("cb_exit", EXIT_HANDLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -405,7 +406,7 @@ class TestCodeBlockExitHandleExtraction:
 
     @pytest.mark.asyncio
     async def test_dict_with_empty_exit_handle_yields_none(self):
-        """Code returns dict with 'exit_handle': '' → exit_handle=None (empty string is falsy)."""
+        """Code returning empty exit_handle yields exit_handle=None."""
         block = CodeBlock("cb_empty_exit", EXIT_HANDLE_EMPTY_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -419,7 +420,7 @@ class TestCodeBlockExitHandleExtraction:
 
     @pytest.mark.asyncio
     async def test_dict_without_exit_handle_yields_none(self):
-        """Code returns dict without 'exit_handle' key → exit_handle=None."""
+        """Code returning a dict without exit_handle yields exit_handle=None."""
         block = CodeBlock("cb_no_exit", NO_EXIT_HANDLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -433,7 +434,7 @@ class TestCodeBlockExitHandleExtraction:
 
     @pytest.mark.asyncio
     async def test_dict_without_exit_handle_preserves_output(self):
-        """Code returns dict without exit_handle → full dict in output."""
+        """Code returning a dict without exit_handle preserves the full dict in output."""
         block = CodeBlock("cb_no_exit2", NO_EXIT_HANDLE_CODE)
         state = _make_state()
         ctx = _make_code_block_context(block, state)
@@ -446,7 +447,7 @@ class TestCodeBlockExitHandleExtraction:
 
 
 # ===========================================================================
-# AC-5: build_block_context for CodeBlock
+# build_block_context for CodeBlock
 # ===========================================================================
 
 
@@ -489,7 +490,7 @@ class TestCodeBlockContextBuilder:
         assert ctx.block_id == "my_code_block"
 
     def test_build_block_context_soul_is_none(self):
-        """CodeBlock has no soul — ctx.soul must be None."""
+        """CodeBlock has no soul, so ctx.soul is None."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         state = _make_state()
 
@@ -498,19 +499,19 @@ class TestCodeBlockContextBuilder:
         assert ctx.soul is None, f"CodeBlock ctx.soul must be None (no LLM), got {ctx.soul!r}"
 
     def test_build_block_context_no_current_task_required(self):
-        """CodeBlock does NOT need state.current_task — build_block_context must not raise."""
+        """CodeBlock does not need state.current_task."""
         block = CodeBlock("cb_ctx", SIMPLE_CODE)
         # Deliberately omit current_task
         state = WorkflowState(results={}, metadata={}, shared_memory={})
 
-        # Must NOT raise ValueError about current_task being None
+        # Should not raise ValueError about current_task being None.
         ctx = build_block_context(block, state)
 
         assert isinstance(ctx, BlockContext)
 
 
 # ===========================================================================
-# AC-6: E2E via execute_block
+# execute_block dispatch
 # ===========================================================================
 
 
@@ -589,7 +590,7 @@ class TestExecuteBlockDispatch:
 
     @pytest.mark.asyncio
     async def test_execute_block_cost_not_accumulated_for_codeblock(self):
-        """CodeBlock adds no cost — state.total_cost_usd must be unchanged after execute_block."""
+        """CodeBlock adds no cost, so state.total_cost_usd is unchanged."""
         block = CodeBlock("cb_cost_e2e", SIMPLE_CODE)
         state = _make_state()
         state = state.model_copy(update={"total_cost_usd": 2.50, "total_tokens": 300})
@@ -613,7 +614,7 @@ class TestExecuteBlockDispatch:
 
     @pytest.mark.asyncio
     async def test_execute_block_error_path_sets_exit_handle_in_state(self):
-        """execute_block with error code → state.results[block_id].exit_handle='error'."""
+        """execute_block with error code sets state.results[block_id].exit_handle='error'."""
         block = CodeBlock("cb_err_e2e", ERROR_CODE)
         state = _make_state()
         block_exec_ctx = BlockExecutionContext(
@@ -634,7 +635,7 @@ class TestExecuteBlockDispatch:
 
     @pytest.mark.asyncio
     async def test_execute_block_custom_exit_handle_stored_in_state(self):
-        """execute_block with custom exit_handle code → state.results[block_id].exit_handle='custom_exit'."""
+        """execute_block with custom exit_handle stores it in state results."""
         block = CodeBlock("cb_custom_exit_e2e", EXIT_HANDLE_CODE)
         state = _make_state()
         block_exec_ctx = BlockExecutionContext(

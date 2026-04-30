@@ -1,14 +1,13 @@
-"""
-RUN-888: Failing tests for DispatchBlock migration to BlockContext/BlockOutput.
+"""DispatchBlock BlockContext/BlockOutput migration coverage.
 
-Tests verify that after migration:
-AC-1: DispatchBlock.execute accepts BlockContext and returns BlockOutput
-AC-2: No direct state mutation in DispatchBlock.execute
-AC-3: Per-branch context building produces correct budgeted contexts
-AC-4: Budget isolation between branches still works after migration (regression)
-AC-5: extra_results correctly captures per-exit block results
-AC-6: conversation_updates correctly captures per-branch histories (stateful)
-AC-7: End-to-end via execute_block — state contains per-exit results after apply_block_output
+Tests verify:
+- DispatchBlock.execute accepts BlockContext and returns BlockOutput.
+- DispatchBlock.execute avoids direct state mutation.
+- Per-branch context building produces correct budgeted contexts.
+- Budget isolation between branches remains intact.
+- extra_results captures per-exit block results.
+- conversation_updates captures per-branch histories for stateful dispatch.
+- execute_block stores per-exit results after apply_block_output.
 """
 
 import json
@@ -129,7 +128,7 @@ def _setup_runner_side_effect(mock_runner, soul_output_map: dict):
 
 
 # ---------------------------------------------------------------------------
-# AC-1: DispatchBlock.execute accepts BlockContext and returns BlockOutput
+# DispatchBlock.execute accepts BlockContext and returns BlockOutput
 # ---------------------------------------------------------------------------
 
 
@@ -154,7 +153,7 @@ async def test_dispatchblock_execute_accepts_block_context(
 
     assert isinstance(result, BlockOutput), (
         f"Expected BlockOutput but got {type(result).__name__}. "
-        "DispatchBlock.execute must return BlockOutput after RUN-888 migration."
+        "DispatchBlock.execute should return BlockOutput after BlockContext migration."
     )
 
 
@@ -246,7 +245,7 @@ async def test_dispatchblock_execute_log_entries_contain_dispatch_completion(
 
 
 # ---------------------------------------------------------------------------
-# AC-2: No direct state mutation in DispatchBlock.execute
+# DispatchBlock.execute avoids direct state mutation
 # ---------------------------------------------------------------------------
 
 
@@ -254,7 +253,7 @@ async def test_dispatchblock_execute_log_entries_contain_dispatch_completion(
 async def test_dispatchblock_execute_returns_data_not_state(
     mock_runner, soul_alpha, soul_beta, sample_task
 ):
-    """BlockOutput is a pure data object — no WorkflowState fields."""
+    """BlockOutput is a pure data object with no WorkflowState fields."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -270,15 +269,15 @@ async def test_dispatchblock_execute_returns_data_not_state(
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput), f"Expected BlockOutput, got {type(result).__name__}"
-    # BlockOutput must NOT have WorkflowState-style 'results' dict
+    # BlockOutput should not have WorkflowState-style 'results' dict.
     assert not (
         hasattr(result, "results")
         and isinstance(getattr(result, "results", None), dict)
         and any(isinstance(v, BlockResult) for v in getattr(result, "results", {}).values())
     ), "BlockOutput must not carry a WorkflowState-style results dict with BlockResult values"
-    # BlockOutput must NOT have current_task
+    # BlockOutput should not have current_task.
     assert not hasattr(result, "current_task"), (
-        "BlockOutput must not have current_task — that belongs to WorkflowState"
+        "BlockOutput must not have current_task; that belongs to WorkflowState"
     )
 
 
@@ -310,7 +309,7 @@ async def test_dispatchblock_execute_with_block_context_does_not_mutate_input_ct
 
 
 # ---------------------------------------------------------------------------
-# AC-3: Per-branch context building
+# Per-branch context building
 # ---------------------------------------------------------------------------
 
 
@@ -365,7 +364,7 @@ def test_build_block_context_for_dispatchblock_branches_accessible_via_inputs(
 
     After migration, per-branch task instructions come from branch.task_instruction.
     This test verifies that build_block_context returns a ctx with branch-compatible
-    data — the block's branches are accessible from the block instance itself.
+    data; the block's branches are accessible from the block instance itself.
     """
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
@@ -373,7 +372,7 @@ def test_build_block_context_for_dispatchblock_branches_accessible_via_inputs(
 
     ctx = build_block_context(block, state)
 
-    # The block retains its branches — each branch has its own task_instruction
+    # The block retains its branches; each branch has its own task_instruction.
     assert len(block.branches) == 2
     branch_a = next(b for b in block.branches if b.exit_id == "exit_a")
     branch_b = next(b for b in block.branches if b.exit_id == "exit_b")
@@ -388,8 +387,8 @@ def test_build_block_context_for_dispatchblock_returns_block_context_without_tas
 ):
     """build_block_context for DispatchBlock returns valid BlockContext even without task.
 
-    After RUN-866 removal of Task/current_task, DispatchBlock context is built
-    from branch task_instruction — no current_task required.
+    DispatchBlock context is built from branch task_instruction with no
+    current_task required.
     """
     branches = _make_branches(soul_alpha, soul_beta)
     block = DispatchBlock("dispatch1", branches, mock_runner)
@@ -445,7 +444,7 @@ async def test_dispatchblock_step_declared_context_reaches_runner(
 
 
 # ---------------------------------------------------------------------------
-# AC-4: Budget isolation regression — still works after migration
+# Budget isolation remains intact
 # ---------------------------------------------------------------------------
 
 
@@ -481,7 +480,7 @@ async def test_budget_isolation_one_branch_exceeding_cap_does_not_bleed_to_sibli
     finally:
         _active_budget.reset(token)
 
-    # Both branches ran — each captured an isolated child session (not the parent)
+    # Both branches ran; each captured an isolated child session rather than the parent.
     assert len(captured_sessions) == 2
     session_alpha = captured_sessions.get("soul_alpha")
     session_beta = captured_sessions.get("soul_beta")
@@ -505,7 +504,7 @@ async def test_budget_isolation_no_parent_session_runs_without_overhead(
 ):
     """Regression: when no BudgetSession is active, dispatch runs as plain asyncio.gather.
 
-    This is the zero-overhead code path — must not raise or change behavior.
+    This is the zero-overhead code path and should not change behavior.
     """
     _setup_runner_side_effect(
         mock_runner,
@@ -572,7 +571,7 @@ async def test_budget_isolation_parent_costs_reconciled_after_gather(
 
 
 # ---------------------------------------------------------------------------
-# AC-5: extra_results captures per-exit block results
+# extra_results captures per-exit block results
 # ---------------------------------------------------------------------------
 
 
@@ -710,7 +709,7 @@ async def test_apply_block_output_merges_extra_results_into_state(
 
 
 # ---------------------------------------------------------------------------
-# AC-6: conversation_updates captures per-branch histories (stateful)
+# conversation_updates captures per-branch histories
 # ---------------------------------------------------------------------------
 
 
@@ -839,11 +838,11 @@ async def test_stateful_dispatchblock_conversation_updates_history_independence(
 
     assert "ALPHA_UNIQUE_XYZ" in all_a
     assert "BETA_UNIQUE_ABC" not in all_a, (
-        "dispatch1_exit_a history must not contain BETA output — cross-contamination detected"
+        "dispatch1_exit_a history must not contain BETA output; cross-contamination detected"
     )
     assert "BETA_UNIQUE_ABC" in all_b
     assert "ALPHA_UNIQUE_XYZ" not in all_b, (
-        "dispatch1_exit_b history must not contain ALPHA output — cross-contamination detected"
+        "dispatch1_exit_b history must not contain ALPHA output; cross-contamination detected"
     )
 
 
@@ -936,12 +935,12 @@ async def test_non_stateful_dispatchblock_conversation_updates_is_none(
 
     assert isinstance(result, BlockOutput)
     assert result.conversation_replacements is None, (
-        "Non-stateful DispatchBlock must NOT set conversation_replacements on BlockOutput"
+        "Non-stateful DispatchBlock must not set conversation_replacements on BlockOutput"
     )
 
 
 # ---------------------------------------------------------------------------
-# AC-7: End-to-end via execute_block
+# execute_block dispatch
 # ---------------------------------------------------------------------------
 
 
