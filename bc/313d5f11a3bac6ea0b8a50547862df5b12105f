@@ -1,0 +1,23 @@
+apps/api/tests/logic/test_execution_service_concurrency.py
+  4adca821c1af8eb3 16-30,45,82-85,148-150,210-212,260-262,301-303,308-310,315-316,332,350-352,359-361,375,379-380,383,390,408-410,413,416-417,423-425,431,433,453-455,472-474,480,493,509,515,517-519,547-549,556-558,563,565,590,595,598-600,640-642,648-650,666-668,698-700,708-710
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bc313d5f11a3bac6ea0b8a50547862df5b12105f",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 103,
+      "total_deletions": 96,
+      "accepted_lines": 108671,
+      "overriden_lines": 0
+    }
+  }
+}
