@@ -48,26 +48,26 @@ class TestResolveOrder:
     def test_resolve_returns_value_from_secrets_env(self, loader, secrets_file):
         """resolve must return the value from secrets.env when not in os.environ."""
         secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=sk-from-file\n")
+        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
 
         result = loader.resolve("${MY_API_KEY}")
-        assert result == "sk-from-file"
+        assert result == "dummy-from-file"
 
     def test_resolve_returns_value_from_env_var(self, loader, monkeypatch):
         """resolve must return the os.environ value when set."""
-        monkeypatch.setenv("MY_API_KEY", "sk-from-env")
+        monkeypatch.setenv("MY_API_KEY", "dummy-from-env")
 
         result = loader.resolve("${MY_API_KEY}")
-        assert result == "sk-from-env"
+        assert result == "dummy-from-env"
 
     def test_env_var_takes_precedence_over_secrets_env(self, loader, secrets_file, monkeypatch):
         """Real env var must take precedence over secrets.env value."""
         secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=sk-from-file\n")
-        monkeypatch.setenv("MY_API_KEY", "sk-from-env")
+        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
+        monkeypatch.setenv("MY_API_KEY", "dummy-from-env")
 
         result = loader.resolve("${MY_API_KEY}")
-        assert result == "sk-from-env"
+        assert result == "dummy-from-env"
 
     def test_resolve_strips_dollar_braces(self, loader, monkeypatch):
         """resolve('${FOO}') must look up 'FOO' in env/file, not '${FOO}'."""
@@ -84,56 +84,56 @@ class TestResolveOrder:
 class TestStoreKey:
     def test_store_key_returns_env_var_reference(self, loader):
         """store_key must return the ${ENV_VAR} reference string."""
-        ref = loader.store_key("openai", "sk-abc123")
+        ref = loader.store_key("openai", "dummy-abc123")
         assert ref == "${OPENAI_API_KEY}"
 
     def test_store_key_writes_to_secrets_file(self, loader, secrets_file):
         """store_key must persist the key=value to secrets.env."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         assert secrets_file.exists()
 
         content = secrets_file.read_text()
-        assert "OPENAI_API_KEY=sk-abc123" in content
+        assert "OPENAI_API_KEY=dummy-abc123" in content
 
     def test_store_key_uppercases_provider_type(self, loader, secrets_file):
         """Provider type must be uppercased in the env var name."""
-        loader.store_key("anthropic", "sk-ant-123")
+        loader.store_key("anthropic", "dummy-ant-123")
 
         content = secrets_file.read_text()
-        assert "ANTHROPIC_API_KEY=sk-ant-123" in content
+        assert "ANTHROPIC_API_KEY=dummy-ant-123" in content
 
     def test_store_key_handles_underscore_provider(self, loader, secrets_file):
         """Provider types with underscores must map correctly (e.g. azure_openai → AZURE_OPENAI_API_KEY)."""
-        ref = loader.store_key("azure_openai", "sk-azure-123")
+        ref = loader.store_key("azure_openai", "dummy-azure-123")
         assert ref == "${AZURE_OPENAI_API_KEY}"
 
         content = secrets_file.read_text()
-        assert "AZURE_OPENAI_API_KEY=sk-azure-123" in content
+        assert "AZURE_OPENAI_API_KEY=dummy-azure-123" in content
 
     def test_store_key_overwrites_existing_key(self, loader, secrets_file):
         """Calling store_key again for the same provider must update the value."""
-        loader.store_key("openai", "sk-old")
-        loader.store_key("openai", "sk-new")
+        loader.store_key("openai", "dummy-old")
+        loader.store_key("openai", "dummy-new")
 
         content = secrets_file.read_text()
-        assert "OPENAI_API_KEY=sk-new" in content
+        assert "OPENAI_API_KEY=dummy-new" in content
         # Old value must not be present
-        assert "sk-old" not in content
+        assert "dummy-old" not in content
 
     def test_store_key_preserves_other_keys(self, loader, secrets_file):
         """Storing a new key must not remove existing keys for other providers."""
-        loader.store_key("openai", "sk-openai")
-        loader.store_key("anthropic", "sk-anthropic")
+        loader.store_key("openai", "dummy-openai")
+        loader.store_key("anthropic", "dummy-anthropic")
 
         content = secrets_file.read_text()
-        assert "OPENAI_API_KEY=sk-openai" in content
-        assert "ANTHROPIC_API_KEY=sk-anthropic" in content
+        assert "OPENAI_API_KEY=dummy-openai" in content
+        assert "ANTHROPIC_API_KEY=dummy-anthropic" in content
 
     def test_store_key_can_resolve_afterwards(self, loader):
         """After store_key, resolve must return the stored value."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         result = loader.resolve("${OPENAI_API_KEY}")
-        assert result == "sk-abc123"
+        assert result == "dummy-abc123"
 
 
 # ===========================================================================
@@ -146,13 +146,13 @@ class TestFileCreation:
         """secrets.env must be created on the first store_key call."""
         assert not secrets_file.exists()
 
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
 
         assert secrets_file.exists()
 
     def test_file_has_managed_header(self, loader, secrets_file):
         """secrets.env must start with '# Managed by Runsight' header."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
 
         content = secrets_file.read_text()
         first_line = content.split("\n")[0]
@@ -163,15 +163,15 @@ class TestFileCreation:
         runsight_dir = tmp_path / ".runsight"
         assert not runsight_dir.exists()
 
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
 
         assert runsight_dir.exists()
         assert runsight_dir.is_dir()
 
     def test_second_store_preserves_header(self, loader, secrets_file):
         """Subsequent store_key calls must not duplicate the header."""
-        loader.store_key("openai", "sk-abc")
-        loader.store_key("anthropic", "sk-ant")
+        loader.store_key("openai", "dummy-abc")
+        loader.store_key("anthropic", "dummy-ant")
 
         content = secrets_file.read_text()
         assert content.count("# Managed by Runsight") == 1
@@ -185,7 +185,7 @@ class TestFileCreation:
 class TestRemoveKey:
     def test_remove_key_removes_line(self, loader, secrets_file):
         """remove_key must remove the matching line from secrets.env."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         loader.remove_key("${OPENAI_API_KEY}")
 
         content = secrets_file.read_text()
@@ -193,18 +193,18 @@ class TestRemoveKey:
 
     def test_remove_key_preserves_other_keys(self, loader, secrets_file):
         """remove_key must not affect other keys in secrets.env."""
-        loader.store_key("openai", "sk-openai")
-        loader.store_key("anthropic", "sk-anthropic")
+        loader.store_key("openai", "dummy-openai")
+        loader.store_key("anthropic", "dummy-anthropic")
 
         loader.remove_key("${OPENAI_API_KEY}")
 
         content = secrets_file.read_text()
         assert "OPENAI_API_KEY" not in content
-        assert "ANTHROPIC_API_KEY=sk-anthropic" in content
+        assert "ANTHROPIC_API_KEY=dummy-anthropic" in content
 
     def test_remove_key_no_error_when_key_missing(self, loader):
         """remove_key must not raise when the key does not exist in secrets.env."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         # Should not raise
         loader.remove_key("${NONEXISTENT_API_KEY}")
 
@@ -215,13 +215,13 @@ class TestRemoveKey:
 
     def test_remove_then_is_configured_returns_false(self, loader):
         """After removing a key, is_configured must return False."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         loader.remove_key("${OPENAI_API_KEY}")
         assert loader.is_configured("${OPENAI_API_KEY}") is False
 
     def test_remove_then_resolve_returns_none(self, loader):
         """After removing a key, resolve must return None (assuming no env var)."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         loader.remove_key("${OPENAI_API_KEY}")
         assert loader.resolve("${OPENAI_API_KEY}") is None
 
@@ -234,12 +234,12 @@ class TestRemoveKey:
 class TestIsConfigured:
     def test_is_configured_returns_true_when_in_secrets_env(self, loader):
         """is_configured must return True when the key exists in secrets.env."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
         assert loader.is_configured("${OPENAI_API_KEY}") is True
 
     def test_is_configured_returns_true_when_in_env_var(self, loader, monkeypatch):
         """is_configured must return True when the key exists as an env var."""
-        monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+        monkeypatch.setenv("OPENAI_API_KEY", "dummy-from-env")
         assert loader.is_configured("${OPENAI_API_KEY}") is True
 
     def test_is_configured_returns_false_when_nowhere(self, loader):
@@ -259,7 +259,7 @@ class TestIsConfigured:
 class TestValuesWithEquals:
     def test_store_and_resolve_value_with_equals(self, loader):
         """Values containing '=' (e.g. base64 keys) must round-trip correctly."""
-        base64_key = "sk-abc123+def456/ghi789=="
+        base64_key = "dummy-abc123+def456/ghi789=="
         loader.store_key("openai", base64_key)
         result = loader.resolve("${OPENAI_API_KEY}")
         assert result == base64_key
@@ -330,21 +330,21 @@ class TestDotenvFormat:
         """Lines starting with # must be ignored during resolve."""
         secrets_file.parent.mkdir(parents=True, exist_ok=True)
         secrets_file.write_text(
-            "# Managed by Runsight\n# OPENAI_API_KEY=sk-commented-out\nANTHROPIC_API_KEY=sk-real\n"
+            "# Managed by Runsight\n# OPENAI_API_KEY=dummy-commented-out\nANTHROPIC_API_KEY=dummy-present\n"
         )
 
         assert loader.resolve("${OPENAI_API_KEY}") is None
-        assert loader.resolve("${ANTHROPIC_API_KEY}") == "sk-real"
+        assert loader.resolve("${ANTHROPIC_API_KEY}") == "dummy-present"
 
     def test_blank_lines_are_ignored(self, loader, secrets_file):
         """Blank lines must not cause errors."""
         secrets_file.parent.mkdir(parents=True, exist_ok=True)
         secrets_file.write_text(
-            "# Managed by Runsight\n\nOPENAI_API_KEY=sk-abc\n\nANTHROPIC_API_KEY=sk-def\n\n"
+            "# Managed by Runsight\n\nOPENAI_API_KEY=dummy-abc\n\nANTHROPIC_API_KEY=dummy-def\n\n"
         )
 
-        assert loader.resolve("${OPENAI_API_KEY}") == "sk-abc"
-        assert loader.resolve("${ANTHROPIC_API_KEY}") == "sk-def"
+        assert loader.resolve("${OPENAI_API_KEY}") == "dummy-abc"
+        assert loader.resolve("${ANTHROPIC_API_KEY}") == "dummy-def"
 
 
 # ===========================================================================
@@ -364,7 +364,7 @@ class TestAtomicWrites:
 
         monkeypatch.setattr(os, "rename", tracking_rename)
 
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
 
         assert len(renames) >= 1, "No os.rename calls detected — write is not atomic"
         runsight_dir = str(tmp_path / ".runsight")
@@ -375,7 +375,7 @@ class TestAtomicWrites:
 
     def test_remove_key_uses_atomic_write(self, loader, tmp_path, monkeypatch):
         """remove_key must also use atomic writes when the file exists."""
-        loader.store_key("openai", "sk-abc123")
+        loader.store_key("openai", "dummy-abc123")
 
         renames = []
         original_rename = os.rename
@@ -399,24 +399,24 @@ class TestAtomicWrites:
 class TestRoundTrip:
     def test_store_then_resolve_round_trip(self, loader):
         """Data must survive a store -> resolve round trip."""
-        loader.store_key("openai", "sk-abc123")
-        assert loader.resolve("${OPENAI_API_KEY}") == "sk-abc123"
+        loader.store_key("openai", "dummy-abc123")
+        assert loader.resolve("${OPENAI_API_KEY}") == "dummy-abc123"
 
     def test_multiple_providers_round_trip(self, loader):
         """Multiple providers must coexist and round-trip correctly."""
-        loader.store_key("openai", "sk-openai")
-        loader.store_key("anthropic", "sk-anthropic")
-        loader.store_key("azure_openai", "sk-azure")
+        loader.store_key("openai", "dummy-openai")
+        loader.store_key("anthropic", "dummy-anthropic")
+        loader.store_key("azure_openai", "dummy-azure")
 
-        assert loader.resolve("${OPENAI_API_KEY}") == "sk-openai"
-        assert loader.resolve("${ANTHROPIC_API_KEY}") == "sk-anthropic"
-        assert loader.resolve("${AZURE_OPENAI_API_KEY}") == "sk-azure"
+        assert loader.resolve("${OPENAI_API_KEY}") == "dummy-openai"
+        assert loader.resolve("${ANTHROPIC_API_KEY}") == "dummy-anthropic"
+        assert loader.resolve("${AZURE_OPENAI_API_KEY}") == "dummy-azure"
 
     def test_store_remove_store_round_trip(self, loader):
         """Store → remove → re-store must work correctly."""
-        loader.store_key("openai", "sk-v1")
+        loader.store_key("openai", "dummy-v1")
         loader.remove_key("${OPENAI_API_KEY}")
         assert loader.resolve("${OPENAI_API_KEY}") is None
 
-        loader.store_key("openai", "sk-v2")
-        assert loader.resolve("${OPENAI_API_KEY}") == "sk-v2"
+        loader.store_key("openai", "dummy-v2")
+        assert loader.resolve("${OPENAI_API_KEY}") == "dummy-v2"

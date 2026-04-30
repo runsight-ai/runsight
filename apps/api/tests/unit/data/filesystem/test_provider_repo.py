@@ -36,7 +36,7 @@ VALID_PROVIDER_DATA = {
     "name": "OpenAI",
     "type": "openai",
     "api_key": "${OPENAI_API_KEY}",
-    "base_url": "https://api.openai.com/v1",
+    "base_url": "https://provider.example.invalid/v1",
     "is_active": True,
     "status": "connected",
     "models": ["gpt-4o", "gpt-4o-mini"],
@@ -145,7 +145,7 @@ class TestCreate:
         assert on_disk["name"] == "OpenAI"
         assert on_disk["type"] == "openai"
         assert on_disk["api_key"] == "${OPENAI_API_KEY}"
-        assert on_disk["base_url"] == "https://api.openai.com/v1"
+        assert on_disk["base_url"] == "https://provider.example.invalid/v1"
         assert on_disk["is_active"] is True
         assert on_disk["status"] == "connected"
         assert on_disk["models"] == ["gpt-4o", "gpt-4o-mini"]
@@ -619,7 +619,7 @@ class TestRoundTrip:
         assert fetched.name == "Round Trip Provider"
         assert fetched.type == "openai"
         assert fetched.api_key == "${OPENAI_API_KEY}"
-        assert fetched.base_url == "https://api.openai.com/v1"
+        assert fetched.base_url == "https://provider.example.invalid/v1"
         assert fetched.is_active is True
         assert fetched.status == "connected"
         assert fetched.models == ["gpt-4o", "gpt-4o-mini"]
