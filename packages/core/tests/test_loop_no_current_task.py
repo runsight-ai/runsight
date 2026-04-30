@@ -1,19 +1,9 @@
-"""
-Failing tests for RUN-876: LoopBlock — delete carry_context-to-current_task hack.
+"""LoopBlock carry context no longer depends on current_task.
 
-Acceptance Criteria:
 - LoopBlock no longer references state.current_task
 - Carry context still flows through shared_memory to inner blocks
 - Loop-based E2E tests pass
 
-Current hack (lines ~159-216 in loop.py):
-    if state.current_task is not None:
-        ... serialise carry_context_str ...
-        ... call fit_to_budget ...
-        state = state.model_copy(update={"current_task": state.current_task.model_copy(...)})
-
-After fix:
-- Lines 159-216 deleted entirely
 - No `current_task` references in loop.py
 - Carry context only flows via shared_memory (which LinearBlock reads via _resolved_inputs)
 """

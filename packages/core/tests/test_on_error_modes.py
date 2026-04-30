@@ -1,17 +1,15 @@
-"""
-RUN-605 — Failing tests for on_error modes on sub-workflow nodes.
+"""on_error modes on sub-workflow nodes.
 
-WorkflowBlock currently does NOT accept an ``on_error`` parameter and
-WorkflowBlockDef does NOT have an ``on_error`` field.  These tests exercise
-the new contract and MUST fail against the current implementation because:
+WorkflowBlock accepts an ``on_error`` parameter and WorkflowBlockDef has an
+``on_error`` field. These tests exercise the contract that:
 
-  - WorkflowBlock.__init__ does not accept ``on_error``
-  - WorkflowBlockDef does not have an ``on_error`` field
-  - WorkflowBlock.execute() never catches child exceptions to produce an
+  - WorkflowBlock.__init__ accepts ``on_error``
+  - WorkflowBlockDef exposes an ``on_error`` field
+  - WorkflowBlock.execute() catches child exceptions when configured to produce an
     ``exit_handle="error"`` result
-  - No child_status="failed" or child_error metadata is ever produced
+  - child_status="failed" and child_error metadata are produced for caught failures
 
-AC:
+Expected behavior:
   1. ``raise`` preserves current behavior (child exception propagates)
   2. ``catch`` produces a normal BlockResult with exit_handle="error"
   3. Parent status and child status remain distinguishable in monitoring
@@ -94,8 +92,8 @@ class TestOnErrorModes:
 
     async def test_on_error_raise_propagates_child_exception(self) -> None:
         """
-        AC1: With on_error="raise" (explicit), the child exception must
-        propagate to the caller unchanged.
+        With on_error="raise" (explicit), the child exception propagates to
+        the caller unchanged.
         """
         child_block = _FailingBlock("fail_block", error_msg="kaboom")
         child_wf = _build_child_workflow("child_wf", child_block)
@@ -117,9 +115,9 @@ class TestOnErrorModes:
 
     async def test_on_error_catch_returns_error_exit_handle(self) -> None:
         """
-        AC2: With on_error="catch", child failure must NOT propagate.
-        Instead, execute() returns a WorkflowState where the BlockResult
-        for this block has exit_handle="error".
+        With on_error="catch", child failure does not propagate. Instead,
+        execute() returns a WorkflowState where the BlockResult for this block
+        has exit_handle="error".
         """
         child_block = _FailingBlock("fail_block", error_msg="child exploded")
         child_wf = _build_child_workflow("child_wf", child_block)
@@ -148,7 +146,7 @@ class TestOnErrorModes:
 
     async def test_on_error_catch_metadata_includes_child_status_failed(self) -> None:
         """
-        AC3: With on_error="catch", the BlockResult.metadata must include
+        With on_error="catch", BlockResult.metadata includes
         child_status="failed" so parent and child status are distinguishable.
         """
         child_block = _FailingBlock("fail_block")
@@ -176,8 +174,8 @@ class TestOnErrorModes:
 
     async def test_on_error_catch_metadata_includes_error_message(self) -> None:
         """
-        AC3 (extended): metadata should include the error message so the
-        parent workflow can inspect what went wrong without re-raising.
+        Metadata includes the error message so the parent workflow can inspect
+        what went wrong without re-raising.
         """
         child_block = _FailingBlock("fail_block", error_msg="timeout reached")
         child_wf = _build_child_workflow("child_wf", child_block)

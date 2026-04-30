@@ -1,10 +1,9 @@
-"""
-Failing tests for RUN-694: Embedded eval: YAML schema section for workflow test cases.
+"""Embedded eval YAML schema for workflow test cases.
 
 Tests exercise:
-- AC1: Valid eval section parses without error and is accessible on the model
-- AC2: Invalid eval section raises ValidationError with clear message
-- AC3: Missing eval section defaults to None (backward compatible)
+- Valid eval section parses without error and is accessible on the model
+- Invalid eval section raises ValidationError with clear message
+- Missing eval section defaults to None
 - Edge cases: minimal case, multiple cases, bad threshold, empty cases list
 """
 
@@ -12,8 +11,6 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-
-# These imports WILL FAIL until the Green team implements EvalSectionDef / EvalCaseDef.
 from runsight_core.yaml.schema import (
     EvalCaseDef,
     EvalSectionDef,
@@ -39,7 +36,7 @@ def _wf_with_eval(eval_section: dict) -> dict:
     return {**_MINIMAL_WORKFLOW, "eval": eval_section}
 
 
-# Full eval section matching the ticket schema example.
+# Full eval section matching the schema fixture.
 _FULL_EVAL_SECTION = {
     "threshold": 0.8,
     "cases": [
@@ -67,16 +64,15 @@ _FULL_EVAL_SECTION = {
 
 
 # ===========================================================================
-# AC1 — Valid eval section parses correctly
+# Valid eval section parses correctly
 # ===========================================================================
 
 
 class TestEvalSectionValid:
-    """AC1: Given a workflow YAML with an eval: section, it parses without error
-    and the eval section is accessible on the workflow file model."""
+    """A workflow YAML with an eval section exposes that section on the model."""
 
     def test_full_eval_section_parses(self):
-        """The canonical example from the ticket spec parses without error."""
+        """The canonical eval fixture parses without error."""
         wf = RunsightWorkflowFile.model_validate(_wf_with_eval(_FULL_EVAL_SECTION))
         assert wf.eval is not None
 
@@ -223,13 +219,12 @@ class TestEvalSectionValid:
 
 
 # ===========================================================================
-# AC2 — Invalid eval section raises ValidationError
+# Invalid eval section raises ValidationError
 # ===========================================================================
 
 
 class TestEvalSectionInvalid:
-    """AC2: Given a workflow YAML with an invalid eval: section,
-    parsing raises ValidationError with a clear message."""
+    """Invalid eval sections raise ValidationError with clear messages."""
 
     def test_missing_case_id(self):
         """A case without the required 'id' field raises ValidationError."""
@@ -334,12 +329,12 @@ class TestEvalSectionInvalid:
 
 
 # ===========================================================================
-# AC3 — No eval section -> eval is None (backward compatible)
+# No eval section leaves eval unset
 # ===========================================================================
 
 
 class TestEvalSectionBackwardCompat:
-    """AC3: Given a workflow YAML without eval:, the eval field is None."""
+    """A workflow YAML without eval leaves the eval field unset."""
 
     def test_no_eval_key_returns_none(self):
         """A workflow without eval: parses and eval is None."""

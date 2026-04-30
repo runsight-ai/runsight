@@ -1,22 +1,18 @@
-"""
-Failing tests for RUN-178: Migrate all block write sites to emit BlockResult.
+"""All block write sites emit BlockResult values.
 
 Strategy:
-  Every block currently writes a raw string into state.results[block_id].
-  The auto-coercion validator in WorkflowState silently converts those strings
-  to BlockResult, masking the fact that blocks don't construct BlockResult
-  themselves.
+  Every block write path must avoid raw strings in state.results[block_id].
+  The auto-coercion validator in WorkflowState can convert raw strings to
+  BlockResult, masking a write site that fails to construct BlockResult itself.
 
-  To prove that blocks are NOT yet emitting BlockResult explicitly, we create a
-  NoCoercionWorkflowState that inherits WorkflowState but OVERRIDES the
-  validator so that raw strings are REJECTED (raise TypeError).  When a block
-  passes a raw string through model_copy(update={"results": {...}}), Pydantic
-  will invoke the validator on the new dict, the override will blow up, and the
-  test fails — proving the block relies on coercion.
+  The regression guard uses NoCoercionWorkflowState, which inherits
+  WorkflowState but overrides the validator so raw strings are rejected with
+  TypeError. If a block passes a raw string through
+  model_copy(update={"results": {...}}), Pydantic invokes the validator on the
+  new dict and exposes the coercion dependency.
 
-  After the Green agent migrates every write site to emit
-  BlockResult(output=...) explicitly, the NoCoercionWorkflowState validator will
-  never see a raw string, and all tests will pass.
+  Write sites must emit BlockResult(output=...) explicitly so the
+  NoCoercionWorkflowState validator never sees a raw string.
 
 Tests cover every write site in implementations.py:
   - LinearBlock           (line 73)

@@ -1,5 +1,4 @@
-"""
-Failing tests for RUN-285: Add DispatchExitDef to schema.
+"""DispatchExitDef schema behavior.
 
 DispatchExitDef extends ExitDef with per-exit soul_ref and task fields.
 It should inherit id and label from ExitDef, require soul_ref and task,

@@ -1,5 +1,4 @@
-"""
-Tests for RUN-163: Verify RetryBlock -> LoopBlock migration is complete.
+"""RetryBlock behavior is covered by the LoopBlock runtime.
 
 Validates:
 1. LoopBlock integration tests replace removed RetryBlock integration tests:

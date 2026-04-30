@@ -1,4 +1,4 @@
-"""Red tests for RUN-677: wire Workflow.run() through execute_block()."""
+"""Workflow.run() routes block execution through execute_block()."""
 
 from __future__ import annotations
 

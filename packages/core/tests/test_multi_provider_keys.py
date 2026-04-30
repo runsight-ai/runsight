@@ -1,9 +1,7 @@
-"""Red tests for RUN-141: Multi-provider API key resolution (per-soul model overrides).
+"""Multi-provider API key resolution for per-soul model overrides.
 
 RunsightTeamRunner should accept `api_keys: Dict[str, str]` mapping provider_type -> key,
 and _get_client() should resolve the correct key per soul's model provider.
-
-All tests should FAIL until the implementation exists.
 """
 
 import pytest

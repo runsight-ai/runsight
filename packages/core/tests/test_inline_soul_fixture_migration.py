@@ -1,8 +1,8 @@
-"""Red tests for RUN-692: inline-soul test fixture migration.
+"""Inline-soul fixtures are migrated to library soul references.
 
 Verifies that:
-1. test_run468 has no module-level xfail marker and its tests pass
-2. test_run347 YAML fixtures use library soul refs, not inline souls: blocks
+1. Parser soul field forwarding coverage has no module-level xfail marker and its tests pass
+2. YAML fixtures use library soul refs, not inline souls: blocks
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ def _yaml_fixtures_have_inline_souls(yaml_dicts: list[dict]) -> list[dict]:
 
 
 # ===================================================================
-# AC-1: test_run468 — no xfail, tests pass
+# Parser soul forwarding coverage has no xfail marker
 # ===================================================================
 
 
@@ -117,7 +117,7 @@ class TestInlineSoulNoXfailMarker:
 
 
 class TestInlineSoulFixturesUseLibrarySouls:
-    """test_run468 YAML fixtures must use library soul refs, not inline souls."""
+    """Parser soul forwarding YAML fixtures use library soul refs, not inline souls."""
 
     def test_yaml_fixtures_have_no_inline_soul_definitions(self):
         """YAML constants must not define souls inline in a top-level souls: block."""
@@ -130,7 +130,7 @@ class TestInlineSoulFixturesUseLibrarySouls:
 
 
 class TestInlineSoulTestsPass:
-    """test_run468 tests must actually pass (not xfail, not error)."""
+    """Parser soul forwarding tests pass without xfail or error."""
 
     def test_inline_soul_tests_pass_without_xfail(self):
         """Run the test file via subprocess and verify all tests pass."""
@@ -152,18 +152,18 @@ class TestInlineSoulTestsPass:
         )
         # The test run must succeed (exit code 0) with no xfailed or failed tests
         assert result.returncode == 0, (
-            f"test_run468 tests did not pass (exit code {result.returncode}).\n"
+            f"parser soul forwarding tests did not pass (exit code {result.returncode}).\n"
             f"stdout:\n{result.stdout}\n"
             f"stderr:\n{result.stderr}"
         )
         # Verify no xfailed results in the output
         assert "xfailed" not in result.stdout.lower(), (
-            f"test_run468 still has xfailed tests in output:\n{result.stdout}"
+            f"parser soul forwarding tests still have xfailed output:\n{result.stdout}"
         )
 
 
 # ===================================================================
-# AC-2: test_run347 — library soul refs, no inline souls
+# Assertion config fixtures use library soul refs
 # ===================================================================
 
 
@@ -179,13 +179,8 @@ class TestAssertionConfigFixturesUseLibrarySouls:
             f"with inline souls: definitions — they must be converted to library soul refs"
         )
 
-    def test_assertion_config_tests_pass_after_migration(self):
-        """Run test_run347 via subprocess and verify all tests pass.
-
-        This is the AC-2 counterpart to TestInlineSoulTestsPass: after inline soul
-        fixtures are migrated to library soul refs, the test_run347 suite must
-        still pass end-to-end.
-        """
+    def test_assertion_config_tests_pass_with_library_souls(self):
+        """Run the assertion config suite via subprocess and verify all tests pass."""
         result = subprocess.run(
             [
                 sys.executable,
@@ -203,7 +198,7 @@ class TestAssertionConfigFixturesUseLibrarySouls:
             timeout=60,
         )
         assert result.returncode == 0, (
-            f"test_run347 tests did not pass (exit code {result.returncode}).\n"
+            f"assertion config tests did not pass (exit code {result.returncode}).\n"
             f"stdout:\n{result.stdout}\n"
             f"stderr:\n{result.stderr}"
         )

@@ -1,5 +1,4 @@
-"""
-Failing tests for RUN-184: Wire ArtifactStore into WorkflowState + injection points.
+"""ArtifactStore wiring through WorkflowState and child execution boundaries.
 
 Tests cover:
 1. WorkflowState.artifact_store field (Optional, default None, excluded from serialization)
