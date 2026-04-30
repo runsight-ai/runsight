@@ -1,0 +1,23 @@
+packages/core/tests/test_step_consolidation.py
+  4adca821c1af8eb3 1-5,16-17,23,43,48,52,56-58,62,69,76-77,82-83,95,101,108,113,128,131,134,148,155,169,172,208,234,239,285,361,382,385,395,409,419-420,430,439,442,447-448,461,464
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "3ca9f4ace12d4880aafd9bc9555575088bb6728c",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 53,
+      "total_deletions": 90,
+      "accepted_lines": 96600,
+      "overriden_lines": 0
+    }
+  }
+}
