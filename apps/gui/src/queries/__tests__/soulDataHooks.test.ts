@@ -144,8 +144,8 @@ describe("soul data API helpers", () => {
 
   it("adds settingsApi.listModelProviders and calls /models/providers", async () => {
     mocks.apiGet.mockResolvedValue([
-      { id: "openai", name: "OpenAI", model_count: 12, is_configured: true },
-      { id: "anthropic", name: "Anthropic", model_count: 5, is_configured: false },
+      { id: "fixture-primary", name: "Fixture Primary", model_count: 12, is_configured: true },
+      { id: "fixture-backup", name: "Fixture Backup", model_count: 5, is_configured: false },
     ]);
 
     const { settingsApi } = await import("../../api/settings");
@@ -161,8 +161,8 @@ describe("soul data API helpers", () => {
 
     expect(mocks.apiGet).toHaveBeenCalledWith("/models/providers");
     expect(result).toEqual([
-      { id: "openai", name: "OpenAI", model_count: 12, is_configured: true },
-      { id: "anthropic", name: "Anthropic", model_count: 5, is_configured: false },
+      { id: "fixture-primary", name: "Fixture Primary", model_count: 12, is_configured: true },
+      { id: "fixture-backup", name: "Fixture Backup", model_count: 5, is_configured: false },
     ]);
   });
 
@@ -170,9 +170,9 @@ describe("soul data API helpers", () => {
     mocks.apiGet.mockResolvedValue({
       items: [
         {
-          provider: "openai",
-          provider_name: "OpenAI",
-          model_id: "gpt-4o",
+          provider: "fixture-primary",
+          provider_name: "Fixture Primary",
+          model_id: "fixture-chat-model",
           mode: "chat",
           max_tokens: 128000,
           input_cost_per_token: 0.000005,
@@ -191,14 +191,14 @@ describe("soul data API helpers", () => {
 
     const result = await (
       listModelsForProvider as (provider: string) => Promise<unknown[]>
-    )("openai");
+    )("fixture-primary");
 
-    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=openai");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=fixture-primary");
     expect(Array.isArray(result)).toBe(true);
     expect(result).toEqual([
       expect.objectContaining({
-        provider: "openai",
-        model_id: "gpt-4o",
+        provider: "fixture-primary",
+        model_id: "fixture-chat-model",
       }),
     ]);
   });
@@ -231,9 +231,9 @@ describe("soul data query keys", () => {
     expect(models).toBeTypeOf("object");
     expect(models.providers).toEqual(expect.arrayContaining(["models", "providers"]));
     expect(models.byProvider).toBeTypeOf("function");
-    expect((models.byProvider as (provider: string) => readonly string[])("openai")).toEqual(
-      expect.arrayContaining(["models", "openai"]),
-    );
+    expect(
+      (models.byProvider as (provider: string) => readonly string[])("fixture-primary"),
+    ).toEqual(expect.arrayContaining(["models", "fixture-primary"]));
   });
 });
 
@@ -352,11 +352,11 @@ describe("soul data query hooks", () => {
         queryFn: () => Promise<unknown>;
         enabled: boolean;
       }
-    )("openai");
+    )("fixture-primary");
 
     expect(mocks.useQuery).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: queryKeys.models.byProvider("openai"),
+        queryKey: queryKeys.models.byProvider("fixture-primary"),
         enabled: true,
       }),
     );
@@ -364,6 +364,6 @@ describe("soul data query hooks", () => {
     mocks.apiGet.mockResolvedValue({ items: [], total: 0 });
 
     await query.queryFn();
-    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=openai");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=fixture-primary");
   });
 });
