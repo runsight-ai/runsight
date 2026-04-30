@@ -25,7 +25,7 @@ def _init_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init")
-    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.email", "runsight-test@localhost")
     _git(repo, "config", "user.name", "Test")
     (repo / "README.md").write_text("# hello", encoding="utf-8")
     _git(repo, "add", ".")

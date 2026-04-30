@@ -38,27 +38,27 @@ class TestCorsOriginsEnvOverride:
 
     def test_env_var_single_origin(self, monkeypatch):
         """A single origin in the env var produces a one-element list."""
-        monkeypatch.setenv("RUNSIGHT_CORS_ORIGINS", "https://app.runsight.dev")
+        monkeypatch.setenv("RUNSIGHT_CORS_ORIGINS", "http://localhost:3001")
 
         # Force re-creation of a fresh Settings instance
         from runsight_api.core.config import Settings
 
         s = Settings()
-        assert s.cors_origins == ["https://app.runsight.dev"]
+        assert s.cors_origins == ["http://localhost:3001"]
 
     def test_env_var_multiple_origins(self, monkeypatch):
         """Comma-separated origins produce a multi-element list."""
         monkeypatch.setenv(
             "RUNSIGHT_CORS_ORIGINS",
-            "https://app.runsight.dev,https://staging.runsight.dev",
+            "http://localhost:3001,http://127.0.0.1:5173",
         )
 
         from runsight_api.core.config import Settings
 
         s = Settings()
         assert s.cors_origins == [
-            "https://app.runsight.dev",
-            "https://staging.runsight.dev",
+            "http://localhost:3001",
+            "http://127.0.0.1:5173",
         ]
 
     def test_env_var_wildcard(self, monkeypatch):
@@ -74,13 +74,13 @@ class TestCorsOriginsEnvOverride:
         """Whitespace around origins in the env var is stripped."""
         monkeypatch.setenv(
             "RUNSIGHT_CORS_ORIGINS",
-            " https://a.com , https://b.com ",
+            " http://localhost:4100 , http://127.0.0.1:4101 ",
         )
 
         from runsight_api.core.config import Settings
 
         s = Settings()
-        assert s.cors_origins == ["https://a.com", "https://b.com"]
+        assert s.cors_origins == ["http://localhost:4100", "http://127.0.0.1:4101"]
 
 
 # ---------------------------------------------------------------------------

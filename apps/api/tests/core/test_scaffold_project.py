@@ -34,7 +34,7 @@ def _init_existing_repo(
         (workspace_root / ".gitignore").write_text(gitignore_text, encoding="utf-8")
 
     _git(workspace_root, "init")
-    _git(workspace_root, "config", "user.email", "runsight-tests@example.com")
+    _git(workspace_root, "config", "user.email", "runsight-tests@localhost")
     _git(workspace_root, "config", "user.name", "Runsight Tests")
     _git(workspace_root, "add", ".")
     _git(workspace_root, "commit", "-m", "Initial workspace state")
@@ -52,7 +52,7 @@ def _init_gitfile_worktree(
     primary_repo.mkdir()
 
     _git(primary_repo, "init")
-    _git(primary_repo, "config", "user.email", "runsight-tests@example.com")
+    _git(primary_repo, "config", "user.email", "runsight-tests@localhost")
     _git(primary_repo, "config", "user.name", "Runsight Tests")
     (primary_repo / "README.md").write_text("seed\n", encoding="utf-8")
     _git(primary_repo, "add", "README.md")

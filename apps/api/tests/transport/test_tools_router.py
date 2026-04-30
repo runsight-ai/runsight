@@ -113,7 +113,7 @@ def test_tools_list_merges_builtin_and_custom_executor_variants_without_legacy_t
             - profile_id
         request:
           method: GET
-          url: https://example.com/profiles/{{ profile_id }}
+          url: http://localhost/profiles/{{ profile_id }}
           headers:
             X-Test: runsight
           response_path: data.profile
