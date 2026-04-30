@@ -1,11 +1,11 @@
-"""Tests for RUN-696: Transform hooks for structured output assertions.
+"""Transform hooks for structured output assertions.
 
 Transform spec format: ``transform: "json_path:$.field.path"``
 
 Covers:
-  AC1 – json_path transform extracts field before assertion evaluates
-  AC2 – non-JSON output / missing path → assertion fails with clear reason, no crash
-  AC3 – no transform field → backward-compatible behavior unchanged
+- json_path transform extracts a field before assertion evaluation
+- invalid JSON or missing paths fail with a clear reason instead of crashing
+- assertions without a transform keep existing behavior
 """
 
 import json
@@ -33,16 +33,16 @@ def _make_context(**overrides) -> AssertionContext:
         output="Hello world",
         prompt="Say hello",
         prompt_hash="abc123",
-        soul_id="soul-1",
+        soul_id="transform-hook-soul",
         soul_version="v1",
-        block_id="block-1",
+        block_id="transform-hook-block",
         block_type="LinearBlock",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=200.0,
         variables={},
-        run_id="run-1",
-        workflow_id="wf-1",
+        run_id="transform-hook-run",
+        workflow_id="transform-hook-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -101,12 +101,12 @@ def _register_stubs():
 
 
 # ---------------------------------------------------------------------------
-# AC1 – json_path transform extracts field, assertion evaluates on extracted value
+# json_path transform extracts field, assertion evaluates on extracted value
 # ---------------------------------------------------------------------------
 
 
 class TestTransformJsonPathExtraction:
-    """AC1: json_path transform extracts the target field before the assertion runs."""
+    """json_path transform extracts the target field before the assertion runs."""
 
     def test_run_assertion_json_path_extracts_field(self):
         """run_assertion with transform='json_path:$.summary' extracts the summary
@@ -234,12 +234,12 @@ class TestTransformJsonPathExtraction:
 
 
 # ---------------------------------------------------------------------------
-# AC2 – non-JSON output / missing path → graceful failure, no crash
+# non-JSON output or missing path produces graceful failure, not a crash
 # ---------------------------------------------------------------------------
 
 
 class TestTransformGracefulFailure:
-    """AC2: json_path transform on invalid/non-matching output fails with
+    """json_path transform on invalid/non-matching output fails with
     a clear reason and never crashes."""
 
     def test_non_json_output_fails_with_reason(self):
@@ -322,12 +322,12 @@ class TestTransformGracefulFailure:
 
 
 # ---------------------------------------------------------------------------
-# AC3 – no transform → backward-compatible, unchanged behavior
+# no transform keeps existing behavior
 # ---------------------------------------------------------------------------
 
 
 class TestNoTransformBackwardCompat:
-    """AC3: assertions without a transform field behave exactly as before."""
+    """Assertions without a transform field behave exactly as before."""
 
     def test_run_assertion_no_transform_passes(self):
         """contains assertion without transform works as before."""

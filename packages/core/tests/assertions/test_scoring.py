@@ -53,7 +53,7 @@ class TestAssertionsResultAggregateScore:
         assert abs(agg.aggregate_score - 0.7) < 1e-9
 
     def test_weighted_average(self):
-        """AC-6: aggregate_score = sum(score * weight) / sum(weight)"""
+        """aggregate_score = sum(score * weight) / sum(weight)"""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=True, score=1.0, reason="A"), weight=3.0)
         agg.add_result(GradingResult(passed=False, score=0.0, reason="B"), weight=1.0)
@@ -73,7 +73,7 @@ class TestAssertionsResultAggregateScore:
         assert agg.aggregate_score == 0.0
 
     def test_weight_zero_excluded_from_aggregate(self):
-        """AC-8: Weight=0 assertions do NOT contribute to aggregate score."""
+        """Weight=0 assertions do NOT contribute to aggregate score."""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=True, score=1.0, reason="Weighted"), weight=2.0)
         agg.add_result(
@@ -89,7 +89,7 @@ class TestAssertionsResultAggregateScore:
         assert abs(agg.aggregate_score - 1.0) < 1e-9
 
     def test_weight_zero_still_contributes_named_scores(self):
-        """AC-8: Weight=0 assertions still contribute to named_scores."""
+        """Weight=0 assertions still contribute to named_scores."""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=True, score=1.0, reason="Main"), weight=1.0)
         agg.add_result(
@@ -107,19 +107,19 @@ class TestAssertionsResultAggregateScore:
 
 class TestAssertionsResultPassed:
     def test_passed_with_threshold_above(self):
-        """AC-7: passed(threshold) returns True if aggregate_score >= threshold."""
+        """passed(threshold) returns True if aggregate_score >= threshold."""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=True, score=0.9, reason="OK"), weight=1.0)
         assert agg.passed(threshold=0.8) is True
 
     def test_passed_with_threshold_below(self):
-        """AC-7: passed(threshold) returns False if aggregate_score < threshold."""
+        """passed(threshold) returns False if aggregate_score < threshold."""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=False, score=0.3, reason="Bad"), weight=1.0)
         assert agg.passed(threshold=0.5) is False
 
     def test_passed_with_threshold_exact(self):
-        """AC-7: passed(threshold) returns True when aggregate_score == threshold."""
+        """passed(threshold) returns True when aggregate_score == threshold."""
         agg = AssertionsResult()
         agg.add_result(GradingResult(passed=True, score=0.5, reason="Borderline"), weight=1.0)
         assert agg.passed(threshold=0.5) is True

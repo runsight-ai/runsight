@@ -2,15 +2,11 @@
 
 Covers: equals, contains, icontains, contains-all, contains-any,
 starts-with, regex, word-count.
-
-These tests are RED — the implementation modules do not exist yet.
-They must fail with ImportError until Green creates
-`runsight_core.assertions.deterministic.string`.
 """
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
 
-# ── Import the implementations (will fail until Green creates them) ──────────
+# Implementation imports
 from runsight_core.assertions.deterministic.string import (
     ContainsAllAssertion,
     ContainsAnyAssertion,
@@ -30,16 +26,16 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
         output=output,
         prompt="test prompt",
         prompt_hash="abc123",
-        soul_id="soul_1",
+        soul_id="assertion-soul",
         soul_version="v1",
-        block_id="block_1",
+        block_id="assertion-block",
         block_type="linear",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=500.0,
         variables={},
-        run_id="run_1",
-        workflow_id="wf_1",
+        run_id="assertion-run",
+        workflow_id="assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -51,7 +47,7 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
 
 
 class TestEqualsAssertion:
-    """AC-1: registered as 'equals', exact string match by default."""
+    """registered as 'equals', exact string match by default."""
 
     def test_type_attribute(self):
         a = EqualsAssertion(value="x")
@@ -142,7 +138,7 @@ class TestEqualsAssertion:
 
 
 class TestContainsAssertion:
-    """AC-1: registered as 'contains', substring present."""
+    """registered as 'contains', substring present."""
 
     def test_type_attribute(self):
         a = ContainsAssertion(value="hello")
@@ -202,7 +198,7 @@ class TestContainsAssertion:
 
 
 class TestIContainsAssertion:
-    """AC-1: registered as 'icontains', case-insensitive substring."""
+    """registered as 'icontains', case-insensitive substring."""
 
     def test_type_attribute(self):
         a = IContainsAssertion(value="hello")
@@ -245,7 +241,7 @@ class TestIContainsAssertion:
 
 
 class TestContainsAllAssertion:
-    """AC-1: registered as 'contains-all', all substrings present."""
+    """registered as 'contains-all', all substrings present."""
 
     def test_type_attribute(self):
         a = ContainsAllAssertion(value=["a", "b"])
@@ -296,7 +292,7 @@ class TestContainsAllAssertion:
 
 
 class TestContainsAnyAssertion:
-    """AC-1: registered as 'contains-any', any substring present."""
+    """registered as 'contains-any', any substring present."""
 
     def test_type_attribute(self):
         a = ContainsAnyAssertion(value=["a", "b"])
@@ -348,7 +344,7 @@ class TestContainsAnyAssertion:
 
 
 class TestStartsWithAssertion:
-    """AC-1: registered as 'starts-with', string prefix."""
+    """registered as 'starts-with', string prefix."""
 
     def test_type_attribute(self):
         a = StartsWithAssertion(value="Hello")
@@ -399,7 +395,7 @@ class TestStartsWithAssertion:
 
 
 class TestRegexAssertion:
-    """AC-1: registered as 'regex', regex match."""
+    """registered as 'regex', regex match."""
 
     def test_type_attribute(self):
         a = RegexAssertion(value=r"\d+")
@@ -462,7 +458,7 @@ class TestRegexAssertion:
 
 
 class TestWordCountAssertion:
-    """AC-1: registered as 'word-count', count in range.
+    """registered as 'word-count', count in range.
 
     Follows promptfoo wordCount patterns:
     - Single int = exact count

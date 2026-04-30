@@ -1,4 +1,4 @@
-"""Red tests for RUN-796: custom assertion adapter class builder."""
+"""Custom assertion adapter class builder coverage."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _make_context(**overrides: Any) -> AssertionContext:
         output="needle in haystack",
         prompt="Find the launch blocker.",
         prompt_hash="prompt-hash-123",
-        soul_id="soul-1",
+        soul_id="custom-adapter-soul",
         soul_version="v7",
         block_id="block-a",
         block_type="LinearBlock",
@@ -30,8 +30,8 @@ def _make_context(**overrides: Any) -> AssertionContext:
         total_tokens=321,
         latency_ms=245.5,
         variables={"topic": "launch", "severity": "high"},
-        run_id="run-123",
-        workflow_id="wf-456",
+        run_id="custom-adapter-run",
+        workflow_id="custom-adapter-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -103,15 +103,15 @@ def get_assert(output, context):
         and context["config"]["budget"] == 0.05
         and context["prompt"] == "Find the launch blocker."
         and context["prompt_hash"] == "prompt-hash-123"
-        and context["soul_id"] == "soul-1"
+        and context["soul_id"] == "custom-adapter-soul"
         and context["soul_version"] == "v7"
         and context["block_id"] == "block-a"
         and context["block_type"] == "LinearBlock"
         and context["cost_usd"] == 0.031
         and context["total_tokens"] == 321
         and context["latency_ms"] == 245.5
-        and context["run_id"] == "run-123"
-        and context["workflow_id"] == "wf-456"
+        and context["run_id"] == "custom-adapter-run"
+        and context["workflow_id"] == "custom-adapter-workflow"
     )
 """,
             "bool",
@@ -292,8 +292,8 @@ def get_assert(output, context):
         adapter = adapter_cls()
         captured_env: dict[str, str] | None = None
 
-        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-secret")
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-secret")
+        monkeypatch.setenv("OPENAI_API_KEY", "dummy-openai-key")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-anthropic-key")
 
         async def fake_create_subprocess_exec(*args, **kwargs):
             nonlocal captured_env
@@ -398,15 +398,15 @@ def get_assert(output, context):
                 "config": {"budget": 0.05},
                 "prompt": "Find the launch blocker.",
                 "prompt_hash": "prompt-hash-123",
-                "soul_id": "soul-1",
+                "soul_id": "custom-adapter-soul",
                 "soul_version": "v7",
                 "block_id": "block-a",
                 "block_type": "LinearBlock",
                 "cost_usd": 0.031,
                 "total_tokens": 321,
                 "latency_ms": 245.5,
-                "run_id": "run-123",
-                "workflow_id": "wf-456",
+                "run_id": "custom-adapter-run",
+                "workflow_id": "custom-adapter-workflow",
             }
         ]
 

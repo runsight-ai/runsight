@@ -1,4 +1,4 @@
-"""Red tests for RUN-812: smart assertion isolation via subprocess harness."""
+"""Assertion isolation via subprocess harness coverage."""
 
 from __future__ import annotations
 
@@ -17,17 +17,17 @@ def _make_context(**overrides: Any) -> AssertionContext:
     defaults = dict(
         output="The candidate answer.",
         prompt="Grade the candidate answer.",
-        prompt_hash="prompt-hash-812",
-        soul_id="soul-812",
-        soul_version="v812",
-        block_id="block-812",
+        prompt_hash="prompt-hash-isolation",
+        soul_id="isolated-assertion-soul",
+        soul_version="v-isolation",
+        block_id="isolated-assertion-block",
         block_type="linear",
         cost_usd=0.01,
         total_tokens=120,
         latency_ms=95.0,
         variables={"topic": "quality"},
-        run_id="run-812",
-        workflow_id="wf-812",
+        run_id="isolated-assertion-run",
+        workflow_id="isolated-assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -90,7 +90,7 @@ class TestSmartAssertionIsolation:
                     "config": {
                         "rubric": "Score factual quality",
                         "judge_soul": {
-                            "id": "judge-1",
+                            "id": "quality-judge",
                             "role": "Judge",
                             "system_prompt": "Grade output quality.",
                             "model_name": "gpt-4o-mini",
@@ -100,10 +100,10 @@ class TestSmartAssertionIsolation:
             ],
             output="The candidate answer.",
             context=_make_context(),
-            api_keys={"openai": "sk-engine-openai"},
+            api_keys={"openai": "dummy-engine-openai-key"},
         )
 
-        assert captured["api_keys"] == {"openai": "sk-engine-openai"}
+        assert captured["api_keys"] == {"openai": "dummy-engine-openai-key"}
         assert captured["envelope"].block_type == "assertion"
         assert captured["envelope"].block_config["assertion"]["type"] == "llm_judge"
         assert captured["envelope"].block_config["output_to_grade"] == "The candidate answer."
@@ -128,7 +128,7 @@ class TestSmartAssertionIsolation:
         import runsight_core.isolation as isolation_module
 
         workflow_budget = BudgetSession(
-            scope_name="workflow:run812",
+            scope_name="workflow:isolation-run",
             cost_cap_usd=5.0,
             token_cap=5000,
             on_exceed="fail",
@@ -176,7 +176,7 @@ class TestSmartAssertionIsolation:
                         "config": {
                             "rubric": "Score factual quality",
                             "judge_soul": {
-                                "id": "judge-1",
+                                "id": "quality-judge",
                                 "role": "Judge",
                                 "system_prompt": "Grade output quality.",
                                 "model_name": "gpt-4o-mini",
@@ -186,7 +186,7 @@ class TestSmartAssertionIsolation:
                 ],
                 output="The candidate answer.",
                 context=_make_context(),
-                api_keys={"openai": "sk-engine-openai"},
+                api_keys={"openai": "dummy-engine-openai-key"},
             )
         finally:
             _active_budget.reset(budget_token)
@@ -202,7 +202,7 @@ class TestSmartAssertionIsolation:
         import runsight_core.assertions.custom as custom_module
         import runsight_core.assertions.registry as registry_module
 
-        plugin_name = "run812_simple_no_llm"
+        plugin_name = "simple_custom_no_llm"
         adapter_cls = custom_module._build_adapter_class(
             plugin_name,
             """
@@ -233,9 +233,9 @@ def get_assert(output, context):
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 raise AssertionError("simple custom assertions must not use SubprocessHarness")
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-812-should-not-leak")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-812.sock")
-        monkeypatch.setenv("RUNSIGHT_BLOCK_API_KEY", "sk-raw-should-not-leak")
+        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-isolation-should-not-leak")
+        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-isolation.sock")
+        monkeypatch.setenv("RUNSIGHT_BLOCK_API_KEY", "dummy-block-api-key-should-not-leak")
         monkeypatch.setattr(
             custom_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )

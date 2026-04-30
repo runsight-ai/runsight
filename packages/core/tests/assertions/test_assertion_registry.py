@@ -24,16 +24,16 @@ def _make_context(**overrides) -> AssertionContext:
         output="Hello world",
         prompt="Say hello",
         prompt_hash="abc123",
-        soul_id="soul-1",
+        soul_id="registry-assertion-soul",
         soul_version="v1",
-        block_id="block-1",
+        block_id="registry-assertion-block",
         block_type="LinearBlock",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=200.0,
         variables={},
-        run_id="run-1",
-        workflow_id="wf-1",
+        run_id="registry-assertion-run",
+        workflow_id="registry-assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -76,13 +76,13 @@ class _EqualsAssertion:
 
 
 # ---------------------------------------------------------------------------
-# AC-9: Plugin registry dispatches by type string
+# Plugin registry dispatches by type string
 # ---------------------------------------------------------------------------
 
 
 class TestRegistryDispatch:
     def test_register_and_dispatch_by_type(self):
-        """AC-9: register an assertion handler by type string, then dispatch to it."""
+        """register an assertion handler by type string, then dispatch to it."""
         register_assertion("contains", _ContainsAssertion)
         register_assertion("equals", _EqualsAssertion)
 
@@ -127,13 +127,13 @@ class TestRegistryDispatch:
 
 
 # ---------------------------------------------------------------------------
-# AC-10: not- prefix handling
+# not- prefix handling
 # ---------------------------------------------------------------------------
 
 
 class TestNotPrefixHandling:
     def test_not_prefix_inverts_score(self):
-        """AC-10: 'not-contains' strips prefix, runs 'contains', inverts score."""
+        """'not-contains' strips prefix, runs 'contains', inverts score."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 
@@ -149,7 +149,7 @@ class TestNotPrefixHandling:
         assert result.passed is False
 
     def test_not_prefix_inverts_passing_to_failing(self):
-        """AC-10: not- prefix inverts passed flag."""
+        """not- prefix inverts passed flag."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 
@@ -165,7 +165,7 @@ class TestNotPrefixHandling:
         assert result.passed is True
 
     def test_not_prefix_with_partial_score(self):
-        """AC-10: not- prefix inverts continuous scores (1 - score)."""
+        """not- prefix inverts continuous scores (1 - score)."""
 
         class SimilarityAssertion:
             type: str = "similarity"
@@ -197,7 +197,7 @@ class TestNotPrefixHandling:
 
 
 # ---------------------------------------------------------------------------
-# AC-11: run_assertion() dispatches single assertion
+# run_assertion() dispatches single assertion
 # ---------------------------------------------------------------------------
 
 
@@ -332,14 +332,14 @@ class TestRunAssertion:
 
 
 # ---------------------------------------------------------------------------
-# AC-11: run_assertions() runs all with concurrency limit
+# run_assertions() runs all with concurrency limit
 # ---------------------------------------------------------------------------
 
 
 class TestRunAssertions:
     @pytest.mark.asyncio
     async def test_run_assertions_returns_assertions_result(self):
-        """AC-11: run_assertions returns an AssertionsResult."""
+        """run_assertions returns an AssertionsResult."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 
@@ -351,7 +351,7 @@ class TestRunAssertions:
 
     @pytest.mark.asyncio
     async def test_run_assertions_multiple_assertions(self):
-        """AC-11: run_assertions processes all assertions in config."""
+        """run_assertions processes all assertions in config."""
         register_assertion("contains", _ContainsAssertion)
         register_assertion("equals", _EqualsAssertion)
         ctx = _make_context()
@@ -382,7 +382,7 @@ class TestRunAssertions:
 
     @pytest.mark.asyncio
     async def test_run_assertions_default_concurrency_limit(self):
-        """AC-11: Default max_concurrent is 10."""
+        """Default max_concurrent is 10."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 
@@ -393,7 +393,7 @@ class TestRunAssertions:
 
     @pytest.mark.asyncio
     async def test_run_assertions_custom_concurrency_limit(self):
-        """AC-11: run_assertions accepts a max_concurrent parameter."""
+        """run_assertions accepts a max_concurrent parameter."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 
@@ -426,7 +426,7 @@ class TestRunAssertions:
 
     @pytest.mark.asyncio
     async def test_run_assertions_weight_zero_in_config(self):
-        """AC-8: Weight=0 assertions in config contribute named_scores but not aggregate."""
+        """Weight=0 assertions in config contribute named_scores but not aggregate."""
         register_assertion("contains", _ContainsAssertion)
         ctx = _make_context()
 

@@ -1,15 +1,11 @@
 """Tests for deterministic structural assertion plugins.
 
 Covers: is-json, contains-json.
-
-These tests are RED — the implementation modules do not exist yet.
-They must fail with ImportError until Green creates
-`runsight_core.assertions.deterministic.structural`.
 """
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
 
-# ── Import the implementations (will fail until Green creates them) ──────────
+# Implementation imports
 from runsight_core.assertions.deterministic.structural import (
     ContainsJsonAssertion,
     IsJsonAssertion,
@@ -23,16 +19,16 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
         output=output,
         prompt="test prompt",
         prompt_hash="abc123",
-        soul_id="soul_1",
+        soul_id="assertion-soul",
         soul_version="v1",
-        block_id="block_1",
+        block_id="assertion-block",
         block_type="linear",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=500.0,
         variables={},
-        run_id="run_1",
-        workflow_id="wf_1",
+        run_id="assertion-run",
+        workflow_id="assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -44,7 +40,7 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
 
 
 class TestIsJsonAssertion:
-    """AC-4: is-json validates JSON, optional JSON Schema validation."""
+    """is-json validates JSON, optional JSON Schema validation."""
 
     def test_type_attribute(self):
         a = IsJsonAssertion()
@@ -116,10 +112,10 @@ class TestIsJsonAssertion:
         result = a.evaluate(output, ctx)
         assert result.passed is False
 
-    # ── JSON Schema validation (AC-4) ────────────────────────────────────
+    # ── JSON Schema validation ────────────────────────────────────
 
     def test_schema_validation_passes(self):
-        """AC-4: when value is a JSON Schema, validate the parsed JSON against it."""
+        """when value is a JSON Schema, validate the parsed JSON against it."""
         schema = {
             "type": "object",
             "required": ["name", "age"],
@@ -192,7 +188,7 @@ class TestIsJsonAssertion:
         result = a.evaluate(output, ctx)
         assert result.passed is True
 
-    # ── Return type / reason (AC-7) ──────────────────────────────────────
+    # ── Return type / reason ──────────────────────────────────────
 
     def test_returns_grading_result(self):
         a = IsJsonAssertion()
@@ -214,7 +210,7 @@ class TestIsJsonAssertion:
 
 
 class TestContainsJsonAssertion:
-    """AC-1: contains-json — extract valid JSON substring, optional schema."""
+    """contains-json — extract valid JSON substring, optional schema."""
 
     def test_type_attribute(self):
         a = ContainsJsonAssertion()
@@ -289,7 +285,7 @@ class TestContainsJsonAssertion:
         result = a.evaluate(output, ctx)
         assert result.passed is True
 
-    # ── Return type / reason (AC-7) ──────────────────────────────────────
+    # ── Return type / reason ──────────────────────────────────────
 
     def test_returns_grading_result(self):
         a = ContainsJsonAssertion()

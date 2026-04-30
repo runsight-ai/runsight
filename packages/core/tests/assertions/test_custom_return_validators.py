@@ -1,4 +1,4 @@
-"""Red tests for RUN-795: custom assertion return validators."""
+"""Custom assertion return validator coverage."""
 
 from __future__ import annotations
 
