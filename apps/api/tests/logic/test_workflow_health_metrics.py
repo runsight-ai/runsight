@@ -116,7 +116,7 @@ for _key, _orig in _originals.items():
 def _make_run(
     run_id: str,
     *,
-    workflow_id: str = "wf_1",
+    workflow_id: str = "research-flow",
     source: str = "manual",
 ) -> Mock:
     run = Mock()
@@ -161,13 +161,13 @@ class TestWorkflowHealthAggregation:
         """WorkflowService should expose aggregated workflow health metadata."""
         workflow_repo = Mock()
         workflow_repo.list_all.return_value = [
-            WorkflowEntity(kind="workflow", id="wf_1", name="Research Flow")
+            WorkflowEntity(kind="workflow", id="research-flow", name="Research Flow")
         ]
 
         run_repo = Mock()
         run_read_model = Mock()
         run_read_model.get_workflow_health_metrics.return_value = {
-            "wf_1": _make_workflow_health(
+            "research-flow": _make_workflow_health(
                 eval_health="danger",
                 run_count=2,
                 eval_pass_pct=50.0,
@@ -194,13 +194,13 @@ class TestWorkflowHealthAggregation:
         """A workflow with no runs should still expose zeroed health fields."""
         workflow_repo = Mock()
         workflow_repo.list_all.return_value = [
-            WorkflowEntity(kind="workflow", id="wf_empty", name="Empty Flow")
+            WorkflowEntity(kind="workflow", id="empty-flow", name="Empty Flow")
         ]
 
         run_repo = Mock()
         run_read_model = Mock()
         run_read_model.get_workflow_health_metrics.return_value = {
-            "wf_empty": _make_workflow_health(
+            "empty-flow": _make_workflow_health(
                 eval_health=None,
                 run_count=0,
                 eval_pass_pct=None,
@@ -227,13 +227,13 @@ class TestWorkflowHealthAggregation:
         """A workflow with runs but no eval data should not invent percentages."""
         workflow_repo = Mock()
         workflow_repo.list_all.return_value = [
-            WorkflowEntity(kind="workflow", id="wf_no_eval", name="No Eval Flow")
+            WorkflowEntity(kind="workflow", id="no-eval-flow", name="No Eval Flow")
         ]
 
         run_repo = Mock()
         run_read_model = Mock()
         run_read_model.get_workflow_health_metrics.return_value = {
-            "wf_no_eval": _make_workflow_health(
+            "no-eval-flow": _make_workflow_health(
                 eval_health=None,
                 run_count=1,
                 eval_pass_pct=None,

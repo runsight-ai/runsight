@@ -1,7 +1,7 @@
 """Run list pagination filters by workflow_id.
 
 - GET /api/runs?workflow_id=X returns only runs for that workflow
-- GET /api/runs without workflow_id still works (no regression)
+- GET /api/runs without workflow_id still returns the unfiltered page
 - list_runs_paginated accepts and forwards workflow_id without runtime errors
 """
 
@@ -56,10 +56,10 @@ class TestWorkflowIdParamAccepted:
     """list_runs_paginated must accept workflow_id without raising TypeError."""
 
     def test_passing_workflow_id_does_not_raise_type_error(self, run_service, run_read_model):
-        """Calling list_runs_paginated(workflow_id='wf_1') must not raise TypeError."""
+        """Calling list_runs_paginated(workflow_id=...) must not raise TypeError."""
         run_read_model.list_runs_paginated.return_value = ([], 0)
 
-        run_service.list_runs_paginated(offset=0, limit=20, workflow_id="wf_1")
+        run_service.list_runs_paginated(offset=0, limit=20, workflow_id="filtered-workflow")
 
     def test_passing_workflow_id_none_does_not_raise_type_error(self, run_service, run_read_model):
         """Calling list_runs_paginated(workflow_id=None) must not raise TypeError."""
@@ -78,13 +78,14 @@ class TestWorkflowIdForwardedToRepo:
         """list_runs_paginated must pass workflow_id through to the run read model."""
         run_read_model.list_runs_paginated.return_value = ([], 0)
 
-        run_service.list_runs_paginated(offset=0, limit=20, workflow_id="wf_abc")
+        run_service.list_runs_paginated(offset=0, limit=20, workflow_id="forwarded-workflow")
 
         # The repo must receive workflow_id so it can filter the SQL query
         run_read_model.list_runs_paginated.assert_called_once()
         _, kwargs = run_read_model.list_runs_paginated.call_args
-        assert kwargs.get("workflow_id") == "wf_abc", (
-            "run_read_model.list_runs_paginated must be called with workflow_id='wf_abc'"
+        assert kwargs.get("workflow_id") == "forwarded-workflow", (
+            "run_read_model.list_runs_paginated must be called with "
+            "workflow_id='forwarded-workflow'"
         )
 
     def test_workflow_id_none_not_required_in_repo_call(self, run_service, run_read_model):
@@ -96,15 +97,18 @@ class TestWorkflowIdForwardedToRepo:
         run_read_model.list_runs_paginated.assert_called_once()
 
 
-# --- AC 2: No regression — without workflow_id still works ---
+# --- Without workflow_id still works ---
 
 
-class TestNoRegressionWithoutWorkflowId:
+class TestUnfilteredRunsWithoutWorkflowId:
     """Calling list_runs_paginated without workflow_id must still work."""
 
     def test_without_workflow_id_returns_all_runs(self, run_service, run_read_model):
         """Omitting workflow_id returns the full paginated result (no filtering)."""
-        runs = [_make_run("r1", "wf_1"), _make_run("r2", "wf_2")]
+        runs = [
+            _make_run("manual-run", "filtered-workflow"),
+            _make_run("webhook-run", "other-workflow"),
+        ]
         run_read_model.list_runs_paginated.return_value = (runs, 2)
 
         items, total = run_service.list_runs_paginated(offset=0, limit=20)
@@ -114,7 +118,7 @@ class TestNoRegressionWithoutWorkflowId:
 
     def test_with_status_only_still_works(self, run_service, run_read_model):
         """Passing status without workflow_id must still work (existing behavior)."""
-        runs = [_make_run("r1", "wf_1")]
+        runs = [_make_run("pending-run", "filtered-workflow")]
         run_read_model.list_runs_paginated.return_value = (runs, 1)
 
         items, total = run_service.list_runs_paginated(offset=0, limit=20, status=["pending"])
@@ -124,11 +128,11 @@ class TestNoRegressionWithoutWorkflowId:
 
     def test_with_status_and_workflow_id_together(self, run_service, run_read_model):
         """Both status and workflow_id can be provided simultaneously."""
-        runs = [_make_run("r1", "wf_1")]
+        runs = [_make_run("pending-filtered-run", "filtered-workflow")]
         run_read_model.list_runs_paginated.return_value = (runs, 1)
 
         items, total = run_service.list_runs_paginated(
-            offset=0, limit=20, status=["pending"], workflow_id="wf_1"
+            offset=0, limit=20, status=["pending"], workflow_id="filtered-workflow"
         )
 
         assert total == 1
