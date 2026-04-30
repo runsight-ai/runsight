@@ -1,0 +1,25 @@
+apps/api/tests/logic/test_workflow_health_metrics.py
+  4adca821c1af8eb3 119,164,170,197,203,230,236
+apps/api/tests/logic/test_workflow_id_filter.py
+  4adca821c1af8eb3 4,59,62,81,86-88,100,103,108-111,121,131,135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4f2b32123a37da4c061fbe65e84ea715489e1521",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 19,
+      "accepted_lines": 113293,
+      "overriden_lines": 0
+    }
+  }
+}
