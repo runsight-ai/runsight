@@ -47,7 +47,7 @@ def _make_context_envelope(
             id="credential-soul",
             role="Tester",
             system_prompt="You test things.",
-            model_name="gpt-4o-mini",
+            model_name="fixture-model",
             max_tool_iterations=3,
         ),
         tools=tools or [],
@@ -106,8 +106,8 @@ async def _tool_call_boom(args: dict[str, Any]) -> str:
 
 # ---------------------------------------------------------------------------
 # Behavior coverage
-# NOTE: _build_subprocess_env already exists and passes basic checks.
-#       These tests verify the NEW credential-scoped envelope building
+# Note: _build_subprocess_env already exists and passes basic checks.
+#       These tests verify the new credential-scoped envelope building
 #       where the harness resolves tool credentials at envelope construction
 #       time and strips them from the subprocess env.
 # ---------------------------------------------------------------------------
@@ -119,33 +119,33 @@ class TestSubprocessCredentialScoping:
     def test_harness_accepts_tool_credentials(self):
         """SubprocessHarness accepts a tool_credentials dict for IPC handler setup."""
         harness = SubprocessHarness(
-            api_keys={"openai": "dummy-openai-key"},
+            api_keys={"fixture-provider": "dummy-provider-key"},
             tool_credentials={
-                "credentialed_http_tool": {"Authorization": "Bearer dummy-secret-token"}
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-credential"}
             },
         )
         assert harness is not None
 
     def test_tool_credentials_not_in_subprocess_env(self):
-        """Tool credentials must NOT appear in the subprocess environment."""
+        """Tool credentials must not appear in the subprocess environment."""
         harness = SubprocessHarness(
-            api_keys={"openai": "dummy-openai-key"},
+            api_keys={"fixture-provider": "dummy-provider-key"},
             tool_credentials={
-                "credentialed_http_tool": {"Authorization": "Bearer dummy-tool-secret"}
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-tool-credential"}
             },
         )
-        env = harness._build_subprocess_env(socket_path="/tmp/test.sock")
+        env = harness._build_subprocess_env(socket_path="fixture.sock")
 
         # The tool credential value must not appear anywhere in the env
         all_env_values = " ".join(env.values())
-        assert "dummy-tool-secret" not in all_env_values
+        assert "dummy-tool-credential" not in all_env_values
 
     def test_harness_creates_handlers_with_credentials(self):
         """Harness builds IPC handlers that have the tool credentials baked in."""
         harness = SubprocessHarness(
-            api_keys={"openai": "dummy-openai-key"},
+            api_keys={"fixture-provider": "dummy-provider-key"},
             tool_credentials={
-                "credentialed_http_tool": {"Authorization": "Bearer dummy-injected-token"}
+                "credentialed_http_tool": {"Authorization": "Bearer dummy-injected-credential"}
             },
         )
         handlers = harness._build_ipc_handlers()
@@ -263,8 +263,12 @@ class TestLLMHandlerBudgetOwnership:
         session = BudgetSession(scope_name="workflow:test", cost_cap_usd=0.001)
         token = _active_budget.set(session)
         try:
-            handler = make_llm_call_handler({"openai": "dummy-openai-key"})
+            handler = make_llm_call_handler({"fixture-provider": "dummy-provider-key"})
             with (
+                patch(
+                    "runsight_core.isolation.handlers._detect_provider",
+                    return_value="fixture-provider",
+                ),
                 patch(
                     "runsight_core.llm.client.acompletion",
                     new_callable=AsyncMock,
@@ -276,7 +280,7 @@ class TestLLMHandlerBudgetOwnership:
                     chunk
                     async for chunk in handler(
                         {
-                            "model": "gpt-4o",
+                            "model": "fixture-model",
                             "messages": [{"role": "user", "content": "hi"}],
                         }
                     )
@@ -309,8 +313,8 @@ class TestHTTPCredentialInjection:
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer dummy-engine-secret-token"}}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
+        credentials = {"api.fixture.test": {"Authorization": "Bearer dummy-engine-credential"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.fixture.test"])
 
         with (
             patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
@@ -323,7 +327,7 @@ class TestHTTPCredentialInjection:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "https://api.example.com/data",
+                    "url": "https://api.fixture.test/data",
                     "headers": {"Accept": "application/json"},
                 }
             )
@@ -331,7 +335,7 @@ class TestHTTPCredentialInjection:
         assert "error" not in result
         assert perform_request.await_args.kwargs["headers"] == {
             "Accept": "application/json",
-            "Authorization": "Bearer dummy-engine-secret-token",
+            "Authorization": "Bearer dummy-engine-credential",
         }
 
     @pytest.mark.asyncio
@@ -341,8 +345,8 @@ class TestHTTPCredentialInjection:
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer dummy-super-secret"}}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
+        credentials = {"api.fixture.test": {"Authorization": "Bearer dummy-response-credential"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.fixture.test"])
 
         with (
             patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
@@ -355,29 +359,29 @@ class TestHTTPCredentialInjection:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "https://api.example.com/data",
+                    "url": "https://api.fixture.test/data",
                     "headers": {},
                 }
             )
 
         # Response must not contain the injected credential
         result_str = json.dumps(result)
-        assert "dummy-super-secret" not in result_str
+        assert "dummy-response-credential" not in result_str
 
     @pytest.mark.asyncio
     async def test_subprocess_request_has_no_credential_fields(self, tmp_path: Path):
-        """Subprocess sends requests without credential fields — engine adds them."""
+        """Subprocess sends requests without credential fields - engine adds them."""
         from unittest.mock import AsyncMock, patch
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        credentials = {"api.example.com": {"Authorization": "Bearer dummy-injected-token"}}
-        handler = make_http_handler(credentials=credentials, url_allowlist=["api.example.com"])
+        credentials = {"api.fixture.test": {"Authorization": "Bearer dummy-injected-credential"}}
+        handler = make_http_handler(credentials=credentials, url_allowlist=["api.fixture.test"])
 
         # Simulate a subprocess request with NO auth header
         subprocess_request = {
             "method": "GET",
-            "url": "https://api.example.com/data",
+            "url": "https://api.fixture.test/data",
             "headers": {},
         }
 
@@ -394,7 +398,7 @@ class TestHTTPCredentialInjection:
         assert "error" not in result
         assert (
             perform_request.await_args.kwargs["headers"]["Authorization"]
-            == "Bearer dummy-injected-token"
+            == "Bearer dummy-injected-credential"
         )
 
 
@@ -415,7 +419,7 @@ class TestHTTPURLAllowlist:
 
         handler = make_http_handler(
             credentials={},
-            url_allowlist=["api.example.com", "cdn.example.com"],
+            url_allowlist=["api.fixture.test", "cdn.fixture.test"],
         )
 
         with (
@@ -429,7 +433,7 @@ class TestHTTPURLAllowlist:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "https://api.example.com/data",
+                    "url": "https://api.fixture.test/data",
                     "headers": {},
                 }
             )
@@ -437,18 +441,18 @@ class TestHTTPURLAllowlist:
 
     @pytest.mark.asyncio
     async def test_disallowed_host_rejected(self, tmp_path: Path):
-        """Requests to hosts NOT on the allowlist are rejected with an error."""
+        """Requests to hosts not on the allowlist are rejected with an error."""
         from runsight_core.isolation.handlers import make_http_handler
 
         handler = make_http_handler(
             credentials={},
-            url_allowlist=["api.example.com"],
+            url_allowlist=["api.fixture.test"],
         )
 
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://evil.attacker.com/steal",
+                "url": "https://blocked.fixture.test/steal",
                 "headers": {},
             }
         )
@@ -465,7 +469,7 @@ class TestHTTPURLAllowlist:
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://any-host.com/path",
+                "url": "https://unlisted.fixture.test/path",
                 "headers": {},
             }
         )
@@ -484,7 +488,7 @@ class TestHTTPURLAllowlist:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "https://literally-anything.com/path",
+                    "url": "https://wildcard.fixture.test/path",
                     "headers": {},
                 }
             )
@@ -500,7 +504,7 @@ class TestHTTPURLAllowlist:
 
         handler = make_http_handler(
             credentials={},
-            url_allowlist=["api.example.com"],
+            url_allowlist=["api.fixture.test"],
         )
 
         # Different paths on the same allowed host should be fine
@@ -515,7 +519,7 @@ class TestHTTPURLAllowlist:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "https://api.example.com/any/path/here",
+                    "url": "https://api.fixture.test/any/path/here",
                     "headers": {},
                 }
             )
@@ -596,15 +600,14 @@ class TestHTTPSSRFProtection:
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_public_ip_allowed(self, tmp_path: Path):
-        """Requests to public IPs pass SSRF validation."""
+    async def test_allowed_fixture_host_passes_ssrf_validation(self, tmp_path: Path):
+        """Requests pass through when SSRF validation permits the fixture host."""
         from unittest.mock import AsyncMock, patch
 
         from runsight_core.isolation.handlers import make_http_handler
 
-        handler = make_http_handler(credentials={}, url_allowlist=["8.8.8.8"])
+        handler = make_http_handler(credentials={}, url_allowlist=["public.fixture.test"])
 
-        # 8.8.8.8 is public (Google DNS)
         with (
             patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
             patch(
@@ -616,7 +619,7 @@ class TestHTTPSSRFProtection:
             result = await handler(
                 {
                     "method": "GET",
-                    "url": "http://8.8.8.8/",
+                    "url": "https://public.fixture.test/",
                     "headers": {},
                 }
             )
@@ -624,12 +627,12 @@ class TestHTTPSSRFProtection:
 
 
 # ---------------------------------------------------------------------------
-# Real HTTP transport contract (httpx + allowlist + SSRF)
+# HTTP transport contract (httpx + allowlist + SSRF)
 # ---------------------------------------------------------------------------
 
 
-class TestRealHTTPHandlerContract:
-    """make_http_handler must perform real httpx requests with strict controls."""
+class TestHTTPHandlerTransportContract:
+    """make_http_handler must call httpx with strict controls."""
 
     @pytest.mark.asyncio
     async def test_allowed_host_uses_httpx_and_returns_actual_body_status_headers(
@@ -668,20 +671,20 @@ class TestRealHTTPHandlerContract:
         monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
 
         handler = make_http_handler(
-            credentials={"api.example.com": {"Authorization": "Bearer host-token"}},
-            url_allowlist=["api.example.com"],
+            credentials={"api.fixture.test": {"Authorization": "Bearer host-credential"}},
+            url_allowlist=["api.fixture.test"],
         )
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://api.example.com/data",
+                "url": "https://api.fixture.test/data",
                 "headers": {"Accept": "application/json"},
             }
         )
 
         assert captured["method"] == "GET"
-        assert captured["url"] == "https://api.example.com/data"
-        assert captured["headers"]["Authorization"] == "Bearer host-token"
+        assert captured["url"] == "https://api.fixture.test/data"
+        assert captured["headers"]["Authorization"] == "Bearer host-credential"
         assert result["status_code"] == 200
         assert result["body"] == '{"ok": true, "source": "mock"}'
         assert result["headers"]["content-type"] == "application/json"
@@ -716,7 +719,7 @@ class TestRealHTTPHandlerContract:
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://api.example.com/private",
+                "url": "https://api.fixture.test/private",
                 "headers": {},
             }
         )
@@ -760,22 +763,28 @@ class TestRealHTTPHandlerContract:
 
         handler = make_http_handler(
             credentials={
-                "host-a.com": {"Authorization": "Bearer host-a", "X-Host-A": "yes"},
-                "host-b.com": {"Authorization": "Bearer host-b", "X-Host-B": "yes"},
+                "host-a.fixture.test": {
+                    "Authorization": "Bearer host-a-credential",
+                    "X-Host-A": "yes",
+                },
+                "host-b.fixture.test": {
+                    "Authorization": "Bearer host-b-credential",
+                    "X-Host-B": "yes",
+                },
             },
-            url_allowlist=["host-a.com", "host-b.com"],
+            url_allowlist=["host-a.fixture.test", "host-b.fixture.test"],
         )
 
         _ = await handler(
             {
                 "method": "POST",
-                "url": "https://host-a.com/v1/data",
+                "url": "https://host-a.fixture.test/v1/data",
                 "headers": {"Content-Type": "application/json"},
                 "json": {"value": 1},
             }
         )
 
-        assert captured["headers"]["Authorization"] == "Bearer host-a"
+        assert captured["headers"]["Authorization"] == "Bearer host-a-credential"
         assert captured["headers"]["X-Host-A"] == "yes"
         assert "X-Host-B" not in captured["headers"]
 
@@ -790,7 +799,7 @@ class TestRealHTTPHandlerContract:
 
         class _FakeResponse:
             status_code = 302
-            headers = {"location": "https://api.example.com/new-location"}
+            headers = {"location": "https://api.fixture.test/new-location"}
             text = "redirect"
 
         class _FakeAsyncClient:
@@ -813,11 +822,11 @@ class TestRealHTTPHandlerContract:
         monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
         monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
 
-        handler = make_http_handler(credentials={}, url_allowlist=["api.example.com"])
+        handler = make_http_handler(credentials={}, url_allowlist=["api.fixture.test"])
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://api.example.com/old-location",
+                "url": "https://api.fixture.test/old-location",
                 "headers": {},
                 "follow_redirects": True,
             }
@@ -826,7 +835,7 @@ class TestRealHTTPHandlerContract:
         assert captured["client_kwargs"]["follow_redirects"] is False
         assert captured["calls"] == 1
         assert result["status_code"] == 302
-        assert result["headers"]["location"] == "https://api.example.com/new-location"
+        assert result["headers"]["location"] == "https://api.fixture.test/new-location"
 
     @pytest.mark.asyncio
     async def test_response_body_over_max_response_bytes_returns_error(
@@ -861,11 +870,11 @@ class TestRealHTTPHandlerContract:
         monkeypatch.setattr(handlers_module, "httpx", fake_httpx, raising=False)
         monkeypatch.setattr(handlers_module, "validate_ssrf", AsyncMock(return_value=None))
 
-        handler = make_http_handler(credentials={}, url_allowlist=["api.example.com"])
+        handler = make_http_handler(credentials={}, url_allowlist=["api.fixture.test"])
         result = await handler(
             {
                 "method": "GET",
-                "url": "https://api.example.com/large",
+                "url": "https://api.fixture.test/large",
                 "headers": {},
                 "max_response_bytes": 4,
             }
@@ -1031,7 +1040,7 @@ class TestFileIOBaseDir:
 
     @pytest.mark.asyncio
     async def test_absolute_path_rejected(self, tmp_path: Path):
-        """Absolute paths must be rejected — only relative paths within base_dir."""
+        """Absolute paths must be rejected - only relative paths within base_dir."""
         from runsight_core.isolation.handlers import make_file_io_handler
 
         base = tmp_path / "wf-safe"
@@ -1131,7 +1140,7 @@ class TestFileIOPathTraversal:
         )
 
         assert "error" in result
-        # Ensure the file was NOT written outside base_dir
+        # Ensure the file was not written outside base_dir
         assert not (tmp_path / "escape.txt").exists()
 
     @pytest.mark.asyncio
@@ -1167,24 +1176,24 @@ class TestEnvVarResolution:
     """${ENV_VAR} references in tool configs must be resolved at engine level."""
 
     def test_resolve_env_var_reference(self, monkeypatch):
-        """${MY_TOKEN} in a credential config resolves to the env var value."""
+        """${MY_VALUE} in a credential config resolves to the env var value."""
         from runsight_core.isolation.credentials import resolve_credential_refs
 
-        monkeypatch.setenv("MY_TOKEN", "resolved-secret-value")
+        monkeypatch.setenv("MY_VALUE", "resolved-credential-value")
 
-        config = {"Authorization": "Bearer ${MY_TOKEN}"}
+        config = {"Authorization": "Bearer ${MY_VALUE}"}
         resolved = resolve_credential_refs(config)
 
-        assert resolved["Authorization"] == "Bearer resolved-secret-value"
+        assert resolved["Authorization"] == "Bearer resolved-credential-value"
 
     def test_resolve_multiple_refs_in_one_value(self, monkeypatch):
         """Multiple ${VAR} references in one string are all resolved."""
         from runsight_core.isolation.credentials import resolve_credential_refs
 
         monkeypatch.setenv("USER_ID", "user-42")
-        monkeypatch.setenv("API_SECRET", "s3cr3t")
+        monkeypatch.setenv("API_VALUE", "s3cr3t")
 
-        config = {"X-Custom": "${USER_ID}:${API_SECRET}"}
+        config = {"X-Custom": "${USER_ID}:${API_VALUE}"}
         resolved = resolve_credential_refs(config)
 
         assert resolved["X-Custom"] == "user-42:s3cr3t"
@@ -1193,11 +1202,11 @@ class TestEnvVarResolution:
         """Nested dicts have their ${VAR} references resolved recursively."""
         from runsight_core.isolation.credentials import resolve_credential_refs
 
-        monkeypatch.setenv("DB_PASS", "p@ssw0rd")
+        monkeypatch.setenv("DB_VALUE", "p@ssw0rd")
 
         config = {
-            "headers": {"Authorization": "Basic ${DB_PASS}"},
-            "params": {"key": "${DB_PASS}"},
+            "headers": {"Authorization": "Basic ${DB_VALUE}"},
+            "params": {"key": "${DB_VALUE}"},
         }
         resolved = resolve_credential_refs(config)
 
@@ -1208,7 +1217,7 @@ class TestEnvVarResolution:
         """Strings without ${...} are returned unchanged."""
         from runsight_core.isolation.credentials import resolve_credential_refs
 
-        config = {"host": "api.example.com", "port": "443"}
+        config = {"host": "api.fixture.test", "port": "443"}
         resolved = resolve_credential_refs(config)
 
         assert resolved == config
@@ -1235,13 +1244,13 @@ class TestUndefinedEnvVarError:
         assert "TOTALLY_UNDEFINED_VAR" in error_msg
 
     def test_undefined_var_not_empty_string(self, monkeypatch):
-        """An undefined var must NOT silently become an empty string."""
+        """An undefined var must not silently become an empty string."""
         from runsight_core.isolation.credentials import resolve_credential_refs
 
         # Make sure the var is truly undefined
-        monkeypatch.delenv("NONEXISTENT_SECRET", raising=False)
+        monkeypatch.delenv("NONEXISTENT_VALUE", raising=False)
 
-        config = {"token": "${NONEXISTENT_SECRET}"}
+        config = {"token": "${NONEXISTENT_VALUE}"}
 
         with pytest.raises(Exception):
             resolve_credential_refs(config)
@@ -1265,10 +1274,10 @@ class TestUndefinedEnvVarError:
 
         config = {
             "good": "${GOOD_VAR}",
-            "bad": "${DOES_NOT_EXIST_999}",
+            "bad": "${MISSING_VALUE_999}",
         }
 
         with pytest.raises(Exception) as exc_info:
             resolve_credential_refs(config)
 
-        assert "DOES_NOT_EXIST_999" in str(exc_info.value)
+        assert "MISSING_VALUE_999" in str(exc_info.value)
