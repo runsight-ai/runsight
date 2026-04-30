@@ -1,7 +1,6 @@
-"""
-Failing tests for RUN-817: Extract ipc_models.py from ipc.py.
+"""IPC model definitions live in the dedicated ipc_models module.
 
-Acceptance criteria verified:
+Boundary behavior verified:
 1. All 8 symbols are importable from runsight_core.isolation.ipc_models
 2. None of the 8 symbols are class/def-defined in ipc.py source text
 3. ipc.py does NOT re-export the symbols via `from .ipc_models import`
@@ -106,11 +105,11 @@ def test_ipc_py_has_no_reexport_from_ipc_models() -> None:
     # Check the raw source text for any re-export statement
     assert "from .ipc_models import" not in source, (
         "ipc.py contains a re-export: `from .ipc_models import`. "
-        "Per RUN-817, ipc.py must not re-export symbols from ipc_models."
+        "ipc.py must not re-export symbols from ipc_models."
     )
     assert "from runsight_core.isolation.ipc_models import" not in source, (
         "ipc.py contains an absolute re-export from ipc_models. "
-        "Per RUN-817, ipc.py must not re-export symbols from ipc_models."
+        "ipc.py must not re-export symbols from ipc_models."
     )
 
 
@@ -134,7 +133,7 @@ def test_ipc_py_does_not_re_export_individual_symbol(symbol_name: str) -> None:
     ipc_models_imports = [m for m in modules if "ipc_models" in m]
     assert not ipc_models_imports, (
         f"ipc.py re-exports '{symbol_name}' from ipc_models (via: {ipc_models_imports}). "
-        "No re-exports allowed per RUN-817."
+        "No re-exports allowed."
     )
 
 
@@ -160,7 +159,7 @@ def test_init_imports_grant_token_from_ipc_models_not_ipc() -> None:
     ]
     assert not ipc_direct_imports, (
         f"__init__.py still imports GrantToken from ipc ({ipc_direct_imports}). "
-        "After RUN-817, it must import from ipc_models instead."
+        "It must import from ipc_models instead."
     )
 
     # Must import from ipc_models

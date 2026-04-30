@@ -1,7 +1,6 @@
-"""
-Failing tests for RUN-820: Extract worker_support.py from worker.py.
+"""Worker support helpers live in the dedicated worker_support module.
 
-Acceptance criteria verified:
+Boundary behavior verified:
 1. All 7 symbols are importable from runsight_core.isolation.worker_support
 2. None of the 7 symbols are class/def-defined in worker.py source text (AST)
 3. worker.py does NOT re-export (no `from .worker_support import`, no `__getattr__`)
@@ -108,11 +107,11 @@ def test_worker_py_has_no_reexport_from_worker_support() -> None:
     source = _WORKER_PY.read_text(encoding="utf-8")
     assert "from .worker_support import" not in source, (
         "worker.py contains a re-export: `from .worker_support import`. "
-        "Per RUN-820, worker.py must not re-export symbols from worker_support."
+        "worker.py must not re-export symbols from worker_support."
     )
     assert "from runsight_core.isolation.worker_support import" not in source, (
         "worker.py contains an absolute re-export from worker_support. "
-        "Per RUN-820, worker.py must not re-export symbols from worker_support."
+        "worker.py must not re-export symbols from worker_support."
     )
 
 
@@ -124,7 +123,7 @@ def test_worker_py_has_no_getattr_shim() -> None:
         if isinstance(node, ast.FunctionDef) and node.name == "__getattr__":
             pytest.fail(
                 "worker.py defines a module-level __getattr__ function. "
-                "Per RUN-820, no backwards-compat shims are allowed."
+                "No backwards-compat shims are allowed."
             )
 
 
@@ -142,7 +141,7 @@ def test_worker_py_does_not_re_export_individual_symbol(symbol_name: str) -> Non
                 if alias.name == symbol_name or alias.asname == symbol_name:
                     pytest.fail(
                         f"worker.py re-exports '{symbol_name}' from worker_support "
-                        f"(via import from {module_name}). No re-exports allowed per RUN-820."
+                        f"(via import from {module_name}). No re-exports allowed."
                     )
 
 

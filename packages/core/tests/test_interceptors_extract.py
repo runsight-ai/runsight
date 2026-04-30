@@ -1,7 +1,6 @@
-"""
-Failing tests for RUN-818: Extract interceptors.py from ipc.py.
+"""IPC interceptors live in the dedicated interceptors module.
 
-Acceptance criteria verified:
+Boundary behavior verified:
 1. All 4 symbols are importable from runsight_core.isolation.interceptors
 2. None of the 4 symbols are class/def-defined in ipc.py source text
 3. ipc.py does NOT re-export (no `from .interceptors import`, no `__getattr__`)
@@ -112,11 +111,11 @@ def test_ipc_py_has_no_reexport_from_interceptors() -> None:
     source = _IPC_PY.read_text(encoding="utf-8")
     assert "from .interceptors import" not in source, (
         "ipc.py contains a re-export: `from .interceptors import`. "
-        "Per RUN-818, ipc.py must not re-export symbols from interceptors."
+        "ipc.py must not re-export symbols from interceptors."
     )
     assert "from runsight_core.isolation.interceptors import" not in source, (
         "ipc.py contains an absolute re-export from interceptors. "
-        "Per RUN-818, ipc.py must not re-export symbols from interceptors."
+        "ipc.py must not re-export symbols from interceptors."
     )
 
 
@@ -125,7 +124,7 @@ def test_ipc_py_has_no_getattr_fallback() -> None:
     source = _IPC_PY.read_text(encoding="utf-8")
     defined_names = _top_level_definition_names(source)
     assert "__getattr__" not in defined_names, (
-        "ipc.py defines a __getattr__ function -- no lazy re-export fallbacks allowed per RUN-818."
+        "ipc.py defines a __getattr__ function -- no lazy re-export fallbacks allowed."
     )
 
 
@@ -137,7 +136,7 @@ def test_ipc_py_does_not_re_export_individual_symbol(symbol_name: str) -> None:
     interceptors_imports = [m for m in modules if "interceptors" in m]
     assert not interceptors_imports, (
         f"ipc.py re-exports '{symbol_name}' from interceptors (via: {interceptors_imports}). "
-        "No re-exports allowed per RUN-818."
+        "No re-exports allowed."
     )
 
 
@@ -192,7 +191,7 @@ def test_init_imports_from_interceptors_not_ipc(symbol_name: str) -> None:
     ]
     assert not ipc_direct_imports, (
         f"__init__.py still imports {symbol_name} from ipc ({ipc_direct_imports}). "
-        "After RUN-818, it must import from interceptors instead."
+        "It must import from interceptors instead."
     )
 
     # Must import from interceptors

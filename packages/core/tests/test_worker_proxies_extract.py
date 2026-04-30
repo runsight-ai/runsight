@@ -1,7 +1,6 @@
-"""
-Failing tests for RUN-819: Extract worker_proxies.py from worker.py.
+"""Worker proxy helpers live in the dedicated worker_proxies module.
 
-Acceptance criteria verified:
+Boundary behavior verified:
 1. All 5 symbols are importable from runsight_core.isolation.worker_proxies
 2. None of the 5 symbols are class/def-defined in worker.py source text
 3. worker.py does NOT re-export the symbols (no `from .worker_proxies import`, no `__getattr__`)
@@ -104,11 +103,11 @@ def test_worker_py_has_no_reexport_from_worker_proxies() -> None:
     source = _WORKER_PY.read_text(encoding="utf-8")
     assert "from .worker_proxies import" not in source, (
         "worker.py contains a re-export: `from .worker_proxies import`. "
-        "Per RUN-819, worker.py must not re-export symbols from worker_proxies."
+        "worker.py must not re-export symbols from worker_proxies."
     )
     assert "from runsight_core.isolation.worker_proxies import" not in source, (
         "worker.py contains an absolute re-export from worker_proxies. "
-        "Per RUN-819, worker.py must not re-export symbols from worker_proxies."
+        "worker.py must not re-export symbols from worker_proxies."
     )
 
 
@@ -120,7 +119,7 @@ def test_worker_py_has_no_getattr_shim() -> None:
         if isinstance(node, ast.FunctionDef) and node.name == "__getattr__":
             pytest.fail(
                 "worker.py defines a module-level __getattr__ function. "
-                "Per RUN-819, no backwards-compat shims are allowed."
+                "No backwards-compat shims are allowed."
             )
 
 
@@ -138,7 +137,7 @@ def test_worker_py_does_not_re_export_individual_symbol(symbol_name: str) -> Non
                 if alias.name == symbol_name or alias.asname == symbol_name:
                     pytest.fail(
                         f"worker.py re-exports '{symbol_name}' from worker_proxies "
-                        f"(via import from {module_name}). No re-exports allowed per RUN-819."
+                        f"(via import from {module_name}). No re-exports allowed."
                     )
 
 
