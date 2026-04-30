@@ -1,21 +1,12 @@
-"""
-Failing tests for RUN-395: ISO-005 — Migrate LinearBlock + GateBlock + SynthesizeBlock
-to subprocess via IsolatedBlockWrapper.
+"""IsolatedBlockWrapper block migration coverage.
 
-Tests cover all 13 acceptance criteria:
- AC1:  IsolatedBlockWrapper wraps LinearBlock, GateBlock, SynthesizeBlock, DispatchBlock
- AC2:  Wrapper exposes self.soul for observer (prompt_hash, soul_version)
- AC3:  Existing block code runs unchanged inside subprocess
- AC4:  All existing block tests pass without modification (structural — no new test)
- AC5:  Agentic loop works through subprocess (LLM → tool → LLM)
- AC6:  Cost/tokens in ResultEnvelope applied to WorkflowState correctly
- AC7:  Stateful blocks: conversation history round-trips (ContextEnvelope → ResultEnvelope)
- AC8:  LoopBlock with subprocess inner blocks: 3 rounds, history carries across rounds
- AC9:  retry_config works: retryable errors retry, non-retryable don't
- AC10: retry_config matches original error type, not SubprocessError
- AC11: timeout_seconds and stall_thresholds added to BaseBlockDef (YAML-configurable)
- AC12: fit_to_budget() runs inside subprocess (no engine-side budgeting)
- AC13: No if/else dispatch in workflow.py — wrapper applied at build time
+Tests cover:
+- wrapping LinearBlock, GateBlock, SynthesizeBlock, and DispatchBlock
+- observer-visible soul metadata
+- subprocess execution without direct engine fallback
+- agentic loop, cost/token, and conversation history propagation
+- retry, timeout, stall threshold, and budget behavior
+- parser-time wrapper wiring
 """
 
 import asyncio
@@ -42,7 +33,7 @@ from runsight_core.yaml.schema import BaseBlockDef, RetryConfig
 # ── Shared fixtures ─────────────────────────────────────────────────────────
 
 
-def _make_soul(soul_id: str = "test_soul") -> Soul:
+def _make_soul(soul_id: str = "isolation_default_soul") -> Soul:
     return Soul(
         id=soul_id,
         kind="soul",
@@ -68,8 +59,7 @@ def _apply_output(state: WorkflowState, block_id: str, output: BlockOutput) -> W
 
 
 # ==============================================================================
-# AC1: IsolatedBlockWrapper wraps LinearBlock, GateBlock, SynthesizeBlock,
-#      DispatchBlock — and is itself a BaseBlock
+# Wrapper covers LLM block types and is itself a BaseBlock
 # ==============================================================================
 
 
@@ -96,9 +86,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
-        assert wrapper.block_id == "blk1"
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
+        assert wrapper.block_id == "isolated_linear_block"
 
     def test_wraps_gate_block(self):
         """IsolatedBlockWrapper can wrap a GateBlock."""
@@ -108,9 +98,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = GateBlock("gate1", soul, "eval_blk", runner)
-        wrapper = IsolatedBlockWrapper(block_id="gate1", inner_block=inner)
-        assert wrapper.block_id == "gate1"
+        inner = GateBlock("isolated_gate_block", soul, "evaluation_source_block", runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_gate_block", inner_block=inner)
+        assert wrapper.block_id == "isolated_gate_block"
 
     def test_wraps_synthesize_block(self):
         """IsolatedBlockWrapper can wrap a SynthesizeBlock."""
@@ -120,9 +110,9 @@ class TestIsolatedBlockWrapperWrapsBlocks:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = SynthesizeBlock("synth1", ["a", "b"], soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="synth1", inner_block=inner)
-        assert wrapper.block_id == "synth1"
+        inner = SynthesizeBlock("isolated_synthesis_block", ["a", "b"], soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_synthesis_block", inner_block=inner)
+        assert wrapper.block_id == "isolated_synthesis_block"
 
     def test_wraps_dispatch_block(self):
         """IsolatedBlockWrapper can wrap a DispatchBlock."""
@@ -135,20 +125,20 @@ class TestIsolatedBlockWrapperWrapsBlocks:
         branches = [
             DispatchBranch(exit_id="a", label="A", soul=soul, task_instruction="do A"),
         ]
-        inner = DispatchBlock("fan1", branches, runner)
-        wrapper = IsolatedBlockWrapper(block_id="fan1", inner_block=inner)
-        assert wrapper.block_id == "fan1"
+        inner = DispatchBlock("isolated_dispatch_block", branches, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_dispatch_block", inner_block=inner)
+        assert wrapper.block_id == "isolated_dispatch_block"
 
 
 # ==============================================================================
-# AC2: Wrapper exposes self.soul for observer (prompt_hash, soul_version)
+# Behavior coverage
 # ==============================================================================
 
 
 class TestWrapperExposesSoul:
     """The wrapper must expose self.soul from the inner block for telemetry."""
 
-    def test_soul_attribute_from_linear_block(self):
+    def test_wrapper_soul_attribute_from_linear_block(self):
         """Wrapper.soul returns the inner LinearBlock's soul."""
         from unittest.mock import MagicMock
 
@@ -156,20 +146,20 @@ class TestWrapperExposesSoul:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         assert wrapper.soul is soul
 
-    def test_soul_attribute_from_gate_block(self):
-        """Wrapper.soul returns the inner GateBlock's gate_soul."""
+    def test_wrapper_soul_attribute_from_gate_block(self):
+        """Wrapper.soul returns the inner GateBlock's gate_evaluator_soul."""
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = GateBlock("gate1", soul, "eval_blk", runner)
-        wrapper = IsolatedBlockWrapper(block_id="gate1", inner_block=inner)
+        inner = GateBlock("isolated_gate_block", soul, "evaluation_source_block", runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_gate_block", inner_block=inner)
         # The wrapper must expose a soul (however it maps the inner block's attribute)
         assert wrapper.soul is not None
         assert compute_prompt_hash(wrapper.soul) == compute_prompt_hash(soul)
@@ -182,11 +172,11 @@ class TestWrapperExposesSoul:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         assert compute_prompt_hash(wrapper.soul) is not None
 
-    def test_soul_version_computable_from_wrapper_soul(self):
+    def test_wrapper_soul_version_computable_from_wrapper_soul(self):
         """Observer can compute soul_version from wrapper.soul."""
         from unittest.mock import MagicMock
 
@@ -194,8 +184,8 @@ class TestWrapperExposesSoul:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         assert compute_soul_version(wrapper.soul) is not None
 
     @pytest.mark.asyncio
@@ -206,7 +196,7 @@ class TestWrapperExposesSoul:
         from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = Soul(
-            id="tool_soul",
+            id="tool_enabled_soul",
             kind="soul",
             name="Tester",
             role="Tester",
@@ -217,14 +207,14 @@ class TestWrapperExposesSoul:
             max_tokens=256,
             required_tool_calls=["http_request", "slack_webhook"],
         )
-        inner = LinearBlock("blk1", soul, MagicMock())
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, MagicMock())
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         captured = {}
 
         async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
             captured["envelope"] = envelope
             return ResultEnvelope(
-                block_id="blk1",
+                block_id="isolated_linear_block",
                 output="ok",
                 exit_handle="done",
                 cost_usd=0.0,
@@ -248,7 +238,7 @@ class TestWrapperExposesSoul:
 
 
 # ==============================================================================
-# AC3: Existing block code runs unchanged inside subprocess
+# Behavior coverage
 # ==============================================================================
 
 
@@ -263,12 +253,12 @@ class TestExistingBlockCodeUnchanged:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         # The wrapper should invoke SubprocessHarness, not inner.execute() directly
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="test output",
             exit_handle="done",
             cost_usd=0.001,
@@ -298,13 +288,13 @@ class TestExistingBlockCodeUnchanged:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         inner.execute = AsyncMock()
 
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="done",
             exit_handle="done",
             cost_usd=0.0,
@@ -335,8 +325,8 @@ class TestExistingBlockCodeUnchanged:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         wrapper.declared_inputs = {
             "real_output": "real_block.output",
             "workflow_string": "workflow_mapped_string.output",
@@ -349,7 +339,7 @@ class TestExistingBlockCodeUnchanged:
         async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
             captured["envelope"] = envelope
             return ResultEnvelope(
-                block_id="blk1",
+                block_id="isolated_linear_block",
                 output="ok",
                 exit_handle="done",
                 cost_usd=0.0,
@@ -403,14 +393,14 @@ class TestExistingBlockCodeUnchanged:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         captured = {}
 
         async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
             captured["envelope"] = envelope
             return ResultEnvelope(
-                block_id="blk1",
+                block_id="isolated_linear_block",
                 output="ok",
                 exit_handle="done",
                 cost_usd=0.0,
@@ -435,7 +425,7 @@ class TestExistingBlockCodeUnchanged:
 
 
 # ==============================================================================
-# AC5: Agentic loop works through subprocess (LLM → tool → LLM)
+# Behavior coverage
 # ==============================================================================
 
 
@@ -450,11 +440,11 @@ class TestAgenticLoopThroughSubprocess:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="result with tools",
             exit_handle="done",
             cost_usd=0.05,
@@ -483,7 +473,7 @@ class TestAgenticLoopThroughSubprocess:
 
 
 # ==============================================================================
-# AC6: Cost/tokens in ResultEnvelope applied to WorkflowState correctly
+# Behavior coverage
 # ==============================================================================
 
 
@@ -498,11 +488,11 @@ class TestCostTokenPropagation:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="ok",
             exit_handle="done",
             cost_usd=0.0042,
@@ -536,11 +526,11 @@ class TestCostTokenPropagation:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="ok",
             exit_handle="done",
             cost_usd=0.0,
@@ -568,7 +558,7 @@ class TestCostTokenPropagation:
 
 
 # ==============================================================================
-# AC7: Stateful blocks — conversation history round-trips
+# Behavior coverage
 # ==============================================================================
 
 
@@ -583,9 +573,9 @@ class TestConversationHistoryRoundTrip:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         inner.stateful = True
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         updated_history = [
             {"role": "user", "content": "hello"},
@@ -593,7 +583,7 @@ class TestConversationHistoryRoundTrip:
         ]
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="hi there",
             exit_handle="done",
             cost_usd=0.001,
@@ -614,7 +604,7 @@ class TestConversationHistoryRoundTrip:
             )
 
         # Worker returns a full history, so wrapper must replace rather than append.
-        history_key = f"blk1_{soul.id}"
+        history_key = f"isolated_linear_block_{soul.id}"
         assert result_output.conversation_replacements is not None
         assert history_key in result_output.conversation_replacements
         assert result_output.conversation_replacements[history_key] == updated_history
@@ -627,9 +617,9 @@ class TestConversationHistoryRoundTrip:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         inner.stateful = True
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         prior_history = [
             {"role": "user", "content": "round 1"},
@@ -637,7 +627,7 @@ class TestConversationHistoryRoundTrip:
         ]
 
         state = _make_state()
-        history_key = f"blk1_{soul.id}"
+        history_key = f"isolated_linear_block_{soul.id}"
         state = state.model_copy(update={"conversation_histories": {history_key: prior_history}})
 
         captured_envelope = {}
@@ -645,7 +635,7 @@ class TestConversationHistoryRoundTrip:
         async def mock_run(envelope: ContextEnvelope) -> ResultEnvelope:
             captured_envelope["val"] = envelope
             return ResultEnvelope(
-                block_id="blk1",
+                block_id="isolated_linear_block",
                 output="ok",
                 exit_handle="done",
                 cost_usd=0.0,
@@ -668,7 +658,7 @@ class TestConversationHistoryRoundTrip:
 
 
 # ==============================================================================
-# AC8: LoopBlock with subprocess inner blocks — 3 rounds, history carries
+# Behavior coverage
 # ==============================================================================
 
 
@@ -683,9 +673,9 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("inner_blk", soul, runner)
+        inner = LinearBlock("loop_inner_linear_block", soul, runner)
         inner.stateful = True
-        wrapper = IsolatedBlockWrapper(block_id="inner_blk", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="loop_inner_linear_block", inner_block=inner)
 
         call_count = 0
 
@@ -699,7 +689,7 @@ class TestLoopBlockWithSubprocessInnerBlocks:
                 {"role": "assistant", "content": f"response {call_count}"},
             ]
             return ResultEnvelope(
-                block_id="inner_blk",
+                block_id="loop_inner_linear_block",
                 output=f"output round {call_count}",
                 exit_handle="done",
                 cost_usd=0.001,
@@ -719,9 +709,9 @@ class TestLoopBlockWithSubprocessInnerBlocks:
             for _ in range(3):
                 ctx = _make_ctx(wrapper, state)
                 result_output = asyncio.get_event_loop().run_until_complete(wrapper.execute(ctx))
-                state = _apply_output(state, "inner_blk", result_output)
+                state = _apply_output(state, "loop_inner_linear_block", result_output)
 
-        history_key = f"inner_blk_{soul.id}"
+        history_key = f"loop_inner_linear_block_{soul.id}"
         history = state.conversation_histories.get(history_key, [])
         assert history == [
             {"role": "user", "content": "round 1"},
@@ -735,7 +725,7 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
 
 # ==============================================================================
-# AC9: retry_config works — retryable errors retry, non-retryable don't
+# Behavior coverage
 # ==============================================================================
 
 
@@ -750,10 +740,10 @@ class TestRetryConfigWithWrapper:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         retry_cfg = RetryConfig(max_attempts=3, non_retryable_errors=["ValueError"])
         wrapper = IsolatedBlockWrapper(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             inner_block=inner,
             retry_config=retry_cfg,
         )
@@ -768,9 +758,9 @@ class TestRetryConfigWithWrapper:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         wrapper = IsolatedBlockWrapper(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             inner_block=inner,
             retry_config=RetryConfig(
                 max_attempts=3,
@@ -780,7 +770,7 @@ class TestRetryConfigWithWrapper:
 
         # Subprocess returns error with error_type="ValueError"
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output=None,
             exit_handle="error",
             cost_usd=0.0,
@@ -808,7 +798,7 @@ class TestRetryConfigWithWrapper:
 
 
 # ==============================================================================
-# AC10: retry_config matches original error type, not SubprocessError
+# Behavior coverage
 # ==============================================================================
 
 
@@ -824,11 +814,11 @@ class TestRetryMatchesOriginalErrorType:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output=None,
             exit_handle="error",
             cost_usd=0.0,
@@ -865,8 +855,8 @@ class TestRetryMatchesOriginalErrorType:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         state = _make_state()
         with patch.object(
@@ -889,8 +879,8 @@ class TestRetryMatchesOriginalErrorType:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         state = _make_state()
         with patch.object(
@@ -913,11 +903,11 @@ class TestRetryMatchesOriginalErrorType:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output=None,
             exit_handle="error",
             cost_usd=0.0,
@@ -940,7 +930,7 @@ class TestRetryMatchesOriginalErrorType:
 
 
 # ==============================================================================
-# AC11: timeout_seconds and stall_thresholds added to BaseBlockDef
+# Behavior coverage
 # ==============================================================================
 
 
@@ -1017,7 +1007,7 @@ souls:
     role: Tester
     system_prompt: You test things.
 blocks:
-  blk1:
+  isolated_linear_block:
     type: linear
     soul_ref: test
     timeout_seconds: 120
@@ -1025,9 +1015,9 @@ workflow:
   id: test_wf
   kind: workflow
   name: test_wf
-  entry: blk1
+  entry: isolated_linear_block
   transitions:
-    - from: blk1
+    - from: isolated_linear_block
       to: null
 """
         from unittest.mock import MagicMock
@@ -1038,11 +1028,11 @@ workflow:
         parse_workflow_yaml(yaml_str, runner=runner)
         # The parsed workflow accepts the YAML — verify the raw value survived
         raw = yaml.safe_load(yaml_str)
-        assert raw["blocks"]["blk1"]["timeout_seconds"] == 120
+        assert raw["blocks"]["isolated_linear_block"]["timeout_seconds"] == 120
 
 
 # ==============================================================================
-# AC12: fit_to_budget() runs inside subprocess (no engine-side budgeting)
+# Behavior coverage
 # ==============================================================================
 
 
@@ -1059,12 +1049,12 @@ class TestBudgetFittingInsideSubprocess:
 
         soul = _make_soul()
         runner = MagicMock()
-        inner = LinearBlock("blk1", soul, runner)
+        inner = LinearBlock("isolated_linear_block", soul, runner)
         inner.stateful = True
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         mock_result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="ok",
             exit_handle="done",
             cost_usd=0.0,
@@ -1091,7 +1081,7 @@ class TestBudgetFittingInsideSubprocess:
 
 
 # ==============================================================================
-# AC13: No if/else dispatch in workflow.py — wrapper applied at build time
+# Behavior coverage
 # ==============================================================================
 
 
@@ -1118,21 +1108,21 @@ souls:
     role: Tester
     system_prompt: You test things.
 blocks:
-  blk1:
+  isolated_linear_block:
     type: linear
     soul_ref: test
 workflow:
   id: test_wf
   kind: workflow
   name: test_wf
-  entry: blk1
+  entry: isolated_linear_block
   transitions:
-    - from: blk1
+    - from: isolated_linear_block
       to: null
 """
         runner = MagicMock()
         wf = parse_workflow_yaml(yaml_str, runner=runner)
-        block = wf._blocks["blk1"]
+        block = wf._blocks["isolated_linear_block"]
         assert isinstance(block, IsolatedBlockWrapper)
 
     def test_parser_returns_wrapped_blocks_for_gate(self):
@@ -1157,7 +1147,7 @@ blocks:
   producer:
     type: linear
     soul_ref: test
-  gate1:
+  isolated_gate_block:
     type: gate
     soul_ref: test
     eval_key: producer
@@ -1168,13 +1158,13 @@ workflow:
   entry: producer
   transitions:
     - from: producer
-      to: gate1
-    - from: gate1
+      to: isolated_gate_block
+    - from: isolated_gate_block
       to: null
 """
         runner = MagicMock()
         wf = parse_workflow_yaml(yaml_str, runner=runner)
-        block = wf._blocks["gate1"]
+        block = wf._blocks["isolated_gate_block"]
         assert isinstance(block, IsolatedBlockWrapper)
 
     def test_parser_returns_wrapped_blocks_for_synthesize(self):
@@ -1272,7 +1262,7 @@ workflow:
 
 
 class TestEnvelopeBlockContracts:
-    """RUN-392: wrapper must emit full envelope config for migrated block types."""
+    """wrapper must emit full envelope config for migrated block types."""
 
     async def _execute_and_capture_envelope(
         self,
@@ -1308,13 +1298,13 @@ class TestEnvelopeBlockContracts:
         from runsight_core.isolation import IsolatedBlockWrapper
 
         inner = GateBlock(
-            "gate1",
-            _make_soul("gate_soul"),
+            "isolated_gate_block",
+            _make_soul("gate_evaluator_soul"),
             "producer",
             MagicMock(),
             extract_field="answer",
         )
-        wrapper = IsolatedBlockWrapper(block_id="gate1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_gate_block", inner_block=inner)
 
         state = WorkflowState(results={"producer": BlockResult(output='{"answer": "ok"}')})
         envelope = await self._execute_and_capture_envelope(wrapper, state=state)
@@ -1330,9 +1320,11 @@ class TestEnvelopeBlockContracts:
 
         from runsight_core.isolation import IsolatedBlockWrapper
 
-        synth_soul = _make_soul("synth_soul")
-        inner = SynthesizeBlock("synth1", ["draft", "facts"], synth_soul, MagicMock())
-        wrapper = IsolatedBlockWrapper(block_id="synth1", inner_block=inner)
+        synthesis_soul = _make_soul("synthesis_soul")
+        inner = SynthesizeBlock(
+            "isolated_synthesis_block", ["draft", "facts"], synthesis_soul, MagicMock()
+        )
+        wrapper = IsolatedBlockWrapper(block_id="isolated_synthesis_block", inner_block=inner)
 
         state = WorkflowState(
             results={
@@ -1345,10 +1337,10 @@ class TestEnvelopeBlockContracts:
         assert envelope.block_type == "synthesize"
         assert envelope.block_config["input_block_ids"] == ["draft", "facts"]
         assert envelope.block_config["synthesizer_soul"] == {
-            "id": synth_soul.id,
-            "role": synth_soul.role,
-            "system_prompt": synth_soul.system_prompt,
-            "model_name": synth_soul.model_name,
+            "id": synthesis_soul.id,
+            "role": synthesis_soul.role,
+            "system_prompt": synthesis_soul.system_prompt,
+            "model_name": synthesis_soul.model_name,
             "provider": "",
             "temperature": None,
             "max_tokens": None,
@@ -1366,7 +1358,7 @@ class TestEnvelopeBlockContracts:
         reviewer = _make_soul("reviewer")
         fixer = _make_soul("fixer")
         inner = DispatchBlock(
-            "fanout1",
+            "isolated_dispatch_block",
             [
                 DispatchBranch(
                     exit_id="approve",
@@ -1383,7 +1375,7 @@ class TestEnvelopeBlockContracts:
             ],
             MagicMock(),
         )
-        wrapper = IsolatedBlockWrapper(block_id="fanout1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_dispatch_block", inner_block=inner)
 
         envelope = await self._execute_and_capture_envelope(wrapper)
 
@@ -1423,7 +1415,7 @@ class TestEnvelopeBlockContracts:
 
 
 class TestWrapperHarnessWiringContract:
-    """RUN-815: wrapper must delegate to SubprocessHarness with no direct-execute bypass."""
+    """wrapper must delegate to SubprocessHarness with no direct-execute bypass."""
 
     @staticmethod
     def _write_external_soul(base_dir: Path) -> None:
@@ -1449,7 +1441,7 @@ class TestWrapperHarnessWiringContract:
         workflow_path.write_text(
             "\n".join(
                 [
-                    "id: run815-wrapper-wiring",
+                    "id: wrapper-harness-wiring",
                     "kind: workflow",
                     'version: "1.0"',
                     "config:",
@@ -1459,7 +1451,7 @@ class TestWrapperHarnessWiringContract:
                     "    type: linear",
                     "    soul_ref: writer",
                     "workflow:",
-                    "  name: run815_wrapper_wiring",
+                    "  name: wrapper_harness_wiring",
                     "  entry: draft",
                     "  transitions:",
                     "    - from: draft",
@@ -1477,11 +1469,11 @@ class TestWrapperHarnessWiringContract:
         from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
-        inner = LinearBlock("blk1", soul, MagicMock())
+        inner = LinearBlock("isolated_linear_block", soul, MagicMock())
         inner.execute = AsyncMock()
 
         result = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="subprocess output",
             exit_handle="done",
             cost_usd=0.25,
@@ -1503,7 +1495,9 @@ class TestWrapperHarnessWiringContract:
                 return self.result_envelope
 
         harness = _FakeHarness(result)
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner, harness=harness)
+        wrapper = IsolatedBlockWrapper(
+            block_id="isolated_linear_block", inner_block=inner, harness=harness
+        )
         wrapper.declared_inputs = {"instruction": "shared_memory._resolved_inputs.instruction"}
 
         state = _make_state()
@@ -1513,7 +1507,7 @@ class TestWrapperHarnessWiringContract:
         block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         assert len(harness.calls) == 1
-        assert harness.calls[0].block_id == "blk1"
+        assert harness.calls[0].block_id == "isolated_linear_block"
         # The instruction is conveyed via scoped_shared_memory["_resolved_inputs"]
         assert (
             harness.calls[0].scoped_shared_memory.get("_resolved_inputs", {}).get("instruction")
@@ -1531,9 +1525,9 @@ class TestWrapperHarnessWiringContract:
         from runsight_core.isolation import IsolatedBlockWrapper
 
         soul = _make_soul()
-        inner = LinearBlock("blk1", soul, MagicMock())
+        inner = LinearBlock("isolated_linear_block", soul, MagicMock())
         inner.execute = AsyncMock()
-        wrapper = IsolatedBlockWrapper(block_id="blk1", inner_block=inner)
+        wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
         async def _not_implemented(_: ContextEnvelope) -> ResultEnvelope:
             raise NotImplementedError("subprocess wiring missing")
@@ -1553,7 +1547,7 @@ class TestWrapperHarnessWiringContract:
         from runsight_core.isolation.envelope import PromptEnvelope, SoulEnvelope
 
         expected = ResultEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             output="ok",
             exit_handle="done",
             cost_usd=0.0,
@@ -1575,12 +1569,12 @@ class TestWrapperHarnessWiringContract:
 
         harness = _FakeHarness()
         wrapper = IsolatedBlockWrapper(
-            block_id="blk1",
-            inner_block=LinearBlock("blk1", _make_soul(), MagicMock()),
+            block_id="isolated_linear_block",
+            inner_block=LinearBlock("isolated_linear_block", _make_soul(), MagicMock()),
             harness=harness,
         )
         envelope = ContextEnvelope(
-            block_id="blk1",
+            block_id="isolated_linear_block",
             block_type="linear",
             block_config={},
             soul=SoulEnvelope(
@@ -1593,7 +1587,7 @@ class TestWrapperHarnessWiringContract:
                 max_tokens=256,
             ),
             tools=[],
-            prompt=PromptEnvelope(id="task-1", instruction="Do the thing", context={}),
+            prompt=PromptEnvelope(id="isolation-prompt", instruction="Do the thing", context={}),
             scoped_results={},
             scoped_shared_memory={},
             conversation_history=[],
@@ -1620,7 +1614,7 @@ class TestWrapperHarnessWiringContract:
         workflow = parse_workflow_yaml(
             str(workflow_path),
             runner=MagicMock(),
-            api_keys={"openai": "sk-engine-key"},
+            api_keys={"openai": "dummy-engine-key"},
         )
         wrapped_block = workflow.blocks["draft"]
 
