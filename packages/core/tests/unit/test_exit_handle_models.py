@@ -1,32 +1,22 @@
-"""
-Failing tests for RUN-266: exit_handle on BlockResult + ExitDef / exits on BaseBlockDef.
+"""Exit handle schema model coverage.
 
-Foundation ticket: add data-model fields that enable named ports.
-Zero behavior change — purely additive schema additions.
-
-Tests cover:
-- AC1: BlockResult(output="x") still works (exit_handle defaults to None)
-- AC2: BlockResult(output="x", exit_handle="pass") stores the handle
-- AC3: BlockResult.from_string("x") still works (exit_handle is None)
-- AC4: ExitDef validates id and label are required
-- AC5: BaseBlockDef with exits parses correctly
-- AC6: BaseBlockDef without exits parses (backward compat)
-- AC7: Existing tests pass unchanged (covered implicitly — no existing tests modified)
+Tests cover BlockResult.exit_handle, ExitDef validation, BaseBlockDef.exits,
+YAML-like parsing, and compatibility with existing BlockResult usage.
 """
 
 import pytest
 from pydantic import ValidationError
 
 # ==============================================================================
-# AC1 + AC2 + AC3: BlockResult.exit_handle
+# BlockResult.exit_handle
 # ==============================================================================
 
 
 class TestBlockResultExitHandle:
-    """Tests for the new exit_handle field on BlockResult."""
+    """Tests for the exit_handle field on BlockResult."""
 
     def test_exit_handle_defaults_to_none(self):
-        """AC1: BlockResult(output='x') works — exit_handle defaults to None."""
+        """BlockResult works without an explicit exit_handle."""
         from runsight_core.state import BlockResult
 
         result = BlockResult(output="hello")
@@ -34,14 +24,14 @@ class TestBlockResultExitHandle:
         assert result.exit_handle is None
 
     def test_exit_handle_explicit_none(self):
-        """AC1 variant: exit_handle=None can be passed explicitly."""
+        """exit_handle=None can be passed explicitly."""
         from runsight_core.state import BlockResult
 
         result = BlockResult(output="hello", exit_handle=None)
         assert result.exit_handle is None
 
     def test_exit_handle_set_to_string(self):
-        """AC2: BlockResult(output='x', exit_handle='pass') stores the handle."""
+        """BlockResult stores an explicit exit_handle string."""
         from runsight_core.state import BlockResult
 
         result = BlockResult(output="decided", exit_handle="pass")
@@ -49,7 +39,7 @@ class TestBlockResultExitHandle:
         assert result.exit_handle == "pass"
 
     def test_exit_handle_various_values(self):
-        """AC2 variant: exit_handle accepts arbitrary string identifiers."""
+        """exit_handle accepts arbitrary string identifiers."""
         from runsight_core.state import BlockResult
 
         for handle in ("pass", "fail", "case_a", "retry", "error", "default"):
@@ -82,7 +72,7 @@ class TestBlockResultExitHandle:
         assert "exit_handle" not in dumped
 
     def test_from_string_exit_handle_is_none(self):
-        """AC3: BlockResult.from_string('x') still works; exit_handle is None."""
+        """BlockResult.from_string() still sets exit_handle to None."""
         from runsight_core.state import BlockResult
 
         result = BlockResult.from_string("hello")
@@ -124,12 +114,12 @@ class TestBlockResultExitHandle:
 
 
 # ==============================================================================
-# AC4: ExitDef model
+# ExitDef model
 # ==============================================================================
 
 
 class TestExitDef:
-    """Tests for the new ExitDef model in yaml/schema.py."""
+    """Tests for the ExitDef model in yaml/schema.py."""
 
     def test_exitdef_valid(self):
         """ExitDef with id and label is valid."""
@@ -140,21 +130,21 @@ class TestExitDef:
         assert ed.label == "Pass"
 
     def test_exitdef_missing_id_raises(self):
-        """AC4: ExitDef without id raises ValidationError."""
+        """ExitDef without id raises ValidationError."""
         from runsight_core.yaml.schema import ExitDef
 
         with pytest.raises(ValidationError):
             ExitDef(label="Pass")  # type: ignore
 
     def test_exitdef_missing_label_raises(self):
-        """AC4: ExitDef without label raises ValidationError."""
+        """ExitDef without label raises ValidationError."""
         from runsight_core.yaml.schema import ExitDef
 
         with pytest.raises(ValidationError):
             ExitDef(id="pass")  # type: ignore
 
     def test_exitdef_missing_both_raises(self):
-        """AC4: ExitDef with no fields raises ValidationError."""
+        """ExitDef with no fields raises ValidationError."""
         from runsight_core.yaml.schema import ExitDef
 
         with pytest.raises(ValidationError):
@@ -193,29 +183,29 @@ class TestExitDef:
 
 
 # ==============================================================================
-# AC5 + AC6: BaseBlockDef.exits
+# BaseBlockDef.exits
 # ==============================================================================
 
 
 class TestBaseBlockDefExits:
-    """Tests for the new exits field on BaseBlockDef."""
+    """Tests for the exits field on BaseBlockDef."""
 
     def test_exits_defaults_to_none(self):
-        """AC6: BaseBlockDef without exits is backward-compatible (defaults to None)."""
+        """BaseBlockDef without exits defaults to None."""
         from runsight_core.yaml.schema import BaseBlockDef
 
         block = BaseBlockDef(type="linear")
         assert block.exits is None
 
     def test_exits_explicit_none(self):
-        """AC6 variant: exits=None can be passed explicitly."""
+        """exits=None can be passed explicitly."""
         from runsight_core.yaml.schema import BaseBlockDef
 
         block = BaseBlockDef(type="linear", exits=None)
         assert block.exits is None
 
     def test_exits_with_exit_defs(self):
-        """AC5: BaseBlockDef with exits list parses correctly."""
+        """BaseBlockDef with exits list parses correctly."""
         from runsight_core.yaml.schema import BaseBlockDef, ExitDef
 
         exits = [
@@ -278,7 +268,7 @@ class TestBaseBlockDefExits:
         assert "exits" not in dumped
 
     def test_exits_from_raw_dicts(self):
-        """AC5: BaseBlockDef with exits as raw dicts parses (Pydantic coercion)."""
+        """BaseBlockDef with exits as raw dicts parses through Pydantic coercion."""
         from runsight_core.yaml.schema import BaseBlockDef
 
         block = BaseBlockDef(
@@ -310,7 +300,7 @@ class TestBaseBlockDefExits:
 
 
 # ==============================================================================
-# AC5 (YAML round-trip): BaseBlockDef parses from dict as YAML would
+# BaseBlockDef parses from dict as YAML would
 # ==============================================================================
 
 
@@ -333,7 +323,7 @@ class TestExitsYAMLParsing:
         assert len(block.exits) == 2
 
     def test_parse_block_without_exits_from_yaml_dict(self):
-        """AC6: BaseBlockDef parses from a YAML-like dict without exits (backward compat)."""
+        """BaseBlockDef parses from a YAML-like dict without exits."""
         from runsight_core.yaml.schema import BaseBlockDef
 
         yaml_data = {"type": "linear"}
@@ -350,7 +340,7 @@ class TestExitsYAMLParsing:
 
 
 # ==============================================================================
-# AC7: Backward compatibility — existing BlockResult usage unchanged
+# Backward compatibility for existing BlockResult usage
 # ==============================================================================
 
 
