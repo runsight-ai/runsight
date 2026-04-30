@@ -1,18 +1,8 @@
-"""
-Failing tests for RUN-271: Update existing YAML workflows + integration tests for exit ports.
+"""Exit-port integration coverage.
 
-This ticket is the capstone of the exit-port series (RUN-266..270). It verifies:
-- All existing YAML workflow files declare exits on gate blocks
-- Loop blocks containing gates use break_on_exit / retry_on_exit
-- Full integration chain: YAML -> parse -> build -> execute -> exit_handle routing
-
-Tests cover:
-- AC1: All existing YAML workflows parse and validate
-- AC2: All existing tests pass (updated for new model)
-- AC3: Gate standalone routing works end-to-end
-- AC4: Gate-in-loop routing works end-to-end
-- AC5: output_conditions -> exit_handle -> conditional_transitions chain works
-- AC6: Validation catches all invalid configurations
+The suite verifies package-local workflow fixtures, gate routing, loop exit
+controls, output-condition routing, invalid configuration validation, and
+tmp_path-owned external soul fixture resolution.
 """
 
 import json
@@ -35,7 +25,7 @@ from runsight_core.yaml.schema import ExitDef
 # Constants
 # ---------------------------------------------------------------------------
 
-CUSTOM_WORKFLOWS_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "custom" / "workflows"
+WORKFLOW_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "custom" / "workflows"
 
 
 # ---------------------------------------------------------------------------
@@ -127,34 +117,29 @@ def _fresh_state(**kwargs) -> WorkflowState:
 
 
 # ==============================================================================
-# AC1: All existing YAML workflows parse and validate
+# Package-local YAML workflow fixtures have expected structure
 # ==============================================================================
 
 
-class TestExistingYamlWorkflowsParse:
-    """AC1: Every YAML file in custom/workflows/ must parse and validate
-    after the exit-port updates (exits on gates, break_on_exit on loops, etc.)."""
+class TestWorkflowFixtureStructure:
+    """Package-local YAML workflow fixtures expose the expected top-level structure."""
 
     def test_custom_workflows_dir_exists(self):
-        """Sanity check: custom/workflows/ directory exists."""
-        assert CUSTOM_WORKFLOWS_DIR.exists(), (
-            f"custom/workflows/ directory not found at {CUSTOM_WORKFLOWS_DIR}"
+        """Sanity check: the workflow fixture directory exists."""
+        assert WORKFLOW_FIXTURES_DIR.exists(), (
+            f"Workflow fixture directory not found at {WORKFLOW_FIXTURES_DIR}"
         )
 
     def test_all_yaml_files_found(self):
-        """At least two YAML files exist in fixtures/custom/workflows/."""
-        yaml_files = list(CUSTOM_WORKFLOWS_DIR.glob("*.yaml"))
+        """At least two package-local workflow fixture files exist."""
+        yaml_files = list(WORKFLOW_FIXTURES_DIR.glob("*.yaml"))
         assert len(yaml_files) >= 2, (
-            f"Expected at least 2 YAML files in {CUSTOM_WORKFLOWS_DIR}, found {len(yaml_files)}"
+            f"Expected at least 2 YAML files in {WORKFLOW_FIXTURES_DIR}, found {len(yaml_files)}"
         )
 
-    def test_mockup_pipeline_parses_successfully(self):
-        """mockup_pipeline.yaml must parse via parse_workflow_yaml without errors.
-
-        Note: This file references a child workflow via workflow_ref.
-        so it needs a WorkflowRegistry. We test the YAML structure directly.
-        """
-        yaml_path = CUSTOM_WORKFLOWS_DIR / "mockup_pipeline.yaml"
+    def test_mockup_pipeline_has_expected_structure(self):
+        """mockup_pipeline.yaml loads as YAML and exposes workflow and block sections."""
+        yaml_path = WORKFLOW_FIXTURES_DIR / "mockup_pipeline.yaml"
         with open(yaml_path) as f:
             data = yaml.safe_load(f)
 
@@ -164,12 +149,12 @@ class TestExistingYamlWorkflowsParse:
 
 
 # ==============================================================================
-# AC3: Gate standalone routing works end-to-end
+# Standalone gate routing works end-to-end
 # ==============================================================================
 
 
 class TestGateStandaloneRoutingE2E:
-    """AC3: Gate block used standalone (not in a loop) with conditional_transitions."""
+    """Gate block used standalone with conditional_transitions."""
 
     @pytest.mark.asyncio
     async def test_gate_pass_routes_to_success_block(self):
@@ -207,7 +192,7 @@ class TestGateStandaloneRoutingE2E:
 
         assert final.results["quality_gate"].exit_handle == "pass"
         assert "on_pass" in final.results, "Should route to on_pass via exit_handle='pass'"
-        assert "on_fail" not in final.results, "Should NOT route to on_fail"
+        assert "on_fail" not in final.results, "Should not route to on_fail"
 
     @pytest.mark.asyncio
     async def test_gate_fail_routes_to_failure_block(self):
@@ -244,7 +229,7 @@ class TestGateStandaloneRoutingE2E:
 
         assert final.results["quality_gate"].exit_handle == "fail"
         assert "on_fail" in final.results, "Should route to on_fail via exit_handle='fail'"
-        assert "on_pass" not in final.results, "Should NOT route to on_pass"
+        assert "on_pass" not in final.results, "Should not route to on_pass"
 
     @pytest.mark.asyncio
     async def test_gate_standalone_default_fallback(self):
@@ -270,12 +255,12 @@ class TestGateStandaloneRoutingE2E:
 
 
 # ==============================================================================
-# AC4: Gate-in-loop routing works end-to-end
+# Gate-in-loop routing works end-to-end
 # ==============================================================================
 
 
 class TestGateInLoopRoutingE2E:
-    """AC4: Gate inside a LoopBlock with break_on_exit / retry_on_exit."""
+    """Gate inside a LoopBlock with break_on_exit / retry_on_exit."""
 
     @pytest.mark.asyncio
     async def test_gate_pass_triggers_break_on_exit(self):
@@ -359,7 +344,7 @@ class TestGateInLoopRoutingE2E:
             "Loop should exhaust max_rounds when gate always fails and retry_on_exit='fail'"
         )
         assert loop_meta.get("broke_early") is False, (
-            "Loop should NOT break early when gate always fails"
+            "Loop should not break early when gate always fails"
         )
 
     @pytest.mark.asyncio
@@ -469,13 +454,12 @@ class TestGateInLoopRoutingE2E:
 
 
 # ==============================================================================
-# AC5: output_conditions -> exit_handle -> conditional_transitions chain
+# Output conditions feed exit handles and conditional transitions
 # ==============================================================================
 
 
 class TestOutputConditionsExitHandleChainE2E:
-    """AC5: Code/linear block with output_conditions computes exit_handle,
-    which feeds into conditional_transitions for routing."""
+    """Code/linear block output_conditions feed conditional routing."""
 
     @pytest.mark.asyncio
     async def test_output_conditions_match_routes_correctly(self):
@@ -571,8 +555,7 @@ class TestOutputConditionsExitHandleChainE2E:
 
     @pytest.mark.asyncio
     async def test_block_with_exit_handle_and_output_conditions(self):
-        """When a block already has exit_handle set, output_conditions should
-        NOT override it (exit_handle takes priority)."""
+        """When a block already has exit_handle set, output_conditions preserve it."""
         from runsight_core.conditions.engine import Case, Condition, ConditionGroup
 
         wf = Workflow(name="exit_handle_priority")
@@ -625,12 +608,12 @@ class TestOutputConditionsExitHandleChainE2E:
 
 
 # ==============================================================================
-# AC6: Validation catches all invalid configurations
+# Validation catches invalid exit configurations
 # ==============================================================================
 
 
 class TestValidationCatchesInvalidConfigs:
-    """AC6: validate() and parse_workflow_yaml() catch invalid exit configurations."""
+    """validate() and parse_workflow_yaml() catch invalid exit configurations."""
 
     def test_transition_key_not_in_declared_exits_fails(self):
         """A transition key that doesn't match declared exits produces a validation error."""
@@ -651,7 +634,7 @@ class TestValidationCatchesInvalidConfigs:
             "gate",
             {
                 "pass": "on_pass",
-                "nonexistent": "on_nonexistent",  # NOT in declared exits
+                "nonexistent": "on_nonexistent",  # outside declared exits
             },
         )
 
@@ -944,7 +927,7 @@ blocks:
         assert "publish" in final.results, (
             "Gate PASS should route to 'publish' block via conditional_transition"
         )
-        assert "revise" not in final.results, "Gate PASS should NOT route to 'revise' block"
+        assert "revise" not in final.results, "Gate PASS should not route to 'revise' block"
 
     @pytest.mark.asyncio
     async def test_full_yaml_gate_workflow_fail_path(self):
@@ -1046,7 +1029,7 @@ blocks:
         assert "revise" in final.results, (
             "Gate FAIL should route to 'revise' block via conditional_transition"
         )
-        assert "publish" not in final.results, "Gate FAIL should NOT route to 'publish' block"
+        assert "publish" not in final.results, "Gate FAIL should not route to 'publish' block"
 
 
 # ==============================================================================
@@ -1187,10 +1170,10 @@ workflow:
 
 
 class TestExternalSoulFileResolution:
-    """parse_workflow_yaml resolves soul_refs from files in custom/souls/."""
+    """parse_workflow_yaml resolves soul_refs from isolated soul fixture files."""
 
     def test_external_soul_file_resolves_for_linear_block(self, tmp_path):
-        """A workflow YAML with no inline souls resolves soul_ref from a file in tmp/custom/souls/."""
+        """A workflow YAML with no inline souls resolves soul_ref from tmp_path fixtures."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         souls_dir = tmp_path / "custom" / "souls"
@@ -1222,7 +1205,7 @@ blocks:
         assert "story_block" in wf.blocks
 
     def test_external_soul_file_resolves_for_gate_block(self, tmp_path):
-        """A gate workflow YAML with no inline souls resolves soul_refs from tmp/custom/souls/."""
+        """A gate workflow YAML with no inline souls resolves soul_refs from tmp_path fixtures."""
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         souls_dir = tmp_path / "custom" / "souls"
