@@ -20,7 +20,7 @@ from runsight_api.transport.deps import get_eval_service, get_run_service
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_run(run_id: str, workflow_id: str = "wf_filter_target", status=RunStatus.completed):
+def _make_mock_run(run_id: str, workflow_id: str = "target-workflow", status=RunStatus.completed):
     mock_run = Mock()
     mock_run.id = run_id
     mock_run.workflow_id = workflow_id
@@ -80,16 +80,16 @@ def _stub_service_with_runs(runs):
 
 
 # ---------------------------------------------------------------------------
-# 1. GET /api/runs?workflow_id=wf_filter_target returns only runs for that workflow
+# GET /api/runs?workflow_id=target-workflow returns only runs for that workflow
 # ---------------------------------------------------------------------------
 
 
 def test_runs_list_workflow_id_filter():
-    """GET /api/runs?workflow_id=wf_filter_target returns only runs belonging to wf_filter_target."""
+    """GET /api/runs?workflow_id=target-workflow returns only runs belonging to target-workflow."""
     runs = [
-        _make_mock_run("run_filter_target_a", workflow_id="wf_filter_target"),
-        _make_mock_run("run_filter_other", workflow_id="wf_filter_other"),
-        _make_mock_run("run_filter_target_b", workflow_id="wf_filter_target"),
+        _make_mock_run("target-workflow-first-run", workflow_id="target-workflow"),
+        _make_mock_run("secondary-workflow-run", workflow_id="secondary-workflow"),
+        _make_mock_run("target-workflow-second-run", workflow_id="target-workflow"),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -97,14 +97,14 @@ def test_runs_list_workflow_id_filter():
 
     try:
         client = TestClient(app)
-        response = client.get("/api/runs?workflow_id=wf_filter_target")
+        response = client.get("/api/runs?workflow_id=target-workflow")
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2, (
-            f"Expected 2 runs for wf_filter_target, got {len(data['items'])}"
+            f"Expected 2 runs for target-workflow, got {len(data['items'])}"
         )
-        assert all(item["workflow_id"] == "wf_filter_target" for item in data["items"]), (
-            "All returned runs must belong to workflow wf_filter_target"
+        assert all(item["workflow_id"] == "target-workflow" for item in data["items"]), (
+            "All returned runs must belong to workflow target-workflow"
         )
     finally:
         app.dependency_overrides.clear()
@@ -116,10 +116,10 @@ def test_runs_list_workflow_id_filter():
 
 
 def test_runs_list_workflow_id_filter_empty():
-    """GET /api/runs?workflow_id=wf_nonexistent returns empty list."""
+    """GET /api/runs?workflow_id=missing-workflow returns empty list."""
     runs = [
-        _make_mock_run("run_filter_target_a", workflow_id="wf_filter_target"),
-        _make_mock_run("run_filter_other", workflow_id="wf_filter_other"),
+        _make_mock_run("target-workflow-first-run", workflow_id="target-workflow"),
+        _make_mock_run("secondary-workflow-run", workflow_id="secondary-workflow"),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -127,7 +127,7 @@ def test_runs_list_workflow_id_filter_empty():
 
     try:
         client = TestClient(app)
-        response = client.get("/api/runs?workflow_id=wf_nonexistent")
+        response = client.get("/api/runs?workflow_id=missing-workflow")
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 0
@@ -142,16 +142,20 @@ def test_runs_list_workflow_id_filter_empty():
 
 
 def test_runs_list_workflow_id_and_status_combined():
-    """GET /api/runs?workflow_id=wf_filter_target&status=completed returns only completed runs for wf_filter_target."""
+    """GET /api/runs?workflow_id=target-workflow&status=completed returns only completed runs for target-workflow."""
     runs = [
         _make_mock_run(
-            "run_filter_target_a", workflow_id="wf_filter_target", status=RunStatus.completed
+            "target-workflow-completed-run",
+            workflow_id="target-workflow",
+            status=RunStatus.completed,
         ),
         _make_mock_run(
-            "run_filter_other", workflow_id="wf_filter_target", status=RunStatus.running
+            "target-workflow-running-run", workflow_id="target-workflow", status=RunStatus.running
         ),
         _make_mock_run(
-            "run_filter_target_b", workflow_id="wf_filter_other", status=RunStatus.completed
+            "secondary-workflow-completed-run",
+            workflow_id="secondary-workflow",
+            status=RunStatus.completed,
         ),
     ]
     mock_service = _stub_service_with_runs(runs)
@@ -160,30 +164,30 @@ def test_runs_list_workflow_id_and_status_combined():
 
     try:
         client = TestClient(app)
-        response = client.get("/api/runs?workflow_id=wf_filter_target&status=completed")
+        response = client.get("/api/runs?workflow_id=target-workflow&status=completed")
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, (
-            f"Expected 1 completed run for wf_filter_target, got {len(data['items'])}"
+            f"Expected 1 completed run for target-workflow, got {len(data['items'])}"
         )
-        assert data["items"][0]["id"] == "run_filter_target_a"
-        assert data["items"][0]["workflow_id"] == "wf_filter_target"
+        assert data["items"][0]["id"] == "target-workflow-completed-run"
+        assert data["items"][0]["workflow_id"] == "target-workflow"
         assert data["items"][0]["status"] == "completed"
     finally:
         app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------
-# 4. No workflow_id param returns all runs (backward compat)
+# No workflow_id param returns all runs
 # ---------------------------------------------------------------------------
 
 
 def test_runs_list_no_workflow_id_returns_all():
-    """GET /api/runs without workflow_id returns all runs (backward compatible)."""
+    """GET /api/runs without workflow_id returns all runs."""
     runs = [
-        _make_mock_run("run_filter_target_a", workflow_id="wf_filter_target"),
-        _make_mock_run("run_filter_other", workflow_id="wf_filter_other"),
-        _make_mock_run("run_filter_target_b", workflow_id="wf_3"),
+        _make_mock_run("target-workflow-first-run", workflow_id="target-workflow"),
+        _make_mock_run("secondary-workflow-run", workflow_id="secondary-workflow"),
+        _make_mock_run("archived-workflow-run", workflow_id="archived-workflow"),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -205,11 +209,11 @@ def test_runs_list_no_workflow_id_returns_all():
 
 
 def test_runs_list_workflow_id_filter_with_pagination():
-    """GET /api/runs?workflow_id=wf_filter_target&limit=1 returns paginated results filtered by workflow."""
+    """GET /api/runs?workflow_id=target-workflow&limit=1 returns paginated filtered results."""
     runs = [
-        _make_mock_run("run_filter_target_a", workflow_id="wf_filter_target"),
-        _make_mock_run("run_filter_other", workflow_id="wf_filter_target"),
-        _make_mock_run("run_filter_target_b", workflow_id="wf_filter_other"),
+        _make_mock_run("target-workflow-first-run", workflow_id="target-workflow"),
+        _make_mock_run("target-workflow-second-run", workflow_id="target-workflow"),
+        _make_mock_run("secondary-workflow-run", workflow_id="secondary-workflow"),
     ]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -217,33 +221,33 @@ def test_runs_list_workflow_id_filter_with_pagination():
 
     try:
         client = TestClient(app)
-        response = client.get("/api/runs?workflow_id=wf_filter_target&limit=1")
+        response = client.get("/api/runs?workflow_id=target-workflow&limit=1")
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, "Page should contain 1 item"
         assert data["total"] == 2, (
-            f"Total should reflect all wf_filter_target runs (2), got {data['total']}"
+            f"Total should reflect all target-workflow runs (2), got {data['total']}"
         )
-        assert data["items"][0]["workflow_id"] == "wf_filter_target"
+        assert data["items"][0]["workflow_id"] == "target-workflow"
     finally:
         app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------
-# 6. Response includes duration and cost per run (AC: status, duration, cost)
+# Response includes status, duration, and cost per run
 # ---------------------------------------------------------------------------
 
 
 def test_runs_response_includes_duration_and_cost():
     """Each run in the response must include duration_seconds and total_cost_usd."""
-    runs = [_make_mock_run("run_filter_target_a", workflow_id="wf_filter_target")]
+    runs = [_make_mock_run("target-workflow-first-run", workflow_id="target-workflow")]
     mock_service = _stub_service_with_runs(runs)
     app.dependency_overrides[get_run_service] = lambda: mock_service
     app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
 
     try:
         client = TestClient(app)
-        response = client.get("/api/runs?workflow_id=wf_filter_target")
+        response = client.get("/api/runs?workflow_id=target-workflow")
         assert response.status_code == 200
         data = response.json()
         item = data["items"][0]

@@ -24,7 +24,7 @@ def teardown_function():
 
 
 def _make_workflow(
-    workflow_id: str = "wf_workflow_health",
+    workflow_id: str = "workflow-health-summary",
     *,
     name: str = "Research Flow",
     description: str = "Research workflow",
@@ -150,7 +150,7 @@ class TestWorkflowResponseWarningsModelShape:
     def test_workflow_response_parses_warning_items(self):
         response = WorkflowResponse.model_validate(
             {
-                "id": "wf_workflow_health",
+                "id": "workflow-health-summary",
                 "kind": "workflow",
                 "warnings": [
                     {
@@ -171,7 +171,7 @@ class TestWorkflowResponseWarningsModelShape:
     def test_workflow_response_parses_null_context_warning_items(self):
         response = WorkflowResponse.model_validate(
             {
-                "id": "wf_workflow_health",
+                "id": "workflow-health-summary",
                 "kind": "workflow",
                 "warnings": [
                     {
@@ -193,7 +193,7 @@ class TestWorkflowsListResponse:
     def test_list_workflows_serializes_health_metadata_and_existing_fields(self):
         """GET /api/workflows should return the new health fields without losing old ones."""
         workflow = _make_workflow(
-            workflow_id="wf_workflow_health",
+            workflow_id="workflow-health-summary",
             name="Research Flow",
             description="Research workflow",
             block_count=7,
@@ -207,7 +207,7 @@ class TestWorkflowsListResponse:
         assert response.status_code == 200
 
         item = response.json()["items"][0]
-        assert item["id"] == "wf_workflow_health"
+        assert item["id"] == "workflow-health-summary"
         assert item["name"] == "Research Flow"
         assert item["description"] == "Research workflow"
         assert item["yaml"] == "workflow:\n  name: Research Flow\n"
@@ -274,10 +274,10 @@ class TestWorkflowsListResponse:
         """Canvas fields should still serialize when the health payload is added."""
         workflow = _make_workflow()
         workflow.canvas_state = {
-            "nodes": [{"id": "node-1"}],
+            "nodes": [{"id": "canvas-review-node"}],
             "edges": [],
             "viewport": {"x": 0, "y": 0, "zoom": 1},
-            "selected_node_id": "node-1",
+            "selected_node_id": "canvas-review-node",
             "canvas_mode": "dag",
         }
         app.dependency_overrides[get_workflow_service] = lambda: _stub_workflow_service([workflow])
@@ -287,6 +287,6 @@ class TestWorkflowsListResponse:
 
         item = response.json()["items"][0]
         assert "canvas_state" in item
-        assert item["canvas_state"]["selected_node_id"] == "node-1"
+        assert item["canvas_state"]["selected_node_id"] == "canvas-review-node"
         assert item["block_count"] == 7
         assert item["health"]["eval_health"] is not None

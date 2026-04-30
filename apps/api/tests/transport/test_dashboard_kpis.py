@@ -26,7 +26,7 @@ client = TestClient(app)
 
 
 def _make_mock_run(
-    run_id: str = "run_dashboard_current",
+    run_id: str = "dashboard-current-run",
     status: RunStatus = RunStatus.completed,
     total_cost_usd: float = 0.0,
     created_at: float | None = None,
@@ -34,8 +34,8 @@ def _make_mock_run(
     """Create a mock Run with the given attributes."""
     mock_run = Mock()
     mock_run.id = run_id
-    mock_run.workflow_id = "wf_dashboard"
-    mock_run.workflow_name = "Test Workflow"
+    mock_run.workflow_id = "dashboard-workflow"
+    mock_run.workflow_name = "Dashboard workflow"
     mock_run.status = status
     mock_run.started_at = (created_at or time.time()) - 10
     mock_run.completed_at = created_at or time.time()
@@ -153,8 +153,8 @@ class TestTimeScoping:
     def test_runs_today_counts_only_recent_runs(self):
         """A run from 2 hours ago counts; a run from 48 hours ago does not."""
         now = time.time()
-        recent_run = _make_mock_run("run_recent", RunStatus.completed, 1.50, now - 3600)
-        old_run = _make_mock_run("run_old", RunStatus.completed, 2.00, now - 48 * 3600)
+        recent_run = _make_mock_run("recent-dashboard-run", RunStatus.completed, 1.50, now - 3600)
+        old_run = _make_mock_run("old-dashboard-run", RunStatus.completed, 2.00, now - 48 * 3600)
 
         mock_service = Mock()
         mock_service.list_runs.return_value = [recent_run, old_run]
@@ -166,8 +166,8 @@ class TestTimeScoping:
     def test_cost_today_sums_only_recent_runs(self):
         """Cost from a 2h-ago run is included; cost from a 48h-ago run is excluded."""
         now = time.time()
-        recent_run = _make_mock_run("run_recent", RunStatus.completed, 1.50, now - 3600)
-        old_run = _make_mock_run("run_old", RunStatus.completed, 2.00, now - 48 * 3600)
+        recent_run = _make_mock_run("recent-dashboard-run", RunStatus.completed, 1.50, now - 3600)
+        old_run = _make_mock_run("old-dashboard-run", RunStatus.completed, 2.00, now - 48 * 3600)
 
         mock_service = Mock()
         mock_service.list_runs.return_value = [recent_run, old_run]
@@ -178,7 +178,7 @@ class TestTimeScoping:
 
     def test_runs_today_zero_when_all_runs_older_than_24h(self):
         now = time.time()
-        old_run = _make_mock_run("run_old", RunStatus.completed, 5.00, now - 48 * 3600)
+        old_run = _make_mock_run("old-dashboard-run", RunStatus.completed, 5.00, now - 48 * 3600)
 
         mock_service = Mock()
         mock_service.list_runs.return_value = [old_run]
@@ -189,7 +189,7 @@ class TestTimeScoping:
 
     def test_cost_today_zero_when_all_runs_older_than_24h(self):
         now = time.time()
-        old_run = _make_mock_run("run_old", RunStatus.completed, 5.00, now - 48 * 3600)
+        old_run = _make_mock_run("old-dashboard-run", RunStatus.completed, 5.00, now - 48 * 3600)
 
         mock_service = Mock()
         mock_service.list_runs.return_value = [old_run]
@@ -202,10 +202,10 @@ class TestTimeScoping:
         """Pending, running, completed, failed — all count if within 24h."""
         now = time.time()
         runs = [
-            _make_mock_run("run_p", RunStatus.pending, 0.0, now - 100),
-            _make_mock_run("run_r", RunStatus.running, 0.0, now - 200),
-            _make_mock_run("run_c", RunStatus.completed, 0.0, now - 300),
-            _make_mock_run("run_f", RunStatus.failed, 0.0, now - 400),
+            _make_mock_run("pending-dashboard-run", RunStatus.pending, 0.0, now - 100),
+            _make_mock_run("running-dashboard-run", RunStatus.running, 0.0, now - 200),
+            _make_mock_run("completed-dashboard-run", RunStatus.completed, 0.0, now - 300),
+            _make_mock_run("failed-dashboard-run", RunStatus.failed, 0.0, now - 400),
         ]
 
         mock_service = Mock()
@@ -243,7 +243,9 @@ class TestEvalFieldsNull:
     def test_eval_fields_null_even_with_runs(self):
         """Even when runs exist, eval fields stay None (no eval engine)."""
         now = time.time()
-        run = _make_mock_run("run_1", RunStatus.completed, 1.0, now - 3600)
+        run = _make_mock_run(
+            "dashboard-run-without-eval-data", RunStatus.completed, 1.0, now - 3600
+        )
         self.mock_service.list_runs.return_value = [run]
 
         data = client.get("/api/dashboard").json()
