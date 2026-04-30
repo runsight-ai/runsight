@@ -1,13 +1,11 @@
-"""
-RUN-891: Failing tests for WorkflowBlock migration to BlockContext/BlockOutput.
+"""WorkflowBlock BlockContext and BlockOutput migration coverage.
 
-Tests verify that after migration:
-AC-1: WorkflowBlock.execute accepts BlockContext and returns BlockOutput
-AC-2: Input mapping passes public invocation names; output mapping reads child source paths
-AC-3: Cycle detection and depth limits use call_stack from ctx.inputs
-AC-4: on_error="catch" produces correct BlockOutput with exit_handle="error"
-AC-5: Child workflow cost/token propagation correct in BlockOutput
-AC-6: execute_block dispatches WorkflowBlock through new path (build_block_context called)
+Boundary: WorkflowBlock execution and execute_block dispatch must preserve the
+BlockContext to BlockOutput contract, invocation input mapping, child output
+mapping, call-stack cycle/depth guards, catch-mode errors, cost/token
+propagation, and WorkflowState application. Owner: packages/core runtime block
+execution. Exit criteria: remove this migration guard once equivalent behavior
+coverage lives in ordinary WorkflowBlock and execute_block suites.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -23,43 +21,45 @@ from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
+pytestmark = pytest.mark.migration
+
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
 
 def _make_mock_child_workflow(
-    name: str = "child_wf",
+    name: str = "child_workflow",
     cost: float = 0.0,
     tokens: int = 0,
     result_key: str = "child_result",
     result_output: str = "child output",
 ) -> MagicMock:
     """Return a mock child workflow whose run() resolves to a plausible WorkflowState."""
-    wf = MagicMock()
-    wf.name = name
+    workflow = MagicMock()
+    workflow.name = name
     child_final_state = WorkflowState(
         results={result_key: BlockResult(output=result_output)},
         total_cost_usd=cost,
         total_tokens=tokens,
     )
-    wf.run = AsyncMock(return_value=child_final_state)
-    return wf
+    workflow.run = AsyncMock(return_value=child_final_state)
+    return workflow
 
 
 def _make_workflow_block(
     block_id: str = "invoke_child",
-    child_wf=None,
+    child_workflow=None,
     inputs: dict | None = None,
     outputs: dict | None = None,
     on_error: str = "raise",
     max_depth: int = 10,
 ) -> WorkflowBlock:
-    if child_wf is None:
-        child_wf = _make_mock_child_workflow()
+    if child_workflow is None:
+        child_workflow = _make_mock_child_workflow()
     return WorkflowBlock(
         block_id=block_id,
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs=inputs or {},
         outputs=outputs or {},
         on_error=on_error,
@@ -109,7 +109,7 @@ def _make_exec_ctx(
     workflow_registry=None,
 ) -> BlockExecutionContext:
     return BlockExecutionContext(
-        workflow_name="parent_wf",
+        workflow_name="parent_workflow",
         blocks={},
         call_stack=call_stack or [],
         workflow_registry=workflow_registry,
@@ -118,7 +118,7 @@ def _make_exec_ctx(
 
 
 # ---------------------------------------------------------------------------
-# AC-1: WorkflowBlock.execute accepts BlockContext and returns BlockOutput
+# BlockContext and BlockOutput contract
 # ---------------------------------------------------------------------------
 
 
@@ -128,8 +128,8 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     @pytest.mark.asyncio
     async def test_execute_accepts_block_context_returns_block_output(self):
         """WorkflowBlock.execute(ctx: BlockContext) must return BlockOutput."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -137,14 +137,14 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
         assert isinstance(result, BlockOutput), (
             f"Expected BlockOutput but got {type(result).__name__}. "
-            "WorkflowBlock.execute must return BlockOutput after RUN-891 migration."
+            "WorkflowBlock.execute must return BlockOutput after the migration."
         )
 
     @pytest.mark.asyncio
     async def test_execute_output_contains_completed_message(self):
         """BlockOutput.output must be \"WorkflowBlock '{name}' completed\"."""
-        child_wf = _make_mock_child_workflow(name="my_child")
-        block = _make_workflow_block(block_id="invoke_my_child", child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(name="my_child")
+        block = _make_workflow_block(block_id="invoke_my_child", child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -158,8 +158,8 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     @pytest.mark.asyncio
     async def test_execute_exit_handle_is_completed(self):
         """BlockOutput.exit_handle must be 'completed' on success."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -173,8 +173,8 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     @pytest.mark.asyncio
     async def test_execute_metadata_contains_child_status(self):
         """BlockOutput.metadata must contain child_status='completed'."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -187,8 +187,8 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     @pytest.mark.asyncio
     async def test_execute_metadata_contains_child_cost_usd(self):
         """BlockOutput.metadata must contain child_cost_usd."""
-        child_wf = _make_mock_child_workflow(cost=0.07, tokens=350)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.07, tokens=350)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -201,8 +201,8 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     @pytest.mark.asyncio
     async def test_execute_metadata_contains_child_tokens(self):
         """BlockOutput.metadata must contain child_tokens."""
-        child_wf = _make_mock_child_workflow(cost=0.0, tokens=500)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.0, tokens=500)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -214,9 +214,9 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
     @pytest.mark.asyncio
     async def test_execute_does_not_return_workflow_state(self):
-        """WorkflowBlock.execute(BlockContext) must NOT return WorkflowState."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        """WorkflowBlock.execute(BlockContext) must return BlockOutput, not WorkflowState."""
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -224,24 +224,24 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
         assert not isinstance(result, WorkflowState), (
             "WorkflowBlock.execute(BlockContext) must return BlockOutput, not WorkflowState. "
-            "After RUN-891 migration, state mutation is the caller's responsibility via apply_block_output."
+            "After the migration, state mutation is the caller's responsibility via apply_block_output."
         )
 
 
 # ---------------------------------------------------------------------------
-# AC-2: Input mapping passes public invocation names; output mapping reads child source paths
+# Invocation input and child output mapping
 # ---------------------------------------------------------------------------
 
 
 class TestWorkflowBlockInputOutputMapping:
-    """WorkflowBlock mapping must align with RUN-922 input/output semantics."""
+    """WorkflowBlock mapping must align with public invocation input/output semantics."""
 
     @pytest.mark.asyncio
     async def test_input_mapping_resolves_from_state_snapshot(self):
         """Parent refs resolve from state_snapshot and pass as child invocation inputs."""
-        child_wf = _make_mock_child_workflow()
+        child_workflow = _make_mock_child_workflow()
         block = _make_workflow_block(
-            child_wf=child_wf,
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.research_topic"},
         )
         state = _make_base_state(shared_memory={"research_topic": "quantum computing"})
@@ -257,7 +257,7 @@ class TestWorkflowBlockInputOutputMapping:
 
         await block.execute(ctx)
 
-        call_args = child_wf.run.call_args
+        call_args = child_workflow.run.call_args
         child_state_arg = call_args[0][0]
         assert call_args.kwargs["inputs"] == {"topic": "quantum computing"}
         assert child_state_arg.shared_memory == {}
@@ -267,9 +267,12 @@ class TestWorkflowBlockInputOutputMapping:
     @pytest.mark.asyncio
     async def test_output_mapping_written_to_block_output(self):
         """Output mappings from child state must appear in BlockOutput (extra_results or shared_memory_updates)."""
-        child_wf = _make_mock_child_workflow(result_key="analysis", result_output="AI findings")
+        child_workflow = _make_mock_child_workflow(
+            result_key="analysis",
+            result_output="analysis findings",
+        )
         block = _make_workflow_block(
-            child_wf=child_wf,
+            child_workflow=child_workflow,
             outputs={"results.parent_analysis": "results.analysis"},
         )
         state = _make_base_state()
@@ -289,9 +292,9 @@ class TestWorkflowBlockInputOutputMapping:
     @pytest.mark.asyncio
     async def test_input_mapping_missing_key_raises_key_error(self):
         """Missing parent key in dotted path resolution raises KeyError (preserved behavior)."""
-        child_wf = _make_mock_child_workflow()
+        child_workflow = _make_mock_child_workflow()
         block = _make_workflow_block(
-            child_wf=child_wf,
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.nonexistent"},
         )
         state = _make_base_state(shared_memory={"other_key": "value"})
@@ -308,12 +311,12 @@ class TestWorkflowBlockInputOutputMapping:
             total_cost_usd=0.0,
             total_tokens=0,
         )
-        child_wf = MagicMock()
-        child_wf.name = "child_wf"
-        child_wf.run = AsyncMock(return_value=child_final_state)
+        child_workflow = MagicMock()
+        child_workflow.name = "child_workflow"
+        child_workflow.run = AsyncMock(return_value=child_final_state)
 
         block = _make_workflow_block(
-            child_wf=child_wf,
+            child_workflow=child_workflow,
             outputs={"shared_memory.mapped_output": "shared_memory.child_output"},
         )
         state = _make_base_state()
@@ -335,9 +338,12 @@ class TestWorkflowBlockInputOutputMapping:
     @pytest.mark.asyncio
     async def test_apply_block_output_merges_extra_results_into_state(self):
         """apply_block_output must merge extra_results from WorkflowBlock into state.results."""
-        child_wf = _make_mock_child_workflow(result_key="analysis", result_output="AI findings")
+        child_workflow = _make_mock_child_workflow(
+            result_key="analysis",
+            result_output="analysis findings",
+        )
         block = _make_workflow_block(
-            child_wf=child_wf,
+            child_workflow=child_workflow,
             outputs={"results.parent_analysis": "results.analysis"},
         )
         state = _make_base_state()
@@ -346,7 +352,7 @@ class TestWorkflowBlockInputOutputMapping:
         result = await block.execute(ctx)
         assert isinstance(result, BlockOutput)
 
-        # apply_block_output is called in execute_block — simulate it
+        # apply_block_output is called in execute_block; simulate it here.
         new_state = apply_block_output(state, block.block_id, result)
 
         assert "parent_analysis" in new_state.results, (
@@ -355,7 +361,7 @@ class TestWorkflowBlockInputOutputMapping:
 
 
 # ---------------------------------------------------------------------------
-# AC-3: Cycle detection and depth limits use call_stack from ctx.inputs
+# Call-stack cycle and depth limits
 # ---------------------------------------------------------------------------
 
 
@@ -365,27 +371,35 @@ class TestWorkflowBlockCycleAndDepthLimits:
     @pytest.mark.asyncio
     async def test_cycle_detection_raises_recursion_error_when_child_in_call_stack(self):
         """RecursionError raised when child workflow name is already in call_stack from ctx."""
-        child_wf = _make_mock_child_workflow(name="child_wf")
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(name="child_workflow")
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
-        # call_stack already contains the child — cycle detected
-        ctx = _make_block_context(block.block_id, state, call_stack=["parent_wf", "child_wf"])
+        # call_stack already contains the child, so the cycle guard should fire.
+        ctx = _make_block_context(
+            block.block_id,
+            state,
+            call_stack=["parent_workflow", "child_workflow"],
+        )
 
         with pytest.raises(RecursionError) as exc_info:
             await block.execute(ctx)
 
-        assert "cycle" in str(exc_info.value).lower() or "child_wf" in str(exc_info.value), (
+        assert "cycle" in str(exc_info.value).lower() or "child_workflow" in str(exc_info.value), (
             "RecursionError message must mention cycle or the child workflow name"
         )
 
     @pytest.mark.asyncio
     async def test_depth_limit_raises_recursion_error_when_call_stack_at_max(self):
         """RecursionError raised when len(call_stack) >= max_depth."""
-        child_wf = _make_mock_child_workflow(name="new_child")
-        block = _make_workflow_block(child_wf=child_wf, max_depth=3)
+        child_workflow = _make_mock_child_workflow(name="new_child")
+        block = _make_workflow_block(child_workflow=child_workflow, max_depth=3)
         state = _make_base_state()
         # Call stack already at depth 3 (== max_depth)
-        ctx = _make_block_context(block.block_id, state, call_stack=["wf_a", "wf_b", "wf_c"])
+        ctx = _make_block_context(
+            block.block_id,
+            state,
+            call_stack=["draft_workflow", "review_workflow", "publish_workflow"],
+        )
 
         with pytest.raises(RecursionError) as exc_info:
             await block.execute(ctx)
@@ -397,11 +411,15 @@ class TestWorkflowBlockCycleAndDepthLimits:
     @pytest.mark.asyncio
     async def test_no_recursion_error_when_call_stack_below_max_depth(self):
         """No RecursionError when call_stack is below max_depth and child not in stack."""
-        child_wf = _make_mock_child_workflow(name="child_wf")
-        block = _make_workflow_block(child_wf=child_wf, max_depth=5)
+        child_workflow = _make_mock_child_workflow(name="child_workflow")
+        block = _make_workflow_block(child_workflow=child_workflow, max_depth=5)
         state = _make_base_state()
-        # Only 2 entries, max_depth is 5, child_wf not in stack
-        ctx = _make_block_context(block.block_id, state, call_stack=["wf_a", "wf_b"])
+        # Only two entries, max_depth is five, and child is not in stack.
+        ctx = _make_block_context(
+            block.block_id,
+            state,
+            call_stack=["draft_workflow", "review_workflow"],
+        )
 
         result = await block.execute(ctx)
 
@@ -410,29 +428,29 @@ class TestWorkflowBlockCycleAndDepthLimits:
     @pytest.mark.asyncio
     async def test_call_stack_extended_when_calling_child(self):
         """Child workflow.run() receives call_stack extended with child name."""
-        child_wf = _make_mock_child_workflow(name="child_wf")
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(name="child_workflow")
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
-        ctx = _make_block_context(block.block_id, state, call_stack=["parent_wf"])
+        ctx = _make_block_context(block.block_id, state, call_stack=["parent_workflow"])
 
         await block.execute(ctx)
 
-        call_args = child_wf.run.call_args
+        call_args = child_workflow.run.call_args
         passed_call_stack = (
             call_args[1].get("call_stack") or call_args[0][1]
             if len(call_args[0]) > 1
             else call_args[1].get("call_stack")
         )
-        assert "child_wf" in passed_call_stack, (
+        assert "child_workflow" in passed_call_stack, (
             "child workflow.run() must receive call_stack containing child's own name"
         )
-        assert "parent_wf" in passed_call_stack, (
+        assert "parent_workflow" in passed_call_stack, (
             "child workflow.run() must receive call_stack containing parent name"
         )
 
 
 # ---------------------------------------------------------------------------
-# AC-4: on_error="catch" produces correct BlockOutput with exit_handle="error"
+# Catch-mode error output
 # ---------------------------------------------------------------------------
 
 
@@ -442,11 +460,11 @@ class TestWorkflowBlockOnErrorCatch:
     @pytest.mark.asyncio
     async def test_on_error_catch_returns_block_output_with_error_exit_handle(self):
         """on_error='catch': exception swallowed, BlockOutput.exit_handle == 'error'."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=RuntimeError("LLM timeout"))
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=RuntimeError("child timeout"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="catch")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="catch")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -462,11 +480,11 @@ class TestWorkflowBlockOnErrorCatch:
     @pytest.mark.asyncio
     async def test_on_error_catch_output_contains_error_message(self):
         """BlockOutput.output must contain error information when on_error='catch'."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=ValueError("Invalid configuration"))
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=ValueError("Invalid configuration"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="catch")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="catch")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -484,11 +502,11 @@ class TestWorkflowBlockOnErrorCatch:
     @pytest.mark.asyncio
     async def test_on_error_catch_metadata_child_status_failed(self):
         """BlockOutput.metadata must have child_status='failed' when on_error='catch' catches."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=RuntimeError("network error"))
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=RuntimeError("child execution error"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="catch")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="catch")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -501,12 +519,12 @@ class TestWorkflowBlockOnErrorCatch:
 
     @pytest.mark.asyncio
     async def test_on_error_raise_propagates_exception(self):
-        """on_error='raise' (default) must NOT swallow exceptions."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=RuntimeError("fatal error"))
+        """on_error='raise' propagates exceptions."""
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=RuntimeError("fatal error"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="raise")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="raise")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -516,11 +534,11 @@ class TestWorkflowBlockOnErrorCatch:
     @pytest.mark.asyncio
     async def test_on_error_catch_no_exception_propagated(self):
         """on_error='catch' must not propagate any exception to the caller."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=Exception("anything at all"))
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=Exception("anything at all"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="catch")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="catch")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -530,7 +548,7 @@ class TestWorkflowBlockOnErrorCatch:
 
 
 # ---------------------------------------------------------------------------
-# AC-5: Child workflow cost/token propagation correct in BlockOutput
+# Child workflow cost and token propagation
 # ---------------------------------------------------------------------------
 
 
@@ -540,8 +558,8 @@ class TestWorkflowBlockCostTokenPropagation:
     @pytest.mark.asyncio
     async def test_block_output_cost_usd_reflects_child_cost(self):
         """BlockOutput.cost_usd must equal child workflow's total_cost_usd."""
-        child_wf = _make_mock_child_workflow(cost=0.15, tokens=750)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.15, tokens=750)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -555,8 +573,8 @@ class TestWorkflowBlockCostTokenPropagation:
     @pytest.mark.asyncio
     async def test_block_output_total_tokens_reflects_child_tokens(self):
         """BlockOutput.total_tokens must equal child workflow's total_tokens."""
-        child_wf = _make_mock_child_workflow(cost=0.0, tokens=1200)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.0, tokens=1200)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -570,8 +588,8 @@ class TestWorkflowBlockCostTokenPropagation:
     @pytest.mark.asyncio
     async def test_apply_block_output_accumulates_cost_on_state(self):
         """apply_block_output must accumulate BlockOutput.cost_usd onto state.total_cost_usd."""
-        child_wf = _make_mock_child_workflow(cost=0.10, tokens=500)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.10, tokens=500)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         state = state.model_copy(update={"total_cost_usd": 0.05, "total_tokens": 100})
         ctx = _make_block_context(block.block_id, state)
@@ -591,11 +609,11 @@ class TestWorkflowBlockCostTokenPropagation:
     @pytest.mark.asyncio
     async def test_on_error_catch_zero_cost_when_child_fails(self):
         """When on_error='catch' catches an exception, BlockOutput.cost_usd must be 0."""
-        child_wf = MagicMock()
-        child_wf.name = "failing_child"
-        child_wf.run = AsyncMock(side_effect=RuntimeError("failure"))
+        child_workflow = MagicMock()
+        child_workflow.name = "failing_child"
+        child_workflow.run = AsyncMock(side_effect=RuntimeError("failure"))
 
-        block = _make_workflow_block(child_wf=child_wf, on_error="catch")
+        block = _make_workflow_block(child_workflow=child_workflow, on_error="catch")
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -609,8 +627,8 @@ class TestWorkflowBlockCostTokenPropagation:
     @pytest.mark.asyncio
     async def test_metadata_child_cost_matches_block_output_cost(self):
         """BlockOutput.metadata['child_cost_usd'] must match BlockOutput.cost_usd."""
-        child_wf = _make_mock_child_workflow(cost=0.03, tokens=150)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.03, tokens=150)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         ctx = _make_block_context(block.block_id, state)
 
@@ -623,7 +641,7 @@ class TestWorkflowBlockCostTokenPropagation:
 
 
 # ---------------------------------------------------------------------------
-# AC-6: E2E via execute_block — dispatches WorkflowBlock through new path
+# execute_block dispatch contract
 # ---------------------------------------------------------------------------
 
 
@@ -633,8 +651,8 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_calls_build_block_context_for_workflow_block(self):
         """execute_block must call build_block_context for WorkflowBlock (new dispatch path)."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         exec_ctx = _make_exec_ctx()
 
@@ -654,8 +672,8 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_returns_workflow_state_after_workflow_block(self):
         """execute_block outer contract must still return WorkflowState for WorkflowBlock."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         exec_ctx = _make_exec_ctx()
 
@@ -668,8 +686,8 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_records_block_result_in_state(self):
         """execute_block must record block_id in state.results after WorkflowBlock execution."""
-        child_wf = _make_mock_child_workflow(name="child_wf")
-        block = _make_workflow_block(block_id="invoke_child", child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(name="child_workflow")
+        block = _make_workflow_block(block_id="invoke_child", child_workflow=child_workflow)
         state = _make_base_state()
         exec_ctx = _make_exec_ctx()
 
@@ -685,8 +703,8 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_calls_apply_block_output_for_workflow_block(self):
         """execute_block must call apply_block_output for WorkflowBlock (new path)."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         exec_ctx = _make_exec_ctx()
 
@@ -707,35 +725,35 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_propagates_call_stack_to_workflow_block(self):
         """execute_block must pass call_stack from BlockExecutionContext to WorkflowBlock."""
-        child_wf = _make_mock_child_workflow(name="child_wf")
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(name="child_workflow")
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
-        exec_ctx = _make_exec_ctx(call_stack=["root_wf"])
+        exec_ctx = _make_exec_ctx(call_stack=["root_workflow"])
 
         await execute_block(block, state, exec_ctx)
 
-        call_args = child_wf.run.call_args
+        call_args = child_workflow.run.call_args
         passed_call_stack = call_args[1].get("call_stack")
-        # child should see the extended call stack (root_wf + parent_wf + child_wf)
+        # Child sees the extended call stack: root + parent + child.
         assert passed_call_stack is not None, (
             "WorkflowBlock must pass call_stack kwarg to child workflow.run()"
         )
-        assert "child_wf" in passed_call_stack, (
+        assert "child_workflow" in passed_call_stack, (
             "call_stack passed to child must include child's own name"
         )
 
     @pytest.mark.asyncio
     async def test_execute_block_propagates_workflow_registry(self):
         """execute_block must pass workflow_registry to WorkflowBlock."""
-        child_wf = _make_mock_child_workflow()
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow()
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         mock_registry = MagicMock()
         exec_ctx = _make_exec_ctx(workflow_registry=mock_registry)
 
         await execute_block(block, state, exec_ctx)
 
-        call_args = child_wf.run.call_args
+        call_args = child_workflow.run.call_args
         passed_registry = call_args[1].get("workflow_registry")
         assert passed_registry is mock_registry, (
             "execute_block must pass workflow_registry to WorkflowBlock via BlockContext.inputs"
@@ -744,8 +762,8 @@ class TestExecuteBlockDispatch:
     @pytest.mark.asyncio
     async def test_execute_block_accumulates_cost_in_state(self):
         """execute_block must accumulate child cost in the returned WorkflowState."""
-        child_wf = _make_mock_child_workflow(cost=0.12, tokens=600)
-        block = _make_workflow_block(child_wf=child_wf)
+        child_workflow = _make_mock_child_workflow(cost=0.12, tokens=600)
+        block = _make_workflow_block(child_workflow=child_workflow)
         state = _make_base_state()
         state = state.model_copy(update={"total_cost_usd": 0.05, "total_tokens": 100})
         exec_ctx = _make_exec_ctx()
