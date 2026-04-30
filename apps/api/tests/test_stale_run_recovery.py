@@ -21,9 +21,9 @@ from runsight_api.domain.entities.run import Run, RunStatus
 def _make_run(*, status: RunStatus, **overrides) -> Run:
     """Build a Run with sensible defaults."""
     defaults = dict(
-        id=f"run_{uuid.uuid4().hex[:8]}",
-        workflow_id="wf_test",
-        workflow_name="Test Workflow",
+        id=f"stale-run-{uuid.uuid4().hex[:8]}",
+        workflow_id="startup-recovery-workflow",
+        workflow_name="Startup Recovery Workflow",
         task_json="{}",
         branch="main",
         created_at=time.time(),

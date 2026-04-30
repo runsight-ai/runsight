@@ -38,15 +38,15 @@ class TestExecutionObserverExists:
         """ExecutionObserver satisfies the WorkflowObserver runtime_checkable protocol."""
         ExecutionObserver = _import_execution_observer()
         engine = create_engine("sqlite:///:memory:")
-        obs = ExecutionObserver(engine=engine, run_id="run_1")
+        obs = ExecutionObserver(engine=engine, run_id="observer-protocol-run")
         assert isinstance(obs, WorkflowObserver)
 
     def test_accepts_engine_and_run_id(self):
         """Constructor accepts engine and run_id positional/keyword args."""
         ExecutionObserver = _import_execution_observer()
         engine = create_engine("sqlite:///:memory:")
-        obs = ExecutionObserver(engine=engine, run_id="run_test")
-        assert obs.run_id == "run_test"
+        obs = ExecutionObserver(engine=engine, run_id="observer-constructor-run")
+        assert obs.run_id == "observer-constructor-run"
 
 
 # ---------------------------------------------------------------------------
@@ -65,12 +65,12 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_observer_persistence"
+    run_id = "observer-persistence-run"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_1",
-            workflow_name="test_workflow",
+            workflow_id="observer-persistence-workflow",
+            workflow_name="Observer Persistence Workflow",
             status=RunStatus.running,
             task_json="{}",
             branch="main",
@@ -98,7 +98,7 @@ class TestOnWorkflowStart:
         """on_workflow_start UPDATEs Run.status to 'running'."""
         obs, engine, run_id = observer
         state = WorkflowState()
-        obs.on_workflow_start("test_workflow", state)
+        obs.on_workflow_start("observer-persistence-workflow", state)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -108,7 +108,7 @@ class TestOnWorkflowStart:
         """on_workflow_start sets Run.started_at to current time."""
         obs, engine, run_id = observer
         before = time.time()
-        obs.on_workflow_start("test_workflow", WorkflowState())
+        obs.on_workflow_start("observer-persistence-workflow", WorkflowState())
         after = time.time()
 
         with Session(engine) as session:
@@ -126,7 +126,7 @@ class TestOnBlockStart:
     def test_inserts_run_node_with_running_status(self, observer):
         """on_block_start INSERTs a RunNode with status='running'."""
         obs, engine, run_id = observer
-        obs.on_block_start("test_workflow", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -139,7 +139,7 @@ class TestOnBlockStart:
     def test_inserts_log_entry(self, observer):
         """on_block_start INSERTs a LogEntry for the block start event."""
         obs, engine, run_id = observer
-        obs.on_block_start("test_workflow", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -155,7 +155,7 @@ class TestOnBlockStart:
         """on_block_start sets RunNode.started_at."""
         obs, engine, run_id = observer
         before = time.time()
-        obs.on_block_start("test_workflow", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -171,9 +171,9 @@ class TestOnBlockStart:
 class TestOnBlockComplete:
     def _start_and_complete(self, obs, engine, run_id, cost=0.05, tokens=1500):
         """Helper: start then complete a block."""
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
         state = WorkflowState(total_cost_usd=cost, total_tokens=tokens)
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state)
+        obs.on_block_complete("observer-persistence-workflow", "block_a", "LinearBlock", 2.5, state)
         return state
 
     def test_updates_node_status_to_completed(self, observer):
@@ -199,14 +199,18 @@ class TestOnBlockComplete:
         """on_block_complete computes cost_delta from cumulative state cost."""
         obs, engine, run_id = observer
         # First block: cumulative cost = 0.05
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
         state1 = WorkflowState(total_cost_usd=0.05, total_tokens=500)
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 1.0, state1)
+        obs.on_block_complete(
+            "observer-persistence-workflow", "block_a", "LinearBlock", 1.0, state1
+        )
 
         # Second block: cumulative cost = 0.12 → delta = 0.07
-        obs.on_block_start("wf", "block_b", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_b", "LinearBlock")
         state2 = WorkflowState(total_cost_usd=0.12, total_tokens=1200)
-        obs.on_block_complete("wf", "block_b", "LinearBlock", 1.5, state2)
+        obs.on_block_complete(
+            "observer-persistence-workflow", "block_b", "LinearBlock", 1.5, state2
+        )
 
         with Session(engine) as session:
             node_a = session.get(RunNode, f"{run_id}:block_a")
@@ -227,13 +231,13 @@ class TestOnBlockComplete:
     def test_stores_output(self, observer):
         """on_block_complete stores block output from state.results in RunNode.output."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
             results={"block_a": BlockResult(output="The analysis is complete.")},
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 1.0, state)
+        obs.on_block_complete("observer-persistence-workflow", "block_a", "LinearBlock", 1.0, state)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -258,9 +262,11 @@ class TestOnBlockComplete:
     def test_zero_cost_block_still_writes_node(self, observer):
         """Block with zero cost still creates RunNode with cost_delta=0."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_zero", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_zero", "LinearBlock")
         state = WorkflowState(total_cost_usd=0.0, total_tokens=0)
-        obs.on_block_complete("wf", "block_zero", "LinearBlock", 0.1, state)
+        obs.on_block_complete(
+            "observer-persistence-workflow", "block_zero", "LinearBlock", 0.1, state
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_zero")
@@ -287,9 +293,9 @@ class TestOnBlockError:
     def test_updates_node_status_to_failed(self, observer):
         """on_block_error UPDATEs RunNode.status to 'failed'."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_err", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_err", "LinearBlock")
         err = RuntimeError("LLM call failed")
-        obs.on_block_error("wf", "block_err", "LinearBlock", 1.0, err)
+        obs.on_block_error("observer-persistence-workflow", "block_err", "LinearBlock", 1.0, err)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_err")
@@ -298,9 +304,9 @@ class TestOnBlockError:
     def test_stores_error_message(self, observer):
         """on_block_error stores error string in RunNode.error."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_err", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_err", "LinearBlock")
         err = ValueError("bad input")
-        obs.on_block_error("wf", "block_err", "LinearBlock", 0.5, err)
+        obs.on_block_error("observer-persistence-workflow", "block_err", "LinearBlock", 0.5, err)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_err")
@@ -310,11 +316,11 @@ class TestOnBlockError:
     def test_stores_error_traceback(self, observer):
         """on_block_error stores traceback.format_exception() in RunNode.error_traceback."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_err", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_err", "LinearBlock")
         try:
             raise RuntimeError("traceback test")
         except RuntimeError as e:
-            obs.on_block_error("wf", "block_err", "LinearBlock", 0.5, e)
+            obs.on_block_error("observer-persistence-workflow", "block_err", "LinearBlock", 0.5, e)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_err")
@@ -325,9 +331,9 @@ class TestOnBlockError:
     def test_inserts_log_entry(self, observer):
         """on_block_error INSERTs a LogEntry with level='error'."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_err", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_err", "LinearBlock")
         err = RuntimeError("boom")
-        obs.on_block_error("wf", "block_err", "LinearBlock", 1.0, err)
+        obs.on_block_error("observer-persistence-workflow", "block_err", "LinearBlock", 1.0, err)
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -347,7 +353,7 @@ class TestOnWorkflowComplete:
         """on_workflow_complete UPDATEs Run.status to 'completed'."""
         obs, engine, run_id = observer
         state = WorkflowState(total_cost_usd=0.10, total_tokens=3000)
-        obs.on_workflow_complete("wf", state, 5.0)
+        obs.on_workflow_complete("observer-persistence-workflow", state, 5.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -356,7 +362,7 @@ class TestOnWorkflowComplete:
     def test_sets_completed_at(self, observer):
         """on_workflow_complete sets Run.completed_at."""
         obs, engine, run_id = observer
-        obs.on_workflow_complete("wf", WorkflowState(), 5.0)
+        obs.on_workflow_complete("observer-persistence-workflow", WorkflowState(), 5.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -365,7 +371,7 @@ class TestOnWorkflowComplete:
     def test_sets_duration_s(self, observer):
         """on_workflow_complete sets Run.duration_s."""
         obs, engine, run_id = observer
-        obs.on_workflow_complete("wf", WorkflowState(), 12.34)
+        obs.on_workflow_complete("observer-persistence-workflow", WorkflowState(), 12.34)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -375,7 +381,7 @@ class TestOnWorkflowComplete:
         """on_workflow_complete sets Run.total_cost_usd and Run.total_tokens from state."""
         obs, engine, run_id = observer
         state = WorkflowState(total_cost_usd=1.23, total_tokens=45000)
-        obs.on_workflow_complete("wf", state, 10.0)
+        obs.on_workflow_complete("observer-persistence-workflow", state, 10.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -391,7 +397,7 @@ class TestOnWorkflowComplete:
                 "block_b": BlockResult(output="output_b"),
             }
         )
-        obs.on_workflow_complete("wf", state, 5.0)
+        obs.on_workflow_complete("observer-persistence-workflow", state, 5.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -411,7 +417,7 @@ class TestOnWorkflowComplete:
             }
         )
 
-        obs.on_workflow_complete("wf", state, 5.0)
+        obs.on_workflow_complete("observer-persistence-workflow", state, 5.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -423,7 +429,7 @@ class TestOnWorkflowComplete:
     def test_inserts_log_entry(self, observer):
         """on_workflow_complete INSERTs a LogEntry."""
         obs, engine, run_id = observer
-        obs.on_workflow_complete("wf", WorkflowState(), 5.0)
+        obs.on_workflow_complete("observer-persistence-workflow", WorkflowState(), 5.0)
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -444,7 +450,7 @@ class TestOnWorkflowError:
         """on_workflow_error UPDATEs Run.status to 'failed'."""
         obs, engine, run_id = observer
         err = RuntimeError("workflow exploded")
-        obs.on_workflow_error("wf", err, 3.0)
+        obs.on_workflow_error("observer-persistence-workflow", err, 3.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -454,7 +460,7 @@ class TestOnWorkflowError:
         """on_workflow_error stores error string in Run.error."""
         obs, engine, run_id = observer
         err = ValueError("bad config")
-        obs.on_workflow_error("wf", err, 1.0)
+        obs.on_workflow_error("observer-persistence-workflow", err, 1.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -467,7 +473,7 @@ class TestOnWorkflowError:
         try:
             raise RuntimeError("workflow traceback test")
         except RuntimeError as e:
-            obs.on_workflow_error("wf", e, 2.0)
+            obs.on_workflow_error("observer-persistence-workflow", e, 2.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -477,7 +483,7 @@ class TestOnWorkflowError:
     def test_sets_completed_at_and_duration(self, observer):
         """on_workflow_error sets Run.completed_at and Run.duration_s."""
         obs, engine, run_id = observer
-        obs.on_workflow_error("wf", RuntimeError("x"), 7.77)
+        obs.on_workflow_error("observer-persistence-workflow", RuntimeError("x"), 7.77)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -488,7 +494,7 @@ class TestOnWorkflowError:
         """CancelledError in on_workflow_error sets Run.status to 'cancelled'."""
         obs, engine, run_id = observer
         err = asyncio.CancelledError()
-        obs.on_workflow_error("wf", err, 1.0)
+        obs.on_workflow_error("observer-persistence-workflow", err, 1.0)
 
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -497,7 +503,7 @@ class TestOnWorkflowError:
     def test_inserts_log_entry_for_error(self, observer):
         """on_workflow_error INSERTs a LogEntry with level='error'."""
         obs, engine, run_id = observer
-        obs.on_workflow_error("wf", RuntimeError("oops"), 1.0)
+        obs.on_workflow_error("observer-persistence-workflow", RuntimeError("oops"), 1.0)
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -509,7 +515,7 @@ class TestOnWorkflowError:
     def test_inserts_log_entry_for_cancelled(self, observer):
         """CancelledError still inserts a log entry (level='warning' or 'info')."""
         obs, engine, run_id = observer
-        obs.on_workflow_error("wf", asyncio.CancelledError(), 1.0)
+        obs.on_workflow_error("observer-persistence-workflow", asyncio.CancelledError(), 1.0)
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -527,13 +533,17 @@ class TestCostDeltaCalculation:
     def test_first_block_delta_equals_cumulative(self, observer):
         """First block's cost_delta equals the cumulative cost (no prior blocks)."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "b1", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "defensive-block", "LinearBlock")
         obs.on_block_complete(
-            "wf", "b1", "LinearBlock", 1.0, WorkflowState(total_cost_usd=0.10, total_tokens=500)
+            "observer-persistence-workflow",
+            "defensive-block",
+            "LinearBlock",
+            1.0,
+            WorkflowState(total_cost_usd=0.10, total_tokens=500),
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:b1")
+            node = session.get(RunNode, f"{run_id}:defensive-block")
             assert node.cost_usd == pytest.approx(0.10, abs=0.001)
 
     def test_sequential_blocks_compute_incremental_delta(self, observer):
@@ -543,10 +553,10 @@ class TestCostDeltaCalculation:
         # Expected deltas: 0.10, 0.15, 0.00
 
         for i, cum_cost in enumerate(costs):
-            bid = f"b{i}"
-            obs.on_block_start("wf", bid, "LinearBlock")
+            bid = f"cost-sequence-block-{i}"
+            obs.on_block_start("observer-persistence-workflow", bid, "LinearBlock")
             obs.on_block_complete(
-                "wf",
+                "observer-persistence-workflow",
                 bid,
                 "LinearBlock",
                 1.0,
@@ -554,9 +564,9 @@ class TestCostDeltaCalculation:
             )
 
         with Session(engine) as session:
-            n0 = session.get(RunNode, f"{run_id}:b0")
-            n1 = session.get(RunNode, f"{run_id}:b1")
-            n2 = session.get(RunNode, f"{run_id}:b2")
+            n0 = session.get(RunNode, f"{run_id}:cost-sequence-block-0")
+            n1 = session.get(RunNode, f"{run_id}:cost-sequence-block-1")
+            n2 = session.get(RunNode, f"{run_id}:cost-sequence-block-2")
             assert n0.cost_usd == pytest.approx(0.10, abs=0.001)
             assert n1.cost_usd == pytest.approx(0.15, abs=0.001)
             assert n2.cost_usd == pytest.approx(0.00, abs=0.001)
@@ -575,50 +585,58 @@ class TestDefensiveObserverWrapping:
 
         # Sabotage the engine to cause DB errors
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs_bad = ExecutionObserver(engine=bad_engine, run_id="run_bad")
+        obs_bad = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
 
         # Should NOT raise — observer errors must be swallowed
-        obs_bad.on_workflow_start("wf", WorkflowState())
+        obs_bad.on_workflow_start("observer-persistence-workflow", WorkflowState())
 
     def test_on_block_start_db_error_does_not_raise(self, seed_run):
         """If DB write fails in on_block_start, error is swallowed."""
         engine, run_id = seed_run
         ExecutionObserver = _import_execution_observer()
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs = ExecutionObserver(engine=bad_engine, run_id="run_bad")
-        obs.on_block_start("wf", "b1", "LinearBlock")
+        obs = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
+        obs.on_block_start("observer-persistence-workflow", "defensive-block", "LinearBlock")
 
     def test_on_block_complete_db_error_does_not_raise(self, seed_run):
         """If DB write fails in on_block_complete, error is swallowed."""
         engine, run_id = seed_run
         ExecutionObserver = _import_execution_observer()
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs = ExecutionObserver(engine=bad_engine, run_id="run_bad")
-        obs.on_block_complete("wf", "b1", "LinearBlock", 1.0, WorkflowState())
+        obs = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
+        obs.on_block_complete(
+            "observer-persistence-workflow", "defensive-block", "LinearBlock", 1.0, WorkflowState()
+        )
 
     def test_on_block_error_db_error_does_not_raise(self, seed_run):
         """If DB write fails in on_block_error, error is swallowed."""
         engine, run_id = seed_run
         ExecutionObserver = _import_execution_observer()
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs = ExecutionObserver(engine=bad_engine, run_id="run_bad")
-        obs.on_block_error("wf", "b1", "LinearBlock", 1.0, RuntimeError("x"))
+        obs = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
+        obs.on_block_error(
+            "observer-persistence-workflow",
+            "defensive-block",
+            "LinearBlock",
+            1.0,
+            RuntimeError("x"),
+        )
 
     def test_on_workflow_complete_db_error_does_not_raise(self, seed_run):
         """If DB write fails in on_workflow_complete, error is swallowed."""
         engine, run_id = seed_run
         ExecutionObserver = _import_execution_observer()
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs = ExecutionObserver(engine=bad_engine, run_id="run_bad")
-        obs.on_workflow_complete("wf", WorkflowState(), 5.0)
+        obs = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
+        obs.on_workflow_complete("observer-persistence-workflow", WorkflowState(), 5.0)
 
     def test_on_workflow_error_db_error_does_not_raise(self, seed_run):
         """If DB write fails in on_workflow_error, error is swallowed."""
         engine, run_id = seed_run
         ExecutionObserver = _import_execution_observer()
         bad_engine = create_engine("sqlite:///nonexistent/path/db.sqlite")
-        obs = ExecutionObserver(engine=bad_engine, run_id="run_bad")
-        obs.on_workflow_error("wf", RuntimeError("x"), 1.0)
+        obs = ExecutionObserver(engine=bad_engine, run_id="observer-defensive-run")
+        obs.on_workflow_error("observer-persistence-workflow", RuntimeError("x"), 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -643,10 +661,14 @@ class TestSessionFactory:
         with patch("runsight_api.logic.observers.execution_observer.Session", CountingSession):
             ExecutionObserver = _import_execution_observer()
             obs2 = ExecutionObserver(engine=engine, run_id=run_id)
-            obs2.on_workflow_start("wf", WorkflowState())
-            obs2.on_block_start("wf", "b1", "LinearBlock")
+            obs2.on_workflow_start("observer-persistence-workflow", WorkflowState())
+            obs2.on_block_start("observer-persistence-workflow", "defensive-block", "LinearBlock")
             obs2.on_block_complete(
-                "wf", "b1", "LinearBlock", 1.0, WorkflowState(total_cost_usd=0.05)
+                "observer-persistence-workflow",
+                "defensive-block",
+                "LinearBlock",
+                1.0,
+                WorkflowState(total_cost_usd=0.05),
             )
 
         # At least 3 separate sessions (one per method call)
@@ -662,7 +684,7 @@ class TestLogEntryFormat:
     def test_block_start_log_is_valid_json(self, observer):
         """LogEntry.message from on_block_start is valid JSON with required fields."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
 
         with Session(engine) as session:
             from sqlmodel import select
@@ -677,9 +699,13 @@ class TestLogEntryFormat:
     def test_block_complete_log_includes_duration_and_cost(self, observer):
         """LogEntry.message from on_block_complete includes duration_s and cost_delta."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
         obs.on_block_complete(
-            "wf", "block_a", "LinearBlock", 2.5, WorkflowState(total_cost_usd=0.05)
+            "observer-persistence-workflow",
+            "block_a",
+            "LinearBlock",
+            2.5,
+            WorkflowState(total_cost_usd=0.05),
         )
 
         with Session(engine) as session:
@@ -691,10 +717,10 @@ class TestLogEntryFormat:
             msg = json.loads(complete_logs[0].message)
             assert "duration_s" in msg
 
-    def test_workflow_error_log_includes_error_type(self, observer):
+    def test_error_log_from_workflow_failure_includes_error_type(self, observer):
         """LogEntry.message from on_workflow_error includes error type and message."""
         obs, engine, run_id = observer
-        obs.on_workflow_error("wf", ValueError("test error"), 1.0)
+        obs.on_workflow_error("observer-persistence-workflow", ValueError("test error"), 1.0)
 
         with Session(engine) as session:
             from sqlmodel import select

@@ -43,12 +43,12 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_observer_soul"
+    run_id = "observer-soul-run"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_1",
-            workflow_name="test_workflow",
+            workflow_id="observer-soul-workflow",
+            workflow_name="Observer Soul Workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -88,17 +88,17 @@ class TestOnBlockStartSoul:
     def test_on_block_start_with_soul_does_not_error(self, observer, sample_soul):
         """on_block_start(... soul=soul) does not raise TypeError."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock", soul=sample_soul)
+        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=sample_soul)
 
     def test_on_block_start_with_none_soul_does_not_error(self, observer):
         """on_block_start(... soul=None) does not raise."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock", soul=None)
+        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=None)
 
     def test_on_block_start_without_soul_kwarg_backward_compat(self, observer):
         """on_block_start called without soul keyword still works (backward compat)."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_a", "LinearBlock")
+        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock")
 
 
 # ---------------------------------------------------------------------------
@@ -109,13 +109,15 @@ class TestOnBlockStartSoul:
 class TestOnBlockCompleteSoulHashes:
     def _start_and_complete_with_soul(self, obs, engine, run_id, soul):
         """Helper: start then complete a block with a soul."""
-        obs.on_block_start("wf", "block_a", "LinearBlock", soul=soul)
+        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=soul)
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=1500,
             results={"block_a": BlockResult(output="Some output")},
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state, soul=soul)
+        obs.on_block_complete(
+            "observer-soul-workflow", "block_a", "LinearBlock", 2.5, state, soul=soul
+        )
 
     def test_populates_prompt_hash_from_soul(self, observer, sample_soul):
         """on_block_complete with soul sets RunNode.prompt_hash to SHA-256 of system_prompt."""
@@ -144,13 +146,15 @@ class TestOnBlockCompleteSoulHashes:
     def test_none_soul_leaves_hashes_none(self, observer):
         """on_block_complete with soul=None leaves prompt_hash and soul_version as None."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_b", "LinearBlock", soul=None)
+        obs.on_block_start("observer-soul-workflow", "block_b", "LinearBlock", soul=None)
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
             results={"block_b": BlockResult(output="Output")},
         )
-        obs.on_block_complete("wf", "block_b", "LinearBlock", 1.0, state, soul=None)
+        obs.on_block_complete(
+            "observer-soul-workflow", "block_b", "LinearBlock", 1.0, state, soul=None
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_b")
@@ -161,13 +165,13 @@ class TestOnBlockCompleteSoulHashes:
     def test_omitted_soul_leaves_hashes_none(self, observer):
         """on_block_complete without soul keyword leaves prompt_hash/soul_version as None."""
         obs, engine, run_id = observer
-        obs.on_block_start("wf", "block_c", "LinearBlock")
+        obs.on_block_start("observer-soul-workflow", "block_c", "LinearBlock")
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
             results={"block_c": BlockResult(output="Output")},
         )
-        obs.on_block_complete("wf", "block_c", "LinearBlock", 1.0, state)
+        obs.on_block_complete("observer-soul-workflow", "block_c", "LinearBlock", 1.0, state)
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_c")
@@ -206,25 +210,29 @@ class TestHashVariation:
         )
 
         # Block A with soul_a
-        obs.on_block_start("wf", "ba", "LinearBlock", soul=soul_a)
+        obs.on_block_start("observer-soul-workflow", "research-block", "LinearBlock", soul=soul_a)
         state_a = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
-            results={"ba": BlockResult(output="Research output")},
+            results={"research-block": BlockResult(output="Research output")},
         )
-        obs.on_block_complete("wf", "ba", "LinearBlock", 1.0, state_a, soul=soul_a)
+        obs.on_block_complete(
+            "observer-soul-workflow", "research-block", "LinearBlock", 1.0, state_a, soul=soul_a
+        )
 
         # Block B with soul_b
-        obs.on_block_start("wf", "bb", "LinearBlock", soul=soul_b)
+        obs.on_block_start("observer-soul-workflow", "coding-block", "LinearBlock", soul=soul_b)
         state_b = WorkflowState(
             total_cost_usd=0.10,
             total_tokens=1000,
-            results={"bb": BlockResult(output="Code output")},
+            results={"coding-block": BlockResult(output="Code output")},
         )
-        obs.on_block_complete("wf", "bb", "LinearBlock", 1.5, state_b, soul=soul_b)
+        obs.on_block_complete(
+            "observer-soul-workflow", "coding-block", "LinearBlock", 1.5, state_b, soul=soul_b
+        )
 
         with Session(engine) as session:
-            node_a = session.get(RunNode, f"{run_id}:ba")
-            node_b = session.get(RunNode, f"{run_id}:bb")
+            node_a = session.get(RunNode, f"{run_id}:research-block")
+            node_b = session.get(RunNode, f"{run_id}:coding-block")
             assert node_a.prompt_hash != node_b.prompt_hash
             assert node_a.soul_version != node_b.soul_version
