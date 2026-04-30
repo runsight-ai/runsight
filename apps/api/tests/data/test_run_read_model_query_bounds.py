@@ -1,9 +1,9 @@
-"""N+1 query fixes in run_repo.py and unbounded list_runs.
+"""Run read model query bounds.
 
-These tests assert the optimised query behaviour:
-  - list_runs() must apply a sensible default LIMIT
-  - _count_regressions_for_workflow must batch-load RunNodes (≤ 3 queries total)
-  - get_workflow_health_metrics must stay within 2-5 queries regardless of dataset size
+These tests assert bounded query behavior:
+  - list_runs() returns the requested rows without hidden caps
+  - _count_regressions_for_workflow batch-loads RunNodes within a small query budget
+  - get_workflow_health_metrics stays within a small query budget regardless of dataset size
 """
 
 import time
@@ -19,7 +19,7 @@ from runsight_api.domain.entities.run import Run, RunNode
 # Helpers
 # ---------------------------------------------------------------------------
 
-DEFAULT_LIST_RUNS_LIMIT = 100  # expected safety-net value post-fix
+DEFAULT_LIST_RUNS_LIMIT = 100
 
 
 def _import_run_repository():
@@ -133,8 +133,8 @@ class TestListRunsDefaultLimit:
         for i in range(over_limit):
             _seed_run(
                 db_session,
-                f"run_{i:04d}",
-                workflow_id="wf_limit",
+                f"uncapped-history-run-{i:04d}",
+                workflow_id="uncapped-history-workflow",
                 created_at_offset=float(i),
             )
         db_session.commit()
@@ -155,8 +155,8 @@ class TestListRunsDefaultLimit:
         for i in range(over_limit):
             _seed_run(
                 db_session,
-                f"run_cap_{i:04d}",
-                workflow_id="wf_cap",
+                f"capped-history-run-{i:04d}",
+                workflow_id="capped-history-workflow",
                 created_at_offset=float(i),
             )
         db_session.commit()
@@ -176,8 +176,8 @@ class TestListRunsDefaultLimit:
         for i in range(count):
             _seed_run(
                 db_session,
-                f"run_few_{i:04d}",
-                workflow_id="wf_few",
+                f"short-history-run-{i:04d}",
+                workflow_id="short-history-workflow",
                 created_at_offset=float(i),
             )
         db_session.commit()
@@ -199,22 +199,22 @@ class TestCountRegressionsQueryCount:
         at most 3 queries total (not 1 + N per run)."""
         RunReadModel = _import_run_read_model()
 
-        wf_id = "wf_batch_regression"
+        workflow_id = "batched-regression-workflow"
         num_runs = 5
         for i in range(num_runs):
-            run_id = f"run_reg_{i}"
-            _seed_run(db_session, run_id, workflow_id=wf_id, created_at_offset=float(i))
+            run_id = f"alternating-eval-run-{i:04d}"
+            _seed_run(db_session, run_id, workflow_id=workflow_id, created_at_offset=float(i))
             _seed_node(
                 db_session,
                 run_id,
-                "node_a",
+                "quality-review-node",
                 eval_passed=(i % 2 == 0),
                 soul_version="v1",
             )
             _seed_node(
                 db_session,
                 run_id,
-                "node_b",
+                "summary-node",
                 eval_passed=True,
                 soul_version="v1",
             )
@@ -226,7 +226,7 @@ class TestCountRegressionsQueryCount:
         statements = _count_queries(db_session)
         start_count = len(statements)
 
-        read_model._count_regressions_for_workflow(wf_id)
+        read_model._count_regressions_for_workflow(workflow_id)
 
         queries_issued = len(statements) - start_count
 
@@ -238,32 +238,52 @@ class TestCountRegressionsQueryCount:
     def test_count_regressions_preserves_semantics(self, db_session: Session):
         """The batch optimisation must not change regression detection logic.
 
-        Scenario: 3 runs, node_a with soul_version='v1'.
-          run_0: eval_passed=True
-          run_1: eval_passed=False  → regression vs run_0
-          run_2: eval_passed=False  → NO regression (prev was also False)
+        Scenario: 3 runs, quality-review-node with soul_version='v1'.
+          baseline-pass-run: eval_passed=True
+          first-failing-run: eval_passed=False -> regression vs baseline-pass-run
+          repeated-failing-run: eval_passed=False -> no regression because previous was also False
         Expected regression_count = 1
         """
         RunReadModel = _import_run_read_model()
 
-        wf_id = "wf_semantics"
+        workflow_id = "regression-semantics-workflow"
 
-        # run_0: pass
-        _seed_run(db_session, "r0", workflow_id=wf_id, created_at_offset=0.0)
-        _seed_node(db_session, "r0", "node_a", eval_passed=True, soul_version="v1")
+        _seed_run(db_session, "baseline-pass-run", workflow_id=workflow_id, created_at_offset=0.0)
+        _seed_node(
+            db_session,
+            "baseline-pass-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        # run_1: fail  → regression
-        _seed_run(db_session, "r1", workflow_id=wf_id, created_at_offset=1.0)
-        _seed_node(db_session, "r1", "node_a", eval_passed=False, soul_version="v1")
+        _seed_run(db_session, "first-failing-run", workflow_id=workflow_id, created_at_offset=1.0)
+        _seed_node(
+            db_session,
+            "first-failing-run",
+            "quality-review-node",
+            eval_passed=False,
+            soul_version="v1",
+        )
 
-        # run_2: fail  → NOT a regression (prev was already False)
-        _seed_run(db_session, "r2", workflow_id=wf_id, created_at_offset=2.0)
-        _seed_node(db_session, "r2", "node_a", eval_passed=False, soul_version="v1")
+        _seed_run(
+            db_session,
+            "repeated-failing-run",
+            workflow_id=workflow_id,
+            created_at_offset=2.0,
+        )
+        _seed_node(
+            db_session,
+            "repeated-failing-run",
+            "quality-review-node",
+            eval_passed=False,
+            soul_version="v1",
+        )
 
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        count = read_model._count_regressions_for_workflow(wf_id)
+        count = read_model._count_regressions_for_workflow(workflow_id)
 
         assert count == 1, (
             f"Expected 1 regression but got {count}. "
@@ -274,20 +294,40 @@ class TestCountRegressionsQueryCount:
         """A soul_version change resets the baseline — no regression should fire."""
         RunReadModel = _import_run_read_model()
 
-        wf_id = "wf_soul_version_boundary"
+        workflow_id = "soul-version-boundary-workflow"
 
-        # run_0: node_a v1 pass
-        _seed_run(db_session, "sv_r0", workflow_id=wf_id, created_at_offset=0.0)
-        _seed_node(db_session, "sv_r0", "node_a", eval_passed=True, soul_version="v1")
+        _seed_run(
+            db_session,
+            "baseline-soul-version-run",
+            workflow_id=workflow_id,
+            created_at_offset=0.0,
+        )
+        _seed_node(
+            db_session,
+            "baseline-soul-version-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        # run_1: node_a v2 fail — soul_version changed so NOT a regression
-        _seed_run(db_session, "sv_r1", workflow_id=wf_id, created_at_offset=1.0)
-        _seed_node(db_session, "sv_r1", "node_a", eval_passed=False, soul_version="v2")
+        _seed_run(
+            db_session,
+            "changed-soul-version-run",
+            workflow_id=workflow_id,
+            created_at_offset=1.0,
+        )
+        _seed_node(
+            db_session,
+            "changed-soul-version-run",
+            "quality-review-node",
+            eval_passed=False,
+            soul_version="v2",
+        )
 
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        count = read_model._count_regressions_for_workflow(wf_id)
+        count = read_model._count_regressions_for_workflow(workflow_id)
 
         assert count == 0, f"Expected 0 regressions (soul_version changed) but got {count}."
 
@@ -303,27 +343,33 @@ class TestHealthMetricsQueryCount:
         issue ≤ 5 queries total (not 50+ from the per-workflow N+1 loop)."""
         RunReadModel = _import_run_read_model()
 
-        workflow_ids = [f"wf_hm_{i}" for i in range(5)]
-        for wf_idx, wf_id in enumerate(workflow_ids):
+        workflow_ids = [
+            "health-alpha-workflow",
+            "health-beta-workflow",
+            "health-gamma-workflow",
+            "health-delta-workflow",
+            "health-epsilon-workflow",
+        ]
+        for workflow_idx, workflow_id in enumerate(workflow_ids):
             for run_idx in range(10):
-                run_id = f"run_{wf_idx}_{run_idx}"
+                run_id = f"health-workflow-{workflow_idx}-history-run-{run_idx:04d}"
                 _seed_run(
                     db_session,
                     run_id,
-                    workflow_id=wf_id,
+                    workflow_id=workflow_id,
                     created_at_offset=float(run_idx),
                 )
                 _seed_node(
                     db_session,
                     run_id,
-                    "node_x",
+                    "health-review-node",
                     eval_passed=(run_idx % 3 != 0),
                     soul_version="v1",
                 )
                 _seed_node(
                     db_session,
                     run_id,
-                    "node_y",
+                    "health-summary-node",
                     eval_passed=True,
                     soul_version="v1",
                 )
@@ -347,46 +393,130 @@ class TestHealthMetricsQueryCount:
     def test_health_metrics_preserves_regression_count(self, db_session: Session):
         """Regression counts per workflow must be correct after the batch rewrite.
 
-        wf_a: 1 regression (node passes then fails, same soul_version)
-        wf_b: 0 regressions (all pass)
-        wf_c: 2 regressions (two independent nodes each regress once)
+        workflow-with-one-regression: 1 regression
+        workflow-without-regression: 0 regressions
+        workflow-with-two-regressions: 2 regressions
         """
         RunReadModel = _import_run_read_model()
 
-        # ── wf_a: 1 regression ──────────────────────────────────────────────
-        _seed_run(db_session, "a_r0", workflow_id="wf_a", created_at_offset=0.0)
-        _seed_node(db_session, "a_r0", "node_1", eval_passed=True, soul_version="v1")
+        _seed_run(
+            db_session,
+            "one-regression-baseline-run",
+            workflow_id="workflow-with-one-regression",
+            created_at_offset=0.0,
+        )
+        _seed_node(
+            db_session,
+            "one-regression-baseline-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        _seed_run(db_session, "a_r1", workflow_id="wf_a", created_at_offset=1.0)
-        _seed_node(db_session, "a_r1", "node_1", eval_passed=False, soul_version="v1")
+        _seed_run(
+            db_session,
+            "one-regression-failing-run",
+            workflow_id="workflow-with-one-regression",
+            created_at_offset=1.0,
+        )
+        _seed_node(
+            db_session,
+            "one-regression-failing-run",
+            "quality-review-node",
+            eval_passed=False,
+            soul_version="v1",
+        )
 
-        # ── wf_b: 0 regressions ─────────────────────────────────────────────
-        _seed_run(db_session, "b_r0", workflow_id="wf_b", created_at_offset=0.0)
-        _seed_node(db_session, "b_r0", "node_1", eval_passed=True, soul_version="v1")
+        _seed_run(
+            db_session,
+            "clean-history-baseline-run",
+            workflow_id="workflow-without-regression",
+            created_at_offset=0.0,
+        )
+        _seed_node(
+            db_session,
+            "clean-history-baseline-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        _seed_run(db_session, "b_r1", workflow_id="wf_b", created_at_offset=1.0)
-        _seed_node(db_session, "b_r1", "node_1", eval_passed=True, soul_version="v1")
+        _seed_run(
+            db_session,
+            "clean-history-followup-run",
+            workflow_id="workflow-without-regression",
+            created_at_offset=1.0,
+        )
+        _seed_node(
+            db_session,
+            "clean-history-followup-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        # ── wf_c: 2 regressions (node_1 and node_2 each regress once) ───────
-        _seed_run(db_session, "c_r0", workflow_id="wf_c", created_at_offset=0.0)
-        _seed_node(db_session, "c_r0", "node_1", eval_passed=True, soul_version="v1")
-        _seed_node(db_session, "c_r0", "node_2", eval_passed=True, soul_version="v1")
+        _seed_run(
+            db_session,
+            "two-regressions-baseline-run",
+            workflow_id="workflow-with-two-regressions",
+            created_at_offset=0.0,
+        )
+        _seed_node(
+            db_session,
+            "two-regressions-baseline-run",
+            "quality-review-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
+        _seed_node(
+            db_session,
+            "two-regressions-baseline-run",
+            "summary-node",
+            eval_passed=True,
+            soul_version="v1",
+        )
 
-        _seed_run(db_session, "c_r1", workflow_id="wf_c", created_at_offset=1.0)
-        _seed_node(db_session, "c_r1", "node_1", eval_passed=False, soul_version="v1")
-        _seed_node(db_session, "c_r1", "node_2", eval_passed=False, soul_version="v1")
+        _seed_run(
+            db_session,
+            "two-regressions-failing-run",
+            workflow_id="workflow-with-two-regressions",
+            created_at_offset=1.0,
+        )
+        _seed_node(
+            db_session,
+            "two-regressions-failing-run",
+            "quality-review-node",
+            eval_passed=False,
+            soul_version="v1",
+        )
+        _seed_node(
+            db_session,
+            "two-regressions-failing-run",
+            "summary-node",
+            eval_passed=False,
+            soul_version="v1",
+        )
 
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        result = read_model.get_workflow_health_metrics(["wf_a", "wf_b", "wf_c"])
+        result = read_model.get_workflow_health_metrics(
+            [
+                "workflow-with-one-regression",
+                "workflow-without-regression",
+                "workflow-with-two-regressions",
+            ]
+        )
 
-        assert result["wf_a"]["regression_count"] == 1, (
-            f"wf_a: expected 1 regression, got {result['wf_a']['regression_count']}"
+        assert result["workflow-with-one-regression"]["regression_count"] == 1, (
+            "workflow-with-one-regression: expected 1 regression, got "
+            f"{result['workflow-with-one-regression']['regression_count']}"
         )
-        assert result["wf_b"]["regression_count"] == 0, (
-            f"wf_b: expected 0 regressions, got {result['wf_b']['regression_count']}"
+        assert result["workflow-without-regression"]["regression_count"] == 0, (
+            "workflow-without-regression: expected 0 regressions, got "
+            f"{result['workflow-without-regression']['regression_count']}"
         )
-        assert result["wf_c"]["regression_count"] == 2, (
-            f"wf_c: expected 2 regressions, got {result['wf_c']['regression_count']}"
+        assert result["workflow-with-two-regressions"]["regression_count"] == 2, (
+            "workflow-with-two-regressions: expected 2 regressions, got "
+            f"{result['workflow-with-two-regressions']['regression_count']}"
         )
