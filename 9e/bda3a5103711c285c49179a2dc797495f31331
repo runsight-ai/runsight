@@ -1,0 +1,31 @@
+apps/api/tests/test_startup_wiring.py
+  4adca821c1af8eb3 20-21
+apps/api/tests/data/test_filesystem.py
+  4adca821c1af8eb3 28-29,31-32,36,38,42,44,54,66,70,111-112,125-126,136,168,292,309,312,316
+apps/api/tests/test_codebones_index_lifecycle.py
+  4adca821c1af8eb3 2,4,30,88
+apps/api/tests/data/test_workflow_repo_identity.py
+  4adca821c1af8eb3 17,79,107-114,116,122,129-132,135-137,139
+apps/api/tests/fixtures/workflows/research-review.yaml
+  4adca821c1af8eb3 1-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9ebda3a5103711c285c49179a2dc797495f31331",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 243,
+      "total_deletions": 41,
+      "accepted_lines": 117925,
+      "overriden_lines": 0
+    }
+  }
+}
