@@ -222,7 +222,7 @@ describe("Component files exist", () => {
 });
 
 // ===========================================================================
-// 2. No old Tailwind token class names — per component (AC1, AC2, AC3)
+// 2. No old Tailwind token class names — per component
 // ===========================================================================
 
 describe("No old Tailwind tokens — badge.tsx", () => {
@@ -354,7 +354,7 @@ describe("No old Tailwind tokens — tooltip.tsx", () => {
 });
 
 // ===========================================================================
-// 3. No old CSS var() references — per component (AC1, AC2, AC3)
+// 3. No old CSS var() references — per component
 // ===========================================================================
 
 describe("No old var() refs — badge.tsx", () => {
@@ -486,7 +486,7 @@ describe("No old var() refs — tooltip.tsx", () => {
 });
 
 // ===========================================================================
-// 4. CVA variant names are unchanged (AC5) — spot-check key components
+// 4. CVA variant names are unchanged — spot-check key components
 // ===========================================================================
 
 // Badge variants use the design system semantic variant set
@@ -525,8 +525,8 @@ describe("CVA variant names updated — button.tsx", () => {
 });
 
 // ===========================================================================
-// 5. New design system tokens ARE present after sweep (AC3, AC4)
-//    Tests will pass only once Green Team has done the rename.
+// 5. New design system tokens ARE present after sweep
+//    Tests pass once component token renames are complete.
 //    Components confirmed to have old tokens today: badge, button, card,
 //    command, dialog, dropdown-menu, input, popover, scroll-area,
 //    select, sheet, switch, table, tabs, textarea.
@@ -559,7 +559,7 @@ describe("New tokens present after sweep — components with confirmed old token
 });
 
 // ===========================================================================
-// 6. Comprehensive grep — each old token absent across ALL 19 components (AC2)
+// 6. Comprehensive grep — each old token absent across ALL 19 components
 //    Grouped by token for clear failure messages when grepping.
 // ===========================================================================
 

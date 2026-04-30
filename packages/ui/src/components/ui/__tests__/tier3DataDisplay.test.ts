@@ -47,7 +47,7 @@ function readStory(filename: string): string {
 }
 
 // ===========================================================================
-// 1. TABLE — header background token (AC1)
+// 1. TABLE — header background token
 // ===========================================================================
 
 describe("Table — surface-secondary token on header", () => {
@@ -59,7 +59,7 @@ describe("Table — surface-secondary token on header", () => {
 });
 
 // ===========================================================================
-// 2. TABLE — header text color token (AC1)
+// 2. TABLE — header text color token
 // ===========================================================================
 
 describe("Table — text-secondary or text-muted token on header cells", () => {
@@ -71,7 +71,7 @@ describe("Table — text-secondary or text-muted token on header cells", () => {
 });
 
 // ===========================================================================
-// 3. TABLE — header font-size token (AC1)
+// 3. TABLE — header font-size token
 // ===========================================================================
 
 describe("Table — font-size-xs or text-2xs token on header cells", () => {
@@ -83,7 +83,7 @@ describe("Table — font-size-xs or text-2xs token on header cells", () => {
 });
 
 // ===========================================================================
-// 4. TABLE — header uppercase text transform (AC1)
+// 4. TABLE — header uppercase text transform
 // ===========================================================================
 
 describe("Table — uppercase text transform on header cells", () => {
@@ -96,7 +96,7 @@ describe("Table — uppercase text transform on header cells", () => {
 });
 
 // ===========================================================================
-// 5. TABLE — row hover token (AC1)
+// 5. TABLE — row hover token
 // ===========================================================================
 
 describe("Table — surface-hover token on row hover", () => {
@@ -109,7 +109,7 @@ describe("Table — surface-hover token on row hover", () => {
 });
 
 // ===========================================================================
-// 6. TABLE — border token (AC1)
+// 6. TABLE — border token
 // ===========================================================================
 
 describe("Table — border-subtle token for borders", () => {
@@ -122,7 +122,7 @@ describe("Table — border-subtle token for borders", () => {
 });
 
 // ===========================================================================
-// 7. TABLE — row height density token (AC1)
+// 7. TABLE — row height density token
 // ===========================================================================
 
 describe("Table — density-row-height token for row height", () => {
@@ -135,7 +135,7 @@ describe("Table — density-row-height token for row height", () => {
 });
 
 // ===========================================================================
-// 8. TABLE — mono font token (AC1)
+// 8. TABLE — mono font token
 // ===========================================================================
 
 describe("Table — font-mono token for mono values", () => {
@@ -148,7 +148,7 @@ describe("Table — font-mono token for mono values", () => {
 });
 
 // ===========================================================================
-// 9. CARD — border-subtle token (AC2)
+// 9. CARD — border-subtle token
 // ===========================================================================
 
 describe("Card — border-subtle token for border", () => {
@@ -161,7 +161,7 @@ describe("Card — border-subtle token for border", () => {
 });
 
 // ===========================================================================
-// 10. CARD — radius-lg token (AC2)
+// 10. CARD — radius-lg token
 // ===========================================================================
 
 describe("Card — radius-lg or rounded-lg token for border radius", () => {
@@ -173,7 +173,7 @@ describe("Card — radius-lg or rounded-lg token for border radius", () => {
 });
 
 // ===========================================================================
-// 11. CARD — space-4 token for padding (AC2)
+// 11. CARD — space-4 token for padding
 // ===========================================================================
 
 describe("Card — space-4 or p-4 token for padding", () => {
@@ -185,7 +185,7 @@ describe("Card — space-4 or p-4 token for padding", () => {
 });
 
 // ===========================================================================
-// 12. CARD — text-heading token for header (AC2)
+// 12. CARD — text-heading token for header
 // ===========================================================================
 
 describe("Card — text-heading token for header text", () => {
@@ -198,7 +198,7 @@ describe("Card — text-heading token for header text", () => {
 });
 
 // ===========================================================================
-// 13. STAT CARD — file exists (AC3)
+// 13. STAT CARD — file exists
 // ===========================================================================
 
 describe("StatCard — component file exists", () => {
@@ -208,7 +208,7 @@ describe("StatCard — component file exists", () => {
 });
 
 // ===========================================================================
-// 14. STAT CARD — named export (AC3)
+// 14. STAT CARD — named export
 // ===========================================================================
 
 describe("StatCard — named export", () => {
@@ -219,7 +219,7 @@ describe("StatCard — named export", () => {
 });
 
 // ===========================================================================
-// 15. STAT CARD — design system tokens (AC3)
+// 15. STAT CARD — design system tokens
 // ===========================================================================
 
 describe("StatCard — design system tokens", () => {
@@ -255,7 +255,7 @@ describe("StatCard — design system tokens", () => {
 });
 
 // ===========================================================================
-// 16. STAT CARD — category stripe (AC3)
+// 16. STAT CARD — category stripe
 // ===========================================================================
 
 describe("StatCard — top 3px category stripe", () => {
@@ -267,7 +267,7 @@ describe("StatCard — top 3px category stripe", () => {
 });
 
 // ===========================================================================
-// 17. STAT CARD — uppercase label (AC3)
+// 17. STAT CARD — uppercase label
 // ===========================================================================
 
 describe("StatCard — uppercase label text transform", () => {
@@ -279,7 +279,7 @@ describe("StatCard — uppercase label text transform", () => {
 });
 
 // ===========================================================================
-// 18. STAT CARD — optional delta badge (AC3)
+// 18. STAT CARD — optional delta badge
 // ===========================================================================
 
 describe("StatCard — optional delta badge support", () => {
@@ -291,7 +291,7 @@ describe("StatCard — optional delta badge support", () => {
 });
 
 // ===========================================================================
-// 19. CODE BLOCK — file exists (AC4)
+// 19. CODE BLOCK — file exists
 // ===========================================================================
 
 describe("CodeBlock — component file exists", () => {
@@ -301,7 +301,7 @@ describe("CodeBlock — component file exists", () => {
 });
 
 // ===========================================================================
-// 20. CODE BLOCK — named export (AC4)
+// 20. CODE BLOCK — named export
 // ===========================================================================
 
 describe("CodeBlock — named export", () => {
@@ -312,7 +312,7 @@ describe("CodeBlock — named export", () => {
 });
 
 // ===========================================================================
-// 21. CODE BLOCK — design system tokens (AC4)
+// 21. CODE BLOCK — design system tokens
 // ===========================================================================
 
 describe("CodeBlock — design system tokens", () => {
@@ -354,7 +354,7 @@ describe("CodeBlock — design system tokens", () => {
 });
 
 // ===========================================================================
-// 22. CODE BLOCK — copy button (AC4)
+// 22. CODE BLOCK — copy button
 // ===========================================================================
 
 describe("CodeBlock — copy button", () => {
@@ -366,7 +366,7 @@ describe("CodeBlock — copy button", () => {
 });
 
 // ===========================================================================
-// 23. STORYBOOK STORIES — all 4 component story files exist (AC6)
+// 23. STORYBOOK STORIES — all 4 component story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -389,7 +389,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 29. STORYBOOK STORIES — Table.stories.tsx structure (AC6)
+// 29. STORYBOOK STORIES — Table.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Table.stories.tsx structure", () => {
@@ -420,7 +420,7 @@ describe("Storybook stories — Table.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 30. STORYBOOK STORIES — Card.stories.tsx structure (AC6)
+// 30. STORYBOOK STORIES — Card.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Card.stories.tsx structure", () => {
@@ -451,7 +451,7 @@ describe("Storybook stories — Card.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 31. STORYBOOK STORIES — StatCard.stories.tsx structure (AC6)
+// 31. STORYBOOK STORIES — StatCard.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — StatCard.stories.tsx structure", () => {
@@ -482,7 +482,7 @@ describe("Storybook stories — StatCard.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 32. STORYBOOK STORIES — CodeBlock.stories.tsx structure (AC6)
+// 32. STORYBOOK STORIES — CodeBlock.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — CodeBlock.stories.tsx structure", () => {

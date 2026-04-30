@@ -47,7 +47,7 @@ function readStory(filename: string): string {
 }
 
 // ===========================================================================
-// 1. SELECT — trigger height token (AC1)
+// 1. SELECT — trigger height token
 // ===========================================================================
 
 describe("Select — control-height token on trigger", () => {
@@ -60,7 +60,7 @@ describe("Select — control-height token on trigger", () => {
 });
 
 // ===========================================================================
-// 2. SELECT — border tokens (AC1)
+// 2. SELECT — border tokens
 // ===========================================================================
 
 describe("Select — border tokens", () => {
@@ -80,7 +80,7 @@ describe("Select — border tokens", () => {
 });
 
 // ===========================================================================
-// 3. SELECT — background tokens (AC1)
+// 3. SELECT — background tokens
 // ===========================================================================
 
 describe("Select — background tokens", () => {
@@ -100,7 +100,7 @@ describe("Select — background tokens", () => {
 });
 
 // ===========================================================================
-// 4. SELECT — text token (AC1)
+// 4. SELECT — text token
 // ===========================================================================
 
 describe("Select — text token", () => {
@@ -113,7 +113,7 @@ describe("Select — text token", () => {
 });
 
 // ===========================================================================
-// 5. SELECT — elevation shadow on dropdown (AC1)
+// 5. SELECT — elevation shadow on dropdown
 // ===========================================================================
 
 describe("Select — elevation shadow on dropdown", () => {
@@ -126,7 +126,7 @@ describe("Select — elevation shadow on dropdown", () => {
 });
 
 // ===========================================================================
-// 6. SWITCH — track off-state token (AC2)
+// 6. SWITCH — track off-state token
 // ===========================================================================
 
 describe("Switch — track off-state token", () => {
@@ -139,7 +139,7 @@ describe("Switch — track off-state token", () => {
 });
 
 // ===========================================================================
-// 7. SWITCH — track on-state token (AC2)
+// 7. SWITCH — track on-state token
 // ===========================================================================
 
 describe("Switch — track on-state token", () => {
@@ -152,7 +152,7 @@ describe("Switch — track on-state token", () => {
 });
 
 // ===========================================================================
-// 8. SWITCH — thumb token (AC2)
+// 8. SWITCH — thumb token
 // ===========================================================================
 
 describe("Switch — thumb token", () => {
@@ -165,7 +165,7 @@ describe("Switch — thumb token", () => {
 });
 
 // ===========================================================================
-// 9. SWITCH — old input token removed (AC2)
+// 9. SWITCH — old input token removed
 // ===========================================================================
 
 describe("Switch — old bg-input token removed", () => {
@@ -177,7 +177,7 @@ describe("Switch — old bg-input token removed", () => {
 });
 
 // ===========================================================================
-// 10. CHECKBOX — file exists (AC4)
+// 10. CHECKBOX — file exists
 // ===========================================================================
 
 describe("Checkbox — component file exists", () => {
@@ -187,7 +187,7 @@ describe("Checkbox — component file exists", () => {
 });
 
 // ===========================================================================
-// 13. CHECKBOX — named export (AC4)
+// 13. CHECKBOX — named export
 // ===========================================================================
 
 describe("Checkbox — named export", () => {
@@ -198,7 +198,7 @@ describe("Checkbox — named export", () => {
 });
 
 // ===========================================================================
-// 14. CHECKBOX — design system tokens (AC4)
+// 14. CHECKBOX — design system tokens
 // ===========================================================================
 
 describe("Checkbox — design system tokens", () => {
@@ -225,7 +225,7 @@ describe("Checkbox — design system tokens", () => {
 });
 
 // ===========================================================================
-// 15. CHECKBOX — states (AC4)
+// 15. CHECKBOX — states
 // ===========================================================================
 
 describe("Checkbox — state support", () => {
@@ -241,7 +241,7 @@ describe("Checkbox — state support", () => {
 });
 
 // ===========================================================================
-// 16. CHECKBOX — ARIA (AC4)
+// 16. CHECKBOX — ARIA
 // ===========================================================================
 
 describe("Checkbox — ARIA compliance", () => {
@@ -253,7 +253,7 @@ describe("Checkbox — ARIA compliance", () => {
 });
 
 // ===========================================================================
-// 17. RADIO — file exists (AC5)
+// 17. RADIO — file exists
 // ===========================================================================
 
 describe("Radio — component file exists", () => {
@@ -263,7 +263,7 @@ describe("Radio — component file exists", () => {
 });
 
 // ===========================================================================
-// 18. RADIO — named export (AC5)
+// 18. RADIO — named export
 // ===========================================================================
 
 describe("Radio — named export", () => {
@@ -274,7 +274,7 @@ describe("Radio — named export", () => {
 });
 
 // ===========================================================================
-// 19. RADIO — design system tokens (AC5)
+// 19. RADIO — design system tokens
 // ===========================================================================
 
 describe("Radio — design system tokens", () => {
@@ -300,7 +300,7 @@ describe("Radio — design system tokens", () => {
 });
 
 // ===========================================================================
-// 20. RADIO — layout support (AC5)
+// 20. RADIO — layout support
 // ===========================================================================
 
 describe("Radio — layout support", () => {
@@ -318,7 +318,7 @@ describe("Radio — layout support", () => {
 });
 
 // ===========================================================================
-// 21. RADIO — states (AC5)
+// 21. RADIO — states
 // ===========================================================================
 
 describe("Radio — state support", () => {
@@ -329,7 +329,7 @@ describe("Radio — state support", () => {
 });
 
 // ===========================================================================
-// 22. RADIO — ARIA (AC5)
+// 22. RADIO — ARIA
 // ===========================================================================
 
 describe("Radio — ARIA compliance", () => {
@@ -341,7 +341,7 @@ describe("Radio — ARIA compliance", () => {
 });
 
 // ===========================================================================
-// 23. SLIDER — file exists (AC6)
+// 23. SLIDER — file exists
 // ===========================================================================
 
 describe("Slider — component file exists", () => {
@@ -351,7 +351,7 @@ describe("Slider — component file exists", () => {
 });
 
 // ===========================================================================
-// 24. SLIDER — named export (AC6)
+// 24. SLIDER — named export
 // ===========================================================================
 
 describe("Slider — named export", () => {
@@ -362,7 +362,7 @@ describe("Slider — named export", () => {
 });
 
 // ===========================================================================
-// 25. SLIDER — design system tokens (AC6)
+// 25. SLIDER — design system tokens
 // ===========================================================================
 
 describe("Slider — design system tokens", () => {
@@ -393,7 +393,7 @@ describe("Slider — design system tokens", () => {
 });
 
 // ===========================================================================
-// 26. SLIDER — ARIA (AC6)
+// 26. SLIDER — ARIA
 // ===========================================================================
 
 describe("Slider — ARIA compliance", () => {
@@ -405,7 +405,7 @@ describe("Slider — ARIA compliance", () => {
 });
 
 // ===========================================================================
-// 27. STORYBOOK STORIES — all 6 component story files exist (AC7)
+// 27. STORYBOOK STORIES — all 6 component story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -431,7 +431,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 28. STORYBOOK STORIES — Select.stories.tsx structure (AC7)
+// 28. STORYBOOK STORIES — Select.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Select.stories.tsx structure", () => {
@@ -462,7 +462,7 @@ describe("Storybook stories — Select.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 29. STORYBOOK STORIES — Switch.stories.tsx structure (AC7)
+// 29. STORYBOOK STORIES — Switch.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Switch.stories.tsx structure", () => {
@@ -493,7 +493,7 @@ describe("Storybook stories — Switch.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 30. STORYBOOK STORIES — Checkbox.stories.tsx structure (AC7)
+// 30. STORYBOOK STORIES — Checkbox.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Checkbox.stories.tsx structure", () => {
@@ -529,7 +529,7 @@ describe("Storybook stories — Checkbox.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 32. STORYBOOK STORIES — Radio.stories.tsx structure (AC7)
+// 32. STORYBOOK STORIES — Radio.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Radio.stories.tsx structure", () => {
@@ -565,7 +565,7 @@ describe("Storybook stories — Radio.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 33. STORYBOOK STORIES — Slider.stories.tsx structure (AC7)
+// 33. STORYBOOK STORIES — Slider.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Slider.stories.tsx structure", () => {
