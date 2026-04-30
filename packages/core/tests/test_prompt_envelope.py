@@ -1,15 +1,13 @@
-"""
-Failing tests for RUN-878: Rename TaskEnvelope → PromptEnvelope.
+"""PromptEnvelope isolation contract coverage.
 
 Covers:
-- PromptEnvelope is importable from runsight_core.isolation (AC1, AC5)
-- TaskEnvelope is NOT importable from runsight_core.isolation (AC1)
-- ContextEnvelope has a `prompt` field, not `task` (AC2)
-- DelegateArtifact has a `prompt` field, not `task` (AC3)
-- No TaskEnvelope class defined in envelope.py source (AST check) (AC1)
-- No Task import in worker_support.py source (AC4)
-- No current_task usage in worker_support.py source (AC4)
-- harness.py uses PromptEnvelope, not TaskEnvelope (AC5)
+- PromptEnvelope is importable from runsight_core.isolation.
+- TaskEnvelope is not importable from runsight_core.isolation.
+- ContextEnvelope has a `prompt` field, not `task`.
+- DelegateArtifact has a `prompt` field, not `task`.
+- envelope.py defines no TaskEnvelope class.
+- worker_support.py imports no Task and does not use current_task.
+- harness.py uses PromptEnvelope, not TaskEnvelope.
 """
 
 from __future__ import annotations
@@ -31,7 +29,7 @@ _INIT_PY = _ISOLATION_PKG / "__init__.py"
 
 
 # ---------------------------------------------------------------------------
-# AC1: PromptEnvelope is importable; TaskEnvelope is NOT
+# PromptEnvelope is importable and TaskEnvelope is not
 # ---------------------------------------------------------------------------
 
 
@@ -49,12 +47,12 @@ class TestPromptEnvelopeImportable:
         assert "PromptEnvelope" in mod.__all__
 
     def test_task_envelope_not_importable_from_isolation(self):
-        """TaskEnvelope must NOT be importable from runsight_core.isolation."""
+        """TaskEnvelope must not be importable from runsight_core.isolation."""
         with pytest.raises((ImportError, AttributeError)):
             from runsight_core.isolation import TaskEnvelope  # noqa: F401
 
     def test_task_envelope_not_in_dunder_all(self):
-        """TaskEnvelope must NOT appear in runsight_core.isolation.__all__."""
+        """TaskEnvelope must not appear in runsight_core.isolation.__all__."""
         import runsight_core.isolation as mod
 
         assert "TaskEnvelope" not in mod.__all__
@@ -68,7 +66,7 @@ class TestPromptEnvelopeImportable:
 
 
 # ---------------------------------------------------------------------------
-# AC2: ContextEnvelope.prompt (not .task)
+# ContextEnvelope.prompt field
 # ---------------------------------------------------------------------------
 
 
@@ -84,7 +82,7 @@ class TestContextEnvelopePromptField:
         from runsight_core.isolation import ContextEnvelope, PromptEnvelope, SoulEnvelope
 
         soul = SoulEnvelope(
-            id="soul-1",
+            id="worker-soul",
             role="worker",
             system_prompt="You are helpful.",
             model_name="gpt-4o-mini",
@@ -92,7 +90,7 @@ class TestContextEnvelopePromptField:
         )
         prompt = PromptEnvelope(id="pe-1", instruction="Do the thing.", context={})
         return ContextEnvelope(
-            block_id="block-1",
+            block_id="worker-block",
             block_type="linear",
             block_config={},
             soul=soul,
@@ -122,7 +120,7 @@ class TestContextEnvelopePromptField:
         from runsight_core.isolation import ContextEnvelope, PromptEnvelope, SoulEnvelope
 
         soul = SoulEnvelope(
-            id="s1",
+            id="worker-soul",
             role="worker",
             system_prompt="",
             model_name="gpt-4o-mini",
@@ -130,7 +128,7 @@ class TestContextEnvelopePromptField:
         )
         prompt = PromptEnvelope(id="pe-42", instruction="Summarize this.", context={"doc": "abc"})
         env = ContextEnvelope(
-            block_id="b1",
+            block_id="worker-block",
             block_type="linear",
             block_config={},
             soul=soul,
@@ -147,7 +145,7 @@ class TestContextEnvelopePromptField:
         assert env.prompt.context == {"doc": "abc"}
 
     def test_context_envelope_has_no_task_field(self):
-        """ContextEnvelope must NOT have a `task` field."""
+        """ContextEnvelope must not have a `task` field."""
         env = self._make_context_envelope()
         assert not hasattr(env, "task"), "ContextEnvelope still has old 'task' field"
 
@@ -156,7 +154,7 @@ class TestContextEnvelopePromptField:
         from runsight_core.isolation import ContextEnvelope, PromptEnvelope, SoulEnvelope
 
         soul = SoulEnvelope(
-            id="s1",
+            id="worker-soul",
             role="worker",
             system_prompt="",
             model_name="gpt-4o-mini",
@@ -164,7 +162,7 @@ class TestContextEnvelopePromptField:
         )
         with pytest.raises(Exception):
             ContextEnvelope(
-                block_id="b1",
+                block_id="worker-block",
                 block_type="linear",
                 block_config={},
                 soul=soul,
@@ -179,7 +177,7 @@ class TestContextEnvelopePromptField:
 
 
 # ---------------------------------------------------------------------------
-# AC3: DelegateArtifact.prompt (not .task)
+# DelegateArtifact.prompt field
 # ---------------------------------------------------------------------------
 
 
@@ -194,7 +192,7 @@ class TestDelegateArtifactPromptField:
         assert da.prompt == "summarize the document"
 
     def test_delegate_artifact_has_no_task_field(self):
-        """DelegateArtifact must NOT have a `task` field."""
+        """DelegateArtifact must not have a `task` field."""
         from runsight_core.isolation import DelegateArtifact
 
         da = DelegateArtifact(prompt="do something")
@@ -218,7 +216,7 @@ class TestDelegateArtifactPromptField:
 
 
 # ---------------------------------------------------------------------------
-# AC1 (AST): No TaskEnvelope class in envelope.py
+# envelope.py source defines no TaskEnvelope class
 # ---------------------------------------------------------------------------
 
 
@@ -260,7 +258,7 @@ class TestEnvelopeSourceNoTaskEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# AC4: worker_support.py — no Task import, no current_task usage
+# worker_support.py has no Task import or current_task usage
 # ---------------------------------------------------------------------------
 
 
@@ -288,8 +286,8 @@ class TestWorkerSupportNoTaskImport:
         """worker_support.py must not reference current_task."""
         source = _WORKER_SUPPORT_PY.read_text(encoding="utf-8")
         assert "current_task" not in source, (
-            "worker_support.py still references 'current_task' — should be removed after "
-            "TaskEnvelope→PromptEnvelope rename"
+            "worker_support.py still references 'current_task'; remove it after "
+            "PromptEnvelope isolation rename"
         )
 
     def test_no_task_envelope_import_in_worker_support(self):
@@ -304,7 +302,7 @@ class TestWorkerSupportNoTaskImport:
 
 
 # ---------------------------------------------------------------------------
-# AC5: harness.py uses PromptEnvelope, not TaskEnvelope
+# harness.py uses PromptEnvelope, not TaskEnvelope
 # ---------------------------------------------------------------------------
 
 
@@ -341,7 +339,7 @@ class TestHarnessUsesPromptEnvelope:
         """harness.py source must not contain the string 'TaskEnvelope'."""
         source = _HARNESS_PY.read_text(encoding="utf-8")
         assert "TaskEnvelope" not in source, (
-            "harness.py still contains 'TaskEnvelope' — must be renamed to PromptEnvelope"
+            "harness.py still contains 'TaskEnvelope'; rename it to PromptEnvelope"
         )
 
     def test_harness_source_contains_prompt_envelope(self):
@@ -351,7 +349,7 @@ class TestHarnessUsesPromptEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# AC5: __init__.py exports PromptEnvelope, not TaskEnvelope
+# __init__.py exports PromptEnvelope, not TaskEnvelope
 # ---------------------------------------------------------------------------
 
 
