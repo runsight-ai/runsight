@@ -31,12 +31,12 @@ type WorkflowDetail = {
 };
 
 const READY_PROVIDER: ProviderFixture = {
-  id: "openai",
-  name: "OpenAI",
-  type: "openai",
+  id: "ready-fixture-provider",
+  name: "Ready Fixture",
+  type: "ready-fixture-provider",
   status: "connected",
   is_active: true,
-  models: ["gpt-4.1-mini"],
+  models: ["ready-fixture-model"],
   api_key: null,
 };
 
