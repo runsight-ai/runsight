@@ -32,7 +32,7 @@ client = TestClient(app)
 def _make_mock_node(
     *,
     node_id: str = "analyze",
-    run_id: str = "run_attention_empty",
+    run_id: str = "attention-empty-run",
     soul_id: str = "researcher_v1",
     soul_version: str = "sha256:abc",
     eval_score: float | None = 0.95,
@@ -140,9 +140,9 @@ class TestAssertionRegressionItems:
             AttentionItem(
                 type="assertion_regression",
                 title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run run_attention_regression",
-                run_id="run_attention_regression",
-                workflow_id="wf_research",
+                description="Workflow 'Research Agent' — run attention-regression-run",
+                run_id="attention-regression-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -162,9 +162,9 @@ class TestAssertionRegressionItems:
             AttentionItem(
                 type="assertion_regression",
                 title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run run_attention_regression",
-                run_id="run_attention_regression",
-                workflow_id="wf_research",
+                description="Workflow 'Research Agent' — run attention-regression-run",
+                run_id="attention-regression-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -183,9 +183,9 @@ class TestAssertionRegressionItems:
             AttentionItem(
                 type="assertion_regression",
                 title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run run_attention_regression",
-                run_id="run_attention_regression",
-                workflow_id="wf_research",
+                description="Workflow 'Research Agent' — run attention-regression-run",
+                run_id="attention-regression-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -217,8 +217,8 @@ class TestCostSpikeItems:
                 type="cost_spike",
                 title="Cost +34% after prompt change",
                 description="Soul 'researcher_v1' — workflow 'Research Agent'",
-                run_id="run_attention_cost_spike",
-                workflow_id="wf_research",
+                run_id="attention-cost-spike-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -237,8 +237,8 @@ class TestCostSpikeItems:
                 type="cost_spike",
                 title="Cost +34% after prompt change",
                 description="Soul 'researcher_v1'",
-                run_id="run_attention_cost_spike",
-                workflow_id="wf_research",
+                run_id="attention-cost-spike-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -269,8 +269,8 @@ class TestQualityDropItems:
                 type="quality_drop",
                 title="Quality score dropped 0.15",
                 description="Soul 'researcher_v1' — workflow 'Research Agent'",
-                run_id="run_attention_quality_drop",
-                workflow_id="wf_research",
+                run_id="attention-quality-drop-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -289,8 +289,8 @@ class TestQualityDropItems:
                 type="quality_drop",
                 title="Quality score dropped 0.15",
                 description="Soul 'researcher_v1'",
-                run_id="run_attention_quality_drop",
-                workflow_id="wf_research",
+                run_id="attention-quality-drop-run",
+                workflow_id="research-workflow",
                 severity="warning",
             )
         ]
@@ -321,8 +321,8 @@ class TestNewBaselineItems:
                 type="new_baseline",
                 title="New prompt version detected",
                 description="Soul 'researcher_v1' — first run of version sha256:xyz",
-                run_id="run_attention_new_baseline",
-                workflow_id="wf_research",
+                run_id="attention-new-baseline-run",
+                workflow_id="research-workflow",
                 severity="info",
             )
         ]
@@ -342,8 +342,8 @@ class TestNewBaselineItems:
                 type="new_baseline",
                 title="New prompt version detected",
                 description="Soul 'researcher_v1'",
-                run_id="run_attention_new_baseline",
-                workflow_id="wf_research",
+                run_id="attention-new-baseline-run",
+                workflow_id="research-workflow",
                 severity="info",
             )
         ]
@@ -375,9 +375,9 @@ class TestAttentionLimitParam:
             AttentionItem(
                 type="cost_spike",
                 title=f"Cost spike #{i}",
-                description=f"Item {i}",
-                run_id=f"run_{i:03d}",
-                workflow_id="wf_attention",
+                description=f"Attention item {i}",
+                run_id=f"attention-run-{i:03d}",
+                workflow_id="attention-workflow",
                 severity="warning",
             )
             for i in range(10)
@@ -398,9 +398,9 @@ class TestAttentionLimitParam:
             AttentionItem(
                 type="cost_spike",
                 title=f"Cost spike #{i}",
-                description=f"Item {i}",
-                run_id=f"run_{i:03d}",
-                workflow_id="wf_attention",
+                description=f"Attention item {i}",
+                run_id=f"attention-run-{i:03d}",
+                workflow_id="attention-workflow",
                 severity="warning",
             )
             for i in range(10)
@@ -419,10 +419,10 @@ class TestAttentionLimitParam:
         items = [
             AttentionItem(
                 type="assertion_regression",
-                title="Regression",
-                description="Desc",
-                run_id=f"run_{i:03d}",
-                workflow_id="wf_attention",
+                title="Assertion regression",
+                description="Attention item description",
+                run_id=f"attention-run-{i:03d}",
+                workflow_id="attention-workflow",
                 severity="warning",
             )
             for i in range(5)
@@ -507,10 +507,10 @@ class TestAttentionResponseModel:
         ]:
             item = AttentionItem(
                 type=attention_type,
-                title="Test",
-                description="Test description",
-                run_id="run_attention_empty",
-                workflow_id="wf_001",
+                title="Attention item",
+                description="Attention item description",
+                run_id="attention-empty-run",
+                workflow_id="attention-workflow",
                 severity="warning" if attention_type != "new_baseline" else "info",
             )
             assert item.type == attention_type
@@ -521,14 +521,14 @@ class TestAttentionResponseModel:
         item = AttentionItem(
             type="assertion_regression",
             title="Assertion 'contains Sources' failed",
-            description="Workflow 'Research Agent' — run run_attention_regression",
-            run_id="run_attention_regression",
-            workflow_id="wf_research",
+            description="Workflow 'Research Agent' — run attention-regression-run",
+            run_id="attention-regression-run",
+            workflow_id="research-workflow",
             severity="warning",
         )
         data = item.model_dump(mode="json")
         assert data["type"] == "assertion_regression"
-        assert data["run_id"] == "run_attention_regression"
+        assert data["run_id"] == "attention-regression-run"
         assert data["severity"] == "warning"
 
     def test_attention_items_response_serializes_to_json(self):
@@ -541,9 +541,9 @@ class TestAttentionResponseModel:
             AttentionItem(
                 type="cost_spike",
                 title="Cost +34%",
-                description="Desc",
-                run_id="run_attention_cost_spike",
-                workflow_id="wf_attention",
+                description="Attention item description",
+                run_id="attention-cost-spike-run",
+                workflow_id="attention-workflow",
                 severity="warning",
             )
         ]

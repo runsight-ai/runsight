@@ -26,15 +26,15 @@ from runsight_core.redaction import RunRedactor
 
 VALID_YAML = """\
 workflow:
-  name: test
-  entry: b1
+  name: Branch Aware Workflow
+  entry: planning_block
   transitions:
-    - from: b1
+    - from: planning_block
       to: null
 blocks:
-  b1:
+  planning_block:
     type: linear
-    soul_ref: test
+    soul_ref: branch_planner
 souls: {}
 config: {}
 """
@@ -55,10 +55,10 @@ def _make_service(*, engine=None):
     git_service = Mock()
 
     # workflow_repo returns a valid entity
-    wf_entity = Mock()
-    wf_entity.yaml = VALID_YAML
-    workflow_repo.get_by_id.return_value = wf_entity
-    workflow_repo._get_path.return_value = "/fake/workflows/test.yaml"
+    workflow_entity = Mock()
+    workflow_entity.yaml = VALID_YAML
+    workflow_repo.get_by_id.return_value = workflow_entity
+    workflow_repo._get_path.return_value = "/fake/workflows/branch-aware-workflow.yaml"
 
     # provider_repo — no providers
     provider_repo.list_all.return_value = []
@@ -78,12 +78,12 @@ def _make_service(*, engine=None):
 
 
 # ---------------------------------------------------------------------------
-# 1. launch_execution accepts branch parameter
+# launch_execution accepts branch parameter
 # ---------------------------------------------------------------------------
 
 
 class TestLaunchAcceptsBranch:
-    """AC: launch_execution accepts ``branch`` parameter."""
+    """launch_execution accepts ``branch`` parameter."""
 
     @pytest.mark.asyncio
     async def test_accepts_branch_keyword_argument(self):
@@ -99,9 +99,9 @@ class TestLaunchAcceptsBranch:
 
             # Must not raise TypeError for unexpected keyword argument 'branch'
             await svc.launch_execution(
-                "run_1",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "main-branch-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
 
@@ -118,10 +118,10 @@ class TestLaunchAcceptsBranch:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_2",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
-                branch="sim/my-workflow/20260329/abc12",
+                "simulation-branch-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
+                branch="sim/branch-aware-workflow/20260329/abc12",
             )
 
     @pytest.mark.asyncio
@@ -136,7 +136,11 @@ class TestLaunchAcceptsBranch:
             mock_wf.run = AsyncMock()
             mock_parse.return_value = mock_wf
 
-            await svc.launch_execution("run_3", "wf_1", _prepared_inputs({"instruction": "go"}))
+            await svc.launch_execution(
+                "working-tree-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
+            )
             await asyncio.sleep(0.05)
 
             git_service.read_file.assert_not_called()
@@ -145,19 +149,19 @@ class TestLaunchAcceptsBranch:
 
 
 # ---------------------------------------------------------------------------
-# 2. Sim branch reads YAML via GitService.read_file
+# Sim branch reads YAML via GitService.read_file
 # ---------------------------------------------------------------------------
 
 
 class TestSimBranchReadsViaGit:
-    """AC: Sim branch runs read YAML via git show (GitService.read_file)."""
+    """Sim branch runs read YAML via git show (GitService.read_file)."""
 
     @pytest.mark.asyncio
     async def test_sim_branch_calls_git_read_file(self):
         """When branch is a sim branch, GitService.read_file is called."""
         svc, _, workflow_repo, _, git_service = _make_service()
 
-        sim_branch = "sim/my-workflow/20260329/abc12"
+        sim_branch = "sim/branch-aware-workflow/20260329/abc12"
         git_service.read_file.return_value = VALID_YAML
 
         with patch(
@@ -168,9 +172,9 @@ class TestSimBranchReadsViaGit:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_sim1",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "sim-branch-read-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -185,11 +189,11 @@ class TestSimBranchReadsViaGit:
 
     @pytest.mark.asyncio
     async def test_sim_branch_uses_git_yaml_not_filesystem(self):
-        """Sim branch YAML content comes from git, not from wf_entity.yaml."""
+        """Sim branch YAML content comes from git, not from workflow_entity.yaml."""
         svc, _, workflow_repo, _, git_service = _make_service()
 
-        sim_branch = "sim/my-workflow/20260329/abc12"
-        git_yaml = "workflow:\n  name: from-git\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        sim_branch = "sim/branch-aware-workflow/20260329/abc12"
+        git_yaml = "workflow:\n  name: from-git-branch-aware\n  entry: planning_block\n  transitions: []\nblocks:\n  planning_block:\n    type: linear\n    soul_ref: branch_planner\nsouls: {}\nconfig: {}"
         git_service.read_file.return_value = git_yaml
 
         with patch(
@@ -200,9 +204,9 @@ class TestSimBranchReadsViaGit:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_sim2",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "sim-branch-yaml-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -217,7 +221,7 @@ class TestSimBranchReadsViaGit:
         """Sim branch commit_sha comes from GitService.get_sha, not subprocess."""
         svc, _, _, _, git_service = _make_service()
 
-        sim_branch = "sim/my-workflow/20260329/abc12"
+        sim_branch = "sim/branch-aware-workflow/20260329/abc12"
         git_service.get_sha.return_value = "deadbeef1234567890"
 
         with patch(
@@ -228,9 +232,9 @@ class TestSimBranchReadsViaGit:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_sim3",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "sim-branch-sha-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -241,12 +245,12 @@ class TestSimBranchReadsViaGit:
 
 
 # ---------------------------------------------------------------------------
-# 3. Main branch reads committed main via Git
+# Main branch reads committed main via Git
 # ---------------------------------------------------------------------------
 
 
 class TestMainBranchReadsViaGit:
-    """AC: Main branch runs read committed main content via GitService."""
+    """Main branch runs read committed main content via GitService."""
 
     @pytest.mark.asyncio
     async def test_main_branch_calls_git_read_file(self):
@@ -261,14 +265,16 @@ class TestMainBranchReadsViaGit:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_main1",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "main-branch-read-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
             await asyncio.sleep(0.05)
 
-            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
+            git_service.read_file.assert_called_once_with(
+                "/fake/workflows/branch-aware-workflow.yaml", "main"
+            )
 
     @pytest.mark.asyncio
     async def test_main_branch_uses_git_yaml_not_workflow_entity_yaml(self):
@@ -285,9 +291,9 @@ class TestMainBranchReadsViaGit:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_main2",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "main-branch-yaml-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
             await asyncio.sleep(0.05)
@@ -305,7 +311,7 @@ class TestGitUnavailableStrictness:
     async def test_non_git_repo_fails_closed_for_explicit_main_branch(self):
         """Explicit main branch must not fall back to working-tree YAML."""
         svc, _, workflow_repo, _, git_service = _make_service()
-        working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: b1\n  transitions: []\nblocks:\n  b1:\n    type: linear\n    soul_ref: test\nsouls: {}\nconfig: {}"
+        working_tree_yaml = "workflow:\n  name: local-working-tree\n  entry: planning_block\n  transitions: []\nblocks:\n  planning_block:\n    type: linear\n    soul_ref: branch_planner\nsouls: {}\nconfig: {}"
         workflow_repo.get_by_id.return_value.yaml = working_tree_yaml
         git_service.read_file.side_effect = subprocess.CalledProcessError(
             128,
@@ -321,31 +327,33 @@ class TestGitUnavailableStrictness:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_local1",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "git-unavailable-main-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
             await asyncio.sleep(0.05)
 
-            git_service.read_file.assert_called_once_with("/fake/workflows/test.yaml", "main")
+            git_service.read_file.assert_called_once_with(
+                "/fake/workflows/branch-aware-workflow.yaml", "main"
+            )
             mock_parse.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
-# 4. Parser receives YAML string content
+# Parser receives YAML string content
 # ---------------------------------------------------------------------------
 
 
 class TestParserReceivesString:
-    """AC: Parser receives YAML string, not file path."""
+    """Parser receives YAML string, not file path."""
 
     @pytest.mark.asyncio
     async def test_parser_gets_string_for_sim_branch(self):
         """parse_workflow_yaml receives a YAML string (not a Path) for sim branches."""
         svc, _, _, _, git_service = _make_service()
 
-        sim_branch = "sim/test/20260329/zzz"
+        sim_branch = "sim/parser-workflow/20260329/zzz"
         git_service.read_file.return_value = VALID_YAML
 
         with patch(
@@ -356,9 +364,9 @@ class TestParserReceivesString:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_str1",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "parser-yaml-string-run",
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -371,12 +379,12 @@ class TestParserReceivesString:
 
 
 # ---------------------------------------------------------------------------
-# 5. Branch + commit_sha stored on Run record
+# Branch + commit_sha stored on Run record
 # ---------------------------------------------------------------------------
 
 
 class TestBranchStoredOnRun:
-    """AC: branch + commit_sha stored on Run record."""
+    """branch + commit_sha stored on Run record."""
 
     @pytest.mark.asyncio
     async def test_sim_branch_stored_on_run(self):
@@ -384,14 +392,14 @@ class TestBranchStoredOnRun:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_store1"
-        sim_branch = "sim/my-wf/20260329/abc12"
+        run_id = "stored-sim-branch-run"
+        sim_branch = "sim/branch-aware-workflow/20260329/abc12"
 
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="branch-aware-workflow",
+                workflow_name="Branch-aware workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch=sim_branch,
@@ -411,8 +419,8 @@ class TestBranchStoredOnRun:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -427,14 +435,14 @@ class TestBranchStoredOnRun:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_store2"
-        sim_branch = "sim/my-wf/20260329/def45"
+        run_id = "stored-sim-sha-run"
+        sim_branch = "sim/branch-aware-workflow/20260329/def45"
 
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="branch-aware-workflow",
+                workflow_name="Branch-aware workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch=sim_branch,
@@ -454,8 +462,8 @@ class TestBranchStoredOnRun:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch=sim_branch,
             )
             await asyncio.sleep(0.05)
@@ -472,13 +480,13 @@ class TestBranchStoredOnRun:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_store3"
+        run_id = "stored-main-branch-run"
 
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="branch-aware-workflow",
+                workflow_name="Branch-aware workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -497,8 +505,8 @@ class TestBranchStoredOnRun:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
             await asyncio.sleep(0.05)
@@ -513,13 +521,13 @@ class TestBranchStoredOnRun:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_store4"
+        run_id = "stored-main-sha-run"
 
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="branch-aware-workflow",
+                workflow_name="Branch-aware workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -539,8 +547,8 @@ class TestBranchStoredOnRun:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "branch-aware-workflow",
+                _prepared_inputs({"instruction": "run branch-aware workflow"}),
                 branch="main",
             )
             await asyncio.sleep(0.05)
@@ -553,7 +561,7 @@ class TestBranchStoredOnRun:
 
 
 # ---------------------------------------------------------------------------
-# 6. ExecutionService accepts git_service dependency
+# ExecutionService accepts git_service dependency
 # ---------------------------------------------------------------------------
 
 

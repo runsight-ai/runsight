@@ -38,9 +38,9 @@ class TestRunModelBudgetFields:
     def test_run_has_fail_reason_field(self):
         """Run model must have a fail_reason: Optional[str] field, defaulting to None."""
         run = Run(
-            id="run_fr_1",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
+            id="run-without-fail-reason",
+            workflow_id="budget-workflow",
+            workflow_name="Budget workflow",
             task_json="{}",
             branch="main",
         )
@@ -50,9 +50,9 @@ class TestRunModelBudgetFields:
     def test_run_has_fail_metadata_field(self):
         """Run model exposes fail_metadata with a None default."""
         run = Run(
-            id="run_fm_1",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
+            id="run-without-fail-metadata",
+            workflow_id="budget-workflow",
+            workflow_name="Budget workflow",
             task_json="{}",
             branch="main",
         )
@@ -62,9 +62,9 @@ class TestRunModelBudgetFields:
     def test_fail_reason_accepts_string_value(self):
         """fail_reason field accepts an arbitrary string."""
         run = Run(
-            id="run_fr_2",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
+            id="run-with-fail-reason",
+            workflow_id="budget-workflow",
+            workflow_name="Budget workflow",
             task_json="{}",
             branch="main",
             fail_reason="budget_exceeded",
@@ -75,15 +75,15 @@ class TestRunModelBudgetFields:
         """fail_metadata field accepts a dict with budget details."""
         metadata = {
             "scope": "block",
-            "block_id": "b1",
+            "block_id": "budgeted-block",
             "limit_kind": "cost_usd",
             "limit_value": 0.5,
             "actual_value": 0.75,
         }
         run = Run(
-            id="run_fm_2",
-            workflow_id="wf_1",
-            workflow_name="wf_1",
+            id="run-with-fail-metadata",
+            workflow_id="budget-workflow",
+            workflow_name="Budget workflow",
             task_json="{}",
             branch="main",
             fail_metadata=metadata,
@@ -102,13 +102,13 @@ class TestRunModelBudgetFields:
             "limit_value": 10000,
             "actual_value": 12345,
         }
-        run_id = "run_json_rt"
+        run_id = "run-with-persisted-fail-metadata"
 
         with Session(engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id="budget-workflow",
+                workflow_name="Budget workflow",
                 task_json="{}",
                 branch="main",
                 fail_reason="budget_exceeded",
@@ -130,21 +130,21 @@ class TestRunModelBudgetFields:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_coexist"
+        run_id = "run-with-budget-error-fields"
         with Session(engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id="budget-workflow",
+                workflow_name="Budget workflow",
                 task_json="{}",
                 branch="main",
                 status=RunStatus.failed,
-                error="Budget limit exceeded on block 'b1': cost_usd=0.75 > cap=0.50",
+                error=("Budget limit exceeded on block 'budgeted-block': cost_usd=0.75 > cap=0.50"),
                 error_traceback="Traceback (most recent call last):\n  ...",
                 fail_reason="budget_exceeded",
                 fail_metadata={
                     "scope": "block",
-                    "block_id": "b1",
+                    "block_id": "budgeted-block",
                     "limit_kind": "cost_usd",
                     "limit_value": 0.5,
                     "actual_value": 0.75,
@@ -159,7 +159,7 @@ class TestRunModelBudgetFields:
             assert loaded.error is not None
             assert loaded.error_traceback is not None
             assert loaded.fail_reason == "budget_exceeded"
-            assert loaded.fail_metadata["block_id"] == "b1"
+            assert loaded.fail_metadata["block_id"] == "budgeted-block"
 
 
 # ---------------------------------------------------------------------------
@@ -168,24 +168,24 @@ class TestRunModelBudgetFields:
 
 VALID_RUNTIME_YAML = """
 version: "1.0"
-id: inline_test_workflow
+id: inline-budget-workflow
 kind: workflow
 workflow:
-  name: test
-  entry: b1
+  name: Budget Workflow
+  entry: budgeted-block
   transitions:
-    - from: b1
+    - from: budgeted-block
       to: null
 blocks:
-  b1:
+  budgeted-block:
     type: linear
-    soul_ref: test
+    soul_ref: budget-soul
 souls:
-  test:
-    id: test
+  budget-soul:
+    id: budget-soul
     kind: soul
-    name: Test Soul
-    role: tester
+    name: Budget Soul
+    role: budget evaluator
     system_prompt: hello
     provider: openai
     model_name: gpt-4o
@@ -219,7 +219,7 @@ def _make_execution_service(engine=None):
 def _budget_exception(
     *,
     scope="block",
-    block_id="b1",
+    block_id="budgeted-block",
     limit_kind="cost_usd",
     limit_value=0.50,
     actual_value=0.75,
@@ -244,13 +244,13 @@ class TestBudgetExceptionSetsFailReason:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_budget_status"
+        run_id = "budget-status-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -267,7 +267,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", exc, 0.1)
+                    observer.on_workflow_error("budgeted-block", exc, 0.1)
                 raise exc
 
             mock_wf = Mock()
@@ -276,8 +276,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -292,13 +292,13 @@ class TestBudgetExceptionSetsFailReason:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_budget_reason"
+        run_id = "budget-reason-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -309,7 +309,7 @@ class TestBudgetExceptionSetsFailReason:
         svc = _make_execution_service(engine=engine)
         exc = _budget_exception(
             scope="block",
-            block_id="b1",
+            block_id="budgeted-block",
             limit_kind="cost_usd",
             limit_value=0.50,
             actual_value=0.75,
@@ -321,7 +321,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", exc, 0.1)
+                    observer.on_workflow_error("budgeted-block", exc, 0.1)
                 raise exc
 
             mock_wf = Mock()
@@ -330,8 +330,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -346,13 +346,13 @@ class TestBudgetExceptionSetsFailReason:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_budget_meta"
+        run_id = "budget-metadata-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -363,7 +363,7 @@ class TestBudgetExceptionSetsFailReason:
         svc = _make_execution_service(engine=engine)
         exc = _budget_exception(
             scope="block",
-            block_id="b1",
+            block_id="budgeted-block",
             limit_kind="cost_usd",
             limit_value=0.50,
             actual_value=0.75,
@@ -375,7 +375,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", exc, 0.1)
+                    observer.on_workflow_error("budgeted-block", exc, 0.1)
                 raise exc
 
             mock_wf = Mock()
@@ -384,8 +384,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -395,7 +395,7 @@ class TestBudgetExceptionSetsFailReason:
             meta = run.fail_metadata
             assert meta is not None, "fail_metadata must be set"
             assert meta["scope"] == "block"
-            assert meta["block_id"] == "b1"
+            assert meta["block_id"] == "budgeted-block"
             assert meta["limit_kind"] == "cost_usd"
             assert meta["limit_value"] == 0.50
             assert meta["actual_value"] == 0.75
@@ -406,13 +406,13 @@ class TestBudgetExceptionSetsFailReason:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_budget_wf_scope"
+        run_id = "workflow-scope-budget-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -435,7 +435,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", exc, 0.1)
+                    observer.on_workflow_error("budgeted-block", exc, 0.1)
                 raise exc
 
             mock_wf = Mock()
@@ -444,8 +444,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -466,13 +466,13 @@ class TestBudgetExceptionSetsFailReason:
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_budget_timeout"
+        run_id = "timeout-budget-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -495,7 +495,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", exc, 0.1)
+                    observer.on_workflow_error("budgeted-block", exc, 0.1)
                 raise exc
 
             mock_wf = Mock()
@@ -504,8 +504,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -520,17 +520,17 @@ class TestBudgetExceptionSetsFailReason:
 
     @pytest.mark.asyncio
     async def test_generic_exception_does_not_set_fail_reason(self):
-        """A non-budget exception must NOT set fail_reason (backward compat)."""
+        """A non-budget exception must not set fail_reason."""
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
 
-        run_id = "run_generic_exc"
+        run_id = "generic-error-run"
         with Session(engine) as session:
             session.add(
                 Run(
                     id=run_id,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    workflow_id="budget-workflow",
+                    workflow_name="Budget workflow",
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -547,7 +547,7 @@ class TestBudgetExceptionSetsFailReason:
 
             async def _exploding_run(state, observer=None, **kwargs):
                 if observer:
-                    observer.on_workflow_error("test", generic_error, 0.1)
+                    observer.on_workflow_error("budgeted-block", generic_error, 0.1)
                 raise generic_error
 
             mock_wf = Mock()
@@ -556,8 +556,8 @@ class TestBudgetExceptionSetsFailReason:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "budget-workflow",
+                _prepared_inputs({"instruction": "run budget-limited workflow"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
