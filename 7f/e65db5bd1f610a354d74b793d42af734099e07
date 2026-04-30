@@ -1,0 +1,23 @@
+apps/api/tests/test_blank_canvas_yaml_writes.py
+  4adca821c1af8eb3 1-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7fe65db5bd1f610a354d74b793d42af734099e07",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 119,
+      "total_deletions": 0,
+      "accepted_lines": 113365,
+      "overriden_lines": 0
+    }
+  }
+}
