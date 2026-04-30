@@ -1,0 +1,33 @@
+packages/ui/src/components/ui/__tests__/tier1Primitives.test.ts
+  4adca821c1af8eb3 57,89,122,178,224,236,277,309,361,400,433,466,490,530,560
+packages/ui/src/components/ui/__tests__/tier4Navigation.test.ts
+  4adca821c1af8eb3 51,64,77,90,103,115,127,139,149,166,202,214,224,235,253,266,278,296,328,359
+packages/ui/src/stories/__tests__/storybookSetup.test.ts
+  4adca821c1af8eb3 44,77,122,171,203
+packages/ui/src/styles/__tests__/tokenMigration.test.ts
+  4adca821c1af8eb3 40,88,116,143,177,190,203,216,244,265,303,326,350,373,386,397,411,436,462,533,630,682,724,745,788
+packages/ui/src/components/ui/__tests__/composites.test.ts
+  4adca821c1af8eb3 55,76,116,157,176,194,229,240,310,324,360
+packages/ui/src/components/ui/__tests__/tier1NewPrimitives.test.ts
+  4adca821c1af8eb3 74,95,111,142,153,190,221,237,248,285,316,342,389,420,461,498,524,555,576,587,613,644,675,706,737
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5d989d54e75d16cec24187e62f3a8782f9e415e6",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 191,
+      "total_deletions": 191,
+      "accepted_lines": 84378,
+      "overriden_lines": 0
+    }
+  }
+}
