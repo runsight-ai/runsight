@@ -1,5 +1,5 @@
 """
-RUN-193: Validate retry + stateful interaction — no state corruption.
+Retry and stateful interaction without state corruption.
 
 Tests prove that _execute_with_retry passes the same pre-execution state on
 every retry attempt, so a failed stateful block's conversation history is
@@ -56,7 +56,7 @@ def _make_stateful_linear_block(block_id, soul, runner):
 
 def _make_workflow_with_single_block(block: BaseBlock) -> Workflow:
     """Create a one-block workflow."""
-    wf = Workflow(name="test_retry_stateful_wf")
+    wf = Workflow(name="retry_stateful_workflow")
     wf.add_block(block)
     wf.add_transition(block.block_id, None)
     wf.set_entry(block.block_id)
@@ -383,7 +383,7 @@ class TestStatefulBlockInsideLoopWithRetry:
 
         loop = LoopBlock("loop", inner_block_refs=["inner"], max_rounds=2)
 
-        wf = Workflow(name="loop_stateful_wf")
+        wf = Workflow(name="loop_stateful_workflow")
         wf.add_block(loop)
         wf.add_block(inner_block)
         wf.add_transition("loop", None)
@@ -439,7 +439,7 @@ class TestStatefulBlockInsideLoopWithRetry:
         loop = LoopBlock("loop", inner_block_refs=["inner"], max_rounds=2)
         loop.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = Workflow(name="loop_retry_wf")
+        wf = Workflow(name="loop_retry_workflow")
         wf.add_block(loop)
         wf.add_block(inner_block)
         wf.add_transition("loop", None)
@@ -485,7 +485,7 @@ class TestStatefulBlockInsideLoopWithRetry:
         loop = LoopBlock("loop", inner_block_refs=["inner"], max_rounds=2)
         loop.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = Workflow(name="loop_retry_wf")
+        wf = Workflow(name="loop_retry_workflow")
         wf.add_block(loop)
         wf.add_block(inner_block)
         wf.add_transition("loop", None)

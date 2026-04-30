@@ -1,5 +1,5 @@
 """
-RUN-701 — Additional state isolation verification tests.
+WorkflowBlock child-to-parent state isolation behavior.
 
 Strengthens coverage for WorkflowBlock child→parent state isolation:
 - Verifies mapped output VALUE (not just key presence)
@@ -47,7 +47,7 @@ class ChildBlock(BaseBlock):
 
 def _make_child_workflow(block_id: str = "child_step", output_text: str = "child_output"):
     """Helper: create a single-block child workflow."""
-    wf = Workflow(name="child_wf")
+    wf = Workflow(name="state_isolation_child_workflow")
     block = ChildBlock(block_id, output_text)
     wf.add_block(block)
     wf.set_entry(block_id)
@@ -55,28 +55,28 @@ def _make_child_workflow(block_id: str = "child_step", output_text: str = "child
     return wf
 
 
-def _make_parent_workflow(child_wf, outputs, block_id="invoke_child"):
+def _make_parent_workflow(child_workflow, outputs, block_id="invoke_child"):
     """Helper: wrap a child workflow in a parent WorkflowBlock."""
-    parent_wf = Workflow(name="parent_wf")
+    parent_workflow = Workflow(name="state_isolation_parent_workflow")
     wb = WorkflowBlock(
         block_id=block_id,
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs=outputs,
         max_depth=10,
     )
-    parent_wf.add_block(wb)
-    parent_wf.set_entry(block_id)
-    parent_wf.add_transition(block_id, None)
-    return parent_wf
+    parent_workflow.add_block(wb)
+    parent_workflow.set_entry(block_id)
+    parent_workflow.add_transition(block_id, None)
+    return parent_workflow
 
 
 @pytest.mark.asyncio
 async def test_mapped_output_has_correct_value():
-    """AC3: Mapped output should carry the correct value from the child, not just exist as a key."""
-    child_wf = _make_child_workflow("child_step", "expected_output_value")
-    parent_wf = _make_parent_workflow(
-        child_wf,
+    """Mapped output should carry the correct value from the child, not just exist as a key."""
+    child_workflow = _make_child_workflow("child_step", "expected_output_value")
+    parent_workflow = _make_parent_workflow(
+        child_workflow,
         outputs={"results.my_output": "results.child_step"},
     )
 
@@ -84,7 +84,7 @@ async def test_mapped_output_has_correct_value():
         results={"pre_existing": BlockResult(output="original")},
     )
 
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # The mapped output must exist AND have the correct value
     assert "my_output" in final_state.results, "Mapped output key should be present"
@@ -95,16 +95,16 @@ async def test_mapped_output_has_correct_value():
 
 @pytest.mark.asyncio
 async def test_unmapped_child_block_id_not_in_parent():
-    """AC2: The raw child block ID (e.g. 'child_step') must NOT appear in parent results."""
-    child_wf = _make_child_workflow("child_step", "some_value")
-    parent_wf = _make_parent_workflow(
-        child_wf,
+    """The raw child block ID must not appear in parent results."""
+    child_workflow = _make_child_workflow("child_step", "some_value")
+    parent_workflow = _make_parent_workflow(
+        child_workflow,
         outputs={"results.mapped": "results.child_step"},
     )
 
     initial_state = WorkflowState()
 
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # 'child_step' is the child's block ID — it should NOT leak to parent
     assert "child_step" not in final_state.results, (
@@ -121,10 +121,10 @@ async def test_unmapped_child_block_id_not_in_parent():
 
 @pytest.mark.asyncio
 async def test_empty_outputs_mapping_leaks_nothing():
-    """AC2: When outputs={}, NO child results should appear in parent (only the WorkflowBlock's own result)."""
-    child_wf = _make_child_workflow("child_step", "invisible_output")
-    parent_wf = _make_parent_workflow(
-        child_wf,
+    """When outputs={}, child results should not appear in parent results."""
+    child_workflow = _make_child_workflow("child_step", "invisible_output")
+    parent_workflow = _make_parent_workflow(
+        child_workflow,
         outputs={},  # No mappings at all
         block_id="wb_block",
     )
@@ -133,7 +133,7 @@ async def test_empty_outputs_mapping_leaks_nothing():
         results={"original": BlockResult(output="stays")},
     )
 
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # Only the parent's original data + the WorkflowBlock's own summary should be present.
     expected_keys = {"original", "wb_block"}
@@ -148,10 +148,10 @@ async def test_empty_outputs_mapping_leaks_nothing():
 
 @pytest.mark.asyncio
 async def test_parent_results_contain_only_expected_keys():
-    """AC2+AC3: Exhaustively verify parent results contain ONLY expected keys after execution."""
-    child_wf = _make_child_workflow("child_step", "mapped_value")
-    parent_wf = _make_parent_workflow(
-        child_wf,
+    """Parent results contain only expected keys after execution."""
+    child_workflow = _make_child_workflow("child_step", "mapped_value")
+    parent_workflow = _make_parent_workflow(
+        child_workflow,
         outputs={"results.out": "results.child_step"},
         block_id="invoke_child",
     )
@@ -160,7 +160,7 @@ async def test_parent_results_contain_only_expected_keys():
         results={"parent_original": BlockResult(output="keep")},
     )
 
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # Exactly these keys should be present:
     # - parent_original: pre-existing parent data

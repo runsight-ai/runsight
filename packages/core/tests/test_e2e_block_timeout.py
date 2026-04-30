@@ -1,5 +1,5 @@
 """
-RUN-727 — E2E tests for per-block timeout enforcement.
+End-to-end per-block timeout enforcement.
 
 Full-path integration: YAML parse -> Workflow.run() -> execute_block() ->
 asyncio.wait_for wrapping -> BudgetKilledException on timeout.
@@ -70,7 +70,7 @@ def _make_litellm_response(
 
 _YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE = """\
 version: "1.0"
-id: test-workflow
+id: block-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -102,7 +102,7 @@ workflow:
 
 _YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE = """\
 version: "1.0"
-id: test-workflow
+id: block-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -135,7 +135,7 @@ workflow:
 
 _YAML_FAST_BLOCK_WITH_TIMEOUT = """\
 version: "1.0"
-id: test-workflow
+id: block-timeout-workflow
 kind: workflow
 souls:
   worker:

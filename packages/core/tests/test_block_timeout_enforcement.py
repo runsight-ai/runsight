@@ -1,4 +1,4 @@
-"""Red tests for RUN-713: asyncio.wait_for block timeout in execute_block().
+"""Block timeout enforcement in execute_block().
 
 Tests verify that execute_block() wraps _dispatch() with asyncio.wait_for when
 block.max_duration_seconds is set, raising BudgetKilledException on timeout.
@@ -73,7 +73,7 @@ class RecordingObserver:
 
 def _make_ctx(
     *,
-    workflow_name: str = "test_workflow",
+    workflow_name: str = "block_timeout_workflow",
     blocks=None,
     call_stack=None,
     workflow_registry=None,

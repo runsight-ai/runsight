@@ -1,4 +1,4 @@
-"""Tests for CompositeObserver error isolation (RUN-319).
+"""CompositeObserver error isolation behavior.
 
 Verifies that when one observer raises, other observers still fire,
 and a warning is logged with the failing observer's class name.
@@ -34,7 +34,7 @@ class BrokenObserver:
 
 
 class TestCompositeObserverIsolation:
-    """AC1 + AC2: Each observer call wrapped in try/except; one failure doesn't block others."""
+    """Each observer call isolates failures so one observer cannot block others."""
 
     def test_on_workflow_start_first_fails_second_fires(self):
         broken = BrokenObserver()
@@ -42,18 +42,20 @@ class TestCompositeObserverIsolation:
         composite = CompositeObserver(broken, good)
 
         state = WorkflowState()
-        composite.on_workflow_start("wf", state)
+        composite.on_workflow_start("observer_workflow", state)
 
-        good.on_workflow_start.assert_called_once_with("wf", state)
+        good.on_workflow_start.assert_called_once_with("observer_workflow", state)
 
     def test_on_block_start_first_fails_second_fires(self):
         broken = BrokenObserver()
         good = MagicMock()
         composite = CompositeObserver(broken, good)
 
-        composite.on_block_start("wf", "b1", "LinearBlock")
+        composite.on_block_start("observer_workflow", "observer_block", "LinearBlock")
 
-        good.on_block_start.assert_called_once_with("wf", "b1", "LinearBlock")
+        good.on_block_start.assert_called_once_with(
+            "observer_workflow", "observer_block", "LinearBlock"
+        )
 
     def test_on_block_complete_first_fails_second_fires(self):
         broken = BrokenObserver()
@@ -61,9 +63,13 @@ class TestCompositeObserverIsolation:
         composite = CompositeObserver(broken, good)
 
         state = WorkflowState()
-        composite.on_block_complete("wf", "b1", "LinearBlock", 1.5, state)
+        composite.on_block_complete(
+            "observer_workflow", "observer_block", "LinearBlock", 1.5, state
+        )
 
-        good.on_block_complete.assert_called_once_with("wf", "b1", "LinearBlock", 1.5, state)
+        good.on_block_complete.assert_called_once_with(
+            "observer_workflow", "observer_block", "LinearBlock", 1.5, state
+        )
 
     def test_on_block_error_first_fails_second_fires(self):
         broken = BrokenObserver()
@@ -71,9 +77,11 @@ class TestCompositeObserverIsolation:
         composite = CompositeObserver(broken, good)
 
         err = ValueError("original error")
-        composite.on_block_error("wf", "b1", "LinearBlock", 2.0, err)
+        composite.on_block_error("observer_workflow", "observer_block", "LinearBlock", 2.0, err)
 
-        good.on_block_error.assert_called_once_with("wf", "b1", "LinearBlock", 2.0, err)
+        good.on_block_error.assert_called_once_with(
+            "observer_workflow", "observer_block", "LinearBlock", 2.0, err
+        )
 
     def test_on_workflow_complete_first_fails_second_fires(self):
         broken = BrokenObserver()
@@ -81,9 +89,9 @@ class TestCompositeObserverIsolation:
         composite = CompositeObserver(broken, good)
 
         state = WorkflowState()
-        composite.on_workflow_complete("wf", state, 5.0)
+        composite.on_workflow_complete("observer_workflow", state, 5.0)
 
-        good.on_workflow_complete.assert_called_once_with("wf", state, 5.0)
+        good.on_workflow_complete.assert_called_once_with("observer_workflow", state, 5.0)
 
     def test_on_workflow_error_first_fails_second_fires(self):
         broken = BrokenObserver()
@@ -91,13 +99,13 @@ class TestCompositeObserverIsolation:
         composite = CompositeObserver(broken, good)
 
         err = RuntimeError("workflow boom")
-        composite.on_workflow_error("wf", err, 3.0)
+        composite.on_workflow_error("observer_workflow", err, 3.0)
 
-        good.on_workflow_error.assert_called_once_with("wf", err, 3.0)
+        good.on_workflow_error.assert_called_once_with("observer_workflow", err, 3.0)
 
 
 class TestCompositeObserverWarningLogged:
-    """AC3: Warning logged on observer failure with observer class name."""
+    """Observer failures log a warning with the observer class name."""
 
     def test_warning_includes_class_name(self, caplog):
         broken = BrokenObserver()
@@ -106,7 +114,7 @@ class TestCompositeObserverWarningLogged:
 
         state = WorkflowState()
         with caplog.at_level(logging.WARNING):
-            composite.on_workflow_start("wf", state)
+            composite.on_workflow_start("observer_workflow", state)
 
         assert "BrokenObserver" in caplog.text
 
@@ -115,7 +123,7 @@ class TestCompositeObserverWarningLogged:
         composite = CompositeObserver(broken)
 
         with caplog.at_level(logging.WARNING):
-            composite.on_block_start("wf", "b1", "LinearBlock")
+            composite.on_block_start("observer_workflow", "observer_block", "LinearBlock")
 
         assert "BrokenObserver" in caplog.text
 
@@ -128,7 +136,7 @@ class TestCompositeObserverWarningLogged:
 
         state = WorkflowState()
         with caplog.at_level(logging.WARNING):
-            composite.on_workflow_start("wf", state)
+            composite.on_workflow_start("observer_workflow", state)
 
         # Two warnings, one per broken observer
         warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
@@ -136,7 +144,7 @@ class TestCompositeObserverWarningLogged:
 
 
 class TestCompositeObserverMultipleFailures:
-    """AC2 continued: All observers fire even if multiple fail."""
+    """All healthy observers fire even if multiple observers fail."""
 
     def test_all_observers_fire_even_if_multiple_fail(self):
         broken1 = BrokenObserver()
@@ -145,9 +153,9 @@ class TestCompositeObserverMultipleFailures:
         composite = CompositeObserver(broken1, broken2, good)
 
         state = WorkflowState()
-        composite.on_workflow_start("wf", state)
+        composite.on_workflow_start("observer_workflow", state)
 
-        good.on_workflow_start.assert_called_once_with("wf", state)
+        good.on_workflow_start.assert_called_once_with("observer_workflow", state)
 
     def test_middle_observer_fails_last_still_fires(self):
         good1 = MagicMock()
@@ -155,10 +163,14 @@ class TestCompositeObserverMultipleFailures:
         good2 = MagicMock()
         composite = CompositeObserver(good1, broken, good2)
 
-        composite.on_block_start("wf", "b1", "GateBlock")
+        composite.on_block_start("observer_workflow", "observer_block", "GateBlock")
 
-        good1.on_block_start.assert_called_once_with("wf", "b1", "GateBlock")
-        good2.on_block_start.assert_called_once_with("wf", "b1", "GateBlock")
+        good1.on_block_start.assert_called_once_with(
+            "observer_workflow", "observer_block", "GateBlock"
+        )
+        good2.on_block_start.assert_called_once_with(
+            "observer_workflow", "observer_block", "GateBlock"
+        )
 
     def test_all_six_methods_survive_broken_observer(self):
         """Smoke test: every on_* method tolerates a broken observer without raising."""
@@ -168,9 +180,9 @@ class TestCompositeObserverMultipleFailures:
         err = ValueError("test")
 
         # None of these should raise
-        composite.on_workflow_start("wf", state)
-        composite.on_block_start("wf", "b1", "T")
-        composite.on_block_complete("wf", "b1", "T", 1.0, state)
-        composite.on_block_error("wf", "b1", "T", 1.0, err)
-        composite.on_workflow_complete("wf", state, 1.0)
-        composite.on_workflow_error("wf", err, 1.0)
+        composite.on_workflow_start("observer_workflow", state)
+        composite.on_block_start("observer_workflow", "observer_block", "T")
+        composite.on_block_complete("observer_workflow", "observer_block", "T", 1.0, state)
+        composite.on_block_error("observer_workflow", "observer_block", "T", 1.0, err)
+        composite.on_workflow_complete("observer_workflow", state, 1.0)
+        composite.on_workflow_error("observer_workflow", err, 1.0)

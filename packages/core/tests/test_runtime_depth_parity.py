@@ -1,5 +1,5 @@
 """
-RUN-606 runtime/parse-time depth parity tests.
+Runtime and parse-time workflow depth parity.
 
 These tests verify that the parse-time validation
 (``validate_workflow_call_contracts``) and the runtime depth check
@@ -13,13 +13,10 @@ These tests verify that the parse-time validation
 The runtime check (``len(call_stack) >= self.max_depth``) is already
 correct: the call_stack grows by 1 per level.
 
-The parse-time check (``current_call_stack_depth >= max_depth``) is
-WRONG: it starts at 1 and increments by +2, causing it to reject
-nesting that the runtime would allow.
+The parse-time check must use the same boundary as the runtime check.
 
 These parity tests directly assert that both sides agree on the same
-boundary.  They FAIL because parse-time incorrectly rejects at
-max_depth=3 with a parent->child->grandchild chain.
+boundary for parent->child->grandchild chains.
 """
 
 from __future__ import annotations
@@ -41,7 +38,7 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 def _make_workflow_file(yaml_text: str) -> RunsightWorkflowFile:
     data = yaml_mod.safe_load(dedent(yaml_text).strip())
     if "id" not in data:
-        data["id"] = "test-workflow"
+        data["id"] = "depth-parity-workflow"
     if "kind" not in data:
         data["kind"] = "workflow"
     return RunsightWorkflowFile.model_validate(data)
@@ -52,7 +49,7 @@ def _write_yaml_file(base: Path, rel_path: str, yaml_text: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     content = dedent(yaml_text).strip() + "\n"
     if "id: " not in content:
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: depth-parity-workflow\nkind: workflow\n" + content
     target.write_text(content, encoding="utf-8")
     return target
 
@@ -76,7 +73,7 @@ class _RecordingWorkflow:
 
 class TestDepthParityMaxDepth3:
     """max_depth=3 must allow parent->child->grandchild in BOTH parse-time
-    and runtime.  Currently the runtime allows it but parse-time rejects it.
+    and runtime.
     """
 
     @pytest.mark.asyncio
@@ -106,9 +103,7 @@ class TestDepthParityMaxDepth3:
         """Parse-time: the same parent->child->grandchild chain with
         max_depth=3 must also be ALLOWED.
 
-        This FAILS because validate_workflow_call_contracts starts at
-        depth=1 and increments by +2, so the child level sees depth=3
-        and 3 >= 3 triggers rejection.
+        The parse-time validator should agree with the runtime boundary.
         """
         grandchild_file = _make_workflow_file("""
             version: "1.0"
@@ -191,8 +186,7 @@ class TestDepthParityMaxDepth3:
             "custom/workflows/child.yaml": (child_path, child_file),
         }
 
-        # This should NOT raise — max_depth=3 allows 2 nesting levels
-        # (parent->child->grandchild).  But current code raises ValueError.
+        # max_depth=3 allows 2 nesting levels (parent->child->grandchild).
         try:
             validate_workflow_call_contracts(
                 parent_file,
@@ -321,9 +315,6 @@ class TestDepthParityMaxDepth2:
     def test_parse_time_allows_grandchild_at_max_depth_2(self, tmp_path) -> None:
         """Parse-time: max_depth=2 with parent->child->grandchild must also
         be ALLOWED.
-
-        FAILS because depth starts at 1 and jumps to 3 at child level,
-        and 3 >= 2 rejects.
         """
         grandchild_file = _make_workflow_file("""
             version: "1.0"

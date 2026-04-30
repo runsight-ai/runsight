@@ -1,5 +1,5 @@
 """
-RUN-729 — E2E tests for warn mode and flow-level timeout.
+End-to-end warn mode and flow-level timeout behavior.
 
 Full-path integration: YAML parse -> Workflow.run() -> execute_block() ->
 LinearBlock -> RunsightTeamRunner -> LiteLLMClient.achat() -> BudgetSession
@@ -74,7 +74,7 @@ def _make_litellm_response(
 
 _YAML_WARN_MODE = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -96,7 +96,7 @@ blocks:
     type: linear
     soul_ref: worker
 workflow:
-  name: warn_mode_test
+  name: warn_mode_workflow
   entry: block1
   transitions:
     - from: block1
@@ -112,7 +112,7 @@ limits:
 
 _YAML_FLOW_TIMEOUT_SHORT = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -131,7 +131,7 @@ blocks:
     type: linear
     soul_ref: worker
 workflow:
-  name: flow_timeout_test
+  name: flow_timeout_short_workflow
   entry: block1
   transitions:
     - from: block1
@@ -144,7 +144,7 @@ limits:
 
 _YAML_FLOW_TIMEOUT_GENEROUS = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -163,7 +163,7 @@ blocks:
     type: linear
     soul_ref: worker
 workflow:
-  name: flow_timeout_generous_test
+  name: flow_timeout_generous_workflow
   entry: block1
   transitions:
     - from: block1
@@ -504,7 +504,7 @@ class TestFlowTimeoutWithinLimits:
 
 _YAML_MIXED_BLOCK_WARN_FLOW_FAIL = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -541,7 +541,7 @@ blocks:
       cost_cap_usd: 0.001
       on_exceed: warn
 workflow:
-  name: mixed_block_warn_flow_fail_test
+  name: mixed_block_warn_flow_failure_workflow
   entry: block1
   transitions:
     - from: block1
@@ -595,7 +595,7 @@ class TestMixedBlockWarnFlowFail:
         # Use a 2-block variant to keep total under flow cap
         yaml_2_blocks = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -654,7 +654,7 @@ limits:
 
         yaml_2_blocks = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:
@@ -711,7 +711,7 @@ limits:
 
         yaml_2_blocks = """\
 version: "1.0"
-id: test-workflow
+id: warn-flow-timeout-workflow
 kind: workflow
 souls:
   worker:

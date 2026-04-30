@@ -1,15 +1,15 @@
-"""E2E tests for RUN-702: Mixed-type block pipeline — Linear -> Code -> Gate chained workflow.
+"""Mixed-type block pipeline flow: Linear -> Code -> Gate chained workflow.
 
 Tests the core user journey of chaining different block types in a single workflow:
   - LinearBlock (LLM-backed, mocked) produces structured output
   - CodeBlock (pure Python, no LLM) reads linear output and transforms it
   - GateBlock (LLM-backed, mocked) evaluates code output and routes to pass/fail successor
 
-AC1: Linear -> Code -> Gate -> pass branch — all three blocks execute, final state has
-     all three results, gate routes to pass successor
-AC2: Linear -> Code -> Gate -> fail branch — gate routes to fail successor
-AC3: State passes correctly between blocks (code block reads linear output, gate evaluates code output)
-AC4: All mocked — no real API calls
+Scenarios:
+- pass branch executes all three blocks and routes to the pass successor
+- fail branch routes to the fail successor
+- state passes correctly between blocks
+- all LLM-backed behavior is mocked
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
     lines = content.lstrip().splitlines()
     first_key = lines[0].split(":")[0].strip() if lines else ""
     if first_key != "id":
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: mixed-pipeline-workflow\nkind: workflow\n" + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
@@ -77,7 +77,7 @@ _MIXED_PIPELINE_YAML = _fixture_text("mixed-pipeline.yaml")
 
 
 # ===========================================================================
-# AC1: Linear -> Code -> Gate -> pass branch
+# Linear -> Code -> Gate pass branch
 # ===========================================================================
 
 
@@ -182,7 +182,7 @@ class TestMixedPipelinePassPath:
 
 
 # ===========================================================================
-# AC2: Linear -> Code -> Gate -> fail branch
+# Linear -> Code -> Gate fail branch
 # ===========================================================================
 
 
@@ -274,7 +274,7 @@ class TestMixedPipelineFailPath:
 
 
 # ===========================================================================
-# AC3: State passes correctly between blocks
+# State passes correctly between blocks
 # ===========================================================================
 
 
@@ -356,7 +356,7 @@ class TestStateFlowsBetweenBlocks:
 
 
 # ===========================================================================
-# AC4: All mocked — no real API calls
+# All LLM-backed behavior is mocked
 # ===========================================================================
 
 
