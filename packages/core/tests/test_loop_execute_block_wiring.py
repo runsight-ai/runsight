@@ -1,4 +1,4 @@
-"""Red tests for RUN-678: wire LoopBlock.execute() through execute_block()."""
+"""Tests for wire LoopBlock.execute() through execute_block()."""
 
 from __future__ import annotations
 
@@ -150,7 +150,7 @@ async def test_loopblock_inner_linear_blocks_emit_observer_events_every_round():
     writer = _make_linear_block("writer", "writer output")
     critic = _make_linear_block("critic", "critic output")
     loop = LoopBlock("loop_block", inner_block_refs=["writer", "critic"], max_rounds=3)
-    workflow = _make_workflow("loop_linear_observer_wf", loop, writer, critic)
+    workflow = _make_workflow("loop_linear_observer_workflow", loop, writer, critic)
     observer = RecordingObserver()
 
     final_state = await workflow.run(_make_state(), observer=observer)
@@ -201,7 +201,7 @@ async def test_loopblock_break_on_exit_keeps_observer_events_until_break_point()
         max_rounds=5,
         break_on_exit="pass",
     )
-    workflow = _make_workflow("loop_break_observer_wf", loop, worker, gate)
+    workflow = _make_workflow("loop_break_observer_workflow", loop, worker, gate)
     observer = RecordingObserver()
 
     final_state = await workflow.run(_make_state(), observer=observer)
@@ -230,7 +230,7 @@ async def test_nested_loopblock_propagates_ctx_to_inner_loop_and_leaf_blocks():
     leaf = _make_linear_block("leaf", "leaf output")
     inner_loop = LoopBlock("inner_loop", inner_block_refs=["leaf"], max_rounds=2)
     outer_loop = LoopBlock("outer_loop", inner_block_refs=["inner_loop"], max_rounds=2)
-    workflow = _make_workflow("nested_loop_ctx_wf", outer_loop, inner_loop, leaf)
+    workflow = _make_workflow("nested_loop_context_workflow", outer_loop, inner_loop, leaf)
     observer = RecordingObserver()
 
     final_state = await workflow.run(_make_state(), observer=observer)

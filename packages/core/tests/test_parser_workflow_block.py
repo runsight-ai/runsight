@@ -144,7 +144,7 @@ class TestParseWorkflowBlock:
 
     def test_parse_workflow_with_workflow_block(self):
         """
-        AC-14: Parser creates WorkflowBlock from YAML with registry.
+        Parser creates WorkflowBlock from YAML with registry.
 
         Verify:
         - YAML with type: workflow block parses successfully
@@ -299,7 +299,7 @@ class TestParseWorkflowBlock:
 
     def test_parse_workflow_block_no_registry_raises(self):
         """
-        AC-15: Parser raises clear error when registry absent for workflow block.
+        Parser raises clear error when registry absent for workflow block.
 
         Verify:
         - Calling parse_workflow_yaml() with type: workflow block but no registry
@@ -496,7 +496,7 @@ class TestParseWorkflowBlock:
 
     def test_parse_workflow_no_registry_no_workflow_blocks(self):
         """
-        AC-16: Parser backward-compatible — no registry needed for non-workflow YAML.
+        Parser backward-compatible — no registry needed for non-workflow YAML.
 
         Verify:
         - Parsing standard YAML (no workflow blocks) without registry succeeds

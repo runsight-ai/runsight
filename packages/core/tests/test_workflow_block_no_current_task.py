@@ -1,9 +1,9 @@
 """
-RUN-877: WorkflowBlock — remove current_task from dotted path resolution.
+Tests for WorkflowBlock — remove current_task from dotted path resolution.
 
-These tests are RED (failing) until _resolve_dotted and _write_dotted are
-updated to reject the "current_task" prefix and list only
-results / shared_memory / metadata as valid prefixes.
+These tests verify that _resolve_dotted and _write_dotted reject the
+"current_task" prefix and list only results / shared_memory / metadata as
+valid prefixes.
 """
 
 import pytest
@@ -15,12 +15,12 @@ from runsight_core.state import BlockResult, WorkflowState
 # ---------------------------------------------------------------------------
 
 
-def _make_block(block_id: str = "wf_block") -> WorkflowBlock:
+def _make_block(block_id: str = "dotted_path_workflow_block") -> WorkflowBlock:
     """Return a minimal WorkflowBlock (child_workflow never executed)."""
     from unittest.mock import AsyncMock
 
     mock_child = AsyncMock()
-    mock_child.name = "child_wf"
+    mock_child.name = "dotted_path_child_workflow"
     return WorkflowBlock(
         block_id=block_id,
         child_workflow=mock_child,

@@ -45,7 +45,7 @@ class SimpleBlock(BaseBlock):
 @pytest.mark.asyncio
 async def test_parent_child_workflow_execution():
     """
-    AC-14: End-to-end integration test with parent workflow containing WorkflowBlock.
+    End-to-end integration test with parent workflow containing WorkflowBlock.
 
     Verifies:
     1. Parent workflow runs with initial state
@@ -58,23 +58,23 @@ async def test_parent_child_workflow_execution():
     8. System message appended with execution summary
     """
     # ==== Setup: Create child workflow ====
-    child_wf = Workflow(name="child_workflow")
+    child_workflow = Workflow(name="child_workflow")
     child_step = SimpleBlock(
         "child_step",
         "child output",
         declared_inputs={"topic": "workflow.topic"},
     )
-    child_wf.add_block(child_step)
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)  # Terminal
+    child_workflow.add_block(child_step)
+    child_workflow.set_entry("child_step")
+    child_workflow.add_transition("child_step", None)  # Terminal
 
     # ==== Setup: Create parent workflow with WorkflowBlock ====
-    parent_wf = Workflow(name="parent_workflow")
+    parent_workflow = Workflow(name="parent_workflow")
 
     # Create a WorkflowBlock that references the child
     workflow_block = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={
             # Child receives a public invocation input from parent shared memory
             "topic": "shared_memory.research_topic"
@@ -86,13 +86,13 @@ async def test_parent_child_workflow_execution():
         max_depth=10,
     )
 
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)  # Terminal
+    parent_workflow.add_block(workflow_block)
+    parent_workflow.set_entry("invoke_child")
+    parent_workflow.add_transition("invoke_child", None)  # Terminal
 
     # Validate workflows
-    parent_errors = parent_wf.validate()
-    child_errors = child_wf.validate()
+    parent_errors = parent_workflow.validate()
+    child_errors = child_workflow.validate()
     assert not parent_errors, f"Parent workflow validation failed: {parent_errors}"
     assert not child_errors, f"Child workflow validation failed: {child_errors}"
 
@@ -100,14 +100,14 @@ async def test_parent_child_workflow_execution():
     initial_state = WorkflowState(
         shared_memory={"research_topic": "quantum computing", "other": "data"},
         results={"existing": BlockResult(output="value")},
-        metadata={"workflow_id": "test_workflow"},
+        metadata={"workflow_id": "integration-workflow-block-workflow"},
         total_cost_usd=0.0,
         total_tokens=0,
     )
 
     # ==== Execute: Run parent workflow ====
     # Note: No workflow_registry needed since child is passed directly to WorkflowBlock
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # ==== Verify: Basic execution completed ====
     assert final_state is not None
@@ -152,25 +152,25 @@ async def test_workflow_block_call_stack_propagation():
     3. call_stack can be used for cycle detection
     """
     # Create a child workflow
-    child_wf = Workflow(name="child_wf")
-    child_wf.add_block(SimpleBlock("step1", "output1"))
-    child_wf.set_entry("step1")
-    child_wf.add_transition("step1", None)
+    child_workflow = Workflow(name="child_workflow")
+    child_workflow.add_block(SimpleBlock("step1", "output1"))
+    child_workflow.set_entry("step1")
+    child_workflow.add_transition("step1", None)
 
     # Create parent workflow with WorkflowBlock
-    parent_wf = Workflow(name="parent_wf")
+    parent_workflow = Workflow(name="parent_workflow")
     workflow_block = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    parent_workflow.add_block(workflow_block)
+    parent_workflow.set_entry("invoke_child")
+    parent_workflow.add_transition("invoke_child", None)
 
-    # Mock the child_wf.run() to capture the call_stack
+    # Mock the child_workflow.run() to capture the call_stack
     captured_call_stacks = []
     captured_inputs = []
 
@@ -201,17 +201,17 @@ async def test_workflow_block_call_stack_propagation():
             }
         )
 
-    child_wf.run = mock_run
+    child_workflow.run = mock_run
 
     # Execute
     initial_state = WorkflowState()
-    await parent_wf.run(initial_state)
+    await parent_workflow.run(initial_state)
 
     # Verify: child received extended call_stack
     assert len(captured_call_stacks) > 0
     child_call_stack = captured_call_stacks[0]
-    assert "parent_wf" in child_call_stack, (
-        f"Expected 'parent_wf' in call_stack, got {child_call_stack}"
+    assert "parent_workflow" in child_call_stack, (
+        f"Expected 'parent_workflow' in call_stack, got {child_call_stack}"
     )
     assert captured_inputs == [{}]
 
@@ -226,32 +226,32 @@ async def test_workflow_block_cycle_detection():
     2. Error message includes block_id and call_stack
     """
     # Create a workflow that references itself (cycle)
-    cyclic_wf = Workflow(name="cyclic_workflow")
+    cyclic_workflow = Workflow(name="cyclic_workflow")
 
     # Create a mock child workflow
-    child_wf = Workflow(name="cyclic_workflow")  # Same name as parent - will cause cycle
-    child_wf.add_block(SimpleBlock("step", "output"))
-    child_wf.set_entry("step")
-    child_wf.add_transition("step", None)
+    child_workflow = Workflow(name="cyclic_workflow")  # Same name as parent - will cause cycle
+    child_workflow.add_block(SimpleBlock("step", "output"))
+    child_workflow.set_entry("step")
+    child_workflow.add_transition("step", None)
 
     # Add WorkflowBlock to parent (references itself)
-    cyclic_wf.add_block(
+    cyclic_workflow.add_block(
         WorkflowBlock(
             block_id="self_invoke",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
             max_depth=10,
         )
     )
-    cyclic_wf.set_entry("self_invoke")
-    cyclic_wf.add_transition("self_invoke", None)
+    cyclic_workflow.set_entry("self_invoke")
+    cyclic_workflow.add_transition("self_invoke", None)
 
     # Execute and expect RecursionError
     initial_state = WorkflowState()
 
     with pytest.raises(RecursionError) as exc_info:
-        await cyclic_wf.run(initial_state)
+        await cyclic_workflow.run(initial_state)
 
     error_msg = str(exc_info.value)
     assert "cycle detected" in error_msg.lower() or "circular reference" in error_msg.lower()
@@ -269,31 +269,31 @@ async def test_workflow_block_depth_limit():
     3. Error message includes max_depth and current depth
     """
     # Create two workflows that will call each other
-    wf_a = Workflow(name="workflow_a")
-    wf_b = Workflow(name="workflow_b")
+    depth_parent_workflow = Workflow(name="depth_limit_parent_workflow")
+    depth_child_workflow = Workflow(name="depth_limit_child_workflow")
 
     # Add simple steps
-    wf_a.add_block(SimpleBlock("step_a", "output_a"))
-    wf_a.set_entry("step_a")
-    wf_a.add_transition("step_a", None)
+    depth_parent_workflow.add_block(SimpleBlock("step_a", "output_a"))
+    depth_parent_workflow.set_entry("step_a")
+    depth_parent_workflow.add_transition("step_a", None)
 
-    wf_b.add_block(SimpleBlock("step_b", "output_b"))
-    wf_b.set_entry("step_b")
-    wf_b.add_transition("step_b", None)
+    depth_child_workflow.add_block(SimpleBlock("step_b", "output_b"))
+    depth_child_workflow.set_entry("step_b")
+    depth_child_workflow.add_transition("step_b", None)
 
     # Create a deep call with max_depth=1 (should fail at depth 2)
     deep_block = WorkflowBlock(
         block_id="invoke_b",
-        child_workflow=wf_b,
+        child_workflow=depth_child_workflow,
         inputs={},
         outputs={},
         max_depth=1,  # Very restrictive
     )
 
-    wf_a.add_block(deep_block)
-    wf_a.set_entry("invoke_b")
+    depth_parent_workflow.add_block(deep_block)
+    depth_parent_workflow.set_entry("invoke_b")
 
-    # Mock wf_b.run() to simulate nested call (increase depth)
+    # Mock the child workflow run to simulate a nested call.
     async def mock_run_b(
         initial_state,
         *,
@@ -324,14 +324,17 @@ async def test_workflow_block_depth_limit():
             }
         )
 
-    wf_b.run = mock_run_b
+    depth_child_workflow.run = mock_run_b
 
     # Execute with initial call_stack at depth 1 (should fail)
     initial_state = WorkflowState()
 
     with pytest.raises(RecursionError) as exc_info:
         # Simulate calling from an already-nested context
-        await wf_a.run(initial_state, call_stack=["parent_wf"])
+        await depth_parent_workflow.run(
+            initial_state,
+            call_stack=["depth_limit_parent_workflow"],
+        )
 
     error_msg = str(exc_info.value)
     assert "depth" in error_msg.lower() or "exceeded" in error_msg.lower()
@@ -348,24 +351,24 @@ async def test_workflow_registry_parameter_passthrough():
     3. Parameter name is 'workflow_registry' (not 'registry')
     """
     # Create child workflow
-    child_wf = Workflow(name="child_wf")
-    child_wf.add_block(SimpleBlock("step", "output"))
-    child_wf.set_entry("step")
-    child_wf.add_transition("step", None)
+    child_workflow = Workflow(name="child_workflow")
+    child_workflow.add_block(SimpleBlock("step", "output"))
+    child_workflow.set_entry("step")
+    child_workflow.add_transition("step", None)
 
     # Create parent with WorkflowBlock
-    parent_wf = Workflow(name="parent_wf")
-    parent_wf.add_block(
+    parent_workflow = Workflow(name="parent_workflow")
+    parent_workflow.add_block(
         WorkflowBlock(
             block_id="invoke_child",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
             max_depth=10,
         )
     )
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    parent_workflow.set_entry("invoke_child")
+    parent_workflow.add_transition("invoke_child", None)
 
     # Capture what parameters child receives
     captured_kwargs = {}
@@ -391,7 +394,7 @@ async def test_workflow_registry_parameter_passthrough():
             }
         )
 
-    child_wf.run = mock_child_run
+    child_workflow.run = mock_child_run
 
     # Create a mock workflow_registry
     from unittest.mock import MagicMock
@@ -400,7 +403,7 @@ async def test_workflow_registry_parameter_passthrough():
 
     # Execute with workflow_registry
     initial_state = WorkflowState()
-    await parent_wf.run(initial_state, workflow_registry=mock_registry)
+    await parent_workflow.run(initial_state, workflow_registry=mock_registry)
 
     # Verify: child received workflow_registry
     assert "workflow_registry" in captured_kwargs
@@ -409,10 +412,10 @@ async def test_workflow_registry_parameter_passthrough():
 
     # Verify: call_stack was also passed (extended with parent name, then child name)
     # When WorkflowBlock.execute() is called, it receives call_stack + [self.name]
-    # So child receives ["parent_wf"] before running
+    # So child receives ["parent_workflow"] before running
     # But then when child.run() is called, that list is used as-is
     assert "call_stack" in captured_kwargs
-    assert "parent_wf" in captured_kwargs["call_stack"]
+    assert "parent_workflow" in captured_kwargs["call_stack"]
 
 
 @pytest.mark.asyncio
@@ -427,7 +430,7 @@ async def test_workflow_block_input_output_mapping():
     4. Child state is isolated (clean start)
     """
     # Create child workflow
-    child_wf = Workflow(name="child_wf")
+    child_workflow = Workflow(name="child_workflow")
     child_step = SimpleBlock(
         "child_step",
         "child result",
@@ -436,16 +439,16 @@ async def test_workflow_block_input_output_mapping():
             "context": "workflow.context",
         },
     )
-    child_wf.add_block(child_step)
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)
+    child_workflow.add_block(child_step)
+    child_workflow.set_entry("child_step")
+    child_workflow.add_transition("child_step", None)
 
     # Create parent with mapped inputs/outputs
-    parent_wf = Workflow(name="parent_wf")
-    parent_wf.add_block(
+    parent_workflow = Workflow(name="parent_workflow")
+    parent_workflow.add_block(
         WorkflowBlock(
             block_id="mapped_invoke",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={
                 "input_key": "shared_memory.parent_key",
                 "context": "results.parent_context",
@@ -456,8 +459,8 @@ async def test_workflow_block_input_output_mapping():
             max_depth=10,
         )
     )
-    parent_wf.set_entry("mapped_invoke")
-    parent_wf.add_transition("mapped_invoke", None)
+    parent_workflow.set_entry("mapped_invoke")
+    parent_workflow.add_transition("mapped_invoke", None)
 
     # Create parent state with values to map
     initial_state = WorkflowState(
@@ -470,7 +473,7 @@ async def test_workflow_block_input_output_mapping():
     )
 
     # Execute
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # Verify: Output mapping
     # Child produced "child result" in results.child_step
@@ -503,10 +506,10 @@ async def test_workflow_block_with_cost_accumulation():
     3. Token counts are accumulated
     """
     # Create child workflow that returns cost
-    child_wf = Workflow(name="child_wf")
-    child_wf.add_block(SimpleBlock("step", "output"))
-    child_wf.set_entry("step")
-    child_wf.add_transition("step", None)
+    child_workflow = Workflow(name="child_workflow")
+    child_workflow.add_block(SimpleBlock("step", "output"))
+    child_workflow.set_entry("step")
+    child_workflow.add_transition("step", None)
 
     # Mock child run to return costs
     async def mock_child_run(
@@ -528,25 +531,25 @@ async def test_workflow_block_with_cost_accumulation():
             }
         )
 
-    child_wf.run = mock_child_run
+    child_workflow.run = mock_child_run
 
     # Create parent with WorkflowBlock
-    parent_wf = Workflow(name="parent_wf")
-    parent_wf.add_block(
+    parent_workflow = Workflow(name="parent_workflow")
+    parent_workflow.add_block(
         WorkflowBlock(
             block_id="invoke",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
             max_depth=10,
         )
     )
-    parent_wf.set_entry("invoke")
-    parent_wf.add_transition("invoke", None)
+    parent_workflow.set_entry("invoke")
+    parent_workflow.add_transition("invoke", None)
 
     # Execute with initial costs
     initial_state = WorkflowState(total_cost_usd=0.05, total_tokens=100)
-    final_state = await parent_wf.run(initial_state)
+    final_state = await parent_workflow.run(initial_state)
 
     # Verify: Costs accumulated
     assert final_state.total_cost_usd == pytest.approx(0.20)  # 0.05 + 0.15

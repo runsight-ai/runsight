@@ -1,4 +1,4 @@
-"""End-to-end WorkflowBlock integration tests for the RUN-922 contract."""
+"""End-to-end WorkflowBlock integration tests for the public input contract."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ class TestParserRegistryIntegration:
     def test_parser_requires_registry_for_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "blocks": {"child_ref": {"type": "workflow", "workflow_ref": "missing_child"}},
             "workflow": {
@@ -110,7 +110,7 @@ class TestParserRegistryIntegration:
 
         parent_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "blocks": {
                 "invoke_analysis": {
@@ -127,10 +127,10 @@ class TestParserRegistryIntegration:
             },
         }
 
-        parent_wf = parse_workflow_yaml(parent_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(parent_dict, workflow_registry=registry)
 
-        assert isinstance(parent_wf, Workflow)
-        block = parent_wf._blocks["invoke_analysis"]
+        assert isinstance(parent_workflow, Workflow)
+        block = parent_workflow._blocks["invoke_analysis"]
         assert isinstance(block, WorkflowBlock)
         assert block.child_workflow.name == "analysis_child"
         assert block.inputs == {"topic": "shared_memory.research_topic"}
@@ -145,7 +145,7 @@ class TestParserMaxDepthResolution:
 
         parent_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "config": {"max_workflow_depth": 12},
             "blocks": {"invoke": {"type": "workflow", "workflow_ref": "child-c", "max_depth": 5}},
@@ -166,7 +166,7 @@ class TestParserMaxDepthResolution:
 
         parent_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "config": {"max_workflow_depth": 7},
             "blocks": {"invoke": {"type": "workflow", "workflow_ref": "child-c"}},
@@ -190,7 +190,7 @@ class TestWorkflowBlockErrorHandling:
 
         parent_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "blocks": {
                 "invoke": {
@@ -205,17 +205,17 @@ class TestWorkflowBlockErrorHandling:
                 "transitions": [{"from": "invoke", "to": None}],
             },
         }
-        parent_wf = parse_workflow_yaml(parent_dict, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(parent_dict, workflow_registry=registry)
 
         with pytest.raises(KeyError):
-            await parent_wf.run(WorkflowState())
+            await parent_workflow.run(WorkflowState())
 
 
 class TestBackwardCompatibility:
     def test_parse_simple_workflow_without_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "test-workflow",
+            "id": "workflow-block-e2e-workflow",
             "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
@@ -271,7 +271,7 @@ class TestExternalSoulFileResolution:
                 base,
                 """\
                 version: "1.0"
-                id: test-workflow
+                id: workflow-block-e2e-workflow
                 kind: workflow
                 blocks:
                   invoke_analysis:
@@ -290,9 +290,9 @@ class TestExternalSoulFileResolution:
                 """,
             )
 
-            parent_wf = parse_workflow_yaml(path, workflow_registry=registry)
+            parent_workflow = parse_workflow_yaml(path, workflow_registry=registry)
 
-            assert isinstance(parent_wf, Workflow)
-            block = parent_wf._blocks["invoke_analysis"]
+            assert isinstance(parent_workflow, Workflow)
+            block = parent_workflow._blocks["invoke_analysis"]
             assert isinstance(block, WorkflowBlock)
             assert block.child_workflow.name == "analysis_child"

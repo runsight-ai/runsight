@@ -1,5 +1,5 @@
 """
-E2E tests for RUN-682: WorkflowBlock inside LoopBlock end-to-end.
+E2E tests for WorkflowBlock inside LoopBlock end-to-end.
 
 Tests cover:
 1. Happy path — WorkflowBlock breaks loop on success (exit_handle propagation)
@@ -140,16 +140,16 @@ async def test_workflowblock_in_loop_breaks_on_success():
     """
     # Child workflow: contains a CountingBlock that fires "completed" on call 2
     reviewer = CountingBlock("reviewer", threshold=2, exit_handle="completed")
-    child_wf = Workflow("review_child")
-    child_wf.add_block(reviewer)
-    child_wf.set_entry("reviewer")
-    child_wf.add_transition("reviewer", None)
+    child_workflow = Workflow("review_child")
+    child_workflow.add_block(reviewer)
+    child_workflow.set_entry("reviewer")
+    child_workflow.add_transition("reviewer", None)
 
     # Parent blocks
     writer = ResultBlock("writer", "draft text")
     review_subworkflow = WorkflowBlock(
         block_id="review_subworkflow",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
     )
@@ -163,7 +163,7 @@ async def test_workflowblock_in_loop_breaks_on_success():
         break_on_exit="completed",
     )
 
-    wf = _make_workflow_with_loop("happy_path_wf", loop, writer, review_subworkflow)
+    wf = _make_workflow_with_loop("happy_path_workflow", loop, writer, review_subworkflow)
 
     state = WorkflowState()
     final_state = await wf.run(state)
@@ -193,15 +193,15 @@ async def test_workflowblock_in_loop_observer_events_at_all_levels():
     - Child workflow's inner block start/complete (forwarded via ChildObserverWrapper)
     """
     reviewer = CountingBlock("reviewer", threshold=2, exit_handle="completed")
-    child_wf = Workflow("review_child")
-    child_wf.add_block(reviewer)
-    child_wf.set_entry("reviewer")
-    child_wf.add_transition("reviewer", None)
+    child_workflow = Workflow("review_child")
+    child_workflow.add_block(reviewer)
+    child_workflow.set_entry("reviewer")
+    child_workflow.add_transition("reviewer", None)
 
     writer = ResultBlock("writer", "draft")
     review_subworkflow = WorkflowBlock(
         block_id="review_subworkflow",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
     )
@@ -213,29 +213,31 @@ async def test_workflowblock_in_loop_observer_events_at_all_levels():
         break_on_exit="completed",
     )
 
-    wf = _make_workflow_with_loop("observer_wf", loop, writer, review_subworkflow)
+    wf = _make_workflow_with_loop("observer_workflow", loop, writer, review_subworkflow)
 
     observer = RecordingObserver()
     state = WorkflowState()
     await wf.run(state, observer=observer)
 
     # Parent workflow lifecycle
-    assert ("workflow_start", "observer_wf") in observer.events
-    assert ("workflow_complete", "observer_wf") in observer.events
+    assert ("workflow_start", "observer_workflow") in observer.events
+    assert ("workflow_complete", "observer_workflow") in observer.events
 
     # LoopBlock lifecycle
-    assert ("block_start", "observer_wf", "review_loop", "LoopBlock") in observer.events
-    assert ("block_complete", "observer_wf", "review_loop", "LoopBlock") in observer.events
+    assert ("block_start", "observer_workflow", "review_loop", "LoopBlock") in observer.events
+    assert ("block_complete", "observer_workflow", "review_loop", "LoopBlock") in observer.events
 
     # Inner writer block events (at least one round)
     writer_starts = [
-        e for e in observer.events if e[:3] == ("block_start", "observer_wf", "writer")
+        e for e in observer.events if e[:3] == ("block_start", "observer_workflow", "writer")
     ]
     assert len(writer_starts) >= 1
 
     # WorkflowBlock events (at least one round)
     wfb_starts = [
-        e for e in observer.events if e[:3] == ("block_start", "observer_wf", "review_subworkflow")
+        e
+        for e in observer.events
+        if e[:3] == ("block_start", "observer_workflow", "review_subworkflow")
     ]
     assert len(wfb_starts) >= 1
 
@@ -261,15 +263,15 @@ async def test_workflowblock_error_propagates_through_loop():
     """
     # Child workflow that always fails
     failing = FailingBlock("failing_step", "child workflow crashed")
-    child_wf = Workflow("failing_child")
-    child_wf.add_block(failing)
-    child_wf.set_entry("failing_step")
-    child_wf.add_transition("failing_step", None)
+    child_workflow = Workflow("failing_child")
+    child_workflow.add_block(failing)
+    child_workflow.set_entry("failing_step")
+    child_workflow.add_transition("failing_step", None)
 
     # WorkflowBlock with default on_error="raise"
     invoke_failing = WorkflowBlock(
         block_id="invoke_failing",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
         on_error="raise",
@@ -281,7 +283,7 @@ async def test_workflowblock_error_propagates_through_loop():
         max_rounds=3,
     )
 
-    wf = _make_workflow_with_loop("error_wf", loop, invoke_failing)
+    wf = _make_workflow_with_loop("error_workflow", loop, invoke_failing)
 
     state = WorkflowState()
     with pytest.raises(RuntimeError, match="child workflow crashed"):
@@ -299,15 +301,15 @@ async def test_workflowblock_on_error_catch_in_loop():
     """
     # Child workflow that always fails
     failing = FailingBlock("failing_step", "caught failure")
-    child_wf = Workflow("catching_child")
-    child_wf.add_block(failing)
-    child_wf.set_entry("failing_step")
-    child_wf.add_transition("failing_step", None)
+    child_workflow = Workflow("catching_child")
+    child_workflow.add_block(failing)
+    child_workflow.set_entry("failing_step")
+    child_workflow.add_transition("failing_step", None)
 
     # WorkflowBlock with on_error="catch"
     invoke_catch = WorkflowBlock(
         block_id="invoke_catch",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
         on_error="catch",
@@ -319,7 +321,7 @@ async def test_workflowblock_on_error_catch_in_loop():
         max_rounds=2,
     )
 
-    wf = _make_workflow_with_loop("catch_wf", loop, invoke_catch)
+    wf = _make_workflow_with_loop("catch_workflow", loop, invoke_catch)
 
     state = WorkflowState()
     final_state = await wf.run(state)
@@ -342,14 +344,14 @@ async def test_workflowblock_error_observer_events():
     block_error and workflow_error events.
     """
     failing = FailingBlock("failing_step", "observer error test")
-    child_wf = Workflow("failing_child_obs")
-    child_wf.add_block(failing)
-    child_wf.set_entry("failing_step")
-    child_wf.add_transition("failing_step", None)
+    child_workflow = Workflow("failing_child_obs")
+    child_workflow.add_block(failing)
+    child_workflow.set_entry("failing_step")
+    child_workflow.add_transition("failing_step", None)
 
     invoke_failing = WorkflowBlock(
         block_id="invoke_failing",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
     )
@@ -360,7 +362,7 @@ async def test_workflowblock_error_observer_events():
         max_rounds=2,
     )
 
-    wf = _make_workflow_with_loop("error_obs_wf", loop, invoke_failing)
+    wf = _make_workflow_with_loop("error_observer_workflow", loop, invoke_failing)
 
     observer = RecordingObserver()
     state = WorkflowState()
@@ -389,28 +391,28 @@ async def test_workflowblock_depth_limiting_raises_recursion_error():
     """
     # Grandchild workflow (deepest level) — simple block
     grandchild_block = ResultBlock("gc_step", "grandchild done")
-    grandchild_wf = Workflow("grandchild_wf")
-    grandchild_wf.add_block(grandchild_block)
-    grandchild_wf.set_entry("gc_step")
-    grandchild_wf.add_transition("gc_step", None)
+    grandchild_workflow = Workflow("grandchild_workflow")
+    grandchild_workflow.add_block(grandchild_block)
+    grandchild_workflow.set_entry("gc_step")
+    grandchild_workflow.add_transition("gc_step", None)
 
     # Child workflow — contains a WorkflowBlock pointing to grandchild
     invoke_grandchild = WorkflowBlock(
         block_id="invoke_grandchild",
-        child_workflow=grandchild_wf,
+        child_workflow=grandchild_workflow,
         inputs={},
         outputs={},
         max_depth=1,  # Restrictive: only allow depth 1
     )
-    child_wf = Workflow("child_wf")
-    child_wf.add_block(invoke_grandchild)
-    child_wf.set_entry("invoke_grandchild")
-    child_wf.add_transition("invoke_grandchild", None)
+    child_workflow = Workflow("child_workflow")
+    child_workflow.add_block(invoke_grandchild)
+    child_workflow.set_entry("invoke_grandchild")
+    child_workflow.add_transition("invoke_grandchild", None)
 
     # Parent WorkflowBlock pointing to child
     invoke_child = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
         max_depth=10,  # Generous at this level
@@ -422,7 +424,7 @@ async def test_workflowblock_depth_limiting_raises_recursion_error():
         max_rounds=2,
     )
 
-    wf = _make_workflow_with_loop("depth_wf", loop, invoke_child)
+    wf = _make_workflow_with_loop("depth_limit_workflow", loop, invoke_child)
 
     state = WorkflowState()
     with pytest.raises(RecursionError, match="maximum depth"):
@@ -438,29 +440,29 @@ async def test_depth_limit_exact_boundary():
     -> WorkflowBlock(max_depth=2) -> grandchild workflow
 
     The call_stack at grandchild invocation will be
-    [parent_wf, child_wf] which has length 2 == max_depth, so it should fail.
+    [parent_workflow, child_workflow] which has length 2 == max_depth, so it should fail.
     """
     grandchild_block = ResultBlock("gc_step", "grandchild done")
-    grandchild_wf = Workflow("grandchild_exact")
-    grandchild_wf.add_block(grandchild_block)
-    grandchild_wf.set_entry("gc_step")
-    grandchild_wf.add_transition("gc_step", None)
+    grandchild_workflow = Workflow("grandchild_exact")
+    grandchild_workflow.add_block(grandchild_block)
+    grandchild_workflow.set_entry("gc_step")
+    grandchild_workflow.add_transition("gc_step", None)
 
     invoke_gc = WorkflowBlock(
         block_id="invoke_gc",
-        child_workflow=grandchild_wf,
+        child_workflow=grandchild_workflow,
         inputs={},
         outputs={},
         max_depth=2,
     )
-    child_wf = Workflow("child_exact")
-    child_wf.add_block(invoke_gc)
-    child_wf.set_entry("invoke_gc")
-    child_wf.add_transition("invoke_gc", None)
+    child_workflow = Workflow("child_exact")
+    child_workflow.add_block(invoke_gc)
+    child_workflow.set_entry("invoke_gc")
+    child_workflow.add_transition("invoke_gc", None)
 
     invoke_child = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
@@ -472,7 +474,7 @@ async def test_depth_limit_exact_boundary():
         max_rounds=1,
     )
 
-    wf = _make_workflow_with_loop("depth_exact_wf", loop, invoke_child)
+    wf = _make_workflow_with_loop("exact_depth_workflow", loop, invoke_child)
 
     state = WorkflowState()
     with pytest.raises(RecursionError, match="maximum depth"):
@@ -490,36 +492,36 @@ async def test_cycle_detection_raises_recursion_error():
     The LoopBlock should propagate the error.
 
     Setup:
-    - parent_wf contains a LoopBlock with inner WorkflowBlock "invoke_child"
-    - child_wf contains a WorkflowBlock "invoke_parent" that calls parent_wf
+    - parent_workflow contains a LoopBlock with inner WorkflowBlock "invoke_child"
+    - child_workflow contains a WorkflowBlock "invoke_parent" that calls parent_workflow
     - This creates a cycle: parent -> child -> parent
     """
     # We create the cycle by having both workflows reference each other.
-    # First, create child_wf with a placeholder, then replace after parent exists.
+    # First, create child_workflow with a placeholder, then replace after parent exists.
 
-    # Step 1: Build child workflow that invokes "parent_cycle_wf"
+    # Step 1: Build child workflow that invokes "parent_cycle_workflow"
     # The child's WorkflowBlock will point to parent — creating a cycle.
     # We need to construct this carefully since Workflow objects are mutable.
 
     # Create parent workflow first (we'll set child to reference it)
-    parent_wf = Workflow("parent_cycle_wf")
+    parent_workflow = Workflow("parent_cycle_workflow")
 
     # Child: a workflow that invokes the parent back (cycle)
     invoke_parent = WorkflowBlock(
         block_id="invoke_parent",
-        child_workflow=parent_wf,  # points back to parent => cycle
+        child_workflow=parent_workflow,  # points back to parent => cycle
         inputs={},
         outputs={},
     )
-    child_wf = Workflow("child_cycle_wf")
-    child_wf.add_block(invoke_parent)
-    child_wf.set_entry("invoke_parent")
-    child_wf.add_transition("invoke_parent", None)
+    child_workflow = Workflow("child_cycle_workflow")
+    child_workflow.add_block(invoke_parent)
+    child_workflow.set_entry("invoke_parent")
+    child_workflow.add_transition("invoke_parent", None)
 
     # Parent: contains a loop with a WorkflowBlock that calls child
     invoke_child = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
     )
@@ -530,14 +532,14 @@ async def test_cycle_detection_raises_recursion_error():
         max_rounds=2,
     )
 
-    parent_wf.add_block(loop)
-    parent_wf.add_block(invoke_child)
-    parent_wf.set_entry("cycle_loop")
-    parent_wf.add_transition("cycle_loop", None)
+    parent_workflow.add_block(loop)
+    parent_workflow.add_block(invoke_child)
+    parent_workflow.set_entry("cycle_loop")
+    parent_workflow.add_transition("cycle_loop", None)
 
     state = WorkflowState()
     with pytest.raises(RecursionError, match="cycle detected"):
-        await parent_wf.run(state)
+        await parent_workflow.run(state)
 
 
 @pytest.mark.asyncio
@@ -545,22 +547,22 @@ async def test_cycle_detection_observer_receives_error():
     """
     When cycle detection fires, the observer should receive error events.
     """
-    parent_wf = Workflow("parent_obs_cycle")
+    parent_workflow = Workflow("parent_obs_cycle")
 
     invoke_parent = WorkflowBlock(
         block_id="invoke_parent",
-        child_workflow=parent_wf,
+        child_workflow=parent_workflow,
         inputs={},
         outputs={},
     )
-    child_wf = Workflow("child_obs_cycle")
-    child_wf.add_block(invoke_parent)
-    child_wf.set_entry("invoke_parent")
-    child_wf.add_transition("invoke_parent", None)
+    child_workflow = Workflow("child_obs_cycle")
+    child_workflow.add_block(invoke_parent)
+    child_workflow.set_entry("invoke_parent")
+    child_workflow.add_transition("invoke_parent", None)
 
     invoke_child = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={},
         outputs={},
     )
@@ -571,15 +573,15 @@ async def test_cycle_detection_observer_receives_error():
         max_rounds=1,
     )
 
-    parent_wf.add_block(loop)
-    parent_wf.add_block(invoke_child)
-    parent_wf.set_entry("obs_cycle_loop")
-    parent_wf.add_transition("obs_cycle_loop", None)
+    parent_workflow.add_block(loop)
+    parent_workflow.add_block(invoke_child)
+    parent_workflow.set_entry("obs_cycle_loop")
+    parent_workflow.add_transition("obs_cycle_loop", None)
 
     observer = RecordingObserver()
     state = WorkflowState()
     with pytest.raises(RecursionError):
-        await parent_wf.run(state, observer=observer)
+        await parent_workflow.run(state, observer=observer)
 
     # Observer should have received a workflow_error event
     workflow_errors = [e for e in observer.events if e[0] == "workflow_error"]

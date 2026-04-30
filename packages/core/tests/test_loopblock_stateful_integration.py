@@ -1,7 +1,7 @@
 """
-RUN-194: Integration tests for LoopBlock stateful round validation.
+Integration tests for LoopBlock stateful round validation.
 
-All underlying code is already implemented (RUN-191, RUN-192, RUN-212, RUN-195, RUN-181).
+All underlying stateful and carry-context behavior is implemented.
 These tests validate that everything works together when a stateful block runs inside
 a LoopBlock across multiple rounds:
 
@@ -259,7 +259,7 @@ class TestStatefulLinearBlockInsideLoop:
             max_rounds=3,
         )
 
-        wf = Workflow(name="stateful_linear_loop_wf")
+        wf = Workflow(name="stateful_linear_loop_workflow")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_transition("loop", None)
@@ -450,7 +450,7 @@ class TestStatefulDispatchBlockInsideLoop:
             max_rounds=2,
         )
 
-        wf = Workflow(name="stateful_dispatch_loop_wf")
+        wf = Workflow(name="stateful_dispatch_loop_workflow")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_transition("loop", None)

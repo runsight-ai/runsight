@@ -31,7 +31,7 @@ def base_parent_state():
     return WorkflowState(
         shared_memory={"research_topic": "AI safety", "other": "data"},
         results={"existing_result": BlockResult(output="previous output")},
-        metadata={"workflow_id": "test_wf"},
+        metadata={"workflow_id": "workflow-block-execute-workflow"},
     )
 
 
@@ -39,7 +39,7 @@ def base_parent_state():
 def mock_child_workflow():
     """Create a mock child workflow."""
     workflow = AsyncMock()
-    workflow.name = "child_wf"
+    workflow.name = "workflow_block_child_workflow"
     workflow.run = AsyncMock()
     return workflow
 
@@ -56,7 +56,7 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
     mock_child_workflow.run = AsyncMock(return_value=child_final_state)
 
     block = WorkflowBlock(
-        block_id="test_input",
+        block_id="input_mapping_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={"topic": "shared_memory.research_topic"},
         outputs={},
@@ -76,10 +76,10 @@ async def test_input_mapping_success(base_parent_state, mock_child_workflow):
 
 @pytest.mark.asyncio
 async def test_input_mapping_missing_key_raises(base_parent_state, mock_child_workflow):
-    """AC-8: Input mapping raises KeyError for missing parent key."""
+    """Input mapping raises KeyError for missing parent key."""
     # Arrange
     block = WorkflowBlock(
-        block_id="test_missing",
+        block_id="missing_input_mapping_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={"topic": "shared_memory.nonexistent_key"},
         outputs={},
@@ -97,10 +97,10 @@ async def test_input_mapping_missing_key_raises(base_parent_state, mock_child_wo
 
 @pytest.mark.asyncio
 async def test_private_child_state_input_mapping_raises(base_parent_state, mock_child_workflow):
-    """RUN-922: inputs keys are public invocation names, not child private state paths."""
+    """inputs keys are public invocation names, not child private state paths."""
     with pytest.raises(ValueError, match="private child state|child invocation input"):
         block = WorkflowBlock(
-            block_id="test_private_input",
+            block_id="private_input_mapping_workflow_block",
             child_workflow=mock_child_workflow,
             inputs={"shared_memory.topic": "shared_memory.research_topic"},
             outputs={},
@@ -117,12 +117,12 @@ async def test_workflow_block_execute_uses_child_double_without_assertion_config
 
     child_final_state = WorkflowState()
     child_workflow = SimpleNamespace(
-        name="child_wf",
+        name="child_double_without_assertion_configs_workflow",
         run=AsyncMock(return_value=child_final_state),
     )
     observer = MagicMock()
     block = WorkflowBlock(
-        block_id="test_missing_assertion_configs",
+        block_id="missing_assertion_configs_workflow_block",
         child_workflow=child_workflow,
         inputs={},
         outputs={},
@@ -137,7 +137,7 @@ async def test_workflow_block_execute_uses_child_double_without_assertion_config
 
 @pytest.mark.asyncio
 async def test_output_mapping_success(base_parent_state, mock_child_workflow):
-    """AC-9: Output mapping writes child results to parent state."""
+    """Output mapping writes child results to parent state."""
     # Arrange
     child_final_state = WorkflowState(
         results={"final": BlockResult(output="child_output_value")},
@@ -147,7 +147,7 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
     mock_child_workflow.run = AsyncMock(return_value=child_final_state)
 
     block = WorkflowBlock(
-        block_id="test_output",
+        block_id="output_mapping_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={"results.parent_out": "results.final"},
@@ -163,7 +163,7 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
 
 @pytest.mark.asyncio
 async def test_child_state_isolation(base_parent_state, mock_child_workflow):
-    """AC-10: Child receives clean isolated state (only mapped inputs)."""
+    """Child receives clean isolated state (only mapped inputs)."""
     # Arrange
     child_final_state = WorkflowState(
         results={"child_result": BlockResult(output="output")},
@@ -173,7 +173,7 @@ async def test_child_state_isolation(base_parent_state, mock_child_workflow):
     mock_child_workflow.run = AsyncMock(return_value=child_final_state)
 
     block = WorkflowBlock(
-        block_id="test_isolation",
+        block_id="state_isolation_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},  # Empty inputs
         outputs={},  # Empty outputs
@@ -193,7 +193,7 @@ async def test_child_state_isolation(base_parent_state, mock_child_workflow):
 
 @pytest.mark.asyncio
 async def test_cost_propagation(base_parent_state, mock_child_workflow):
-    """AC-11: Cost and token counts propagate from child to parent."""
+    """Cost and token counts propagate from child to parent."""
     # Arrange
     child_final_state = WorkflowState(
         results={"final": BlockResult(output="output")},
@@ -203,7 +203,7 @@ async def test_cost_propagation(base_parent_state, mock_child_workflow):
     mock_child_workflow.run = AsyncMock(return_value=child_final_state)
 
     block = WorkflowBlock(
-        block_id="test_cost",
+        block_id="cost_propagation_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={},
@@ -235,7 +235,7 @@ async def test_system_message_appended(base_parent_state, mock_child_workflow):
     mock_child_workflow.run = AsyncMock(return_value=child_final_state)
 
     block = WorkflowBlock(
-        block_id="test_msg",
+        block_id="system_message_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={},
@@ -248,8 +248,8 @@ async def test_system_message_appended(base_parent_state, mock_child_workflow):
     # Assert - check for system message
     system_messages = [m for m in result.execution_log if m.get("role") == "system"]
     assert len(system_messages) > 0
-    assert "test_msg" in system_messages[0]["content"]
-    assert "child_wf" in system_messages[0]["content"]
+    assert "system_message_workflow_block" in system_messages[0]["content"]
+    assert "workflow_block_child_workflow" in system_messages[0]["content"]
 
 
 @pytest.mark.asyncio
@@ -257,7 +257,7 @@ async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow
     """Test that invalid path prefix raises ValueError."""
     # Arrange
     block = WorkflowBlock(
-        block_id="test_bad_prefix",
+        block_id="invalid_prefix_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={"x": "invalid_prefix.key"},
         outputs={},
@@ -274,11 +274,11 @@ async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow
 
 @pytest.mark.asyncio
 async def test_resolve_dotted_current_task(base_parent_state):
-    """Test _resolve_dotted raises for deprecated current_task path (RUN-877)."""
+    """Test _resolve_dotted raises for deprecated current_task path."""
     # Arrange
     state = WorkflowState()
     block = WorkflowBlock(
-        block_id="test_resolve",
+        block_id="resolve-results-workflow-block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},
@@ -293,19 +293,19 @@ async def test_resolve_dotted_current_task(base_parent_state):
 async def test_resolve_dotted_results(base_parent_state):
     """Test _resolve_dotted with results path."""
     # Arrange
-    state = WorkflowState(results={"block_a": BlockResult(output="output_a")})
+    state = WorkflowState(results={"resolved_result_block": BlockResult(output="resolved output")})
     block = WorkflowBlock(
-        block_id="test_resolve",
+        block_id="resolve-results-workflow-block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},
     )
 
     # Act
-    value = block._resolve_dotted(state, "results.block_a")
+    value = block._resolve_dotted(state, "results.resolved_result_block")
 
     # Assert
-    assert value == BlockResult(output="output_a")
+    assert value == BlockResult(output="resolved output")
 
 
 @pytest.mark.asyncio
@@ -314,7 +314,7 @@ async def test_resolve_dotted_shared_memory(base_parent_state):
     # Arrange
     state = WorkflowState(shared_memory={"topic": "AI safety"})
     block = WorkflowBlock(
-        block_id="test_resolve",
+        block_id="resolve-results-workflow-block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},
@@ -331,9 +331,9 @@ async def test_resolve_dotted_shared_memory(base_parent_state):
 async def test_resolve_dotted_metadata(base_parent_state):
     """Test _resolve_dotted with metadata path."""
     # Arrange
-    state = WorkflowState(metadata={"workflow_id": "wf_123"})
+    state = WorkflowState(metadata={"workflow_id": "workflow-block-execute-workflow"})
     block = WorkflowBlock(
-        block_id="test_resolve",
+        block_id="resolve-results-workflow-block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},
@@ -343,7 +343,7 @@ async def test_resolve_dotted_metadata(base_parent_state):
     value = block._resolve_dotted(state, "metadata.workflow_id")
 
     # Assert
-    assert value == "wf_123"
+    assert value == "workflow-block-execute-workflow"
 
 
 @pytest.mark.asyncio
@@ -352,7 +352,7 @@ async def test_write_dotted_results(base_parent_state):
     # Arrange
     state = WorkflowState(results={"existing": BlockResult(output="value")})
     block = WorkflowBlock(
-        block_id="test_write",
+        block_id="write_results_workflow_block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},
@@ -372,7 +372,7 @@ async def test_write_dotted_shared_memory(base_parent_state):
     # Arrange
     state = WorkflowState(shared_memory={"existing": "value"})
     block = WorkflowBlock(
-        block_id="test_write",
+        block_id="write_shared_memory_workflow_block",
         child_workflow=AsyncMock(),
         inputs={},
         outputs={},

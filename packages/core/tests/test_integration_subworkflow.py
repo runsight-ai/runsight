@@ -1,4 +1,4 @@
-"""RUN-614 subworkflow integration expectations after RUN-922."""
+"""Subworkflow integration expectations after public input mapping."""
 
 from __future__ import annotations
 
@@ -52,19 +52,21 @@ def _workflow(name: str, block: object) -> Workflow:
 
 @pytest.mark.asyncio
 async def test_parent_workflow_passes_name_based_inputs_and_maps_child_state_outputs() -> None:
-    child_wf = _workflow("child_wf", _EchoInvocationInputBlock("echo", "topic"))
+    child_workflow = _workflow(
+        "mapped_input_child_workflow", _EchoInvocationInputBlock("echo", "topic")
+    )
     wb = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={"results.child_summary": "results.echo"},
     )
 
-    parent_wf = Workflow(name="parent_wf")
-    parent_wf.add_block(wb)
-    parent_wf.set_entry("invoke_child")
+    parent_workflow = Workflow(name="mapped_input_parent_workflow")
+    parent_workflow.add_block(wb)
+    parent_workflow.set_entry("invoke_child")
 
-    final_state = await parent_wf.run(
+    final_state = await parent_workflow.run(
         WorkflowState(shared_memory={"parent_topic": "quantum computing"})
     )
 
@@ -74,10 +76,12 @@ async def test_parent_workflow_passes_name_based_inputs_and_maps_child_state_out
 
 @pytest.mark.asyncio
 async def test_child_results_do_not_leak_without_explicit_output_mapping() -> None:
-    child_wf = _workflow("child_wf", _WriterBlock("secret_child_step", "secret data"))
+    child_workflow = _workflow(
+        "isolated_child_results_workflow", _WriterBlock("secret_child_step", "secret data")
+    )
     wb = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={},
     )
@@ -100,10 +104,10 @@ async def test_on_error_catch_continues_parent_routing() -> None:
         async def execute(self, ctx) -> BlockOutput:
             raise RuntimeError("child kaboom")
 
-    child_wf = _workflow("child_wf", _FailingBlock())
+    child_workflow = _workflow("catch_error_child_workflow", _FailingBlock())
     wb = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={},
         on_error="catch",
@@ -118,12 +122,12 @@ async def test_on_error_catch_continues_parent_routing() -> None:
 
 @pytest.mark.asyncio
 async def test_workflowblock_rejects_private_child_state_input_targets() -> None:
-    child_wf = _workflow("child_wf", _WriterBlock("writer", "done"))
+    child_workflow = _workflow("private_input_child_workflow", _WriterBlock("writer", "done"))
 
     with pytest.raises(ValueError, match="private child state|child invocation input"):
         wb = WorkflowBlock(
             block_id="invoke_child",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={"shared_memory.topic": "shared_memory.parent_topic"},
             outputs={},
         )
@@ -132,10 +136,12 @@ async def test_workflowblock_rejects_private_child_state_input_targets() -> None
 
 @pytest.mark.asyncio
 async def test_missing_child_output_source_path_raises() -> None:
-    child_wf = _workflow("child_wf", _WriterBlock("writer", "some output"))
+    child_workflow = _workflow(
+        "missing_output_child_workflow", _WriterBlock("writer", "some output")
+    )
     wb = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={"results.parent_summary": "results.nonexistent"},
     )
@@ -146,17 +152,19 @@ async def test_missing_child_output_source_path_raises() -> None:
 
 @pytest.mark.asyncio
 async def test_nested_subflows_use_name_based_invocation_recursively() -> None:
-    grandchild_wf = _workflow("grandchild_wf", _EchoInvocationInputBlock("gc_echo", "msg"))
+    grandchild_workflow = _workflow(
+        "nested_invocation_grandchild_workflow", _EchoInvocationInputBlock("gc_echo", "msg")
+    )
     invoke_grandchild = WorkflowBlock(
         block_id="invoke_grandchild",
-        child_workflow=grandchild_wf,
+        child_workflow=grandchild_workflow,
         inputs={"msg": "workflow.topic"},
         outputs={"results.gc_output": "results.gc_echo"},
     )
-    child_wf = _workflow("child_wf", invoke_grandchild)
+    child_workflow = _workflow("nested_invocation_child_workflow", invoke_grandchild)
     invoke_child = WorkflowBlock(
         block_id="invoke_child",
-        child_workflow=child_wf,
+        child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={"results.final_output": "results.invoke_grandchild"},
     )

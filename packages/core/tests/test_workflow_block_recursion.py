@@ -13,7 +13,7 @@ from runsight_core.state import WorkflowState
 def mock_child_workflow():
     """Create a mock child workflow."""
     workflow = AsyncMock()
-    workflow.name = "child_wf"
+    workflow.name = "cycle_child_workflow"
     workflow.run = AsyncMock()
     return workflow
 
@@ -38,10 +38,10 @@ async def _run_block_with_call_stack(block, state: WorkflowState, call_stack=Non
 
 @pytest.mark.asyncio
 async def test_cycle_detection_direct(mock_child_workflow):
-    """AC-5: Direct cycle detection (A→A)."""
+    """Direct cycle detection (A→A)."""
     # Arrange
     block = WorkflowBlock(
-        block_id="self_ref",
+        block_id="self_reference_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={},
@@ -51,17 +51,17 @@ async def test_cycle_detection_direct(mock_child_workflow):
 
     # Act & Assert
     with pytest.raises(RecursionError) as exc_info:
-        await _run_block_with_call_stack(block, parent_state, call_stack=["child_wf"])
+        await _run_block_with_call_stack(block, parent_state, call_stack=["cycle_child_workflow"])
 
     error_msg = str(exc_info.value)
     assert "cycle detected" in error_msg.lower()
-    assert "child_wf" in error_msg
+    assert "cycle_child_workflow" in error_msg
     assert "call stack" in error_msg.lower()
 
 
 @pytest.mark.asyncio
 async def test_cycle_detection_indirect(mock_child_workflow):
-    """AC-6: Indirect cycle detection (A→B→A)."""
+    """Indirect cycle detection (A→B→A)."""
     # Arrange
     block = WorkflowBlock(
         block_id="invoke_child",
@@ -74,19 +74,23 @@ async def test_cycle_detection_indirect(mock_child_workflow):
 
     # Act & Assert
     with pytest.raises(RecursionError) as exc_info:
-        await _run_block_with_call_stack(block, parent_state, call_stack=["root_wf", "child_wf"])
+        await _run_block_with_call_stack(
+            block,
+            parent_state,
+            call_stack=["root_cycle_workflow", "cycle_child_workflow"],
+        )
 
     error_msg = str(exc_info.value)
     assert "cycle detected" in error_msg.lower()
-    assert "child_wf" in error_msg
+    assert "cycle_child_workflow" in error_msg
 
 
 @pytest.mark.asyncio
 async def test_depth_limit(mock_child_workflow):
-    """AC-7: Depth limit enforcement."""
+    """Depth limit enforcement."""
     # Arrange
     block = WorkflowBlock(
-        block_id="depth_test",
+        block_id="depth_limit_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={},
@@ -109,7 +113,7 @@ async def test_depth_within_limit(mock_child_workflow):
     # Arrange
     mock_child_workflow.run = AsyncMock(return_value=WorkflowState())
     block = WorkflowBlock(
-        block_id="depth_ok",
+        block_id="depth_within_limit_workflow_block",
         child_workflow=mock_child_workflow,
         inputs={},
         outputs={},

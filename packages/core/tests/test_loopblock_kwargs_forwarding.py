@@ -1,16 +1,12 @@
 """
-Failing tests for RUN-212: Fix LoopBlock kwargs forwarding to inner blocks.
-
-Bug: LoopBlock.execute() receives **kwargs (blocks, call_stack, workflow_registry,
-observer) from Workflow.run(), but drops them when calling inner_block.execute(state)
-at line 392 — should be inner_block.execute(state, **kwargs).
+LoopBlock forwarding and nested execution behavior.
 
 Tests cover:
-- kwargs are forwarded to inner blocks (spy block captures received kwargs)
-- Nested LoopBlock works (inner loop resolves block IDs from forwarded blocks dict)
-- WorkflowBlock inside LoopBlock gets call_stack, workflow_registry, observer
-- Deeply nested loops (LoopBlock > LoopBlock > block) chain kwargs correctly
-- Simple LoopBlock regression guard (passes even without fix)
+- execution inputs are forwarded to inner blocks
+- nested LoopBlocks resolve inner block references from the workflow block map
+- WorkflowBlock inside LoopBlock receives call_stack, workflow_registry, and observer
+- deeply nested loops chain execution inputs through each level
+- passthrough LoopBlock cases still execute the expected number of rounds
 """
 
 from typing import Any, Dict, List
@@ -82,7 +78,7 @@ class SimplePassthroughBlock(BaseBlock):
 
 
 # =============================================================================
-# 1. Core bug: kwargs forwarding to inner blocks
+# 1. Execution input forwarding to inner blocks
 # =============================================================================
 
 
@@ -196,7 +192,7 @@ class TestLoopBlockForwardsKwargs:
 
         mock_registry = MagicMock()
         mock_observer = MagicMock()
-        call_stack = ["wf_root"]
+        call_stack = ["root_loop_workflow"]
 
         state = WorkflowState()
         await _exec(
@@ -343,15 +339,15 @@ class TestNestedLoopBlockKwargs:
             max_rounds=2,
         )
 
-        wf = Workflow(name="nested_loop_wf")
-        wf.add_block(leaf)
-        wf.add_block(inner_loop)
-        wf.add_block(outer_loop)
-        wf.add_transition("outer_loop", None)
-        wf.set_entry("outer_loop")
+        workflow = Workflow(name="nested_loop_workflow")
+        workflow.add_block(leaf)
+        workflow.add_block(inner_loop)
+        workflow.add_block(outer_loop)
+        workflow.add_transition("outer_loop", None)
+        workflow.set_entry("outer_loop")
 
         state = WorkflowState()
-        result_state = await wf.run(state)
+        result_state = await workflow.run(state)
 
         leaf_calls = result_state.shared_memory.get("leaf_block_calls", [])
         assert len(leaf_calls) == 4, (
@@ -373,25 +369,25 @@ class TestWorkflowBlockInsideLoopBlock:
 
         Verify by using max_depth=1 on the WorkflowBlock: if call_stack is forwarded
         correctly (len=1 from parent), depth check (len >= max_depth) triggers.
-        Without fix: call_stack not forwarded, WorkflowBlock defaults to [] (len=0),
-        and depth check passes when it should fail.
+        If the call_stack is omitted, WorkflowBlock defaults to [] (len=0),
+        and the depth check passes when it should fail.
         """
         from runsight_core import LoopBlock, WorkflowBlock
 
         # Create a simple child workflow
         child_leaf = SimplePassthroughBlock("child_leaf")
-        child_wf = Workflow(name="child_wf")
-        child_wf.add_block(child_leaf)
-        child_wf.add_transition("child_leaf", None)
-        child_wf.set_entry("child_leaf")
+        child_workflow = Workflow(name="depth_limit_child_workflow")
+        child_workflow.add_block(child_leaf)
+        child_workflow.add_transition("child_leaf", None)
+        child_workflow.set_entry("child_leaf")
 
         # max_depth=1 means call_stack must have len < 1, i.e., only works at depth 0.
-        # Workflow.run() passes call_stack=['parent_wf'] (len=1) to LoopBlock.
+        # Workflow.run() passes call_stack=["depth_limit_parent_workflow"] (len=1) to LoopBlock.
         # If LoopBlock forwards it, WorkflowBlock sees len(call_stack)=1 >= max_depth=1 → RecursionError.
-        # If LoopBlock does NOT forward it, WorkflowBlock defaults call_stack=[] → passes silently.
-        wf_block = WorkflowBlock(
-            block_id="wf_block",
-            child_workflow=child_wf,
+        # If LoopBlock omits it, WorkflowBlock defaults call_stack=[] and passes silently.
+        workflow_block = WorkflowBlock(
+            block_id="depth_limit_workflow_block",
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
             max_depth=1,
@@ -399,22 +395,22 @@ class TestWorkflowBlockInsideLoopBlock:
 
         loop = LoopBlock(
             block_id="loop_block",
-            inner_block_refs=["wf_block"],
+            inner_block_refs=["depth_limit_workflow_block"],
             max_rounds=1,
         )
 
-        parent_wf = Workflow(name="parent_wf")
-        parent_wf.add_block(wf_block)
-        parent_wf.add_block(loop)
-        parent_wf.add_transition("loop_block", None)
-        parent_wf.set_entry("loop_block")
+        parent_workflow = Workflow(name="depth_limit_parent_workflow")
+        parent_workflow.add_block(workflow_block)
+        parent_workflow.add_block(loop)
+        parent_workflow.add_transition("loop_block", None)
+        parent_workflow.set_entry("loop_block")
 
         state = WorkflowState()
-        # With fix: call_stack=['parent_wf'] forwarded to WorkflowBlock,
-        # len(['parent_wf']) >= 1 triggers RecursionError("depth ... exceeded").
-        # Without fix: call_stack not forwarded, defaults to [], child executes silently.
+        # Forwarded call_stack=["depth_limit_parent_workflow"] reaches WorkflowBlock, so
+        # len(call_stack) >= 1 triggers RecursionError("depth ... exceeded").
+        # If call_stack is omitted, the child executes silently.
         with pytest.raises(RecursionError, match="depth"):
-            await parent_wf.run(state)
+            await parent_workflow.run(state)
 
     @pytest.mark.asyncio
     async def test_workflow_block_cycle_detection_inside_loop(self):
@@ -425,39 +421,39 @@ class TestWorkflowBlockInsideLoopBlock:
         (which produces a clean "cycle detected" message). Instead, Python's
         stack overflows with "maximum recursion depth exceeded".
 
-        With the fix: call_stack=['parent_wf'] is forwarded to WorkflowBlock,
-        which sees 'parent_wf' in call_stack and raises RecursionError("cycle detected").
+        The parent workflow name is forwarded to WorkflowBlock, which raises
+        RecursionError("cycle detected") before uncontrolled recursion.
         """
         from runsight_core import LoopBlock, WorkflowBlock
 
         # Create parent workflow that contains a LoopBlock with a WorkflowBlock
         # that references the SAME parent workflow (cycle).
-        parent_wf = Workflow(name="parent_wf")
+        parent_workflow = Workflow(name="cycle_parent_workflow")
 
-        wf_block = WorkflowBlock(
-            block_id="wf_block",
-            child_workflow=parent_wf,  # cycle: child = parent
+        workflow_block = WorkflowBlock(
+            block_id="cycle_workflow_block",
+            child_workflow=parent_workflow,  # cycle: child = parent
             inputs={},
             outputs={},
         )
 
         loop = LoopBlock(
             block_id="loop_block",
-            inner_block_refs=["wf_block"],
+            inner_block_refs=["cycle_workflow_block"],
             max_rounds=1,
         )
 
-        parent_wf.add_block(wf_block)
-        parent_wf.add_block(loop)
-        parent_wf.add_transition("loop_block", None)
-        parent_wf.set_entry("loop_block")
+        parent_workflow.add_block(workflow_block)
+        parent_workflow.add_block(loop)
+        parent_workflow.add_transition("loop_block", None)
+        parent_workflow.set_entry("loop_block")
 
         state = WorkflowState()
-        # With fix: clean RecursionError("cycle detected") from WorkflowBlock.
-        # Without fix: uncontrolled stack overflow → RecursionError("maximum recursion depth exceeded").
+        # Clean RecursionError("cycle detected") comes from WorkflowBlock.
+        # Uncontrolled recursion would raise maximum recursion depth instead.
         # We assert the CLEAN message to prove call_stack was forwarded.
         with pytest.raises(RecursionError, match="cycle detected"):
-            await parent_wf.run(state)
+            await parent_workflow.run(state)
 
 
 # =============================================================================
@@ -494,12 +490,12 @@ class TestObserverForwardingInsideLoop:
 
 
 # =============================================================================
-# 5. Regression guard — simple LoopBlock cases still work
+# 5. Passthrough LoopBlock cases still work
 # =============================================================================
 
 
-class TestLoopBlockSimpleRegression:
-    """Simple LoopBlock cases that should pass with or without the fix."""
+class TestLoopBlockPassthroughExecution:
+    """Simple LoopBlock cases that should pass regardless of call-stack forwarding."""
 
     @pytest.mark.asyncio
     async def test_simple_loop_still_works(self):
@@ -532,14 +528,14 @@ class TestLoopBlockSimpleRegression:
             max_rounds=2,
         )
 
-        wf = Workflow(name="simple_loop_wf")
-        wf.add_block(inner)
-        wf.add_block(loop)
-        wf.add_transition("loop_block", None)
-        wf.set_entry("loop_block")
+        workflow = Workflow(name="simple_loop_workflow")
+        workflow.add_block(inner)
+        workflow.add_block(loop)
+        workflow.add_transition("loop_block", None)
+        workflow.set_entry("loop_block")
 
         state = WorkflowState()
-        result_state = await wf.run(state)
+        result_state = await workflow.run(state)
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 2
@@ -549,17 +545,21 @@ class TestLoopBlockSimpleRegression:
         """LoopBlock with multiple inner refs still runs all per round."""
         from runsight_core import LoopBlock
 
-        block_a = SimplePassthroughBlock("block_a")
-        block_b = SimplePassthroughBlock("block_b")
+        primary_passthrough_block = SimplePassthroughBlock("primary_passthrough_block")
+        secondary_passthrough_block = SimplePassthroughBlock("secondary_passthrough_block")
         loop = LoopBlock(
             block_id="loop_block",
-            inner_block_refs=["block_a", "block_b"],
+            inner_block_refs=["primary_passthrough_block", "secondary_passthrough_block"],
             max_rounds=2,
         )
-        blocks = {"block_a": block_a, "block_b": block_b, "loop_block": loop}
+        blocks = {
+            "primary_passthrough_block": primary_passthrough_block,
+            "secondary_passthrough_block": secondary_passthrough_block,
+            "loop_block": loop,
+        }
 
         state = WorkflowState()
         result_state = await _exec(loop, state, blocks=blocks)
 
-        assert len(result_state.shared_memory.get("block_a_calls", [])) == 2
-        assert len(result_state.shared_memory.get("block_b_calls", [])) == 2
+        assert len(result_state.shared_memory.get("primary_passthrough_block_calls", [])) == 2
+        assert len(result_state.shared_memory.get("secondary_passthrough_block_calls", [])) == 2

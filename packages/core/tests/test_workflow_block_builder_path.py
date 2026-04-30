@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-774: route workflow blocks through the registered builder.
+Tests for route workflow blocks through the registered builder.
 
 These tests pin the remaining actionable debt in the workflow-block parser path:
 - parse_workflow_yaml should use the registered "workflow" builder, not a parser-only special case

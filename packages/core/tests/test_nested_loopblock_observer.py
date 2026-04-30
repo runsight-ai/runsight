@@ -1,5 +1,5 @@
 """
-RUN-683: E2E tests for nested LoopBlock with observer parity.
+E2E tests for nested LoopBlock with observer parity.
 
 Scenarios:
 1. Observer event counts for nested loops — verifies the observer sees the correct
@@ -150,7 +150,7 @@ class TestNestedLoopObserverEventCounts:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="nested_loop_wf")
+        wf = Workflow(name="nested_loop_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -179,7 +179,7 @@ class TestNestedLoopObserverEventCounts:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="nested_loop_wf")
+        wf = Workflow(name="nested_loop_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -202,7 +202,7 @@ class TestNestedLoopObserverEventCounts:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="nested_loop_wf")
+        wf = Workflow(name="nested_loop_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -232,7 +232,7 @@ class TestNestedLoopObserverEventCounts:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="nested_loop_wf")
+        wf = Workflow(name="nested_loop_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -279,7 +279,7 @@ class TestInnerLoopBreakOnExit:
         )
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=3)
 
-        wf = Workflow(name="break_exit_wf")
+        wf = Workflow(name="break_exit_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -317,7 +317,7 @@ class TestInnerLoopBreakOnExit:
         )
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=3)
 
-        wf = Workflow(name="break_exit_wf")
+        wf = Workflow(name="break_exit_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -351,7 +351,7 @@ class TestInnerLoopBreakOnExit:
         )
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="no_break_wf")
+        wf = Workflow(name="no_break_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -394,7 +394,7 @@ class TestRetryInNestedLoop:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="retry_nested_wf")
+        wf = Workflow(name="retry_nested_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -447,7 +447,7 @@ class TestRetryInNestedLoop:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=2)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=2)
 
-        wf = Workflow(name="retry_exhausted_wf")
+        wf = Workflow(name="retry_exhausted_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)
@@ -481,7 +481,7 @@ class TestRetryInNestedLoop:
         inner_loop = LoopBlock("inner_loop", inner_block_refs=["worker"], max_rounds=1)
         outer_loop = LoopBlock("outer", inner_block_refs=["inner_loop"], max_rounds=1)
 
-        wf = Workflow(name="retry_meta_wf")
+        wf = Workflow(name="retry_metadata_workflow")
         wf.add_block(worker)
         wf.add_block(inner_loop)
         wf.add_block(outer_loop)

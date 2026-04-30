@@ -1,7 +1,7 @@
 """
 Integration tests for Workflow with output_conditions on blocks.
 
-Red-phase TDD: These tests verify that Workflow._resolve_next() evaluates
+These tests verify that Workflow._resolve_next() evaluates
 output_conditions BEFORE existing conditional_transitions lookup, and that
 any block type can use output_conditions for routing.
 
@@ -117,7 +117,7 @@ class TestSetOutputConditions:
 
     def test_set_output_conditions_stores_correctly(self):
         """Workflow.set_output_conditions stores cases and default for a block_id."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
         block = MockBlock("step_a", result="ok")
         wf.add_block(block)
 
@@ -135,7 +135,7 @@ class TestSetOutputConditions:
 
     def test_set_output_conditions_default_default(self):
         """Default parameter defaults to 'default' string."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
         block = MockBlock("step_a")
         wf.add_block(block)
 
@@ -156,7 +156,7 @@ class TestResolveNextWithOutputConditions:
 
     def test_resolve_next_evaluates_output_conditions(self):
         """_resolve_next returns the correct next block based on output_conditions match."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"status": "ok"})
         step_good = MockBlock("step_good")
@@ -196,7 +196,7 @@ class TestResolveNextWithOutputConditions:
 
     def test_output_conditions_before_conditional_transitions(self):
         """output_conditions are evaluated FIRST, setting metadata that conditional_transitions reads."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"quality": "high"})
         step_high = MockBlock("step_high")
@@ -231,7 +231,7 @@ class TestResolveNextWithOutputConditions:
 
     def test_output_conditions_default_fallback(self):
         """When no case matches, the default decision is used."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"status": "unknown"})
         step_ok = MockBlock("step_ok")
@@ -265,7 +265,7 @@ class TestResolveNextWithOutputConditions:
 
     def test_output_conditions_decision_written_to_exit_handle(self):
         """_resolve_next writes the decision to state.results[block_id].exit_handle."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"val": "match"})
         step_next = MockBlock("step_next")
@@ -305,7 +305,7 @@ class TestBlockWithoutOutputConditions:
 
     def test_block_without_output_conditions_routes_normally(self):
         """Plain transitions still work when no output_conditions are set."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockBlock("step_a")
         step_b = MockBlock("step_b")
@@ -399,7 +399,7 @@ class TestOutputConditionsCombinatorsInWorkflow:
 
     def test_output_conditions_with_and_combinator(self):
         """AND combinator: all conditions must pass for the case to match."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"status": "ok", "priority": "high"})
         step_match = MockBlock("step_match")
@@ -439,7 +439,7 @@ class TestOutputConditionsCombinatorsInWorkflow:
 
     def test_output_conditions_with_or_combinator(self):
         """OR combinator: at least one condition must pass."""
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-block-execute-workflow")
 
         step_a = MockJsonBlock("step_a", {"status": "error", "fallback": "yes"})
         step_match = MockBlock("step_match")
@@ -487,7 +487,7 @@ class TestFullWorkflowRunWithOutputConditions:
     @pytest.mark.asyncio
     async def test_full_workflow_run_with_output_conditions(self):
         """Build workflow with output_conditions, run it, verify correct routing."""
-        wf = Workflow(name="e2e_wf")
+        wf = Workflow(name="workflow-output-conditions-e2e")
 
         # step_a produces JSON with status field
         step_a = MockJsonBlock("step_a", {"status": "approved"})
@@ -535,7 +535,7 @@ class TestFullWorkflowRunWithOutputConditions:
     @pytest.mark.asyncio
     async def test_full_workflow_run_default_route(self):
         """Full run: no case matches, routes via default."""
-        wf = Workflow(name="default_wf")
+        wf = Workflow(name="workflow-output-default-route")
 
         step_a = MockJsonBlock("step_a", {"status": "unknown"})
         step_ok = MockBlock("step_ok", result="ok_output")
@@ -579,7 +579,7 @@ class TestOutputConditionsOnCodeBlock:
     @pytest.mark.asyncio
     async def test_output_conditions_on_code_block(self):
         """CodeBlock output evaluated by output_conditions, routes correctly."""
-        wf = Workflow(name="code_wf")
+        wf = Workflow(name="workflow-output-code-route")
 
         # Simulate CodeBlock producing structured output
         code_block = MockCodeBlock("code_step", {"exit_code": 0, "output": "success"})
@@ -624,7 +624,7 @@ class TestOutputConditionsOnCodeBlock:
     @pytest.mark.asyncio
     async def test_output_conditions_on_code_block_failure_route(self):
         """CodeBlock with non-zero exit code routes to failure path."""
-        wf = Workflow(name="code_fail_wf")
+        wf = Workflow(name="workflow-output-code-failure-route")
 
         code_block = MockCodeBlock("code_step", {"exit_code": 1, "error": "syntax error"})
         step_success = MockBlock("step_success", result="success_path")
@@ -682,7 +682,7 @@ class TestOutputConditionsOverwriteStaleMetadata:
         it must compute the fresh decision and persist it on
         ``state.results[block_id].exit_handle``, ignoring stale metadata.
         """
-        wf = Workflow(name="stale_wf")
+        wf = Workflow(name="workflow-output-stale-decision")
 
         step_a = MockJsonBlock("step_a", {"status": "ok"})
         step_good = MockBlock("step_good")
@@ -791,7 +791,7 @@ class TestAllOperatorsViaOutputConditions:
         expected_case,
     ):
         """Operator '{operator}' routes correctly through output_conditions."""
-        wf = Workflow(name="op_test")
+        wf = Workflow(name="workflow-output-operator-conditions")
 
         step_a = MockBlock("step_a")
         step_match = MockBlock("step_match")

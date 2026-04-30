@@ -1,4 +1,4 @@
-"""RUN-868/922 regressions for WorkflowBlock governed input mapping."""
+"""WorkflowBlock governed input mapping behavior."""
 
 from __future__ import annotations
 

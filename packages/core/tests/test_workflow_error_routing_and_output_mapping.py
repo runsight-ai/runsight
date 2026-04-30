@@ -96,7 +96,7 @@ def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
     lines = content.lstrip().splitlines()
     first_key = lines[0].split(":")[0].strip() if lines else ""
     if first_key != "id":
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: workflow-error-routing-workflow\nkind: workflow\n" + content
     workflow_file = base_dir / name
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
@@ -449,7 +449,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
                       topic = data.get("topic", "unknown")
                       return {"analyzed": topic, "score": 42}
             workflow:
-              name: child_code_wf
+              name: child_code_workflow
               entry: analyzer
             """,
         )
