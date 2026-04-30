@@ -1,0 +1,25 @@
+apps/api/tests/transport/test_router_conventions.py
+  4adca821c1af8eb3 283-285
+apps/api/tests/transport/test_settings_router.py
+  4adca821c1af8eb3 46-50,67-69,79,97-99,105-110,114,131-133,141,143,149,151,168-169,178,205-206,213,238,244,266,268,281-285,296-300,313-317,323,325-326,330-331,333-335,344-346,354,417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5f8c199163e73ce267e4fa0b9fa1e02ca99548ef",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 71,
+      "total_deletions": 58,
+      "accepted_lines": 89720,
+      "overriden_lines": 0
+    }
+  }
+}
