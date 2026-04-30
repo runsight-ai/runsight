@@ -57,12 +57,12 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_eval_observer"
+    run_id = "eval-observer-run"
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_1",
-            workflow_name="test_workflow",
+            workflow_id="eval-observer-workflow",
+            workflow_name="Eval Observer Workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -144,7 +144,7 @@ def multi_assertion_configs():
 
 @pytest.fixture
 def failing_assertion_configs():
-    """Assertion configs where the assertion will fail."""
+    """Assertion configs where the assertion does not match the output."""
     return {
         "block_a": [
             {"type": "contains", "value": "NONEXISTENT_STRING_THAT_WONT_MATCH", "weight": 1.0},
@@ -215,7 +215,9 @@ class TestEvalObserverNoOp:
         obs = EvalObserver(
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=None)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -230,7 +232,9 @@ class TestEvalObserverNoOp:
         obs = EvalObserver(
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=None)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+        )
 
         assert sse_queue.empty()
 
@@ -244,7 +248,9 @@ class TestEvalObserverNoOp:
             sse_queue=sse_queue,
             assertion_configs={"other_block": [{"type": "contains", "value": "x"}]},
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=None)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -260,7 +266,9 @@ class TestEvalObserverNoOp:
             sse_queue=sse_queue,
             assertion_configs={"other_block": [{"type": "contains", "value": "x"}]},
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=None)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+        )
 
         assert sse_queue.empty()
 
@@ -276,7 +284,9 @@ class TestEvalObserverNoOp:
             sse_queue=sse_queue,
             assertion_configs={"block_a": []},
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=None)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -304,7 +314,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -324,7 +336,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=multi_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -345,7 +359,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=failing_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -364,7 +380,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -384,7 +402,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -413,7 +433,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=failing_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -438,7 +460,9 @@ class TestEvalObserverAssertionExecution:
             sse_queue=sse_queue,
             assertion_configs=cost_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -461,7 +485,9 @@ class TestEvalObserverAssertionExecution:
         obs = EvalObserver(
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=configs
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+        )
 
         with Session(engine) as session:
             node = session.get(RunNode, f"{run_id}:block_a")
@@ -487,7 +513,9 @@ class TestEvalObserverSSE:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         assert not sse_queue.empty()
         event = sse_queue.get_nowait()
@@ -506,7 +534,9 @@ class TestEvalObserverSSE:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         data = event["data"]
@@ -529,8 +559,8 @@ class TestEvalObserverSSE:
         with Session(engine) as session:
             for i in range(3):
                 baseline_node = RunNode(
-                    id=f"prev_run_{i}:block_a",
-                    run_id=f"prev_run_{i}",
+                    id=f"previous-baseline-run-{i}:block_a",
+                    run_id=f"previous-baseline-run-{i}",
                     node_id="block_a",
                     block_type="LinearBlock",
                     status="completed",
@@ -550,7 +580,9 @@ class TestEvalObserverSSE:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         data = event["data"]
@@ -574,7 +606,9 @@ class TestEvalObserverSSE:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         data = event["data"]
@@ -596,8 +630,8 @@ class TestEvalObserverDelta:
         with Session(engine) as session:
             for i in range(count):
                 node = RunNode(
-                    id=f"baseline_{i}:block_a",
-                    run_id=f"baseline_{i}",
+                    id=f"soul-baseline-run-{i}:block_a",
+                    run_id=f"soul-baseline-run-{i}",
                     node_id="block_a",
                     block_type="LinearBlock",
                     status="completed",
@@ -625,7 +659,9 @@ class TestEvalObserverDelta:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         delta = event["data"]["delta"]
@@ -647,7 +683,9 @@ class TestEvalObserverDelta:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         assert event["data"]["delta"] is None
@@ -674,7 +712,9 @@ class TestEvalObserverDelta:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         delta = event["data"]["delta"]
@@ -708,7 +748,9 @@ class TestEvalObserverDelta:
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+        )
 
         event = sse_queue.get_nowait()
         delta = event["data"]["delta"]
@@ -742,7 +784,9 @@ class TestEvalObserverDefensive:
             assertion_configs=broken_configs,
         )
         # Should NOT raise
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
     def test_on_block_complete_never_raises_with_db_error(
         self, sse_queue, sample_state, sample_soul, contains_assertion_configs
@@ -755,12 +799,14 @@ class TestEvalObserverDefensive:
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
             engine=broken_engine,
-            run_id="run_broken",
+            run_id="broken-engine-run",
             sse_queue=sse_queue,
             assertion_configs=contains_assertion_configs,
         )
         # Should NOT raise
-        obs.on_block_complete("wf", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul)
+        obs.on_block_complete(
+            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+        )
 
     def test_on_workflow_complete_never_raises(self, sse_queue, sample_state):
         """on_workflow_complete does not raise even with a broken engine."""
@@ -770,12 +816,12 @@ class TestEvalObserverDefensive:
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
             engine=broken_engine,
-            run_id="run_broken",
+            run_id="broken-engine-run",
             sse_queue=sse_queue,
             assertion_configs=None,
         )
         # Should NOT raise
-        obs.on_workflow_complete("wf", sample_state, 5.0)
+        obs.on_workflow_complete("eval-observer-workflow", sample_state, 5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -789,12 +835,12 @@ class TestEvalObserverWorkflowComplete:
         self, db_engine, sse_queue, sample_soul
     ):
         """on_workflow_complete computes avg eval_score across all evaluated nodes."""
-        run_id = "run_eval_workflow_complete"
+        run_id = "workflow-aggregate-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="eval-observer-workflow",
+                workflow_name="Eval Aggregate Workflow",
                 status=RunStatus.running,
                 task_json="{}",
                 branch="main",
@@ -823,7 +869,7 @@ class TestEvalObserverWorkflowComplete:
         )
 
         state = WorkflowState(total_cost_usd=0.10, total_tokens=3000)
-        obs.on_workflow_complete("wf", state, 5.0)
+        obs.on_workflow_complete("eval-observer-workflow", state, 5.0)
 
         # The observer should have computed an aggregate score
         # Expected: (0.8 + 1.0) / 2 = 0.9
@@ -843,12 +889,12 @@ class TestEvalObserverWorkflowComplete:
     @pytest.mark.asyncio
     async def test_workflow_complete_no_eval_nodes_is_noop(self, db_engine, sse_queue):
         """on_workflow_complete with no eval nodes is a no-op (no error)."""
-        run_id = "run_without_eval_config"
+        run_id = "workflow-without-eval-nodes-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="eval-observer-workflow",
+                workflow_name="Eval Aggregate Workflow",
                 status=RunStatus.running,
                 task_json="{}",
                 branch="main",
@@ -875,17 +921,17 @@ class TestEvalObserverWorkflowComplete:
 
         state = WorkflowState(total_cost_usd=0.05, total_tokens=1000)
         # Should NOT raise
-        obs.on_workflow_complete("wf", state, 3.0)
+        obs.on_workflow_complete("eval-observer-workflow", state, 3.0)
 
     @pytest.mark.asyncio
     async def test_workflow_complete_single_eval_node(self, db_engine, sse_queue):
         """on_workflow_complete with a single evaluated node uses that score as aggregate."""
-        run_id = "run_single_eval"
+        run_id = "single-eval-node-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="test",
+                workflow_id="eval-observer-workflow",
+                workflow_name="Eval Aggregate Workflow",
                 status=RunStatus.running,
                 task_json="{}",
                 branch="main",
@@ -912,7 +958,7 @@ class TestEvalObserverWorkflowComplete:
         )
 
         state = WorkflowState(total_cost_usd=0.05, total_tokens=1000)
-        obs.on_workflow_complete("wf", state, 3.0)
+        obs.on_workflow_complete("eval-observer-workflow", state, 3.0)
 
         # Should not raise; aggregate should equal the single node's score
 
@@ -931,7 +977,7 @@ class TestEvalObserverProtocol:
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
         # Should not raise
-        obs.on_block_start("wf", "block_a", "LinearBlock", soul=sample_soul)
+        obs.on_block_start("eval-observer-workflow", "block_a", "LinearBlock", soul=sample_soul)
 
     def test_on_workflow_start_is_noop(self, seed_run, sse_queue):
         """EvalObserver.on_workflow_start does not raise (no-op for eval)."""
@@ -942,7 +988,7 @@ class TestEvalObserverProtocol:
         )
         state = WorkflowState()
         # Should not raise
-        obs.on_workflow_start("wf", state)
+        obs.on_workflow_start("eval-observer-workflow", state)
 
 
 class TestEvalObserverChildStreamIsolation:
@@ -956,9 +1002,9 @@ class TestEvalObserverChildStreamIsolation:
             assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
         )
 
-        child = parent.clone_for_child_run(child_run_id="run_eval_child")
+        child = parent.clone_for_child_run(child_run_id="child-eval-run")
 
-        assert child.run_id == "run_eval_child"
+        assert child.run_id == "child-eval-run"
         assert child.sse_queue is not parent.sse_queue, (
             "Child eval observers must own a dedicated SSE queue so child eval traffic "
             "cannot bleed into the parent's live stream."
@@ -973,15 +1019,15 @@ class TestEvalObserverChildStreamIsolation:
         sample_soul,
         contains_assertion_configs,
     ):
-        parent_run_id = "run_eval_parent"
-        child_run_id = "run_eval_child"
+        parent_run_id = "parent-eval-run"
+        child_run_id = "child-eval-run"
 
         with Session(db_engine) as session:
             session.add(
                 Run(
                     id=parent_run_id,
-                    workflow_id="wf_parent",
-                    workflow_name="parent",
+                    workflow_id="parent-eval-workflow",
+                    workflow_name="Parent Eval Workflow",
                     status=RunStatus.running,
                     task_json="{}",
                     branch="main",
@@ -990,8 +1036,8 @@ class TestEvalObserverChildStreamIsolation:
             session.add(
                 Run(
                     id=child_run_id,
-                    workflow_id="wf_child",
-                    workflow_name="child",
+                    workflow_id="child-eval-workflow",
+                    workflow_name="Child Eval Workflow",
                     status=RunStatus.running,
                     task_json="{}",
                     branch="main",
@@ -1021,7 +1067,7 @@ class TestEvalObserverChildStreamIsolation:
         child = parent.clone_for_child_run(child_run_id=child_run_id)
 
         child.on_block_complete(
-            "wf_child", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "child-eval-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
         )
 
         assert sse_queue.empty(), (
@@ -1041,15 +1087,15 @@ class TestEvalObserverChildStreamIsolation:
         sample_soul,
         contains_assertion_configs,
     ):
-        parent_run_id = "run_eval_parent_siblings"
-        child_a_run_id = "run_eval_child_a"
-        child_b_run_id = "run_eval_child_b"
+        parent_run_id = "parent-sibling-eval-run"
+        child_a_run_id = "child-a-eval-run"
+        child_b_run_id = "child-b-eval-run"
 
         with Session(db_engine) as session:
             for run_id, workflow_id in [
-                (parent_run_id, "wf_parent"),
-                (child_a_run_id, "wf_child_a"),
-                (child_b_run_id, "wf_child_b"),
+                (parent_run_id, "parent-eval-workflow"),
+                (child_a_run_id, "child-a-eval-workflow"),
+                (child_b_run_id, "child-b-eval-workflow"),
             ]:
                 session.add(
                     Run(
@@ -1087,7 +1133,7 @@ class TestEvalObserverChildStreamIsolation:
         child_b = parent.clone_for_child_run(child_run_id=child_b_run_id)
 
         child_a.on_block_complete(
-            "wf_child_a", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "child-a-eval-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
         )
 
         assert sse_queue.empty(), (
@@ -1108,7 +1154,7 @@ class TestEvalObserverChildAssertionOwnership:
         db_engine,
         sse_queue,
     ):
-        parent_run_id = "run_eval_parent_config"
+        parent_run_id = "nested-parent-eval-run"
         block_id = "asserted_block"
 
         class AssertionEchoBlock(BaseBlock):
@@ -1128,8 +1174,8 @@ class TestEvalObserverChildAssertionOwnership:
             session.add(
                 Run(
                     id=parent_run_id,
-                    workflow_id="wf_parent",
-                    workflow_name="wf_parent",
+                    workflow_id="parent-eval-workflow",
+                    workflow_name="parent-eval-workflow",
                     status=RunStatus.running,
                     task_json="{}",
                     branch="main",
@@ -1137,7 +1183,7 @@ class TestEvalObserverChildAssertionOwnership:
             )
             session.commit()
 
-        child_wf = Workflow(name="wf_child")
+        child_wf = Workflow(name="child-eval-workflow")
         child_wf.add_block(
             AssertionEchoBlock(
                 block_id,
@@ -1148,7 +1194,7 @@ class TestEvalObserverChildAssertionOwnership:
         child_wf.set_entry(block_id)
         child_wf.add_transition(block_id, None)
 
-        parent_wf = Workflow(name="wf_parent")
+        parent_wf = Workflow(name="parent-eval-workflow")
         parent_wf.add_block(
             AssertionEchoBlock(
                 block_id,
@@ -1162,7 +1208,7 @@ class TestEvalObserverChildAssertionOwnership:
                 child_workflow=child_wf,
                 inputs={},
                 outputs={},
-                workflow_ref="wf_child",
+                workflow_ref="child-eval-workflow",
             )
         )
         parent_wf.set_entry(block_id)
