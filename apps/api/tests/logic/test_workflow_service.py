@@ -189,49 +189,53 @@ def test_list_workflows_empty(workflow_service, workflow_repo):
 
 def test_list_workflows_multiple(workflow_service, workflow_repo):
     """list_workflows returns all workflows from repo."""
-    w1 = WorkflowEntity(kind="workflow", id="wf_1", name="First")
-    w2 = WorkflowEntity(kind="workflow", id="wf_2", name="Second")
-    workflow_repo.list_all.return_value = [w1, w2]
+    design_workflow = WorkflowEntity(kind="workflow", id="design-workflow", name="Design Flow")
+    review_workflow = WorkflowEntity(kind="workflow", id="review-workflow", name="Review Flow")
+    workflow_repo.list_all.return_value = [design_workflow, review_workflow]
 
     result = workflow_service.list_workflows()
 
     assert len(result) == 2
-    assert result[0].id == "wf_1"
-    assert result[1].id == "wf_2"
+    assert result[0].id == "design-workflow"
+    assert result[1].id == "review-workflow"
 
 
 def test_list_workflows_with_query_filter(workflow_service, workflow_repo):
     """list_workflows filters by query (case-insensitive) in id or name."""
-    w1 = WorkflowEntity(kind="workflow", id="alpha_beta", name="Alpha")
-    w2 = WorkflowEntity(kind="workflow", id="beta_gamma", name="Gamma")
-    w3 = WorkflowEntity(kind="workflow", id="other", name="Other")
-    workflow_repo.list_all.return_value = [w1, w2, w3]
+    customer_research = WorkflowEntity(
+        kind="workflow", id="customer-research", name="Customer Research"
+    )
+    market_research = WorkflowEntity(kind="workflow", id="market-research", name="Market Study")
+    incident_review = WorkflowEntity(kind="workflow", id="incident-review", name="Incident Review")
+    workflow_repo.list_all.return_value = [customer_research, market_research, incident_review]
 
-    result = workflow_service.list_workflows(query="beta")
+    result = workflow_service.list_workflows(query="research")
 
     assert len(result) == 2
-    ids = [w.id for w in result]
-    assert "alpha_beta" in ids
-    assert "beta_gamma" in ids
-    assert "other" not in ids
+    ids = [workflow.id for workflow in result]
+    assert "customer-research" in ids
+    assert "market-research" in ids
+    assert "incident-review" not in ids
 
 
 def test_list_workflows_query_matches_name(workflow_service, workflow_repo):
     """list_workflows matches query against name when present."""
-    w1 = WorkflowEntity(kind="workflow", id="wf_1", name="MyWorkflow")
-    w2 = WorkflowEntity(kind="workflow", id="wf_2", name="OtherWorkflow")
-    workflow_repo.list_all.return_value = [w1, w2]
+    research_workflow = WorkflowEntity(
+        kind="workflow", id="market-analysis", name="Customer Research"
+    )
+    review_workflow = WorkflowEntity(kind="workflow", id="support-triage", name="Support Triage")
+    workflow_repo.list_all.return_value = [research_workflow, review_workflow]
 
-    result = workflow_service.list_workflows(query="myworkflow")
+    result = workflow_service.list_workflows(query="customer research")
 
     assert len(result) == 1
-    assert result[0].id == "wf_1"
+    assert result[0].id == "market-analysis"
 
 
 def test_list_workflows_query_empty_string_returns_all(workflow_service, workflow_repo):
     """list_workflows with query='' or None returns all (falsy query = no filter)."""
-    w1 = WorkflowEntity(kind="workflow", id="wf_1", name="One")
-    workflow_repo.list_all.return_value = [w1]
+    single_workflow = WorkflowEntity(kind="workflow", id="single-workflow", name="Single Flow")
+    workflow_repo.list_all.return_value = [single_workflow]
 
     result_empty = workflow_service.list_workflows(query="")
     result_none = workflow_service.list_workflows(query=None)
@@ -246,16 +250,16 @@ def test_list_workflows_returns_none_commit_sha_without_git_service(
     """Workflow list metadata should keep commit_sha nullable when no git service is wired."""
     workflow_service = WorkflowService(workflow_repo, run_repo, run_read_model=run_read_model)
     workflow_repo.list_all.return_value = [
-        WorkflowEntity(kind="workflow", id="wf_no_git", name="No Git Flow")
+        WorkflowEntity(kind="workflow", id="workflow-without-git", name="No Git Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
-    assert result[0].id == "wf_no_git"
+    assert result[0].id == "workflow-without-git"
     assert result[0].commit_sha is None
-    run_read_model.get_workflow_health_metrics.assert_called_once_with(["wf_no_git"])
+    run_read_model.get_workflow_health_metrics.assert_called_once_with(["workflow-without-git"])
 
 
 def test_list_workflows_returns_none_commit_sha_when_current_branch_lookup_fails(
@@ -266,8 +270,8 @@ def test_list_workflows_returns_none_commit_sha_when_current_branch_lookup_fails
     """Workflow list metadata should not fall back to main when branch lookup fails."""
     git_service = Mock()
     git_service.current_branch.side_effect = RuntimeError("branch lookup failed")
-    git_service.get_sha.side_effect = (
-        lambda branch, _path: "main-sha-123" if branch == "main" else None
+    git_service.get_sha.side_effect = lambda branch, _path: (
+        "main-sha-123" if branch == "main" else None
     )
     workflow_service = WorkflowService(
         workflow_repo,
@@ -276,16 +280,16 @@ def test_list_workflows_returns_none_commit_sha_when_current_branch_lookup_fails
         run_read_model=run_read_model,
     )
     workflow_repo.list_all.return_value = [
-        WorkflowEntity(kind="workflow", id="wf_branch_fail", name="Branch Failure Flow")
+        WorkflowEntity(kind="workflow", id="branch-lookup-workflow", name="Branch Failure Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
-    assert result[0].id == "wf_branch_fail"
+    assert result[0].id == "branch-lookup-workflow"
     assert result[0].commit_sha is None
-    run_read_model.get_workflow_health_metrics.assert_called_once_with(["wf_branch_fail"])
+    run_read_model.get_workflow_health_metrics.assert_called_once_with(["branch-lookup-workflow"])
 
 
 def test_list_workflows_returns_none_commit_sha_when_current_branch_has_no_commit(
@@ -304,17 +308,17 @@ def test_list_workflows_returns_none_commit_sha_when_current_branch_has_no_commi
         run_read_model=run_read_model,
     )
     workflow_repo.list_all.return_value = [
-        WorkflowEntity(kind="workflow", id="wf_feature_only", name="Feature Branch Flow")
+        WorkflowEntity(kind="workflow", id="feature-only-workflow", name="Feature Branch Flow")
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
     result = workflow_service.list_workflows()
 
     assert len(result) == 1
-    assert result[0].id == "wf_feature_only"
+    assert result[0].id == "feature-only-workflow"
     assert result[0].commit_sha is None
     git_service.get_sha.assert_called_once_with(
-        "feature-x", "custom/workflows/wf_feature_only.yaml"
+        "feature-x", "custom/workflows/feature-only-workflow.yaml"
     )
 
 
@@ -344,7 +348,11 @@ def test_list_workflows_returns_none_commit_sha_for_invalid_current_branch_value
         run_read_model=run_read_model,
     )
     workflow_repo.list_all.return_value = [
-        WorkflowEntity(kind="workflow", id=f"wf_invalid_{case_id}", name="Invalid Branch Flow")
+        WorkflowEntity(
+            kind="workflow",
+            id=f"invalid-branch-{case_id}-workflow",
+            name="Invalid Branch Flow",
+        )
     ]
     workflow_repo.get_block_count.return_value = 0
     workflow_repo.get_file_mtime.return_value = None
@@ -359,21 +367,23 @@ def test_list_workflows_returns_none_commit_sha_for_invalid_current_branch_value
 
 def test_get_workflow_exists(workflow_service, workflow_repo):
     """get_workflow returns workflow when it exists."""
-    w = WorkflowEntity(kind="workflow", id="wf_1", name="Test")
-    workflow_repo.get_by_id.return_value = w
+    existing_workflow = WorkflowEntity(
+        kind="workflow", id="existing-workflow", name="Existing Workflow"
+    )
+    workflow_repo.get_by_id.return_value = existing_workflow
 
-    result = workflow_service.get_workflow("wf_1")
+    result = workflow_service.get_workflow("existing-workflow")
 
-    assert result is w
-    assert result.id == "wf_1"
-    workflow_repo.get_by_id.assert_called_once_with("wf_1")
+    assert result is existing_workflow
+    assert result.id == "existing-workflow"
+    workflow_repo.get_by_id.assert_called_once_with("existing-workflow")
 
 
 def test_get_workflow_not_found(workflow_service, workflow_repo):
     """get_workflow returns None when workflow does not exist."""
     workflow_repo.get_by_id.return_value = None
 
-    result = workflow_service.get_workflow("non_existent")
+    result = workflow_service.get_workflow("missing-workflow")
 
     assert result is None
 
@@ -389,17 +399,17 @@ def test_get_workflow_detail_uses_main_branch_commit_sha(workflow_repo, run_repo
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
     workflow_repo.get_by_id.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
-        name="Test Flow",
-        filename="wf_1.yaml",
+        id="published-workflow",
+        name="Published Flow",
+        filename="published-workflow.yaml",
     )
 
-    result = workflow_service.get_workflow_detail("wf_1")
+    result = workflow_service.get_workflow_detail("published-workflow")
 
-    assert result.id == "wf_1"
+    assert result.id == "published-workflow"
     assert result.commit_sha == "main-sha-123"
-    git_service.get_sha.assert_called_once_with("main", "custom/workflows/wf_1.yaml")
-    workflow_repo.get_by_id.assert_called_once_with("wf_1")
+    git_service.get_sha.assert_called_once_with("main", "custom/workflows/published-workflow.yaml")
+    workflow_repo.get_by_id.assert_called_once_with("published-workflow")
 
 
 def test_get_workflow_detail_returns_none_commit_sha_when_not_committed_on_main(
@@ -413,43 +423,45 @@ def test_get_workflow_detail_returns_none_commit_sha_when_not_committed_on_main(
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
     workflow_repo.get_by_id.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_2",
+        id="unpublished-draft-workflow",
         name="Draft Flow",
-        filename="wf_2.yaml",
+        filename="unpublished-draft-workflow.yaml",
     )
 
-    result = workflow_service.get_workflow_detail("wf_2")
+    result = workflow_service.get_workflow_detail("unpublished-draft-workflow")
 
-    assert result.id == "wf_2"
+    assert result.id == "unpublished-draft-workflow"
     assert result.commit_sha is None
-    git_service.get_sha.assert_called_once_with("main", "custom/workflows/wf_2.yaml")
+    git_service.get_sha.assert_called_once_with(
+        "main", "custom/workflows/unpublished-draft-workflow.yaml"
+    )
 
 
 # --- create_workflow ---
 
 
-def test_create_workflow_happy_path(workflow_service, workflow_repo):
+def test_create_workflow_returns_created_entity(workflow_service, workflow_repo):
     """create_workflow creates and returns workflow when data has id."""
-    data = {"id": "wf_new", "name": "New Workflow"}
+    data = {"id": "created-workflow", "name": "Created Workflow"}
     created = WorkflowEntity(kind="workflow", **data)
     workflow_repo.create.return_value = created
 
     result = workflow_service.create_workflow(data)
 
-    assert result.id == "wf_new"
-    assert result.name == "New Workflow"
+    assert result.id == "created-workflow"
+    assert result.name == "Created Workflow"
     workflow_repo.create.assert_called_once_with(data)
 
 
 def test_create_workflow_without_id(workflow_service, workflow_repo):
     """create_workflow works without id — repo generates it from filename."""
     data = {"name": "No ID Needed"}
-    created = WorkflowEntity(kind="workflow", id="no-id-needed-abc12", name="No ID Needed")
+    created = WorkflowEntity(kind="workflow", id="generated-workflow-abc12", name="No ID Needed")
     workflow_repo.create.return_value = created
 
     result = workflow_service.create_workflow(data)
 
-    assert result.id == "no-id-needed-abc12"
+    assert result.id == "generated-workflow-abc12"
     workflow_repo.create.assert_called_once_with(data)
 
 
@@ -461,17 +473,17 @@ def test_create_workflow_commit_true_uses_repo_relative_yaml_path(workflow_repo,
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
     workflow_repo.create.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_new",
-        name="New Workflow",
+        id="created-workflow",
+        name="Created Workflow",
     )
 
-    result = workflow_service.create_workflow({"name": "New Workflow"})
+    result = workflow_service.create_workflow({"name": "Created Workflow"})
 
-    assert result.id == "wf_new"
+    assert result.id == "created-workflow"
     git_service.commit_to_branch.assert_called_once_with(
         "main",
-        ["custom/workflows/wf_new.yaml"],
-        "Create workflow: New Workflow",
+        ["custom/workflows/created-workflow.yaml"],
+        "Create workflow: Created Workflow",
     )
 
 
@@ -481,13 +493,13 @@ def test_create_workflow_commit_false_skips_auto_commit(workflow_repo, run_repo)
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
     workflow_repo.create.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_no_commit",
+        id="draft-only-workflow",
         name="No Commit Workflow",
     )
 
     result = workflow_service.create_workflow({"name": "No Commit Workflow"}, commit=False)
 
-    assert result.id == "wf_no_commit"
+    assert result.id == "draft-only-workflow"
     workflow_repo.create.assert_called_once_with({"name": "No Commit Workflow"})
     git_service.commit_to_branch.assert_not_called()
 
@@ -505,7 +517,7 @@ def test_create_workflow_does_not_fail_when_auto_commit_errors(workflow_repo):
     git_service = Mock()
     git_service.is_clean.return_value = False
     git_service.commit_to_branch.side_effect = RuntimeError("checkout main failed")
-    created = WorkflowEntity(kind="workflow", id="wf_new", name="New Workflow")
+    created = WorkflowEntity(kind="workflow", id="created-workflow", name="New Workflow")
     workflow_repo.create.return_value = created
     workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
@@ -519,27 +531,27 @@ def test_create_workflow_does_not_fail_when_auto_commit_errors(workflow_repo):
 # --- update_workflow ---
 
 
-def test_update_workflow_happy_path(workflow_service, workflow_repo):
+def test_update_workflow_returns_updated_entity(workflow_service, workflow_repo):
     """update_workflow updates and returns workflow when it exists."""
     data = {"name": "Updated Name"}
-    updated = WorkflowEntity(kind="workflow", id="wf_1", name="Updated Name")
+    updated = WorkflowEntity(kind="workflow", id="editable-workflow", name="Updated Name")
     workflow_repo.update.return_value = updated
 
-    result = workflow_service.update_workflow("wf_1", data)
+    result = workflow_service.update_workflow("editable-workflow", data)
 
-    assert result.id == "wf_1"
+    assert result.id == "editable-workflow"
     assert result.name == "Updated Name"
-    workflow_repo.update.assert_called_once_with("wf_1", data)
+    workflow_repo.update.assert_called_once_with("editable-workflow", data)
 
 
 def test_update_workflow_not_found(workflow_service, workflow_repo):
     """update_workflow raises WorkflowNotFound when workflow does not exist."""
-    workflow_repo.update.side_effect = WorkflowNotFound("Workflow wf_missing not found")
+    workflow_repo.update.side_effect = WorkflowNotFound("Workflow missing-workflow not found")
 
     with pytest.raises(WorkflowNotFound) as exc_info:
-        workflow_service.update_workflow("wf_missing", {"name": "New"})
+        workflow_service.update_workflow("missing-workflow", {"name": "New"})
 
-    assert "wf_missing" in str(exc_info.value)
+    assert "missing-workflow" in str(exc_info.value)
 
 
 def test_update_workflow_requires_yaml(workflow_service, workflow_repo):
@@ -547,7 +559,7 @@ def test_update_workflow_requires_yaml(workflow_service, workflow_repo):
     workflow_repo.update.side_effect = InputValidationError("yaml is required")
 
     with pytest.raises(InputValidationError, match="yaml is required"):
-        workflow_service.update_workflow("wf_1", {"name": "Renamed"})
+        workflow_service.update_workflow("editable-workflow", {"name": "Renamed"})
 
 
 # --- commit_workflow ---
@@ -559,14 +571,14 @@ def test_commit_workflow_writes_current_state_and_returns_commit_metadata(workfl
     git_service.commit_to_branch.return_value = "abc123def456"
     saved = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id="saveable-workflow",
         name="Updated Flow",
         yaml="workflow:\n  name: Updated Flow\n",
         canvas_state={
-            "nodes": [{"id": "node-1"}],
+            "nodes": [{"id": "workflow-canvas-node"}],
             "edges": [],
             "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-            "selected_node_id": "node-1",
+            "selected_node_id": "workflow-canvas-node",
             "canvas_mode": "dag",
         },
     )
@@ -577,23 +589,23 @@ def test_commit_workflow_writes_current_state_and_returns_commit_metadata(workfl
     draft = {
         "yaml": "workflow:\n  name: Updated Flow\n",
         "canvas_state": {
-            "nodes": [{"id": "node-1"}],
+            "nodes": [{"id": "workflow-canvas-node"}],
             "edges": [],
             "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-            "selected_node_id": "node-1",
+            "selected_node_id": "workflow-canvas-node",
             "canvas_mode": "dag",
         },
     }
 
-    result = workflow_service.commit_workflow("wf_1", draft, "Save workflow to main")
+    result = workflow_service.commit_workflow("saveable-workflow", draft, "Save workflow to main")
 
     assert result == {"hash": "abc123def456", "message": "Save workflow to main"}
-    workflow_repo.update.assert_called_once_with("wf_1", draft)
+    workflow_repo.update.assert_called_once_with("saveable-workflow", draft)
     git_service.commit_to_branch.assert_called_once_with(
         "main",
         [
-            "custom/workflows/wf_1.yaml",
-            "custom/workflows/.canvas/wf_1.canvas.json",
+            "custom/workflows/saveable-workflow.yaml",
+            "custom/workflows/.canvas/saveable-workflow.canvas.json",
         ],
         "Save workflow to main",
     )
@@ -604,19 +616,19 @@ def test_commit_workflow_stages_only_workflow_owned_files(workflow_repo):
     git_service = Mock()
     git_service.commit_to_branch.return_value = "abc123def456"
     workflow_repo.update.return_value = WorkflowEntity(
-        kind="workflow", id="wf_1", name="Updated Flow"
+        kind="workflow", id="saveable-workflow", name="Updated Flow"
     )
 
     workflow_service = WorkflowService(workflow_repo, Mock(), git_service=git_service)
 
     workflow_service.commit_workflow(
-        "wf_1",
+        "saveable-workflow",
         {"yaml": "workflow:\n  name: Updated Flow\n"},
         "Save workflow to main",
     )
 
     _, files, _ = git_service.commit_to_branch.call_args.args
-    assert files == ["custom/workflows/wf_1.yaml"]
+    assert files == ["custom/workflows/saveable-workflow.yaml"]
     assert "README.md" not in files
     assert ".env" not in files
 
@@ -626,7 +638,7 @@ def test_commit_workflow_does_not_attempt_git_commit_when_persisting_the_draft_f
     git_service = Mock()
     workflow_repo.get_by_id.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id="saveable-workflow",
         name="Original Flow",
         yaml="workflow:\n  name: Original Flow\n",
     )
@@ -636,7 +648,7 @@ def test_commit_workflow_does_not_attempt_git_commit_when_persisting_the_draft_f
 
     with pytest.raises(OSError, match="disk full"):
         workflow_service.commit_workflow(
-            "wf_1",
+            "saveable-workflow",
             {"yaml": "workflow:\n  name: Updated Flow\n"},
             "Save workflow to main",
         )
@@ -649,7 +661,7 @@ def test_commit_workflow_requires_yaml_before_touching_git(workflow_repo):
     git_service = Mock()
     workflow_repo.get_by_id.return_value = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id="saveable-workflow",
         name="Original Flow",
         yaml="workflow:\n  name: Original Flow\n",
     )
@@ -659,7 +671,7 @@ def test_commit_workflow_requires_yaml_before_touching_git(workflow_repo):
 
     with pytest.raises(InputValidationError, match="yaml is required"):
         workflow_service.commit_workflow(
-            "wf_1",
+            "saveable-workflow",
             {"name": "Updated Flow"},
             "Save workflow to main",
         )
@@ -680,7 +692,7 @@ def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fa
     }
     previous = WorkflowEntity(
         kind="workflow",
-        id="wf_1",
+        id="rollback-workflow",
         name="Original Flow",
         yaml="workflow:\n  name: Original Flow\n",
         canvas_state=previous_canvas_state,
@@ -689,7 +701,7 @@ def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fa
     workflow_repo.update.side_effect = [
         WorkflowEntity(
             kind="workflow",
-            id="wf_1",
+            id="rollback-workflow",
             name="Updated Flow",
             yaml="workflow:\n  name: Updated Flow\n",
         ),
@@ -709,12 +721,12 @@ def test_commit_workflow_restores_the_previous_workflow_if_git_commit_to_main_fa
     }
 
     with pytest.raises(RuntimeError, match="git failed"):
-        workflow_service.commit_workflow("wf_1", draft, "Save workflow to main")
+        workflow_service.commit_workflow("rollback-workflow", draft, "Save workflow to main")
 
     assert workflow_repo.update.call_args_list == [
-        call("wf_1", draft),
+        call("rollback-workflow", draft),
         call(
-            "wf_1",
+            "rollback-workflow",
             {
                 "yaml": "workflow:\n  name: Original Flow\n",
                 "canvas_state": previous_canvas_state,
@@ -730,7 +742,7 @@ def test_commit_workflow_restores_exact_corrupt_canvas_sidecar_bytes_when_git_co
     """Rollback must preserve the pre-save sidecar bytes even when JSON parsing failed."""
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
-    workflow_id = "wf_corrupt_canvas"
+    workflow_id = "corrupt-canvas-workflow"
     original_yaml = (
         f"id: {workflow_id}\n"
         "kind: workflow\n"
@@ -800,7 +812,7 @@ def test_delete_workflow_cascades_runs_before_deleting_yaml_and_returns_runs_del
     git_service = Mock()
     git_service.is_clean.return_value = False
     workflow_repo.get_by_id.return_value = WorkflowEntity(
-        kind="workflow", id="wf_1", name="Research Flow"
+        kind="workflow", id="research-workflow", name="Research Flow"
     )
     workflow_repo.delete.return_value = True
     run_repo.delete_runs_for_workflow.return_value = 3
@@ -810,13 +822,13 @@ def test_delete_workflow_cascades_runs_before_deleting_yaml_and_returns_runs_del
 
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
 
-    result = workflow_service.delete_workflow("wf_1")
+    result = workflow_service.delete_workflow("research-workflow")
 
-    assert result == {"id": "wf_1", "deleted": True, "runs_deleted": 3}
+    assert result == {"id": "research-workflow", "deleted": True, "runs_deleted": 3}
     assert tracker.mock_calls[:4] == [
-        call.workflow_repo.get_by_id("wf_1"),
-        call.run_repo.delete_runs_for_workflow("wf_1", force=False),
-        call.workflow_repo.delete("wf_1"),
+        call.workflow_repo.get_by_id("research-workflow"),
+        call.run_repo.delete_runs_for_workflow("research-workflow", force=False),
+        call.workflow_repo.delete("research-workflow"),
         call.git_service.is_clean(),
     ]
     git_service.commit_to_branch.assert_called_once()
@@ -830,36 +842,36 @@ def test_delete_workflow_force_true_deletes_even_with_active_runs(
     git_service = Mock()
     git_service.is_clean.return_value = False
     workflow_repo.get_by_id.return_value = WorkflowEntity(
-        kind="workflow", id="wf_1", name="Research Flow"
+        kind="workflow", id="research-workflow", name="Research Flow"
     )
     workflow_repo.delete.return_value = True
     run_repo.delete_runs_for_workflow.return_value = 2
 
     workflow_service = WorkflowService(workflow_repo, run_repo, git_service=git_service)
 
-    result = workflow_service.delete_workflow("wf_1", force=True)
+    result = workflow_service.delete_workflow("research-workflow", force=True)
 
-    assert result == {"id": "wf_1", "deleted": True, "runs_deleted": 2}
-    run_repo.delete_runs_for_workflow.assert_called_once_with("wf_1", force=True)
-    workflow_repo.delete.assert_called_once_with("wf_1")
+    assert result == {"id": "research-workflow", "deleted": True, "runs_deleted": 2}
+    run_repo.delete_runs_for_workflow.assert_called_once_with("research-workflow", force=True)
+    workflow_repo.delete.assert_called_once_with("research-workflow")
     git_service.commit_to_branch.assert_called_once()
 
 
 def test_delete_workflow_zero_runs_still_deletes_workflow_cleanly(workflow_repo, run_repo):
     """Deleting a workflow with no historical runs should still remove the workflow."""
     workflow_repo.get_by_id.return_value = WorkflowEntity(
-        kind="workflow", id="wf_1", name="Research Flow"
+        kind="workflow", id="research-workflow", name="Research Flow"
     )
     workflow_repo.delete.return_value = True
     run_repo.delete_runs_for_workflow.return_value = 0
 
     workflow_service = WorkflowService(workflow_repo, run_repo)
 
-    result = workflow_service.delete_workflow("wf_1")
+    result = workflow_service.delete_workflow("research-workflow")
 
-    assert result == {"id": "wf_1", "deleted": True, "runs_deleted": 0}
-    run_repo.delete_runs_for_workflow.assert_called_once_with("wf_1", force=False)
-    workflow_repo.delete.assert_called_once_with("wf_1")
+    assert result == {"id": "research-workflow", "deleted": True, "runs_deleted": 0}
+    run_repo.delete_runs_for_workflow.assert_called_once_with("research-workflow", force=False)
+    workflow_repo.delete.assert_called_once_with("research-workflow")
 
 
 def test_delete_workflow_raises_workflow_has_active_runs_without_deleting_yaml(
@@ -870,13 +882,13 @@ def test_delete_workflow_raises_workflow_has_active_runs_without_deleting_yaml(
     from runsight_api.domain.errors import WorkflowHasActiveRuns
 
     run_repo.delete_runs_for_workflow.side_effect = WorkflowHasActiveRuns(
-        "Workflow wf_1 has active runs"
+        "Workflow research-workflow has active runs"
     )
 
     workflow_service = WorkflowService(workflow_repo, run_repo)
 
     with pytest.raises(WorkflowHasActiveRuns):
-        workflow_service.delete_workflow("wf_1", force=False)
+        workflow_service.delete_workflow("research-workflow", force=False)
 
     workflow_repo.delete.assert_not_called()
 
@@ -886,5 +898,5 @@ def test_delete_workflow_not_found(workflow_service, workflow_repo, run_repo):
     run_repo.delete_runs_for_workflow.return_value = 0
     workflow_repo.delete.return_value = False
 
-    with pytest.raises(WorkflowNotFound, match=r"workflow:non_existent"):
-        workflow_service.delete_workflow("non_existent")
+    with pytest.raises(WorkflowNotFound, match=r"workflow:missing-workflow"):
+        workflow_service.delete_workflow("missing-workflow")
