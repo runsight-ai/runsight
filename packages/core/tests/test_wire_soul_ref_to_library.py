@@ -1,14 +1,9 @@
-"""
-Failing tests for RUN-571: Wire ``soul_ref`` to library discovery.
+"""Library soul_ref discovery coverage for workflow parsing.
 
-After implementation:
-1. ``parse_workflow_yaml()`` calls ``SoulScanner(custom).scan().ids()`` to build souls_map
-2. ``soul_ref`` in linear, gate, synthesize, and dispatch blocks resolves against library souls
-3. Missing soul produces error with available souls listed and guidance to create the file
-4. Discovery is called once per parse (not per block)
-5. Existing block builder signatures unchanged (``_resolve_soul(ref, souls_map)``)
-
-All tests should FAIL until the parser wires library discovery.
+Behavior boundary: parse_workflow_yaml discovers isolated library souls,
+resolves soul_ref on block definitions, reports actionable missing-soul errors,
+runs discovery once per parse, and preserves the block-builder soul resolution
+contract.
 """
 
 from __future__ import annotations
@@ -39,7 +34,7 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     }
     prefix = ""
     if "id" not in top_level_keys:
-        prefix += "id: test-workflow\n"
+        prefix += "id: library-soul-fixture-workflow\n"
     if "kind" not in top_level_keys:
         prefix += "kind: workflow\n"
     content = prefix + content
@@ -47,15 +42,8 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     return str(workflow_file)
 
 
-def _expand_soul_id(soul_id: str) -> str:
-    """Expand short soul IDs (< 3 chars) to be valid by prefixing 'soul-'."""
-    if len(soul_id) < 3:
-        return f"soul-{soul_id}"
-    return soul_id
-
-
-def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prompt: str) -> None:
-    """Create a soul YAML file at custom/souls/<name>.yaml."""
+def _write_soul_file(base_dir: Path, name: str, *, role: str, prompt: str) -> None:
+    """Create an isolated custom/souls fixture file."""
     souls_dir = base_dir / "custom" / "souls"
     souls_dir.mkdir(parents=True, exist_ok=True)
     # id must match the filename stem (name)
@@ -73,35 +61,44 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
 
 def _souls_map() -> dict[str, Soul]:
     return {
-        "soul_a": Soul(id="soul-a1", kind="soul", name="Agent A", role="A", system_prompt="A."),
-        "soul_b": Soul(id="soul-b1", kind="soul", name="Agent B", role="B", system_prompt="B."),
+        "research_soul": Soul(
+            id="research_soul",
+            kind="soul",
+            name="Research Agent",
+            role="Research Agent",
+            system_prompt="Research.",
+        ),
+        "review_soul": Soul(
+            id="review_soul",
+            kind="soul",
+            name="Review Agent",
+            role="Review Agent",
+            system_prompt="Review.",
+        ),
     }
 
 
 # ===========================================================================
-# AC1: soul_ref in linear, gate, synthesize, and dispatch blocks resolves
-#      against custom/souls/
+# soul_ref resolves against isolated custom/souls fixtures
 # ===========================================================================
 
 
 class TestSoulRefResolvesFromLibrary:
-    """soul_ref must resolve against custom/souls/ for all block types."""
+    """soul_ref resolves against isolated custom/souls fixtures for block types."""
 
     def test_linear_block_resolves_soul_ref_from_library(self):
-        """A linear block's soul_ref should resolve to a soul in custom/souls/."""
+        """A linear block's soul_ref should resolve to an isolated library soul."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(
-                base, "researcher", soul_id="r1", role="Researcher", prompt="You research."
-            )
+            _write_soul_file(base, "researcher", role="Researcher", prompt="You research.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -123,20 +120,18 @@ class TestSoulRefResolvesFromLibrary:
             assert inner.soul.id == "researcher"
 
     def test_gate_block_resolves_soul_ref_from_library(self):
-        """A gate block's soul_ref should resolve to a soul in custom/souls/."""
+        """A gate block's soul_ref should resolve to an isolated library soul."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(
-                base, "evaluator", soul_id="e1", role="Evaluator", prompt="You evaluate."
-            )
+            _write_soul_file(base, "evaluator", role="Evaluator", prompt="You evaluate.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   check:
                     type: gate
@@ -157,21 +152,19 @@ class TestSoulRefResolvesFromLibrary:
             assert inner.soul.id == "evaluator"
 
     def test_synthesize_block_resolves_soul_ref_from_library(self):
-        """A synthesize block's soul_ref should resolve to a soul in custom/souls/."""
+        """A synthesize block's soul_ref should resolve to an isolated library soul."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(
-                base, "summarizer", soul_id="s1", role="Summarizer", prompt="You summarize."
-            )
-            _write_soul_file(base, "worker", soul_id="w1", role="Worker", prompt="You work.")
+            _write_soul_file(base, "summarizer", role="Summarizer", prompt="You summarize.")
+            _write_soul_file(base, "worker", role="Worker", prompt="You work.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   work:
                     type: linear
@@ -200,19 +193,19 @@ class TestSoulRefResolvesFromLibrary:
             assert inner.soul.id == "summarizer"
 
     def test_dispatch_exit_soul_ref_resolves_from_library(self):
-        """A dispatch block's per-exit soul_ref should resolve to souls in custom/souls/."""
+        """A dispatch block's per-exit soul_ref should resolve to isolated library souls."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(base, "agent_a", soul_id="a1", role="Agent A", prompt="You are A.")
-            _write_soul_file(base, "agent_b", soul_id="b1", role="Agent B", prompt="You are B.")
+            _write_soul_file(base, "agent_a", role="Agent A", prompt="You are A.")
+            _write_soul_file(base, "agent_b", role="Agent B", prompt="You are B.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   fan:
                     type: dispatch
@@ -241,7 +234,7 @@ class TestSoulRefResolvesFromLibrary:
 
 
 # ===========================================================================
-# AC2: Resolution is by filename stem
+# Resolution is by filename stem
 # ===========================================================================
 
 
@@ -249,7 +242,7 @@ class TestResolutionByFilenameStem:
     """soul_ref must match the YAML filename stem, not the soul's internal id."""
 
     def test_soul_ref_matches_filename_stem_not_internal_id(self):
-        """soul_ref 'web_researcher' -> custom/souls/web_researcher.yaml, regardless of internal id."""
+        """soul_ref 'web_researcher' resolves by isolated fixture filename stem."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             souls_dir = base / "custom" / "souls"
@@ -269,10 +262,10 @@ class TestResolutionByFilenameStem:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -297,9 +290,9 @@ class TestResolutionByFilenameStem:
             base = Path(tmpdir)
             souls_dir = base / "custom" / "souls"
             souls_dir.mkdir(parents=True, exist_ok=True)
-            # Write a .yaml soul that IS discoverable
-            _write_soul_file(base, "visible", soul_id="v1", role="Visible", prompt="I am visible.")
-            # Write with .yml extension — should NOT be discovered
+            # Write a .yaml soul that is discoverable.
+            _write_soul_file(base, "visible", role="Visible", prompt="I am visible.")
+            # Write with .yml extension; it should not be discovered.
             (souls_dir / "hidden_soul.yml").write_text(
                 dedent("""\
                 id: hidden-1
@@ -314,10 +307,10 @@ class TestResolutionByFilenameStem:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -330,7 +323,7 @@ class TestResolutionByFilenameStem:
                       to: null
                 """,
             )
-            # hidden_soul.yml is NOT discovered; error should list 'visible' but not 'hidden_soul'
+            # hidden_soul.yml is not discovered; error should list only visible souls.
             with pytest.raises(ValueError, match="hidden_soul") as exc_info:
                 parse_workflow_yaml(path)
             error_msg = str(exc_info.value)
@@ -338,7 +331,7 @@ class TestResolutionByFilenameStem:
 
 
 # ===========================================================================
-# AC3: Missing soul produces error with available souls and guidance
+# Missing soul errors include available souls and guidance
 # ===========================================================================
 
 
@@ -346,19 +339,19 @@ class TestMissingSoulErrorMessage:
     """Missing soul_ref must produce an actionable error with guidance."""
 
     def test_missing_soul_lists_available_souls(self):
-        """Error must list the available souls from custom/souls/."""
+        """Error must list the available souls from the isolated custom/souls fixture."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(base, "alpha", soul_id="a1", role="Alpha", prompt="A.")
-            _write_soul_file(base, "beta", soul_id="b1", role="Beta", prompt="B.")
+            _write_soul_file(base, "alpha", role="Alpha", prompt="A.")
+            _write_soul_file(base, "beta", role="Beta", prompt="B.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -380,15 +373,15 @@ class TestMissingSoulErrorMessage:
         """Error must mention custom/souls/ as the directory to create soul files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(base, "existing", soul_id="e1", role="Existing", prompt="I exist.")
+            _write_soul_file(base, "existing", role="Existing", prompt="I exist.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -412,10 +405,10 @@ class TestMissingSoulErrorMessage:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -433,18 +426,18 @@ class TestMissingSoulErrorMessage:
                 parse_workflow_yaml(path)
 
     def test_no_custom_souls_dir_gives_clear_error(self):
-        """When custom/souls/ doesn't exist, any soul_ref fails with clear error mentioning custom/souls/."""
+        """When custom/souls does not exist, soul_ref fails with a clear error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            # Do NOT create custom/souls/ directory
+            # Do not create the isolated custom/souls fixture directory.
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -462,7 +455,7 @@ class TestMissingSoulErrorMessage:
 
 
 # ===========================================================================
-# AC4: Discovery is called once per parse (not per block)
+# Discovery is called once per parse
 # ===========================================================================
 
 
@@ -473,30 +466,30 @@ class TestDiscoveryCalledOnce:
         """Even with multiple blocks referencing different souls, discovery runs once."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(base, "soul_a", soul_id="a1", role="A", prompt="A.")
-            _write_soul_file(base, "soul_b", soul_id="b1", role="B", prompt="B.")
+            _write_soul_file(base, "research_soul", role="Research Agent", prompt="Research.")
+            _write_soul_file(base, "review_soul", role="Review Agent", prompt="Review.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
-                  block_a:
+                  research_step:
                     type: linear
-                    soul_ref: soul_a
-                  block_b:
+                    soul_ref: research_soul
+                  review_step:
                     type: linear
-                    soul_ref: soul_b
+                    soul_ref: review_soul
                 workflow:
                   name: multi_block_test
-                  entry: block_a
+                  entry: research_step
                   transitions:
-                    - from: block_a
-                      to: block_b
-                    - from: block_b
+                    - from: research_step
+                      to: review_step
+                    - from: review_step
                       to: null
                 """,
             )
@@ -509,7 +502,7 @@ class TestDiscoveryCalledOnce:
 
 
 # ===========================================================================
-# AC5: Existing block builder signatures unchanged
+# Block builder soul-resolution contract remains unchanged
 # ===========================================================================
 
 
@@ -522,12 +515,16 @@ class TestBlockBuilderSignaturesUnchanged:
         from runsight_core.primitives import Soul
 
         souls_map = {
-            "test_soul": Soul(
-                id="soul-t1", kind="soul", name="Tester", role="Tester", system_prompt="You test."
+            "tester_soul": Soul(
+                id="tester_soul",
+                kind="soul",
+                name="Tester",
+                role="Tester",
+                system_prompt="You test.",
             ),
         }
-        soul = resolve_soul("test_soul", souls_map)
-        assert soul.id == "soul-t1"
+        soul = resolve_soul("tester_soul", souls_map)
+        assert soul.id == "tester_soul"
 
     def test_resolve_soul_raises_on_missing_ref(self):
         """_resolve_soul must still raise ValueError for missing ref."""
@@ -549,7 +546,7 @@ class TestEdgeCases:
         """A soul YAML with invalid content should raise an error at parse time.
 
         The error must come from the malformed soul file (ValidationError from
-        Soul.model_validate), NOT from soul_ref resolution failure (which would
+        Soul.model_validate), not from soul_ref resolution failure (which would
         mean discovery didn't even attempt to load the file).
         """
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -557,7 +554,7 @@ class TestEdgeCases:
             souls_dir = base / "custom" / "souls"
             souls_dir.mkdir(parents=True, exist_ok=True)
             # Also write a valid soul to prove discovery actually runs
-            _write_soul_file(base, "good_soul", soul_id="g1", role="Good", prompt="I am good.")
+            _write_soul_file(base, "good_soul", role="Good", prompt="I am good.")
             # Missing required field 'role'
             (souls_dir / "bad_soul.yaml").write_text(
                 dedent("""\
@@ -572,10 +569,10 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -590,7 +587,7 @@ class TestEdgeCases:
             )
             # Should fail during discovery (loading bad_soul.yaml), not during resolution.
             # The error must mention 'role' (the missing field) to confirm it's from
-            # Soul validation, NOT from "not found" resolution.
+            # Soul validation, not "not found" resolution.
             from pydantic import ValidationError
 
             with pytest.raises((ValidationError, ValueError), match="role"):
@@ -600,15 +597,15 @@ class TestEdgeCases:
         """Two blocks referencing the same soul_ref should both resolve correctly."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
-            _write_soul_file(base, "shared", soul_id="s1", role="Shared Agent", prompt="Shared.")
+            _write_soul_file(base, "shared", role="Shared Agent", prompt="Shared.")
             path = _write_workflow_file(
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   first:
                     type: linear
@@ -655,10 +652,10 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
@@ -682,15 +679,15 @@ class TestEdgeCases:
             base = Path(tmpdir)
             souls_dir = base / "custom" / "souls"
             souls_dir.mkdir(parents=True, exist_ok=True)
-            (souls_dir / "custom_model.yaml").write_text(
+            (souls_dir / "model_override_soul.yaml").write_text(
                 dedent("""\
-                id: custom_model
+                id: model_override_soul
                 kind: soul
                 name: Custom Model Soul
                 role: Custom Model Soul
                 system_prompt: I use a custom model.
-                model_name: claude-3-opus
-                provider: anthropic
+                model_name: fixture-model-override
+                provider: fixture-provider
                 temperature: 0.3
                 """),
                 encoding="utf-8",
@@ -699,14 +696,14 @@ class TestEdgeCases:
                 base,
                 """\
                 version: "1.0"
-                id: inline_test_workflow
+                id: library_soul_resolution_workflow
                 kind: workflow
                 config:
-                  model_name: gpt-4o
+                  model_name: fixture-model
                 blocks:
                   step:
                     type: linear
-                    soul_ref: custom_model
+                    soul_ref: model_override_soul
                 workflow:
                   name: model_override_test
                   entry: step
@@ -718,6 +715,6 @@ class TestEdgeCases:
             wf = parse_workflow_yaml(path)
             block = wf.blocks["step"]
             inner = getattr(block, "inner_block", block)
-            assert inner.soul.model_name == "claude-3-opus"
-            assert inner.soul.provider == "anthropic"
+            assert inner.soul.model_name == "fixture-model-override"
+            assert inner.soul.provider == "fixture-provider"
             assert inner.soul.temperature == 0.3
