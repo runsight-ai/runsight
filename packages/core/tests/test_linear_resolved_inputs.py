@@ -1,21 +1,13 @@
 """
-Failing tests for RUN-875: LinearBlock — build user message from _resolved_inputs.
+LinearBlock builds user messages from _resolved_inputs.
 
-Acceptance Criteria:
+Expected behavior:
 - LinearBlock no longer reads state.current_task
 - LinearBlock builds its instruction from state.shared_memory["_resolved_inputs"]
 - LinearBlock works when _resolved_inputs is empty (produces empty user message)
 - LinearBlock works when _resolved_inputs has content from upstream blocks
 
-Issues being fixed (all must be verified by these tests):
-1. `if state.current_task is None: raise ValueError(...)` — must be removed
-2. `task = state.current_task` — must be removed
-3. Reads `task.instruction` and `task.context` — must read from _resolved_inputs
-4. Stateful path: calls runner.execute_task(budgeted.task, soul, messages=...) — must use runner.execute()
-5. Stateful path: calls runner._build_prompt(budgeted.task) — must build from strings
-6. Stateless path: calls runner.execute_task(task, soul) — must use runner.execute()
-
-After fix:
+Implementation contract:
 - Read `_resolved_inputs = state.shared_memory.get("_resolved_inputs", {})`
 - If _resolved_inputs has content, serialize as instruction string
 - If empty, instruction is empty string ""

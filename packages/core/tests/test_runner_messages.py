@@ -1,5 +1,5 @@
 """
-Tests for RUN-188: Runner messages parameter for multi-turn conversations.
+Runner messages parameter behavior for multi-turn conversations.
 
 Verifies that execute() accepts an optional `messages` parameter (history)
 that is prepended to the current user message before being sent to the LLM client.

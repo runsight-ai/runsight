@@ -1,5 +1,5 @@
 """
-RUN-126 — Red tests: CodeBlock parser registration + achat token breakdown.
+CodeBlock parser registration and achat token breakdown behavior.
 
 These tests cover:
 1. Parser: BLOCK_TYPE_REGISTRY includes "code" type
@@ -44,7 +44,7 @@ class TestCodeBlockRegistration:
 # ---------------------------------------------------------------------------
 
 VALID_CODE_YAML = """\
-id: test-workflow
+id: code-parser-workflow
 kind: workflow
 version: "1.0"
 config:
@@ -56,7 +56,7 @@ blocks:
       def main(data):
           return {"out": 1}
 workflow:
-  name: test_code
+  name: code_parser_workflow
   entry: transform
   transitions:
     - from: transform
@@ -69,7 +69,7 @@ class TestCodeBlockParsing:
         """parse_workflow_yaml with type: code must return a valid Workflow."""
         wf = parse_workflow_yaml(VALID_CODE_YAML)
         assert isinstance(wf, Workflow)
-        assert wf.name == "test_code"
+        assert wf.name == "code_parser_workflow"
 
     def test_parsed_code_block_is_codeblock_instance(self):
         """The block built by the parser must be a CodeBlock instance."""
@@ -92,7 +92,7 @@ class TestCodeBlockParsing:
 # ---------------------------------------------------------------------------
 
 CODE_YAML_CUSTOM_OPTS = """\
-id: test-workflow
+id: code-parser-workflow
 kind: workflow
 version: "1.0"
 config:
@@ -108,7 +108,7 @@ blocks:
     allowed_imports:
       - math
 workflow:
-  name: test_code_opts
+  name: code_parser_workflow_opts
   entry: compute
   transitions:
     - from: compute
@@ -283,8 +283,8 @@ class TestAchatBackwardCompat:
     async def test_achat_backward_compat_existing_keys(self, mock_cost, mock_acompletion):
         """Callers that only access content, cost_usd, total_tokens must still work.
 
-        This verifies the DoD item: 'Backward-compatible: callers using only
-        total_tokens still work.'
+        This preserves the response shape used by callers that only read
+        total_tokens.
         """
         usage = MagicMock()
         usage.prompt_tokens = 100

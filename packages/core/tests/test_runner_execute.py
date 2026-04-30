@@ -1,14 +1,11 @@
 """
-Tests for RUN-871: Add execute() alongside execute_task() on RunsightTeamRunner.
+RunsightTeamRunner execute() behavior.
 
 Verifies:
-  AC1: execute(instruction, context, soul) exists and returns ExecutionResult
-  AC2: execute() handles both single-shot and agentic tool-loop paths
-  AC3: execute_task() still works (delegates to execute() internally)
-  AC4: execute_task() and execute() produce identical results for same inputs
-  AC5: execute() builds prompt from instruction+context (same logic as _build_prompt)
-
-These tests fail because RunsightTeamRunner.execute() does not exist yet.
+  - execute(instruction, context, soul) returns ExecutionResult
+  - execute() handles both single-shot and agentic tool-loop paths
+  - execute_task() is no longer the public runner API
+  - execute() builds prompt content from instruction and context
 """
 
 from unittest.mock import AsyncMock, Mock, patch
@@ -134,7 +131,7 @@ def _achat_tool_response(
 
 
 # ---------------------------------------------------------------------------
-# AC1: execute() method exists and returns ExecutionResult
+# execute() returns ExecutionResult
 # ---------------------------------------------------------------------------
 
 
@@ -232,7 +229,7 @@ class TestExecuteMethodExists:
 
 
 # ---------------------------------------------------------------------------
-# AC2: execute() builds prompt from instruction+context (same as _build_prompt)
+# execute() builds prompt from instruction and context
 # ---------------------------------------------------------------------------
 
 
@@ -326,7 +323,7 @@ class TestExecutePromptBuilding:
 
 
 # ---------------------------------------------------------------------------
-# AC2: execute() handles agentic tool-loop path
+# execute() handles the agentic tool-loop path
 # ---------------------------------------------------------------------------
 
 
@@ -433,12 +430,12 @@ class TestExecuteToolLoop:
 
 
 # ---------------------------------------------------------------------------
-# AC3 / AC4: execute() is the canonical API (execute_task was deleted in RUN-879)
+# execute() is the canonical runner API
 # ---------------------------------------------------------------------------
 
 
 class TestExecuteTaskBackwardCompat:
-    """After RUN-879, execute_task() is deleted. execute() is the canonical API.
+    """execute_task() is deleted and execute() is the canonical API.
     These tests verify execute() covers what execute_task() used to do."""
 
     @pytest.mark.asyncio
@@ -513,7 +510,7 @@ class TestExecuteTaskBackwardCompat:
 
 
 # ---------------------------------------------------------------------------
-# AC2: execute() handles failover
+# execute() handles failover
 # ---------------------------------------------------------------------------
 
 

@@ -1,5 +1,5 @@
 """
-RED tests for RUN-912: CodeBlock declared-only governance behavior.
+CodeBlock declared-only governance behavior.
 
 CodeBlock must stop receiving implicit full-state input. Only declared inputs
 may survive into the runtime contract.
@@ -43,7 +43,7 @@ def _state() -> WorkflowState:
             "a": BlockResult(output=json.dumps({"value": "safe", "secret": "hidden"})),
             "secret": BlockResult(output="top secret"),
         },
-        metadata={"run": {"id": "run_912"}, "secret": "metadata secret"},
+        metadata={"run": {"id": "declared_codeblock_run"}, "secret": "metadata secret"},
         shared_memory={"visible": "ok", "secret": "shared secret"},
     )
 

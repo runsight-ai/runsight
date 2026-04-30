@@ -1,16 +1,16 @@
 """
-Failing tests for RUN-873: SynthesizeBlock — use runner.execute() and budgeted.instruction.
+SynthesizeBlock uses runner.execute() with budgeted instruction strings.
 
 SynthesizeBlock must stop using Task entirely and call runner.execute() with string args
 (instruction, context) derived from budgeted.instruction / budgeted.context.
 
 Tests cover:
-- AC1: synthesize.py has no 'from runsight_core.primitives import Task' import
-- AC2: synthesize.py source has no 'Task(' instantiation
-- AC3: SynthesizeBlock calls runner.execute() (not execute_task()) for the LLM call
-- AC4: runner.execute() receives string instruction, not a Task object
-- AC5: runner.execute() receives string context, not a Task object
-- AC6: SynthesizeBlock still produces correct synthesis output
+- synthesize.py has no 'from runsight_core.primitives import Task' import
+- synthesize.py source has no 'Task(' instantiation
+- SynthesizeBlock calls runner.execute() for the LLM call
+- runner.execute() receives string instruction, not a Task object
+- runner.execute() receives string context, not a Task object
+- SynthesizeBlock still produces correct synthesis output
 """
 
 import inspect
@@ -83,7 +83,7 @@ def _make_state(block_ids: list[str] | None = None) -> WorkflowState:
 
 
 # ==============================================================================
-# AC1: synthesize.py must NOT import Task from primitives
+# synthesize.py must not import Task from primitives
 # ==============================================================================
 
 
@@ -101,7 +101,7 @@ class TestNoTaskImport:
             if "import" in line and "primitives" in line and "Task" in line
         ]
         assert import_lines_with_task == [], (
-            f"synthesize.py still imports Task from primitives — must be removed (RUN-873): "
+            "synthesize.py still imports Task from primitives and must remove it: "
             f"{import_lines_with_task}"
         )
 
@@ -126,7 +126,7 @@ class TestNoTaskImport:
 
 
 # ==============================================================================
-# AC2: synthesize.py source must have no Task( instantiation
+# synthesize.py source must have no Task instantiation
 # ==============================================================================
 
 
@@ -140,7 +140,7 @@ class TestNoTaskInstantiation:
         source = inspect.getsource(synth_mod)
         assert "Task(" not in source, (
             "synthesize.py still instantiates Task — the synthesis_task = Task(...) block must be "
-            "removed (RUN-873)"
+            "removed"
         )
 
     def test_synthesize_source_has_no_synthesis_task_variable(self):
@@ -149,12 +149,12 @@ class TestNoTaskInstantiation:
 
         source = inspect.getsource(synth_mod)
         assert "synthesis_task" not in source, (
-            "synthesize.py still uses synthesis_task variable — it must be removed (RUN-873)"
+            "synthesize.py still uses synthesis_task variable and must remove it"
         )
 
 
 # ==============================================================================
-# AC3: SynthesizeBlock calls runner.execute() not execute_task()
+# SynthesizeBlock calls runner.execute() not execute_task()
 # ==============================================================================
 
 
@@ -207,7 +207,7 @@ class TestRunnerExecuteCalled:
 
 
 # ==============================================================================
-# AC4: runner.execute() receives string instruction (not a Task object)
+# runner.execute() receives string instruction
 # ==============================================================================
 
 
@@ -259,7 +259,7 @@ class TestRunnerExecuteReceivesStringInstruction:
 
 
 # ==============================================================================
-# AC5: runner.execute() receives string context (not a Task object)
+# runner.execute() receives string context
 # ==============================================================================
 
 
@@ -318,7 +318,7 @@ class TestRunnerExecuteReceivesStringContext:
 
 
 # ==============================================================================
-# AC6: SynthesizeBlock still produces correct synthesis results
+# SynthesizeBlock still produces correct synthesis results
 # ==============================================================================
 
 

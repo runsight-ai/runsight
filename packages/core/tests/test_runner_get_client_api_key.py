@@ -1,4 +1,4 @@
-"""Red tests for RUN-127: RunsightTeamRunner._get_client resolves provider keys for override clients.
+"""RunsightTeamRunner._get_client resolves provider keys for override clients.
 
 When a soul has a model_name override, _get_client creates a new LiteLLMClient
 using the provider-key map supplied to the runner.

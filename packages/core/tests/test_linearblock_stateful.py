@@ -1,5 +1,5 @@
 """
-RUN-191 (updated for RUN-875): LinearBlock stateful conversation history.
+LinearBlock stateful conversation history behavior.
 
 Tests verify that when stateful=True, LinearBlock:
 - Reads existing conversation history from state.conversation_histories
@@ -12,7 +12,7 @@ Tests verify that when stateful=True, LinearBlock:
 
 When stateful=False (default), conversation_histories must be untouched.
 
-Updated for RUN-875: LinearBlock now reads _resolved_inputs from shared_memory
+LinearBlock reads _resolved_inputs from shared_memory
 instead of state.current_task. runner.execute() is used instead of execute_task().
 """
 
@@ -80,7 +80,7 @@ def _make_stateful_block(block_id, soul, runner):
 
 
 # ---------------------------------------------------------------------------
-# AC: First invocation — empty history results in single user+assistant pair
+# First invocation stores a single user and assistant pair
 # ---------------------------------------------------------------------------
 
 
@@ -169,7 +169,7 @@ async def test_stateful_first_invocation_with_resolved_inputs(
 
 
 # ---------------------------------------------------------------------------
-# AC: Round 2 LLM call includes round 1's user+assistant messages
+# Continuation calls include existing user and assistant messages
 # ---------------------------------------------------------------------------
 
 
@@ -250,7 +250,7 @@ async def test_stateful_continuation_appends_new_pair_to_history(
 
 
 # ---------------------------------------------------------------------------
-# AC: History key is {block_id}_{soul_id}
+# History key format
 # ---------------------------------------------------------------------------
 
 
@@ -274,7 +274,7 @@ async def test_stateful_history_key_format(mock_runner, sample_soul):
 
 
 # ---------------------------------------------------------------------------
-# AC: Windowing prunes when history exceeds token budget
+# Windowing prunes when history exceeds token budget
 # ---------------------------------------------------------------------------
 
 
@@ -347,7 +347,7 @@ async def test_stateful_windowing_prunes_oldest_pairs(
 
 
 # ---------------------------------------------------------------------------
-# AC: Soul with model_name uses it for windowing; no model_name falls back
+# Model choice for windowing
 # ---------------------------------------------------------------------------
 
 
@@ -411,7 +411,7 @@ async def test_stateful_windowing_falls_back_to_runner_model(
 
 
 # ---------------------------------------------------------------------------
-# AC: Non-stateful block creates no history entries
+# Non-stateful block creates no history entries
 # ---------------------------------------------------------------------------
 
 
@@ -493,7 +493,7 @@ async def test_non_stateful_calls_runner_execute_without_messages(
 
 
 # ---------------------------------------------------------------------------
-# AC: No system messages in conversation_histories — ever
+# Conversation histories do not store system messages
 # ---------------------------------------------------------------------------
 
 
@@ -528,7 +528,7 @@ async def test_stateful_no_system_messages_stored(
 
 
 # ---------------------------------------------------------------------------
-# AC: Existing behavior unchanged (regression guard)
+# Existing non-stateful behavior remains unchanged
 # ---------------------------------------------------------------------------
 
 
