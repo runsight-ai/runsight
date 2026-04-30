@@ -1,0 +1,25 @@
+apps/gui/src/features/workflows/__tests__/regressionBadge.test.ts
+  4adca821c1af8eb3 26,48,89
+apps/gui/src/features/workflows/__tests__/regressionBadgeStyling.test.ts
+  4adca821c1af8eb3 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5412f9513e6285db453d59b1aea6fe859e7c5c6d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 128,
+      "total_deletions": 4,
+      "accepted_lines": 84405,
+      "overriden_lines": 0
+    }
+  }
+}
