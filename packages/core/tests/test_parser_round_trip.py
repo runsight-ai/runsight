@@ -1,15 +1,12 @@
 """
-RUN-663 — Parser round-trip integration test for on_error=catch.
+Parser round-trip integration for on_error=catch.
 
 Build a YAML with parent calling child where child raises, parse through
 ``parse_workflow_yaml`` with a real registry, execute with ``Workflow.run()``.
 Assert parent gets ``exit_handle="error"`` and does not crash.
 
-This test MUST fail because:
-  - The parser does not currently wire ``on_error`` from WorkflowBlockDef to
-    the WorkflowBlock constructor
-  - Even if it did, the child exception would propagate (on_error defaults
-    to "raise") and the parent workflow would crash
+This test verifies that parsed WorkflowBlock on_error wiring catches child
+workflow failures without crashing the parent workflow.
 """
 
 from __future__ import annotations
@@ -38,7 +35,7 @@ class TestParserRoundTripOnErrorCatch:
         # Child workflow: a code block that always raises
         child_yaml = {
             "version": "1.0",
-            "id": "child_wf",
+            "id": "on_error_child_workflow",
             "kind": "workflow",
             "blocks": {
                 "step1": {
@@ -47,7 +44,7 @@ class TestParserRoundTripOnErrorCatch:
                 }
             },
             "workflow": {
-                "name": "child_wf",
+                "name": "on_error_child_workflow",
                 "entry": "step1",
                 "transitions": [],
             },
@@ -56,35 +53,35 @@ class TestParserRoundTripOnErrorCatch:
         # Register child workflow
         registry = WorkflowRegistry()
         child_file = RunsightWorkflowFile.model_validate(child_yaml)
-        registry.register("child_wf", child_file)
+        registry.register("on_error_child_workflow", child_file)
 
         # Parent workflow: calls child with on_error: catch
         parent_yaml = {
             "version": "1.0",
-            "id": "parent_wf",
+            "id": "on_error_parent_workflow",
             "kind": "workflow",
             "blocks": {
                 "invoke_child": {
                     "type": "workflow",
-                    "workflow_ref": "child_wf",
+                    "workflow_ref": "on_error_child_workflow",
                     "on_error": "catch",
                 },
             },
             "workflow": {
-                "name": "parent_wf",
+                "name": "on_error_parent_workflow",
                 "entry": "invoke_child",
                 "transitions": [],
             },
         }
 
-        parent_wf = parse_workflow_yaml(
+        parent_workflow = parse_workflow_yaml(
             parent_yaml,
             workflow_registry=registry,
         )
 
         # Execute — should NOT raise because on_error=catch
         initial_state = WorkflowState()
-        final_state = await parent_wf.run(
+        final_state = await parent_workflow.run(
             initial_state,
             workflow_registry=registry,
         )

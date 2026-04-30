@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-156: Add `retry_config` property to BaseBlockDef.
+RetryConfig property behavior on BaseBlockDef.
 
 Tests cover:
 - RetryConfig model: defaults, full specification, validation constraints
@@ -334,9 +334,9 @@ class TestYAMLParsingRetryConfig:
         """A workflow file with a block that has retry_config should parse."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-retry-config",
+                "id": "retry_config_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                 "blocks": {
                     "b1": {
                         "type": "linear",
@@ -363,9 +363,9 @@ class TestYAMLParsingRetryConfig:
         """A block without retry_config in YAML should default to None."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-no-retry",
+                "id": "retry_config_default_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                 "blocks": {
                     "b1": {"type": "linear", "soul_ref": "s1"},
                 },
@@ -378,7 +378,7 @@ class TestYAMLParsingRetryConfig:
         with pytest.raises(ValidationError):
             RunsightWorkflowFile.model_validate(
                 {
-                    "workflow": {"name": "test", "entry": "b1"},
+                    "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                     "blocks": {
                         "b1": {
                             "type": "linear",
@@ -394,7 +394,7 @@ class TestYAMLParsingRetryConfig:
         with pytest.raises(ValidationError):
             RunsightWorkflowFile.model_validate(
                 {
-                    "workflow": {"name": "test", "entry": "b1"},
+                    "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                     "blocks": {
                         "b1": {
                             "type": "linear",
@@ -410,7 +410,7 @@ class TestYAMLParsingRetryConfig:
         with pytest.raises(ValidationError):
             RunsightWorkflowFile.model_validate(
                 {
-                    "workflow": {"name": "test", "entry": "b1"},
+                    "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                     "blocks": {
                         "b1": {
                             "type": "linear",
@@ -425,9 +425,9 @@ class TestYAMLParsingRetryConfig:
         """Multiple blocks — some with retry_config, some without."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-mixed-retry",
+                "id": "mixed_retry_config_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                 "blocks": {
                     "b1": {
                         "type": "linear",
@@ -454,9 +454,9 @@ class TestYAMLParsingRetryConfig:
         """retry_config: {} (empty dict) should parse and use all defaults."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test-retry-defaults",
+                "id": "retry_defaults_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "retry_config_workflow", "entry": "b1"},
                 "blocks": {
                     "b1": {
                         "type": "linear",

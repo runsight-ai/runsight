@@ -1,13 +1,14 @@
 """
-Failing tests for RUN-690: Delete duplicate ``_resolve_soul()`` from parser.py.
+Parser module does not own duplicate ``_resolve_soul()`` logic.
 
 ``_resolve_soul`` in ``parser.py`` is an exact duplicate of ``resolve_soul``
 in ``blocks/_helpers.py``.  The helpers version is the live one — imported by
 dispatch, linear, synthesize, and gate block builders.  The parser copy has
 zero call sites and must be removed.
 
-AC1: parser.py must not contain ``def _resolve_soul``
-AC2: block builders still work via the ``_helpers.py`` version
+Expected behavior:
+- parser.py does not contain ``def _resolve_soul``
+- block builders still work via the ``_helpers.py`` version
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import inspect
 import pytest
 
 # ===========================================================================
-# AC1: _resolve_soul must not exist in parser.py
+# parser.py must not define _resolve_soul
 # ===========================================================================
 
 
@@ -45,7 +46,7 @@ class TestResolvedSoulRemovedFromParser:
 
 
 # ===========================================================================
-# AC2: The live resolve_soul in _helpers.py still works correctly
+# The live resolve_soul in _helpers.py still works correctly
 # ===========================================================================
 
 

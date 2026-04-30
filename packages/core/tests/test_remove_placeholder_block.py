@@ -1,5 +1,5 @@
 """
-Tests for RUN-201: Remove PlaceholderBlock from core engine.
+PlaceholderBlock removal from the core engine.
 
 Verifies that dynamic injection raises ValueError instead of falling back to
 PlaceholderBlock, and that shared test infrastructure exists in conftest.py.

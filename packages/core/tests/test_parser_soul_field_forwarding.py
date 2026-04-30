@@ -1,4 +1,4 @@
-"""Tests for RUN-468: parse_workflow_yaml forwards all SoulDef fields to Soul.
+"""parse_workflow_yaml forwards all SoulDef fields to Soul.
 
 Verifies that library soul fields (provider, temperature, max_tokens, avatar_color)
 are forwarded through to runtime Soul objects during parsing.

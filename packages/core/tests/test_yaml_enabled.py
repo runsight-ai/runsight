@@ -1,11 +1,11 @@
 """
-RUN-377 — Red tests: YAML `enabled` field gates automated triggers.
+YAML `enabled` field behavior for automated triggers.
 
-AC:
-  - `enabled` field on `RunsightWorkflowFile` schema (default False)
-  - Parser reads field without error
-  - Engine does NOT check this field
-  - New workflows default to `enabled: False`
+Expected behavior:
+  - `enabled` field on `RunsightWorkflowFile` schema defaults to False
+  - parser reads field without error
+  - engine does not check this field
+  - new workflows default to `enabled: False`
 """
 
 from __future__ import annotations
@@ -13,10 +13,10 @@ from __future__ import annotations
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 MINIMAL_WORKFLOW = {
-    "id": "test-wf",
+    "id": "enabled_field_workflow",
     "kind": "workflow",
     "workflow": {
-        "name": "test-wf",
+        "name": "enabled_field_workflow",
         "entry": "start",
         "transitions": [],
     },

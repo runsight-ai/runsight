@@ -1,4 +1,4 @@
-"""Failing tests for RUN-667: re-enable inline ``souls:`` in workflow YAML."""
+"""Inline ``souls:`` parsing in workflow YAML."""
 
 from __future__ import annotations
 
@@ -201,9 +201,9 @@ class TestInlineSoulSchemaValidation:
     def test_model_validate_rejects_key_id_mismatch(self):
         raw = {
             "version": "1.0",
-            "id": "test",
+            "id": "inline_soul_mismatch_workflow",
             "kind": "workflow",
-            "workflow": {"name": "test", "entry": "draft"},
+            "workflow": {"name": "inline_soul_mismatch_workflow", "entry": "draft"},
             "souls": {
                 "writer": {
                     "id": "reviewer",

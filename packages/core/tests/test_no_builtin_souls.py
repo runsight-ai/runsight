@@ -1,5 +1,5 @@
 """
-Tests for RUN-415: Remove BUILT_IN_SOULS from parser.
+Parser behavior without built-in souls.
 
 After implementation, the parser must no longer seed a souls_map with
 built-in souls.  Every soul_ref used in YAML must be explicitly defined
@@ -29,7 +29,7 @@ class TestEmptySoulsMapByDefault:
     def test_undefined_soul_ref_raises_value_error(self):
         """soul_ref: researcher without a souls: section must raise ValueError."""
         yaml_content = """\
-id: test-workflow
+id: explicit-soul-workflow
 kind: workflow
 version: "1.0"
 blocks:
@@ -37,7 +37,7 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  name: test_empty_souls_map
+  name: empty_souls_map_workflow
   entry: linear_block
   transitions:
     - from: linear_block
@@ -51,7 +51,7 @@ workflow:
     def test_undefined_soul_ref_with_empty_souls_section(self):
         """soul_ref: reviewer with an empty souls: {} section must raise ValueError."""
         yaml_content = """\
-id: test-workflow
+id: explicit-soul-workflow
 kind: workflow
 version: "1.0"
 souls: {}
@@ -60,7 +60,7 @@ blocks:
     type: linear
     soul_ref: reviewer
 workflow:
-  name: test_empty_souls_section
+  name: empty_souls_section_workflow
   entry: linear_block
   transitions:
     - from: linear_block
@@ -93,7 +93,7 @@ class TestNoPreviouslyBuiltInNamesAreSpecial:
     def test_previously_builtin_soul_raises_without_definition(self, soul_name: str):
         """soul_ref: {soul_name} without souls: definition must raise ValueError."""
         yaml_content = f"""\
-id: test-workflow
+id: explicit-soul-workflow
 kind: workflow
 version: "1.0"
 blocks:
@@ -101,7 +101,7 @@ blocks:
     type: linear
     soul_ref: {soul_name}
 workflow:
-  name: test_no_builtin_{soul_name}
+  name: explicit_soul_required_{soul_name}
   entry: linear_block
   transitions:
     - from: linear_block

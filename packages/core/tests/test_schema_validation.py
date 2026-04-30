@@ -1,5 +1,5 @@
 """
-Validation test suite for RUN-113: JSON Schema Publishing + Validation.
+JSON schema publishing and validation behavior.
 
 Tests exercise the Pydantic schema models from runsight_core.yaml.schema,
 covering:
@@ -69,7 +69,7 @@ class TestTypeDiscrimination:
             _validate_block({"type": "unknown_type", "soul_ref": "s1"})
 
     def test_conditional_type_rejected(self):
-        """'conditional' was removed in RUN-114 — must not be accepted."""
+        """'conditional' is not a supported block type."""
         with pytest.raises(ValidationError):
             _validate_block({"type": "conditional"})
 
@@ -105,7 +105,7 @@ class TestTypeDiscrimination:
         assert isinstance(block, LoopBlockDef)
 
     def test_workflow_block_valid(self):
-        block = _validate_block({"type": "workflow", "workflow_ref": "sub_wf"})
+        block = _validate_block({"type": "workflow", "workflow_ref": "sub_workflow"})
         assert isinstance(block, WorkflowBlockDef)
 
 
@@ -361,13 +361,13 @@ class TestRunsightWorkflowFile:
     def test_minimal_valid_file(self):
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test",
+                "id": "schema_validation_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "schema_validation_workflow", "entry": "b1"},
                 "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
             }
         )
-        assert wf.workflow.name == "test"
+        assert wf.workflow.name == "schema_validation_workflow"
         assert "b1" in wf.blocks
         assert isinstance(wf.blocks["b1"], LinearBlockDef)
 
@@ -380,9 +380,9 @@ class TestRunsightWorkflowFile:
         """Blocks inside the file should be discriminated correctly."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test",
+                "id": "schema_validation_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "schema_validation_workflow", "entry": "b1"},
                 "blocks": {
                     "b1": {"type": "linear", "soul_ref": "s1"},
                     "b2": {"type": "code", "code": "x = 1"},
@@ -393,12 +393,12 @@ class TestRunsightWorkflowFile:
         assert isinstance(wf.blocks["b2"], CodeBlockDef)
 
     def test_tools_whitelist_accepts_canonical_tool_ids(self):
-        """RUN-577: root files should accept workflow tool IDs, not typed tool defs."""
+        """Root files accept workflow tool IDs, not typed tool definitions."""
         wf = RunsightWorkflowFile.model_validate(
             {
-                "id": "test",
+                "id": "schema_validation_workflow",
                 "kind": "workflow",
-                "workflow": {"name": "test", "entry": "b1"},
+                "workflow": {"name": "schema_validation_workflow", "entry": "b1"},
                 "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                 "tools": ["http", "delegate", "lookup_profile"],
             }
@@ -407,13 +407,13 @@ class TestRunsightWorkflowFile:
         assert wf.tools == ["http", "delegate", "lookup_profile"]
 
     def test_root_file_rejects_legacy_tool_map_authoring(self):
-        """RUN-577: old workflow tool maps must fail instead of being normalized."""
+        """Legacy workflow tool maps fail instead of being normalized."""
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
-                    "id": "test",
+                    "id": "schema_validation_workflow",
                     "kind": "workflow",
-                    "workflow": {"name": "test", "entry": "b1"},
+                    "workflow": {"name": "schema_validation_workflow", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {
                         "http": {"type": "builtin", "source": "runsight/http"},
@@ -422,13 +422,13 @@ class TestRunsightWorkflowFile:
             )
 
     def test_root_file_rejects_inline_http_tool_authoring(self):
-        """RUN-577: inline HTTP definitions are no longer valid workflow authoring."""
+        """Inline HTTP definitions are not valid workflow authoring."""
         with pytest.raises(ValidationError, match="list"):
             RunsightWorkflowFile.model_validate(
                 {
-                    "id": "test",
+                    "id": "schema_validation_workflow",
                     "kind": "workflow",
-                    "workflow": {"name": "test", "entry": "b1"},
+                    "workflow": {"name": "schema_validation_workflow", "entry": "b1"},
                     "blocks": {"b1": {"type": "linear", "soul_ref": "s1"}},
                     "tools": {
                         "http": {
