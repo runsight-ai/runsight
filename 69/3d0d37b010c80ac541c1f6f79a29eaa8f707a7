@@ -1,0 +1,35 @@
+apps/api/tests/transport/test_fail_closed_run_creation.py
+  4adca821c1af8eb3 117,131-133,146,174-176,187
+apps/api/tests/domain/test_data_model.py
+  4adca821c1af8eb3 34,80,114,436-438,455-457,478,508-510,535-537,558-560,581-583
+apps/api/tests/logic/test_provider_service.py
+  4adca821c1af8eb3 99,119,134-136,216
+apps/api/tests/transport/test_router_wiring.py
+  4adca821c1af8eb3 109,119
+apps/api/tests/domain/test_workflow_commit_sha.py
+  4adca821c1af8eb3 264,338
+apps/api/tests/test_identity_verification.py
+  4adca821c1af8eb3 260-262
+apps/api/tests/transport/test_runs_router.py
+  4adca821c1af8eb3 385,393,425,433-436,442,517,526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "693d0d37b010c80ac541c1f6f79a29eaa8f707a7",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 64,
+      "total_deletions": 40,
+      "accepted_lines": 107620,
+      "overriden_lines": 0
+    }
+  }
+}
