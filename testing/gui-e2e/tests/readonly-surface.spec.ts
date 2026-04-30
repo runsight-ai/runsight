@@ -1,23 +1,25 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { dirname } from "node:path";
 
-import { getE2ERuntimeRoot } from "./helpers/runtimeRoot";
+import { getE2ERuntimeRoot, resolveE2ERuntimePath } from "./helpers/runtimeRoot";
 import { applyFixture } from "./helpers/shellReady";
 
 test.describe.configure({ mode: "serial" });
 
 const API = "http://127.0.0.1:8000/api";
 const PROJECT_ROOT = getE2ERuntimeRoot();
-const DB_PATH = resolve(PROJECT_ROOT, ".runsight/runsight.db");
+const DB_PATH = resolveE2ERuntimePath(".runsight", "runsight.db");
 const SEEDED_BASELINE_RUN_ID = "seed_rr_baseline";
 const SEEDED_RUN_ID = "seed_rr_regression";
 const SEEDED_WORKFLOW_ID = "research-review";
 const forkedWorkflowIds = new Set<string>();
-const CANVAS_SIDECAR_PATH = resolve(
-  PROJECT_ROOT,
-  "custom/workflows/.canvas/research-review.canvas.json",
+const CANVAS_SIDECAR_PATH = resolveE2ERuntimePath(
+  "custom",
+  "workflows",
+  ".canvas",
+  "research-review.canvas.json",
 );
 const SEEDED_CANVAS_STATE = {
   nodes: [
@@ -44,22 +46,22 @@ const SEEDED_WORKFLOW_YAML = `version: '1.0'
 id: research-review
 kind: workflow
 tools:
-  - slack_payload_builder
-  - slack_webhook
+  - fixture_payload_builder
+  - fixture_webhook
 souls:
-  slack_notifier:
-    id: slack_notifier
+  fixture_notifier:
+    id: fixture_notifier
     kind: soul
-    name: Slack Reporter
-    role: Slack Reporter
+    name: Fixture Reporter
+    role: Fixture Reporter
     system_prompt: >
-      Post the provided summary to Slack using the tools available to you.
-      Use slack_payload_builder to format the message, then slack_webhook to send it.
+      Post the provided summary to the fixture channel using the tools available to you.
+      Use fixture_payload_builder to format the message, then fixture_webhook to send it.
     provider: test
     model_name: test
     tools:
-      - slack_payload_builder
-      - slack_webhook
+      - fixture_payload_builder
+      - fixture_webhook
 blocks:
   research:
     type: linear
@@ -73,7 +75,7 @@ blocks:
     eval_key: write_summary
   notify:
     type: linear
-    soul_ref: slack_notifier
+    soul_ref: fixture_notifier
 workflow:
   name: Research & Review
   entry: research
@@ -293,7 +295,7 @@ def insert_node(run_id, node_id, block_type, cost, tokens, score, passed, create
             json.dumps({"input": tokens // 2, "output": tokens // 2, "total": tokens}),
             f"{node_id} output",
             f"{node_id}_soul",
-            "gpt-5.4-mini",
+            "fixture-readonly-model",
             f"{node_id}_prompt",
             "v1",
             score,
@@ -393,12 +395,12 @@ conn.close()
 test.beforeAll(async () => {
   await applyFixture([
     {
-      id: "openai",
-      name: "OpenAI",
-      type: "openai",
+      id: "readonly-fixture-provider",
+      name: "Readonly Fixture",
+      type: "readonly-fixture-provider",
       status: "connected",
       is_active: true,
-      models: ["gpt-4.1-mini"],
+      models: ["readonly-fixture-model"],
       api_key: null,
     },
   ], {
@@ -460,7 +462,7 @@ test.describe("Readonly surface browser flows", () => {
     const historicalYamlResponse = await historicalYamlPromise;
     const historicalYaml = ((await historicalYamlResponse.json()) as { content: string }).content;
     const visibleYaml = await readVisibleYaml(page);
-    expect(visibleYaml).toContain("slack_notifier");
+    expect(visibleYaml).toContain("fixture_notifier");
     expect(visibleYaml).toBe(historicalYaml);
 
     await page.getByTestId("workflow-tab-canvas").click();
