@@ -67,7 +67,7 @@ class TestDiscoverSouls:
     """Tests for soul discovery from YAML files."""
 
     def test_discover_souls_empty_directory(self):
-        """AC-1: Empty custom/souls directory returns empty dict."""
+        """Empty custom/souls directory returns empty dict."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
             souls_dir = base_dir / "custom" / "souls"
@@ -79,7 +79,7 @@ class TestDiscoverSouls:
             assert souls == {}
 
     def test_discover_souls_nonexistent_directory(self):
-        """AC-2: Nonexistent custom/souls directory returns empty dict (no exception)."""
+        """Nonexistent custom/souls directory returns empty dict without raising."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
@@ -89,16 +89,16 @@ class TestDiscoverSouls:
             assert souls == {}
 
     def test_discover_single_soul(self):
-        """AC-3: Discover a single Soul from a custom/souls YAML file."""
+        """Discover a single Soul from a custom/souls YAML file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
             souls_dir = base_dir / "custom" / "souls"
             souls_dir.mkdir(parents=True)
 
-            soul_file = souls_dir / "custom_soul.yaml"
+            soul_file = souls_dir / "researcher_soul.yaml"
             soul_file.write_text(
                 dedent("""
-                id: custom_soul
+                id: researcher_soul
                 kind: soul
                 name: Custom Researcher
                 role: Custom Researcher
@@ -110,37 +110,37 @@ class TestDiscoverSouls:
 
             souls = SoulScanner(base_dir).scan().ids()
 
-            assert "custom_soul" in souls
-            assert isinstance(souls["custom_soul"], Soul)
-            assert souls["custom_soul"].id == "custom_soul"
-            assert souls["custom_soul"].kind == "soul"
-            assert souls["custom_soul"].name == "Custom Researcher"
-            assert souls["custom_soul"].role == "Custom Researcher"
+            assert "researcher_soul" in souls
+            assert isinstance(souls["researcher_soul"], Soul)
+            assert souls["researcher_soul"].id == "researcher_soul"
+            assert souls["researcher_soul"].kind == "soul"
+            assert souls["researcher_soul"].name == "Custom Researcher"
+            assert souls["researcher_soul"].role == "Custom Researcher"
 
     def test_discover_multiple_souls(self):
-        """AC-4: Discover multiple Souls from different custom/souls YAML files."""
+        """Discover multiple Souls from different custom/souls YAML files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
             souls_dir = base_dir / "custom" / "souls"
             souls_dir.mkdir(parents=True)
 
-            (souls_dir / "soul_a.yaml").write_text(
+            (souls_dir / "researcher_soul.yaml").write_text(
                 dedent("""
-                id: soul_a
+                id: researcher_soul
                 kind: soul
-                name: Role A
-                role: Role A
-                system_prompt: Prompt A
+                name: Researcher
+                role: Researcher
+                system_prompt: Research the topic.
                 """)
             )
 
-            (souls_dir / "soul_b.yaml").write_text(
+            (souls_dir / "writer_soul.yaml").write_text(
                 dedent("""
-                id: soul_b
+                id: writer_soul
                 kind: soul
-                name: Role B
-                role: Role B
-                system_prompt: Prompt B
+                name: Writer
+                role: Writer
+                system_prompt: Write the summary.
                 """)
             )
 
@@ -149,26 +149,26 @@ class TestDiscoverSouls:
             souls = SoulScanner(base_dir).scan().ids()
 
             assert len(souls) == 2
-            assert "soul_a" in souls
-            assert "soul_b" in souls
+            assert "researcher_soul" in souls
+            assert "writer_soul" in souls
 
     def test_discover_soul_with_tools(self):
-        """AC-5: Discover Soul with optional tools field."""
+        """Discover Soul with optional tools field."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
             souls_dir = base_dir / "custom" / "souls"
             souls_dir.mkdir(parents=True)
 
-            soul_file = souls_dir / "soul_with_tools.yaml"
+            soul_file = souls_dir / "tool_enabled_researcher.yaml"
             soul_file.write_text(
                 dedent("""
-                id: soul_with_tools
+                id: tool_enabled_researcher
                 kind: soul
                 name: Tool User
                 role: Tool User
                 system_prompt: You have tools
                 tools:
-                  - tool1
+                  - summarize
                 """)
             )
 
@@ -176,12 +176,12 @@ class TestDiscoverSouls:
 
             souls = SoulScanner(base_dir).scan().ids()
 
-            assert "soul_with_tools" in souls
-            assert souls["soul_with_tools"].tools is not None
-            assert len(souls["soul_with_tools"].tools) == 1
+            assert "tool_enabled_researcher" in souls
+            assert souls["tool_enabled_researcher"].tools is not None
+            assert len(souls["tool_enabled_researcher"].tools) == 1
 
     def test_discover_soul_ignores_inline_override_keys(self):
-        """AC-6: ignore_keys filters stems that are overridden inline."""
+        """ignore_keys filters stems that are overridden inline."""
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
             souls_dir = base_dir / "custom" / "souls"
@@ -214,7 +214,7 @@ class TestDiscoverSouls:
             assert "kept_soul" in souls
 
     def test_legacy_discover_souls_helper_is_removed_from_public_module(self):
-        """AC-7: The public discovery surface should not expose _discover_souls anymore."""
+        """The public discovery surface should not expose _discover_souls anymore."""
         import runsight_core.yaml.discovery as discovery_module
 
         assert not hasattr(
@@ -224,7 +224,7 @@ class TestDiscoverSouls:
 
 
 class TestDiscoverCustomTools:
-    """RUN-578: discovery of canonical custom tool files under custom/tools/."""
+    """Discovery of canonical custom tool files under custom/tools/."""
 
     @staticmethod
     def _load_symbols():
@@ -739,7 +739,7 @@ class TestDiscoverCustomTools:
 
 
 class TestRepoPolicyForCustomTools:
-    """RUN-525: repository policy should explicitly allow custom/tools assets."""
+    """Repository policy should explicitly allow custom/tools assets."""
 
     def test_agents_policy_allows_custom_tools_directory(self):
         repo_policy = Path(__file__).resolve().parents[3] / "AGENTS.md"

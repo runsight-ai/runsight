@@ -1,10 +1,10 @@
 """
-Regression tests for RUN-569 P1/P2: project root resolution for soul discovery.
+Tests for project root resolution during soul discovery.
 
-P1: Workflow files under custom/workflows/ must resolve library souls from
+- Workflow files under custom/workflows/ must resolve library souls from
     the project root's custom/souls/, not from custom/workflows/custom/souls/.
 
-P2: Recursive child workflow parsing via WorkflowRegistry must inherit the
+- Recursive child workflow parsing via WorkflowRegistry must inherit the
     project root so library souls are discoverable from the child context.
 """
 
@@ -82,11 +82,11 @@ class TestFindProjectRoot:
 
 
 # ===========================================================================
-# P1: parse_workflow_yaml from custom/workflows/ file path
+# parse_workflow_yaml from custom/workflows/ file path
 # ===========================================================================
 
 
-class TestP1FilePathSoulDiscovery:
+class TestFilePathSoulDiscovery:
     """Parsing a workflow file under custom/workflows/ must discover library
     souls from the project root's custom/souls/, not from the file's parent."""
 
@@ -97,16 +97,16 @@ class TestP1FilePathSoulDiscovery:
             root / "custom" / "workflows" / "my_workflow.yaml",
             """\
             version: "1.0"
-            id: test_p1
+            id: workflow-file-discovery
             kind: workflow
             blocks:
               research:
                 type: linear
                 soul_ref: researcher
             workflow:
-              id: test_p1
+              id: workflow-file-discovery
               kind: workflow
-              name: test_p1
+              name: workflow_file_discovery
               entry: research
               transitions:
                 - from: research
@@ -117,7 +117,7 @@ class TestP1FilePathSoulDiscovery:
         workflow_path = str(root / "custom" / "workflows" / "my_workflow.yaml")
         wf = parse_workflow_yaml(workflow_path)
 
-        assert wf.name == "test_p1"
+        assert wf.name == "workflow_file_discovery"
         inner = getattr(wf.blocks["research"], "inner_block", wf.blocks["research"])
         assert inner.soul.role == "Senior Researcher"
 
@@ -129,16 +129,16 @@ class TestP1FilePathSoulDiscovery:
             root / "root_workflow.yaml",
             """\
             version: "1.0"
-            id: test_root
+            id: root-workflow-discovery
             kind: workflow
             blocks:
               research:
                 type: linear
                 soul_ref: researcher
             workflow:
-              id: test_root
+              id: root-workflow-discovery
               kind: workflow
-              name: test_root
+              name: root_workflow_discovery
               entry: research
               transitions:
                 - from: research
@@ -147,25 +147,25 @@ class TestP1FilePathSoulDiscovery:
         )
 
         wf = parse_workflow_yaml(str(root / "root_workflow.yaml"))
-        assert wf.name == "test_root"
+        assert wf.name == "root_workflow_discovery"
 
     def test_missing_soul_from_custom_workflows_gives_clear_error(self, tmp_path):
         root = _setup_project(tmp_path)
 
         _write_file(
-            root / "custom" / "workflows" / "bad.yaml",
+            root / "custom" / "workflows" / "missing_soul_workflow.yaml",
             """\
             version: "1.0"
-            id: test_missing
+            id: missing-soul-workflow
             kind: workflow
             blocks:
               step1:
                 type: linear
                 soul_ref: nonexistent
             workflow:
-              id: test_missing
+              id: missing-soul-workflow
               kind: workflow
-              name: test_missing
+              name: missing_soul_workflow
               entry: step1
               transitions:
                 - from: step1
@@ -174,15 +174,15 @@ class TestP1FilePathSoulDiscovery:
         )
 
         with pytest.raises(ValueError, match="nonexistent"):
-            parse_workflow_yaml(str(root / "custom" / "workflows" / "bad.yaml"))
+            parse_workflow_yaml(str(root / "custom" / "workflows" / "missing_soul_workflow.yaml"))
 
 
 # ===========================================================================
-# P2: child workflow via registry inherits project root
+# child workflow via registry inherits project root
 # ===========================================================================
 
 
-class TestP2RegistryChildWorkflowSoulDiscovery:
+class TestRegistryChildWorkflowSoulDiscovery:
     """When a parent workflow loads a child via WorkflowRegistry, the child
     must still be able to resolve library souls from the project root."""
 
@@ -207,7 +207,7 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
         # Child workflow (registered by name, not file path)
         child_yaml = {
             "version": "1.0",
-            "id": "child_wf",
+            "id": "child-summary-workflow",
             "kind": "workflow",
             "blocks": {
                 "write": {
@@ -216,7 +216,7 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
                 }
             },
             "workflow": {
-                "name": "child_wf",
+                "name": "child_summary_workflow",
                 "entry": "write",
                 "transitions": [{"from": "write", "to": None}],
             },
@@ -231,7 +231,7 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
             root / "custom" / "workflows" / "parent.yaml",
             """\
             version: "1.0"
-            id: parent_wf
+            id: parent-research-workflow
             kind: workflow
             blocks:
               research:
@@ -241,9 +241,9 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
                 type: workflow
                 workflow_ref: child_pipeline
             workflow:
-              id: parent_wf
+              id: parent-research-workflow
               kind: workflow
-              name: parent_wf
+              name: parent_research_workflow
               entry: research
               transitions:
                 - from: research
@@ -258,7 +258,7 @@ class TestP2RegistryChildWorkflowSoulDiscovery:
             workflow_registry=registry,
         )
 
-        assert wf.name == "parent_wf"
+        assert wf.name == "parent_research_workflow"
         # Parent's soul resolved
         research_block = wf.blocks["research"]
         inner = getattr(research_block, "inner_block", research_block)

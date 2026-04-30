@@ -52,7 +52,7 @@ async def execute_loop_for_test(loop, state, *, blocks, ctx=None):
     from runsight_core.workflow import BlockExecutionContext
 
     loop_ctx = ctx or BlockExecutionContext(
-        workflow_name="test_workflow",
+        workflow_name="loop_helper_workflow",
         blocks=blocks,
         call_stack=[],
         workflow_registry=None,
@@ -169,7 +169,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         Real execution is handled by the patched _run_in_subprocess which
         calls the inner block directly when the harness is a SubprocessHarness.
         This stub exists so that SubprocessHarness.run is patched away from
-        the real socket/subprocess implementation, satisfying AC2.
+        the real socket/subprocess implementation, satisfying the harness-boundary invariant.
         """
         return ResultEnvelope(
             block_id=envelope.block_id,
@@ -280,14 +280,14 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
 
 def make_test_yaml(steps_yaml: str) -> str:
-    """Wrap step YAML with a standard souls section containing a 'test' soul.
+    """Wrap step YAML with a standard souls section containing a helper analyst.
 
     Args:
         steps_yaml: Block definitions YAML (indented with 2 spaces per block).
 
     Returns:
-        Full workflow YAML string that includes a 'test' soul definition,
-        so that ``parse_workflow_yaml`` can resolve ``soul_ref: test``.
+        Full workflow YAML string that includes a helper analyst soul definition,
+        so that ``parse_workflow_yaml`` can resolve ``soul_ref: helper_analyst``.
     """
     # Extract block names from the steps_yaml for transitions
     import re
@@ -305,19 +305,19 @@ def make_test_yaml(steps_yaml: str) -> str:
 
     return f"""\
 version: "1.0"
-id: inline_test_workflow
+id: inline-helper-workflow
 kind: workflow
 souls:
-  test:
-    id: test
+  helper_analyst:
+    id: helper_analyst
     kind: soul
-    name: Tester
-    role: Tester
-    system_prompt: You test things.
+    name: Helper Analyst
+    role: Analyst
+    system_prompt: Analyze the workflow step.
 blocks:
 {steps_yaml}
 workflow:
-  name: test_workflow
+  name: inline_helper_workflow
   entry: {entry}
   transitions:
 {transitions}"""
@@ -331,15 +331,15 @@ def tmp_path(request):
 
 
 @pytest.fixture
-def test_souls_map():
-    """Provide a souls map with a 'test' Soul for tests that construct blocks directly."""
+def helper_souls_map():
+    """Provide a souls map with a helper analyst for tests that construct blocks directly."""
     return {
-        "test": Soul(
-            id="test",
+        "helper_analyst": Soul(
+            id="helper_analyst",
             kind="soul",
-            name="Tester",
-            role="Tester",
-            system_prompt="You test things.",
+            name="Helper Analyst",
+            role="Analyst",
+            system_prompt="Analyze the workflow step.",
         )
     }
 

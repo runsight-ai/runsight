@@ -1,4 +1,4 @@
-"""Red tests for RUN-450: retire soul assertions while preserving block assertions."""
+"""Tests for retiring soul assertions while preserving block assertions."""
 
 from unittest.mock import patch
 
@@ -140,12 +140,12 @@ class TestBaseBlockAssertionsAttribute:
 
     def test_base_block_has_assertions_attribute(self):
         """BaseBlock should initialize a runtime assertions attribute."""
-        block = DummyBlock("b1")
+        block = DummyBlock("assertion_runtime_block")
         assert hasattr(block, "assertions")
 
     def test_base_block_assertions_default_none(self):
         """Runtime blocks default assertions to None before parser bridging."""
-        block = DummyBlock("b1")
+        block = DummyBlock("assertion_runtime_block")
         assert hasattr(block, "assertions")
         assert block.assertions is None
 

@@ -1,8 +1,7 @@
 """
-Failing tests for RUN-391: conftest mock-at-boundary fix.
+Tests for the conftest mock-at-boundary isolation contract.
 
-The current conftest patches IsolatedBlockWrapper.execute, bypassing the
-isolation boundary entirely. The correct fix is to patch SubprocessHarness.run
+The conftest must patch SubprocessHarness.run rather than IsolatedBlockWrapper.execute
 so the wrapper's envelope construction and result mapping are exercised.
 
 Tests verify four properties of the corrected conftest:
@@ -55,7 +54,7 @@ def _make_mock_runner() -> MagicMock:
     return runner
 
 
-def _make_result_envelope(block_id: str = "block-1") -> ResultEnvelope:
+def _make_result_envelope(block_id: str = "mock_envelope_block") -> ResultEnvelope:
     return ResultEnvelope(
         block_id=block_id,
         output="mocked output",
@@ -71,7 +70,7 @@ def _make_result_envelope(block_id: str = "block-1") -> ResultEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# AC1: IsolatedBlockWrapper.execute is NOT patched
+# Wrapper execute remains the real implementation
 # ---------------------------------------------------------------------------
 
 
@@ -122,7 +121,7 @@ class TestWrapperExecuteIsNotPatched:
 
 
 # ---------------------------------------------------------------------------
-# AC2: SubprocessHarness.run IS patched in normal test context
+# SubprocessHarness.run is patched in normal test context
 # ---------------------------------------------------------------------------
 
 
@@ -162,7 +161,7 @@ class TestSubprocessHarnessRunIsPatched:
 
 
 # ---------------------------------------------------------------------------
-# AC3: Wrapper builds ContextEnvelope and passes it to harness.run
+# Wrapper builds ContextEnvelope and passes it to harness.run
 # ---------------------------------------------------------------------------
 
 
@@ -171,15 +170,15 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
     to harness.run, proving the envelope construction path is exercised."""
 
     @pytest.mark.asyncio
-    async def test_harness_run_receives_context_envelope(self, test_souls_map):
+    async def test_harness_run_receives_context_envelope(self, helper_souls_map):
         """harness.run must be called with a ContextEnvelope instance."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
-        soul = test_souls_map["test"]
+        soul = helper_souls_map["helper_analyst"]
 
         inner_block = LinearBlock(
-            block_id="block-1",
+            block_id="enveloped_analysis_block",
             soul=soul,
             runner=_make_mock_runner(),
         )
@@ -194,7 +193,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         harness_mock.run.side_effect = _capture_run
 
         wrapper = IsolatedBlockWrapper(
-            block_id="block-1",
+            block_id="enveloped_analysis_block",
             inner_block=inner_block,
             harness=harness_mock,
         )
@@ -214,13 +213,17 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         )
 
     @pytest.mark.asyncio
-    async def test_context_envelope_contains_block_id(self, test_souls_map):
+    async def test_context_envelope_contains_block_id(self, helper_souls_map):
         """The ContextEnvelope passed to harness.run must have the correct block_id."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
-        soul = test_souls_map["test"]
-        inner_block = LinearBlock(block_id="my-block", soul=soul, runner=_make_mock_runner())
+        soul = helper_souls_map["helper_analyst"]
+        inner_block = LinearBlock(
+            block_id="context_envelope_block",
+            soul=soul,
+            runner=_make_mock_runner(),
+        )
 
         received: list[ContextEnvelope] = []
 
@@ -232,7 +235,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         harness_mock.run.side_effect = _capture
 
         wrapper = IsolatedBlockWrapper(
-            block_id="my-block",
+            block_id="context_envelope_block",
             inner_block=inner_block,
             harness=harness_mock,
         )
@@ -240,14 +243,14 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         state = WorkflowState()
         await wrapper.execute(_make_ctx(wrapper, state))
 
-        assert received[0].block_id == "my-block", (
-            "ContextEnvelope.block_id is '%s', expected 'my-block'. "
+        assert received[0].block_id == "context_envelope_block", (
+            "ContextEnvelope.block_id is '%s', expected 'context_envelope_block'. "
             "The wrapper execute path may be patched." % received[0].block_id
         )
 
 
 # ---------------------------------------------------------------------------
-# AC4: The mock returns a valid ResultEnvelope
+# The mock returns a valid ResultEnvelope
 # ---------------------------------------------------------------------------
 
 
@@ -256,13 +259,17 @@ class TestMockReturnsValidResultEnvelope:
     a ResultEnvelope with all required fields populated."""
 
     @pytest.mark.asyncio
-    async def test_result_envelope_is_mapped_to_workflow_state(self, test_souls_map):
+    async def test_result_envelope_is_mapped_to_workflow_state(self, helper_souls_map):
         """IsolatedBlockWrapper.execute must map ResultEnvelope back to BlockOutput."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
-        soul = test_souls_map["test"]
-        inner_block = LinearBlock(block_id="block-out", soul=soul, runner=_make_mock_runner())
+        soul = helper_souls_map["helper_analyst"]
+        inner_block = LinearBlock(
+            block_id="result_mapping_block",
+            soul=soul,
+            runner=_make_mock_runner(),
+        )
 
         expected_output = "the answer is 42"
 
@@ -284,7 +291,7 @@ class TestMockReturnsValidResultEnvelope:
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
-            block_id="block-out",
+            block_id="result_mapping_block",
             inner_block=inner_block,
             harness=harness_mock,
         )
@@ -302,13 +309,17 @@ class TestMockReturnsValidResultEnvelope:
         )
 
     @pytest.mark.asyncio
-    async def test_cost_and_tokens_accumulated_from_result_envelope(self, test_souls_map):
+    async def test_cost_and_tokens_accumulated_from_result_envelope(self, helper_souls_map):
         """cost_usd and total_tokens from ResultEnvelope must be added to WorkflowState."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
-        soul = test_souls_map["test"]
-        inner_block = LinearBlock(block_id="block-cost", soul=soul, runner=_make_mock_runner())
+        soul = helper_souls_map["helper_analyst"]
+        inner_block = LinearBlock(
+            block_id="cost_mapping_block",
+            soul=soul,
+            runner=_make_mock_runner(),
+        )
 
         async def _harness_run(envelope: ContextEnvelope) -> ResultEnvelope:
             return ResultEnvelope(
@@ -328,7 +339,7 @@ class TestMockReturnsValidResultEnvelope:
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
-            block_id="block-cost",
+            block_id="cost_mapping_block",
             inner_block=inner_block,
             harness=harness_mock,
         )
@@ -344,13 +355,17 @@ class TestMockReturnsValidResultEnvelope:
         )
 
     @pytest.mark.asyncio
-    async def test_result_envelope_exit_handle_preserved(self, test_souls_map):
+    async def test_result_envelope_exit_handle_preserved(self, helper_souls_map):
         """exit_handle from ResultEnvelope must be set on the BlockResult."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
-        soul = test_souls_map["test"]
-        inner_block = LinearBlock(block_id="block-exit", soul=soul, runner=_make_mock_runner())
+        soul = helper_souls_map["helper_analyst"]
+        inner_block = LinearBlock(
+            block_id="exit_mapping_block",
+            soul=soul,
+            runner=_make_mock_runner(),
+        )
 
         async def _harness_run(envelope: ContextEnvelope) -> ResultEnvelope:
             return ResultEnvelope(
@@ -370,7 +385,7 @@ class TestMockReturnsValidResultEnvelope:
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
-            block_id="block-exit",
+            block_id="exit_mapping_block",
             inner_block=inner_block,
             harness=harness_mock,
         )
@@ -385,7 +400,7 @@ class TestMockReturnsValidResultEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# AC5: Isolation-specific test files are excluded from the mock
+# Isolation-specific test files are excluded from the mock
 # ---------------------------------------------------------------------------
 
 
@@ -441,8 +456,8 @@ class TestIsolationFilesAreExcluded:
         """The _bypass_subprocess_isolation fixture must patch SubprocessHarness.run,
         NOT IsolatedBlockWrapper.execute.
 
-        This is the core invariant of RUN-391. The current (broken) conftest
-        patches wrapper.execute; the fixed conftest must patch harness.run.
+        This protects the core invariant: conftest must patch harness.run,
+        never wrapper.execute.
         """
         import importlib.util
         from pathlib import Path
@@ -457,7 +472,7 @@ class TestIsolationFilesAreExcluded:
 
         assert 'IsolatedBlockWrapper, "execute"' not in source, (
             "conftest still patches IsolatedBlockWrapper.execute. "
-            "RUN-391 requires patching SubprocessHarness.run instead."
+            "It must patch SubprocessHarness.run instead."
         )
         assert "SubprocessHarness" in source and '"run"' in source, (
             "conftest does not appear to patch SubprocessHarness.run. "

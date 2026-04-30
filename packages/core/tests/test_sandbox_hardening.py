@@ -1,11 +1,9 @@
 """
-Tests for RUN-224: Harden CodeBlock sandbox against introspection bypass.
+Tests for CodeBlock sandbox hardening against introspection bypass.
 
 These tests verify that the AST validator catches bypass vectors that
-circumvent the current blocked-builtins / blocked-modules lists.
-
-Bypass-blocking tests are expected to FAIL until the validator is hardened.
-Legitimate-code tests should PASS already.
+circumvent the blocked-builtins and blocked-modules lists while keeping
+legitimate code working.
 """
 
 import textwrap
@@ -29,7 +27,7 @@ def _code(body: str) -> str:
 
 
 class TestLegitimateCodeStillWorks:
-    """These tests should PASS both before and after hardening."""
+    """Legitimate code remains accepted by the sandbox validator."""
 
     def test_math_operations(self):
         code = _code("""\
@@ -166,7 +164,7 @@ class TestLegitimateCodeStillWorks:
 
 
 # ===========================================================================
-# SECTION 2 — Dunder attribute access (AC: block __class__, __bases__,
+# SECTION 2 — Dunder attribute access (block __class__, __bases__,
 #              __subclasses__, __globals__, __builtins__, __dict__)
 # ===========================================================================
 
@@ -180,7 +178,7 @@ class TestBlockDunderAttributes:
                 return str(().__class__)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_bases(self):
         code = _code("""\
@@ -188,7 +186,7 @@ class TestBlockDunderAttributes:
                 return str(().__class__.__bases__)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_subclasses(self):
         code = _code("""\
@@ -197,7 +195,7 @@ class TestBlockDunderAttributes:
                 return str(cls.__subclasses__())
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_globals(self):
         code = _code("""\
@@ -205,7 +203,7 @@ class TestBlockDunderAttributes:
                 return str(main.__globals__)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_builtins(self):
         code = _code("""\
@@ -213,7 +211,7 @@ class TestBlockDunderAttributes:
                 return str(main.__builtins__)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_dict(self):
         code = _code("""\
@@ -224,11 +222,11 @@ class TestBlockDunderAttributes:
                 return str(Foo.__dict__)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
 
 # ===========================================================================
-# SECTION 3 — Blocked modules (AC: builtins, types, ctypes, code, _thread)
+# SECTION 3 — Blocked modules (builtins, types, ctypes, code, _thread)
 # ===========================================================================
 
 
@@ -237,8 +235,7 @@ class TestBlockedModules:
 
     These modules are passed via ``allowed_imports`` so the allowlist check
     does NOT reject them first.  Only the BLOCKED_MODULES gate should catch
-    them — which won't happen until the Green implementation adds these
-    modules to that set.
+    them through that set.
     """
 
     def test_import_builtins(self):
@@ -249,7 +246,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["builtins"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["builtins"])
 
     def test_import_types(self):
         code = _code("""\
@@ -259,7 +256,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["types"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["types"])
 
     def test_import_ctypes(self):
         code = _code("""\
@@ -269,7 +266,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["ctypes"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["ctypes"])
 
     def test_import_code(self):
         code = _code("""\
@@ -279,7 +276,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["code"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["code"])
 
     def test_import_thread(self):
         code = _code("""\
@@ -289,7 +286,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["_thread"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["_thread"])
 
     def test_from_builtins_import(self):
         code = _code("""\
@@ -299,7 +296,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["builtins"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["builtins"])
 
     def test_from_types_import(self):
         code = _code("""\
@@ -309,7 +306,7 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["types"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["types"])
 
     def test_from_ctypes_import(self):
         code = _code("""\
@@ -319,11 +316,11 @@ class TestBlockedModules:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code, allowed_imports=["ctypes"])
+            CodeBlock("sandbox_rejection_probe", code, allowed_imports=["ctypes"])
 
 
 # ===========================================================================
-# SECTION 4 — Blocked builtins (AC: getattr, setattr, delattr, type, vars, dir)
+# SECTION 4 — Blocked builtins (getattr, setattr, delattr, type, vars, dir)
 # ===========================================================================
 
 
@@ -336,7 +333,7 @@ class TestBlockedBuiltins:
                 return getattr(data, "keys")
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_setattr_call(self):
         code = _code("""\
@@ -349,7 +346,7 @@ class TestBlockedBuiltins:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_delattr_call(self):
         code = _code("""\
@@ -362,7 +359,7 @@ class TestBlockedBuiltins:
                 return {}
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_type_call(self):
         code = _code("""\
@@ -370,7 +367,7 @@ class TestBlockedBuiltins:
                 return str(type(data))
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_vars_call(self):
         code = _code("""\
@@ -378,7 +375,7 @@ class TestBlockedBuiltins:
                 return vars(data)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dir_call(self):
         code = _code("""\
@@ -386,16 +383,16 @@ class TestBlockedBuiltins:
                 return dir(data)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
 
 # ===========================================================================
-# SECTION 5 — Combined bypass vectors from the ticket
+# SECTION 5 — Combined sandbox bypass vectors
 # ===========================================================================
 
 
 class TestCombinedBypassVectors:
-    """End-to-end bypass scenarios from the ticket description."""
+    """End-to-end sandbox bypass scenarios."""
 
     def test_introspection_chain(self):
         """Bypass vector 1: introspection chain via dunder attributes."""
@@ -408,7 +405,7 @@ class TestCombinedBypassVectors:
                 return "not found"
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_getattr_builtins_bypass(self):
         """Bypass vector 2: getattr() to reach hidden attributes."""
@@ -418,7 +415,7 @@ class TestCombinedBypassVectors:
                 return fn
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_type_constructor_bypass(self):
         """Bypass vector 3: type() three-arg form to create classes dynamically."""
@@ -428,7 +425,7 @@ class TestCombinedBypassVectors:
                 return str(Evil)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_getattr_on_module(self):
         """getattr on an allowed module to reach blocked functionality."""
@@ -440,7 +437,7 @@ class TestCombinedBypassVectors:
                 return loader('{"key": "value"}')
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_class_to_reach_object(self):
         """Use __class__ on a string to reach the object hierarchy."""
@@ -450,7 +447,7 @@ class TestCombinedBypassVectors:
                 return str(obj_class)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_type_dynamic_class_creation(self):
         """Use type() three-arg form to dynamically create classes."""
@@ -460,7 +457,7 @@ class TestCombinedBypassVectors:
                 return str(MyClass)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_vars_to_inspect_module(self):
         """Use vars() on an allowed module to inspect its internals."""
@@ -471,7 +468,7 @@ class TestCombinedBypassVectors:
                 return list(vars(json).keys())
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dir_to_discover_attributes(self):
         """Use dir() to discover attributes on an object."""
@@ -482,7 +479,7 @@ class TestCombinedBypassVectors:
                 return dir(json)
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_dict_class_internals(self):
         """Access __dict__ to read class internals."""
@@ -491,7 +488,7 @@ class TestCombinedBypassVectors:
                 return list(int.__dict__.keys())
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_chained_dunder_to_globals(self):
         """Chain dunders to reach __globals__ from a function."""
@@ -504,7 +501,7 @@ class TestCombinedBypassVectors:
                 return list(g.keys())
         """)
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
 
 # ===========================================================================
@@ -518,24 +515,24 @@ class TestExistingBlocksStillWork:
     def test_import_os_still_blocked(self):
         code = "import os\ndef main(data): return {}"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_eval_still_blocked(self):
         code = "x = eval('1')\ndef main(data): return {}"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_exec_still_blocked(self):
         code = "exec('pass')\ndef main(data): return {}"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_open_still_blocked(self):
         code = "f = open('x')\ndef main(data): return {}"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)
 
     def test_dunder_import_still_blocked(self):
         code = "__import__('os')\ndef main(data): return {}"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("x", code)
+            CodeBlock("sandbox_rejection_probe", code)

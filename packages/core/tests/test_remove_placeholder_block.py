@@ -131,13 +131,13 @@ class TestConfTestInfrastructure:
 
     def test_make_test_yaml_produces_valid_yaml_with_soul(self):
         """make_test_yaml() must wrap step YAML with a valid souls section
-        containing a 'test' soul definition, so that parse_workflow_yaml succeeds."""
+        containing a helper analyst soul definition, so that parse_workflow_yaml succeeds."""
         from conftest import make_test_yaml
 
         steps_yaml = """\
   my_block:
     type: linear
-    soul_ref: test
+    soul_ref: helper_analyst
 """
         full_yaml = make_test_yaml(steps_yaml)
 
@@ -145,28 +145,27 @@ class TestConfTestInfrastructure:
         workflow = parse_workflow_yaml(full_yaml)
         assert isinstance(workflow, Workflow)
 
-    def test_make_test_yaml_includes_test_soul(self):
-        """make_test_yaml() output must contain a 'test' soul definition."""
+    def test_make_test_yaml_includes_helper_analyst_soul(self):
+        """make_test_yaml() output must contain a helper analyst soul definition."""
         from conftest import make_test_yaml
 
         full_yaml = make_test_yaml("""\
   my_block:
     type: linear
-    soul_ref: test
+    soul_ref: helper_analyst
 """)
-        # The YAML must contain "test:" under souls
-        assert "test:" in full_yaml
+        assert "helper_analyst:" in full_yaml
 
-    def test_test_souls_map_fixture_exists(self, test_souls_map):
-        """conftest.py must provide a test_souls_map fixture with a 'test' Soul."""
+    def test_helper_souls_map_fixture_exists(self, helper_souls_map):
+        """conftest.py must provide a helper_souls_map fixture with a helper analyst Soul."""
         from runsight_core.primitives import Soul
 
-        assert "test" in test_souls_map
-        assert isinstance(test_souls_map["test"], Soul)
+        assert "helper_analyst" in helper_souls_map
+        assert isinstance(helper_souls_map["helper_analyst"], Soul)
 
-    def test_test_souls_map_fixture_soul_has_required_fields(self, test_souls_map):
-        """The 'test' Soul in test_souls_map must have id, role, and system_prompt."""
-        soul = test_souls_map["test"]
+    def test_helper_souls_map_fixture_soul_has_required_fields(self, helper_souls_map):
+        """The helper analyst Soul in helper_souls_map must have id, role, and system_prompt."""
+        soul = helper_souls_map["helper_analyst"]
         assert soul.id is not None and soul.id != ""
         assert soul.role is not None and soul.role != ""
         assert soul.system_prompt is not None and soul.system_prompt != ""
