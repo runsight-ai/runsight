@@ -26,7 +26,7 @@ async function stubProviderConnection(
   } = {
     success: true,
     message: "Connection successful",
-    models: ["gpt-4.1-mini"],
+    models: ["fixture-provider-model"],
   },
 ) {
   let credentialChecks = 0;
@@ -89,9 +89,9 @@ test.describe("Settings: Providers CRUD", () => {
 
   test("providers page lists providers from the local API", async ({ page }) => {
     const seededProvider: ProviderFixture = {
-      id: "qa-openai-seed",
-      name: "QA OpenAI Seed",
-      type: "openai",
+      id: "qa-fixture-seed",
+      name: "QA Fixture Seed",
+      type: "fixture-provider",
       status: "unknown",
       is_active: true,
       models: [],
@@ -101,9 +101,9 @@ test.describe("Settings: Providers CRUD", () => {
     await applyFixture([seededProvider], READY_SETTINGS);
     await gotoShellRoute(page, "/settings");
 
-    await expect(page.getByText("QA OpenAI Seed", { exact: true })).toBeVisible();
+    await expect(page.getByText("QA Fixture Seed", { exact: true })).toBeVisible();
     await expect(
-      page.getByLabel("Provider QA OpenAI Seed status Unknown"),
+      page.getByLabel("Provider QA Fixture Seed status Unknown"),
     ).toBeVisible();
     await expect(page.getByText("0 models", { exact: true })).toBeVisible();
   });
@@ -126,6 +126,9 @@ test.describe("Settings: Providers CRUD", () => {
     const saveButton = modal.getByRole("button", { name: "Save" });
     await expect(saveButton).toBeDisabled();
 
+    await modal.getByRole("combobox").click();
+    await page.getByRole("option", { name: /Custom/ }).click();
+    await modal.locator('input[type="url"]').fill("http://127.0.0.1:9/v1");
     await modal.locator('input[type="password"]').fill("test-provider-key-local-only");
     await expect(modal.getByRole("status")).toContainText("Connected", {
       timeout: 5000,
@@ -135,7 +138,7 @@ test.describe("Settings: Providers CRUD", () => {
     await saveButton.click();
     await expect(modal).not.toBeVisible();
 
-    await expect(page.getByText("OpenAI", { exact: true })).toBeVisible();
+    await expect(page.getByText("Custom", { exact: true })).toBeVisible();
     await expect.poll(() => calls.credentialChecks).toBeGreaterThan(0);
     await expect.poll(() => calls.savedProviderChecks).toBe(1);
 
@@ -144,7 +147,7 @@ test.describe("Settings: Providers CRUD", () => {
     );
     expect(data.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "openai", name: "OpenAI" }),
+        expect.objectContaining({ id: "custom", name: "Custom" }),
       ]),
     );
   });
@@ -153,9 +156,9 @@ test.describe("Settings: Providers CRUD", () => {
     page,
   }) => {
     const seededProvider: ProviderFixture = {
-      id: "qa-openai-check",
-      name: "QA OpenAI Check",
-      type: "openai",
+      id: "qa-fixture-check",
+      name: "QA Fixture Check",
+      type: "fixture-provider",
       status: "unknown",
       is_active: true,
       models: [],
@@ -166,13 +169,13 @@ test.describe("Settings: Providers CRUD", () => {
     const calls = await stubProviderConnection(page, {
       success: true,
       message: "Connection successful",
-      models: ["gpt-4.1-mini"],
+      models: ["fixture-provider-model"],
     });
 
     await gotoShellRoute(page, "/settings");
 
     await page
-      .getByRole("button", { name: "Test QA OpenAI Check connection" })
+      .getByRole("button", { name: "Test QA Fixture Check connection" })
       .click();
 
     await expect.poll(() => calls.savedProviderChecks).toBe(1);
@@ -183,7 +186,7 @@ test.describe("Settings: Providers CRUD", () => {
     const seededProvider: ProviderFixture = {
       id: "qa-delete-provider",
       name: "QA Delete Provider",
-      type: "openai",
+      type: "fixture-provider",
       status: "unknown",
       is_active: true,
       models: [],
