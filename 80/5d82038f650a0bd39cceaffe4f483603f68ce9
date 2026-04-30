@@ -1,0 +1,37 @@
+packages/core/tests/test_docker_hardening.py
+  d528f2e262952c1a 22
+  4adca821c1af8eb3 1-10,21,73,81,86,94,102,110,122,132,139,149,170,175,183,193,203,213,223,228,237,242,248,252,257,268,277,280,290,293,302,304,313,325,330,336,341,346,351,355,361,384,430,435,449,476,487,501
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "805d82038f650a0bd39cceaffe4f483603f68ce9",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 59,
+      "total_deletions": 70,
+      "accepted_lines": 95326,
+      "overriden_lines": 0
+    },
+    "d528f2e262952c1a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd881-8a95-75a3-b216-79c5bdb39ad1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 444,
+      "overriden_lines": 0
+    }
+  }
+}
