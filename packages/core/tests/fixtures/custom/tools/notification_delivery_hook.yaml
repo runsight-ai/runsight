@@ -1,9 +1,9 @@
 version: "1.0"
-id: slack_webhook
+id: notification_delivery_hook
 kind: tool
 type: custom
 executor: python
-name: slack_webhook
+name: notification_delivery_hook
 description: Fixture tool for testing.
 parameters:
   type: object

@@ -1,0 +1,5 @@
+id: release_notification_reporter
+kind: soul
+name: Release Notification Reporter
+role: release_notification_reporter
+system_prompt: Fixture soul for testing.

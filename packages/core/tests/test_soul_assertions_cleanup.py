@@ -1,17 +1,7 @@
-"""
-RUN-688 — Red tests: Remove stale `assertions: null` from soul YAML files.
+"""Soul fixture governance for retired assertion fields.
 
-Soul-level assertions were retired when eval moved to block scope.
-Four soul files still carry a vestigial `assertions: null` key that
-must be removed.
-
-AC:
-  Given: all YAML files in custom/souls/
-  When: searched for `assertions:` key
-  Then: zero matches
-
-DoD:
-  - No `assertions:` key in any soul YAML file
+Soul-level assertions were retired when eval moved to block scope, so fixture
+soul YAML files must not carry a vestigial `assertions` key.
 """
 
 from __future__ import annotations
@@ -46,7 +36,7 @@ class TestPreconditions:
 
 
 # ===========================================================================
-# AC: zero soul YAML files contain an `assertions` key
+# No retired `assertions` key in soul YAML fixtures
 # ===========================================================================
 
 
@@ -83,6 +73,6 @@ class TestNoAssertionsKeyInSoulYaml:
         )
 
     # The four known-offender tests below were removed because the soul files
-    # (workspace_operator, gate_evaluator, web_researcher, news_to_slack) were
+    # (workspace_operator, gate_evaluator, web_researcher, news_to_notification) were
     # deleted as part of the soul library cleanup.  The broad scan test above
     # (`test_no_soul_file_contains_assertions_key`) covers all remaining files.

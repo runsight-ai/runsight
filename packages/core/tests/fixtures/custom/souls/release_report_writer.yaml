@@ -1,5 +1,5 @@
-id: release_report_writer_openai
+id: release_report_writer
 kind: soul
 name: Release Report Writer
-role: release_report_writer_openai
+role: release_report_writer
 system_prompt: Fixture soul for testing.

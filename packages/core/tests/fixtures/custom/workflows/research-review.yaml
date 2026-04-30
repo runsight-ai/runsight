@@ -2,20 +2,20 @@ version: '1.0'
 id: research-review
 kind: workflow
 tools:
-  - slack_payload_builder
-  - slack_webhook
+  - notification_payload_builder
+  - notification_delivery_hook
 souls:
-  slack_notifier:
-    id: slack_notifier
+  notification_dispatcher:
+    id: notification_dispatcher
     kind: soul
-    name: Slack Reporter
-    role: Slack Reporter
+    name: Notification Reporter
+    role: Notification Reporter
     system_prompt: >
-      Post the provided summary to Slack using the tools available to you.
-      Use slack_payload_builder to format the message, then slack_webhook to send it.
+      Post the provided summary to the notification channel using the tools available to you.
+      Use notification_payload_builder to format the message, then notification_delivery_hook to send it.
     tools:
-      - slack_payload_builder
-      - slack_webhook
+      - notification_payload_builder
+      - notification_delivery_hook
 blocks:
   research:
     type: linear
@@ -29,7 +29,7 @@ blocks:
     eval_key: write_summary
   notify:
     type: linear
-    soul_ref: slack_notifier
+    soul_ref: notification_dispatcher
 workflow:
   name: Research & Review
   entry: research
