@@ -359,7 +359,7 @@ function getCellsInColumn(columnName: string): HTMLElement[] {
 }
 
 /* ================================================================== */
-/*  AC 1: ?workflow=:id query param pre-filters runs                   */
+/*  ?workflow=:id query param pre-filters runs                   */
 /* ================================================================== */
 
 describe("workflow filter via query param", () => {
@@ -397,7 +397,7 @@ describe("workflow filter via query param", () => {
 });
 
 /* ================================================================== */
-/*  AC 2: header shows "Runs — [Name]" with × clear button            */
+/*  header shows "Runs — [Name]" with × clear button            */
 /* ================================================================== */
 
 describe("filtered page header", () => {
@@ -539,7 +539,7 @@ describe("filtered page header", () => {
 });
 
 /* ================================================================== */
-/*  AC 3: Warnings column shows per-run regression count with ⚠ badge */
+/*  Warnings column shows per-run regression count with ⚠ badge */
 /* ================================================================== */
 
 describe("Warnings column regression display", () => {
@@ -571,7 +571,7 @@ describe("Warnings column regression display", () => {
   });
 
   /* ================================================================ */
-  /*  AC 5: Empty regressions show "—"                                 */
+  /*  Empty regressions show "—"                                 */
   /* ================================================================ */
 
   it('displays "—" when regression_count is 0', async () => {
@@ -606,7 +606,7 @@ describe("Warnings column regression display", () => {
 });
 
 /* ================================================================== */
-/*  AC 4: Warnings column is sortable                                  */
+/*  Warnings column is sortable                                  */
 /* ================================================================== */
 
 describe("Warnings column sorting", () => {
