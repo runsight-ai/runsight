@@ -16,6 +16,15 @@ from runsight_api.data.repositories.run_repo import RunRepository
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 from runsight_core.redaction import RunRedactor
 
+EXECUTION_WORKFLOW_ID = "background-execution-workflow"
+EXECUTION_WORKFLOW_NAME = "Background Execution Workflow"
+BRANCH_WORKFLOW_ID = "branch-snapshot-workflow"
+INVALID_WORKFLOW_ID = "invalid-yaml-workflow"
+MISSING_PROVIDER_WORKFLOW_ID = "missing-provider-workflow"
+MISSING_WORKFLOW_ID = "missing-workflow"
+RUNTIME_RESOLUTION_WORKFLOW_ID = "runtime-resolution-workflow"
+RUNTIME_RESOLUTION_WORKFLOW_PATH = f"/isolated/workflows/{RUNTIME_RESOLUTION_WORKFLOW_ID}.yaml"
+
 # --- Import target ---
 
 
@@ -60,30 +69,32 @@ def _init_git_repo_with_workflow(
     return repo
 
 
-VALID_RUNTIME_YAML = """
+VALID_RUNTIME_YAML = f"""
 version: "1.0"
-id: inline_test_workflow
+id: {EXECUTION_WORKFLOW_ID}
 kind: workflow
 workflow:
-  name: test
-  entry: b1
+  id: {EXECUTION_WORKFLOW_ID}
+  kind: workflow
+  name: {EXECUTION_WORKFLOW_NAME}
+  entry: process_request
   transitions:
-    - from: b1
+    - from: process_request
       to: null
 blocks:
-  b1:
+  process_request:
     type: linear
-    soul_ref: test
+    soul_ref: execution-soul
 souls:
-  test:
-    id: test
+  execution-soul:
+    id: execution-soul
     kind: soul
-    name: Test Soul
-    role: tester
+    name: Execution Soul
+    role: execution tester
     system_prompt: hello
     provider: openai
     model_name: gpt-4o
-config: {}
+config: {{}}
 """
 
 
@@ -165,13 +176,13 @@ class TestLaunchExecution:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_1",
-                "wf_1",
+                "tracked-background-run",
+                EXECUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "do stuff"}),
             )
 
             # Task should be tracked
-            assert "run_1" in svc._runtime.running_tasks
+            assert "tracked-background-run" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_returns_immediately(self):
@@ -212,13 +223,13 @@ class TestLaunchExecution:
 
             # launch_execution should return before slow_run completes
             await svc.launch_execution(
-                "run_2",
-                "wf_1",
+                "background-return-run",
+                EXECUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "test"}),
             )
 
             # The method returned but workflow hasn't completed
-            assert "run_2" in svc._runtime.running_tasks
+            assert "background-return-run" in svc._runtime.running_tasks
 
             # Let the background task finish
             execution_finish.set()
@@ -231,18 +242,18 @@ class TestLaunchExecution:
         from runsight_api.logic.services.git_service import GitService
         from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 
-        main_yaml = """
+        main_yaml = f"""
 version: "1.0"
-id: wf_1
+id: {BRANCH_WORKFLOW_ID}
 kind: workflow
 workflow:
-  id: wf_1
+  id: {BRANCH_WORKFLOW_ID}
   kind: workflow
   name: Main Workflow
-  entry: b1
+  entry: main_block
   transitions: []
 blocks:
-  b1:
+  main_block:
     type: linear
     soul_ref: main-soul
 souls:
@@ -254,20 +265,20 @@ souls:
     system_prompt: hello
     provider: openai
     model_name: gpt-4o
-config: {}
+config: {{}}
 """
-        sim_yaml = """
+        sim_yaml = f"""
 version: "1.0"
-id: wf_1
+id: {BRANCH_WORKFLOW_ID}
 kind: workflow
 workflow:
-  id: wf_1
+  id: {BRANCH_WORKFLOW_ID}
   kind: workflow
   name: Simulation Workflow
-  entry: b1
+  entry: simulation_block
   transitions: []
 blocks:
-  b1:
+  simulation_block:
     type: linear
     soul_ref: sim-soul
 souls:
@@ -279,14 +290,16 @@ souls:
     system_prompt: hello
     provider: openai
     model_name: gpt-4o
-config: {}
+config: {{}}
 """
-        repo = _init_git_repo_with_workflow(tmp_path, workflow_id="wf_1", main_yaml=main_yaml)
+        repo = _init_git_repo_with_workflow(
+            tmp_path, workflow_id=BRANCH_WORKFLOW_ID, main_yaml=main_yaml
+        )
         git_service = GitService(repo_path=repo)
         sim_branch = git_service.create_sim_branch(
-            workflow_slug="wf_1",
+            workflow_slug=BRANCH_WORKFLOW_ID,
             yaml_content=sim_yaml,
-            yaml_path="custom/workflows/wf_1.yaml",
+            yaml_path=f"custom/workflows/{BRANCH_WORKFLOW_ID}.yaml",
         ).branch
 
         run_repo = Mock()
@@ -310,8 +323,8 @@ config: {}
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_branch_yaml",
-                "wf_1",
+                "branch-snapshot-run",
+                BRANCH_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "execute simulation"}),
                 branch=sim_branch,
             )
@@ -362,15 +375,15 @@ class TestAutoCleanup:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_cleanup",
-                "wf_1",
+                "cleanup-run",
+                EXECUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "test"}),
             )
 
             # Wait for background task to finish and cleanup callback to fire
             await asyncio.sleep(0.1)
 
-            assert "run_cleanup" not in svc._runtime.running_tasks
+            assert "cleanup-run" not in svc._runtime.running_tasks
 
 
 # ---------------------------------------------------------------------------
@@ -386,9 +399,9 @@ class TestLaunchExecutionErrors:
         from runsight_api.domain.entities.run import Run, RunStatus
 
         run = Run(
-            id="run_err1",
-            workflow_id="wf_bad",
-            workflow_name="wf_bad",
+            id="invalid-yaml-run",
+            workflow_id=INVALID_WORKFLOW_ID,
+            workflow_name="Invalid YAML Workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -411,8 +424,8 @@ class TestLaunchExecutionErrors:
         )
 
         await svc.launch_execution(
-            "run_err1",
-            "wf_bad",
+            "invalid-yaml-run",
+            INVALID_WORKFLOW_ID,
             _prepared_inputs({"instruction": "test"}),
         )
 
@@ -435,12 +448,12 @@ class TestLaunchExecutionErrors:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_nokey"
+        run_id = "missing-provider-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id=MISSING_PROVIDER_WORKFLOW_ID,
+                workflow_name="Missing Provider Workflow",
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -454,18 +467,18 @@ class TestLaunchExecutionErrors:
 
         # Valid workflow YAML that needs an LLM call (non-placeholder block)
         mock_entity = Mock()
-        mock_entity.yaml = """
+        mock_entity.yaml = f"""
 version: "1.0"
-id: inline_test_workflow
+id: {MISSING_PROVIDER_WORKFLOW_ID}
 kind: workflow
 workflow:
-  id: test
+  id: {MISSING_PROVIDER_WORKFLOW_ID}
   kind: workflow
-  name: test
-  entry: b1
+  name: Missing Provider Workflow
+  entry: research_request
   transitions: []
 blocks:
-  b1:
+  research_request:
     type: linear
     soul_ref: researcher
 souls:
@@ -477,7 +490,7 @@ souls:
     system_prompt: hello
     provider: openai
     model_name: gpt-4o
-config: {}
+config: {{}}
 """
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None  # No provider
@@ -492,7 +505,7 @@ config: {}
         with patch.dict("os.environ", {}, clear=True):
             await svc.launch_execution(
                 run_id,
-                "missing_provider_workflow",
+                MISSING_PROVIDER_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "test"}),
             )
             await asyncio.sleep(0.1)
@@ -508,9 +521,9 @@ config: {}
         from runsight_api.domain.entities.run import Run, RunStatus
 
         run = Run(
-            id="run_prefail",
-            workflow_id="wf_missing",
-            workflow_name="wf_missing",
+            id="prepare-failure-run",
+            workflow_id=MISSING_WORKFLOW_ID,
+            workflow_name="Missing Workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -530,8 +543,8 @@ config: {}
         )
 
         await svc.launch_execution(
-            "run_prefail",
-            "wf_missing",
+            "prepare-failure-run",
+            MISSING_WORKFLOW_ID,
             _prepared_inputs({"instruction": "x"}),
         )
         await asyncio.sleep(0.05)
@@ -556,12 +569,12 @@ class TestRunStatusTransitions:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_trans"
+        run_id = "running-transition-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id=EXECUTION_WORKFLOW_ID,
+                workflow_name=EXECUTION_WORKFLOW_NAME,
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -604,8 +617,8 @@ class TestRunStatusTransitions:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                EXECUTION_WORKFLOW_ID,
+                _prepared_inputs({"instruction": "process request"}),
             )
             await asyncio.wait_for(running_seen.wait(), timeout=2.0)
 
@@ -623,12 +636,12 @@ class TestRunStatusTransitions:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_comp"
+        run_id = "successful-completion-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id=EXECUTION_WORKFLOW_ID,
+                workflow_name=EXECUTION_WORKFLOW_NAME,
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -672,8 +685,8 @@ class TestRunStatusTransitions:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                EXECUTION_WORKFLOW_ID,
+                _prepared_inputs({"instruction": "process request"}),
             )
             await asyncio.sleep(0.1)
 
@@ -690,12 +703,12 @@ class TestRunStatusTransitions:
         db_engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(db_engine)
 
-        run_id = "run_fail"
+        run_id = "failed-execution-run"
         with Session(db_engine) as session:
             run = Run(
                 id=run_id,
-                workflow_id="wf_1",
-                workflow_name="wf_1",
+                workflow_id=EXECUTION_WORKFLOW_ID,
+                workflow_name=EXECUTION_WORKFLOW_NAME,
                 status=RunStatus.pending,
                 task_json="{}",
                 branch="main",
@@ -737,8 +750,8 @@ class TestRunStatusTransitions:
 
             await svc.launch_execution(
                 run_id,
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                EXECUTION_WORKFLOW_ID,
+                _prepared_inputs({"instruction": "process request"}),
             )
             await asyncio.sleep(0.1)
 
@@ -758,26 +771,28 @@ class TestExecutionRuntimeResolution:
         settings_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = """
+        mock_entity.yaml = f"""
 version: "1.0"
-id: inline_test_workflow
+id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
 kind: workflow
 workflow:
+  id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
+  kind: workflow
   name: code-only
-  entry: b1
+  entry: code_block
   transitions:
-    - from: b1
+    - from: code_block
       to: null
 blocks:
-  b1:
+  code_block:
     type: code
     code: |
       def main(data):
           return "ok"
-config: {}
+config: {{}}
 """
         workflow_repo.get_by_id.return_value = mock_entity
-        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        workflow_repo._get_path.return_value = RUNTIME_RESOLUTION_WORKFLOW_PATH
         provider_repo.list_all.return_value = []
         settings_repo.get_settings.return_value = Mock(fallback_enabled=False)
         settings_repo.get_fallback_map.return_value = []
@@ -800,13 +815,13 @@ config: {}
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_code_only",
-                "wf_1",
+                "code-only-runtime-run",
+                RUNTIME_RESOLUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "do stuff"}),
             )
 
         mock_fail.assert_not_called()
-        assert "run_code_only" in svc._runtime.running_tasks
+        assert "code-only-runtime-run" in svc._runtime.running_tasks
 
     @pytest.mark.asyncio
     async def test_launch_execution_rejects_providerless_modeless_soul_without_workflow_model(self):
@@ -817,31 +832,33 @@ config: {}
         settings_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = """
+        mock_entity.yaml = f"""
 version: "1.0"
-id: inline_test_workflow
+id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
 kind: workflow
 workflow:
-  name: test
-  entry: b1
+  id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
+  kind: workflow
+  name: Runtime Resolution Workflow
+  entry: providerless_block
   transitions:
-    - from: b1
+    - from: providerless_block
       to: null
 blocks:
-  b1:
+  providerless_block:
     type: linear
-    soul_ref: test
+    soul_ref: providerless-soul
 souls:
-  test:
-    id: test
+  providerless-soul:
+    id: providerless-soul
     kind: soul
-    name: Test Soul
+    name: Providerless Soul
     role: tester
     system_prompt: hello
-config: {}
+config: {{}}
 """
         workflow_repo.get_by_id.return_value = mock_entity
-        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        workflow_repo._get_path.return_value = RUNTIME_RESOLUTION_WORKFLOW_PATH
         provider_repo.list_all.return_value = []
         settings_repo.get_settings.return_value = Mock(fallback_enabled=False)
         settings_repo.get_fallback_map.return_value = []
@@ -855,8 +872,8 @@ config: {}
 
         with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
             await svc.launch_execution(
-                "run_missing_model",
-                "wf_1",
+                "missing-model-run",
+                RUNTIME_RESOLUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "do stuff"}),
             )
 
@@ -872,32 +889,34 @@ config: {}
         settings_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = """
+        mock_entity.yaml = f"""
 version: "1.0"
-id: inline_test_workflow
+id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
 kind: workflow
 workflow:
-  name: test
-  entry: b1
+  id: {RUNTIME_RESOLUTION_WORKFLOW_ID}
+  kind: workflow
+  name: Runtime Resolution Workflow
+  entry: provider_only_block
   transitions:
-    - from: b1
+    - from: provider_only_block
       to: null
 blocks:
-  b1:
+  provider_only_block:
     type: linear
-    soul_ref: test
+    soul_ref: provider-only-soul
 souls:
-  test:
-    id: test
+  provider-only-soul:
+    id: provider-only-soul
     kind: soul
-    name: Test Soul
+    name: Provider Only Soul
     role: tester
     system_prompt: hello
     provider: openai
-config: {}
+config: {{}}
 """
         workflow_repo.get_by_id.return_value = mock_entity
-        workflow_repo._get_path.return_value = "/fake/workflows/wf_1.yaml"
+        workflow_repo._get_path.return_value = RUNTIME_RESOLUTION_WORKFLOW_PATH
         provider_repo.list_all.return_value = [
             Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
         ]
@@ -913,8 +932,8 @@ config: {}
 
         with patch.object(svc, "_fail_run_on_prepare_error") as mock_fail:
             await svc.launch_execution(
-                "run_missing_model_name",
-                "wf_1",
+                "missing-model-name-run",
+                RUNTIME_RESOLUTION_WORKFLOW_ID,
                 _prepared_inputs({"instruction": "do stuff"}),
             )
 
