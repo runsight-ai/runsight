@@ -1,0 +1,51 @@
+packages/core/tests/test_workflow_error_routing_and_output_mapping.py
+  4adca821c1af8eb3 1,3,5-7,40,107,109-111,116,129,132,136,140,147,149,151-159,165,175,182-184,193,197,205-206,212,223,234,257,261,269-270,272,286,296,300,330-336,338,341,356,358,361,370,374,398,402,456,460,488-492,500,506,508-509,511,523,525,533,540-550,552,574-576,578,593-595,597-598,600,602-619,627,629-631,642,649,661,665,725
+  da567bed8332086c 219-221,232-233,235-239,418-420,425-435
+  6bc6e308fc943b26 666-724
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "11f8a1368962c007e1de5d421e89f7e9c5be0142",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 800,
+      "total_deletions": 160,
+      "accepted_lines": 94130,
+      "overriden_lines": 0
+    },
+    "6bc6e308fc943b26": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dde7c-a20f-72f0-8a60-2b2e50e0dad3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 60,
+      "total_deletions": 0,
+      "accepted_lines": 59,
+      "overriden_lines": 0
+    },
+    "da567bed8332086c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dde7c-a1dd-72b0-8daa-3f983cb4d8b0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 2,
+      "accepted_lines": 24,
+      "overriden_lines": 0
+    }
+  }
+}
