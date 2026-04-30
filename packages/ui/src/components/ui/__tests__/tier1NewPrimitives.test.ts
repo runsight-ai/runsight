@@ -71,7 +71,7 @@ describe("Spinner — named export", () => {
 });
 
 // ===========================================================================
-// 3. SPINNER — size variants (AC1)
+// 3. SPINNER — size variants
 // ===========================================================================
 
 describe("Spinner — size variants present", () => {
@@ -92,7 +92,7 @@ describe("Spinner — size variants present", () => {
 });
 
 // ===========================================================================
-// 4. SPINNER — variant support (AC1)
+// 4. SPINNER — variant support
 // ===========================================================================
 
 describe("Spinner — visual variants present", () => {
@@ -108,7 +108,7 @@ describe("Spinner — visual variants present", () => {
 });
 
 // ===========================================================================
-// 5. SPINNER — design system tokens (AC1)
+// 5. SPINNER — design system tokens
 // ===========================================================================
 
 describe("Spinner — design system tokens used", () => {
@@ -139,7 +139,7 @@ describe("Spinner — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 6. SPINNER — animation (AC1)
+// 6. SPINNER — animation
 // ===========================================================================
 
 describe("Spinner — animation support", () => {
@@ -150,7 +150,7 @@ describe("Spinner — animation support", () => {
 });
 
 // ===========================================================================
-// 7. SPINNER — ARIA compliance (AC1)
+// 7. SPINNER — ARIA compliance
 // ===========================================================================
 
 describe("Spinner — ARIA compliance", () => {
@@ -187,7 +187,7 @@ describe("Skeleton — named export", () => {
 });
 
 // ===========================================================================
-// 10. SKELETON — variants (AC2)
+// 10. SKELETON — variants
 // ===========================================================================
 
 describe("Skeleton — variants present", () => {
@@ -218,7 +218,7 @@ describe("Skeleton — variants present", () => {
 });
 
 // ===========================================================================
-// 11. SKELETON — design system tokens (AC2)
+// 11. SKELETON — design system tokens
 // ===========================================================================
 
 describe("Skeleton — design system tokens used", () => {
@@ -234,7 +234,7 @@ describe("Skeleton — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 12. SKELETON — shimmer animation (AC2)
+// 12. SKELETON — shimmer animation
 // ===========================================================================
 
 describe("Skeleton — shimmer animation", () => {
@@ -245,7 +245,7 @@ describe("Skeleton — shimmer animation", () => {
 });
 
 // ===========================================================================
-// 13. SKELETON — ARIA compliance (AC2)
+// 13. SKELETON — ARIA compliance
 // ===========================================================================
 
 describe("Skeleton — ARIA compliance", () => {
@@ -282,7 +282,7 @@ describe("Progress — named export", () => {
 });
 
 // ===========================================================================
-// 16. PROGRESS — variants (AC3)
+// 16. PROGRESS — variants
 // ===========================================================================
 
 describe("Progress — variants present", () => {
@@ -313,7 +313,7 @@ describe("Progress — variants present", () => {
 });
 
 // ===========================================================================
-// 17. PROGRESS — design system tokens (AC3)
+// 17. PROGRESS — design system tokens
 // ===========================================================================
 
 describe("Progress — design system tokens used", () => {
@@ -339,7 +339,7 @@ describe("Progress — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 18. PROGRESS — ARIA compliance (AC3)
+// 18. PROGRESS — ARIA compliance
 // ===========================================================================
 
 describe("Progress — ARIA compliance", () => {
@@ -386,7 +386,7 @@ describe("StatusDot — named export", () => {
 });
 
 // ===========================================================================
-// 21. STATUS DOT — variants (AC4)
+// 21. STATUS DOT — variants
 // ===========================================================================
 
 describe("StatusDot — variants present", () => {
@@ -417,7 +417,7 @@ describe("StatusDot — variants present", () => {
 });
 
 // ===========================================================================
-// 22. STATUS DOT — design system tokens (AC4)
+// 22. STATUS DOT — design system tokens
 // ===========================================================================
 
 describe("StatusDot — design system tokens used", () => {
@@ -458,7 +458,7 @@ describe("StatusDot — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 23. STATUS DOT — animations (AC4)
+// 23. STATUS DOT — animations
 // ===========================================================================
 
 describe("StatusDot — animations", () => {
@@ -495,7 +495,7 @@ describe("Toast — named export", () => {
 });
 
 // ===========================================================================
-// 26. TOAST — variants (AC5)
+// 26. TOAST — variants
 // ===========================================================================
 
 describe("Toast — variants present", () => {
@@ -521,7 +521,7 @@ describe("Toast — variants present", () => {
 });
 
 // ===========================================================================
-// 27. TOAST — design system tokens (AC5)
+// 27. TOAST — design system tokens
 // ===========================================================================
 
 describe("Toast — design system tokens used", () => {
@@ -552,7 +552,7 @@ describe("Toast — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 28. TOAST — sub-components (AC5)
+// 28. TOAST — sub-components
 // ===========================================================================
 
 describe("Toast — sub-components present", () => {
@@ -573,7 +573,7 @@ describe("Toast — sub-components present", () => {
 });
 
 // ===========================================================================
-// 29. TOAST — ARIA compliance (AC5)
+// 29. TOAST — ARIA compliance
 // ===========================================================================
 
 describe("Toast — ARIA compliance", () => {
@@ -584,7 +584,7 @@ describe("Toast — ARIA compliance", () => {
 });
 
 // ===========================================================================
-// 30. STORYBOOK STORIES — all 5 new component story files exist (AC6)
+// 30. STORYBOOK STORIES — all 5 new component story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -610,7 +610,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 31. STORYBOOK STORIES — Spinner.stories.tsx structure (AC6)
+// 31. STORYBOOK STORIES — Spinner.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Spinner.stories.tsx structure", () => {
@@ -641,7 +641,7 @@ describe("Storybook stories — Spinner.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 32. STORYBOOK STORIES — Skeleton.stories.tsx structure (AC6)
+// 32. STORYBOOK STORIES — Skeleton.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Skeleton.stories.tsx structure", () => {
@@ -672,7 +672,7 @@ describe("Storybook stories — Skeleton.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 33. STORYBOOK STORIES — Progress.stories.tsx structure (AC6)
+// 33. STORYBOOK STORIES — Progress.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Progress.stories.tsx structure", () => {
@@ -703,7 +703,7 @@ describe("Storybook stories — Progress.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 34. STORYBOOK STORIES — StatusDot.stories.tsx structure (AC6)
+// 34. STORYBOOK STORIES — StatusDot.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — StatusDot.stories.tsx structure", () => {
@@ -734,7 +734,7 @@ describe("Storybook stories — StatusDot.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 35. STORYBOOK STORIES — Toast.stories.tsx structure (AC6)
+// 35. STORYBOOK STORIES — Toast.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Toast.stories.tsx structure", () => {

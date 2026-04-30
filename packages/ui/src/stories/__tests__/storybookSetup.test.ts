@@ -41,7 +41,7 @@ function readPackageJson(): {
 }
 
 // ===========================================================================
-// 1. .storybook/main.ts — Config file existence and structure (AC1, AC5)
+// 1. .storybook/main.ts — Config file existence and structure
 // ===========================================================================
 
 describe(".storybook/main.ts — existence and framework config", () => {
@@ -74,7 +74,7 @@ describe(".storybook/main.ts — existence and framework config", () => {
 });
 
 // ===========================================================================
-// 2. .storybook/preview.ts — Design system integration (AC2, AC3, AC4)
+// 2. .storybook/preview.ts — Design system integration
 // ===========================================================================
 
 describe(".storybook/preview.ts — existence and design system imports", () => {
@@ -119,7 +119,7 @@ describe(".storybook/preview.ts — existence and design system imports", () => 
 });
 
 // ===========================================================================
-// 3. src/stories/DesignTokens.stories.tsx — Story file structure (AC2)
+// 3. src/stories/DesignTokens.stories.tsx — Story file structure
 // ===========================================================================
 
 describe("DesignTokens.stories.tsx — existence and Storybook structure", () => {
@@ -168,7 +168,7 @@ describe("DesignTokens.stories.tsx — existence and Storybook structure", () =>
 });
 
 // ===========================================================================
-// 4. package.json — Scripts (AC6)
+// 4. package.json — Scripts
 // ===========================================================================
 
 describe("package.json — storybook scripts", () => {
@@ -200,7 +200,7 @@ describe("package.json — storybook scripts", () => {
 });
 
 // ===========================================================================
-// 5. package.json — Storybook devDependencies (AC1, AC6)
+// 5. package.json — Storybook devDependencies
 // ===========================================================================
 
 describe("package.json — storybook devDependencies", () => {

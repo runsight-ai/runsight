@@ -37,7 +37,7 @@ function extractRootBlock(css: string): string {
 }
 
 // ===========================================================================
-// 1. Font Loading (AC4, AC11)
+// 1. Font Loading
 // ===========================================================================
 
 describe("Font loading", () => {
@@ -85,7 +85,7 @@ describe("Font loading", () => {
 });
 
 // ===========================================================================
-// 2. Reference Tokens — Neutral Scale (AC1, AC3)
+// 2. Reference Tokens — Neutral Scale
 // ===========================================================================
 
 describe("Reference tokens: neutral scale", () => {
@@ -113,7 +113,7 @@ describe("Reference tokens: neutral scale", () => {
 });
 
 // ===========================================================================
-// 3. Reference Tokens — Accent Scale (AC1, AC3)
+// 3. Reference Tokens — Accent Scale
 // ===========================================================================
 
 describe("Reference tokens: accent scale", () => {
@@ -140,7 +140,7 @@ describe("Reference tokens: accent scale", () => {
 });
 
 // ===========================================================================
-// 4. Reference Tokens — Semantic Hue Scales (AC1)
+// 4. Reference Tokens — Semantic Hue Scales
 // ===========================================================================
 
 describe("Reference tokens: semantic hue scales", () => {
@@ -174,7 +174,7 @@ describe("Reference tokens: semantic hue scales", () => {
 });
 
 // ===========================================================================
-// 5. Reference Tokens — Chart Palette (AC1)
+// 5. Reference Tokens — Chart Palette
 // ===========================================================================
 
 describe("Reference tokens: chart palette", () => {
@@ -187,7 +187,7 @@ describe("Reference tokens: chart palette", () => {
 });
 
 // ===========================================================================
-// 6. Reference Tokens — Block Category Colors (AC1)
+// 6. Reference Tokens — Block Category Colors
 // ===========================================================================
 
 describe("Reference tokens: block category colors", () => {
@@ -200,7 +200,7 @@ describe("Reference tokens: block category colors", () => {
 });
 
 // ===========================================================================
-// 7. Reference Tokens — YAML Syntax Colors (AC1)
+// 7. Reference Tokens — YAML Syntax Colors
 // ===========================================================================
 
 describe("Reference tokens: YAML syntax colors", () => {
@@ -213,7 +213,7 @@ describe("Reference tokens: YAML syntax colors", () => {
 });
 
 // ===========================================================================
-// 8. Reference Tokens — Typography Scale (AC1)
+// 8. Reference Tokens — Typography Scale
 // ===========================================================================
 
 describe("Reference tokens: typography scale", () => {
@@ -241,7 +241,7 @@ describe("Reference tokens: typography scale", () => {
 });
 
 // ===========================================================================
-// 9. Reference Tokens — Spacing Scale (AC1)
+// 9. Reference Tokens — Spacing Scale
 // ===========================================================================
 
 describe("Reference tokens: spacing scale", () => {
@@ -262,7 +262,7 @@ describe("Reference tokens: spacing scale", () => {
 });
 
 // ===========================================================================
-// 10. Reference Tokens — Z-Index, Control Heights, Overlays, Panels (AC1)
+// 10. Reference Tokens — Z-Index, Control Heights, Overlays, Panels
 // ===========================================================================
 
 describe("Reference tokens: layout primitives", () => {
@@ -300,7 +300,7 @@ describe("Reference tokens: layout primitives", () => {
 });
 
 // ===========================================================================
-// 11. System Tokens — Surfaces (AC1)
+// 11. System Tokens — Surfaces
 // ===========================================================================
 
 describe("System tokens: surfaces", () => {
@@ -323,7 +323,7 @@ describe("System tokens: surfaces", () => {
 });
 
 // ===========================================================================
-// 12. System Tokens — Text (AC1)
+// 12. System Tokens — Text
 // ===========================================================================
 
 describe("System tokens: text", () => {
@@ -347,7 +347,7 @@ describe("System tokens: text", () => {
 });
 
 // ===========================================================================
-// 13. System Tokens — Borders (AC1)
+// 13. System Tokens — Borders
 // ===========================================================================
 
 describe("System tokens: borders", () => {
@@ -370,7 +370,7 @@ describe("System tokens: borders", () => {
 });
 
 // ===========================================================================
-// 14. System Tokens — Interactive (AC1)
+// 14. System Tokens — Interactive
 // ===========================================================================
 
 describe("System tokens: interactive", () => {
@@ -383,7 +383,7 @@ describe("System tokens: interactive", () => {
 });
 
 // ===========================================================================
-// 15. System Tokens — Elevation (AC1)
+// 15. System Tokens — Elevation
 // ===========================================================================
 
 describe("System tokens: elevation", () => {
@@ -394,7 +394,7 @@ describe("System tokens: elevation", () => {
 });
 
 // ===========================================================================
-// 16. No Hex Colors in :root (AC3)
+// 16. No Hex Colors in :root
 // ===========================================================================
 
 describe("No hex color values in :root", () => {
@@ -408,7 +408,7 @@ describe("No hex color values in :root", () => {
 });
 
 // ===========================================================================
-// 17. Density Modes (AC9)
+// 17. Density Modes
 // ===========================================================================
 
 describe("Density modes", () => {
@@ -433,7 +433,7 @@ describe("Density modes", () => {
 });
 
 // ===========================================================================
-// 18. Light Theme (AC8)
+// 18. Light Theme
 // ===========================================================================
 
 describe("Light theme", () => {
@@ -459,7 +459,7 @@ describe("Light theme", () => {
 });
 
 // ===========================================================================
-// 19. @theme inline — New Design System Tailwind Utilities (AC5, AC6)
+// 19. @theme inline — New Design System Tailwind Utilities
 // ===========================================================================
 
 describe("@theme inline: new design system token mappings", () => {
@@ -530,7 +530,7 @@ describe("@theme inline: new design system token mappings", () => {
 });
 
 // ===========================================================================
-// 20. @theme inline — NO Old Shadcn Token Names (AC6)
+// 20. @theme inline — NO Old Shadcn Token Names
 // ===========================================================================
 
 describe("@theme inline: no backward compat aliases", () => {
@@ -627,7 +627,7 @@ describe("@theme inline: no backward compat aliases", () => {
 });
 
 // ===========================================================================
-// 21. :root — NO Legacy Shadcn Token Names (AC2)
+// 21. :root — NO Legacy Shadcn Token Names
 // ===========================================================================
 
 describe(":root: no legacy shadcn tokens", () => {
@@ -679,7 +679,7 @@ describe(":root: no legacy shadcn tokens", () => {
 });
 
 // ===========================================================================
-// 22. :root — NO Old Alpha Variants (AC2)
+// 22. :root — NO Old Alpha Variants
 // ===========================================================================
 
 describe(":root: no old alpha variant tokens", () => {
@@ -721,7 +721,7 @@ describe(":root: no old alpha variant tokens", () => {
 });
 
 // ===========================================================================
-// 23. Retained Imports (AC7)
+// 23. Retained Imports
 // ===========================================================================
 
 describe("Retained imports", () => {
@@ -742,7 +742,7 @@ describe("Retained imports", () => {
 });
 
 // ===========================================================================
-// 24. Design System Keyframes (AC10)
+// 24. Design System Keyframes
 // ===========================================================================
 
 describe("Design system keyframes", () => {
@@ -785,7 +785,7 @@ describe("Design system keyframes", () => {
 });
 
 // ===========================================================================
-// 25. Global Styles — Reset and Body (AC8)
+// 25. Global Styles — Reset and Body
 // ===========================================================================
 
 describe("Global styles: reset and body", () => {

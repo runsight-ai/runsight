@@ -52,7 +52,7 @@ function readStory(filename: string): string {
 }
 
 // ===========================================================================
-// 1. NODE CARD — file exists and exports (AC1)
+// 1. NODE CARD — file exists and exports
 // ===========================================================================
 
 describe("NodeCard — file exists and exports default or named export", () => {
@@ -73,7 +73,7 @@ describe("NodeCard — file exists and exports default or named export", () => {
 });
 
 // ===========================================================================
-// 2. NODE CARD — block category stripe tokens (AC1)
+// 2. NODE CARD — block category stripe tokens
 // ===========================================================================
 
 describe("NodeCard — block-agent stripe token", () => {
@@ -113,7 +113,7 @@ describe("NodeCard — block-custom stripe token", () => {
 });
 
 // ===========================================================================
-// 3. NODE CARD — surface and border tokens (AC1)
+// 3. NODE CARD — surface and border tokens
 // ===========================================================================
 
 describe("NodeCard — surface token for card background", () => {
@@ -154,7 +154,7 @@ describe("NodeCard — radius-lg token for card shape", () => {
 });
 
 // ===========================================================================
-// 4. NODE CARD — header text tokens (AC1)
+// 4. NODE CARD — header text tokens
 // ===========================================================================
 
 describe("NodeCard — text-heading token for header text", () => {
@@ -173,7 +173,7 @@ describe("NodeCard — small font token for header text size", () => {
 });
 
 // ===========================================================================
-// 5. NODE CARD — cost badge tokens (AC1)
+// 5. NODE CARD — cost badge tokens
 // ===========================================================================
 
 describe("NodeCard — font-mono token for cost badge", () => {
@@ -191,7 +191,7 @@ describe("NodeCard — font-size-2xs token for cost badge text", () => {
 });
 
 // ===========================================================================
-// 6. NODE CARD — execution state tokens (AC1)
+// 6. NODE CARD — execution state tokens
 // ===========================================================================
 
 describe("NodeCard — accent-9 token for running state", () => {
@@ -226,7 +226,7 @@ describe("NodeCard — neutral token for skipped state", () => {
 });
 
 // ===========================================================================
-// 7. NODE CARD — port handle token (AC1)
+// 7. NODE CARD — port handle token
 // ===========================================================================
 
 describe("NodeCard — interactive-default token for port handles", () => {
@@ -237,7 +237,7 @@ describe("NodeCard — interactive-default token for port handles", () => {
 });
 
 // ===========================================================================
-// 8. EMPTY STATE — existing file has design system tokens (AC3)
+// 8. EMPTY STATE — existing file has design system tokens
 // ===========================================================================
 
 describe("EmptyState — text-muted token for icon color", () => {
@@ -307,7 +307,7 @@ describe("EmptyState — no BEM class names", () => {
 });
 
 // ===========================================================================
-// 12. STORYBOOK STORIES — all 3 story files exist (AC4)
+// 12. STORYBOOK STORIES — all 3 story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -321,7 +321,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 13. STORYBOOK STORIES — NodeCard.stories.tsx structure (AC4)
+// 13. STORYBOOK STORIES — NodeCard.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — NodeCard.stories.tsx structure", () => {
@@ -357,7 +357,7 @@ describe("Storybook stories — NodeCard.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 14. STORYBOOK STORIES — EmptyState.stories.tsx structure (AC4)
+// 14. STORYBOOK STORIES — EmptyState.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — EmptyState.stories.tsx structure", () => {

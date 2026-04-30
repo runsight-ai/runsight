@@ -54,7 +54,7 @@ function hasVariantKey(source: string, key: string): boolean {
 }
 
 // ===========================================================================
-// 1. BUTTON — variant names (AC1)
+// 1. BUTTON — variant names
 // ===========================================================================
 
 describe("Button — new variant names present", () => {
@@ -86,7 +86,7 @@ describe("Button — new variant names present", () => {
 });
 
 // ===========================================================================
-// 2. BUTTON — old variant names removed (AC1)
+// 2. BUTTON — old variant names removed
 // ===========================================================================
 
 describe("Button — old variant names removed", () => {
@@ -119,7 +119,7 @@ describe("Button — old variant names removed", () => {
 });
 
 // ===========================================================================
-// 3. BUTTON — size names (AC1)
+// 3. BUTTON — size names
 // ===========================================================================
 
 describe("Button — new size names present", () => {
@@ -175,7 +175,7 @@ describe("Button — old size names removed", () => {
 });
 
 // ===========================================================================
-// 4. BUTTON — design system token usage (AC1)
+// 4. BUTTON — design system token usage
 // ===========================================================================
 
 describe("Button — design system tokens used", () => {
@@ -221,7 +221,7 @@ describe("Button — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 5. BUTTON — loading state support (AC1)
+// 5. BUTTON — loading state support
 // ===========================================================================
 
 describe("Button — loading state support", () => {
@@ -233,7 +233,7 @@ describe("Button — loading state support", () => {
 });
 
 // ===========================================================================
-// 6. BADGE — new variant names present (AC2)
+// 6. BADGE — new variant names present
 // ===========================================================================
 
 describe("Badge — new semantic variant names present", () => {
@@ -274,7 +274,7 @@ describe("Badge — new semantic variant names present", () => {
 });
 
 // ===========================================================================
-// 7. BADGE — old variant names removed (AC2)
+// 7. BADGE — old variant names removed
 // ===========================================================================
 
 describe("Badge — old variant names removed", () => {
@@ -306,7 +306,7 @@ describe("Badge — old variant names removed", () => {
 });
 
 // ===========================================================================
-// 8. BADGE — design system token usage (AC2)
+// 8. BADGE — design system token usage
 // ===========================================================================
 
 describe("Badge — design system tokens used", () => {
@@ -358,7 +358,7 @@ describe("Badge — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 9. BADGE — dot indicator (AC2)
+// 9. BADGE — dot indicator
 // ===========================================================================
 
 describe("Badge — dot indicator support", () => {
@@ -397,7 +397,7 @@ describe("Button — base-ui import patterns preserved", () => {
 });
 
 // ===========================================================================
-// 12. INPUT — design system token usage (AC3)
+// 12. INPUT — design system token usage
 // ===========================================================================
 
 describe("Input — design system tokens used", () => {
@@ -430,7 +430,7 @@ describe("Input — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 13. TEXTAREA — design system token usage (AC3)
+// 13. TEXTAREA — design system token usage
 // ===========================================================================
 
 describe("Textarea — design system tokens used", () => {
@@ -463,7 +463,7 @@ describe("Textarea — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 14. LABEL — design system token usage (AC4)
+// 14. LABEL — design system token usage
 // ===========================================================================
 
 describe("Label — design system tokens used", () => {
@@ -487,7 +487,7 @@ describe("Label — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 16. TOOLTIP — design system token usage (AC6)
+// 16. TOOLTIP — design system token usage
 // ===========================================================================
 
 describe("Tooltip — design system tokens used", () => {
@@ -527,7 +527,7 @@ describe("Tooltip — design system tokens used", () => {
 });
 
 // ===========================================================================
-// 17. STORYBOOK STORIES — all 7 component story files exist (AC7)
+// 17. STORYBOOK STORIES — all 7 component story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -557,7 +557,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 18. STORYBOOK STORIES — proper structure (AC7)
+// 18. STORYBOOK STORIES — proper structure
 // ===========================================================================
 
 describe("Storybook stories — Button.stories.tsx structure", () => {

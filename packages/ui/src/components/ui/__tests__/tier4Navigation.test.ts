@@ -48,7 +48,7 @@ function readStory(filename: string): string {
 }
 
 // ===========================================================================
-// 1. TABS — border-subtle token on list (AC1)
+// 1. TABS — border-subtle token on list
 // ===========================================================================
 
 describe("Tabs — border-subtle token on list border", () => {
@@ -61,7 +61,7 @@ describe("Tabs — border-subtle token on list border", () => {
 });
 
 // ===========================================================================
-// 2. TABS — text-secondary token for inactive tabs (AC1)
+// 2. TABS — text-secondary token for inactive tabs
 // ===========================================================================
 
 describe("Tabs — text-secondary token for inactive tab text", () => {
@@ -74,7 +74,7 @@ describe("Tabs — text-secondary token for inactive tab text", () => {
 });
 
 // ===========================================================================
-// 3. TABS — text-heading token for active tab (AC1)
+// 3. TABS — text-heading token for active tab
 // ===========================================================================
 
 describe("Tabs — text-heading token for active tab text", () => {
@@ -87,7 +87,7 @@ describe("Tabs — text-heading token for active tab text", () => {
 });
 
 // ===========================================================================
-// 4. TABS — interactive-default token for active underline (AC1)
+// 4. TABS — interactive-default token for active underline
 // ===========================================================================
 
 describe("Tabs — interactive-default token for active tab underline", () => {
@@ -100,7 +100,7 @@ describe("Tabs — interactive-default token for active tab underline", () => {
 });
 
 // ===========================================================================
-// 5. TABS — font-size-sm token (AC1)
+// 5. TABS — font-size-sm token
 // ===========================================================================
 
 describe("Tabs — font-size-sm or text-sm token for tab font size", () => {
@@ -112,7 +112,7 @@ describe("Tabs — font-size-sm or text-sm token for tab font size", () => {
 });
 
 // ===========================================================================
-// 6. TABS — font-medium token (AC1)
+// 6. TABS — font-medium token
 // ===========================================================================
 
 describe("Tabs — font-medium or font-weight-medium token for tab weight", () => {
@@ -124,7 +124,7 @@ describe("Tabs — font-medium or font-weight-medium token for tab weight", () =
 });
 
 // ===========================================================================
-// 7. TABS — density-nav-item-height token (AC1)
+// 7. TABS — density-nav-item-height token
 // ===========================================================================
 
 describe("Tabs — density-nav-item-height or py-2 token for tab height", () => {
@@ -136,7 +136,7 @@ describe("Tabs — density-nav-item-height or py-2 token for tab height", () => 
 });
 
 // ===========================================================================
-// 8. BREADCRUMB — file exists (AC3)
+// 8. BREADCRUMB — file exists
 // ===========================================================================
 
 describe("Breadcrumb — component file exists", () => {
@@ -146,7 +146,7 @@ describe("Breadcrumb — component file exists", () => {
 });
 
 // ===========================================================================
-// 15. BREADCRUMB — named exports (AC3)
+// 15. BREADCRUMB — named exports
 // ===========================================================================
 
 describe("Breadcrumb — named exports", () => {
@@ -163,7 +163,7 @@ describe("Breadcrumb — named exports", () => {
 });
 
 // ===========================================================================
-// 16. BREADCRUMB — design system tokens (AC3)
+// 16. BREADCRUMB — design system tokens
 // ===========================================================================
 
 describe("Breadcrumb — design system tokens", () => {
@@ -199,7 +199,7 @@ describe("Breadcrumb — design system tokens", () => {
 });
 
 // ===========================================================================
-// 17. BREADCRUMB — separator element (AC3)
+// 17. BREADCRUMB — separator element
 // ===========================================================================
 
 describe("Breadcrumb — separator element", () => {
@@ -211,7 +211,7 @@ describe("Breadcrumb — separator element", () => {
 });
 
 // ===========================================================================
-// 18. PAGINATION — file exists (AC4)
+// 18. PAGINATION — file exists
 // ===========================================================================
 
 describe("Pagination — component file exists", () => {
@@ -221,7 +221,7 @@ describe("Pagination — component file exists", () => {
 });
 
 // ===========================================================================
-// 19. PAGINATION — named export (AC4)
+// 19. PAGINATION — named export
 // ===========================================================================
 
 describe("Pagination — named export", () => {
@@ -232,7 +232,7 @@ describe("Pagination — named export", () => {
 });
 
 // ===========================================================================
-// 20. PAGINATION — design system tokens (AC4)
+// 20. PAGINATION — design system tokens
 // ===========================================================================
 
 describe("Pagination — design system tokens", () => {
@@ -250,7 +250,7 @@ describe("Pagination — design system tokens", () => {
 });
 
 // ===========================================================================
-// 21. PAGINATION — ghost buttons for page navigation (AC4)
+// 21. PAGINATION — ghost buttons for page navigation
 // ===========================================================================
 
 describe("Pagination — ghost variant page buttons", () => {
@@ -263,7 +263,7 @@ describe("Pagination — ghost variant page buttons", () => {
 });
 
 // ===========================================================================
-// 22. PAGINATION — range display with "of" pattern (AC4)
+// 22. PAGINATION — range display with "of" pattern
 // ===========================================================================
 
 describe("Pagination — range display with 'of' pattern", () => {
@@ -275,7 +275,7 @@ describe("Pagination — range display with 'of' pattern", () => {
 });
 
 // ===========================================================================
-// 17. STORYBOOK STORIES — navigation story files exist (AC5)
+// 17. STORYBOOK STORIES — navigation story files exist
 // ===========================================================================
 
 describe("Storybook stories — existence", () => {
@@ -293,7 +293,7 @@ describe("Storybook stories — existence", () => {
 });
 
 // ===========================================================================
-// 24. STORYBOOK STORIES — Tabs.stories.tsx structure (AC5)
+// 24. STORYBOOK STORIES — Tabs.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Tabs.stories.tsx structure", () => {
@@ -325,7 +325,7 @@ describe("Storybook stories — Tabs.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 19. STORYBOOK STORIES — Breadcrumb.stories.tsx structure (AC5)
+// 19. STORYBOOK STORIES — Breadcrumb.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Breadcrumb.stories.tsx structure", () => {
@@ -356,7 +356,7 @@ describe("Storybook stories — Breadcrumb.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 27. STORYBOOK STORIES — Pagination.stories.tsx structure (AC5)
+// 27. STORYBOOK STORIES — Pagination.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Pagination.stories.tsx structure", () => {
