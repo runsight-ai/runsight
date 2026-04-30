@@ -204,9 +204,9 @@ def test_scan_index_rejects_duplicate_entity_id_with_colliding_context() -> None
         (
             ToolScanner,
             _write_tool_fixture,
-            "slack_payload_builder",
-            "slack_payload_builder",
-            "Slack Payload Builder",
+            "notification_payload_builder",
+            "notification_payload_builder",
+            "Notification Payload Builder",
         ),
         (
             WorkflowScanner,
@@ -255,10 +255,10 @@ def test_scanner_results_expose_entity_id(
         (
             ToolScanner,
             _write_tool_fixture,
-            "slack_payload_builder",
-            "slack_payload_builder_v2",
-            "Slack Payload Builder",
-            "slack_payload_builder",
+            "notification_payload_builder",
+            "notification_payload_builder_v2",
+            "Notification Payload Builder",
+            "notification_payload_builder",
         ),
         (
             AssertionScanner,

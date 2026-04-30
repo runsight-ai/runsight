@@ -372,7 +372,7 @@ class TestProxiedLLMClientContract:
                 provider="openai",
                 temperature=0.0,
                 max_tokens=128,
-                required_tool_calls=["http_request", "slack_webhook"],
+                required_tool_calls=["http_request", "notification_delivery_hook"],
                 max_tool_iterations=5,
             )
         )
@@ -380,7 +380,7 @@ class TestProxiedLLMClientContract:
         assert soul.provider == "openai"
         assert soul.temperature == 0.0
         assert soul.max_tokens == 128
-        assert soul.required_tool_calls == ["http_request", "slack_webhook"]
+        assert soul.required_tool_calls == ["http_request", "notification_delivery_hook"]
 
 
 # ==============================================================================

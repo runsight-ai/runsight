@@ -569,7 +569,7 @@ class TestRequiredToolCalls:
             role="Test Agent",
             system_prompt="Use the echo tool.",
             tools=[echo_tool_id],
-            required_tool_calls=["echo", "slack_webhook"],
+            required_tool_calls=["echo", "notification_delivery_hook"],
             max_tool_iterations=3,
             provider="openai",
             model_name="gpt-4o",
@@ -582,7 +582,9 @@ class TestRequiredToolCalls:
         ]
 
         runner = RunsightTeamRunner(model_name="gpt-4o")
-        with pytest.raises(ValueError, match=r"required tool calls completed: slack_webhook"):
+        with pytest.raises(
+            ValueError, match=r"required tool calls completed: notification_delivery_hook"
+        ):
             await runner.execute("test instruction", None, soul)
 
     @pytest.mark.asyncio

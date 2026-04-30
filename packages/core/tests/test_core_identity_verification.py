@@ -123,7 +123,9 @@ def _write_assertion(base_dir: Path, *, stem: str, name: str) -> Path:
 
 
 def test_soul_scanner_round_trip_embedded_identity(tmp_path: Path) -> None:
-    _write_soul(tmp_path, stem="researcher", name="Senior Researcher", tools=["slack_webhook"])
+    _write_soul(
+        tmp_path, stem="researcher", name="Senior Researcher", tools=["notification_delivery_hook"]
+    )
 
     soul = SoulScanner(tmp_path).scan().ids()["researcher"]
 
@@ -131,16 +133,16 @@ def test_soul_scanner_round_trip_embedded_identity(tmp_path: Path) -> None:
     assert soul.id == "researcher"
     assert soul.kind == "soul"
     assert soul.name == "Senior Researcher"
-    assert soul.tools == ["slack_webhook"]
+    assert soul.tools == ["notification_delivery_hook"]
 
 
 def test_tool_scanner_round_trip_embedded_identity(tmp_path: Path) -> None:
-    _write_tool(tmp_path, stem="slack_webhook")
+    _write_tool(tmp_path, stem="notification_delivery_hook")
 
-    item = ToolScanner(tmp_path).scan().ids()["slack_webhook"]
+    item = ToolScanner(tmp_path).scan().ids()["notification_delivery_hook"]
 
-    assert item.tool_id == "slack_webhook"
-    assert item.name == "Slack Webhook"
+    assert item.tool_id == "notification_delivery_hook"
+    assert item.name == "Notification Delivery Hook"
     assert item.type == "custom"
 
 
@@ -171,17 +173,17 @@ def test_workflow_scanner_round_trip_embedded_identity(tmp_path: Path) -> None:
 
 def test_tool_scanner_rejects_stem_mismatch_and_reserved_builtin_id(tmp_path: Path) -> None:
     mismatch_dir = tmp_path / "mismatch"
-    mismatch_path = _write_tool(mismatch_dir, stem="slack_webhook_v2")
+    mismatch_path = _write_tool(mismatch_dir, stem="notification_delivery_hook_v2")
     mismatch_path.write_text(
         yaml.safe_dump(
             {
                 "version": "1.0",
-                "id": "slack_webhook_v3",
+                "id": "notification_delivery_hook_v3",
                 "kind": "tool",
                 "type": "custom",
                 "executor": "python",
-                "name": "Slack Webhook",
-                "description": "Tool slack_webhook_v3",
+                "name": "Notification Delivery Hook",
+                "description": "Tool notification_delivery_hook_v3",
                 "parameters": {"type": "object"},
                 "code": "def main(args):\n    return args\n",
             },
@@ -192,7 +194,7 @@ def test_tool_scanner_rejects_stem_mismatch_and_reserved_builtin_id(tmp_path: Pa
 
     with pytest.raises(
         ValueError,
-        match=r"slack_webhook_v2\.yaml: embedded tool id 'slack_webhook_v3' does not match filename stem 'slack_webhook_v2'",
+        match=r"notification_delivery_hook_v2\.yaml: embedded tool id 'notification_delivery_hook_v3' does not match filename stem 'notification_delivery_hook_v2'",
     ):
         ToolScanner(mismatch_dir).scan()
 
@@ -244,7 +246,9 @@ def test_workflow_registry_accepts_embedded_ids_and_rejects_aliases() -> None:
 
 
 def test_tool_governance_error_mentions_kind_qualified_refs(tmp_path: Path) -> None:
-    _write_soul(tmp_path, stem="researcher", name="Senior Researcher", tools=["slack_webhook"])
+    _write_soul(
+        tmp_path, stem="researcher", name="Senior Researcher", tools=["notification_delivery_hook"]
+    )
     workflow_file = RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
@@ -266,7 +270,7 @@ def test_tool_governance_error_mentions_kind_qualified_refs(tmp_path: Path) -> N
     assert result.has_warnings is True
     message = result.warnings[0].message
     assert str(EntityRef(EntityKind.SOUL, "researcher")) in message
-    assert str(EntityRef(EntityKind.TOOL, "slack_webhook")) in message
+    assert str(EntityRef(EntityKind.TOOL, "notification_delivery_hook")) in message
 
 
 def test_workflow_scanner_rejects_duplicate_embedded_ids_across_nested_files(

@@ -205,7 +205,7 @@ class TestWrapperExposesSoul:
             provider="openai",
             temperature=0.0,
             max_tokens=256,
-            required_tool_calls=["http_request", "slack_webhook"],
+            required_tool_calls=["http_request", "notification_delivery_hook"],
         )
         inner = LinearBlock("isolated_linear_block", soul, MagicMock())
         wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
@@ -234,7 +234,7 @@ class TestWrapperExposesSoul:
         assert envelope.soul.provider == "openai"
         assert envelope.soul.temperature == 0.0
         assert envelope.soul.max_tokens == 256
-        assert envelope.soul.required_tool_calls == ["http_request", "slack_webhook"]
+        assert envelope.soul.required_tool_calls == ["http_request", "notification_delivery_hook"]
 
 
 # ==============================================================================
