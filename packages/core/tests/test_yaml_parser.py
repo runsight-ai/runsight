@@ -1,11 +1,11 @@
-"""
-Tests for YAML Parser and Standard Library.
+"""YAML parser and standard-library block coverage.
 
 This module tests:
-- All 11 block types in BlockTypeRegistry
-- Valid YAML parsing scenarios
-- Error paths that raise ValueError
-- Soul resolution and merging with built-ins
+- BlockTypeRegistry completeness.
+- Valid YAML parsing scenarios.
+- Error paths that raise ValueError.
+- Soul resolution and merging with built-ins.
+- YAML schema version validation.
 """
 
 from unittest.mock import Mock, patch
@@ -47,16 +47,16 @@ class TestLinearBlock:
     """Tests for LinearBlock (block type: linear)."""
 
     def test_linear_block_valid_yaml(self):
-        """AC-1: Parse valid linear block with soul_ref."""
+        """Parse a valid linear block with soul_ref."""
         yaml_content = """
 version: "1.0"
-id: test_linear
+id: linear_workflow
 kind: workflow
 config:
   model_name: gpt-4o
 souls:
-  my_soul:
-    id: my_soul
+  research_soul:
+    id: research_soul
     kind: soul
     name: Custom Researcher
     role: Custom Researcher
@@ -64,11 +64,11 @@ souls:
 blocks:
   linear_block:
     type: linear
-    soul_ref: my_soul
+    soul_ref: research_soul
 workflow:
-  id: test_linear
+  id: linear_workflow
   kind: workflow
-  name: test_linear
+  name: linear_workflow
   entry: linear_block
   transitions:
     - from: linear_block
@@ -76,32 +76,32 @@ workflow:
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_linear"
+        assert workflow.name == "linear_workflow"
 
     def test_parse_workflow_yaml_does_not_use_config_model_name_for_runner(self):
-        """RUN-585: parser must not source runtime model resolution from workflow config."""
+        """Parser does not source runtime model resolution from workflow config."""
         yaml_content = """
 version: "1.0"
-id: test_linear
+id: runner_model_resolution
 kind: workflow
 config:
   model_name: gpt-4o-mini
 blocks:
   linear_block:
     type: linear
-    soul_ref: my_soul
+    soul_ref: configured_soul
 workflow:
-  id: test_linear
+  id: runner_model_resolution
   kind: workflow
-  name: test_linear
+  name: runner_model_resolution
   entry: linear_block
   transitions:
     - from: linear_block
       to: null
 """
         souls_map = {
-            "my_soul": Soul(
-                id="my_soul",
+            "configured_soul": Soul(
+                id="configured_soul",
                 kind="soul",
                 name="Custom Researcher",
                 role="Custom Researcher",
@@ -122,28 +122,28 @@ workflow:
         assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_parse_workflow_yaml_does_not_fall_back_to_hidden_gpt_4o_runner_model(self):
-        """RUN-585: parser must not keep the legacy hidden gpt-4o runner path alive."""
+        """Parser does not keep the legacy hidden gpt-4o runner path alive."""
         yaml_content = """
 version: "1.0"
 config: {}
-id: test_linear
+id: hidden_runner_model_guard
 kind: workflow
 blocks:
   linear_block:
     type: linear
-    soul_ref: my_soul
+    soul_ref: configured_soul
 workflow:
-  id: test_linear
+  id: hidden_runner_model_guard
   kind: workflow
-  name: test_linear
+  name: hidden_runner_model_guard
   entry: linear_block
   transitions:
     - from: linear_block
       to: null
 """
         souls_map = {
-            "my_soul": Soul(
-                id="my_soul",
+            "configured_soul": Soul(
+                id="configured_soul",
                 kind="soul",
                 name="Custom Researcher",
                 role="Custom Researcher",
@@ -164,28 +164,28 @@ workflow:
         assert mock_runner.call_args.kwargs["model_name"] == "claude-sonnet-4"
 
     def test_linear_block_missing_soul_ref_raises_error(self):
-        """AC-2: LinearBlock without soul_ref raises ValueError."""
+        """LinearBlock without soul_ref raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   linear_block:
     type: linear
-id: test_linear
+id: linear_block_workflow
 kind: workflow
 workflow:
-  id: test_linear
+  id: linear_block_workflow
   kind: workflow
-  name: test_linear
+  name: linear_block_workflow
   entry: linear_block
 """
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_linear_block_with_defined_soul(self):
-        """AC-3: LinearBlock can use explicitly defined souls."""
+        """LinearBlock can use explicitly defined souls."""
         yaml_content = """
 version: "1.0"
-id: test_linear
+id: linear_block_workflow
 kind: workflow
 souls:
   researcher:
@@ -199,9 +199,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_linear
+  id: linear_block_workflow
   kind: workflow
-  name: test_linear
+  name: linear_block_workflow
   entry: linear_block
   transitions:
     - from: linear_block
@@ -215,10 +215,10 @@ class TestDispatchBlock:
     """Tests for DispatchBlock (block type: dispatch)."""
 
     def test_dispatch_block_valid_yaml(self):
-        """AC-4: Parse valid dispatch block with exits."""
+        """Parse a valid dispatch block with exits."""
         yaml_content = """
 version: "1.0"
-id: test_dispatch
+id: dispatch_block_workflow
 kind: workflow
 souls:
   researcher:
@@ -246,9 +246,9 @@ blocks:
         soul_ref: reviewer
         task: Review the topic
 workflow:
-  id: test_dispatch
+  id: dispatch_block_workflow
   kind: workflow
-  name: test_dispatch
+  name: dispatch_block_workflow
   entry: dispatch_block
   transitions:
     - from: dispatch_block
@@ -256,40 +256,40 @@ workflow:
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_dispatch"
+        assert workflow.name == "dispatch_block_workflow"
 
     def test_dispatch_block_missing_exits_raises_error(self):
-        """AC-5: DispatchBlock without exits raises ValidationError."""
+        """DispatchBlock without exits raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
   dispatch_block:
     type: dispatch
-id: test_dispatch
+id: dispatch_block_workflow
 kind: workflow
 workflow:
-  id: test_dispatch
+  id: dispatch_block_workflow
   kind: workflow
-  name: test_dispatch
+  name: dispatch_block_workflow
   entry: dispatch_block
 """
         with pytest.raises((ValueError, Exception), match="exits"):
             parse_workflow_yaml(yaml_content)
 
     def test_dispatch_block_empty_exits_raises_error(self):
-        """AC-6: DispatchBlock with empty exits raises ValueError."""
+        """DispatchBlock with empty exits raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   dispatch_block:
     type: dispatch
     exits: []
-id: test_dispatch
+id: dispatch_block_workflow
 kind: workflow
 workflow:
-  id: test_dispatch
+  id: dispatch_block_workflow
   kind: workflow
-  name: test_dispatch
+  name: dispatch_block_workflow
   entry: dispatch_block
 """
         with pytest.raises(ValueError, match="exits"):
@@ -300,10 +300,10 @@ class TestSynthesizeBlock:
     """Tests for SynthesizeBlock (block type: synthesize)."""
 
     def test_synthesize_block_valid_yaml(self):
-        """AC-7: Parse valid synthesize block with dependencies."""
+        """Parse a valid synthesize block with dependencies."""
         yaml_content = """
 version: "1.0"
-id: test_synthesize
+id: synthesize_block_workflow
 kind: workflow
 souls:
   researcher:
@@ -325,27 +325,27 @@ souls:
     role: Synthesis Agent
     system_prompt: You synthesize inputs.
 blocks:
-  block_a:
+  research_block:
     type: linear
     soul_ref: researcher
-  block_b:
+  review_block:
     type: linear
     soul_ref: reviewer
   synthesize_block:
     type: synthesize
     soul_ref: synthesizer
     input_block_ids:
-      - block_a
-      - block_b
+      - research_block
+      - review_block
 workflow:
-  id: test_synthesize
+  id: synthesize_block_workflow
   kind: workflow
-  name: test_synthesize
-  entry: block_a
+  name: synthesize_block_workflow
+  entry: research_block
   transitions:
-    - from: block_a
-      to: block_b
-    - from: block_b
+    - from: research_block
+      to: review_block
+    - from: review_block
       to: synthesize_block
     - from: synthesize_block
       to: null
@@ -354,25 +354,25 @@ workflow:
         assert isinstance(workflow, Workflow)
 
     def test_synthesize_block_missing_soul_ref_raises_error(self):
-        """AC-8: SynthesizeBlock without soul_ref raises ValueError."""
+        """SynthesizeBlock without soul_ref raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   synthesize_block:
     type: synthesize
     input_block_ids:
-      - block_a
+      - research_block
 workflow:
-  id: test_synthesize
+  id: synthesize_block_workflow
   kind: workflow
-  name: test_synthesize
+  name: synthesize_block_workflow
   entry: synthesize_block
 """
         with pytest.raises(ValueError, match="soul_ref"):
             parse_workflow_yaml(yaml_content)
 
     def test_synthesize_block_missing_input_block_ids_raises_error(self):
-        """AC-9: SynthesizeBlock without input_block_ids raises ValueError."""
+        """SynthesizeBlock without input_block_ids raises ValueError."""
         yaml_content = """
 version: "1.0"
 souls:
@@ -387,9 +387,9 @@ blocks:
     type: synthesize
     soul_ref: synthesizer
 workflow:
-  id: test_synthesize
+  id: synthesize_block_workflow
   kind: workflow
-  name: test_synthesize
+  name: synthesize_block_workflow
   entry: synthesize_block
 """
         with pytest.raises(ValueError, match="input_block_ids"):
@@ -400,29 +400,29 @@ class TestSoulResolution:
     """Tests for soul resolution and merging."""
 
     def test_soul_resolution_missing_soul_raises_error(self):
-        """AC-28: Referencing non-existent soul raises ValueError."""
+        """Referencing a non-existent soul raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   linear_block:
     type: linear
     soul_ref: nonexistent_soul
-id: test_souls
+id: missing_soul_workflow
 kind: workflow
 workflow:
-  id: test_souls
+  id: missing_soul_workflow
   kind: workflow
-  name: test_souls
+  name: missing_soul_workflow
   entry: linear_block
 """
         with pytest.raises(ValueError, match="Soul reference 'soul:nonexistent_soul' not found"):
             parse_workflow_yaml(yaml_content)
 
     def test_custom_soul_definition_works(self):
-        """AC-29: Custom soul definition in YAML works correctly."""
+        """Custom soul definition in YAML works correctly."""
         yaml_content = """
 version: "1.0"
-id: test_override
+id: custom_soul_workflow
 kind: workflow
 souls:
   researcher:
@@ -436,9 +436,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_override
+  id: custom_soul_workflow
   kind: workflow
-  name: test_override
+  name: custom_soul_workflow
   entry: linear_block
   transitions:
     - from: linear_block
@@ -452,7 +452,7 @@ class TestInvalidYAML:
     """Tests for invalid YAML handling."""
 
     def test_invalid_yaml_syntax_raises_error(self):
-        """AC-30: Syntactically invalid YAML raises error."""
+        """Syntactically invalid YAML raises error."""
         yaml_content = """
 version: "1.0"
 blocks:
@@ -462,7 +462,7 @@ blocks:
             parse_workflow_yaml(yaml_content)
 
     def test_missing_workflow_section_raises_error(self):
-        """AC-31: Missing required workflow section raises ValidationError."""
+        """Missing required workflow section raises ValidationError."""
         yaml_content = """
 version: "1.0"
 blocks:
@@ -474,18 +474,18 @@ blocks:
             parse_workflow_yaml(yaml_content)
 
     def test_unknown_block_type_raises_error(self):
-        """AC-32: Unknown block type raises ValueError (ValidationError via discriminated union)."""
+        """Unknown block type raises ValueError."""
         yaml_content = """
 version: "1.0"
 blocks:
   unknown_block:
     type: unknown_type
-id: test_unknown
+id: unknown_block_workflow
 kind: workflow
 workflow:
-  id: test_unknown
+  id: unknown_block_workflow
   kind: workflow
-  name: test_unknown
+  name: unknown_block_workflow
   entry: unknown_block
 """
         with pytest.raises(ValueError, match="unknown_type"):
@@ -496,10 +496,10 @@ class TestParseFromDict:
     """Tests for parsing from dict input."""
 
     def test_parse_from_dict_valid(self):
-        """AC-33: parse_workflow_yaml accepts dict input."""
+        """parse_workflow_yaml accepts dict input."""
         workflow_dict = {
             "version": "1.0",
-            "id": "test_dict",
+            "id": "dict_input_workflow",
             "kind": "workflow",
             "souls": {
                 "researcher": {
@@ -517,23 +517,23 @@ class TestParseFromDict:
                 }
             },
             "workflow": {
-                "id": "test_dict",
+                "id": "dict_input_workflow",
                 "kind": "workflow",
-                "name": "test_dict",
+                "name": "dict_input_workflow",
                 "entry": "linear_block",
                 "transitions": [{"from": "linear_block", "to": None}],
             },
         }
         workflow = parse_workflow_yaml(workflow_dict)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "test_dict"
+        assert workflow.name == "dict_input_workflow"
 
 
 class TestComplexWorkflow:
     """Tests for complex multi-block workflows."""
 
     def test_complex_workflow_all_block_types(self):
-        """AC-34: Parse workflow using multiple block types together."""
+        """Parse a workflow using multiple block types together."""
         yaml_content = """
 version: "1.0"
 id: complex_workflow
@@ -616,7 +616,7 @@ workflow:
 
 
 class TestVersionValidation:
-    """Tests for YAML schema version validation (RUN-323)."""
+    """Tests for YAML schema version validation."""
 
     # -- Minimal valid workflow YAML used as a base for version tests --------
     _BASE_YAML_TEMPLATE = """
@@ -631,16 +631,16 @@ souls:
     role: Senior Researcher
     system_prompt: You research topics.
 blocks:
-  b:
+  version_entry_block:
     type: linear
     soul_ref: researcher
 workflow:
   id: version_test
   kind: workflow
   name: version_test
-  entry: b
+  entry: version_entry_block
   transitions:
-    - from: b
+    - from: version_entry_block
       to: null
 """
 
@@ -656,65 +656,49 @@ workflow:
                 "system_prompt": "You research topics.",
             }
         },
-        "blocks": {"b": {"type": "linear", "soul_ref": "researcher"}},
+        "blocks": {"version_entry_block": {"type": "linear", "soul_ref": "researcher"}},
         "workflow": {
             "id": "version_test",
             "kind": "workflow",
             "name": "version_test",
-            "entry": "b",
-            "transitions": [{"from": "b", "to": None}],
+            "entry": "version_entry_block",
+            "transitions": [{"from": "version_entry_block", "to": None}],
         },
     }
 
     def test_version_1_0_accepted_without_warning(self):
-        """AC-1: version '1.0' is the current version and parses without error."""
+        """Version '1.0' is the current version and parses without error."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="1.0")
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
     def test_unknown_version_raises_value_error(self):
-        """AC-2: Unknown version (e.g., '2.0') raises ValueError."""
+        """Unknown version raises ValueError."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="2.0")
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
     def test_unknown_version_999_raises_value_error(self):
-        """AC-2b: Another unknown version '999.0' also raises ValueError."""
+        """Another unknown version also raises ValueError."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="999.0")
         with pytest.raises(ValueError, match="version"):
             parse_workflow_yaml(yaml_content)
 
     def test_missing_version_defaults_to_1_0(self):
-        """AC-3: Missing version field works (defaults to '1.0')."""
+        """Missing version field works and defaults to '1.0'."""
         workflow = parse_workflow_yaml(dict(self._BASE_DICT_NO_VERSION))
         assert isinstance(workflow, Workflow)
         assert workflow.name == "version_test"
 
     def test_unknown_version_error_message_includes_supported_versions(self):
-        """AC-2c: Error message for unknown version includes list of supported versions."""
+        """Error message for unknown version includes supported versions."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="3.0")
         with pytest.raises(ValueError, match="1.0"):
             parse_workflow_yaml(yaml_content)
 
     def test_unknown_version_error_message_includes_provided_version(self):
-        """AC-2d: Error message for unknown version includes the version that was provided."""
+        """Error message for unknown version includes the provided version."""
         yaml_content = self._BASE_YAML_TEMPLATE.format(version="42.0")
         with pytest.raises(ValueError, match="42.0"):
             parse_workflow_yaml(yaml_content)
-
-
-# This ensures we have at least 8 distinct test functions across all classes
-# Count of actual test functions (test_* methods):
-# TestBlockTypeRegistry: 2
-# TestBuiltInSouls: 2
-# TestLinearBlock: 3
-# TestDispatchBlock: 3
-# TestSynthesizeBlock: 3
-# TestSoulResolution: 2
-# TestInvalidYAML: 3
-# TestParseFromDict: 1
-# TestComplexWorkflow: 1
-# TestParseTaskYAML: 14
-# TestVersionValidation: 6
-# Total: 40+ test functions
