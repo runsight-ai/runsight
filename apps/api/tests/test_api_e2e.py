@@ -324,12 +324,13 @@ class TestSuccessfulRunE2E:
                     },
                 )
 
-            assert response.status_code == 200, (
-                f"Expected 200, got {response.status_code}: {response.text}"
-            )
-            data = response.json()
-            assert "id" in data, "Response must contain a run id"
-            assert data["workflow_id"] == "simple-workflow"
+                assert response.status_code == 200, (
+                    f"Expected 200, got {response.status_code}: {response.text}"
+                )
+                data = response.json()
+                assert "id" in data, "Response must contain a run id"
+                assert data["workflow_id"] == "simple-workflow"
+                await _wait_for_run_terminal(db_engine, data["id"])
 
     @pytest.mark.asyncio
     async def test_run_reaches_completed_status_in_db(self, app_with_real_services, db_engine):
