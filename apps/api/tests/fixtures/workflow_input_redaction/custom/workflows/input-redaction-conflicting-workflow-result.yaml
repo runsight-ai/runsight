@@ -7,17 +7,6 @@ inputs:
   api_token:
     type: string
     sensitive: true
-config:
-  model_name: gpt-4o
-souls:
-  bootstrap:
-    id: bootstrap
-    kind: soul
-    name: Bootstrap
-    role: Bootstrap
-    system_prompt: Parser bootstrap model holder.
-    provider: openai
-    model_name: gpt-4o
 blocks:
   seed_facade:
     type: workflow

@@ -7,21 +7,19 @@ inputs:
   api_token:
     type: string
     sensitive: true
-config:
-  model_name: gpt-4o
 souls:
-  analyst:
-    id: analyst
+  failure_fixture:
+    id: failure_fixture
     kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: Check the request.
-    provider: openai
-    model_name: gpt-4o
+    name: Failure Fixture
+    role: Failure Fixture
+    system_prompt: Trigger a local fixture failure.
+    provider: input-redaction-fixture-provider
+    model_name: input-redaction-fixture-model
 blocks:
   fail_with_secret:
     type: linear
-    soul_ref: analyst
+    soul_ref: failure_fixture
     inputs:
       token:
         from: workflow.api_token

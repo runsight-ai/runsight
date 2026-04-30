@@ -1,0 +1,8 @@
+id: input-redaction-fixture-provider
+kind: provider
+name: Input Redaction Fixture Provider
+type: input-redaction-fixture-provider
+api_key: null
+is_active: true
+models:
+  - input-redaction-fixture-model

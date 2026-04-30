@@ -7,8 +7,9 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -45,7 +46,7 @@ CONFLICT_SEED_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-co
 LEGACY_INTERFACE_TARGET_YAML = _fixture_text(
     "custom/workflows/input-redaction-legacy-interface.yaml"
 )
-OPENAI_PROVIDER_YAML = _fixture_text("custom/providers/openai.yaml")
+PROVIDER_FIXTURE_YAML = _fixture_text("custom/providers/input-redaction-fixture-provider.yaml")
 
 
 def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
@@ -58,14 +59,8 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
 def _write_provider_file(base_dir: Path) -> None:
     provider_dir = base_dir / "custom" / "providers"
     provider_dir.mkdir(parents=True, exist_ok=True)
-    (provider_dir / "openai.yaml").write_text(OPENAI_PROVIDER_YAML, encoding="utf-8")
-
-
-def _write_secrets_file(base_dir: Path) -> None:
-    secrets_dir = base_dir / ".runsight"
-    secrets_dir.mkdir(parents=True, exist_ok=True)
-    (secrets_dir / "secrets.env").write_text(
-        "OPENAI_API_KEY=dummy-input-redaction-fake-test-key\n",
+    (provider_dir / "input-redaction-fixture-provider.yaml").write_text(
+        PROVIDER_FIXTURE_YAML,
         encoding="utf-8",
     )
 
@@ -146,7 +141,6 @@ def base_dir():
         )
         _write_workflow_file(base, "input-redaction-conflict-seed", CONFLICT_SEED_WORKFLOW_YAML)
         _write_provider_file(base)
-        _write_secrets_file(base)
         _init_git_repo(base)
         yield base
 
@@ -343,7 +337,7 @@ async def test_direct_run_snapshots_inputs_without_persisting_or_streaming_plain
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         response = await client.post(
             "/api/runs",
@@ -397,18 +391,30 @@ async def test_failed_run_redacts_sensitive_input_across_error_surfaces(
 ) -> None:
     from httpx import ASGITransport, AsyncClient
 
-    async def _raise_secret_error(*args: Any, **kwargs: Any) -> Any:
-        await asyncio.sleep(0.25)
-        raise RuntimeError(f"provider failed with {SECRET}")
+    class _FailingClient:
+        async def achat(self, *args: Any, **kwargs: Any) -> Any:
+            del args, kwargs
+            await asyncio.sleep(0.25)
+            raise RuntimeError(f"fixture failure carried {SECRET}")
+
+    def _budget_passthrough(request: Any, counter: Any) -> SimpleNamespace:
+        del counter
+        return SimpleNamespace(
+            instruction=request.instruction,
+            context=request.context,
+            messages=list(request.conversation_history),
+        )
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
-        with patch(
-            "runsight_core.llm.client.LiteLLMClient.achat",
-            new_callable=AsyncMock,
-            side_effect=_raise_secret_error,
+        with (
+            patch("runsight_core.block_io.fit_to_budget", side_effect=_budget_passthrough),
+            patch(
+                "runsight_core.runner.RunsightTeamRunner._get_client",
+                return_value=_FailingClient(),
+            ),
         ):
             response = await client.post(
                 "/api/runs",
@@ -465,7 +471,7 @@ async def test_child_run_records_own_safe_snapshot_and_inherits_redaction_contex
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         response = await client.post(
             "/api/runs",
@@ -557,7 +563,7 @@ async def test_workflow_input_resolution_ignores_conflicting_results_workflow_fa
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         response = await client.post(
             "/api/runs",
@@ -613,7 +619,7 @@ async def test_legacy_interface_target_yaml_returns_422_before_run_creation(
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         response = await client.post(
             "/api/runs",
@@ -647,7 +653,7 @@ async def test_invalid_workflow_input_returns_422_before_run_or_snapshot_creatio
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         response = await client.post(
             "/api/runs",
