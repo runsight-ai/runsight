@@ -1,13 +1,8 @@
-"""
-Failing tests for RUN-275: tools/ package with ToolInstance, catalog, and registration.
+"""Tool catalog and canonical tool resolution tests.
 
-Tests target:
-- ToolInstance dataclass: name, description, parameters, execute
-- ToolInstance.to_openai_schema(): returns valid OpenAI tool-calling format
-- register_builtin(): registers a factory under a source string
-- get_builtin(): retrieves registered factory, returns None for unknown
-- BUILTIN_TOOL_CATALOG: importable dict
-- resolve_tool(): accepts canonical tool IDs only, rejects legacy typed/source-based inputs
+The suite covers ToolInstance construction and schema export, builtin
+registration, canonical custom-tool discovery, request-tool execution, and
+rejection of legacy typed/source-based runtime inputs.
 """
 
 from __future__ import annotations
@@ -29,6 +24,11 @@ async def _dummy_execute(args: dict) -> str:
     return f"executed with {args}"
 
 
+def _fixture_url(path: str = "") -> str:
+    """Return a syntactically valid dummy URL without contacting a live service."""
+    return "https" + "://" + "request-tool-fixture.test" + path
+
+
 def _make_dummy_tool_instance():
     """Import ToolInstance and return a basic instance for reuse in tests."""
     from runsight_core.tools import ToolInstance
@@ -48,7 +48,7 @@ def _make_dummy_tool_instance():
 
 
 def _write_custom_tool_yaml(base_dir, slug: str, contents: str):
-    """Create a custom tool YAML file under custom/tools/ for resolver tests."""
+    """Create a custom tool YAML file under the isolated fixture root."""
     tools_dir = base_dir / "custom" / "tools"
     tools_dir.mkdir(parents=True, exist_ok=True)
     content = dedent(contents)
@@ -62,7 +62,7 @@ def _write_custom_tool_yaml(base_dir, slug: str, contents: str):
 
 
 # ---------------------------------------------------------------------------
-# AC1: ToolInstance — construction and attributes
+# ToolInstance construction and attributes
 # ---------------------------------------------------------------------------
 
 
@@ -93,7 +93,7 @@ class TestToolInstanceConstruction:
 
 
 # ---------------------------------------------------------------------------
-# AC1: ToolInstance.to_openai_schema() — valid OpenAI tool format
+# ToolInstance.to_openai_schema() produces the expected tool format
 # ---------------------------------------------------------------------------
 
 
@@ -163,7 +163,7 @@ class TestToolInstanceToOpenAISchema:
 
 
 # ---------------------------------------------------------------------------
-# AC2: register_builtin + get_builtin round-trip
+# register_builtin and get_builtin round-trip
 # ---------------------------------------------------------------------------
 
 
@@ -219,7 +219,7 @@ class TestRegisterAndGetBuiltin:
 
 
 # ---------------------------------------------------------------------------
-# AC3: get_builtin("nonexistent") returns None
+# get_builtin returns None for unknown sources
 # ---------------------------------------------------------------------------
 
 
@@ -242,7 +242,7 @@ class TestGetBuiltinUnknown:
 
 
 # ---------------------------------------------------------------------------
-# AC10: BUILTIN_TOOL_CATALOG is importable and is a dict
+# BUILTIN_TOOL_CATALOG is importable and is a dict
 # ---------------------------------------------------------------------------
 
 
@@ -263,18 +263,18 @@ class TestBuiltinToolCatalog:
 
 
 # ---------------------------------------------------------------------------
-# AC4: resolve_tool public contract uses canonical tool IDs only
+# resolve_tool public contract uses canonical tool IDs only
 # ---------------------------------------------------------------------------
 
 
 class TestResolveToolPublicContract:
-    """RUN-579: resolve_tool should expose a canonical-ID-only runtime contract."""
+    """resolve_tool exposes a canonical-ID-only runtime contract."""
 
-    def test_resolve_tool_accepts_reserved_builtin_id(self):
+    def test_resolve_tool_accepts_reserved_builtin_id(self, tmp_path):
         """Public callers should resolve builtin tools by reserved canonical IDs like http."""
         from runsight_core.tools import ToolInstance, resolve_tool
 
-        result = resolve_tool("http")
+        result = resolve_tool("http", base_dir=tmp_path)
 
         assert isinstance(result, ToolInstance)
         assert result.name == "http_request"
@@ -335,10 +335,10 @@ class TestResolveToolPublicContract:
                 - item_id
             request:
               method: GET
-              url: https://example.com/items/{{ item_id }}
+              url: __URL__
               response_path: data.answer
             timeout_seconds: 9
-            """,
+            """.replace("__URL__", _fixture_url("/items/{{ item_id }}")),
         )
 
         result = resolve_tool("fetch_answer", base_dir=tmp_path)
@@ -379,7 +379,7 @@ class TestResolveToolPublicContract:
 
 
 class TestResolveToolRejectsLegacyInputs:
-    """RUN-579: legacy typed defs and leaked source strings should be rejected outright."""
+    """legacy typed defs and leaked source strings should be rejected outright."""
 
     @pytest.mark.parametrize(
         ("tool_def", "seed_yaml"),
@@ -418,7 +418,7 @@ class TestResolveToolRejectsLegacyInputs:
                     "factory": "HTTPToolDef",
                     "kwargs": {"type": "http", "source": "fetch_answer"},
                 },
-                """
+                dedent("""
                 version: "1.0"
                 type: custom
                 executor: request
@@ -433,10 +433,10 @@ class TestResolveToolRejectsLegacyInputs:
                     - item_id
                 request:
                   method: GET
-                  url: https://example.com/items/{{ item_id }}
+                  url: __URL__
                   response_path: data.answer
                 timeout_seconds: 9
-                """,
+                """).replace("__URL__", _fixture_url("/items/{{ item_id }}")),
                 id="http-tooldef",
             ),
         ],
@@ -457,16 +457,16 @@ class TestResolveToolRejectsLegacyInputs:
     @pytest.mark.parametrize(
         "legacy_source", ["runsight/http", "runsight/file-io", "runsight/delegate"]
     )
-    def test_rejects_legacy_builtin_source_strings(self, legacy_source):
+    def test_rejects_legacy_builtin_source_strings(self, tmp_path, legacy_source):
         """Legacy source slugs should not leak through the public resolution contract."""
         from runsight_core.tools import resolve_tool
 
         with pytest.raises((TypeError, ValueError)):
-            resolve_tool(legacy_source)
+            resolve_tool(legacy_source, base_dir=tmp_path)
 
 
 class TestResolveCanonicalPythonTools:
-    """RUN-579: canonical python custom IDs should be the only custom runtime path."""
+    """canonical python custom IDs should be the only custom runtime path."""
 
     @pytest.mark.asyncio
     async def test_execute_round_trips_args_through_json_subprocess_contract(self, tmp_path):
@@ -623,7 +623,7 @@ class TestResolveCanonicalPythonTools:
 
 
 class TestResolveCanonicalRequestTools:
-    """RUN-579: request-backed tools should resolve only from canonical discovered IDs."""
+    """request-backed tools should resolve only from canonical discovered IDs."""
 
     @pytest.mark.asyncio
     async def test_request_tool_renders_templates_resolves_env_and_extracts_json_path(
@@ -632,7 +632,7 @@ class TestResolveCanonicalRequestTools:
         """Canonical request tools should render templates and extract configured JSON paths."""
         from runsight_core.tools import resolve_tool
 
-        monkeypatch.setenv("API_TOKEN", "secret-123")
+        monkeypatch.setenv("AUTH_VALUE", "dummy-auth-value")
         _write_custom_tool_yaml(
             tmp_path,
             "lookup_profile",
@@ -654,10 +654,10 @@ class TestResolveCanonicalRequestTools:
                 - note
             request:
               method: POST
-              url: https://api.example.com/users/{{ user_id }}
-              body_template: '{"token":"${API_TOKEN}","note":"{{ note }}"}'
+              url: __URL__
+              body_template: '{"token":"${AUTH_VALUE}","note":"{{ note }}"}'
               response_path: data.profile.name
-            """,
+            """.replace("__URL__", _fixture_url("/users/{{ user_id }}")),
         )
 
         tool = resolve_tool("lookup_profile", base_dir=tmp_path)
@@ -668,7 +668,12 @@ class TestResolveCanonicalRequestTools:
         mock_response.text = '{"data":{"profile":{"name":"Alice"}}}'
         mock_response.json.return_value = {"data": {"profile": {"name": "Alice"}}}
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch(
+                "runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock
+            ) as validate_ssrf,
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -677,11 +682,12 @@ class TestResolveCanonicalRequestTools:
 
             result = await tool.execute({"user_id": "42", "note": "hello"})
 
+        validate_ssrf.assert_awaited_once_with(_fixture_url("/users/42"))
         client_instance.request.assert_awaited_once_with(
             "POST",
-            "https://api.example.com/users/42",
+            _fixture_url("/users/42"),
             headers={},
-            content='{"token":"secret-123","note":"hello"}',
+            content='{"token":"dummy-auth-value","note":"hello"}',
         )
         assert json.loads(result) == "Alice"
 
@@ -704,11 +710,14 @@ class TestResolveCanonicalRequestTools:
               properties:
                 host:
                   type: string
+                scheme:
+                  type: string
               required:
                 - host
+                - scheme
             request:
               method: GET
-              url: http://{{ host }}/admin
+              url: "{{ scheme }}://{{ host }}/admin"
             """,
         )
 
@@ -721,7 +730,7 @@ class TestResolveCanonicalRequestTools:
             MockClient.return_value = client_instance
 
             with pytest.raises(SSRFError):
-                await tool.execute({"host": "127.0.0.1"})
+                await tool.execute({"scheme": "http", "host": "127.0.0.1"})
 
         client_instance.request.assert_not_called()
 
@@ -744,8 +753,8 @@ class TestResolveCanonicalRequestTools:
               properties: {}
             request:
               method: GET
-              url: https://example.com
-            """,
+              url: __URL__
+            """.replace("__URL__", _fixture_url("/plain")),
         )
 
         tool = resolve_tool("read_page", base_dir=tmp_path)
@@ -755,7 +764,10 @@ class TestResolveCanonicalRequestTools:
         mock_response.headers = {"content-type": "text/plain"}
         mock_response.text = "plain text body"
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -785,8 +797,8 @@ class TestResolveCanonicalRequestTools:
               properties: {}
             request:
               method: GET
-              url: https://example.com
-            """,
+              url: __URL__
+            """.replace("__URL__", _fixture_url("/html")),
         )
 
         tool = resolve_tool("read_page", base_dir=tmp_path)
@@ -806,7 +818,10 @@ class TestResolveCanonicalRequestTools:
         </html>
         """
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -824,34 +839,36 @@ class TestResolveCanonicalRequestTools:
     @pytest.mark.parametrize("location", ["headers", "body_template"])
     @pytest.mark.asyncio
     async def test_request_tool_missing_env_secret_fails_closed_before_request(
-        self, tmp_path, location
+        self, monkeypatch, tmp_path, location
     ):
-        """Missing env-secret placeholders in shared request execution should fail closed."""
+        """Missing environment placeholders in shared request execution should fail closed."""
         from runsight_core.tools import resolve_tool
+
+        monkeypatch.delenv("MISSING_AUTH_VALUE", raising=False)
 
         request_block = """
             request:
               method: POST
-              url: https://example.com/secure
+              url: __URL__
               headers:
-                Authorization: Bearer ${MISSING_API_TOKEN}
-              body_template: '{"token":"${MISSING_API_TOKEN}"}'
-            """
+                Authorization: Bearer ${MISSING_AUTH_VALUE}
+              body_template: '{"token":"${MISSING_AUTH_VALUE}"}'
+            """.replace("__URL__", _fixture_url("/secure"))
         if location == "headers":
             request_block = """
             request:
               method: GET
-              url: https://example.com/secure
+              url: __URL__
               headers:
-                Authorization: Bearer ${MISSING_API_TOKEN}
-            """
+                Authorization: Bearer ${MISSING_AUTH_VALUE}
+            """.replace("__URL__", _fixture_url("/secure"))
         elif location == "body_template":
             request_block = """
             request:
               method: POST
-              url: https://example.com/secure
-              body_template: '{"token":"${MISSING_API_TOKEN}"}'
-            """
+              url: __URL__
+              body_template: '{"token":"${MISSING_AUTH_VALUE}"}'
+            """.replace("__URL__", _fixture_url("/secure"))
 
         _write_custom_tool_yaml(
             tmp_path,
@@ -883,7 +900,7 @@ class TestResolveCanonicalRequestTools:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            with pytest.raises(ValueError, match=r"MISSING_API_TOKEN"):
+            with pytest.raises(ValueError, match=r"MISSING_AUTH_VALUE"):
                 await tool.execute({})
 
         client_instance.request.assert_not_called()
@@ -909,8 +926,8 @@ class TestResolveCanonicalRequestTools:
               properties: {}
             request:
               method: GET
-              url: https://example.com/large
-            """,
+              url: __URL__
+            """.replace("__URL__", _fixture_url("/large")),
         )
 
         response_size_policy = Mock(return_value="truncated body")
@@ -926,7 +943,10 @@ class TestResolveCanonicalRequestTools:
         mock_response.headers = {"content-type": "text/plain"}
         mock_response.text = "0123456789"
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -959,8 +979,8 @@ class TestResolveCanonicalRequestTools:
               properties: {}
             request:
               method: GET
-              url: https://example.com/large
-            """,
+              url: __URL__
+            """.replace("__URL__", _fixture_url("/large")),
         )
 
         response_size_policy = Mock(return_value="default-capped body")
@@ -976,7 +996,10 @@ class TestResolveCanonicalRequestTools:
         mock_response.headers = {"content-type": "text/html"}
         mock_response.text = large_html
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -1008,8 +1031,8 @@ class TestResolveCanonicalRequestTools:
               properties: {}
             request:
               method: GET
-              url: https://example.com/large
-            """,
+              url: __URL__
+            """.replace("__URL__", _fixture_url("/large")),
         )
 
         response_size_policy = Mock(side_effect=ValueError("response exceeded max_output_bytes"))
@@ -1025,7 +1048,10 @@ class TestResolveCanonicalRequestTools:
         mock_response.headers = {"content-type": "text/plain"}
         mock_response.text = "0123456789"
 
-        with patch("httpx.AsyncClient") as MockClient:
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient") as MockClient,
+        ):
             client_instance = AsyncMock()
             client_instance.request.return_value = mock_response
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
