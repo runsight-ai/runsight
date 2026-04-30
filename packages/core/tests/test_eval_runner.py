@@ -1,11 +1,11 @@
-"""Tests for RUN-695: Offline eval runner for workflow test cases.
+"""Tests for Offline eval runner for workflow test cases.
 
 Covers:
-  AC1 -- Executor mode: 2 cases, no fixtures, executor callback called, assertions fire,
+  Executor mode: 2 cases, no fixtures, executor callback called, assertions fire,
          structured result returned with per-case and aggregate scores.
-  AC2 -- Fixture mode: case with fixtures for all blocks -> no executor called,
+  Fixture mode: case with fixtures for all blocks -> no executor called,
          assertions run against fixture outputs.
-  AC3 -- Threshold/pass-fail: aggregate score vs eval.threshold drives result.passed.
+  Threshold/pass-fail: aggregate score vs eval.threshold drives result.passed.
   Edge cases -- no executor + no fixtures -> error; multiple blocks; empty expected.
 """
 
@@ -18,7 +18,7 @@ from runsight_core.assertions.base import AssertionContext, GradingResult
 from runsight_core.assertions.registry import register_assertion
 from runsight_core.assertions.scoring import AssertionsResult
 
-# This import WILL FAIL until Green implements the module -- expected Red failure.
+# Eval runner public API import.
 from runsight_core.eval.runner import EvalCaseResult, EvalSuiteResult, run_eval
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -41,7 +41,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -78,7 +78,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -110,7 +110,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -144,7 +144,7 @@ blocks:
     soul: default_soul
     prompt_template: "Summarize the analysis."
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -182,7 +182,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -209,7 +209,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -283,12 +283,12 @@ def _make_executor_returning(results_by_case: dict[str, dict[str, str]]) -> Asyn
 
 
 # ===========================================================================
-# AC1 -- Executor mode (no fixtures, executor provided)
+# Executor mode (no fixtures, executor provided)
 # ===========================================================================
 
 
 class TestEvalRunnerExecutorMode:
-    """AC1: Given a workflow with eval section containing 2 test cases and no fixtures,
+    """Given a workflow with eval section containing 2 test cases and no fixtures,
     when eval runner executes, then both cases run via executor callback, assertions fire,
     and structured result is returned with per-case and aggregate scores."""
 
@@ -428,12 +428,12 @@ class TestEvalRunnerExecutorMode:
 
 
 # ===========================================================================
-# AC2 -- Fixture mode (fixtures provided, no executor needed)
+# Fixture mode (fixtures provided, no executor needed)
 # ===========================================================================
 
 
 class TestEvalRunnerFixtureMode:
-    """AC2: Given a workflow with eval section where one case has fixtures for all
+    """Given a workflow with eval section where one case has fixtures for all
     blocks in expected, when eval runner executes that case, then no LLM calls made
     (executor not called), assertions run against fixture outputs."""
 
@@ -495,7 +495,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -518,12 +518,12 @@ eval:
 
 
 # ===========================================================================
-# AC3 -- Threshold/pass-fail behavior
+# Threshold/pass-fail behavior
 # ===========================================================================
 
 
 class TestEvalRunnerThreshold:
-    """AC3: Given aggregate score below eval.threshold, the runner reports overall
+    """Given aggregate score below eval.threshold, the runner reports overall
     failure with per-case breakdown."""
 
     @pytest.mark.asyncio
@@ -598,7 +598,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze
@@ -691,7 +691,7 @@ blocks:
     soul: default_soul
     prompt_template: "Analyze: {task_instruction}"
 workflow:
-  name: test_workflow
+  name: eval_runner_workflow
   entry: analyze
   transitions:
     - from: analyze

@@ -1,4 +1,4 @@
-"""Red tests for RUN-797: custom assertion discovery and registration wiring."""
+"""Tests for custom assertion discovery and registration wiring."""
 
 from __future__ import annotations
 
@@ -139,8 +139,8 @@ def _assertion_context(output: str = "calm response") -> AssertionContext:
         total_tokens=42,
         latency_ms=12.0,
         variables={"topic": "calm"},
-        run_id="run-1",
-        workflow_id="workflow-1",
+        run_id="custom-assertion-registration-run",
+        workflow_id="custom-assertion-registration-workflow",
     )
 
 

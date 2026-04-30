@@ -21,10 +21,10 @@ def _make_context(**overrides: Any) -> AssertionContext:
     defaults = dict(
         output="needle in haystack",
         prompt="Find the launch blocker.",
-        prompt_hash="prompt-hash-123",
+        prompt_hash="prompt-hash-fixture",
         soul_id="custom-adapter-soul",
         soul_version="v7",
-        block_id="block-a",
+        block_id="custom-adapter-block",
         block_type="LinearBlock",
         cost_usd=0.031,
         total_tokens=321,
@@ -102,10 +102,10 @@ def get_assert(output, context):
         and context["vars"]["topic"] == "launch"
         and context["config"]["budget"] == 0.05
         and context["prompt"] == "Find the launch blocker."
-        and context["prompt_hash"] == "prompt-hash-123"
+        and context["prompt_hash"] == "prompt-hash-fixture"
         and context["soul_id"] == "custom-adapter-soul"
         and context["soul_version"] == "v7"
-        and context["block_id"] == "block-a"
+        and context["block_id"] == "custom-adapter-block"
         and context["block_type"] == "LinearBlock"
         and context["cost_usd"] == 0.031
         and context["total_tokens"] == 321
@@ -397,10 +397,10 @@ def get_assert(output, context):
                 "vars": {"topic": "launch", "severity": "high"},
                 "config": {"budget": 0.05},
                 "prompt": "Find the launch blocker.",
-                "prompt_hash": "prompt-hash-123",
+                "prompt_hash": "prompt-hash-fixture",
                 "soul_id": "custom-adapter-soul",
                 "soul_version": "v7",
-                "block_id": "block-a",
+                "block_id": "custom-adapter-block",
                 "block_type": "LinearBlock",
                 "cost_usd": 0.031,
                 "total_tokens": 321,

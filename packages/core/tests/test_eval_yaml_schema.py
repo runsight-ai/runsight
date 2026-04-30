@@ -24,9 +24,9 @@ from runsight_core.yaml.schema import (
 # Minimal valid workflow skeleton — reused across tests to satisfy the required
 # 'workflow' key without noise.
 _MINIMAL_WORKFLOW = {
-    "id": "test-workflow",
+    "id": "eval-yaml-schema-workflow",
     "kind": "workflow",
-    "workflow": {"name": "test_wf", "entry": "b1"},
+    "workflow": {"name": "eval_yaml_schema_workflow", "entry": "b1"},
     "blocks": {"b1": {"type": "linear", "soul_ref": "soul-s1"}},
 }
 

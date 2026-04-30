@@ -1,13 +1,13 @@
 """
-RUN-685 — Epic-level integration tests: Eval Debt Cleanup & Wiring Fixes.
+Integration tests: Eval Debt Cleanup & Wiring Fixes.
 
-Verifies the full chain after six implementation tickets:
-  1. Soul YAML files have no `assertions:` key (RUN-688)
-  2. Parser has no duplicate `_resolve_soul()` (RUN-690)
-  3. Stale `soul.assertions` refs replaced in tests (RUN-689)
-  4. `SoulEntity` has no explicit `assertions` field (RUN-691)
-  5. Inline-soul fixtures migrated to library soul refs (RUN-692)
-  6. `Step` wrapper exposes `.assertions` from inner block (RUN-693 P0 fix)
+Verifies the full eval cleanup chain:
+  1. Soul YAML files have no `assertions:` key
+  2. Parser has no duplicate `_resolve_soul()`
+  3. Stale `soul.assertions` refs replaced in tests
+  4. `SoulEntity` has no explicit `assertions` field
+  5. Inline-soul fixtures migrated to library soul refs
+  6. `Step` wrapper exposes `.assertions` from inner block
 
 User flows:
   UF-1: Block with inputs + assertions -> eval fires through Step wrapper

@@ -1,4 +1,4 @@
-"""Red tests for RUN-794: assertion manifest scanner architecture."""
+"""Tests for assertion manifest scanner architecture."""
 
 from __future__ import annotations
 

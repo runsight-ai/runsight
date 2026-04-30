@@ -1,4 +1,4 @@
-"""RUN-800: end-to-end custom assertion coverage for offline eval runner."""
+"""End-to-end custom assertion coverage for offline eval runner."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _write_eval_workflow(
     fixture_output: str = "calm response",
 ) -> Path:
     workflow = {
-        "id": "run800-eval-flow",
+        "id": "custom-assertion-eval-flow",
         "kind": "workflow",
         "version": "1.0",
         "config": {"model_name": "gpt-4o"},
@@ -61,7 +61,7 @@ def _write_eval_workflow(
             }
         },
         "workflow": {
-            "name": "run800_eval_flow",
+            "name": "custom_assertion_eval_flow",
             "entry": "analyze",
             "transitions": [{"from": "analyze", "to": None}],
         },

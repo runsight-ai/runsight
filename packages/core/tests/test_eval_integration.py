@@ -1,9 +1,9 @@
-"""Integration tests for RUN-699: Eval harness cross-module wiring.
+"""Integration tests for Eval harness cross-module wiring.
 
-Verifies that the three RUN-686 epic modules work together end-to-end:
-  - RUN-694: EvalSectionDef / EvalCaseDef YAML schema models
-  - RUN-695: run_eval(), EvalSuiteResult, EvalCaseResult eval runner
-  - RUN-696: _apply_transform() / transform hooks in run_assertion / run_assertions
+Verifies that the eval harness modules work together end-to-end:
+  - EvalSectionDef / EvalCaseDef YAML schema models
+  - run_eval(), EvalSuiteResult, EvalCaseResult eval runner
+  - _apply_transform() / transform hooks in run_assertion / run_assertions
 
 Scenarios:
   1 — Schema -> Runner pipeline (YAML parse -> run_eval -> structured results)
@@ -399,8 +399,8 @@ eval:
 
 
 class TestScenario3bTransformInEvalPipeline:
-    """Verify that transform hooks (RUN-696) work when wired through
-    the eval runner (RUN-695), exercising the full cross-module path:
+    """Verify that transform hooks work when wired through
+    the eval runner, exercising the full cross-module path:
     YAML -> run_eval -> run_assertions -> _apply_transform -> assertion."""
 
     async def test_json_path_transform_in_eval_case(self):
