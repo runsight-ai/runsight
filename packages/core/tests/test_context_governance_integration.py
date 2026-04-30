@@ -1,4 +1,4 @@
-"""Purple integration tests for RUN-917 context governance wiring."""
+"""Context governance integration wiring coverage."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class DeclaredBlock:
 
 
 class CapturingRunner:
-    model_name = "gpt-4o"
+    model_name = "fixture-model"
 
     async def execute(self, instruction: str, content: Any, soul: Soul, **_: Any) -> Any:
         raise AssertionError("isolated wrapper test should stop at envelope capture")
@@ -57,14 +57,14 @@ def _soul() -> Soul:
         name="Analyst",
         role="Analyst",
         system_prompt="Use only declared context.",
-        model_name="gpt-4o",
+        model_name="fixture-model",
     )
 
 
 def _workflow_yaml_with_allowed_namespace_refs() -> str:
     return """\
 version: "1.0"
-id: run917
+id: context_governance_fixture
 kind: workflow
 souls:
   analyst:
@@ -92,7 +92,7 @@ blocks:
       branch:
         from: metadata.runtime.branch
 workflow:
-  name: run917
+  name: context_governance_workflow
   entry: draft
   transitions:
     - from: draft
@@ -106,24 +106,24 @@ def _state() -> WorkflowState:
     return WorkflowState(
         results={
             "draft": BlockResult(
-                output=json.dumps({"summary": "safe draft", "secret": "draft secret"})
+                output=json.dumps({"summary": "safe draft", "private": "draft private"})
             ),
-            "unrelated": BlockResult(output="top secret result"),
+            "unrelated": BlockResult(output="top private result"),
         },
         workflow_inputs={
             "request": "external input",
-            "secret": "workflow secret",
+            "private": "workflow private",
         },
         shared_memory={
-            "flags": {"safe": True, "secret": "flag sibling secret"},
+            "flags": {"safe": True, "private": "flag sibling private"},
             "_resolved_inputs": {"summary": "legacy leak"},
-            "secret": "shared secret",
+            "private": "shared private",
         },
         metadata={
-            "run_id": "run_917",
+            "run_id": "context-governance-run",
             "workflow_name": "context_governance_integration",
-            "runtime": {"branch": "codex/run-868-context-governance", "secret": "runtime secret"},
-            "secret": "metadata secret",
+            "runtime": {"branch": "feature/context-governance", "private": "runtime private"},
+            "private": "metadata private",
         },
     )
 
@@ -142,7 +142,7 @@ def test_parser_to_resolver_block_context_observer_resolves_only_declared_namesp
         "summary": "safe draft",
         "request": "external input",
         "feature_flag": True,
-        "branch": "codex/run-868-context-governance",
+        "branch": "feature/context-governance",
     }
     assert len(recorder.context_events) == 1
     event = recorder.context_events[0]
@@ -155,10 +155,10 @@ def test_parser_to_resolver_block_context_observer_resolves_only_declared_namesp
         "metadata",
     ]
     event_json = event.model_dump_json()
-    assert "draft secret" not in event_json
-    assert "workflow secret" not in event_json
-    assert "shared secret" not in event_json
-    assert "metadata secret" not in event_json
+    assert "draft private" not in event_json
+    assert "workflow private" not in event_json
+    assert "shared private" not in event_json
+    assert "metadata private" not in event_json
     assert "legacy leak" not in event_json
 
 
@@ -175,15 +175,13 @@ def test_block_context_state_snapshot_is_scoped_to_declared_context() -> None:
     assert json.loads(ctx.state_snapshot.results["draft"].output) == {"summary": "safe draft"}
     assert ctx.state_snapshot.workflow_inputs == {"request": "external input"}
     assert ctx.state_snapshot.shared_memory == {"flags": {"safe": True}}
-    assert ctx.state_snapshot.metadata == {
-        "runtime": {"branch": "codex/run-868-context-governance"}
-    }
+    assert ctx.state_snapshot.metadata == {"runtime": {"branch": "feature/context-governance"}}
 
     snapshot_json = ctx.state_snapshot.model_dump_json()
-    assert "draft secret" not in snapshot_json
-    assert "top secret result" not in snapshot_json
-    assert "shared secret" not in snapshot_json
-    assert "metadata secret" not in snapshot_json
+    assert "draft private" not in snapshot_json
+    assert "top private result" not in snapshot_json
+    assert "shared private" not in snapshot_json
+    assert "metadata private" not in snapshot_json
     assert "legacy leak" not in snapshot_json
 
 
@@ -228,24 +226,24 @@ async def test_isolated_wrapper_envelope_and_worker_state_are_scoped_from_same_d
     envelope = captured["envelope"]
     assert envelope.inputs == {
         "summary": "safe draft",
-        "branch": "codex/run-868-context-governance",
+        "branch": "feature/context-governance",
     }
     assert set(envelope.scoped_results) == {"draft"}
     assert json.loads(envelope.scoped_results["draft"]["output"]) == {"summary": "safe draft"}
     assert envelope.scoped_shared_memory == {}
-    assert envelope.scoped_metadata == {"runtime": {"branch": "codex/run-868-context-governance"}}
+    assert envelope.scoped_metadata == {"runtime": {"branch": "feature/context-governance"}}
     assert len(envelope.context_audit) == 1
     envelope_json = envelope.model_dump_json()
-    assert "draft secret" not in envelope_json
-    assert "top secret result" not in envelope_json
-    assert "shared secret" not in envelope_json
-    assert "metadata secret" not in envelope_json
+    assert "draft private" not in envelope_json
+    assert "top private result" not in envelope_json
+    assert "shared private" not in envelope_json
+    assert "metadata private" not in envelope_json
     assert "legacy leak" not in envelope_json
 
     worker_state = build_scoped_state(envelope)
     assert set(worker_state.results) == {"draft"}
     assert worker_state.shared_memory == {}
-    assert worker_state.metadata == {"runtime": {"branch": "codex/run-868-context-governance"}}
+    assert worker_state.metadata == {"runtime": {"branch": "feature/context-governance"}}
 
 
 @pytest.mark.asyncio
@@ -288,7 +286,7 @@ async def test_isolated_wrapper_preserves_multiple_declared_fields_from_same_sou
                         {
                             "summary": "safe draft",
                             "title": "T",
-                            "secret": "draft secret",
+                            "private": "draft private",
                         }
                     )
                 ),
@@ -305,7 +303,7 @@ async def test_isolated_wrapper_preserves_multiple_declared_fields_from_same_sou
         "summary": "safe draft",
         "title": "T",
     }
-    assert "draft secret" not in envelope.model_dump_json()
+    assert "draft private" not in envelope.model_dump_json()
 
 
 def test_strict_missing_ref_fails_and_emits_audit_record() -> None:
@@ -328,7 +326,10 @@ def test_dev_mode_missing_ref_warns_without_granting_implicit_data() -> None:
     recorder = RecordingObserver()
     state = WorkflowState(
         shared_memory={"_resolved_inputs": {"summary": "legacy leak"}},
-        metadata={"run_id": "run_917", "workflow_name": "context_governance_integration"},
+        metadata={
+            "run_id": "context-governance-run",
+            "workflow_name": "context_governance_integration",
+        },
     )
 
     ctx = build_block_context(
