@@ -29,12 +29,12 @@ export type WorkspaceSnapshot = {
 };
 
 const READY_PROVIDER: ProviderFixture = {
-  id: "openai",
-  name: "OpenAI",
-  type: "openai",
+  id: "shell-ready-fixture-provider",
+  name: "Shell Ready Fixture",
+  type: "shell-ready-fixture-provider",
   status: "connected",
   is_active: true,
-  models: ["gpt-4.1-mini"],
+  models: ["shell-ready-fixture-model"],
   api_key: null,
 };
 
