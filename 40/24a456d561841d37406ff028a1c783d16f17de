@@ -1,0 +1,23 @@
+testing/gui-e2e/tests/onboarding.spec.ts
+  4adca821c1af8eb3 34-36,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4024a456d561841d37406ff028a1c783d16f17de",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 90453,
+      "overriden_lines": 0
+    }
+  }
+}
