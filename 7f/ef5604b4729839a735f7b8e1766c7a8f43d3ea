@@ -1,0 +1,53 @@
+packages/core/tests/test_workflow_block_builder_path.py
+  4adca821c1af8eb3 2
+packages/core/tests/test_loopblock_kwargs_forwarding.py
+  4adca821c1af8eb3 2,5-9,81,195,342-347,350,372-373,379-382,385,387-390,398,402-406,409-411,413,424-425,431,433-435,442,446-449,452-453,456,493,497-498,531-535,538,548-549,552,555-559,564-565
+packages/core/tests/test_workflow_error_routing_and_output_mapping.py
+  4adca821c1af8eb3 99,452
+packages/core/tests/test_workflow_block_no_current_task.py
+  4adca821c1af8eb3 2,4-6,18,23
+packages/core/tests/test_workflow_block_execute.py
+  4adca821c1af8eb3 34,42,59,79,82,100,103,120,125,140,150,166,176,196,206,238,251-252,260,277,281,296,298,305,308,317,334,336,346,355,375
+packages/core/tests/test_workflowblock_loopblock_e2e.py
+  4adca821c1af8eb3 2,143-146,152,166,196-199,204,216,223-224,227-228,232,238-240,266-269,274,286,304-307,312,324,347-350,354,365,394-397,402,407-410,415,427,443,446-449,453,458-461,465,477,495-496,500,502,507,512,516-519,524,535-538,542,550,554,558-561,565,576-579,584
+packages/core/tests/test_workflow_output_conditions.py
+  4adca821c1af8eb3 4,120,138,159,199,234,268,308,402,442,490,538,582,627,685,794
+packages/core/tests/test_nested_loopblock_observer.py
+  4adca821c1af8eb3 2,153,182,205,235,282,320,354,397,450,484
+packages/core/tests/test_parser_workflow_block.py
+  4adca821c1af8eb3 147,302,499
+packages/core/tests/test_workflowblock_governed_inputs.py
+  4adca821c1af8eb3 1
+packages/core/tests/test_integration_workflow_block.py
+  4adca821c1af8eb3 48,61,67-69,72,77,89-91,94-95,103,110,155-158,161,164,169-171,173,204,208,213-214,229,232-235,238,241,247-248,254,272-273,276-278,280-282,287,293-294,296,327,334-337,354-357,360-361,364,370-371,397,406,415,418,433,442-444,447-448,451,462-463,476,509-512,534,537-538,541,547-548,552
+packages/core/tests/test_integration_workflow_block_e2e.py
+  4adca821c1af8eb3 1,93,113,130,132-133,148,169,193,208,211,218,274,293,295-296
+packages/core/tests/test_workflow_block_recursion.py
+  4adca821c1af8eb3 16,41,44,54,58,64,77-81,85,90,93,116
+packages/core/tests/test_loop_execute_block_wiring.py
+  4adca821c1af8eb3 1,153,204,233
+packages/core/tests/test_integration_subworkflow.py
+  4adca821c1af8eb3 1,55-57,60,65-67,69,79-81,84,107,110,125,130,139-141,144,155-157,160,164,167
+packages/core/tests/test_loopblock_stateful_integration.py
+  4adca821c1af8eb3 2,4,262,453
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7fef5604b4729839a735f7b8e1766c7a8f43d3ea",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 401,
+      "total_deletions": 384,
+      "accepted_lines": 71332,
+      "overriden_lines": 0
+    }
+  }
+}
