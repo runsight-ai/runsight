@@ -1,0 +1,29 @@
+apps/api/tests/logic/test_wire_assertion_configs.py
+  4adca821c1af8eb3 135
+apps/api/tests/logic/test_soul_service_workflow_repo_ownership.py
+  4adca821c1af8eb3 40,65,79,90
+apps/api/tests/logic/test_state_flow.py
+  4adca821c1af8eb3 56,74,99,114,144,193-194
+apps/api/tests/logic/test_double_observer.py
+  4adca821c1af8eb3 45-46,99,139,180,198,201,226,229,254,257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9b74ef26dc1918dd741868a3ff76d887e4205d4a",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 23,
+      "accepted_lines": 112901,
+      "overriden_lines": 0
+    }
+  }
+}
