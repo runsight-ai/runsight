@@ -1,19 +1,14 @@
-"""
-Failing tests for RUN-394: ISO-003 — SubprocessHarness (spawn, communicate, monitor, kill).
+"""SubprocessHarness isolation coverage.
 
-Tests cover every AC item:
-1.  Subprocess spawned with minimal env (PATH + ONE API key + macOS paths only)
-2.  Subprocess working dir is fresh temp dir (not project root)
-3.  Socket created by SubprocessHarness (mode 0600, random path)
-4.  ContextEnvelope contains only YAML-declared scoped data
-5.  Timeout enforced — subprocess killed on timeout
-6.  Heartbeat stall detected — subprocess killed
-7.  Phase stall detected — subprocess killed
-8.  ResultEnvelope validated (schema + size cap)
-9.  SIGTERM then SIGKILL escalation on kill
-10. Negative return codes mapped to meaningful error messages
-11. Socket and temp dir cleaned up on exit (including crashes)
-12. Integration test: LinearBlock round-trip via subprocess
+Tests cover:
+- minimal subprocess environment
+- fresh temporary working directories
+- socket creation, permissions, and cleanup
+- declaration-scoped ContextEnvelope construction
+- timeout, heartbeat, and phase-stall process termination
+- ResultEnvelope schema and size validation
+- signal return-code mapping
+- LinearBlock subprocess round trips
 """
 
 from __future__ import annotations
@@ -45,7 +40,7 @@ from runsight_core.isolation import (
 
 def _make_soul_envelope() -> SoulEnvelope:
     return SoulEnvelope(
-        id="soul-1",
+        id="harness-soul",
         role="Tester",
         system_prompt="You test things.",
         model_name="gpt-4o-mini",
@@ -55,7 +50,7 @@ def _make_soul_envelope() -> SoulEnvelope:
 
 def _make_context_envelope(
     *,
-    block_id: str = "block-1",
+    block_id: str = "harness-block",
     block_type: str = "linear",
     scoped_results: dict[str, Any] | None = None,
     scoped_shared_memory: dict[str, Any] | None = None,
@@ -68,7 +63,7 @@ def _make_context_envelope(
         block_config={},
         soul=_make_soul_envelope(),
         tools=[],
-        prompt=PromptEnvelope(id="task-1", instruction="Do the thing.", context={}),
+        prompt=PromptEnvelope(id="harness-prompt", instruction="Do the thing.", context={}),
         scoped_results=scoped_results or {},
         scoped_shared_memory=scoped_shared_memory or {},
         conversation_history=[],
@@ -79,7 +74,7 @@ def _make_context_envelope(
 
 def _make_result_envelope(
     *,
-    block_id: str = "block-1",
+    block_id: str = "harness-block",
     output: str = "done",
     error: str | None = None,
 ) -> ResultEnvelope:
@@ -102,7 +97,7 @@ async def _tool_call_passthrough(args: dict[str, Any]) -> str:
 
 
 # ===========================================================================
-# AC1: Subprocess spawned with minimal env
+# Subprocess spawned with minimal env
 # ===========================================================================
 
 
@@ -111,11 +106,11 @@ class TestIpcHandlerRegistration:
 
     @pytest.mark.asyncio
     async def test_build_ipc_handlers_keeps_http_and_file_io_and_adds_tool_call(self):
-        """RUN-529: harness should expose tool_call without regressing existing handlers."""
+        """Harness exposes tool_call without regressing existing handlers."""
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.tools import ToolInstance
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         harness._resolved_tools = {
             "echo_tool": ToolInstance(
                 name="echo_tool",
@@ -136,7 +131,7 @@ class TestIpcHandlerRegistration:
 
 
 class TestLLMCallHandlerContract:
-    """RUN-745: engine-side llm_call handler factory + harness registration contract."""
+    """Engine-side llm_call handler factory and harness registration contract."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -144,13 +139,13 @@ class TestLLMCallHandlerContract:
         [
             (
                 "claude-sonnet-4-20250514",
-                {"anthropic": "sk-anthropic-real", "openai": "sk-openai-real"},
-                "sk-anthropic-real",
+                {"anthropic": "dummy-anthropic-key", "openai": "dummy-openai-key"},
+                "dummy-anthropic-key",
             ),
             (
                 "gpt-4o-mini",
-                {"anthropic": "sk-anthropic-real", "openai": "sk-openai-real"},
-                "sk-openai-real",
+                {"anthropic": "dummy-anthropic-key", "openai": "dummy-openai-key"},
+                "dummy-openai-key",
             ),
         ],
     )
@@ -243,7 +238,7 @@ class TestLLMCallHandlerContract:
         make_llm_call_handler = getattr(handlers_module, "make_llm_call_handler", None)
         assert make_llm_call_handler is not None
 
-        handler = make_llm_call_handler(api_keys={"anthropic": "sk-anthropic-real"})
+        handler = make_llm_call_handler(api_keys={"anthropic": "dummy-anthropic-key"})
         stream = handler(
             {
                 "model": "gpt-4o-mini",
@@ -281,7 +276,7 @@ class TestLLMCallHandlerContract:
             raising=False,
         )
 
-        harness = SubprocessHarness(api_keys={"anthropic": "sk-anthropic-real"})
+        harness = SubprocessHarness(api_keys={"anthropic": "dummy-anthropic-key"})
         handlers = harness._build_ipc_handlers()
 
         assert "llm_call" in handlers
@@ -290,7 +285,7 @@ class TestLLMCallHandlerContract:
 
 
 class TestHarnessBudgetInterceptorWiring:
-    """RUN-810: SubprocessHarness must wire BudgetInterceptor into IPC execution."""
+    """SubprocessHarness wires BudgetInterceptor into IPC execution."""
 
     @pytest.mark.asyncio
     async def test_run_builds_block_budget_interceptor_with_workflow_parent(
@@ -304,7 +299,7 @@ class TestHarnessBudgetInterceptorWiring:
         from runsight_core.yaml.schema import BlockLimitsDef
 
         workflow_budget = BudgetSession(
-            scope_name="workflow:run810",
+            scope_name="workflow:harness-budget-parent",
             cost_cap_usd=5.0,
             token_cap=5_000,
             on_exceed="fail",
@@ -390,7 +385,7 @@ class TestHarnessBudgetInterceptorWiring:
             async def read(self) -> bytes:
                 return (
                     _make_result_envelope(
-                        block_id="run810-block",
+                        block_id="budgeted-linear-block",
                         output="ok",
                     )
                     .model_dump_json()
@@ -430,13 +425,13 @@ class TestHarnessBudgetInterceptorWiring:
             harness_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
-        envelope = _make_context_envelope(block_id="run810-block", block_type="linear")
+        envelope = _make_context_envelope(block_id="budgeted-linear-block", block_type="linear")
         block_limits = BlockLimitsDef(cost_cap_usd=1.0, token_cap=200)
         envelope.block_config = {
-            "block_id": "run810-block",
+            "block_id": "budgeted-linear-block",
             "block_type": "linear",
             "limits": block_limits.model_dump(),
         }
@@ -465,7 +460,7 @@ class TestHarnessBudgetInterceptorWiring:
         from runsight_core.isolation import harness as harness_module
 
         workflow_budget = BudgetSession(
-            scope_name="workflow:run810",
+            scope_name="workflow:harness-budget-parent",
             cost_cap_usd=5.0,
             token_cap=5_000,
             on_exceed="fail",
@@ -539,7 +534,7 @@ class TestHarnessBudgetInterceptorWiring:
         class _FakeStdOut:
             async def read(self) -> bytes:
                 return (
-                    _make_result_envelope(block_id="run810-block", output="ok")
+                    _make_result_envelope(block_id="budgeted-linear-block", output="ok")
                     .model_dump_json()
                     .encode()
                 )
@@ -576,9 +571,9 @@ class TestHarnessBudgetInterceptorWiring:
             harness_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
-        envelope = _make_context_envelope(block_id="run810-block", block_type="linear")
+        envelope = _make_context_envelope(block_id="budgeted-linear-block", block_type="linear")
 
         try:
             result = await harness.run(envelope)
@@ -592,7 +587,7 @@ class TestHarnessBudgetInterceptorWiring:
 
 
 class TestHarnessObserverInterceptorWiring:
-    """RUN-397: SubprocessHarness must register ObserverInterceptor in IPC registry."""
+    """SubprocessHarness registers ObserverInterceptor in IPC registry."""
 
     @pytest.mark.asyncio
     async def test_run_registers_observer_interceptor_for_ipc_trace_context(
@@ -605,7 +600,7 @@ class TestHarnessObserverInterceptorWiring:
         from runsight_core.yaml.schema import BlockLimitsDef
 
         workflow_budget = BudgetSession(
-            scope_name="workflow:run397",
+            scope_name="workflow:harness-observer-parent",
             cost_cap_usd=5.0,
             token_cap=5_000,
             on_exceed="fail",
@@ -623,8 +618,8 @@ class TestHarnessObserverInterceptorWiring:
             async def on_request(
                 self, action: str, payload: dict[str, Any], engine_context: dict[str, Any]
             ) -> dict[str, Any]:
-                engine_context["trace_id"] = "trace-397"
-                engine_context["span_id"] = "span-397"
+                engine_context["trace_id"] = "observer-trace"
+                engine_context["span_id"] = "observer-span"
                 return engine_context
 
             async def on_response(
@@ -654,7 +649,7 @@ class TestHarnessObserverInterceptorWiring:
                     request_ctx = await self._registry.run_on_request(
                         "llm_call",
                         {"model": "gpt-4o-mini"},
-                        {"trace.parent_id": "parent-397"},
+                        {"trace.parent_id": "observer-parent-span"},
                     )
                     final_ctx = await self._registry.run_on_response(
                         "llm_call",
@@ -681,7 +676,7 @@ class TestHarnessObserverInterceptorWiring:
             async def read(self) -> bytes:
                 return (
                     _make_result_envelope(
-                        block_id="run397-block",
+                        block_id="observed-linear-block",
                         output="ok",
                     )
                     .model_dump_json()
@@ -723,12 +718,12 @@ class TestHarnessObserverInterceptorWiring:
             fake_create_subprocess_exec,
         )
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         monkeypatch.setattr(harness, "_monitor_heartbeats", AsyncMock(return_value=False))
 
-        envelope = _make_context_envelope(block_id="run397-block", block_type="linear")
+        envelope = _make_context_envelope(block_id="observed-linear-block", block_type="linear")
         envelope.block_config = {
-            "block_id": "run397-block",
+            "block_id": "observed-linear-block",
             "block_type": "linear",
             "limits": BlockLimitsDef(cost_cap_usd=1.0, token_cap=200).model_dump(),
         }
@@ -741,13 +736,13 @@ class TestHarnessObserverInterceptorWiring:
         assert isinstance(result, ResultEnvelope)
         assert captured["registry"] is not None
         assert captured["observer_inits"] >= 1
-        assert captured["final_engine_context"]["trace.parent_id"] == "parent-397"
-        assert captured["final_engine_context"]["trace_id"] == "trace-397"
-        assert captured["final_engine_context"]["span_id"] == "span-397"
+        assert captured["final_engine_context"]["trace.parent_id"] == "observer-parent-span"
+        assert captured["final_engine_context"]["trace_id"] == "observer-trace"
+        assert captured["final_engine_context"]["span_id"] == "observer-span"
 
 
 class TestSubprocessHarnessWiringContract:
-    """RUN-394: SubprocessHarness internal wiring for handlers, allowlist, cleanup, and env."""
+    """SubprocessHarness internal wiring for handlers, allowlist, cleanup, and env."""
 
     def test_constructor_accepts_api_keys_and_resolved_tools(self):
         from runsight_core.isolation import SubprocessHarness
@@ -758,7 +753,7 @@ class TestSubprocessHarnessWiringContract:
 
         tool = SearchTool()
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-openai-real"},
+            api_keys={"openai": "dummy-openai-key"},
             resolved_tools={"search": tool},
         )
 
@@ -773,7 +768,7 @@ class TestSubprocessHarnessWiringContract:
                 return f"search:{args['q']}"
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-openai-real"},
+            api_keys={"openai": "dummy-openai-key"},
             resolved_tools={"search": SearchTool()},
         )
 
@@ -821,7 +816,7 @@ class TestSubprocessHarnessWiringContract:
         monkeypatch.setattr(handlers_module, "make_llm_call_handler", fake_make_llm_call_handler)
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         _ = harness._build_ipc_handlers()
 
         assert captured["url_allowlist"] == []
@@ -867,7 +862,7 @@ class TestSubprocessHarnessWiringContract:
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             url_allowlist=["api.example.com"],
         )
         _ = harness._build_ipc_handlers()
@@ -887,7 +882,7 @@ class TestSubprocessHarnessWiringContract:
         created: dict[str, Path] = {}
 
         def fake_mkdtemp(*args: Any, **kwargs: Any) -> str:
-            base_dir = tmp_path / "rs-fio-run394"
+            base_dir = tmp_path / "rs-fio-harness"
             base_dir.mkdir(parents=True, exist_ok=True)
             created["base_dir"] = base_dir
             return str(base_dir)
@@ -924,7 +919,7 @@ class TestSubprocessHarnessWiringContract:
         monkeypatch.setattr(handlers_module, "make_llm_call_handler", fake_make_llm_call_handler)
         monkeypatch.setattr(handlers_module, "make_tool_call_handler", fake_make_tool_call_handler)
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         _ = harness._build_ipc_handlers()
         assert created["base_dir"].exists()
 
@@ -935,7 +930,7 @@ class TestSubprocessHarnessWiringContract:
     async def test_real_file_io_handler_write_read_and_cleanup_remove_sandbox(self):
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         handlers = harness._build_ipc_handlers()
         file_io = handlers["file_io"]
         sandbox = Path(harness._file_io_temp_dir or "")
@@ -958,8 +953,10 @@ class TestSubprocessHarnessWiringContract:
     ):
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-openai-real"})
-        env = harness._build_subprocess_env(socket_path="/tmp/rs-run394.sock", block_id="block-394")
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
+        env = harness._build_subprocess_env(
+            socket_path="/tmp/rs-harness.sock", block_id="env-linear-block"
+        )
 
         assert "RUNSIGHT_GRANT_TOKEN" in env
         assert env["RUNSIGHT_GRANT_TOKEN"] != ""
@@ -967,7 +964,7 @@ class TestSubprocessHarnessWiringContract:
 
 
 class TestHarnessHTTPWiringContract:
-    """RUN-811: harness must pass host-scoped credentials to HTTP handler factory."""
+    """Harness passes host-scoped credentials to HTTP handler factory."""
 
     @pytest.mark.asyncio
     async def test_build_ipc_handlers_passes_unmerged_host_credentials_to_http_handler(
@@ -1017,7 +1014,7 @@ class TestHarnessHTTPWiringContract:
             "host-b.com": {"Authorization": "Bearer host-b", "X-Host-B": "1"},
         }
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             tool_credentials=expected_credentials,
         )
         _ = harness._build_ipc_handlers()
@@ -1041,7 +1038,7 @@ class TestMinimalEnvironment:
         """Subprocess env must include PATH."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
         assert "PATH" in env
@@ -1051,7 +1048,7 @@ class TestMinimalEnvironment:
         """Subprocess env must include RUNSIGHT_GRANT_TOKEN."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
         assert "RUNSIGHT_GRANT_TOKEN" in env
@@ -1063,7 +1060,7 @@ class TestMinimalEnvironment:
         """Subprocess env must not include RUNSIGHT_BLOCK_API_KEY."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
         assert "RUNSIGHT_BLOCK_API_KEY" not in env
@@ -1073,7 +1070,7 @@ class TestMinimalEnvironment:
         """Subprocess env must NOT inherit the full host environment."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
         # Common env vars that should NOT leak through
@@ -1085,18 +1082,18 @@ class TestMinimalEnvironment:
         """Subprocess env must include RUNSIGHT_IPC_SOCKET."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
-        env = harness._build_subprocess_env(socket_path="/tmp/rs-abc123.sock")
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
+        env = harness._build_subprocess_env(socket_path="/tmp/rs-harness-ipc.sock")
 
         assert "RUNSIGHT_IPC_SOCKET" in env
-        assert env["RUNSIGHT_IPC_SOCKET"] == "/tmp/rs-abc123.sock"
+        assert env["RUNSIGHT_IPC_SOCKET"] == "/tmp/rs-harness-ipc.sock"
 
     @pytest.mark.asyncio
     async def test_spawn_env_has_macos_dylib_paths(self):
         """On macOS, subprocess env includes DYLD_LIBRARY_PATH or DYLD_FALLBACK_LIBRARY_PATH."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env()
 
         if sys.platform == "darwin":
@@ -1108,7 +1105,7 @@ class TestMinimalEnvironment:
         """Subprocess env should have a small number of keys (minimal env)."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env(socket_path="/tmp/rs-test.sock")
 
         # PATH + grant token + socket + maybe macOS dylib paths = at most ~5-6 keys
@@ -1116,7 +1113,7 @@ class TestMinimalEnvironment:
 
 
 # ===========================================================================
-# AC2: Subprocess working dir is fresh temp dir
+# Subprocess working dir is fresh temp dir
 # ===========================================================================
 
 
@@ -1128,7 +1125,7 @@ class TestFreshTempWorkingDir:
         """SubprocessHarness creates a fresh temp dir for the subprocess cwd."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         work_dir = harness._create_working_dir()
 
         assert Path(work_dir).exists()
@@ -1144,7 +1141,7 @@ class TestFreshTempWorkingDir:
         """Working dir must not be the project root or cwd."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         work_dir = harness._create_working_dir()
 
         assert work_dir != os.getcwd()
@@ -1157,7 +1154,7 @@ class TestFreshTempWorkingDir:
         """Each invocation creates a different temp dir."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         dir1 = harness._create_working_dir()
         dir2 = harness._create_working_dir()
 
@@ -1169,7 +1166,7 @@ class TestFreshTempWorkingDir:
 
 
 # ===========================================================================
-# AC3: Socket created by SubprocessHarness, mode 0600, random path
+# Socket created by SubprocessHarness, mode 0600, random path
 # ===========================================================================
 
 
@@ -1181,7 +1178,7 @@ class TestSocketCreation:
         """_create_socket returns a bound Unix socket object."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
 
         try:
@@ -1197,7 +1194,7 @@ class TestSocketCreation:
         """Socket path must be random (different each call)."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         _, path1 = harness._create_socket()
         _, path2 = harness._create_socket()
 
@@ -1212,7 +1209,7 @@ class TestSocketCreation:
         """Socket path follows /tmp/rs-{random}.sock pattern."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
 
         try:
@@ -1229,7 +1226,7 @@ class TestSocketCreation:
         """Socket file must have mode 0600 (owner read/write only)."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
 
         try:
@@ -1243,7 +1240,7 @@ class TestSocketCreation:
 
 
 # ===========================================================================
-# AC4: ContextEnvelope contains only YAML-declared scoped data
+# ContextEnvelope contains only YAML-declared scoped data
 # ===========================================================================
 
 
@@ -1256,28 +1253,28 @@ class TestContextScoping:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.state import BlockResult, WorkflowState
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         state = WorkflowState(
             results={
-                "block-0": BlockResult(output="first result"),
-                "block-1": BlockResult(output='{"summary": "declared", "secret": "hidden"}'),
+                "previous-linear-block": BlockResult(output="first result"),
+                "harness-block": BlockResult(output='{"summary": "declared", "secret": "hidden"}'),
             },
             shared_memory={"global_key": "global_value"},
         )
 
         block_config = {
-            "block_id": "block-2",
+            "block_id": "target-linear-block",
             "block_type": "linear",
             "soul_ref": "test",
-            "previous_block_id": "block-0",
-            "inputs": {"summary": {"from": "block-1.summary"}},
+            "previous_block_id": "previous-linear-block",
+            "inputs": {"summary": {"from": "harness-block.summary"}},
         }
 
         envelope = harness._build_context_envelope(state=state, block_config=block_config)
 
-        assert "block-1" in envelope.scoped_results
-        assert "block-0" not in envelope.scoped_results
+        assert "harness-block" in envelope.scoped_results
+        assert "previous-linear-block" not in envelope.scoped_results
         assert envelope.inputs == {"summary": "declared"}
         assert "hidden" not in envelope.model_dump_json()
 
@@ -1287,7 +1284,7 @@ class TestContextScoping:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.state import BlockResult, WorkflowState
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         state = WorkflowState(
             results={
@@ -1297,7 +1294,7 @@ class TestContextScoping:
         )
 
         block_config = {
-            "block_id": "gate-1",
+            "block_id": "quality-gate-block",
             "block_type": "gate",
             "eval_key": "eval-block",
         }
@@ -1314,28 +1311,31 @@ class TestContextScoping:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.state import BlockResult, WorkflowState
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         state = WorkflowState(
             results={
-                "block-a": BlockResult(output="a output"),
-                "block-b": BlockResult(output="b output"),
-                "block-c": BlockResult(output="c output"),
+                "source-alpha-block": BlockResult(output="a output"),
+                "source-beta-block": BlockResult(output="b output"),
+                "source-gamma-block": BlockResult(output="c output"),
             }
         )
 
         block_config = {
-            "block_id": "synth-1",
+            "block_id": "summary-synthesis-block",
             "block_type": "synthesize",
-            "input_block_ids": ["block-a", "block-c"],
+            "input_block_ids": ["source-alpha-block", "source-gamma-block"],
         }
 
         envelope = harness._build_context_envelope(state=state, block_config=block_config)
 
-        assert "block-a" in envelope.scoped_results
-        assert "block-c" in envelope.scoped_results
-        assert "block-b" not in envelope.scoped_results
-        assert envelope.inputs == {"block-a": "a output", "block-c": "c output"}
+        assert "source-alpha-block" in envelope.scoped_results
+        assert "source-gamma-block" in envelope.scoped_results
+        assert "source-beta-block" not in envelope.scoped_results
+        assert envelope.inputs == {
+            "source-alpha-block": "a output",
+            "source-gamma-block": "c output",
+        }
 
     @pytest.mark.asyncio
     async def test_declared_namespace_inputs_replace_legacy_context_scope(self):
@@ -1343,13 +1343,13 @@ class TestContextScoping:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.state import BlockResult, WorkflowState
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         state = WorkflowState(
             results={
-                "block-x": BlockResult(output="x"),
-                "block-y": BlockResult(output="y"),
-                "block-z": BlockResult(output="z"),
+                "declared-source-block": BlockResult(output="x"),
+                "legacy-context-block": BlockResult(output="y"),
+                "legacy-secret-block": BlockResult(output="z"),
             },
             shared_memory={
                 "allowed_key": "allowed_val",
@@ -1358,23 +1358,23 @@ class TestContextScoping:
         )
 
         block_config = {
-            "block_id": "custom-1",
+            "block_id": "declared-input-block",
             "block_type": "linear",
             "inputs": {
-                "x": {"from": "block-x"},
+                "x": {"from": "declared-source-block"},
                 "allowed": {"from": "shared_memory.allowed_key"},
             },
             "context_scope": {
-                "results": ["block-y", "block-z"],
+                "results": ["legacy-context-block", "legacy-secret-block"],
                 "shared_memory": ["secret_key"],
             },
         }
 
         envelope = harness._build_context_envelope(state=state, block_config=block_config)
 
-        assert "block-x" in envelope.scoped_results
-        assert "block-z" not in envelope.scoped_results
-        assert "block-y" not in envelope.scoped_results
+        assert "declared-source-block" in envelope.scoped_results
+        assert "legacy-secret-block" not in envelope.scoped_results
+        assert "legacy-context-block" not in envelope.scoped_results
         assert "allowed_key" in envelope.scoped_shared_memory
         assert "secret_key" not in envelope.scoped_shared_memory
         assert envelope.inputs == {"x": "x", "allowed": "allowed_val"}
@@ -1387,13 +1387,13 @@ class TestContextScoping:
         from runsight_core.isolation import SubprocessHarness
         from runsight_core.state import WorkflowState
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         state = WorkflowState()
 
         declared_envelope = harness._build_context_envelope(
             state=state,
             block_config={
-                "block_id": "block-1",
+                "block_id": "harness-block",
                 "block_type": "linear",
             },
         )
@@ -1403,7 +1403,7 @@ class TestContextScoping:
             harness._build_context_envelope(
                 state=state,
                 block_config={
-                    "block_id": "block-1",
+                    "block_id": "harness-block",
                     "block_type": "linear",
                     "access": "declared",
                 },
@@ -1411,7 +1411,7 @@ class TestContextScoping:
 
 
 # ===========================================================================
-# AC5: Timeout enforced — subprocess killed on timeout
+# Timeout enforced — subprocess killed on timeout
 # ===========================================================================
 
 
@@ -1423,7 +1423,7 @@ class TestTimeoutEnforcement:
         """SubprocessHarness.run() raises a timeout error when the subprocess exceeds timeout."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"}, timeout_seconds=1)
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"}, timeout_seconds=1)
         envelope = _make_context_envelope(timeout_seconds=1)
 
         # The run method should raise when the subprocess times out
@@ -1440,7 +1440,7 @@ class TestTimeoutEnforcement:
         """Timeout is taken from the ContextEnvelope.timeout_seconds field."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope(timeout_seconds=2)
 
         # Should use the envelope's timeout, not a default
@@ -1450,7 +1450,7 @@ class TestTimeoutEnforcement:
 
 
 # ===========================================================================
-# AC6: Heartbeat stall detected — subprocess killed
+# Heartbeat stall detected — subprocess killed
 # ===========================================================================
 
 
@@ -1463,7 +1463,7 @@ class TestHeartbeatStallDetection:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=1,
         )
 
@@ -1476,7 +1476,7 @@ class TestHeartbeatStallDetection:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             heartbeat_timeout=1,
         )
 
@@ -1495,7 +1495,7 @@ class TestHeartbeatStallDetection:
 
 
 # ===========================================================================
-# AC7: Phase stall detected — subprocess killed
+# Phase stall detected — subprocess killed
 # ===========================================================================
 
 
@@ -1508,7 +1508,7 @@ class TestPhaseStallDetection:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             phase_timeout=1,
         )
 
@@ -1520,7 +1520,7 @@ class TestPhaseStallDetection:
         from runsight_core.isolation import SubprocessHarness
 
         harness = SubprocessHarness(
-            api_keys={"openai": "sk-test-key-123"},
+            api_keys={"openai": "dummy-openai-key"},
             phase_timeout=2,
         )
 
@@ -1550,7 +1550,7 @@ class TestPhaseStallDetection:
 
 
 # ===========================================================================
-# AC8: ResultEnvelope validated (schema + size cap)
+# ResultEnvelope validated (schema + size cap)
 # ===========================================================================
 
 
@@ -1562,12 +1562,12 @@ class TestResultEnvelopeValidation:
         """A well-formed ResultEnvelope passes validation."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         result = _make_result_envelope()
         raw_json = result.model_dump_json()
 
         validated = harness._validate_result(raw_json, max_bytes=1_000_000)
-        assert validated.block_id == "block-1"
+        assert validated.block_id == "harness-block"
         assert validated.output == "done"
 
     @pytest.mark.asyncio
@@ -1575,7 +1575,7 @@ class TestResultEnvelopeValidation:
         """A ResultEnvelope exceeding max_output_bytes is rejected."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         result = _make_result_envelope(output="x" * 10_000)
         raw_json = result.model_dump_json()
 
@@ -1589,7 +1589,7 @@ class TestResultEnvelopeValidation:
         """Invalid JSON is rejected during result validation."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         with pytest.raises((json.JSONDecodeError, ValueError, Exception)):
             harness._validate_result("not valid json {{{", max_bytes=1_000_000)
@@ -1599,16 +1599,16 @@ class TestResultEnvelopeValidation:
         """A ResultEnvelope missing required fields is rejected."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         # Valid JSON but missing required ResultEnvelope fields
-        incomplete = json.dumps({"block_id": "block-1"})
+        incomplete = json.dumps({"block_id": "harness-block"})
 
         with pytest.raises((ValueError, Exception)):
             harness._validate_result(incomplete, max_bytes=1_000_000)
 
 
 # ===========================================================================
-# AC9: SIGTERM then SIGKILL escalation on kill
+# SIGTERM then SIGKILL escalation on kill
 # ===========================================================================
 
 
@@ -1620,7 +1620,7 @@ class TestGracefulKillEscalation:
         """_kill_subprocess sends SIGTERM before SIGKILL."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         signals_sent = []
         mock_proc = MagicMock()
@@ -1646,7 +1646,7 @@ class TestGracefulKillEscalation:
         """If SIGTERM doesn't work within grace period, SIGKILL is sent."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         signals_sent = []
         mock_proc = MagicMock()
@@ -1674,7 +1674,7 @@ class TestGracefulKillEscalation:
         """If SIGTERM causes the process to exit, no SIGKILL is sent."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         signals_sent = []
         mock_proc = MagicMock()
@@ -1696,7 +1696,7 @@ class TestGracefulKillEscalation:
 
 
 # ===========================================================================
-# AC10: Negative return codes mapped to meaningful error messages
+# Negative return codes mapped to meaningful error messages
 # ===========================================================================
 
 
@@ -1708,7 +1708,7 @@ class TestNegativeReturnCodeMapping:
         """Return code -9 (SIGKILL) is mapped to OOM error message."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         error_msg = harness._map_return_code(-9)
 
         assert "SIGKILL" in error_msg or "OOM" in error_msg or "signal 9" in error_msg.lower()
@@ -1718,7 +1718,7 @@ class TestNegativeReturnCodeMapping:
         """Return code -11 (SIGSEGV) is mapped to segfault error message."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         error_msg = harness._map_return_code(-11)
 
         assert (
@@ -1732,7 +1732,7 @@ class TestNegativeReturnCodeMapping:
         """Return code -15 (SIGTERM) is mapped to termination message."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         error_msg = harness._map_return_code(-15)
 
         assert (
@@ -1746,7 +1746,7 @@ class TestNegativeReturnCodeMapping:
         """Return code > 0 indicates an application-level error."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         error_msg = harness._map_return_code(1)
 
         assert "error" in error_msg.lower() or "exit" in error_msg.lower()
@@ -1756,7 +1756,7 @@ class TestNegativeReturnCodeMapping:
         """Return code 0 is success (no error)."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         result = harness._map_return_code(0)
 
         # Zero should return None or empty string (no error)
@@ -1764,7 +1764,7 @@ class TestNegativeReturnCodeMapping:
 
 
 # ===========================================================================
-# AC11: Socket and temp dir cleaned up on exit (including crashes)
+# Socket and temp dir cleaned up on exit (including crashes)
 # ===========================================================================
 
 
@@ -1776,7 +1776,7 @@ class TestCleanup:
         """Socket file is removed after a successful run."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
 
         # Simulate cleanup
@@ -1790,7 +1790,7 @@ class TestCleanup:
         """Temp working dir is removed after a successful run."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         work_dir = harness._create_working_dir()
 
         harness._cleanup(socket_path=None, working_dir=work_dir)
@@ -1802,7 +1802,7 @@ class TestCleanup:
         """Cleanup does not raise if the socket was already removed."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         # Should not raise
         harness._cleanup(socket_path="/tmp/rs-nonexistent.sock", working_dir=None)
@@ -1812,7 +1812,7 @@ class TestCleanup:
         """Cleanup does not raise if the temp dir was already removed."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
 
         # Should not raise
         harness._cleanup(socket_path=None, working_dir="/tmp/rs-nonexistent-dir")
@@ -1822,7 +1822,7 @@ class TestCleanup:
         """Both socket and temp dir are cleaned up even when run() raises."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         sock, sock_path = harness._create_socket()
         work_dir = harness._create_working_dir()
 
@@ -1835,7 +1835,7 @@ class TestCleanup:
 
 
 # ===========================================================================
-# AC12: Integration test — LinearBlock round-trip via subprocess
+# Integration test — LinearBlock round-trip via subprocess
 # ===========================================================================
 
 
@@ -1847,22 +1847,20 @@ class TestLinearBlockRoundTrip:
         """SubprocessHarness.run() returns a ResultEnvelope on success."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope(block_type="linear")
 
-        # This will fail because SubprocessHarness doesn't exist yet,
-        # but verifies the expected interface
         result = await harness.run(envelope)
 
         assert isinstance(result, ResultEnvelope)
-        assert result.block_id == "block-1"
+        assert result.block_id == "harness-block"
 
     @pytest.mark.asyncio
     async def test_run_writes_envelope_to_stdin(self):
         """SubprocessHarness passes ContextEnvelope JSON to subprocess stdin."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope()
 
         # Verify the envelope can be serialized (it will be passed to stdin)
@@ -1870,7 +1868,6 @@ class TestLinearBlockRoundTrip:
         parsed = ContextEnvelope.model_validate_json(json_str)
         assert parsed.block_id == envelope.block_id
 
-        # The actual run will fail since SubprocessHarness doesn't exist
         result = await harness.run(envelope)
         assert isinstance(result, ResultEnvelope)
 
@@ -1880,7 +1877,7 @@ class TestLinearBlockRoundTrip:
         from runsight_core.isolation import SubprocessHarness
 
         # The harness should have a method or attribute related to IPC server setup
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         assert callable(getattr(harness, "run", None))
 
     @pytest.mark.asyncio
@@ -1888,7 +1885,7 @@ class TestLinearBlockRoundTrip:
         """The ResultEnvelope from a successful run includes output and cost data."""
         from runsight_core.isolation import SubprocessHarness
 
-        harness = SubprocessHarness(api_keys={"openai": "sk-test-key-123"})
+        harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         envelope = _make_context_envelope(block_type="linear")
 
         result = await harness.run(envelope)
@@ -1908,10 +1905,10 @@ class TestGrantTokenContract:
         GrantToken = getattr(harness_module, "GrantToken", None)
         assert GrantToken is not None
 
-        token = GrantToken(block_id="block-398")
+        token = GrantToken(block_id="grant-token-block")
         assert isinstance(token.token, str)
         assert token.token != ""
-        assert token.block_id == "block-398"
+        assert token.block_id == "grant-token-block"
         assert token.ttl_seconds == 120.0
         assert token.consumed is False
 
@@ -1921,7 +1918,7 @@ class TestGrantTokenContract:
         GrantToken = getattr(harness_module, "GrantToken", None)
         assert GrantToken is not None
 
-        token = GrantToken(block_id="block-398")
+        token = GrantToken(block_id="grant-token-block")
         assert token.consume() is True
         assert token.consume() is False
 
@@ -1931,5 +1928,5 @@ class TestGrantTokenContract:
         GrantToken = getattr(harness_module, "GrantToken", None)
         assert GrantToken is not None
 
-        token = GrantToken(block_id="block-398", created_at=0.0, ttl_seconds=30.0)
+        token = GrantToken(block_id="grant-token-block", created_at=0.0, ttl_seconds=30.0)
         assert token.consume() is False
