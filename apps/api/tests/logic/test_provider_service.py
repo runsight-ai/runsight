@@ -96,7 +96,7 @@ def test_get_provider_not_found_returns_none():
 # --- create_provider ---
 
 
-def test_create_provider_happy_path():
+def test_create_provider_returns_created_entity():
     repo = Mock()
     secrets = Mock()
     secrets.store_key.return_value = "${TEST_OPENAI_PROVIDER_KEY}"
@@ -116,7 +116,7 @@ def test_create_provider_happy_path():
 
     repo.create.side_effect = capture_create
     service = ProviderService(repo, secrets)
-    service.create_provider(
+    result = service.create_provider(
         id="openai",
         kind="provider",
         name="OpenAI",
@@ -131,6 +131,9 @@ def test_create_provider_happy_path():
     assert created["type"] == "openai"
     assert created["api_key"] == "${TEST_OPENAI_PROVIDER_KEY}"
     assert created["base_url"] == "https://provider.example.com/v1"
+    assert result.id == "openai"
+    assert result.name == "OpenAI"
+    assert result.api_key == "${TEST_OPENAI_PROVIDER_KEY}"
     secrets.store_key.assert_called_once_with("openai", "dummy-provider-key")
 
 
@@ -210,7 +213,7 @@ def test_create_provider_rejects_invalid_embedded_id():
 # --- update_provider ---
 
 
-def test_update_provider_happy_path():
+def test_update_provider_returns_updated_entity():
     repo = Mock()
     secrets = Mock()
     secrets.store_key.return_value = "${TEST_OPENAI_PROVIDER_KEY}"

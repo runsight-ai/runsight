@@ -382,7 +382,7 @@ def test_runs_post_passes_source_and_branch_to_services():
     mock_service.create_run.return_value = mock_run
     mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
-    prepared = _prepared_inputs({"instruction": "go"})
+    prepared = _prepared_inputs({"instruction": "summarize research notes"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -390,7 +390,7 @@ def test_runs_post_passes_source_and_branch_to_services():
 
     payload = {
         "workflow_id": "wf_runs_router",
-        "inputs": {"instruction": "go"},
+        "inputs": {"instruction": "summarize research notes"},
         "branch": TEST_BRANCH,
         "source": "simulation",
     }
@@ -422,7 +422,7 @@ def test_runs_post_allows_omitted_branch_and_persists_main():
     mock_service.create_run.return_value = mock_run
     mock_service.refresh_run.return_value = mock_run
     mock_exec_service = Mock()
-    prepared = _prepared_inputs({"instruction": "go"})
+    prepared = _prepared_inputs({"instruction": "summarize research notes"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
     app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -430,13 +430,16 @@ def test_runs_post_allows_omitted_branch_and_persists_main():
 
     response = client.post(
         "/api/runs",
-        json={"workflow_id": "wf_runs_router", "inputs": {"instruction": "go"}},
+        json={
+            "workflow_id": "wf_runs_router",
+            "inputs": {"instruction": "summarize research notes"},
+        },
     )
 
     assert response.status_code == 200
     mock_exec_service.prepare_run_inputs.assert_called_once_with(
         "wf_runs_router",
-        {"instruction": "go"},
+        {"instruction": "summarize research notes"},
         branch=None,
     )
     mock_service.create_run.assert_called_once_with(
@@ -511,7 +514,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
     mock_service.refresh_run.return_value = mock_run
 
     mock_exec_service = Mock()
-    prepared = _prepared_inputs({"instruction": "go"})
+    prepared = _prepared_inputs({"instruction": "summarize research notes"})
     mock_exec_service.prepare_run_inputs.return_value = prepared
     mock_exec_service.launch_execution = AsyncMock()
 
@@ -520,7 +523,7 @@ def test_runs_post_propagates_branch_and_source_to_service_and_execution():
 
     payload = {
         "workflow_id": "wf_runs_router",
-        "inputs": {"instruction": "go"},
+        "inputs": {"instruction": "summarize research notes"},
         "source": "simulation",
         "branch": TEST_BRANCH,
     }

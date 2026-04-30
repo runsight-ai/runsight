@@ -257,7 +257,9 @@ def test_run_service_create_run_stores_embedded_workflow_id() -> None:
     run_repo.create_run.side_effect = lambda run: run
 
     service = RunService(run_repo, workflow_repo)
-    run = service.create_run("research-review", _prepared({"instruction": "go"}), branch="main")
+    run = service.create_run(
+        "research-review", _prepared({"instruction": "summarize research notes"}), branch="main"
+    )
 
     assert run.workflow_id == "research-review"
     assert run.workflow_name == "Research Review"

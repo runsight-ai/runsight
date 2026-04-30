@@ -106,7 +106,7 @@ class TestPostRunsTriggersExecution:
 
             mock_exec_service = Mock()
             mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs(
-                {"instruction": "go"}
+                {"instruction": "summarize research notes"}
             )
             mock_exec_service.launch_execution = AsyncMock()
             app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -116,7 +116,7 @@ class TestPostRunsTriggersExecution:
                 json={
                     "workflow_id": "wf_router_launch_execution",
                     "branch": "main",
-                    "inputs": {"instruction": "go"},
+                    "inputs": {"instruction": "summarize research notes"},
                 },
             )
 

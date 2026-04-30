@@ -114,7 +114,7 @@ class TestFailClosedRunCreation:
                 json={
                     "workflow_id": "wf_fail_closed_creation",
                     "branch": "main",
-                    "inputs": {"instruction": "go"},
+                    "inputs": {"instruction": "summarize research notes"},
                 },
             )
 
@@ -128,7 +128,9 @@ class TestFailClosedRunCreation:
         """A launch exception must not leave the created run pending."""
 
         mock_exec_service = Mock()
-        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
+        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs(
+            {"instruction": "summarize research notes"}
+        )
         mock_exec_service.launch_execution = AsyncMock(
             side_effect=RuntimeError("launch failed after run creation")
         )
@@ -141,7 +143,7 @@ class TestFailClosedRunCreation:
                 json={
                     "workflow_id": "wf_fail_closed_creation",
                     "branch": "main",
-                    "inputs": {"instruction": "go"},
+                    "inputs": {"instruction": "summarize research notes"},
                 },
             )
 
@@ -169,7 +171,9 @@ class TestFailClosedRunCreation:
                 session.commit()
 
         mock_exec_service = Mock()
-        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
+        mock_exec_service.prepare_run_inputs.return_value = _prepared_inputs(
+            {"instruction": "summarize research notes"}
+        )
         mock_exec_service.launch_execution = AsyncMock(side_effect=_mark_failed)
 
         app.dependency_overrides[get_run_service] = lambda: run_service
@@ -180,7 +184,7 @@ class TestFailClosedRunCreation:
                 json={
                     "workflow_id": "wf_fail_closed_creation",
                     "branch": "main",
-                    "inputs": {"instruction": "go"},
+                    "inputs": {"instruction": "summarize research notes"},
                 },
             )
 

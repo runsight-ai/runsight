@@ -261,7 +261,7 @@ class TestLaunchExecutionStoresSha:
             await svc.launch_execution(
                 run_id,
                 "workflow_commit_sha",
-                _prepared_inputs({"instruction": "go"}),
+                _prepared_inputs({"instruction": "summarize research notes"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)
@@ -335,7 +335,7 @@ class TestLaunchExecutionStoresSha:
             await svc.launch_execution(
                 run_id,
                 "workflow_commit_sha",
-                _prepared_inputs({"instruction": "go"}),
+                _prepared_inputs({"instruction": "summarize research notes"}),
                 branch=None,
             )
             await asyncio.sleep(0.15)

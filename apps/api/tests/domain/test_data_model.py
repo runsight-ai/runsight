@@ -31,7 +31,7 @@ def _make_run(*, branch: str, **overrides):
         id="run-data-model",
         workflow_id="workflow-data-model",
         workflow_name="Data model workflow",
-        task_json='{"instruction": "go"}',
+        task_json='{"instruction": "summarize research notes"}',
         branch=branch,
     )
     defaults.update(overrides)
@@ -77,7 +77,7 @@ class TestRunBranchField:
                 id="run-branch-required",
                 workflow_id="workflow-data-model",
                 workflow_name="Data model workflow",
-                task_json='{"instruction": "go"}',
+                task_json='{"instruction": "summarize research notes"}',
             )
 
     def test_branch_accepts_custom_value(self):
@@ -111,7 +111,7 @@ class TestRunBranchField:
                 id="run-branch-missing",
                 workflow_id="workflow-data-model",
                 workflow_name="Data model workflow",
-                task_json='{"instruction": "go"}',
+                task_json='{"instruction": "summarize research notes"}',
                 source="manual",
             )
 
@@ -433,7 +433,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         with pytest.raises(TypeError):
-            svc.create_run("workflow-data-model", _prepared({"instruction": "go"}))
+            svc.create_run(
+                "workflow-data-model", _prepared({"instruction": "summarize research notes"})
+            )
 
     def test_create_run_sets_source_default(self):
         """create_run() sets source='manual' by default."""
@@ -450,7 +452,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+            "workflow-data-model",
+            _prepared({"instruction": "summarize research notes"}),
+            branch=EXPLICIT_BRANCH,
         )
 
         assert run.source == "manual"
@@ -471,7 +475,7 @@ class TestCreateRunPopulatesNewFields:
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
             "workflow-data-model",
-            _prepared({"instruction": "go"}),
+            _prepared({"instruction": "summarize research notes"}),
             branch=EXPLICIT_BRANCH,
             source="webhook",
         )
@@ -501,7 +505,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+            "workflow-data-model",
+            _prepared({"instruction": "summarize research notes"}),
+            branch=EXPLICIT_BRANCH,
         )
 
         assert run.warnings_json == mock_workflow.warnings
@@ -526,7 +532,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+            "workflow-data-model",
+            _prepared({"instruction": "summarize research notes"}),
+            branch=EXPLICIT_BRANCH,
         )
 
         assert run.warnings_json is None
@@ -547,7 +555,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+            "workflow-data-model",
+            _prepared({"instruction": "summarize research notes"}),
+            branch=EXPLICIT_BRANCH,
         )
 
         assert run.warnings_json is None
@@ -568,7 +578,9 @@ class TestCreateRunPopulatesNewFields:
 
         svc = RunService(run_repo=mock_run_repo, workflow_repo=mock_wf_repo)
         run = svc.create_run(
-            "workflow-data-model", _prepared({"instruction": "go"}), branch=EXPLICIT_BRANCH
+            "workflow-data-model",
+            _prepared({"instruction": "summarize research notes"}),
+            branch=EXPLICIT_BRANCH,
         )
 
         assert run.warnings_json is None
