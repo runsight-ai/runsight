@@ -1,20 +1,17 @@
-"""
-Failing tests for RUN-162: Update JSON schema, example workflows & exports for LoopBlock.
+"""LoopBlock schema, fixture migration, and registry governance coverage.
 
-Covers:
-- __init__.py exports: LoopBlockDef, RetryConfig, CarryContextConfig present
-- JSON schema validation: valid loop block passes, missing inner_block_refs fails,
-  retry_config on soul block passes, old retry block type fails
-- mockup_pipeline.yaml migrated from type: retry to type: loop
-- No RetryBlock / RetryBlockDef references in codebase
-- Example workflows parse and validate against updated schema
-- Block registry maps "loop" -> LoopBlock class
+Behavior boundary: public LoopBlock exports, published JSON schema validation,
+package-local workflow fixture migration, absence of retired RetryBlock symbols
+in core source, and block registry wiring.
+Owner: packages/core runtime and schema owners.
+Exit criteria: delete the migration/governance sections once RetryBlock support
+has been absent for a release cycle and behavior suites cover LoopBlock schema
+and registry contracts directly.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
@@ -42,10 +39,13 @@ except ImportError:
 # JSON schema fixtures
 # ---------------------------------------------------------------------------
 
+pytestmark = [pytest.mark.governance, pytest.mark.migration]
+
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "runsight-workflow-schema.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # runsight/
 CORE_ROOT = REPO_ROOT / "packages" / "core"
-CUSTOM_WORKFLOWS = Path(__file__).resolve().parent / "fixtures" / "custom" / "workflows"
+CORE_SRC_ROOT = CORE_ROOT / "src"
+PACKAGE_WORKFLOW_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "custom" / "workflows"
 
 
 @pytest.fixture(scope="module")
@@ -59,31 +59,59 @@ def json_schema() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _minimal_workflow_file(blocks: Dict[str, Any], entry: str = "b1") -> Dict[str, Any]:
+def _minimal_workflow_file(blocks: Dict[str, Any], entry: str = "entry_block") -> Dict[str, Any]:
     """Build a minimal RunsightWorkflowFile dict for JSON-schema validation."""
     return {
         "version": "1.0",
-        "id": "test-workflow",
+        "id": "loop-schema-fixture",
         "kind": "workflow",
-        "workflow": {"name": "test", "entry": entry},
+        "workflow": {"name": "loop schema fixture", "entry": entry},
         "blocks": blocks,
     }
 
 
+def _source_files_containing(root: Path, needle: str) -> list[Path]:
+    """Return Python source files under root that contain needle."""
+    matches: list[Path] = []
+    for path in root.rglob("*.py"):
+        if any(part in {"__pycache__", "build"} for part in path.parts):
+            continue
+        if needle in path.read_text(encoding="utf-8"):
+            matches.append(path)
+    return matches
+
+
+def _format_paths(paths: list[Path]) -> str:
+    return "\n".join(str(path) for path in paths)
+
+
+def _workflow_fixture_files() -> list[Path]:
+    return sorted(PACKAGE_WORKFLOW_FIXTURES.glob("*.yaml"))
+
+
+def _all_workflow_fixture_yaml_files() -> list[Path]:
+    return sorted(
+        [
+            *PACKAGE_WORKFLOW_FIXTURES.rglob("*.yaml"),
+            *PACKAGE_WORKFLOW_FIXTURES.rglob("*.yml"),
+        ]
+    )
+
+
 # ===========================================================================
-# 1. __init__.py exports — LoopBlockDef, RetryConfig, CarryContextConfig
+# Top-level exports for LoopBlock schema objects
 # ===========================================================================
 
 
 class TestTopLevelExports:
-    """RUN-162 AC: __init__.py exports verified."""
+    """LoopBlock schema objects are exported by the public package surface."""
 
     def test_loop_block_def_exported(self):
         """LoopBlockDef should be importable from the top-level runsight_core package."""
         import runsight_core
 
         assert hasattr(runsight_core, "LoopBlockDef"), (
-            "LoopBlockDef not found in runsight_core — add it to __init__.py"
+            "LoopBlockDef missing from runsight_core; export it in __init__.py"
         )
         assert "LoopBlockDef" in runsight_core.__all__
 
@@ -92,7 +120,7 @@ class TestTopLevelExports:
         import runsight_core
 
         assert hasattr(runsight_core, "RetryConfig"), (
-            "RetryConfig not found in runsight_core — add it to __init__.py"
+            "RetryConfig missing from runsight_core; export it in __init__.py"
         )
         assert "RetryConfig" in runsight_core.__all__
 
@@ -101,42 +129,47 @@ class TestTopLevelExports:
         import runsight_core
 
         assert hasattr(runsight_core, "CarryContextConfig"), (
-            "CarryContextConfig not found in runsight_core — add it to __init__.py"
+            "CarryContextConfig missing from runsight_core; export it in __init__.py"
         )
         assert "CarryContextConfig" in runsight_core.__all__
 
     def test_no_retry_block_in_all(self):
-        """RetryBlock must NOT appear in __all__ — it was replaced by LoopBlock."""
+        """RetryBlock should stay absent from __all__ after replacement by LoopBlock."""
         import runsight_core
 
         assert "RetryBlock" not in runsight_core.__all__
 
     def test_no_retry_block_def_in_all(self):
-        """RetryBlockDef must NOT appear in __all__."""
+        """RetryBlockDef should stay absent from __all__."""
         import runsight_core
 
         assert "RetryBlockDef" not in runsight_core.__all__
 
 
 # ===========================================================================
-# 2. JSON schema validation — loop block
+# JSON schema validation for loop blocks
 # ===========================================================================
 
 
 class TestJsonSchemaLoopBlock:
-    """RUN-162 AC: JSON schema validates type: loop blocks with inner_block_refs."""
+    """Published JSON schema validates loop blocks with inner block refs."""
 
     def test_valid_loop_block_passes(self, json_schema):
         """A well-formed loop block with inner_block_refs should validate."""
         doc = _minimal_workflow_file(
-            {"b1": {"type": "loop", "inner_block_refs": ["step_a", "step_b"]}},
+            {
+                "entry_block": {
+                    "type": "loop",
+                    "inner_block_refs": ["collect_step", "review_step"],
+                }
+            },
         )
         validate(instance=doc, schema=json_schema)
 
     def test_loop_block_without_inner_block_refs_fails(self, json_schema):
         """A loop block missing inner_block_refs must be rejected by JSON schema."""
         doc = _minimal_workflow_file(
-            {"b1": {"type": "loop"}},
+            {"entry_block": {"type": "loop"}},
         )
         with pytest.raises(JsonSchemaValidationError):
             validate(instance=doc, schema=json_schema)
@@ -144,7 +177,7 @@ class TestJsonSchemaLoopBlock:
     def test_loop_block_empty_inner_block_refs_fails(self, json_schema):
         """A loop block with empty inner_block_refs array must be rejected (minItems: 1)."""
         doc = _minimal_workflow_file(
-            {"b1": {"type": "loop", "inner_block_refs": []}},
+            {"entry_block": {"type": "loop", "inner_block_refs": []}},
         )
         with pytest.raises(JsonSchemaValidationError):
             validate(instance=doc, schema=json_schema)
@@ -173,17 +206,23 @@ class TestJsonSchemaLoopBlock:
 
 
 # ===========================================================================
-# 3. JSON schema validation — retry type rejected
+# JSON schema rejection for retired retry blocks
 # ===========================================================================
 
 
 class TestJsonSchemaRejectsRetryType:
-    """RUN-162 AC: JSON schema rejects type: retry blocks."""
+    """Published JSON schema rejects retired retry block definitions."""
 
     def test_retry_block_type_rejected(self, json_schema):
-        """A block with type: retry must NOT validate against the JSON schema."""
+        """A block with type: retry should not validate against the JSON schema."""
         doc = _minimal_workflow_file(
-            {"b1": {"type": "retry", "inner_block_ref": "some_block", "max_retries": 3}},
+            {
+                "entry_block": {
+                    "type": "retry",
+                    "inner_block_ref": "legacy_child_block",
+                    "max_retries": 3,
+                }
+            },
         )
         with pytest.raises(JsonSchemaValidationError):
             validate(instance=doc, schema=json_schema)
@@ -191,31 +230,31 @@ class TestJsonSchemaRejectsRetryType:
     def test_no_retry_block_def_in_schema(self, json_schema):
         """RetryBlockDef should not exist in the JSON schema $defs."""
         assert "RetryBlockDef" not in json_schema.get("$defs", {}), (
-            "RetryBlockDef still present in JSON schema — remove it"
+            "RetryBlockDef still present in JSON schema"
         )
 
     def test_retry_not_in_discriminator_mapping(self, json_schema):
-        """The discriminator mapping in blocks should NOT contain 'retry'."""
+        """The discriminator mapping in blocks should not contain 'retry'."""
         blocks_schema = json_schema["properties"]["blocks"]
         mapping = blocks_schema["additionalProperties"]["discriminator"]["mapping"]
-        assert "retry" not in mapping, "'retry' still in discriminator mapping — remove it"
+        assert "retry" not in mapping, "'retry' still in discriminator mapping"
 
 
 # ===========================================================================
-# 4. JSON schema validation — retry_config on any block type
+# JSON schema validation for retry_config on block types
 # ===========================================================================
 
 
 class TestJsonSchemaRetryConfigOnBlocks:
-    """RUN-162 AC: JSON schema validates retry_config on any block type."""
+    """Published JSON schema accepts retry_config on supported block types."""
 
     def test_retry_config_on_linear_block(self, json_schema):
         """A linear (soul) block with retry_config should validate."""
         doc = _minimal_workflow_file(
             {
-                "b1": {
+                "entry_block": {
                     "type": "linear",
-                    "soul_ref": "s1",
+                    "soul_ref": "primary_soul",
                     "retry_config": {
                         "max_attempts": 3,
                         "backoff": "exponential",
@@ -230,7 +269,7 @@ class TestJsonSchemaRetryConfigOnBlocks:
         """A code block with retry_config should validate."""
         doc = _minimal_workflow_file(
             {
-                "b1": {
+                "entry_block": {
                     "type": "code",
                     "code": "print('hello')",
                     "retry_config": {"max_attempts": 5},
@@ -243,9 +282,9 @@ class TestJsonSchemaRetryConfigOnBlocks:
         """A loop block with retry_config should validate."""
         doc = _minimal_workflow_file(
             {
-                "b1": {
+                "entry_block": {
                     "type": "loop",
-                    "inner_block_refs": ["step_a"],
+                    "inner_block_refs": ["collect_step"],
                     "retry_config": {"max_attempts": 2, "backoff": "fixed"},
                 },
             },
@@ -270,36 +309,34 @@ class TestJsonSchemaRetryConfigOnBlocks:
 
 
 # ===========================================================================
-# 5. mockup_pipeline.yaml migration
+# Package workflow fixture migration
 # ===========================================================================
 
 
 class TestMockupPipelineMigration:
-    """RUN-162 AC: custom/workflows/mockup_pipeline.yaml migrated from retry to loop."""
+    """Package-local mockup workflow fixture uses LoopBlock shape."""
 
     def test_mockup_pipeline_exists(self):
         """mockup_pipeline.yaml must exist."""
-        assert CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").exists()
+        assert PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").exists()
 
     def test_mockup_pipeline_no_retry_type(self):
         """mockup_pipeline.yaml must not contain type: retry."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         for block_id, block_def in data.get("blocks", {}).items():
-            assert block_def.get("type") != "retry", (
-                f"Block '{block_id}' still uses type: retry — migrate to type: loop"
-            )
+            assert block_def.get("type") != "retry", f"Block '{block_id}' still uses type: retry"
 
     def test_mockup_pipeline_has_loop_block(self):
         """After migration, mockup_pipeline.yaml should contain at least one type: loop block."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         block_types = [b.get("type") for b in data.get("blocks", {}).values()]
         assert "loop" in block_types, "No loop block found in mockup_pipeline.yaml after migration"
 
     def test_mockup_pipeline_loop_has_inner_block_refs(self):
         """The migrated loop block must use inner_block_refs (list), not inner_block_ref (string)."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         for block_id, block_def in data.get("blocks", {}).items():
             if block_def.get("type") == "loop":
@@ -315,45 +352,43 @@ class TestMockupPipelineMigration:
 
     def test_mockup_pipeline_no_max_retries_field(self):
         """Migrated blocks should not have max_retries (old retry field)."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         for block_id, block_def in data.get("blocks", {}).items():
-            assert "max_retries" not in block_def, (
-                f"Block '{block_id}' still has max_retries — use max_rounds on loop"
-            )
+            assert "max_retries" not in block_def, f"Block '{block_id}' still has max_retries"
 
     def test_mockup_pipeline_no_provide_error_context(self):
         """Migrated blocks should not have provide_error_context (old retry field)."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         for block_id, block_def in data.get("blocks", {}).items():
             assert "provide_error_context" not in block_def, (
-                f"Block '{block_id}' still has provide_error_context — obsolete"
+                f"Block '{block_id}' still has provide_error_context"
             )
 
     def test_mockup_pipeline_validates_against_json_schema(self, json_schema):
         """mockup_pipeline.yaml must validate against the published JSON schema."""
-        content = CUSTOM_WORKFLOWS.joinpath("mockup_pipeline.yaml").read_text()
+        content = PACKAGE_WORKFLOW_FIXTURES.joinpath("mockup_pipeline.yaml").read_text()
         data = pyyaml.safe_load(content)
         validate(instance=data, schema=json_schema)
 
 
 # ===========================================================================
-# 6. Example workflows parse and validate (integration)
+# Package workflow fixture validation
 # ===========================================================================
 
 
 class TestExampleWorkflowsValidate:
-    """RUN-162 AC: Example workflows parse and validate against updated schema."""
+    """Package-local workflow fixtures parse against current schema contracts."""
 
     @pytest.fixture(scope="class")
     def workflow_files(self):
-        """Discover all YAML workflow files under custom/workflows/."""
-        return list(CUSTOM_WORKFLOWS.glob("*.yaml"))
+        """Discover package-local workflow fixture YAML files."""
+        return _workflow_fixture_files()
 
     def test_at_least_one_example_workflow_exists(self, workflow_files):
         """There should be at least one example workflow."""
-        assert len(workflow_files) > 0, "No example workflows found in custom/workflows/"
+        assert len(workflow_files) > 0, f"No workflow fixtures found in {PACKAGE_WORKFLOW_FIXTURES}"
 
     def test_all_example_workflows_are_valid_yaml(self, workflow_files):
         """All example workflow files must be valid YAML."""
@@ -390,94 +425,46 @@ class TestExampleWorkflowsValidate:
 
 
 # ===========================================================================
-# 7. No RetryBlock references in codebase
+# Retired RetryBlock source governance
 # ===========================================================================
 
 
 class TestNoRetryBlockReferences:
-    """RUN-162 AC: Zero references to RetryBlock or RetryBlockDef in codebase."""
+    """Core source no longer references retired RetryBlock symbols."""
 
     def test_no_retry_block_in_source(self):
-        """grep -r 'RetryBlock' should return zero hits in Python source (excluding tests, git)."""
-        result = subprocess.run(
-            [
-                "grep",
-                "-r",
-                "--include=*.py",
-                "-l",
-                "RetryBlock",
-                str(CORE_ROOT / "src"),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        # Filter out test files and __pycache__
-        hits = [
-            line
-            for line in result.stdout.strip().splitlines()
-            if line
-            and "__pycache__" not in line
-            and "/tests/" not in line
-            and "/build/" not in line
-        ]
-        assert not hits, "RetryBlock still referenced in source files:\n" + "\n".join(hits)
+        """Core Python source should not reference RetryBlock."""
+        hits = _source_files_containing(CORE_SRC_ROOT, "RetryBlock")
+        assert not hits, "RetryBlock still referenced in source files:\n" + _format_paths(hits)
 
     def test_no_retry_block_def_in_source(self):
-        """grep -r 'RetryBlockDef' should return zero hits in Python source (excluding tests, git)."""
-        result = subprocess.run(
-            [
-                "grep",
-                "-r",
-                "--include=*.py",
-                "-l",
-                "RetryBlockDef",
-                str(CORE_ROOT / "src"),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        hits = [
-            line
-            for line in result.stdout.strip().splitlines()
-            if line
-            and "__pycache__" not in line
-            and "/tests/" not in line
-            and "/build/" not in line
-        ]
-        assert not hits, "RetryBlockDef still referenced in source files:\n" + "\n".join(hits)
+        """Core Python source should not reference RetryBlockDef."""
+        hits = _source_files_containing(CORE_SRC_ROOT, "RetryBlockDef")
+        assert not hits, "RetryBlockDef still referenced in source files:\n" + _format_paths(hits)
 
     def test_no_retry_block_in_yaml_files(self):
         """No YAML files should reference type: retry."""
-        result = subprocess.run(
-            [
-                "grep",
-                "-r",
-                "--include=*.yaml",
-                "--include=*.yml",
-                "-l",
-                "type: retry",
-                str(CUSTOM_WORKFLOWS),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        hits = [line for line in result.stdout.strip().splitlines() if line]
-        assert not hits, "'type: retry' still found in YAML files:\n" + "\n".join(hits)
+        hits = [
+            path
+            for path in _all_workflow_fixture_yaml_files()
+            if "type: retry" in path.read_text(encoding="utf-8")
+        ]
+        assert not hits, "'type: retry' still found in YAML files:\n" + _format_paths(hits)
 
     def test_no_retry_block_in_init_exports(self):
         """__init__.py must not export RetryBlock."""
         init_path = CORE_ROOT / "src" / "runsight_core" / "__init__.py"
         content = init_path.read_text()
-        assert "RetryBlock" not in content, "RetryBlock still in __init__.py — remove it"
+        assert "RetryBlock" not in content, "RetryBlock still in __init__.py"
 
 
 # ===========================================================================
-# 8. Block registry maps "loop" -> LoopBlock
+# Block registry maps loop to LoopBlock
 # ===========================================================================
 
 
 class TestBlockRegistryLoopMapping:
-    """RUN-162 AC: Block type registry maps 'loop' to LoopBlock class."""
+    """Block type registry exposes the LoopBlock builder."""
 
     def test_loop_in_block_type_registry(self):
         """BLOCK_TYPE_REGISTRY should have 'loop' key."""
@@ -486,12 +473,10 @@ class TestBlockRegistryLoopMapping:
         assert "loop" in BLOCK_TYPE_REGISTRY, "'loop' not found in BLOCK_TYPE_REGISTRY"
 
     def test_retry_not_in_block_type_registry(self):
-        """BLOCK_TYPE_REGISTRY should NOT have 'retry' key."""
+        """BLOCK_TYPE_REGISTRY should not have 'retry' key."""
         from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 
-        assert "retry" not in BLOCK_TYPE_REGISTRY, (
-            "'retry' still in BLOCK_TYPE_REGISTRY — remove it"
-        )
+        assert "retry" not in BLOCK_TYPE_REGISTRY, "'retry' still in BLOCK_TYPE_REGISTRY"
 
     def test_loop_builder_produces_loop_block(self):
         """The 'loop' builder in BLOCK_TYPE_REGISTRY should produce a LoopBlock."""
