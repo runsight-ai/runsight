@@ -113,9 +113,9 @@ class TestRunNodeResponseSchemaFields:
             cost_usd=0.0,
             tokens={},
             error=None,
-            model_name="gpt-4.1",
+            model_name="fixture-response-model",
         )
-        assert resp.model_name == "gpt-4.1"
+        assert resp.model_name == "fixture-response-model"
 
     def test_schema_accepts_eval_score_field(self):
         from runsight_api.transport.schemas.runs import RunNodeResponse
@@ -236,7 +236,7 @@ class TestGetRunNodesEnrichedResponse:
             app.dependency_overrides.clear()
 
     def test_nodes_response_includes_model_name(self):
-        node = _make_mock_node(model_name="claude-3-5-sonnet")
+        node = _make_mock_node(model_name="fixture-node-model")
         mock_service = Mock()
         mock_service.get_run_nodes.return_value = [node]
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -244,7 +244,7 @@ class TestGetRunNodesEnrichedResponse:
         try:
             response = client.get("/api/runs/run_node_enrichment/nodes")
             assert response.status_code == 200
-            assert response.json()[0]["model_name"] == "claude-3-5-sonnet"
+            assert response.json()[0]["model_name"] == "fixture-node-model"
         finally:
             app.dependency_overrides.clear()
 
@@ -297,7 +297,7 @@ class TestGetRunNodesEnrichedResponse:
         node = _make_mock_node(
             output="Full LLM response text here",
             soul_id="soul_planner",
-            model_name="gpt-4.1",
+            model_name="fixture-response-model",
             eval_score=0.95,
             eval_passed=True,
             eval_results=eval_results,
@@ -312,7 +312,7 @@ class TestGetRunNodesEnrichedResponse:
             body = response.json()[0]
             assert body["output"] == "Full LLM response text here"
             assert body["soul_id"] == "soul_planner"
-            assert body["model_name"] == "gpt-4.1"
+            assert body["model_name"] == "fixture-response-model"
             assert body["eval_score"] == 0.95
             assert body["eval_passed"] is True
             assert body["eval_results"] == eval_results
@@ -358,7 +358,7 @@ class TestGetRunNodesNullFields:
         node = _make_mock_node(
             output="Some output",
             soul_id="soul_worker",
-            model_name="gpt-4o-mini",
+            model_name="fixture-small-model",
         )
         # eval_score, eval_passed, eval_results remain None
         mock_service = Mock()
@@ -372,7 +372,7 @@ class TestGetRunNodesNullFields:
             # output, soul_id, model_name are populated
             assert body["output"] == "Some output"
             assert body["soul_id"] == "soul_worker"
-            assert body["model_name"] == "gpt-4o-mini"
+            assert body["model_name"] == "fixture-small-model"
             # eval fields are null
             assert body["eval_score"] is None
             assert body["eval_passed"] is None

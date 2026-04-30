@@ -17,13 +17,13 @@ def test_soul_entity_accepts_new_api_fields():
         name="Researcher",
         role="Researcher",
         system_prompt="Research the topic",
-        provider="openai",
+        provider="fixture-provider",
         temperature=0.7,
         max_tokens=4096,
         avatar_color="lime",
     )
 
-    assert soul.provider == "openai"
+    assert soul.provider == "fixture-provider"
     assert soul.temperature == 0.7
     assert soul.max_tokens == 4096
     assert soul.avatar_color == "lime"
@@ -68,7 +68,7 @@ def test_update_soul_rejects_unknown_yaml_fields_without_rewriting(tmp_path: Pat
             "preserve-me",
             {
                 "role": "Updated",
-                "provider": "anthropic",
+                "provider": "backup-provider",
             },
         )
 

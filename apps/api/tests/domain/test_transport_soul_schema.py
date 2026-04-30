@@ -17,14 +17,14 @@ def test_soul_create_accepts_new_transport_fields():
         name="Researcher",
         role="Researcher",
         system_prompt="Study the issue.",
-        provider="openai",
+        provider="fixture-provider",
         temperature=0.7,
         max_tokens=4096,
         avatar_color="#44aa88",
     )
 
     assert soul.id == "research_soul"
-    assert soul.provider == "openai"
+    assert soul.provider == "fixture-provider"
     assert soul.temperature == 0.7
     assert soul.max_tokens == 4096
     assert soul.avatar_color == "#44aa88"
@@ -97,13 +97,13 @@ def test_soul_create_rejects_assertions_field():
 
 def test_soul_update_accepts_new_transport_fields():
     soul = SoulUpdate(
-        provider="anthropic",
+        provider="backup-provider",
         temperature=0.0,
         max_tokens=2048,
         avatar_color="hsl(210 60% 50%)",
     )
 
-    assert soul.provider == "anthropic"
+    assert soul.provider == "backup-provider"
     assert soul.temperature == 0.0
     assert soul.max_tokens == 2048
     assert soul.avatar_color == "hsl(210 60% 50%)"
@@ -116,13 +116,13 @@ def test_soul_response_exposes_new_transport_fields():
         name="Reviewer",
         role="Reviewer",
         system_prompt="Review carefully.",
-        provider="openai",
+        provider="fixture-provider",
         temperature=2.0,
         max_tokens=8192,
         avatar_color="lime",
     )
 
-    assert soul.provider == "openai"
+    assert soul.provider == "fixture-provider"
     assert soul.temperature == 2.0
     assert soul.max_tokens == 8192
     assert soul.avatar_color == "lime"
