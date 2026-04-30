@@ -1,4 +1,4 @@
-"""ISO-002 IPC server dispatch and RPC action tests."""
+"""IPC server dispatch and RPC action tests."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# AC2: IPCServer dispatches: http, file_io, delegate, write_artifact
+# IPCServer dispatches http, file_io, delegate, and write_artifact actions
 # ---------------------------------------------------------------------------
 
 
@@ -163,7 +163,7 @@ class TestIPCServerDispatches:
 
 
 # ---------------------------------------------------------------------------
-# AC6: RPC action allowlist
+# RPC action allowlist
 # ---------------------------------------------------------------------------
 
 

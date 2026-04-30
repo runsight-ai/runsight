@@ -1,4 +1,4 @@
-"""ISO-002 IPC interceptor registry tests."""
+"""IPC interceptor registry tests."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ class TestInterceptorRegistryContract:
         class ObserverLikeInterceptor:
             async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
                 observed.append(dict(engine_context))
-                engine_context["trace_id"] = "trace-393"
+                engine_context["trace_id"] = "registry-chain-trace"
                 return engine_context
 
             async def on_response(self, action: str, payload: dict, engine_context: dict) -> dict:
@@ -69,7 +69,7 @@ class TestInterceptorRegistryContract:
         assert observed[1] == {"budget_remaining_usd": 12.5}
         assert context == {
             "budget_remaining_usd": 12.5,
-            "trace_id": "trace-393",
+            "trace_id": "registry-chain-trace",
         }
 
     @pytest.mark.asyncio
@@ -176,7 +176,7 @@ class TestIPCServerRegistryIntegration:
 
         registry.register(TestInterceptor())
 
-        sock_path = tmp_path / "run393-simple.sock"
+        sock_path = tmp_path / "registry-simple-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -188,7 +188,7 @@ class TestIPCServerRegistryIntegration:
             handler_called = True
             return {"status": "ok", "echo": payload["value"]}
 
-        grant_token = _make_grant_token(block_id="run393-simple")
+        grant_token = _make_grant_token(block_id="registry-simple-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": simple_handler},
@@ -202,7 +202,7 @@ class TestIPCServerRegistryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-393-simple-1",
+                    "id": "registry-simple-request-1",
                     "action": "simple",
                     "payload": {"value": 7},
                 },
@@ -228,7 +228,7 @@ class TestIPCServerRegistryIntegration:
         """Only explicit InterceptorRegistry.register() may mutate engine_context."""
         from runsight_core.isolation import IPCServer
 
-        sock_path = tmp_path / "run393-no-shim.sock"
+        sock_path = tmp_path / "registry-no-shim-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -236,7 +236,7 @@ class TestIPCServerRegistryIntegration:
         async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", "echo": payload.get("value")}
 
-        grant_token = _make_grant_token(block_id="run393-no-shim")
+        grant_token = _make_grant_token(block_id="registry-no-shim-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": simple_handler},
@@ -254,7 +254,7 @@ class TestIPCServerRegistryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-393-no-shim-1",
+                    "id": "registry-no-shim-request-1",
                     "action": "simple",
                     "payload": {"value": 42},
                 },
@@ -297,7 +297,7 @@ class TestIPCServerRegistryIntegration:
 
         registry.register(TestInterceptor())
 
-        sock_path = tmp_path / "run393-stream.sock"
+        sock_path = tmp_path / "registry-stream-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -307,7 +307,7 @@ class TestIPCServerRegistryIntegration:
             yield {"index": 2, "value": "B"}
             yield {"index": 3, "value": "C"}
 
-        grant_token = _make_grant_token(block_id="run393-stream")
+        grant_token = _make_grant_token(block_id="registry-stream-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"stream": stream_handler},
@@ -321,7 +321,7 @@ class TestIPCServerRegistryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-393-stream-1",
+                    "id": "registry-stream-request-1",
                     "action": "stream",
                     "payload": {"topic": "demo"},
                 },
@@ -369,7 +369,7 @@ class TestIPCServerRegistryIntegration:
 
         registry.register(KillSwitchInterceptor())
 
-        sock_path = tmp_path / "run393-killed.sock"
+        sock_path = tmp_path / "registry-killed-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -381,7 +381,7 @@ class TestIPCServerRegistryIntegration:
             handler_called = True
             return {"status": "unexpected"}
 
-        grant_token = _make_grant_token(block_id="run393-killed")
+        grant_token = _make_grant_token(block_id="registry-killed-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": should_not_run},
@@ -395,7 +395,7 @@ class TestIPCServerRegistryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-393-kill-1",
+                    "id": "registry-kill-request-1",
                     "action": "simple",
                     "payload": {"value": "blocked"},
                 },
@@ -439,7 +439,7 @@ class TestIPCServerRegistryIntegration:
 
         registry.register(SpyInterceptor())
 
-        sock_path = tmp_path / "run393-tamper.sock"
+        sock_path = tmp_path / "registry-tamper-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -447,7 +447,7 @@ class TestIPCServerRegistryIntegration:
         async def simple_handler(_payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok"}
 
-        grant_token = _make_grant_token(block_id="run393-tamper")
+        grant_token = _make_grant_token(block_id="registry-tamper-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": simple_handler},
@@ -461,7 +461,7 @@ class TestIPCServerRegistryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-393-tamper-1",
+                    "id": "registry-tamper-request-1",
                     "action": "simple",
                     "payload": {"value": 1},
                     "engine_context": {"subprocess_injected": True},
@@ -482,7 +482,7 @@ class TestIPCServerRegistryIntegration:
     async def test_request_stream_yields_only_non_final_payloads(self, tmp_path: Path):
         from runsight_core.isolation import IPCClient
 
-        sock_path = tmp_path / "run392-client-stream.sock"
+        sock_path = tmp_path / "client-stream-frame.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)

@@ -1,4 +1,4 @@
-"""ISO-002 IPC frame model and streaming response tests."""
+"""IPC frame model and streaming response tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# RUN-392: IPCFrame protocol + NDJSON streaming
+# IPCFrame protocol and NDJSON streaming
 # ---------------------------------------------------------------------------
 
 
@@ -93,7 +93,7 @@ class TestServerStreamingFrames:
 
         registry.register(TraceInterceptor())
 
-        sock_path = tmp_path / "run392-simple.sock"
+        sock_path = tmp_path / "simple-frame-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -101,7 +101,7 @@ class TestServerStreamingFrames:
         async def simple_handler(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", "echo": payload.get("value")}
 
-        grant_token = _make_grant_token(block_id="run392-simple")
+        grant_token = _make_grant_token(block_id="simple-frame-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": simple_handler},
@@ -156,7 +156,7 @@ class TestServerStreamingFrames:
 
         registry.register(TraceInterceptor())
 
-        sock_path = tmp_path / "run392-stream.sock"
+        sock_path = tmp_path / "stream-frame-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -167,7 +167,7 @@ class TestServerStreamingFrames:
             yield {"chunk": 2}
             yield {"chunk": 3}
 
-        grant_token = _make_grant_token(block_id="run392-stream")
+        grant_token = _make_grant_token(block_id="stream-frame-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"stream": stream_handler},
@@ -222,7 +222,7 @@ class TestIPCClientFrameConsumption:
     async def test_request_returns_payload_from_final_done_frame(self, tmp_path: Path):
         from runsight_core.isolation import IPCClient
 
-        sock_path = tmp_path / "run392-client-final.sock"
+        sock_path = tmp_path / "client-final-frame.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)

@@ -1,4 +1,4 @@
-"""ISO-002 IPC socket cleanup and disconnect behavior tests."""
+"""IPC socket cleanup and disconnect behavior tests."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# AC5: Socket cleaned up on subprocess exit
+# Socket cleaned up on subprocess exit
 # ---------------------------------------------------------------------------
 
 
@@ -98,7 +98,7 @@ class TestSocketCleanup:
 
 
 # ---------------------------------------------------------------------------
-# AC8: Socket drop causes block failure (no reconnection)
+# Socket drop causes block failure with no reconnection
 # ---------------------------------------------------------------------------
 
 

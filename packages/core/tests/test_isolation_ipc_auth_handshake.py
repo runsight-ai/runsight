@@ -1,4 +1,4 @@
-"""ISO-002 IPC grant-token authentication and capability handshake tests."""
+"""IPC grant-token authentication and capability handshake tests."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# RUN-398: Grant token authentication + RPC allowlist contract
+# Grant token authentication and RPC allowlist contract
 # ---------------------------------------------------------------------------
 
 
@@ -47,7 +47,7 @@ class TestGrantTokenAuthAndAllowlist:
     ):
         from runsight_core.isolation import IPCServer
 
-        sock_path = tmp_path / "run398-no-bypass.sock"
+        sock_path = tmp_path / "auth-no-bypass.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -69,7 +69,7 @@ class TestGrantTokenAuthAndAllowlist:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-398-no-bypass-1",
+                    "id": "auth-no-bypass-request-1",
                     "action": "simple",
                     "payload": {"value": 1},
                 },
@@ -90,9 +90,9 @@ class TestGrantTokenAuthAndAllowlist:
         from runsight_core.isolation import IPCServer
         from runsight_core.isolation.ipc_models import GrantToken
 
-        grant = GrantToken(block_id="block-398")
+        grant = GrantToken(block_id="auth-block")
 
-        sock_path = tmp_path / "run398-unauth.sock"
+        sock_path = tmp_path / "auth-unauthorized.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -115,7 +115,7 @@ class TestGrantTokenAuthAndAllowlist:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-398-unauth-1",
+                    "id": "auth-unauthorized-request-1",
                     "action": "http",
                     "payload": {"method": "GET", "url": "https://example.com"},
                 },
@@ -136,9 +136,9 @@ class TestGrantTokenAuthAndAllowlist:
         from runsight_core.isolation import IPCServer
         from runsight_core.isolation.ipc_models import GrantToken
 
-        grant = GrantToken(block_id="block-398")
+        grant = GrantToken(block_id="auth-block")
 
-        sock_path = tmp_path / "run398-consume.sock"
+        sock_path = tmp_path / "auth-consume.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -154,11 +154,11 @@ class TestGrantTokenAuthAndAllowlist:
             first_frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-398-auth-1",
+                    "id": "auth-request-1",
                     "action": "capability_negotiation",
                     "grant_token": grant.token,
                     "supported_actions": ["http", "tool_call"],
-                    "worker_version": "worker-398",
+                    "worker_version": "auth-worker",
                 },
             )
             assert len(first_frames) == 1
@@ -179,11 +179,11 @@ class TestGrantTokenAuthAndAllowlist:
             second_frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-398-auth-2",
+                    "id": "auth-request-2",
                     "action": "capability_negotiation",
                     "grant_token": grant.token,
                     "supported_actions": ["http", "tool_call"],
-                    "worker_version": "worker-398",
+                    "worker_version": "auth-worker",
                 },
             )
             second_frame = second_frames[-1]
@@ -210,9 +210,9 @@ class TestGrantTokenAuthAndAllowlist:
         from runsight_core.isolation import IPCServer
         from runsight_core.isolation.ipc_models import GrantToken
 
-        grant = GrantToken(block_id="block-398", created_at=0.0, ttl_seconds=30.0)
+        grant = GrantToken(block_id="auth-block", created_at=0.0, ttl_seconds=30.0)
 
-        sock_path = tmp_path / "run398-expired.sock"
+        sock_path = tmp_path / "auth-expired.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -228,11 +228,11 @@ class TestGrantTokenAuthAndAllowlist:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-398-expired-1",
+                    "id": "auth-expired-request-1",
                     "action": "capability_negotiation",
                     "grant_token": grant.token,
                     "supported_actions": ["http"],
-                    "worker_version": "worker-398",
+                    "worker_version": "auth-worker",
                 },
             )
             assert len(frames) == 1
@@ -257,7 +257,7 @@ class TestGrantTokenAuthAndAllowlist:
 
 
 class TestCapabilityNegotiationProtocol:
-    """RUN-396: dedicated capability handshake models and startup flow."""
+    """Dedicated capability handshake models and startup flow."""
 
     def test_capability_request_model_exists_with_dedicated_fields(self):
         from runsight_core.isolation.ipc_models import CapabilityRequest
@@ -270,9 +270,9 @@ class TestCapabilityNegotiationProtocol:
             "worker_version",
         }
         request = CapabilityRequest(
-            grant_token="grant-396",
+            grant_token="handshake-grant",
             supported_actions=["llm_call", "tool_call", "http"],
-            worker_version="worker-396",
+            worker_version="handshake-worker",
         )
         assert request.action == "capability_negotiation"
         assert "payload" not in CapabilityRequest.model_fields
@@ -295,8 +295,8 @@ class TestCapabilityNegotiationProtocol:
     ):
         from runsight_core.isolation import IPCServer
 
-        grant = _make_grant_token(block_id="run-396-handshake")
-        sock_path = tmp_path / "run396-handshake.sock"
+        grant = _make_grant_token(block_id="capability-handshake-block")
+        sock_path = tmp_path / "capability-handshake.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -316,11 +316,11 @@ class TestCapabilityNegotiationProtocol:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-396-cap-1",
+                    "id": "capability-request-1",
                     "action": "capability_negotiation",
                     "grant_token": grant.token,
                     "supported_actions": ["llm_call", "tool_call", "http"],
-                    "worker_version": "worker-396",
+                    "worker_version": "handshake-worker",
                 },
             )
             assert len(frames) == 1
@@ -333,7 +333,7 @@ class TestCapabilityNegotiationProtocol:
                 "engine_context",
                 "error",
             }
-            assert frame["id"] == "req-396-cap-1"
+            assert frame["id"] == "capability-request-1"
             assert frame["done"] is True
             assert frame["accepted"] is True
             assert frame["active_actions"] == ["llm_call", "tool_call", "http"]
@@ -354,8 +354,8 @@ class TestCapabilityNegotiationProtocol:
     async def test_invalid_grant_token_returns_rejected_capability_response(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
 
-        grant = _make_grant_token(block_id="run-396-invalid")
-        sock_path = tmp_path / "run396-invalid.sock"
+        grant = _make_grant_token(block_id="capability-invalid-block")
+        sock_path = tmp_path / "capability-invalid.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -371,11 +371,11 @@ class TestCapabilityNegotiationProtocol:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-396-cap-invalid",
+                    "id": "capability-invalid-request",
                     "action": "capability_negotiation",
                     "grant_token": "wrong-token",
                     "supported_actions": ["llm_call"],
-                    "worker_version": "worker-396",
+                    "worker_version": "handshake-worker",
                 },
             )
             assert len(frames) == 1
@@ -402,8 +402,8 @@ class TestCapabilityNegotiationProtocol:
     async def test_legacy_payload_style_capability_request_is_rejected(self, tmp_path: Path):
         from runsight_core.isolation import IPCServer
 
-        grant = _make_grant_token(block_id="run-396-no-shim")
-        sock_path = tmp_path / "run396-no-shim.sock"
+        grant = _make_grant_token(block_id="capability-no-shim-block")
+        sock_path = tmp_path / "capability-no-shim.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -419,7 +419,7 @@ class TestCapabilityNegotiationProtocol:
             frames = await _send_raw_request_and_collect_frames(
                 sock_path,
                 {
-                    "id": "req-396-legacy-1",
+                    "id": "capability-legacy-request",
                     "action": "capability_negotiation",
                     "payload": {
                         "grant_token": grant.token,
@@ -450,7 +450,7 @@ class TestCapabilityNegotiationProtocol:
 
 
 class TestIPCClientConnectHandshake:
-    """RUN-396: IPCClient.connect performs startup capability negotiation."""
+    """IPCClient.connect performs startup capability negotiation."""
 
     @pytest.mark.asyncio
     async def test_connect_sends_capability_request_and_returns_capability_response(
@@ -458,7 +458,7 @@ class TestIPCClientConnectHandshake:
     ):
         from runsight_core.isolation import IPCClient
 
-        sock_path = tmp_path / "run396-client-connect.sock"
+        sock_path = tmp_path / "client-connect-handshake.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -483,9 +483,9 @@ class TestIPCClientConnectHandshake:
                             "active_actions": ["tool_call"],
                             "engine_context": {
                                 "budget_remaining_usd": 50.0,
-                                "trace_id": "trace-396",
-                                "run_id": "run-396",
-                                "block_id": "block-396",
+                                "trace_id": "capability-trace",
+                                "run_id": "capability-run",
+                                "block_id": "capability-block",
                             },
                             "error": None,
                         }
@@ -541,7 +541,7 @@ class TestIPCClientConnectHandshake:
         """Only connect() owns capability negotiation; request() must reject it."""
         from runsight_core.isolation import IPCClient
 
-        sock_path = tmp_path / "run396-no-dual.sock"
+        sock_path = tmp_path / "capability-no-dual.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -597,7 +597,7 @@ class TestIPCClientConnectHandshake:
                     {
                         "grant_token": "manual-token",
                         "supported_actions": ["tool_call"],
-                        "worker_version": "worker-396",
+                        "worker_version": "handshake-worker",
                     },
                 )
         finally:

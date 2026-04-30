@@ -1,4 +1,4 @@
-"""ISO-002 IPC socket ownership, NDJSON framing, and request correlation tests."""
+"""IPC socket ownership, NDJSON framing, and request correlation tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# AC3: IPCServer accepts existing socket (does not create it)
+# IPCServer accepts existing socket instead of creating it
 # ---------------------------------------------------------------------------
 
 
@@ -65,7 +65,7 @@ class TestIPCServerAcceptsExistingSocket:
 
 
 # ---------------------------------------------------------------------------
-# AC1: NDJSON framing (newline-delimited JSON, readline-based)
+# NDJSON framing is newline-delimited and readline-based
 # ---------------------------------------------------------------------------
 
 
@@ -294,7 +294,7 @@ class TestNDJSONFraming:
 
 
 # ---------------------------------------------------------------------------
-# AC4: IPCClient.request() sends NDJSON, reads response with matching id
+# IPCClient.request() sends NDJSON and reads the response with a matching id
 # ---------------------------------------------------------------------------
 
 

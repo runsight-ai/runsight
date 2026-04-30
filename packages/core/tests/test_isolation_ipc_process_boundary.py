@@ -1,4 +1,4 @@
-"""ISO-002 IPC process-boundary integration tests."""
+"""IPC process-boundary integration tests."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from isolation_ipc_helpers import (
 
 
 class TestProcessBoundaryIntegration:
-    """RUN-813: IPCServer, IPCClient, handlers, auth, and interceptors work together."""
+    """IPCServer, IPCClient, handlers, auth, and interceptors work together."""
 
     @pytest.mark.asyncio
     async def test_llm_call_flows_through_budget_interceptor_and_returns_engine_context(
@@ -29,7 +29,7 @@ class TestProcessBoundaryIntegration:
 
         registry = interceptors_module.InterceptorRegistry()
         budget_session = BudgetSession(
-            scope_name="block:run813-llm",
+            scope_name="block:process-llm-block",
             cost_cap_usd=0.50,
             token_cap=100,
             on_exceed="fail",
@@ -38,7 +38,7 @@ class TestProcessBoundaryIntegration:
             _make_budget_interceptor(
                 interceptors_module,
                 session=budget_session,
-                block_id="run813-llm",
+                block_id="process-llm-block",
             )
         )
 
@@ -46,11 +46,11 @@ class TestProcessBoundaryIntegration:
             assert payload["model"] == "gpt-4o-mini"
             return {"content": "ok", "cost_usd": 0.05, "total_tokens": 7}
 
-        sock_path = tmp_path / "run813-llm.sock"
+        sock_path = tmp_path / "process-llm-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
-        grant_token = _make_grant_token(block_id="run813-llm")
+        grant_token = _make_grant_token(block_id="process-llm-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"llm_call": llm_handler},
@@ -64,7 +64,7 @@ class TestProcessBoundaryIntegration:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-run813-llm",
+                    "id": "req-process-llm-block",
                     "action": "llm_call",
                     "payload": {
                         "model": "gpt-4o-mini",
@@ -74,7 +74,7 @@ class TestProcessBoundaryIntegration:
             )
             assert frames == [
                 {
-                    "id": "req-run813-llm",
+                    "id": "req-process-llm-block",
                     "done": True,
                     "payload": {"content": "ok", "cost_usd": 0.05, "total_tokens": 7},
                     "engine_context": {
@@ -102,7 +102,7 @@ class TestProcessBoundaryIntegration:
 
         registry = interceptors_module.InterceptorRegistry()
         budget_session = BudgetSession(
-            scope_name="block:run813-budget-cap",
+            scope_name="block:process-budget-cap-block",
             cost_cap_usd=0.01,
             token_cap=100,
             on_exceed="fail",
@@ -111,7 +111,7 @@ class TestProcessBoundaryIntegration:
             _make_budget_interceptor(
                 interceptors_module,
                 session=budget_session,
-                block_id="run813-budget-cap",
+                block_id="process-budget-cap-block",
             )
         )
 
@@ -125,11 +125,11 @@ class TestProcessBoundaryIntegration:
                 "total_tokens": 7,
             }
 
-        sock_path = tmp_path / "run813-budget-cap.sock"
+        sock_path = tmp_path / "process-budget-cap-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
-        grant_token = _make_grant_token(block_id="run813-budget-cap")
+        grant_token = _make_grant_token(block_id="process-budget-cap-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"llm_call": llm_handler},
@@ -171,11 +171,11 @@ class TestProcessBoundaryIntegration:
                 (
                     json.dumps(
                         {
-                            "id": "cap-run813-budget",
+                            "id": "process-budget-capability",
                             "action": "capability_negotiation",
                             "grant_token": grant_token.token,
                             "supported_actions": ["llm_call"],
-                            "worker_version": "worker-run813",
+                            "worker_version": "process-worker",
                         },
                         separators=(",", ":"),
                     )
@@ -186,7 +186,7 @@ class TestProcessBoundaryIntegration:
             capability = json.loads(await reader.readline())
             assert capability["accepted"] is True
 
-            first = await send_request(writer, reader, request_id="req-run813-budget-1")
+            first = await send_request(writer, reader, request_id="process-budget-request-1")
             assert first["done"] is True
             assert first["error"] is None
             assert first["payload"] == {
@@ -198,11 +198,11 @@ class TestProcessBoundaryIntegration:
             assert budget_session.cost_usd == pytest.approx(0.05)
             assert len(handler_calls) == 1
 
-            second = await send_request(writer, reader, request_id="req-run813-budget-2")
-            assert second["id"] == "req-run813-budget-2"
+            second = await send_request(writer, reader, request_id="process-budget-request-2")
+            assert second["id"] == "process-budget-request-2"
             assert second["done"] is True
             assert second["payload"]["error_type"] == "BudgetKilledException"
-            assert second["payload"]["block_id"] == "run813-budget-cap"
+            assert second["payload"]["block_id"] == "process-budget-cap-block"
             assert second["payload"]["actual_value"] == pytest.approx(0.05)
             assert "budget" in (second["error"] or "").lower()
             assert len(handler_calls) == 1
@@ -222,11 +222,11 @@ class TestProcessBoundaryIntegration:
         async def llm_handler(_payload: dict[str, Any]) -> dict[str, Any]:
             return {"content": "ok"}
 
-        sock_path = tmp_path / "run813-auth.sock"
+        sock_path = tmp_path / "process-auth-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
-        grant_token = _make_grant_token(block_id="run813-auth")
+        grant_token = _make_grant_token(block_id="process-auth-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"llm_call": llm_handler},
@@ -241,11 +241,11 @@ class TestProcessBoundaryIntegration:
                     (
                         json.dumps(
                             {
-                                "id": "cap-run813-auth",
+                                "id": "cap-process-auth-block",
                                 "action": "capability_negotiation",
                                 "grant_token": grant_token.token,
                                 "supported_actions": ["llm_call"],
-                                "worker_version": "worker-run813",
+                                "worker_version": "process-worker",
                             },
                             separators=(",", ":"),
                         )
@@ -316,11 +316,11 @@ class TestProcessBoundaryIntegration:
         async def file_io(payload: dict[str, Any]) -> dict[str, Any]:
             return {"kind": "file_io", "path": payload["path"]}
 
-        sock_path = tmp_path / "run813-all-handlers.sock"
+        sock_path = tmp_path / "process-all-handlers-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
-        grant_token = _make_grant_token(block_id="run813-all-handlers")
+        grant_token = _make_grant_token(block_id="process-all-handlers-block")
         server = IPCServer(
             sock=server_sock,
             handlers={
@@ -362,11 +362,11 @@ class TestProcessBoundaryIntegration:
                 (
                     json.dumps(
                         {
-                            "id": "cap-run813-all",
+                            "id": "process-all-handlers-capability",
                             "action": "capability_negotiation",
                             "grant_token": grant_token.token,
                             "supported_actions": ["llm_call", "tool_call", "http", "file_io"],
-                            "worker_version": "worker-run813",
+                            "worker_version": "process-worker",
                         },
                         separators=(",", ":"),
                     )
@@ -381,28 +381,28 @@ class TestProcessBoundaryIntegration:
                 await send(
                     writer,
                     reader,
-                    request_id="req-run813-llm",
+                    request_id="req-process-llm-block",
                     action="llm_call",
                     payload={"prompt": "hello"},
                 ),
                 await send(
                     writer,
                     reader,
-                    request_id="req-run813-tool",
+                    request_id="process-tool-request",
                     action="tool_call",
                     payload={"name": "echo"},
                 ),
                 await send(
                     writer,
                     reader,
-                    request_id="req-run813-http",
+                    request_id="process-http-request",
                     action="http",
                     payload={"url": "https://api.example.com/data"},
                 ),
                 await send(
                     writer,
                     reader,
-                    request_id="req-run813-file",
+                    request_id="process-file-request",
                     action="file_io",
                     payload={"path": "notes/out.txt"},
                 ),
@@ -477,11 +477,11 @@ class TestProcessBoundaryIntegration:
             yield {"content": "two", "tokens": 1, "cost_usd": 0.0}
             yield {"content": "three", "tokens": 1, "cost_usd": 0.0}
 
-        sock_path = tmp_path / "run813-stream.sock"
+        sock_path = tmp_path / "process-stream-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
-        grant_token = _make_grant_token(block_id="run813-stream")
+        grant_token = _make_grant_token(block_id="process-stream-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"llm_call": stream_llm},

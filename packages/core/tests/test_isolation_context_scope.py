@@ -1,7 +1,7 @@
 """
-RED tests for RUN-911: scope isolation envelopes and worker reconstruction.
+Tests for scope isolation envelopes and worker reconstruction.
 
-RUN-911 extends Epic C context governance across the subprocess boundary. The
+Context governance extends across the subprocess boundary. The
 isolation envelope must carry only resolver-scoped context for declared access,
 and worker reconstruction must not re-expand broad WorkflowState data.
 """
@@ -90,9 +90,9 @@ def _context_envelope(**overrides: Any) -> ContextEnvelope:
 
 
 def test_context_envelope_carries_access_scoped_metadata_and_audit() -> None:
-    """RUN-911 envelope contract includes access, scoped metadata, and audit events."""
+    """Envelope contract includes access, scoped metadata, and audit events."""
     audit = ContextAuditEventV1(
-        run_id="run_911",
+        run_id="context-scope-run",
         workflow_name="isolation_scope",
         node_id="isolated",
         block_type="linear",

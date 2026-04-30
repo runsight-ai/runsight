@@ -1,4 +1,4 @@
-"""ISO-002 IPC observer interceptor tests."""
+"""IPC observer interceptor tests."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from isolation_ipc_helpers import (
 
 
 class TestObserverInterceptorContract:
-    """RUN-397: ObserverInterceptor OTel span lifecycle + trace context propagation."""
+    """ObserverInterceptor OTel span lifecycle and trace context propagation."""
 
     @pytest.mark.asyncio
     async def test_observer_interceptor_creates_span_and_records_response_metrics(self):
@@ -78,7 +78,7 @@ class TestObserverInterceptorContract:
         observer = _make_observer_interceptor(
             interceptors_module,
             tracer=tracer,
-            block_id="run397-block",
+            block_id="observer-span-block",
         )
 
         engine_context = {"trace.parent_id": "parent-span-42"}
@@ -141,7 +141,7 @@ class TestObserverInterceptorContract:
 
         tracer = FakeTracer()
         observer = _make_observer_interceptor(
-            interceptors_module, tracer=tracer, block_id="run397-stream"
+            interceptors_module, tracer=tracer, block_id="observer-stream-block"
         )
 
         engine_context: dict[str, Any] = {}
@@ -198,7 +198,7 @@ class TestObserverInterceptorContract:
 
         tracer = FakeTracer()
         observer = _make_observer_interceptor(
-            interceptors_module, tracer=tracer, block_id="run397-rid"
+            interceptors_module, tracer=tracer, block_id="observer-request-id-block"
         )
 
         ctx_a = await observer.on_request(
@@ -270,7 +270,7 @@ class TestObserverInterceptorContract:
         observer = _make_observer_interceptor(
             interceptors_module,
             tracer=None,
-            block_id="run397-no-otel",
+            block_id="observer-no-otel-block",
         )
         request_ctx = await observer.on_request(
             "llm_call",

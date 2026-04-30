@@ -1,4 +1,4 @@
-"""RUN-814 E2E coverage for the RUN-391 isolation boundary.
+"""E2E coverage for the isolation boundary.
 
 These tests intentionally use the real SubprocessHarness/worker/IPCServer path
 with engine-side fake handlers so they do not call external LLM providers.
@@ -157,7 +157,7 @@ async def _raw_capability(
     *,
     grant_token: str,
     supported_actions: list[str],
-    request_id: str = "cap-run814",
+    request_id: str = "cap-isolation-boundary",
 ) -> dict[str, Any]:
     writer.write(
         (
@@ -167,7 +167,7 @@ async def _raw_capability(
                     "action": "capability_negotiation",
                     "grant_token": grant_token,
                     "supported_actions": supported_actions,
-                    "worker_version": "worker-run814",
+                    "worker_version": "worker-isolation-boundary",
                 },
                 separators=(",", ":"),
             )
@@ -204,7 +204,7 @@ async def _start_ipc_server(
     *,
     handlers: dict[str, Any],
     registry: Any | None = None,
-    block_id: str = "run814",
+    block_id: str = "isolated-block",
 ) -> tuple[IPCServer, asyncio.Task[None], socket.socket, Path, GrantToken]:
     sock_path = tmp_path / f"{block_id}.sock"
     server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -256,7 +256,7 @@ class TestBlockTypeE2E:
             },
         )
         workflow_budget = BudgetSession(
-            scope_name="workflow:run814-linear",
+            scope_name="workflow:isolated-linear-block",
             cost_cap_usd=1.0,
             token_cap=1000,
             on_exceed="fail",
@@ -264,10 +264,10 @@ class TestBlockTypeE2E:
         token = _active_budget.set(workflow_budget)
 
         soul = _soul("linear-soul")
-        inner = LinearBlock("run814-linear", soul, MagicMock())
+        inner = LinearBlock("isolated-linear-block", soul, MagicMock())
         inner.limits = BlockLimitsDef(cost_cap_usd=1.0, token_cap=100)
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
-        wrapper = IsolatedBlockWrapper("run814-linear", inner, harness=harness)
+        wrapper = IsolatedBlockWrapper("isolated-linear-block", inner, harness=harness)
         state = WorkflowState()
 
         try:
@@ -279,8 +279,8 @@ class TestBlockTypeE2E:
 
         assert captured["api_keys"] == {"openai": "sk-test-openai"}
         assert captured["payloads"][0]["model"] == "gpt-4o-mini"
-        assert next_state.results["run814-linear"].output == "linear subprocess output"
-        assert next_state.results["run814-linear"].exit_handle == "done"
+        assert next_state.results["isolated-linear-block"].output == "linear subprocess output"
+        assert next_state.results["isolated-linear-block"].exit_handle == "done"
         assert next_state.total_cost_usd == pytest.approx(0.03)
         assert next_state.total_tokens == 12
         assert workflow_budget.cost_usd == pytest.approx(0.03)
@@ -304,7 +304,7 @@ class TestBlockTypeE2E:
         )
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
         envelope = _context_envelope(
-            block_id="run814-gate",
+            block_id="isolated-gate-block",
             block_type="gate",
             block_config={
                 "eval_key": "draft",
@@ -345,7 +345,7 @@ class TestBlockTypeE2E:
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
         synth_soul = _soul("synth-soul", role="Synthesizer")
         envelope = _context_envelope(
-            block_id="run814-synth",
+            block_id="isolated-synthesis-block",
             block_type="synthesize",
             block_config={
                 "input_block_ids": ["alpha", "beta"],
@@ -394,21 +394,21 @@ class TestBlockTypeE2E:
             DispatchBranch("south", "South", _soul("south-soul"), "South branch task"),
             DispatchBranch("west", "West", _soul("west-soul"), "West branch task"),
         ]
-        inner = DispatchBlock("run814-dispatch", branches, MagicMock())
+        inner = DispatchBlock("isolated-dispatch-block", branches, MagicMock())
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
-        wrapper = IsolatedBlockWrapper("run814-dispatch", inner, harness=harness)
+        wrapper = IsolatedBlockWrapper("isolated-dispatch-block", inner, harness=harness)
         state = WorkflowState()
 
         ctx = build_block_context(wrapper, state)
         output = await wrapper.execute(ctx)
         next_state = apply_block_output(state, wrapper.block_id, output)
 
-        assert next_state.results["run814-dispatch.north"].output == "north result"
-        assert next_state.results["run814-dispatch.north"].exit_handle == "north"
-        assert next_state.results["run814-dispatch.south"].output == "south result"
-        assert next_state.results["run814-dispatch.south"].exit_handle == "south"
-        assert next_state.results["run814-dispatch.west"].output == "west result"
-        assert next_state.results["run814-dispatch.west"].exit_handle == "west"
+        assert next_state.results["isolated-dispatch-block.north"].output == "north result"
+        assert next_state.results["isolated-dispatch-block.north"].exit_handle == "north"
+        assert next_state.results["isolated-dispatch-block.south"].output == "south result"
+        assert next_state.results["isolated-dispatch-block.south"].exit_handle == "south"
+        assert next_state.results["isolated-dispatch-block.west"].output == "west result"
+        assert next_state.results["isolated-dispatch-block.west"].exit_handle == "west"
 
 
 class TestSmartAssertionAndToolsE2E:
@@ -438,7 +438,7 @@ class TestSmartAssertionAndToolsE2E:
             },
         )
         budget = BudgetSession(
-            scope_name="workflow:run814-assertion",
+            scope_name="workflow:assertion-isolation",
             cost_cap_usd=1.0,
             token_cap=1000,
             on_exceed="fail",
@@ -447,17 +447,17 @@ class TestSmartAssertionAndToolsE2E:
         context = AssertionContext(
             output="Candidate answer",
             prompt="Grade candidate answer",
-            prompt_hash="hash-run814",
+            prompt_hash="assertion-isolation-hash",
             soul_id="answerer",
             soul_version="v1",
-            block_id="assert-run814",
+            block_id="assertion-isolation-block",
             block_type="linear",
             cost_usd=0.0,
             total_tokens=0,
             latency_ms=0.0,
             variables={},
-            run_id="run814",
-            workflow_id="wf-run814",
+            run_id="isolated-block",
+            workflow_id="workflow-isolation-boundary",
         )
 
         try:
@@ -468,7 +468,7 @@ class TestSmartAssertionAndToolsE2E:
                         "config": {
                             "rubric": "Score factuality.",
                             "judge_soul": {
-                                "id": "judge-run814",
+                                "id": "judge-isolation",
                                 "kind": "soul",
                                 "name": "Judge",
                                 "role": "Judge",
@@ -559,9 +559,9 @@ class TestSmartAssertionAndToolsE2E:
                 execute=echo_tool,
             )
         ]
-        inner = LinearBlock("run814-tool", soul, MagicMock())
+        inner = LinearBlock("isolated-tool-block", soul, MagicMock())
         harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
-        wrapper = IsolatedBlockWrapper("run814-tool", inner, harness=harness)
+        wrapper = IsolatedBlockWrapper("isolated-tool-block", inner, harness=harness)
         state = WorkflowState()
 
         ctx = build_block_context(wrapper, state)
@@ -569,7 +569,7 @@ class TestSmartAssertionAndToolsE2E:
         next_state = apply_block_output(state, wrapper.block_id, output)
 
         assert tool_calls_seen == [{"value": "from subprocess"}]
-        assert next_state.results["run814-tool"].output == "final after engine tool"
+        assert next_state.results["isolated-tool-block"].output == "final after engine tool"
         assert next_state.total_cost_usd == pytest.approx(0.03)
         assert next_state.total_tokens == 14
 
@@ -582,13 +582,15 @@ class TestBudgetAndAdversarialE2E:
     ):
         registry = interceptors_module.InterceptorRegistry()
         session = BudgetSession(
-            scope_name="block:run814-budget",
+            scope_name="block:isolation-budget-block",
             cost_cap_usd=0.01,
             token_cap=100,
             on_exceed="fail",
         )
         registry.register(
-            interceptors_module.BudgetInterceptor(session=session, block_id="run814-budget")
+            interceptors_module.BudgetInterceptor(
+                session=session, block_id="isolation-budget-block"
+            )
         )
         handler_calls: list[dict[str, Any]] = []
 
@@ -604,7 +606,7 @@ class TestBudgetAndAdversarialE2E:
             tmp_path,
             handlers={"llm_call": llm_handler},
             registry=registry,
-            block_id="run814-budget",
+            block_id="isolation-budget-block",
         )
         reader: asyncio.StreamReader | None = None
         writer: asyncio.StreamWriter | None = None
@@ -623,21 +625,21 @@ class TestBudgetAndAdversarialE2E:
                 writer,
                 action="llm_call",
                 payload={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "1"}]},
-                request_id="run814-budget-1",
+                request_id="isolation-budget-block-1",
             )
             second = await _raw_request(
                 reader,
                 writer,
                 action="llm_call",
                 payload={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "2"}]},
-                request_id="run814-budget-2",
+                request_id="isolation-budget-block-2",
             )
 
             assert first["error"] is None
             assert first["payload"]["content"] == "paid response 1"
             assert first["engine_context"]["budget_remaining_usd"] == pytest.approx(-0.01)
             assert second["payload"]["error_type"] == "BudgetKilledException"
-            assert second["payload"]["block_id"] == "run814-budget"
+            assert second["payload"]["block_id"] == "isolation-budget-block"
             assert second["payload"]["actual_value"] == pytest.approx(0.02)
             assert "budget" in (second["error"] or "").lower()
             assert len(handler_calls) == 1
@@ -659,7 +661,7 @@ class TestBudgetAndAdversarialE2E:
         server, server_task, server_sock, sock_path, grant_token = await _start_ipc_server(
             tmp_path,
             handlers={"llm_call": llm_handler},
-            block_id="run814-grant-replay",
+            block_id="grant-replay-block",
         )
         monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", grant_token.token)
         client = IPCClient(socket_path=str(sock_path))
@@ -674,7 +676,7 @@ class TestBudgetAndAdversarialE2E:
                     replay_writer,
                     grant_token=grant_token.token,
                     supported_actions=["llm_call"],
-                    request_id="cap-run814-replay",
+                    request_id="cap-isolation-boundary-replay",
                 )
             finally:
                 replay_writer.close()
@@ -694,13 +696,13 @@ class TestBudgetAndAdversarialE2E:
     ):
         registry = interceptors_module.InterceptorRegistry()
         session = BudgetSession(
-            scope_name="block:run814-many-calls",
+            scope_name="block:many-ipc-calls-block",
             cost_cap_usd=0.01,
             token_cap=100,
             on_exceed="fail",
         )
         registry.register(
-            interceptors_module.BudgetInterceptor(session=session, block_id="run814-many-calls")
+            interceptors_module.BudgetInterceptor(session=session, block_id="many-ipc-calls-block")
         )
         handler_calls = 0
 
@@ -717,7 +719,7 @@ class TestBudgetAndAdversarialE2E:
             tmp_path,
             handlers={"llm_call": llm_handler},
             registry=registry,
-            block_id="run814-many-calls",
+            block_id="many-ipc-calls-block",
         )
         monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", grant_token.token)
         client = IPCClient(socket_path=str(sock_path))
@@ -762,7 +764,7 @@ class TestBudgetAndAdversarialE2E:
         server, server_task, server_sock, sock_path, grant_token = await _start_ipc_server(
             tmp_path,
             handlers={"llm_call": llm_handler, "tool_call": tool_handler},
-            block_id="run814-negotiated-actions",
+            block_id="negotiated-actions-block",
         )
         reader: asyncio.StreamReader | None = None
         writer: asyncio.StreamWriter | None = None
@@ -782,7 +784,7 @@ class TestBudgetAndAdversarialE2E:
                 writer,
                 action="tool_call",
                 payload={"name": "echo_tool", "arguments": {}},
-                request_id="run814-unnegotiated-tool",
+                request_id="unnegotiated-tool-request",
             )
 
             assert response["payload"] is None

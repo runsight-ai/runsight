@@ -1,4 +1,4 @@
-"""ISO-002 IPC budget interceptor tests."""
+"""IPC budget interceptor tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from isolation_ipc_helpers import (
 
 
 class TestBudgetInterceptorContract:
-    """RUN-810: BudgetInterceptor budget checks, accrual, and IPC short-circuit behavior."""
+    """BudgetInterceptor budget checks, accrual, and IPC short-circuit behavior."""
 
     @pytest.mark.asyncio
     async def test_on_response_accrues_cost_and_updates_remaining_budget_context(self):
@@ -24,7 +24,7 @@ class TestBudgetInterceptorContract:
         from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
-            scope_name="block:run810",
+            scope_name="block:budget-accrual-block",
             cost_cap_usd=0.50,
             token_cap=100,
             on_exceed="fail",
@@ -32,7 +32,7 @@ class TestBudgetInterceptorContract:
         interceptor = _make_budget_interceptor(
             interceptors_module,
             session=budget_session,
-            block_id="run810-block",
+            block_id="budget-accrual-block",
         )
 
         engine_context: dict[str, Any] = {}
@@ -56,7 +56,7 @@ class TestBudgetInterceptorContract:
         from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
-            scope_name="block:run810-over-response",
+            scope_name="block:budget-over-response-block",
             cost_cap_usd=0.04,
             token_cap=100,
             on_exceed="fail",
@@ -64,7 +64,7 @@ class TestBudgetInterceptorContract:
         interceptor = _make_budget_interceptor(
             interceptors_module,
             session=budget_session,
-            block_id="run810-over-response",
+            block_id="budget-over-response-block",
         )
 
         engine_context: dict[str, Any] = {}
@@ -88,7 +88,7 @@ class TestBudgetInterceptorContract:
         from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
-            scope_name="block:run810-stream",
+            scope_name="block:budget-stream-block",
             cost_cap_usd=5.0,
             token_cap=100,
             on_exceed="fail",
@@ -96,7 +96,7 @@ class TestBudgetInterceptorContract:
         interceptor = _make_budget_interceptor(
             interceptors_module,
             session=budget_session,
-            block_id="run810-stream",
+            block_id="budget-stream-block",
         )
 
         engine_context: dict[str, Any] = {}
@@ -123,7 +123,7 @@ class TestBudgetInterceptorContract:
         from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
-            scope_name="block:run810-stream-final",
+            scope_name="block:budget-stream-final-block",
             cost_cap_usd=1.0,
             token_cap=100,
             on_exceed="fail",
@@ -131,7 +131,7 @@ class TestBudgetInterceptorContract:
         interceptor = _make_budget_interceptor(
             interceptors_module,
             session=budget_session,
-            block_id="run810-stream-final",
+            block_id="budget-stream-final-block",
         )
 
         engine_context: dict[str, Any] = {}
@@ -155,7 +155,7 @@ class TestBudgetInterceptorContract:
         from runsight_core.isolation import interceptors as interceptors_module
 
         budget_session = BudgetSession(
-            scope_name="block:run810-stream-over",
+            scope_name="block:budget-stream-over-block",
             cost_cap_usd=5.0,
             token_cap=5,
             on_exceed="fail",
@@ -163,7 +163,7 @@ class TestBudgetInterceptorContract:
         interceptor = _make_budget_interceptor(
             interceptors_module,
             session=budget_session,
-            block_id="run810-stream-over",
+            block_id="budget-stream-over-block",
         )
 
         engine_context: dict[str, Any] = {}
@@ -194,7 +194,7 @@ class TestBudgetInterceptorContract:
         registry = InterceptorRegistry()
 
         budget_session = BudgetSession(
-            scope_name="block:run810-exhausted",
+            scope_name="block:budget-exhausted-block",
             cost_cap_usd=0.01,
             token_cap=100,
             on_exceed="fail",
@@ -204,11 +204,11 @@ class TestBudgetInterceptorContract:
             _make_budget_interceptor(
                 interceptors_module,
                 session=budget_session,
-                block_id="run810-exhausted",
+                block_id="budget-exhausted-block",
             )
         )
 
-        sock_path = tmp_path / "run810-exhausted.sock"
+        sock_path = tmp_path / "budget-exhausted-block.sock"
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(str(sock_path))
         server_sock.listen(1)
@@ -220,7 +220,7 @@ class TestBudgetInterceptorContract:
             handler_called = True
             return {"status": "unexpected"}
 
-        grant_token = _make_grant_token(block_id="run810-exhausted")
+        grant_token = _make_grant_token(block_id="budget-exhausted-block")
         server = IPCServer(
             sock=server_sock,
             handlers={"simple": should_not_run},
@@ -234,7 +234,7 @@ class TestBudgetInterceptorContract:
                 sock_path,
                 grant_token,
                 {
-                    "id": "req-810-kill-1",
+                    "id": "budget-kill-request-1",
                     "action": "simple",
                     "payload": {"value": "blocked"},
                 },
@@ -243,7 +243,7 @@ class TestBudgetInterceptorContract:
             assert len(frames) == 1
             assert frames[0]["done"] is True
             assert frames[0]["payload"]["error_type"] == "BudgetKilledException"
-            assert frames[0]["payload"]["block_id"] == "run810-exhausted"
+            assert frames[0]["payload"]["block_id"] == "budget-exhausted-block"
             assert frames[0]["payload"]["limit_kind"] == "cost_usd"
             assert "budget" in (frames[0]["error"] or "").lower()
         finally:
@@ -254,5 +254,5 @@ class TestBudgetInterceptorContract:
 
 
 # ---------------------------------------------------------------------------
-# RUN-393: InterceptorRegistry chain-of-responsibility for IPC messages
+# InterceptorRegistry chain-of-responsibility for IPC messages
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""ISO-002 IPC artifact and HTTP round-trip tests."""
+"""IPC artifact and HTTP round-trip tests."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from isolation_ipc_helpers import (
 )
 
 # ---------------------------------------------------------------------------
-# AC7: write_artifact writes to engine-side ArtifactStore, returns ref
+# write_artifact writes to engine-side ArtifactStore and returns ref
 # ---------------------------------------------------------------------------
 
 
@@ -119,7 +119,7 @@ class TestWriteArtifactReturnsRef:
 
 
 # ---------------------------------------------------------------------------
-# AC9: Integration test — HTTP tool round-trip through IPC
+# Integration test — HTTP tool round-trip through IPC
 # ---------------------------------------------------------------------------
 
 
@@ -228,7 +228,7 @@ class TestHTTPRoundTrip:
 
 
 # ---------------------------------------------------------------------------
-# AC10: Integration test — write_artifact round-trip through IPC
+# Integration test — write_artifact round-trip through IPC
 # ---------------------------------------------------------------------------
 
 
