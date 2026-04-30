@@ -1,0 +1,23 @@
+packages/core/tests/test_loop_exports_schema.py
+  4adca821c1af8eb3 1-9,42-43,47-48,62,66,68,73-100,102,107,114,123,132,137,143,150,155,160-165,172,180,209,214,217,219-225,233,237,240,244,249,255,257,272,285,287,312,317,321,325,328,332,339,355,358,362,366,371,377,382,386-387,391,428,433,436-438,441-443,447-452,458,462,467,476,479
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "efa02dafd6b1e8d7a097e167e3614a596d6b0d27",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 118,
+      "total_deletions": 133,
+      "accepted_lines": 96754,
+      "overriden_lines": 0
+    }
+  }
+}
