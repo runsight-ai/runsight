@@ -27,7 +27,7 @@ from runsight_api.logic.services.eval_service import EvalService
 def _make_mock_run(
     run_id: str,
     *,
-    workflow_id: str = "wf_regression_primary",
+    workflow_id: str = "regression-workflow",
     workflow_name: str = "Research Flow",
     source: str = "manual",
     branch: str = "main",
@@ -46,7 +46,7 @@ def _make_mock_run(
 def _make_mock_node(
     *,
     node_id: str = "analyze",
-    run_id: str = "run_regression_baseline",
+    run_id: str = "baseline-regression-run",
     soul_id: str | None = "researcher_v1",
     soul_version: str | None = "sha256:abc",
     eval_score: float | None = 0.95,
@@ -87,13 +87,13 @@ class TestGetRunRegressions:
         """A node that passed on the previous run and fails now is an assertion_regression."""
         repo = Mock()
 
-        current_run = _make_mock_run("run_regression_current", created_at=200.0)
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        current_run = _make_mock_run("current-regression-run", created_at=200.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
 
         # Previous node: eval_passed=True
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             eval_passed=True,
             eval_score=0.95,
             cost_usd=0.005,
@@ -102,7 +102,7 @@ class TestGetRunRegressions:
         # Current node: eval_passed=False (same soul_version)
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             eval_passed=False,
             eval_score=0.30,
             cost_usd=0.005,
@@ -112,11 +112,11 @@ class TestGetRunRegressions:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         assert result["count"] >= 1
@@ -127,13 +127,13 @@ class TestGetRunRegressions:
         """A run without branch must not become the baseline production run."""
         repo = Mock()
 
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
         delattr(previous_run, "branch")
-        current_run = _make_mock_run("run_regression_current", created_at=200.0, branch="main")
+        current_run = _make_mock_run("current-regression-run", created_at=200.0, branch="main")
 
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             eval_passed=True,
             eval_score=0.95,
             cost_usd=0.005,
@@ -141,7 +141,7 @@ class TestGetRunRegressions:
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             eval_passed=False,
             eval_score=0.30,
             cost_usd=0.005,
@@ -151,11 +151,11 @@ class TestGetRunRegressions:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         assert result["count"] == 0
@@ -165,19 +165,19 @@ class TestGetRunRegressions:
         """A node that failed on both runs is NOT a regression (was already broken)."""
         repo = Mock()
 
-        current_run = _make_mock_run("run_regression_current", created_at=200.0)
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        current_run = _make_mock_run("current-regression-run", created_at=200.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
 
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             eval_passed=False,
             eval_score=0.30,
             created_at=100.0,
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             eval_passed=False,
             eval_score=0.25,
             created_at=200.0,
@@ -186,11 +186,11 @@ class TestGetRunRegressions:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         assertion_issues = [i for i in result["issues"] if i["type"] == "assertion_regression"]
@@ -200,19 +200,19 @@ class TestGetRunRegressions:
         """A cost increase >20% vs previous production run is a cost_spike regression."""
         repo = Mock()
 
-        current_run = _make_mock_run("run_regression_current", created_at=200.0)
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        current_run = _make_mock_run("current-regression-run", created_at=200.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
 
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             cost_usd=0.005,
             eval_passed=True,
             created_at=100.0,
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             cost_usd=0.010,  # 100% increase
             eval_passed=True,
             created_at=200.0,
@@ -221,11 +221,11 @@ class TestGetRunRegressions:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         cost_issues = [i for i in result["issues"] if i["type"] == "cost_spike"]
@@ -235,19 +235,19 @@ class TestGetRunRegressions:
         """An eval_score drop >0.1 vs previous production run is a quality_drop."""
         repo = Mock()
 
-        current_run = _make_mock_run("run_regression_current", created_at=200.0)
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        current_run = _make_mock_run("current-regression-run", created_at=200.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
 
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             eval_score=0.95,
             eval_passed=True,
             created_at=100.0,
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             eval_score=0.70,  # dropped 0.25
             eval_passed=True,
             created_at=200.0,
@@ -256,11 +256,11 @@ class TestGetRunRegressions:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         quality_issues = [i for i in result["issues"] if i["type"] == "quality_drop"]
@@ -278,7 +278,7 @@ class TestGetRunRegressions:
 
 
 # ===========================================================================
-# AC5 continued: get_workflow_regressions
+# get_workflow_regressions
 # ===========================================================================
 
 
@@ -296,35 +296,35 @@ class TestGetWorkflowRegressions:
         """Workflow regression issues must include run_id and run_number."""
         repo = Mock()
 
-        run_1 = _make_mock_run(
-            "run_regression_baseline", workflow_id="wf_regression_primary", created_at=100.0
+        baseline_run = _make_mock_run(
+            "baseline-regression-run", workflow_id="regression-workflow", created_at=100.0
         )
-        run_2 = _make_mock_run(
-            "run_regression_current", workflow_id="wf_regression_primary", created_at=200.0
+        current_run = _make_mock_run(
+            "current-regression-run", workflow_id="regression-workflow", created_at=200.0
         )
-        run_1.run_number = 1
-        run_2.run_number = 2
+        baseline_run.run_number = 1
+        current_run.run_number = 2
 
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
+            run_id="baseline-regression-run",
             eval_passed=True,
             created_at=100.0,
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
+            run_id="current-regression-run",
             eval_passed=False,
             created_at=200.0,
         )
 
-        repo.list_runs.return_value = [run_2, run_1]
+        repo.list_runs.return_value = [current_run, baseline_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_workflow_regressions("wf_regression_primary")
+        result = service.get_workflow_regressions("regression-workflow")
 
         assert result is not None
         assert result["count"] >= 1
@@ -345,10 +345,10 @@ class TestNoEvalAssertionsEdge:
         """A run with no eval assertions should have 0 regressions."""
         repo = Mock()
 
-        run = _make_mock_run("run_no_eval", created_at=200.0)
+        run = _make_mock_run("no-eval-run", created_at=200.0)
         node = _make_mock_node(
             node_id="route",
-            run_id="run_no_eval",
+            run_id="no-eval-run",
             soul_id=None,
             soul_version=None,
             eval_score=None,
@@ -361,7 +361,7 @@ class TestNoEvalAssertionsEdge:
         repo.list_nodes_for_run.return_value = [node]
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_no_eval")
+        result = service.get_run_regressions("no-eval-run")
 
         assert result is not None
         assert result["count"] == 0
@@ -380,10 +380,10 @@ class TestFirstRunEdge:
         """The very first run of a workflow must have 0 regressions."""
         repo = Mock()
 
-        run = _make_mock_run("run_first", created_at=100.0)
+        run = _make_mock_run("first-workflow-run", created_at=100.0)
         node = _make_mock_node(
             node_id="analyze",
-            run_id="run_first",
+            run_id="first-workflow-run",
             eval_passed=False,  # fails, but no baseline => not a regression
             eval_score=0.30,
             created_at=100.0,
@@ -394,7 +394,7 @@ class TestFirstRunEdge:
         repo.list_nodes_for_run.return_value = [node]
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_first")
+        result = service.get_run_regressions("first-workflow-run")
 
         assert result is not None
         assert result["count"] == 0
@@ -413,22 +413,22 @@ class TestDeletedSoulEdge:
         """Regression should be detected from stored data even when soul YAML is gone."""
         repo = Mock()
 
-        current_run = _make_mock_run("run_regression_current", created_at=200.0)
-        previous_run = _make_mock_run("run_regression_baseline", created_at=100.0)
+        current_run = _make_mock_run("current-regression-run", created_at=200.0)
+        previous_run = _make_mock_run("baseline-regression-run", created_at=100.0)
 
         # soul_id is stored on the RunNode from execution time
         prev_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_baseline",
-            soul_id="deleted_soul",
+            run_id="baseline-regression-run",
+            soul_id="deleted-soul",
             soul_version="sha256:old",
             eval_passed=True,
             created_at=100.0,
         )
         curr_node = _make_mock_node(
             node_id="analyze",
-            run_id="run_regression_current",
-            soul_id="deleted_soul",
+            run_id="current-regression-run",
+            soul_id="deleted-soul",
             soul_version="sha256:old",
             eval_passed=False,
             created_at=200.0,
@@ -437,11 +437,11 @@ class TestDeletedSoulEdge:
         repo.get_run.return_value = current_run
         repo.list_runs.return_value = [current_run, previous_run]
         repo.list_nodes_for_run.side_effect = lambda run_id: (
-            [curr_node] if run_id == "run_regression_current" else [prev_node]
+            [curr_node] if run_id == "current-regression-run" else [prev_node]
         )
 
         service = EvalService(repo)
-        result = service.get_run_regressions("run_regression_current")
+        result = service.get_run_regressions("current-regression-run")
 
         assert result is not None
         assert result["count"] >= 1
@@ -450,7 +450,7 @@ class TestDeletedSoulEdge:
 
 
 # ===========================================================================
-# AC6: get_workflow_health_metrics() regression_count uses proper logic
+# get_workflow_health_metrics() regression_count uses comparison logic
 # ===========================================================================
 
 
@@ -514,42 +514,42 @@ class TestHealthMetricsProperRegressionLogic:
         """Only same-node failures with a passing baseline count as regressions.
 
         Setup:
-        - baseline run: node_a eval_passed=True
-        - current run: node_a eval_passed=False
-        - repeated failure run: node_a eval_passed=False
+        - baseline run: assertion-node eval_passed=True
+        - current run: assertion-node eval_passed=False
+        - repeated failure run: assertion-node eval_passed=False
         """
         _seed_run(
             db_session,
-            "run_regression_baseline",
-            workflow_id="wf_regression_primary",
+            "baseline-regression-run",
+            workflow_id="regression-workflow",
             branch="main",
         )
         _seed_node(
             db_session,
-            "run_regression_baseline",
-            "node_a",
+            "baseline-regression-run",
+            "assertion-node",
             eval_passed=True,
             soul_version="sha256:v1",
         )
 
         _seed_run(
-            db_session, "run_regression_current", workflow_id="wf_regression_primary", branch="main"
+            db_session, "current-regression-run", workflow_id="regression-workflow", branch="main"
         )
         _seed_node(
             db_session,
-            "run_regression_current",
-            "node_a",
+            "current-regression-run",
+            "assertion-node",
             eval_passed=False,
             soul_version="sha256:v1",
         )
 
         _seed_run(
-            db_session, "run_regression_repeat", workflow_id="wf_regression_primary", branch="main"
+            db_session, "repeated-failure-run", workflow_id="regression-workflow", branch="main"
         )
         _seed_node(
             db_session,
-            "run_regression_repeat",
-            "node_a",
+            "repeated-failure-run",
+            "assertion-node",
             eval_passed=False,
             soul_version="sha256:v1",
         )
@@ -557,45 +557,55 @@ class TestHealthMetricsProperRegressionLogic:
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        result = read_model.get_workflow_health_metrics(["wf_regression_primary"])
-        metric = result["wf_regression_primary"]
+        result = read_model.get_workflow_health_metrics(["regression-workflow"])
+        metric = result["regression-workflow"]
 
         assert metric["regression_count"] == 1
 
     def test_no_regression_when_first_run_fails(self, db_session: Session):
         """First run with eval_passed=False is NOT a regression (no baseline)."""
-        _seed_run(db_session, "run_regression_baseline", workflow_id="wf_first", branch="main")
+        _seed_run(db_session, "first-failing-run", workflow_id="first-run-workflow", branch="main")
         _seed_node(
             db_session,
-            "run_regression_baseline",
-            "node_a",
+            "first-failing-run",
+            "assertion-node",
             eval_passed=False,
             soul_version="sha256:v1",
         )
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        result = read_model.get_workflow_health_metrics(["wf_first"])
-        metric = result["wf_first"]
+        result = read_model.get_workflow_health_metrics(["first-run-workflow"])
+        metric = result["first-run-workflow"]
 
         assert metric["regression_count"] == 0
 
     def test_regression_only_counted_for_same_soul_version(self, db_session: Session):
         """A fail after a pass is only a regression if soul_version matches."""
-        _seed_run(db_session, "run_regression_baseline", workflow_id="wf_ver", branch="main")
+        _seed_run(
+            db_session,
+            "baseline-regression-run",
+            workflow_id="versioned-soul-workflow",
+            branch="main",
+        )
         _seed_node(
             db_session,
-            "run_regression_baseline",
-            "node_a",
+            "baseline-regression-run",
+            "assertion-node",
             eval_passed=True,
             soul_version="sha256:v1",
         )
 
-        _seed_run(db_session, "run_regression_current", workflow_id="wf_ver", branch="main")
+        _seed_run(
+            db_session,
+            "current-regression-run",
+            workflow_id="versioned-soul-workflow",
+            branch="main",
+        )
         _seed_node(
             db_session,
-            "run_regression_current",
-            "node_a",
+            "current-regression-run",
+            "assertion-node",
             eval_passed=False,
             soul_version="sha256:v2",  # different version => not a regression
         )
@@ -603,7 +613,7 @@ class TestHealthMetricsProperRegressionLogic:
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        result = read_model.get_workflow_health_metrics(["wf_ver"])
-        metric = result["wf_ver"]
+        result = read_model.get_workflow_health_metrics(["versioned-soul-workflow"])
+        metric = result["versioned-soul-workflow"]
 
         assert metric["regression_count"] == 0

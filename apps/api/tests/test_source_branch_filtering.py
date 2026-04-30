@@ -9,7 +9,6 @@ Coverage includes:
   - ?branch=main returns only main branch runs
   - No params = all runs returned (no default exclusion)
   - Dashboard KPIs exclude simulation runs from calculations
-  - All existing tests pass
 """
 
 import time
@@ -28,8 +27,8 @@ from runsight_api.transport.deps import get_eval_service, get_run_service
 
 
 def _make_mock_run(
-    run_id: str = "run_source_primary",
-    workflow_id: str = "wf_source_branch_filter",
+    run_id: str = "source-filter-run",
+    workflow_id: str = "source-branch-workflow",
     status: RunStatus = RunStatus.completed,
     source: str = "manual",
     branch: str = "main",
@@ -122,7 +121,7 @@ class TestRouterAcceptsSourceParam:
 
     def test_source_param_accepted_single(self):
         """GET /api/runs?source=simulation must not return 422."""
-        runs = [_make_mock_run("run_1", source="simulation")]
+        runs = [_make_mock_run("simulation-source-param-run", source="simulation")]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
         app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
@@ -136,8 +135,8 @@ class TestRouterAcceptsSourceParam:
     def test_source_param_accepted_multiple(self):
         """GET /api/runs?source=manual&source=webhook must not return 422."""
         runs = [
-            _make_mock_run("run_1", source="manual"),
-            _make_mock_run("run_2", source="webhook"),
+            _make_mock_run("manual-source-param-run", source="manual"),
+            _make_mock_run("webhook-source-param-run", source="webhook"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -163,7 +162,7 @@ class TestRouterAcceptsBranchParam:
 
     def test_branch_param_accepted(self):
         """GET /api/runs?branch=main must not return 422."""
-        runs = [_make_mock_run("run_1", branch="main")]
+        runs = [_make_mock_run("main-branch-param-run", branch="main")]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
         app.dependency_overrides[get_eval_service] = lambda: _mock_eval_svc()
@@ -189,9 +188,9 @@ class TestSourceFilteringSingle:
     def test_source_simulation_returns_only_simulation_runs(self):
         """GET /api/runs?source=simulation must return only runs with source=simulation."""
         runs = [
-            _make_mock_run("run_sim", source="simulation"),
-            _make_mock_run("run_manual", source="manual"),
-            _make_mock_run("run_webhook", source="webhook"),
+            _make_mock_run("simulation-run", source="simulation"),
+            _make_mock_run("manual-run", source="manual"),
+            _make_mock_run("webhook-run", source="webhook"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -202,15 +201,15 @@ class TestSourceFilteringSingle:
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, f"Expected 1 simulation run, got {len(data['items'])}"
-        assert data["items"][0]["id"] == "run_sim"
+        assert data["items"][0]["id"] == "simulation-run"
         assert data["items"][0]["source"] == "simulation"
 
     def test_source_manual_returns_only_manual_runs(self):
         """GET /api/runs?source=manual must return only runs with source=manual."""
         runs = [
-            _make_mock_run("run_sim", source="simulation"),
-            _make_mock_run("run_manual", source="manual"),
-            _make_mock_run("run_schedule", source="schedule"),
+            _make_mock_run("simulation-run", source="simulation"),
+            _make_mock_run("manual-run", source="manual"),
+            _make_mock_run("schedule-run", source="schedule"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -221,14 +220,14 @@ class TestSourceFilteringSingle:
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, f"Expected 1 manual run, got {len(data['items'])}"
-        assert data["items"][0]["id"] == "run_manual"
+        assert data["items"][0]["id"] == "manual-run"
         assert data["items"][0]["source"] == "manual"
 
     def test_source_filter_empty_result(self):
         """GET /api/runs?source=schedule returns empty when no schedule runs exist."""
         runs = [
-            _make_mock_run("run_1", source="manual"),
-            _make_mock_run("run_2", source="simulation"),
+            _make_mock_run("manual-nonmatching-source-run", source="manual"),
+            _make_mock_run("simulation-nonmatching-source-run", source="simulation"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -256,10 +255,10 @@ class TestSourceFilteringMultiple:
     def test_multiple_sources_returns_union(self):
         """GET /api/runs?source=manual&source=webhook returns manual + webhook runs."""
         runs = [
-            _make_mock_run("run_manual", source="manual"),
-            _make_mock_run("run_webhook", source="webhook"),
-            _make_mock_run("run_sim", source="simulation"),
-            _make_mock_run("run_schedule", source="schedule"),
+            _make_mock_run("manual-run", source="manual"),
+            _make_mock_run("webhook-run", source="webhook"),
+            _make_mock_run("simulation-run", source="simulation"),
+            _make_mock_run("schedule-run", source="schedule"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -278,10 +277,10 @@ class TestSourceFilteringMultiple:
     def test_three_sources_returns_union(self):
         """GET /api/runs?source=manual&source=webhook&source=schedule returns all three."""
         runs = [
-            _make_mock_run("run_manual", source="manual"),
-            _make_mock_run("run_webhook", source="webhook"),
-            _make_mock_run("run_sim", source="simulation"),
-            _make_mock_run("run_schedule", source="schedule"),
+            _make_mock_run("manual-run", source="manual"),
+            _make_mock_run("webhook-run", source="webhook"),
+            _make_mock_run("simulation-run", source="simulation"),
+            _make_mock_run("schedule-run", source="schedule"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -310,9 +309,9 @@ class TestBranchFiltering:
     def test_branch_main_returns_only_main_runs(self):
         """GET /api/runs?branch=main must return only runs on the main branch."""
         runs = [
-            _make_mock_run("run_main", branch="main"),
-            _make_mock_run("run_feat", branch="feat/experiment"),
-            _make_mock_run("run_sim", branch="sim/test/20260330/abc123"),
+            _make_mock_run("main-branch-run", branch="main"),
+            _make_mock_run("feature-branch-run", branch="feat/experiment"),
+            _make_mock_run("simulation-branch-run", branch="sim/test/20260330/abc123"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -323,14 +322,14 @@ class TestBranchFiltering:
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, f"Expected 1 main-branch run, got {len(data['items'])}"
-        assert data["items"][0]["id"] == "run_main"
+        assert data["items"][0]["id"] == "main-branch-run"
         assert data["items"][0]["branch"] == "main"
 
     def test_branch_feature_returns_only_feature_runs(self):
         """GET /api/runs?branch=feat/experiment must return only that branch."""
         runs = [
-            _make_mock_run("run_main", branch="main"),
-            _make_mock_run("run_feat", branch="feat/experiment"),
+            _make_mock_run("main-branch-run", branch="main"),
+            _make_mock_run("feature-branch-run", branch="feat/experiment"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -343,13 +342,13 @@ class TestBranchFiltering:
         assert len(data["items"]) == 1, (
             f"Expected 1 run for feat/experiment, got {len(data['items'])}"
         )
-        assert data["items"][0]["id"] == "run_feat"
+        assert data["items"][0]["id"] == "feature-branch-run"
 
     def test_branch_filter_empty_result(self):
         """GET /api/runs?branch=nonexistent returns empty list."""
         runs = [
-            _make_mock_run("run_1", branch="main"),
-            _make_mock_run("run_2", branch="develop"),
+            _make_mock_run("main-branch-run", branch="main"),
+            _make_mock_run("develop-branch-run", branch="develop"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -377,10 +376,10 @@ class TestCombinedFilters:
     def test_source_and_branch_combined(self):
         """GET /api/runs?source=manual&branch=main returns only manual runs on main."""
         runs = [
-            _make_mock_run("run_1", source="manual", branch="main"),
-            _make_mock_run("run_2", source="simulation", branch="main"),
-            _make_mock_run("run_3", source="manual", branch="feat/x"),
-            _make_mock_run("run_4", source="simulation", branch="feat/x"),
+            _make_mock_run("manual-main-run", source="manual", branch="main"),
+            _make_mock_run("simulation-main-run", source="simulation", branch="main"),
+            _make_mock_run("manual-feature-run", source="manual", branch="feat/x"),
+            _make_mock_run("simulation-feature-run", source="simulation", branch="feat/x"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -391,16 +390,18 @@ class TestCombinedFilters:
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, f"Expected 1 manual+main run, got {len(data['items'])}"
-        assert data["items"][0]["id"] == "run_1"
+        assert data["items"][0]["id"] == "manual-main-run"
         assert data["items"][0]["source"] == "manual"
         assert data["items"][0]["branch"] == "main"
 
     def test_source_and_status_combined(self):
         """GET /api/runs?source=manual&status=completed returns only completed manual runs."""
         runs = [
-            _make_mock_run("run_1", source="manual", status=RunStatus.completed),
-            _make_mock_run("run_2", source="manual", status=RunStatus.running),
-            _make_mock_run("run_3", source="simulation", status=RunStatus.completed),
+            _make_mock_run("completed-manual-run", source="manual", status=RunStatus.completed),
+            _make_mock_run("running-manual-run", source="manual", status=RunStatus.running),
+            _make_mock_run(
+                "completed-simulation-run", source="simulation", status=RunStatus.completed
+            ),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -411,19 +412,23 @@ class TestCombinedFilters:
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1, f"Expected 1 completed manual run, got {len(data['items'])}"
-        assert data["items"][0]["id"] == "run_1"
+        assert data["items"][0]["id"] == "completed-manual-run"
 
     def test_source_branch_and_status_combined(self):
         """All three filters applied simultaneously."""
         runs = [
-            _make_mock_run("run_hit", source="manual", branch="main", status=RunStatus.completed),
             _make_mock_run(
-                "run_miss_src", source="simulation", branch="main", status=RunStatus.completed
+                "matching-filter-run", source="manual", branch="main", status=RunStatus.completed
             ),
             _make_mock_run(
-                "run_miss_br", source="manual", branch="feat/x", status=RunStatus.completed
+                "wrong-source-run", source="simulation", branch="main", status=RunStatus.completed
             ),
-            _make_mock_run("run_miss_st", source="manual", branch="main", status=RunStatus.running),
+            _make_mock_run(
+                "wrong-branch-run", source="manual", branch="feat/x", status=RunStatus.completed
+            ),
+            _make_mock_run(
+                "wrong-status-run", source="manual", branch="main", status=RunStatus.running
+            ),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -436,7 +441,7 @@ class TestCombinedFilters:
         assert len(data["items"]) == 1, (
             f"Expected exactly 1 run matching all filters, got {len(data['items'])}"
         )
-        assert data["items"][0]["id"] == "run_hit"
+        assert data["items"][0]["id"] == "matching-filter-run"
 
 
 # ===========================================================================
@@ -453,10 +458,10 @@ class TestNoParamsReturnsAll:
     def test_no_params_returns_all_sources(self):
         """GET /api/runs without source param returns runs of all sources."""
         runs = [
-            _make_mock_run("run_manual", source="manual"),
-            _make_mock_run("run_sim", source="simulation"),
-            _make_mock_run("run_webhook", source="webhook"),
-            _make_mock_run("run_schedule", source="schedule"),
+            _make_mock_run("manual-run", source="manual"),
+            _make_mock_run("simulation-run", source="simulation"),
+            _make_mock_run("webhook-run", source="webhook"),
+            _make_mock_run("schedule-run", source="schedule"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -473,9 +478,9 @@ class TestNoParamsReturnsAll:
     def test_no_params_returns_all_branches(self):
         """GET /api/runs without branch param returns runs from all branches."""
         runs = [
-            _make_mock_run("run_main", branch="main"),
-            _make_mock_run("run_feat", branch="feat/experiment"),
-            _make_mock_run("run_sim_branch", branch="sim/test/20260330/abc123"),
+            _make_mock_run("main-branch-run", branch="main"),
+            _make_mock_run("feature-branch-run", branch="feat/experiment"),
+            _make_mock_run("simulation-branch-run", branch="sim/test/20260330/abc123"),
         ]
         mock_service = _stub_service_with_runs(runs)
         app.dependency_overrides[get_run_service] = lambda: mock_service
@@ -506,13 +511,13 @@ class TestDashboardExcludesSimulations:
         now = time.time()
         runs = [
             _make_mock_run(
-                "run_manual", source="manual", total_cost_usd=1.0, created_at=now - 3600
+                "manual-run", source="manual", total_cost_usd=1.0, created_at=now - 3600
             ),
             _make_mock_run(
-                "run_sim", source="simulation", total_cost_usd=2.0, created_at=now - 3600
+                "simulation-run", source="simulation", total_cost_usd=2.0, created_at=now - 3600
             ),
             _make_mock_run(
-                "run_webhook", source="webhook", total_cost_usd=0.5, created_at=now - 3600
+                "webhook-run", source="webhook", total_cost_usd=0.5, created_at=now - 3600
             ),
         ]
         mock_service = Mock()
@@ -534,13 +539,13 @@ class TestDashboardExcludesSimulations:
         now = time.time()
         runs = [
             _make_mock_run(
-                "run_manual", source="manual", total_cost_usd=1.0, created_at=now - 3600
+                "manual-run", source="manual", total_cost_usd=1.0, created_at=now - 3600
             ),
             _make_mock_run(
-                "run_sim", source="simulation", total_cost_usd=2.0, created_at=now - 3600
+                "simulation-run", source="simulation", total_cost_usd=2.0, created_at=now - 3600
             ),
             _make_mock_run(
-                "run_webhook", source="webhook", total_cost_usd=0.5, created_at=now - 3600
+                "webhook-run", source="webhook", total_cost_usd=0.5, created_at=now - 3600
             ),
         ]
         mock_service = Mock()
@@ -562,10 +567,16 @@ class TestDashboardExcludesSimulations:
         now = time.time()
         runs = [
             _make_mock_run(
-                "run_sim1", source="simulation", total_cost_usd=5.0, created_at=now - 3600
+                "simulation-dashboard-run-one",
+                source="simulation",
+                total_cost_usd=5.0,
+                created_at=now - 3600,
             ),
             _make_mock_run(
-                "run_sim2", source="simulation", total_cost_usd=3.0, created_at=now - 7200
+                "simulation-dashboard-run-two",
+                source="simulation",
+                total_cost_usd=3.0,
+                created_at=now - 7200,
             ),
         ]
         mock_service = Mock()
@@ -589,14 +600,14 @@ class TestDashboardExcludesSimulations:
         """A run without branch must not be counted as production main."""
         now = time.time()
         run_main = _make_mock_run(
-            "run_main", source="manual", total_cost_usd=1.0, created_at=now - 3600
+            "main-branch-run", source="manual", total_cost_usd=1.0, created_at=now - 3600
         )
         run_missing = _make_mock_run(
-            "run_missing", source="manual", total_cost_usd=2.0, created_at=now - 3600
+            "missing-branch-run", source="manual", total_cost_usd=2.0, created_at=now - 3600
         )
         delattr(run_missing, "branch")
         run_sim = _make_mock_run(
-            "run_sim", source="simulation", total_cost_usd=3.0, created_at=now - 3600
+            "simulation-run", source="simulation", total_cost_usd=3.0, created_at=now - 3600
         )
         runs = [run_main, run_missing, run_sim]
         mock_service = Mock()
@@ -647,14 +658,14 @@ class TestServiceAcceptsSourceAndBranch:
         """list_runs_paginated(source=['simulation']) must not raise TypeError."""
         run_read_model.list_runs_paginated.return_value = ([], 0)
 
-        # This call will raise TypeError today because the method has no source param
+        # Method must accept source without raising TypeError
         run_service.list_runs_paginated(offset=0, limit=20, source=["simulation"])
 
     def test_service_accepts_branch_param(self, run_service, run_read_model):
         """list_runs_paginated(branch='main') must not raise TypeError."""
         run_read_model.list_runs_paginated.return_value = ([], 0)
 
-        # This call will raise TypeError today because the method has no branch param
+        # Method must accept branch without raising TypeError
         run_service.list_runs_paginated(offset=0, limit=20, branch="main")
 
     def test_service_forwards_source_to_repo(self, run_service, run_read_model):
@@ -689,7 +700,7 @@ class TestServiceAcceptsSourceAndBranch:
             offset=0,
             limit=20,
             status=["completed"],
-            workflow_id="wf_source_branch_filter",
+            workflow_id="source-branch-workflow",
             source=["manual"],
             branch="main",
         )
@@ -697,6 +708,6 @@ class TestServiceAcceptsSourceAndBranch:
         run_read_model.list_runs_paginated.assert_called_once()
         _, kwargs = run_read_model.list_runs_paginated.call_args
         assert kwargs.get("status") == ["completed"]
-        assert kwargs.get("workflow_id") == "wf_source_branch_filter"
+        assert kwargs.get("workflow_id") == "source-branch-workflow"
         assert kwargs.get("source") == ["manual"]
         assert kwargs.get("branch") == "main"

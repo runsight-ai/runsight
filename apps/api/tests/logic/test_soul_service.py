@@ -48,38 +48,38 @@ def test_list_souls_empty():
 def test_list_souls_multiple():
     soul_repo = Mock()
     souls = [
-        SoulEntity(id="soul_1", kind="soul", name="Alpha", role="Alpha"),
-        SoulEntity(id="soul_2", kind="soul", name="Beta", role="Beta"),
+        SoulEntity(id="alpha-soul", kind="soul", name="Alpha", role="Alpha"),
+        SoulEntity(id="beta-soul", kind="soul", name="Beta", role="Beta"),
     ]
     soul_repo.list_all.return_value = souls
     service = SoulService(soul_repo)
     result = service.list_souls()
     assert len(result) == 2
-    assert result[0].id == "soul_1"
+    assert result[0].id == "alpha-soul"
     assert result[0].role == "Alpha"
-    assert result[1].id == "soul_2"
+    assert result[1].id == "beta-soul"
     assert result[1].role == "Beta"
 
 
 def test_list_souls_with_query_matches_id():
     soul_repo = Mock()
     souls = [
-        SoulEntity(id="soul_alpha", kind="soul", name="X", role="X"),
-        SoulEntity(id="soul_beta", kind="soul", name="Y", role="Y"),
-        SoulEntity(id="soul_gamma", kind="soul", name="Z", role="Z"),
+        SoulEntity(id="alpha-soul", kind="soul", name="X", role="X"),
+        SoulEntity(id="beta-soul", kind="soul", name="Y", role="Y"),
+        SoulEntity(id="gamma-soul", kind="soul", name="Z", role="Z"),
     ]
     soul_repo.list_all.return_value = souls
     service = SoulService(soul_repo)
     result = service.list_souls(query="alpha")
     assert len(result) == 1
-    assert result[0].id == "soul_alpha"
+    assert result[0].id == "alpha-soul"
 
 
 def test_list_souls_with_query_matches_role():
     soul_repo = Mock()
     souls = [
-        SoulEntity(id="soul_alpha_role", kind="soul", name="Alpha Soul", role="Alpha Soul"),
-        SoulEntity(id="soul_beta_role", kind="soul", name="Beta Soul", role="Beta Soul"),
+        SoulEntity(id="alpha-role-soul", kind="soul", name="Alpha Soul", role="Alpha Soul"),
+        SoulEntity(id="beta-role-soul", kind="soul", name="Beta Soul", role="Beta Soul"),
     ]
     soul_repo.list_all.return_value = souls
     service = SoulService(soul_repo)
@@ -91,13 +91,13 @@ def test_list_souls_with_query_matches_role():
 def test_list_souls_with_query_case_insensitive():
     soul_repo = Mock()
     souls = [
-        SoulEntity(id="soul_case_1", kind="soul", name="Test", role="Test"),
+        SoulEntity(id="case-match-soul", kind="soul", name="Case Match", role="Case Match"),
     ]
     soul_repo.list_all.return_value = souls
     service = SoulService(soul_repo)
     result = service.list_souls(query="soul")
     assert len(result) == 1
-    assert result[0].id == "soul_case_1"
+    assert result[0].id == "case-match-soul"
 
 
 def test_list_souls_with_workflow_repo_enriches_workflow_counts():
@@ -110,7 +110,7 @@ def test_list_souls_with_workflow_repo_enriches_workflow_counts():
     soul_repo.list_all.return_value = souls
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-workflow",
             "Research Flow",
             """
 blocks:
@@ -123,7 +123,7 @@ blocks:
 """,
         ),
         workflow_entity(
-            "wf_2",
+            "review-workflow",
             "Review Flow",
             """
 blocks:
@@ -145,13 +145,13 @@ blocks:
 
 def test_get_soul_exists():
     soul_repo = Mock()
-    mock_soul = SoulEntity(id="soul_1", kind="soul", name="Test Soul", role="Test Soul")
+    mock_soul = SoulEntity(id="alpha-soul", kind="soul", name="Research Soul", role="Research Soul")
     soul_repo.get_by_id.return_value = mock_soul
     service = SoulService(soul_repo)
-    res = service.get_soul("soul_1")
-    assert res.id == "soul_1"
-    assert res.role == "Test Soul"
-    soul_repo.get_by_id.assert_called_once_with("soul_1")
+    res = service.get_soul("alpha-soul")
+    assert res.id == "alpha-soul"
+    assert res.role == "Research Soul"
+    soul_repo.get_by_id.assert_called_once_with("alpha-soul")
 
 
 def test_get_soul_not_found_returns_none():
@@ -173,7 +173,7 @@ def test_get_soul_usages_returns_matching_workflows_and_skips_bad_yaml():
     )
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-workflow",
             "Research Flow",
             """
 blocks:
@@ -182,9 +182,9 @@ blocks:
     soul_ref: researcher
 """,
         ),
-        workflow_entity("wf_2", "Broken Flow", "souls: [broken"),
+        workflow_entity("review-workflow", "Broken Flow", "souls: [broken"),
         workflow_entity(
-            "wf_3",
+            "wrong-shape-workflow",
             "Wrong Shape",
             """
 blocks:
@@ -192,7 +192,7 @@ blocks:
 """,
         ),
         workflow_entity(
-            "wf_4",
+            "review-only-workflow",
             "Review Flow",
             """
 blocks:
@@ -202,7 +202,7 @@ blocks:
 """,
         ),
         workflow_entity(
-            "wf_5",
+            "dispatch-workflow",
             "Dispatch Flow",
             """
 blocks:
@@ -221,8 +221,8 @@ blocks:
     usages = service.get_soul_usages("researcher", workflow_repo)
 
     assert usages == [
-        {"workflow_id": "wf_1", "workflow_name": "Research Flow"},
-        {"workflow_id": "wf_5", "workflow_name": "Dispatch Flow"},
+        {"workflow_id": "research-workflow", "workflow_name": "Research Flow"},
+        {"workflow_id": "dispatch-workflow", "workflow_name": "Dispatch Flow"},
     ]
 
 
@@ -249,7 +249,7 @@ def test_get_soul_usages_empty_when_unreferenced():
     )
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-workflow",
             "Declared But Unused",
             """
 souls:
@@ -276,10 +276,10 @@ def test_compute_workflow_counts_skips_missing_sections_and_bad_yaml():
         SoulEntity(id="reviewer", kind="soul", name="Reviewer", role="Reviewer"),
     ]
     workflow_repo.list_all.return_value = [
-        workflow_entity("wf_none", "No YAML", None),
-        workflow_entity("wf_bad", "Broken", "souls: [broken"),
+        workflow_entity("no-yaml-workflow", "No YAML", None),
+        workflow_entity("broken-yaml-workflow", "Broken", "souls: [broken"),
         workflow_entity(
-            "wf_empty",
+            "empty-workflow",
             "Empty",
             """
 workflow:
@@ -287,7 +287,7 @@ workflow:
 """,
         ),
         workflow_entity(
-            "wf_ok",
+            "valid-workflow",
             "Valid",
             """
 blocks:
@@ -312,37 +312,37 @@ blocks:
 # --- create_soul ---
 
 
-def test_create_soul_happy_path_uses_custom_souls_commit_path():
+def test_create_soul_on_main_commits_custom_souls_path():
     soul_repo, git_service, service = make_service()
-    created = SoulEntity(id="soul_custom", kind="soul", name="Custom", role="Custom")
+    created = SoulEntity(id="custom-soul", kind="soul", name="Custom", role="Custom")
     soul_repo.get_by_id.return_value = None
     soul_repo.create.return_value = created
     git_service.is_clean.return_value = False
     git_service.current_branch.return_value = "main"
 
     result = service.create_soul(
-        {"id": "soul_custom", "kind": "soul", "name": "Custom", "role": "Custom"}
+        {"id": "custom-soul", "kind": "soul", "name": "Custom", "role": "Custom"}
     )
 
     assert result == created
     soul_repo.create.assert_called_once()
     git_service.commit_to_branch.assert_called_once_with(
         "main",
-        ["custom/souls/soul_custom.yaml"],
-        "Create soul_custom.yaml",
+        ["custom/souls/custom-soul.yaml"],
+        "Create custom-soul.yaml",
     )
 
 
 def test_create_soul_skips_auto_commit_outside_main_branch():
     soul_repo, git_service, service = make_service()
-    created = SoulEntity(id="soul_custom", kind="soul", name="Custom", role="Custom")
+    created = SoulEntity(id="custom-soul", kind="soul", name="Custom", role="Custom")
     soul_repo.get_by_id.return_value = None
     soul_repo.create.return_value = created
     git_service.is_clean.return_value = False
-    git_service.current_branch.return_value = "feature/test"
+    git_service.current_branch.return_value = "feature/soul-edit"
 
     result = service.create_soul(
-        {"id": "soul_custom", "kind": "soul", "name": "Custom", "role": "Custom"}
+        {"id": "custom-soul", "kind": "soul", "name": "Custom", "role": "Custom"}
     )
 
     assert result == created
@@ -353,15 +353,15 @@ def test_create_soul_skips_auto_commit_outside_main_branch():
 def test_create_soul_existing_id_raises_conflict():
     soul_repo, _git_service, service = make_service()
     soul_repo.get_by_id.return_value = SoulEntity(
-        id="soul_custom",
+        id="custom-soul",
         kind="soul",
         name="Existing",
         role="Existing",
     )
 
-    with pytest.raises(SoulAlreadyExists, match=r"soul:soul_custom"):
+    with pytest.raises(SoulAlreadyExists, match=r"soul:custom-soul"):
         service.create_soul(
-            {"id": "soul_custom", "kind": "soul", "name": "Custom", "role": "Custom"}
+            {"id": "custom-soul", "kind": "soul", "name": "Custom", "role": "Custom"}
         )
     soul_repo.create.assert_not_called()
 
@@ -390,7 +390,7 @@ def test_create_soul_missing_kind_is_rejected():
     with pytest.raises(ValidationError):
         service.create_soul(
             {
-                "id": "soul_custom",
+                "id": "custom-soul",
                 "name": "Custom",
                 "role": "Custom",
                 "system_prompt": "Write carefully.",
@@ -405,7 +405,7 @@ def test_create_soul_missing_name_is_rejected():
     with pytest.raises(ValidationError):
         service.create_soul(
             {
-                "id": "soul_custom",
+                "id": "custom-soul",
                 "kind": "soul",
                 "role": "Custom",
                 "system_prompt": "Write carefully.",
@@ -417,8 +417,8 @@ def test_create_soul_real_git_commit_uses_custom_souls_path(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     git(repo, "init", "-b", "main")
-    git(repo, "config", "user.email", "test@test.com")
-    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "contributor@example.invalid")
+    git(repo, "config", "user.name", "Runsight Tests")
     (repo / "README.md").write_text("# repo")
     git(repo, "add", "README.md")
     git(repo, "commit", "-m", "initial commit")
@@ -447,28 +447,28 @@ def test_create_soul_real_git_commit_uses_custom_souls_path(tmp_path):
 # --- update_soul ---
 
 
-def test_update_soul_happy_path():
+def test_update_soul_merges_existing_fields():
     soul_repo = Mock()
     existing = SoulEntity(
-        id="soul_1",
+        id="alpha-soul",
         kind="soul",
         name="Old",
         role="Old",
         system_prompt="Keep me",
         provider="openai",
     )
-    updated = SoulEntity(id="soul_1", kind="soul", name="New", role="New")
+    updated = SoulEntity(id="alpha-soul", kind="soul", name="New", role="New")
     soul_repo.get_by_id.return_value = existing
     soul_repo.update.return_value = updated
     service = SoulService(soul_repo)
 
-    result = service.update_soul("soul_1", {"role": "New"})
+    result = service.update_soul("alpha-soul", {"role": "New"})
 
     assert result == updated
     soul_repo.update.assert_called_once()
     update_id, payload = soul_repo.update.call_args[0]
-    assert update_id == "soul_1"
-    assert payload["id"] == "soul_1"
+    assert update_id == "alpha-soul"
+    assert payload["id"] == "alpha-soul"
     assert payload["role"] == "New"
     assert payload["system_prompt"] == "Keep me"
     assert payload["provider"] == "openai"
@@ -488,7 +488,7 @@ def test_update_soul_not_found_raises_soul_not_found():
 
 def test_update_soul_copy_on_edit_creates_copy_and_commits_new_path():
     soul_repo, git_service, service = make_service()
-    existing = SoulEntity(id="soul_1", kind="soul", name="Original", role="Original")
+    existing = SoulEntity(id="alpha-soul", kind="soul", name="Original", role="Original")
     soul_repo.get_by_id.return_value = existing
     git_service.is_clean.return_value = False
     git_service.current_branch.return_value = "main"
@@ -503,12 +503,12 @@ def test_update_soul_copy_on_edit_creates_copy_and_commits_new_path():
 
     soul_repo.create.side_effect = capture_create
 
-    service.update_soul("soul_1", {"role": "Copy"}, copy_on_edit=True)
+    service.update_soul("alpha-soul", {"role": "Copy"}, copy_on_edit=True)
 
     soul_repo.create.assert_called_once()
     call_args = soul_repo.create.call_args[0][0]
-    assert call_args["id"].startswith("soul_1_copy_")
-    assert len(call_args["id"]) == len("soul_1_copy_") + 4
+    assert call_args["id"].startswith("alpha-soul_copy_")
+    assert len(call_args["id"]) == len("alpha-soul_copy_") + 4
     assert call_args["role"] == "Copy"
     git_service.commit_to_branch.assert_called_once_with(
         "main",
@@ -521,14 +521,14 @@ def test_update_soul_copy_on_edit_creates_copy_and_commits_new_path():
 def test_update_soul_skips_auto_commit_outside_main_branch():
     soul_repo, git_service, service = make_service()
     existing = SoulEntity(
-        id="soul_1",
+        id="alpha-soul",
         kind="soul",
         name="Old",
         role="Old",
         system_prompt="Keep me",
     )
     updated = SoulEntity(
-        id="soul_1",
+        id="alpha-soul",
         kind="soul",
         name="New",
         role="New",
@@ -537,9 +537,9 @@ def test_update_soul_skips_auto_commit_outside_main_branch():
     soul_repo.get_by_id.return_value = existing
     soul_repo.update.return_value = updated
     git_service.is_clean.return_value = False
-    git_service.current_branch.return_value = "feature/test"
+    git_service.current_branch.return_value = "feature/soul-edit"
 
-    result = service.update_soul("soul_1", {"role": "New"})
+    result = service.update_soul("alpha-soul", {"role": "New"})
 
     assert result == updated
     soul_repo.update.assert_called_once()
@@ -549,10 +549,10 @@ def test_update_soul_skips_auto_commit_outside_main_branch():
 # --- delete_soul ---
 
 
-def test_delete_soul_happy_path_uses_custom_souls_commit_path():
+def test_delete_soul_on_main_commits_custom_souls_path():
     soul_repo, git_service, service = make_service()
     soul_repo.get_by_id.return_value = SoulEntity(
-        id="soul_1",
+        id="alpha-soul",
         kind="soul",
         name="Soul",
         role="Soul",
@@ -561,33 +561,33 @@ def test_delete_soul_happy_path_uses_custom_souls_commit_path():
     git_service.is_clean.return_value = False
     git_service.current_branch.return_value = "main"
 
-    result = service.delete_soul("soul_1")
+    result = service.delete_soul("alpha-soul")
 
     assert result is True
-    soul_repo.delete.assert_called_once_with("soul_1")
+    soul_repo.delete.assert_called_once_with("alpha-soul")
     git_service.commit_to_branch.assert_called_once_with(
         "main",
-        ["custom/souls/soul_1.yaml"],
-        "Delete soul_1.yaml",
+        ["custom/souls/alpha-soul.yaml"],
+        "Delete alpha-soul.yaml",
     )
 
 
 def test_delete_soul_skips_auto_commit_outside_main_branch():
     soul_repo, git_service, service = make_service()
     soul_repo.get_by_id.return_value = SoulEntity(
-        id="soul_1",
+        id="alpha-soul",
         kind="soul",
         name="Soul",
         role="Soul",
     )
     soul_repo.delete.return_value = True
     git_service.is_clean.return_value = False
-    git_service.current_branch.return_value = "feature/test"
+    git_service.current_branch.return_value = "feature/soul-edit"
 
-    result = service.delete_soul("soul_1")
+    result = service.delete_soul("alpha-soul")
 
     assert result is True
-    soul_repo.delete.assert_called_once_with("soul_1")
+    soul_repo.delete.assert_called_once_with("alpha-soul")
     git_service.commit_to_branch.assert_not_called()
 
 
@@ -614,7 +614,7 @@ def test_delete_soul_in_use_raises_conflict_with_usage_details():
     )
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-workflow",
             "Review One",
             """
 blocks:
@@ -624,7 +624,7 @@ blocks:
 """,
         ),
         workflow_entity(
-            "wf_2",
+            "review-workflow",
             "Review Two",
             """
 blocks:
@@ -641,7 +641,7 @@ blocks:
 
     details = exc_info.value.to_dict()["details"]
     assert len(details["usages"]) == 2
-    assert details["usages"][0]["workflow_id"] == "wf_1"
+    assert details["usages"][0]["workflow_id"] == "research-workflow"
     soul_repo.delete.assert_not_called()
 
 
@@ -657,7 +657,7 @@ def test_delete_soul_force_true_deletes_even_when_in_use():
     soul_repo.delete.return_value = True
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-workflow",
             "Review One",
             """
 blocks:
