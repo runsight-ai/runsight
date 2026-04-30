@@ -1,18 +1,17 @@
-"""
-RUN-879 — Red tests: Task and task-related constructs must be deleted from core.
+"""Task API governance coverage.
 
-These tests assert the DESIRED end state. They will FAIL until the Green team
-removes Task from primitives, WorkflowState, schema, parser, runner, and __init__.
+These tests protect the boundary that workflow execution no longer exposes
+task oriented primitives or runner APIs.
 
-AC verified:
-- Task class does not exist in primitives.py
-- WorkflowState has no current_task field
-- parse_task_yaml() does not exist in runsight_core.yaml.parser
-- TaskDef and RunsightTaskFile do not exist in runsight_core.yaml.schema
-- execute_task() and _build_prompt() do not exist on RunsightTeamRunner
-- runsight_core.__init__ does not export Task
-- runner.py source has no Task import
-- state.py source has no current_task
+The suite verifies:
+- Task class does not exist in primitives.py.
+- WorkflowState has no current_task field.
+- parse_task_yaml() does not exist in runsight_core.yaml.parser.
+- TaskDef and RunsightTaskFile do not exist in runsight_core.yaml.schema.
+- execute_task() and _build_prompt() do not exist on RunsightTeamRunner.
+- runsight_core.__init__ does not export Task.
+- runner.py source has no Task import.
+- state.py source has no current_task.
 """
 
 import ast
@@ -54,7 +53,7 @@ def _ast_imported_names(rel: str) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# primitives.py — Task class must be gone
+# primitives.py does not define Task
 # ---------------------------------------------------------------------------
 
 
@@ -63,7 +62,8 @@ class TestPrimitivesTaskDeleted:
         """AST check: 'class Task' must not appear in primitives.py."""
         defined = _ast_names("primitives.py")
         assert "Task" not in defined, (
-            "primitives.py still defines a 'Task' class. RUN-879 requires it to be deleted."
+            "primitives.py still defines a 'Task' class. "
+            "The task API boundary requires it to be deleted."
         )
 
     def test_task_not_importable_from_primitives_module(self):
@@ -71,12 +71,13 @@ class TestPrimitivesTaskDeleted:
         import runsight_core.primitives as prims
 
         assert not hasattr(prims, "Task"), (
-            "runsight_core.primitives still exports 'Task'. RUN-879 requires it to be removed."
+            "runsight_core.primitives still exports 'Task'. "
+            "The task API boundary requires it to be removed."
         )
 
 
 # ---------------------------------------------------------------------------
-# runsight_core.__init__ — Task must not be exported
+# runsight_core.__init__ does not export Task
 # ---------------------------------------------------------------------------
 
 
@@ -88,7 +89,7 @@ class TestInitTaskNotExported:
         all_exports = getattr(runsight_core, "__all__", [])
         assert "Task" not in all_exports, (
             "runsight_core.__all__ still lists 'Task'. "
-            "RUN-879 requires it to be removed from __all__."
+            "the task API boundary requires it to be removed from __all__."
         )
 
     def test_task_not_importable_from_runsight_core(self):
@@ -97,12 +98,12 @@ class TestInitTaskNotExported:
 
         assert not hasattr(runsight_core, "Task"), (
             "runsight_core still exposes 'Task' at package level. "
-            "RUN-879 requires this export to be removed."
+            "the task API boundary requires this export to be removed."
         )
 
 
 # ---------------------------------------------------------------------------
-# state.py — WorkflowState must have no current_task field
+# state.py has no WorkflowState.current_task field
 # ---------------------------------------------------------------------------
 
 
@@ -112,7 +113,7 @@ class TestWorkflowStateNoCurrentTask:
         source = _source("state.py")
         assert "current_task" not in source, (
             "state.py still references 'current_task'. "
-            "RUN-879 requires this field to be removed from WorkflowState."
+            "the task API boundary requires this field to be removed from WorkflowState."
         )
 
     def test_current_task_not_on_workflow_state_model(self):
@@ -121,19 +122,21 @@ class TestWorkflowStateNoCurrentTask:
 
         fields = WorkflowState.model_fields if hasattr(WorkflowState, "model_fields") else {}
         assert "current_task" not in fields, (
-            "WorkflowState still has a 'current_task' field. RUN-879 requires it to be deleted."
+            "WorkflowState still has a 'current_task' field. "
+            "The task API boundary requires it to be deleted."
         )
 
     def test_task_not_imported_in_state_source(self):
         """AST check: state.py must not import 'Task' from primitives."""
         imported = _ast_imported_names("state.py")
         assert "Task" not in imported, (
-            "state.py still imports 'Task'. RUN-879 requires this import to be removed."
+            "state.py still imports 'Task'. "
+            "The task API boundary requires this import to be removed."
         )
 
 
 # ---------------------------------------------------------------------------
-# yaml/parser.py — parse_task_yaml must be gone
+# yaml/parser.py does not expose parse_task_yaml
 # ---------------------------------------------------------------------------
 
 
@@ -143,7 +146,7 @@ class TestParserNoParseTaskYaml:
         defined = _ast_names("yaml/parser.py")
         assert "parse_task_yaml" not in defined, (
             "yaml/parser.py still defines 'parse_task_yaml'. "
-            "RUN-879 requires this function to be deleted."
+            "the task API boundary requires this function to be deleted."
         )
 
     def test_parse_task_yaml_not_importable_from_parser_module(self):
@@ -152,12 +155,12 @@ class TestParserNoParseTaskYaml:
 
         assert not hasattr(parser, "parse_task_yaml"), (
             "runsight_core.yaml.parser still exposes 'parse_task_yaml'. "
-            "RUN-879 requires it to be removed."
+            "the task API boundary requires it to be removed."
         )
 
 
 # ---------------------------------------------------------------------------
-# yaml/schema.py — TaskDef and RunsightTaskFile must be gone
+# yaml/schema.py does not define task file schemas
 # ---------------------------------------------------------------------------
 
 
@@ -166,14 +169,16 @@ class TestSchemaTaskDefsDeleted:
         """AST check: 'TaskDef' must not appear in yaml/schema.py."""
         defined = _ast_names("yaml/schema.py")
         assert "TaskDef" not in defined, (
-            "yaml/schema.py still defines 'TaskDef'. RUN-879 requires it to be deleted."
+            "yaml/schema.py still defines 'TaskDef'. "
+            "The task API boundary requires it to be deleted."
         )
 
     def test_runsight_task_file_not_defined_in_schema_source(self):
         """AST check: 'RunsightTaskFile' must not appear in yaml/schema.py."""
         defined = _ast_names("yaml/schema.py")
         assert "RunsightTaskFile" not in defined, (
-            "yaml/schema.py still defines 'RunsightTaskFile'. RUN-879 requires it to be deleted."
+            "yaml/schema.py still defines 'RunsightTaskFile'. "
+            "The task API boundary requires it to be deleted."
         )
 
     def test_taskdef_not_importable_from_schema_module(self):
@@ -181,7 +186,8 @@ class TestSchemaTaskDefsDeleted:
         from runsight_core.yaml import schema
 
         assert not hasattr(schema, "TaskDef"), (
-            "runsight_core.yaml.schema still exposes 'TaskDef'. RUN-879 requires it to be removed."
+            "runsight_core.yaml.schema still exposes 'TaskDef'. "
+            "The task API boundary requires it to be removed."
         )
 
     def test_runsight_task_file_not_importable_from_schema_module(self):
@@ -190,12 +196,12 @@ class TestSchemaTaskDefsDeleted:
 
         assert not hasattr(schema, "RunsightTaskFile"), (
             "runsight_core.yaml.schema still exposes 'RunsightTaskFile'. "
-            "RUN-879 requires it to be removed."
+            "the task API boundary requires it to be removed."
         )
 
 
 # ---------------------------------------------------------------------------
-# runner.py — execute_task, _build_prompt must be gone; Task import must be gone
+# runner.py has no task oriented runner API
 # ---------------------------------------------------------------------------
 
 
@@ -204,21 +210,24 @@ class TestRunnerTaskMethodsDeleted:
         """AST check: 'execute_task' must not be defined in runner.py."""
         defined = _ast_names("runner.py")
         assert "execute_task" not in defined, (
-            "runner.py still defines 'execute_task'. RUN-879 requires this method to be deleted."
+            "runner.py still defines 'execute_task'. "
+            "The task API boundary requires this method to be deleted."
         )
 
     def test_build_prompt_not_defined_in_runner_source(self):
         """AST check: '_build_prompt' must not be defined in runner.py."""
         defined = _ast_names("runner.py")
         assert "_build_prompt" not in defined, (
-            "runner.py still defines '_build_prompt'. RUN-879 requires this method to be deleted."
+            "runner.py still defines '_build_prompt'. "
+            "The task API boundary requires this method to be deleted."
         )
 
     def test_task_not_imported_in_runner_source(self):
         """AST check: runner.py must not import 'Task'."""
         imported = _ast_imported_names("runner.py")
         assert "Task" not in imported, (
-            "runner.py still imports 'Task'. RUN-879 requires this import to be removed."
+            "runner.py still imports 'Task'. "
+            "The task API boundary requires this import to be removed."
         )
 
     def test_execute_task_not_on_runner_class(self):
@@ -227,7 +236,7 @@ class TestRunnerTaskMethodsDeleted:
 
         assert not hasattr(RunsightTeamRunner, "execute_task"), (
             "RunsightTeamRunner still has an 'execute_task' method. "
-            "RUN-879 requires it to be deleted."
+            "the task API boundary requires it to be deleted."
         )
 
     def test_build_prompt_not_on_runner_class(self):
@@ -236,5 +245,5 @@ class TestRunnerTaskMethodsDeleted:
 
         assert not hasattr(RunsightTeamRunner, "_build_prompt"), (
             "RunsightTeamRunner still has a '_build_prompt' method. "
-            "RUN-879 requires it to be deleted."
+            "the task API boundary requires it to be deleted."
         )
