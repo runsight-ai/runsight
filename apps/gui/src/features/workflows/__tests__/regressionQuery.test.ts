@@ -12,7 +12,7 @@ import {
 describe("WorkflowRegressionSchema", () => {
   it("parses a valid assertion_regression", () => {
     const input = {
-      node_id: "node-1",
+      node_id: "quality-review-node",
       node_name: "Quality Review",
       type: "assertion_regression",
       delta: { eval_passed: false, baseline_eval_passed: true },
@@ -20,12 +20,12 @@ describe("WorkflowRegressionSchema", () => {
     const result = WorkflowRegressionSchema.parse(input);
     expect(result.type).toBe("assertion_regression");
     expect(result.node_name).toBe("Quality Review");
-    expect(result.node_id).toBe("node-1");
+    expect(result.node_id).toBe("quality-review-node");
   });
 
   it("parses a cost_spike regression with delta record", () => {
     const input = {
-      node_id: "node-2",
+      node_id: "writer-node",
       node_name: "Writer",
       type: "cost_spike",
       delta: { cost_pct: 34, baseline_cost: 0.05 },
@@ -38,7 +38,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("parses a quality_drop regression with delta record", () => {
     const input = {
-      node_id: "node-3",
+      node_id: "summarizer-node",
       node_name: "Summarizer",
       type: "quality_drop",
       delta: { score_delta: -0.2 },
@@ -50,7 +50,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("accepts optional run_id and run_number fields", () => {
     const input = {
-      node_id: "node-4",
+      node_id: "validator-node",
       node_name: "Validator",
       type: "assertion_regression",
       delta: {},
@@ -64,7 +64,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("rejects unknown regression type", () => {
     const input = {
-      node_id: "node-5",
+      node_id: "unknown-type-node",
       node_name: "Foo",
       type: "unknown_type",
       delta: {},
@@ -74,7 +74,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("rejects missing node_name", () => {
     const input = {
-      node_id: "node-6",
+      node_id: "missing-name-node",
       type: "assertion_regression",
       delta: {},
     };
@@ -87,13 +87,13 @@ describe("WorkflowRegressionsResponseSchema", () => {
     const input = {
       issues: [
         {
-          node_id: "node-1",
+          node_id: "quality-review-node",
           node_name: "Quality Review",
           type: "assertion_regression",
           delta: { eval_passed: false },
         },
         {
-          node_id: "node-2",
+          node_id: "writer-node",
           node_name: "Writer",
           type: "cost_spike",
           delta: { cost_pct: 34 },
@@ -120,7 +120,7 @@ describe("WorkflowRegressionsResponseSchema", () => {
     const input = {
       issues: [
         {
-          node_id: "node-1",
+          node_id: "quality-review-node",
           node_name: "X",
           type: "assertion_regression",
           delta: {},

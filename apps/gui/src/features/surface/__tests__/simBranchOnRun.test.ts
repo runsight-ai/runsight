@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => {
   const persistedCanvasState = {
     nodes: [
       {
-        id: "node-1",
+        id: "draft-soul-node",
         type: "soul",
         position: { x: 10, y: 20 },
         data: { label: "Draft node" },
@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => {
     ],
     edges: [],
     viewport: { x: 4, y: 8, zoom: 0.75 },
-    selected_node_id: "node-1",
+    selected_node_id: "draft-soul-node",
     canvas_mode: "dag" as const,
   };
 

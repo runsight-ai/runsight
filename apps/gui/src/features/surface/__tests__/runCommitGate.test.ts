@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => {
     setActiveRunId: vi.fn(),
     nodes: [
       {
-        id: "node-1",
+        id: "draft-soul-node",
         type: "soul",
         position: { x: 10, y: 20 },
         data: { label: "Draft node" },
@@ -119,7 +119,7 @@ beforeEach(() => {
   mocks.state.setActiveRunId.mockReset();
   mocks.state.nodes = [
     {
-      id: "node-1",
+      id: "draft-soul-node",
       type: "soul",
       position: { x: 10, y: 20 },
       data: { label: "Draft node" },

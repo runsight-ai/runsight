@@ -101,7 +101,7 @@ function renderDialog(overrides: Record<string, unknown> = {}) {
     workflowId: "review_flow",
     draft: {
       yaml: "workflow:\n  name: Draft Flow\n",
-      canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
+      canvas_state: { nodes: [{ id: "draft-soul-node" }], edges: [] },
     },
     ...overrides,
   });
@@ -194,7 +194,7 @@ describe("CommitDialog workflow save contract", () => {
       workflowId: "review_flow",
       payload: {
         yaml: "workflow:\n  name: Draft Flow\n",
-        canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
+        canvas_state: { nodes: [{ id: "draft-soul-node" }], edges: [] },
         message: "Save workflow to main",
       },
     });
@@ -220,7 +220,7 @@ describe("CommitDialog workflow save contract", () => {
         workflowId: "review_flow",
         draft: {
           yaml: "workflow:\n  name: Draft Flow\n",
-          canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
+          canvas_state: { nodes: [{ id: "draft-soul-node" }], edges: [] },
         },
       }),
     );
