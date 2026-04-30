@@ -38,15 +38,15 @@ function getSchemaProperties(name: string) {
 describe("canonical settings transport contracts", () => {
   it("exports canonical provider item and list schemas on @runsight/shared/zod", () => {
     const providerSample = {
-      id: "openai",
+      id: "fixture-primary",
       kind: "provider",
-      name: "OpenAI",
-      type: "openai",
+      name: "Fixture Primary",
+      type: "fixture-primary",
       status: "connected",
-      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+      api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
       api_key_preview: "test-key...abcd",
-      base_url: "https://provider.example.test/v1",
-      models: ["gpt-4.1"],
+      base_url: "http://localhost/v1",
+      models: ["fixture-chat-model"],
       model_count: 1,
       is_active: true,
       created_at: "2026-03-01T00:00:00Z",
@@ -81,11 +81,11 @@ describe("canonical settings transport contracts", () => {
 
   it("exports canonical fallback item and list schemas on @runsight/shared/zod", () => {
     const fallbackSample = {
-      id: "openai",
-      provider_id: "openai",
-      provider_name: "OpenAI",
-      fallback_provider_id: "anthropic",
-      fallback_model_id: "claude-sonnet-4",
+      id: "fixture-primary",
+      provider_id: "fixture-primary",
+      provider_name: "Fixture Primary",
+      fallback_provider_id: "fixture-backup",
+      fallback_model_id: "fixture-backup-model",
     };
 
     const fallbackItemSchema = getCanonicalSchema("SettingsFallbackResponseSchema");
@@ -103,13 +103,13 @@ describe("canonical settings transport contracts", () => {
     );
     expect(
       fallbackUpdateSchema.parse({
-        fallback_provider_id: "anthropic",
-        fallback_model_id: "claude-sonnet-4",
+        fallback_provider_id: "fixture-backup",
+        fallback_model_id: "fixture-backup-model",
       }),
     ).toEqual(
       expect.objectContaining({
-        fallback_provider_id: "anthropic",
-        fallback_model_id: "claude-sonnet-4",
+        fallback_provider_id: "fixture-backup",
+        fallback_model_id: "fixture-backup-model",
       }),
     );
     expect(
@@ -224,7 +224,7 @@ describe("canonical settings transport contracts", () => {
     const providerTestSample = {
       success: true,
       message: "Connection successful",
-      models: ["gpt-4.1", "gpt-4o-mini"],
+      models: ["fixture-chat-model", "fixture-small-model"],
       model_count: 2,
       latency_ms: 123.4,
     };

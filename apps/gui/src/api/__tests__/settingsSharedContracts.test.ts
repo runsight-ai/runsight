@@ -187,14 +187,14 @@ beforeEach(() => {
 
 const providerItemPayload = {
   kind: "provider",
-  id: "openai",
-  name: "OpenAI",
-  type: "openai",
+  id: "fixture-primary",
+  name: "Fixture Primary",
+  type: "fixture-primary",
   status: "connected",
-  api_key_env: "EXAMPLE_PROVIDER_API_KEY",
+  api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
   api_key_preview: "test-key...abcd",
-  base_url: "https://provider.example.test/v1",
-  models: ["gpt-4.1"],
+  base_url: "http://localhost/v1",
+  models: ["fixture-chat-model"],
   model_count: 1,
   is_configured: true,
   created_at: "2026-03-01T00:00:00Z",
@@ -202,13 +202,13 @@ const providerItemPayload = {
 };
 
 const modelDefaultItemPayload = {
-  id: "openai",
-  provider_id: "openai",
-  provider_name: "OpenAI",
-  model_name: "gpt-4.1",
+  id: "fixture-primary",
+  provider_id: "fixture-primary",
+  provider_name: "Fixture Primary",
+  model_name: "fixture-chat-model",
   is_default: true,
-  fallback_provider_id: "anthropic",
-  fallback_model_id: "claude-sonnet-4",
+  fallback_provider_id: "fixture-backup",
+  fallback_model_id: "fixture-backup-model",
 };
 
 const appSettingsPayload = {
@@ -220,7 +220,7 @@ const appSettingsPayload = {
 const providerTestPayload = {
   success: true,
   message: "Connection successful",
-  models: ["gpt-4.1", "gpt-4o-mini"],
+  models: ["fixture-chat-model", "fixture-small-model"],
   model_count: 2,
   latency_ms: 123.4,
 };
@@ -329,7 +329,7 @@ describe("settings API canonical shared contracts", () => {
       arrange: (payload) => {
         testState.apiGet.mockResolvedValue(payload);
       },
-      invoke: (settingsApi) => settingsApi.getProvider("openai"),
+      invoke: (settingsApi) => settingsApi.getProvider("fixture-primary"),
       assertResult: (result) => {
         expect(result).toEqual(
           expect.objectContaining({
@@ -348,11 +348,11 @@ describe("settings API canonical shared contracts", () => {
       },
       invoke: (settingsApi) =>
         settingsApi.createProvider({
-          id: "openai",
+          id: "fixture-primary",
           kind: "provider",
-          name: "OpenAI",
-          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-          base_url: "https://provider.example.test/v1",
+          name: "Fixture Primary",
+          api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
+          base_url: "http://localhost/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(
@@ -371,12 +371,12 @@ describe("settings API canonical shared contracts", () => {
         testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
-        settingsApi.updateProvider("openai", {
-          id: "openai",
+        settingsApi.updateProvider("fixture-primary", {
+          id: "fixture-primary",
           kind: "provider",
-          name: "OpenAI",
-          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-          base_url: "https://provider.example.test/v1",
+          name: "Fixture Primary",
+          api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
+          base_url: "http://localhost/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(
@@ -418,7 +418,7 @@ describe("settings API canonical shared contracts", () => {
         testState.apiPut.mockResolvedValue(payload);
       },
       invoke: (settingsApi) =>
-        settingsApi.updateFallbackTarget("openai", {
+        settingsApi.updateFallbackTarget("fixture-primary", {
           fallback_provider_id: modelDefaultItemPayload.fallback_provider_id,
           fallback_model_id: modelDefaultItemPayload.fallback_model_id,
         }),
@@ -467,7 +467,7 @@ describe("settings API canonical shared contracts", () => {
       arrange: (payload) => {
         testState.apiPost.mockResolvedValue(payload);
       },
-      invoke: (settingsApi) => settingsApi.testProviderConnection("openai"),
+      invoke: (settingsApi) => settingsApi.testProviderConnection("fixture-primary"),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(providerTestPayload));
       },
@@ -480,10 +480,10 @@ describe("settings API canonical shared contracts", () => {
       },
       invoke: (settingsApi) =>
         settingsApi.testProviderCredentials({
-          provider_type: "openai",
-          name: "OpenAI",
-          api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-          base_url: "https://provider.example.test/v1",
+          provider_type: "fixture-primary",
+          name: "Fixture Primary",
+          api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
+          base_url: "http://localhost/v1",
         }),
       assertResult: (result) => {
         expect(result).toEqual(expect.objectContaining(providerTestPayload));
@@ -506,27 +506,27 @@ describe("settings API canonical shared contracts", () => {
 
     const { settingsApi } = await import("../settings");
     await settingsApi.createProvider({
-      id: "openai",
+      id: "fixture-primary",
       kind: "provider",
-      name: "OpenAI",
-      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-      base_url: "https://provider.example.test/v1",
+      name: "Fixture Primary",
+      api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
+      base_url: "http://localhost/v1",
     });
-    await settingsApi.updateProvider("openai", {
-      id: "openai",
+    await settingsApi.updateProvider("fixture-primary", {
+      id: "fixture-primary",
       kind: "provider",
       is_active: false,
     });
 
     expect(testState.apiPost).toHaveBeenCalledWith("/settings/providers", {
-      id: "openai",
+      id: "fixture-primary",
       kind: "provider",
-      name: "OpenAI",
-      api_key_env: "EXAMPLE_PROVIDER_API_KEY",
-      base_url: "https://provider.example.test/v1",
+      name: "Fixture Primary",
+      api_key_env: "FIXTURE_PROVIDER_CREDENTIAL",
+      base_url: "http://localhost/v1",
     });
-    expect(testState.apiPut).toHaveBeenCalledWith("/settings/providers/openai", {
-      id: "openai",
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/providers/fixture-primary", {
+      id: "fixture-primary",
       kind: "provider",
       is_active: false,
     });
@@ -536,21 +536,21 @@ describe("settings API canonical shared contracts", () => {
     testState.apiPut.mockResolvedValue(modelDefaultItemPayload);
 
     const { settingsApi } = await import("../settings");
-    await settingsApi.updateFallbackTarget("openai", {
-      fallback_provider_id: "anthropic",
-      fallback_model_id: "claude-sonnet-4",
+    await settingsApi.updateFallbackTarget("fixture-primary", {
+      fallback_provider_id: "fixture-backup",
+      fallback_model_id: "fixture-backup-model",
     });
 
-    expect(testState.apiPut).toHaveBeenCalledWith("/settings/fallbacks/openai", {
-      fallback_provider_id: "anthropic",
-      fallback_model_id: "claude-sonnet-4",
+    expect(testState.apiPut).toHaveBeenCalledWith("/settings/fallbacks/fixture-primary", {
+      fallback_provider_id: "fixture-backup",
+      fallback_model_id: "fixture-backup-model",
     });
 
     const [, payload] = testState.apiPut.mock.calls.at(-1) ?? [];
     expect(payload).toEqual(
       expect.objectContaining({
-        fallback_provider_id: "anthropic",
-        fallback_model_id: "claude-sonnet-4",
+        fallback_provider_id: "fixture-backup",
+        fallback_model_id: "fixture-backup-model",
       }),
     );
     expect(payload).not.toHaveProperty("fallback_chain");
