@@ -4,10 +4,9 @@ Problem: SSE event types are magic strings scattered across streaming_observer.p
 execution_service.py, and frontend code. This creates a maintenance hazard where
 a typo or rename in one place silently breaks the event contract.
 
-Fix: Define SSE event type names as module-level string constants in
+Expected behavior: Define SSE event type names as module-level string constants in
 domain/events.py and use them in both streaming_observer and execution_service.
 
-AC:
 1. SSE event type names defined as constants (not an enum -- just string constants)
 2. streaming_observer uses constants instead of string literals
 3. execution_service uses constants for terminal event checks
@@ -22,7 +21,7 @@ from unittest.mock import Mock
 import pytest
 
 # ---------------------------------------------------------------------------
-# AC-1: SSE event type names defined as constants in domain/events.py
+# SSE event type names defined as constants in domain/events.py
 # ---------------------------------------------------------------------------
 
 
@@ -84,7 +83,7 @@ class TestSSEEventConstantsExist:
 
 
 # ---------------------------------------------------------------------------
-# AC-2: streaming_observer uses constants instead of string literals
+# streaming_observer uses constants instead of string literals
 # ---------------------------------------------------------------------------
 
 
@@ -158,7 +157,7 @@ class TestStreamingObserverUsesConstants:
 
 
 # ---------------------------------------------------------------------------
-# AC-3: execution_stream_registry uses constants for terminal event checks
+# execution_stream_registry uses constants for terminal event checks
 # ---------------------------------------------------------------------------
 
 
@@ -223,7 +222,7 @@ class TestExecutionStreamRegistryUsesConstants:
 
 
 # ---------------------------------------------------------------------------
-# AC-4: Behavioral contract -- observer events still match constant values
+# Behavioral contract -- observer events still match constant values
 # ---------------------------------------------------------------------------
 
 

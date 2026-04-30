@@ -15,7 +15,7 @@ from pathlib import Path
 # repo root is 4 levels up
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-# The 4 target files that Green must clean up
+# The 4 target files that should no longer contain stale soul assertion fields.
 TARGET_FILES = {
     "core_auto_registration": (
         _REPO_ROOT / "packages" / "core" / "tests" / "test_auto_registration.py"
@@ -68,7 +68,7 @@ def _count_soul_assertion_refs(filepath: Path) -> list[tuple[int, str]]:
 
 
 class TestStaleSoulAssertionRefsRemoved:
-    """AC-1: Zero soul-assertion references remain in the 4 target test files."""
+    """Zero soul-assertion references remain in the 4 target test files."""
 
     def test_core_auto_registration_has_no_soul_assertion_refs(self):
         filepath = TARGET_FILES["core_auto_registration"]
