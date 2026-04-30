@@ -1,0 +1,31 @@
+packages/core/tests/test_isolation_worker.py
+  4adca821c1af8eb3 375,383
+packages/core/tests/test_scan_index_entity_ids.py
+  4adca821c1af8eb3 207-209,258-261
+packages/core/tests/test_isolation_block_migration.py
+  4adca821c1af8eb3 208,237
+packages/core/tests/test_core_identity_verification.py
+  4adca821c1af8eb3 126-128,136,140,142,144-145,176,181,185-186,197,249-251,273
+packages/core/tests/test_tool_pipeline_execution.py
+  4adca821c1af8eb3 572,585-587
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "214222cad4bd6ff294c386fe07c7b9b3daa83b77",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 35,
+      "total_deletions": 29,
+      "accepted_lines": 88161,
+      "overriden_lines": 0
+    }
+  }
+}
