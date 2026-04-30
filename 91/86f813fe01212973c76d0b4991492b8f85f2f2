@@ -1,0 +1,31 @@
+apps/api/tests/transport/test_tools_router.py
+  4adca821c1af8eb3 116
+apps/api/tests/logic/test_git_service_missing_binary.py
+  4adca821c1af8eb3 28
+apps/api/tests/core/test_scaffold_project.py
+  4adca821c1af8eb3 37,55
+apps/api/tests/transport/test_git_router_missing_binary.py
+  4adca821c1af8eb3 29
+apps/api/tests/test_cors_config.py
+  4adca821c1af8eb3 41,47,53,60-61,77,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9186f813fe01212973c76d0b4991492b8f85f2f2",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 12,
+      "accepted_lines": 89323,
+      "overriden_lines": 0
+    }
+  }
+}
