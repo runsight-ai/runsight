@@ -36,21 +36,25 @@ class TestModelServiceDisabledProviders:
     def test_excludes_inactive_providers_from_available_models(self):
         catalog = Mock()
         catalog.get_models.return_value = [
-            SimpleNamespace(provider="openai", model_id="gpt-4o", mode="chat"),
-            SimpleNamespace(provider="anthropic", model_id="claude-sonnet-4", mode="chat"),
+            SimpleNamespace(
+                provider="primary-provider", model_id="primary-fixture-model", mode="chat"
+            ),
+            SimpleNamespace(
+                provider="backup-provider", model_id="backup-fixture-model", mode="chat"
+            ),
         ]
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
             _provider(
-                provider_id="openai",
-                provider_type="openai",
-                name="OpenAI",
+                provider_id="primary-provider",
+                provider_type="primary-provider",
+                name="Primary Provider",
                 is_active=True,
             ),
             _provider(
-                provider_id="anthropic",
-                provider_type="anthropic",
-                name="Anthropic",
+                provider_id="backup-provider",
+                provider_type="backup-provider",
+                name="Backup Provider",
                 is_active=False,
             ),
         ]
@@ -59,7 +63,7 @@ class TestModelServiceDisabledProviders:
 
         result = service.get_available_models()
 
-        assert [model.provider for model in result] == ["openai"]
+        assert [model.provider for model in result] == ["primary-provider"]
 
 
 class TestSettingsServiceDisabledProviders:
@@ -68,30 +72,30 @@ class TestSettingsServiceDisabledProviders:
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
             _provider(
-                provider_id="openai",
-                provider_type="openai",
-                name="OpenAI",
+                provider_id="primary-provider",
+                provider_type="primary-provider",
+                name="Primary Provider",
                 is_active=True,
-                models=["gpt-4o"],
+                models=["primary-fixture-model"],
             ),
             _provider(
-                provider_id="anthropic",
-                provider_type="anthropic",
-                name="Anthropic",
+                provider_id="backup-provider",
+                provider_type="backup-provider",
+                name="Backup Provider",
                 is_active=False,
-                models=["claude-sonnet-4"],
+                models=["backup-fixture-model"],
             ),
         ]
         settings_repo.get_fallback_map.return_value = [
             FallbackTargetEntry(
-                provider_id="openai",
-                fallback_provider_id="anthropic",
-                fallback_model_id="claude-sonnet-4",
+                provider_id="primary-provider",
+                fallback_provider_id="backup-provider",
+                fallback_model_id="backup-fixture-model",
             ),
             FallbackTargetEntry(
-                provider_id="anthropic",
-                fallback_provider_id="openai",
-                fallback_model_id="gpt-4o",
+                provider_id="backup-provider",
+                fallback_provider_id="primary-provider",
+                fallback_model_id="primary-fixture-model",
             ),
         ]
 
@@ -101,9 +105,9 @@ class TestSettingsServiceDisabledProviders:
 
         assert result == [
             {
-                "id": "openai",
-                "provider_id": "openai",
-                "provider_name": "OpenAI",
+                "id": "primary-provider",
+                "provider_id": "primary-provider",
+                "provider_name": "Primary Provider",
                 "fallback_provider_id": None,
                 "fallback_model_id": None,
             }
@@ -113,20 +117,20 @@ class TestSettingsServiceDisabledProviders:
         settings_repo = Mock()
         provider_repo = Mock()
         provider_repo.get_by_id.return_value = _provider(
-            provider_id="anthropic",
-            provider_type="anthropic",
-            name="Anthropic",
+            provider_id="backup-provider",
+            provider_type="backup-provider",
+            name="Backup Provider",
             is_active=False,
-            models=["claude-sonnet-4"],
+            models=["backup-fixture-model"],
         )
 
         service = SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)
 
         with pytest.raises(InputValidationError, match="disabled"):
             service.update_fallback_target(
-                provider_id="anthropic",
-                fallback_provider_id="openai",
-                fallback_model_id="gpt-4o",
+                provider_id="backup-provider",
+                fallback_provider_id="primary-provider",
+                fallback_model_id="primary-fixture-model",
             )
 
 
@@ -135,9 +139,11 @@ class TestExecutionServiceDisabledProviders:
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
             _provider(
-                provider_id="openai",
+                provider_id="primary-provider",
+                # The provider type is behavior-bearing: env fallback is hard-coded
+                # for openai/anthropic and must be skipped when that type is disabled.
                 provider_type="openai",
-                name="OpenAI",
+                name="Primary Provider",
                 is_active=False,
                 api_key=None,
             )

@@ -100,40 +100,40 @@ class TestFallbackMapPersistence:
 
         repo.set_fallback_target(
             entry_cls(
-                provider_id="openai",
-                fallback_provider_id="anthropic",
-                fallback_model_id="claude-sonnet-4",
+                provider_id="primary-provider",
+                fallback_provider_id="backup-provider",
+                fallback_model_id="backup-fixture-model",
             )
         )
         updated = repo.set_fallback_target(
             entry_cls(
-                provider_id="openai",
-                fallback_provider_id="google",
-                fallback_model_id="gemini-2.5-pro",
+                provider_id="primary-provider",
+                fallback_provider_id="auxiliary-provider",
+                fallback_model_id="auxiliary-fixture-model",
             )
         )
 
-        assert updated.provider_id == "openai"
-        assert updated.fallback_provider_id == "google"
-        assert updated.fallback_model_id == "gemini-2.5-pro"
+        assert updated.provider_id == "primary-provider"
+        assert updated.fallback_provider_id == "auxiliary-provider"
+        assert updated.fallback_model_id == "auxiliary-fixture-model"
 
         fallback_map = repo.get_fallback_map()
         assert len(fallback_map) == 1
-        assert fallback_map[0].provider_id == "openai"
-        assert fallback_map[0].fallback_provider_id == "google"
-        assert fallback_map[0].fallback_model_id == "gemini-2.5-pro"
+        assert fallback_map[0].provider_id == "primary-provider"
+        assert fallback_map[0].fallback_provider_id == "auxiliary-provider"
+        assert fallback_map[0].fallback_model_id == "auxiliary-fixture-model"
 
     def test_remove_fallback_target_returns_true_when_removed(self, repo):
         entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
         repo.set_fallback_target(
             entry_cls(
-                provider_id="openai",
-                fallback_provider_id="anthropic",
-                fallback_model_id="claude-sonnet-4",
+                provider_id="primary-provider",
+                fallback_provider_id="backup-provider",
+                fallback_model_id="backup-fixture-model",
             )
         )
 
-        removed = repo.remove_fallback_target("openai")
+        removed = repo.remove_fallback_target("primary-provider")
 
         assert removed is True
         assert repo.get_fallback_map() == []
@@ -144,9 +144,9 @@ class TestFallbackMapPersistence:
         entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
         repo.set_fallback_target(
             entry_cls(
-                provider_id="openai",
-                fallback_provider_id="anthropic",
-                fallback_model_id="claude-sonnet-4",
+                provider_id="primary-provider",
+                fallback_provider_id="backup-provider",
+                fallback_model_id="backup-fixture-model",
             )
         )
         before = settings_file.read_text()
@@ -166,9 +166,9 @@ class TestFallbackMapPersistence:
                     "fallback_enabled": True,
                     "fallback_map": [
                         {
-                            "provider_id": "openai",
-                            "fallback_provider_id": "anthropic",
-                            "fallback_model_id": "claude-sonnet-4",
+                            "provider_id": "primary-provider",
+                            "fallback_provider_id": "backup-provider",
+                            "fallback_model_id": "backup-fixture-model",
                         }
                     ],
                 },
@@ -179,24 +179,24 @@ class TestFallbackMapPersistence:
 
         updated = repo.set_fallback_target(
             entry_cls(
-                provider_id="openai",
-                fallback_provider_id="google",
-                fallback_model_id="gemini-2.5-pro",
+                provider_id="primary-provider",
+                fallback_provider_id="auxiliary-provider",
+                fallback_model_id="auxiliary-fixture-model",
             )
         )
 
-        assert updated.provider_id == "openai"
-        assert updated.fallback_provider_id == "google"
-        assert updated.fallback_model_id == "gemini-2.5-pro"
+        assert updated.provider_id == "primary-provider"
+        assert updated.fallback_provider_id == "auxiliary-provider"
+        assert updated.fallback_model_id == "auxiliary-fixture-model"
 
         on_disk = yaml.safe_load(settings_file.read_text())
         assert on_disk["onboarding_completed"] is True
         assert on_disk["fallback_enabled"] is True
         assert on_disk["fallback_map"] == [
             {
-                "provider_id": "openai",
-                "fallback_provider_id": "google",
-                "fallback_model_id": "gemini-2.5-pro",
+                "provider_id": "primary-provider",
+                "fallback_provider_id": "auxiliary-provider",
+                "fallback_model_id": "auxiliary-fixture-model",
             }
         ]
 
@@ -206,15 +206,18 @@ class TestStrictSchemaValidation:
         ("key", "value"),
         [
             ("auto_save", True),
-            ("default_provider", "openai"),
+            ("default_provider", "primary-provider"),
             ("fallback_chain_enabled", True),
-            ("fallback_chain", [{"provider_id": "openai", "model_id": "gpt-4o"}]),
+            (
+                "fallback_chain",
+                [{"provider_id": "primary-provider", "model_id": "primary-fixture-model"}],
+            ),
             (
                 "model_defaults",
                 [
                     {
-                        "provider_id": "openai",
-                        "model_id": "gpt-4o",
+                        "provider_id": "primary-provider",
+                        "model_id": "primary-fixture-model",
                         "is_default": True,
                     }
                 ],
@@ -266,9 +269,9 @@ class TestStrictSchemaValidation:
             yaml.safe_dump(
                 {
                     "fallback_map": {
-                        "provider_id": "openai",
-                        "fallback_provider_id": "anthropic",
-                        "fallback_model_id": "claude-sonnet-4",
+                        "provider_id": "primary-provider",
+                        "fallback_provider_id": "backup-provider",
+                        "fallback_model_id": "backup-fixture-model",
                     }
                 },
                 sort_keys=False,
@@ -284,22 +287,22 @@ class TestStrictSchemaValidation:
             (
                 "provider_id",
                 {
-                    "fallback_provider_id": "anthropic",
-                    "fallback_model_id": "claude-sonnet-4",
+                    "fallback_provider_id": "backup-provider",
+                    "fallback_model_id": "backup-fixture-model",
                 },
             ),
             (
                 "fallback_provider_id",
                 {
-                    "provider_id": "openai",
-                    "fallback_model_id": "claude-sonnet-4",
+                    "provider_id": "primary-provider",
+                    "fallback_model_id": "backup-fixture-model",
                 },
             ),
             (
                 "fallback_model_id",
                 {
-                    "provider_id": "openai",
-                    "fallback_provider_id": "anthropic",
+                    "provider_id": "primary-provider",
+                    "fallback_provider_id": "backup-provider",
                 },
             ),
         ],
@@ -326,9 +329,9 @@ class TestStrictSettingsWrites:
                     "fallback_enabled": True,
                     "fallback_map": [
                         {
-                            "provider_id": "openai",
-                            "fallback_provider_id": "anthropic",
-                            "fallback_model_id": "claude-sonnet-4",
+                            "provider_id": "primary-provider",
+                            "fallback_provider_id": "backup-provider",
+                            "fallback_model_id": "backup-fixture-model",
                         }
                     ],
                 },
@@ -348,9 +351,9 @@ class TestStrictSettingsWrites:
         assert on_disk["fallback_enabled"] is True
         assert on_disk["fallback_map"] == [
             {
-                "provider_id": "openai",
-                "fallback_provider_id": "anthropic",
-                "fallback_model_id": "claude-sonnet-4",
+                "provider_id": "primary-provider",
+                "fallback_provider_id": "backup-provider",
+                "fallback_model_id": "backup-fixture-model",
             }
         ]
 
