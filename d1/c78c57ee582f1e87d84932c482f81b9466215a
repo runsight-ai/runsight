@@ -1,0 +1,23 @@
+testing/gui-e2e/tests/readonly-surface.spec.ts
+  4adca821c1af8eb3 4,6,13,18-22,49-50,52-53,55-56,58-59,63-64,78,298,398-400,403,465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d1c78c57ee582f1e87d84932c482f81b9466215a",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 23,
+      "accepted_lines": 91028,
+      "overriden_lines": 0
+    }
+  }
+}
