@@ -1,17 +1,12 @@
-"""
-Failing tests for RUN-884: Implement build_block_context for LinearBlock.
+"""build_block_context behavior coverage for LinearBlock.
 
-Imports build_block_context from runsight_core.block_io — it does not exist yet.
-All tests are expected to fail with ImportError or AttributeError until implemented.
-
-AC coverage:
-1. build_block_context produces correct BlockContext for LinearBlock
-2. Resolution results are identical to Step._resolve_from_ref for the same inputs (parity test)
-3. Conversation history is shallow-copied into BlockContext
-4. fit_to_budget called with correct parameters
-5. artifact_store passed through from state
-6. Unit tests cover: empty inputs, single input, multiple inputs, missing source (ValueError),
-   JSON auto-parse
+Tests cover:
+1. Declared input resolution for empty, single, multiple, missing, and JSON refs.
+2. Parity with the canonical _resolve_ref helper.
+3. BlockContext field population for LinearBlock.
+4. Conversation history shallow-copy behavior.
+5. fit_to_budget request construction.
+6. artifact_store passthrough from WorkflowState.
 """
 
 from unittest.mock import MagicMock, patch
@@ -35,7 +30,7 @@ from runsight_core.state import BlockResult, WorkflowState
 _MODEL = "gpt-4o"
 
 
-def make_soul(soul_id: str = "soul_1", model_name: str = _MODEL) -> Soul:
+def make_soul(soul_id: str = "research_soul", model_name: str = _MODEL) -> Soul:
     return Soul(
         id=soul_id,
         kind="soul",
@@ -52,7 +47,7 @@ def make_runner(model_name: str = _MODEL) -> MagicMock:
     return runner
 
 
-def make_linear_block(block_id: str = "block_a", soul: Soul | None = None) -> LinearBlock:
+def make_linear_block(block_id: str = "research_block", soul: Soul | None = None) -> LinearBlock:
     if soul is None:
         soul = make_soul()
     return LinearBlock(block_id=block_id, soul=soul, runner=make_runner())
@@ -63,7 +58,7 @@ def make_state(**kwargs) -> WorkflowState:
 
 
 def make_artifact_store() -> InMemoryArtifactStore:
-    return InMemoryArtifactStore(run_id="run-test-001")
+    return InMemoryArtifactStore(run_id="block-context-test-run")
 
 
 def _make_budgeted_context(
@@ -93,7 +88,7 @@ def _make_budgeted_context(
 
 
 # ==============================================================================
-# 1. Input resolution — AC-6 (empty, single, multiple, missing, JSON)
+# Input resolution for empty, single, multiple, missing, and JSON refs
 # ==============================================================================
 
 
@@ -116,9 +111,9 @@ class TestInputResolution:
         """Single declared input resolves to the matching BlockResult.output."""
         block = make_linear_block()
         state = make_state(
-            results={"block_upstream": BlockResult(output="defective")},
+            results={"upstream_review_block": BlockResult(output="defective")},
         )
-        step = Step(block, declared_inputs={"reason": "block_upstream"})
+        step = Step(block, declared_inputs={"reason": "upstream_review_block"})
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -131,11 +126,14 @@ class TestInputResolution:
         block = make_linear_block()
         state = make_state(
             results={
-                "src_a": BlockResult(output="alpha"),
-                "src_b": BlockResult(output="beta"),
+                "upstream_alpha_block": BlockResult(output="alpha"),
+                "upstream_beta_block": BlockResult(output="beta"),
             },
         )
-        step = Step(block, declared_inputs={"input_a": "src_a", "input_b": "src_b"})
+        step = Step(
+            block,
+            declared_inputs={"input_a": "upstream_alpha_block", "input_b": "upstream_beta_block"},
+        )
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -159,9 +157,9 @@ class TestInputResolution:
         """JSON output is parsed and dot-path resolution extracts the correct field."""
         block = make_linear_block()
         state = make_state(
-            results={"block_a": BlockResult(output='{"key": "val"}')},
+            results={"research_block": BlockResult(output='{"key": "val"}')},
         )
-        step = Step(block, declared_inputs={"extracted": "block_a.key"})
+        step = Step(block, declared_inputs={"extracted": "research_block.key"})
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -173,25 +171,27 @@ class TestInputResolution:
         """Arbitrary field paths into non-JSON output fail clearly."""
         block = make_linear_block()
         state = make_state(
-            results={"block_a": BlockResult(output="plain text")},
+            results={"research_block": BlockResult(output="plain text")},
         )
-        step = Step(block, declared_inputs={"data": "block_a.subfield"})
+        step = Step(block, declared_inputs={"data": "research_block.subfield"})
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
-            with pytest.raises((ContextResolutionError, ValueError), match="block_a.subfield"):
+            with pytest.raises(
+                (ContextResolutionError, ValueError), match="research_block.subfield"
+            ):
                 build_block_context(block, state, step=step)
 
 
 # ==============================================================================
-# 2. Parity with Step._resolve_from_ref — AC-2
+# Parity with canonical reference resolution
 # ==============================================================================
 
 
 class TestParityWithResolveRef:
     """build_block_context input resolution uses _resolve_ref (canonical resolver).
-    Step._resolve_from_ref was removed in RUN-892; these tests verify the
-    canonical _resolve_ref in block_io produces correct results."""
+    These tests verify that the canonical _resolve_ref in block_io produces
+    correct results."""
 
     def test_resolve_ref_single_plain_output(self):
         """For a plain output ref, build_block_context resolves correctly."""
@@ -235,10 +235,10 @@ class TestParityWithResolveRef:
 
         block = make_linear_block()
         state = make_state(results={})
-        step = Step(block, declared_inputs={"x": "missing_block"})
+        step = Step(block, declared_inputs={"x": "missing_source_block"})
 
         with pytest.raises(ValueError):
-            _resolve_ref("missing_block", state)
+            _resolve_ref("missing_source_block", state)
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
@@ -247,7 +247,7 @@ class TestParityWithResolveRef:
 
 
 # ==============================================================================
-# 3. LinearBlock context population — AC-1
+# LinearBlock context population
 # ==============================================================================
 
 
@@ -256,14 +256,14 @@ class TestLinearBlockContextPopulation:
 
     def test_block_id_matches_block(self):
         """ctx.block_id equals block.block_id."""
-        block = make_linear_block(block_id="my_block")
+        block = make_linear_block(block_id="context_target_block")
         state = make_state()
 
         budgeted = _make_budgeted_context()
         with patch("runsight_core.block_io.fit_to_budget", return_value=budgeted):
             ctx = build_block_context(block, state)
 
-        assert ctx.block_id == "my_block"
+        assert ctx.block_id == "context_target_block"
 
     def test_instruction_comes_from_budgeted_task(self):
         """ctx.instruction is taken from the BudgetedContext.task.instruction."""
@@ -289,7 +289,7 @@ class TestLinearBlockContextPopulation:
 
     def test_soul_is_set_from_block_soul(self):
         """ctx.soul matches block.soul."""
-        soul = make_soul(soul_id="soul_unique")
+        soul = make_soul(soul_id="unique_research_soul")
         block = make_linear_block(soul=soul)
         state = make_state()
 
@@ -298,7 +298,7 @@ class TestLinearBlockContextPopulation:
             ctx = build_block_context(block, state)
 
         assert ctx.soul is soul
-        assert ctx.soul.id == "soul_unique"
+        assert ctx.soul.id == "unique_research_soul"
 
     def test_model_name_from_soul_model_name(self):
         """ctx.model_name is resolved from soul.model_name when set."""
@@ -315,10 +315,15 @@ class TestLinearBlockContextPopulation:
     def test_model_name_falls_back_to_runner_model_name(self):
         """ctx.model_name falls back to runner.model_name when soul.model_name is None."""
         soul = Soul(
-            id="soul_1", kind="soul", name="Test", role="R", system_prompt="p", model_name=None
+            id="research_soul",
+            kind="soul",
+            name="Test",
+            role="R",
+            system_prompt="p",
+            model_name=None,
         )
         runner = make_runner(model_name="gpt-4-turbo")
-        block = LinearBlock(block_id="block_a", soul=soul, runner=runner)
+        block = LinearBlock(block_id="research_block", soul=soul, runner=runner)
         state = make_state()
 
         budgeted = _make_budgeted_context()
@@ -329,9 +334,9 @@ class TestLinearBlockContextPopulation:
 
     def test_conversation_history_from_state_histories(self):
         """ctx.conversation_history is populated from state.conversation_histories."""
-        soul = make_soul(soul_id="soul_1")
-        block = make_linear_block(block_id="block_a", soul=soul)
-        history_key = "block_a_soul_1"
+        soul = make_soul(soul_id="research_soul")
+        block = make_linear_block(block_id="research_block", soul=soul)
+        history_key = "research_block_research_soul"
         existing_history = [
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi"},
@@ -348,8 +353,8 @@ class TestLinearBlockContextPopulation:
 
     def test_conversation_history_empty_when_no_history_for_block(self):
         """ctx.conversation_history is empty when state has no history for this block-soul."""
-        soul = make_soul(soul_id="soul_1")
-        block = make_linear_block(block_id="block_a", soul=soul)
+        soul = make_soul(soul_id="research_soul")
+        block = make_linear_block(block_id="research_block", soul=soul)
         state = make_state(conversation_histories={})
 
         budgeted = _make_budgeted_context(messages=[])
@@ -360,18 +365,18 @@ class TestLinearBlockContextPopulation:
 
 
 # ==============================================================================
-# 4. Conversation history is a shallow copy — AC-3
+# Conversation history is a shallow copy
 # ==============================================================================
 
 
 class TestConversationHistoryShallowCopy:
-    """build_block_context shallow-copies conversation history (AC-3)."""
+    """build_block_context shallow-copies conversation history."""
 
     def test_conversation_history_is_not_same_object_as_state_history(self):
         """ctx.conversation_history must be a new list, not the same object from state."""
-        soul = make_soul(soul_id="soul_1")
-        block = make_linear_block(block_id="block_a", soul=soul)
-        history_key = "block_a_soul_1"
+        soul = make_soul(soul_id="research_soul")
+        block = make_linear_block(block_id="research_block", soul=soul)
+        history_key = "research_block_research_soul"
         original_history = [{"role": "user", "content": "Question"}]
         state = make_state(
             conversation_histories={history_key: original_history},
@@ -385,9 +390,9 @@ class TestConversationHistoryShallowCopy:
 
     def test_mutation_of_ctx_history_does_not_affect_state_history(self):
         """Mutating ctx.conversation_history must not affect state.conversation_histories."""
-        soul = make_soul(soul_id="soul_1")
-        block = make_linear_block(block_id="block_a", soul=soul)
-        history_key = "block_a_soul_1"
+        soul = make_soul(soul_id="research_soul")
+        block = make_linear_block(block_id="research_block", soul=soul)
+        history_key = "research_block_research_soul"
         original_history = [{"role": "user", "content": "Question"}]
         state = make_state(
             conversation_histories={history_key: original_history},
@@ -404,7 +409,7 @@ class TestConversationHistoryShallowCopy:
 
 
 # ==============================================================================
-# 5. fit_to_budget integration — AC-4
+# fit_to_budget integration
 # ==============================================================================
 
 
@@ -424,7 +429,7 @@ class TestFitToBudgetIntegration:
 
     def test_fit_to_budget_receives_correct_model(self):
         """fit_to_budget is called with the resolved model name."""
-        soul = make_soul(soul_id="soul_1", model_name="gpt-4o-mini")
+        soul = make_soul(soul_id="research_soul", model_name="gpt-4o-mini")
         block = make_linear_block(soul=soul)
         state = make_state()
 
@@ -438,7 +443,7 @@ class TestFitToBudgetIntegration:
 
     def test_fit_to_budget_receives_correct_instruction(self):
         """fit_to_budget is called with soul.system_prompt as instruction for LinearBlock."""
-        soul = make_soul(soul_id="soul_1")
+        soul = make_soul(soul_id="research_soul")
         block = make_linear_block(soul=soul)
         state = make_state()
 
@@ -466,12 +471,12 @@ class TestFitToBudgetIntegration:
 
     def test_fit_to_budget_receives_conversation_history(self):
         """fit_to_budget is called with conversation history keyed by block_id_soul_id."""
-        soul = make_soul(soul_id="soul_1")
-        block = make_linear_block(block_id="block_a", soul=soul)
+        soul = make_soul(soul_id="research_soul")
+        block = make_linear_block(block_id="research_block", soul=soul)
         history = [{"role": "user", "content": "prior turn"}]
         # Key is "{block_id}_{soul_id}"
         state = make_state(
-            conversation_histories={"block_a_soul_1": history},
+            conversation_histories={"research_block_research_soul": history},
         )
 
         budgeted = _make_budgeted_context(messages=history)
@@ -485,7 +490,7 @@ class TestFitToBudgetIntegration:
     def test_fit_to_budget_receives_system_prompt_from_soul(self):
         """fit_to_budget is called with system_prompt from block.soul.system_prompt."""
         soul = Soul(
-            id="soul_1",
+            id="research_soul",
             kind="soul",
             name="Specialized Soul",
             role="R",
@@ -517,7 +522,7 @@ class TestFitToBudgetIntegration:
 
 
 # ==============================================================================
-# 6. artifact_store passthrough — AC-5
+# artifact_store passthrough
 # ==============================================================================
 
 
@@ -570,8 +575,8 @@ class TestEdgeCases:
     def test_current_task_none_returns_minimal_context(self):
         """build_block_context returns a valid context even when no workflow result exists.
 
-        Since RUN-893 the function no longer requires a task. For LinearBlock, the
-        instruction comes from soul.system_prompt and context defaults to empty string.
+        For LinearBlock, the instruction comes from soul.system_prompt and
+        context defaults to empty string.
         """
         block = make_linear_block()
         state = make_state()
@@ -623,5 +628,5 @@ class TestEdgeCases:
 
         call_args = mock_fit.call_args
         request = call_args[0][0]
-        # Should be "" not None — mirrors LinearBlock.execute behaviour
+        # Should be "" not None, matching LinearBlock.execute behaviour.
         assert request.context == ""
