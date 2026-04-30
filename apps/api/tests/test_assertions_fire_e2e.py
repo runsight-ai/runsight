@@ -274,7 +274,7 @@ class TestContainsAssertionPasses:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -319,7 +319,7 @@ class TestContainsAssertionPasses:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -376,7 +376,7 @@ class TestContainsAssertionFails:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -418,7 +418,7 @@ class TestContainsAssertionFails:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -462,7 +462,7 @@ class TestContainsAssertionFails:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -519,7 +519,7 @@ class TestCostAssertionEvaluation:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -565,7 +565,7 @@ class TestCostAssertionEvaluation:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -611,7 +611,7 @@ class TestCostAssertionEvaluation:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -667,7 +667,7 @@ class TestAssertionsFireDuringExecution:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -731,7 +731,7 @@ class TestAssertionsFireDuringExecution:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(

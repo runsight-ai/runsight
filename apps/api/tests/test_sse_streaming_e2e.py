@@ -89,19 +89,19 @@ souls:
     provider: openai
     model_name: gpt-4o
 blocks:
-  step_a:
+  draft_stream_block:
     type: linear
     soul_ref: writer
-  step_b:
+  publish_stream_block:
     type: linear
     soul_ref: writer
 workflow:
   name: two_block_sse_test
-  entry: step_a
+  entry: draft_stream_block
   transitions:
-    - from: step_a
-      to: step_b
-    - from: step_b
+    - from: draft_stream_block
+      to: publish_stream_block
+    - from: publish_stream_block
       to: null
 """
 
@@ -223,7 +223,7 @@ def _seed_run(engine, run_id: str, workflow_name: str) -> None:
         session.add(
             Run(
                 id=run_id,
-                workflow_id="wf_test",
+                workflow_id="sse-stream-fixture-workflow",
                 workflow_name=workflow_name,
                 branch="main",
                 status=RunStatus.pending,
@@ -464,7 +464,7 @@ class TestSSEStreamProducesBlockEvents:
         self, execution_service, db_engine
     ):
         """A two-block sequential workflow must emit node_started and
-        node_completed for BOTH blocks (step_a and step_b)."""
+        node_completed for BOTH blocks (draft_stream_block and publish_stream_block)."""
         run_id = "run_sse_two"
         _seed_run(db_engine, run_id, "two_block_sse_test")
         wf = _parse_workflow(TWO_BLOCK_YAML)
@@ -494,10 +494,18 @@ class TestSSEStreamProducesBlockEvents:
         started_ids = {e["data"]["node_id"] for e in started_events}
         completed_ids = {e["data"]["node_id"] for e in completed_events}
 
-        assert "step_a" in started_ids, f"step_a missing from started: {started_ids}"
-        assert "step_b" in started_ids, f"step_b missing from started: {started_ids}"
-        assert "step_a" in completed_ids, f"step_a missing from completed: {completed_ids}"
-        assert "step_b" in completed_ids, f"step_b missing from completed: {completed_ids}"
+        assert "draft_stream_block" in started_ids, (
+            f"draft_stream_block missing from started: {started_ids}"
+        )
+        assert "publish_stream_block" in started_ids, (
+            f"publish_stream_block missing from started: {started_ids}"
+        )
+        assert "draft_stream_block" in completed_ids, (
+            f"draft_stream_block missing from completed: {completed_ids}"
+        )
+        assert "publish_stream_block" in completed_ids, (
+            f"publish_stream_block missing from completed: {completed_ids}"
+        )
 
 
 # ===========================================================================
@@ -705,7 +713,7 @@ class TestRunCompletedIsLastEvent:
     async def test_all_node_completed_precede_run_completed_two_blocks(
         self, execution_service, db_engine
     ):
-        """Both step_a and step_b must have node_completed events BEFORE
+        """Both draft_stream_block and publish_stream_block must have node_completed events BEFORE
         run_completed."""
         run_id = "run_sse_order_two"
         _seed_run(db_engine, run_id, "two_block_sse_test")
@@ -735,11 +743,11 @@ class TestRunCompletedIsLastEvent:
             if e["event"] == SSE_NODE_COMPLETED and i < terminal_idx
         }
 
-        assert "step_a" in completed_before, (
-            f"step_a must complete before terminal. Got: {completed_before}"
+        assert "draft_stream_block" in completed_before, (
+            f"draft_stream_block must complete before terminal. Got: {completed_before}"
         )
-        assert "step_b" in completed_before, (
-            f"step_b must complete before terminal. Got: {completed_before}"
+        assert "publish_stream_block" in completed_before, (
+            f"publish_stream_block must complete before terminal. Got: {completed_before}"
         )
 
 
@@ -853,7 +861,7 @@ class TestSSEEndpointHTTPChunks:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_sse),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(
@@ -965,7 +973,7 @@ class TestSSEEndpointHTTPChunks:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_sse),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with (
                 patch(

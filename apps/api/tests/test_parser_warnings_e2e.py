@@ -333,7 +333,7 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
 
     async with AsyncClient(
         transport=ASGITransport(app=app_without_execution),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         create_workflow = await client.post(
             "/api/workflows",
@@ -407,7 +407,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_execution),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         create_workflow = await client.post(
             "/api/workflows",
@@ -502,7 +502,7 @@ async def test_child_run_warnings_do_not_inherit_parent_snapshot(app_without_exe
 
     async with AsyncClient(
         transport=ASGITransport(app=app_without_execution),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         child_response = await client.get(f"/api/runs/{child_run_id}")
         assert child_response.status_code == 200

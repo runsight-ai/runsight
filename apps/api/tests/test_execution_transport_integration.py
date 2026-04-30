@@ -303,7 +303,7 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         create_response = await client.post(
             "/api/runs",
@@ -345,7 +345,7 @@ async def test_post_run_then_stream_replays_persisted_execution_logs(db_engine, 
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
-        base_url="http://test",
+        base_url="http://localhost",
     ) as client:
         with patch(
             "runsight_core.llm.client.LiteLLMClient.achat",

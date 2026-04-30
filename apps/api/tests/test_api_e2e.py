@@ -100,10 +100,10 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
 
 
 def _write_provider_file(base_dir: Path) -> None:
-    """Create a real openai provider YAML at custom/providers/openai.yaml.
+    """Create an isolated provider fixture that LiteLLM can classify.
 
-    The filename stem becomes the provider id (ADR D3).
-    The api_key is stored as a ${OPENAI_API_KEY} reference resolved by SecretsEnvLoader.
+    The OpenAI provider type is behavior-bearing here: the core runner uses
+    LiteLLM provider detection before the mocked LLM call is reached.
     """
     provider_dir = base_dir / "custom" / "providers"
     provider_dir.mkdir(parents=True, exist_ok=True)
@@ -246,7 +246,7 @@ def app_with_real_services(db_engine, base_dir):
 
     workflow_repo = WorkflowRepository(str(base_dir))
 
-    # Real provider repo — discovers openai.yaml from the temp filesystem
+    # Real provider repo — discovers the isolated provider fixture from tmp_path.
     provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
 
     # Isolated secrets loader reads the dummy key from the temp .runsight/secrets.env.
@@ -308,7 +308,7 @@ class TestSuccessfulRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -339,7 +339,7 @@ class TestSuccessfulRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -372,7 +372,7 @@ class TestSuccessfulRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -405,7 +405,7 @@ class TestSuccessfulRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -449,7 +449,7 @@ class TestSuccessfulRunE2E:
         try:
             async with AsyncClient(
                 transport=ASGITransport(app=app_with_real_services),
-                base_url="http://test",
+                base_url="http://localhost",
             ) as client:
                 with patch(
                     "runsight_core.llm.client.LiteLLMClient.achat",
@@ -495,7 +495,7 @@ class TestFailingRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -530,7 +530,7 @@ class TestFailingRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
@@ -559,7 +559,7 @@ class TestFailingRunE2E:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://localhost",
         ) as client:
             with patch(
                 "runsight_core.llm.client.LiteLLMClient.achat",
