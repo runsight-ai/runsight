@@ -37,7 +37,7 @@ def test_list_souls_uses_injected_workflow_repo_for_counts():
     ]
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-flow",
             "Research Flow",
             """
 blocks:
@@ -62,7 +62,7 @@ def test_get_soul_usages_uses_injected_workflow_repo():
     )
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-flow",
             "Research Flow",
             """
 blocks:
@@ -76,7 +76,7 @@ blocks:
 
     usages = service.get_soul_usages("researcher")
 
-    assert usages == [{"workflow_id": "wf_1", "workflow_name": "Research Flow"}]
+    assert usages == [{"workflow_id": "research-flow", "workflow_name": "Research Flow"}]
 
 
 def test_delete_soul_uses_injected_workflow_repo_for_guarded_delete():
@@ -87,7 +87,7 @@ def test_delete_soul_uses_injected_workflow_repo_for_guarded_delete():
     )
     workflow_repo.list_all.return_value = [
         workflow_entity(
-            "wf_1",
+            "research-flow",
             "Research Flow",
             """
 blocks:

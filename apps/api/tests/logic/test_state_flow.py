@@ -53,7 +53,7 @@ class TestRunReceivesWorkflowState:
 
         inputs = {"topic": "Summarize the document"}
 
-        await svc._run_workflow("run_1", mock_wf, _prepared_inputs(inputs))
+        await svc._run_workflow("state-instance-run", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -71,7 +71,7 @@ class TestRunReceivesWorkflowState:
 
         inputs = {"topic": "Analyze this data"}
 
-        await svc._run_workflow("run_2", mock_wf, _prepared_inputs(inputs))
+        await svc._run_workflow("state-not-string-run", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -96,7 +96,7 @@ class TestInputsPassedToWorkflowRun:
 
         inputs = {"customer_id": "123", "reason": "defective"}
 
-        await svc._run_workflow("run_3", mock_wf, _prepared_inputs(inputs))
+        await svc._run_workflow("inputs-keyword-run", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         call_kwargs = mock_wf.run.call_args[1]
@@ -111,7 +111,7 @@ class TestInputsPassedToWorkflowRun:
         mock_wf = Mock()
         mock_wf.run = AsyncMock(return_value=WorkflowState())
 
-        await svc._run_workflow("run_4", mock_wf, _prepared_inputs({}))
+        await svc._run_workflow("empty-inputs-run", mock_wf, _prepared_inputs({}))
 
         call_kwargs = mock_wf.run.call_args[1]
         assert call_kwargs["inputs"] == {}
@@ -141,7 +141,7 @@ class TestObserverReceivesRealState:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_5", mock_wf, _prepared_inputs(inputs))
+            await svc._run_workflow("observer-forwarding-run", mock_wf, _prepared_inputs(inputs))
 
         mock_wf.run.assert_called_once()
         first_arg = mock_wf.run.call_args[0][0]
@@ -190,8 +190,8 @@ class TestLaunchExecutionStateFlow:
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "run_e2e",
-                "wf_1",
+                "launch-state-flow-run",
+                "launch-state-flow-workflow",
                 _prepared_inputs(inputs),
                 branch=None,
             )

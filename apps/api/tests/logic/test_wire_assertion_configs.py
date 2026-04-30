@@ -132,7 +132,7 @@ def _seed_run(engine, run_id: str, workflow_name: str) -> None:
         session.add(
             Run(
                 id=run_id,
-                workflow_id="wf_1",
+                workflow_id="block-assertion-workflow",
                 workflow_name=workflow_name,
                 status=RunStatus.pending,
                 task_json="{}",

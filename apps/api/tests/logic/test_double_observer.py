@@ -42,8 +42,8 @@ def _seed_run(engine, run_id: str) -> None:
     with Session(engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_1",
-            workflow_name="test_workflow",
+            workflow_id="observer-dedup-workflow",
+            workflow_name="Observer Dedup Workflow",
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -96,7 +96,7 @@ class TestOnWorkflowStartCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_1", mock_wf, _prepared_inputs())
+            await svc._run_workflow("workflow-start-run", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_start.call_count == 1, (
                 f"on_workflow_start called {mock_observer.on_workflow_start.call_count} times, "
@@ -136,7 +136,7 @@ class TestOnWorkflowCompleteCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_2", mock_wf, _prepared_inputs())
+            await svc._run_workflow("workflow-complete-run", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_complete.call_count == 1, (
                 f"on_workflow_complete called {mock_observer.on_workflow_complete.call_count} times, "
@@ -177,7 +177,7 @@ class TestOnWorkflowErrorCalledOnce:
             mock_observer = Mock()
             MockComposite.return_value = mock_observer
 
-            await svc._run_workflow("run_3", mock_wf, _prepared_inputs())
+            await svc._run_workflow("workflow-error-run", mock_wf, _prepared_inputs())
 
             assert mock_observer.on_workflow_error.call_count == 1, (
                 f"on_workflow_error called {mock_observer.on_workflow_error.call_count} times, "
@@ -195,10 +195,10 @@ class TestNoDuplicateLogEntries:
     exactly one LogEntry — not two."""
 
     @pytest.mark.asyncio
-    async def test_workflow_start_creates_one_log_entry(self):
+    async def test_start_event_creates_one_log_entry(self):
         """on_workflow_start should produce exactly 1 LogEntry with event=workflow_start."""
         engine = _make_db()
-        run_id = "run_log_start"
+        run_id = "workflow-start-log-run"
         _seed_run(engine, run_id)
 
         svc = _make_service(engine=engine)
@@ -223,10 +223,10 @@ class TestNoDuplicateLogEntries:
             )
 
     @pytest.mark.asyncio
-    async def test_workflow_complete_creates_one_log_entry(self):
+    async def test_complete_event_creates_one_log_entry(self):
         """on_workflow_complete should produce exactly 1 LogEntry with event=workflow_complete."""
         engine = _make_db()
-        run_id = "run_log_complete"
+        run_id = "workflow-complete-log-run"
         _seed_run(engine, run_id)
 
         svc = _make_service(engine=engine)
@@ -251,10 +251,10 @@ class TestNoDuplicateLogEntries:
             )
 
     @pytest.mark.asyncio
-    async def test_workflow_error_creates_one_log_entry(self):
+    async def test_error_event_creates_one_log_entry(self):
         """on_workflow_error should produce exactly 1 LogEntry with event=workflow_error."""
         engine = _make_db()
-        run_id = "run_log_error"
+        run_id = "workflow-error-log-run"
         _seed_run(engine, run_id)
 
         svc = _make_service(engine=engine)
