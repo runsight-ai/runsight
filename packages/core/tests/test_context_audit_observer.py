@@ -1,8 +1,8 @@
 """
-RED tests for RUN-913: emit context audit events through workflow observers.
+Tests for emit context audit events through workflow observers.
 
-RUN-907 through RUN-912 produce ContextAuditEventV1 data during context
-resolution. RUN-913 must publish that event through the observer chain without
+Context governance produces ContextAuditEventV1 data during context
+resolution. Workflow observers publish that event through the observer chain without
 global state, and without changing the least-privilege input contract.
 """
 
@@ -119,7 +119,7 @@ def _state() -> WorkflowState:
             "other": BlockResult(output="unrelated"),
         },
         metadata={
-            "run_id": "run_913",
+            "run_id": "context-audit-run",
             "workflow_name": "context_audit_observer",
             "owner": {"name": "Ada", "api_key": "super-secret-api-key"},
         },
@@ -156,7 +156,7 @@ def test_build_block_context_emits_one_context_resolution_event_with_all_records
     event = observer.context_events[0]
     assert event.event == "context_resolution"
     assert event.node_id == "summarize"
-    assert event.run_id == "run_913"
+    assert event.run_id == "context-audit-run"
     assert event.workflow_name == "context_audit_observer"
     assert [record.input_name for record in event.records] == ["summary", "owner"]
     assert event.resolved_count == 2

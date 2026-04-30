@@ -1,5 +1,5 @@
 """
-RED tests for RUN-909: attach context declarations through parser and wrappers.
+Tests for attach context declarations through parser and wrappers.
 
 These tests pin the parser/runtime metadata path for Epic C context governance:
 - public YAML access is rejected by normal schema/config validation
@@ -25,7 +25,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 def _linear_workflow(block_body: str, *, block_id: str = "analyze") -> str:
     return f"""\
 version: "1.0"
-id: run909
+id: context_declaration_workflow
 kind: workflow
 souls:
   analyst:
@@ -38,7 +38,7 @@ blocks:
   {block_id}:
 {_indent(block_body, 4)}
 workflow:
-  name: run909
+  name: context_declaration_workflow
   entry: {block_id}
   transitions:
     - from: {block_id}
@@ -49,7 +49,7 @@ workflow:
 def _two_block_workflow(source_body: str, target_body: str) -> str:
     return f"""\
 version: "1.0"
-id: run909
+id: context_declaration_workflow
 kind: workflow
 souls:
   analyst:
@@ -64,7 +64,7 @@ blocks:
   analyze:
 {_indent(target_body, 4)}
 workflow:
-  name: run909
+  name: context_declaration_workflow
   entry: source
   transitions:
     - from: source
@@ -77,13 +77,13 @@ workflow:
 def _code_workflow(block_body: str) -> str:
     return f"""\
 version: "1.0"
-id: run909
+id: context_declaration_workflow
 kind: workflow
 blocks:
   transform:
 {_indent(block_body, 4)}
 workflow:
-  name: run909
+  name: context_declaration_workflow
   entry: transform
   transitions:
     - from: transform

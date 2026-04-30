@@ -8,7 +8,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 def _workflow_yaml(
     *,
-    workflow_id: str = "run898_inference",
+    workflow_id: str = "workflow-input-inference",
     inputs: dict[str, dict[str, Any]] | None = None,
     blocks: dict[str, Any] | None = None,
     entry: str = "start",

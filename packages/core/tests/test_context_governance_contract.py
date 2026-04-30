@@ -1,7 +1,7 @@
 """
-RED tests for RUN-907: define context audit contract and YAML access schema.
+Tests for define context audit contract and YAML access schema.
 
-These tests pin the public contract surface expected by RUN-868:
+These tests pin the public contract surface expected by context governance:
 - BaseBlockDef must not expose public YAML access configuration
 - the checked-in workflow schema stays aligned with the generated source of truth
 - the context governance module exposes the audit and policy models
@@ -162,7 +162,7 @@ def test_context_audit_event_serializes_workflow_input_namespace():
     event = cg.ContextAuditEventV1(
         schema_version="context_audit.v1",
         event="context_resolution",
-        run_id="run_123",
+        run_id="context-governance-run",
         workflow_name="example_workflow",
         node_id="node_1",
         block_type="code",
@@ -192,7 +192,7 @@ def test_context_audit_event_sequence_defaults_to_none_and_round_trips_integer_v
     base_kwargs = dict(
         schema_version="context_audit.v1",
         event="context_resolution",
-        run_id="run_123",
+        run_id="context-governance-run",
         workflow_name="example_workflow",
         node_id="node_1",
         block_type="code",
@@ -221,7 +221,7 @@ def test_context_audit_event_rejects_missing_or_none_workflow_name():
     base_kwargs = dict(
         schema_version="context_audit.v1",
         event="context_resolution",
-        run_id="run_123",
+        run_id="context-governance-run",
         node_id="node_1",
         block_type="code",
         access="declared",
@@ -302,7 +302,7 @@ def test_dev_mode_warns_without_exposing_undeclared_data():
     event = cg.ContextAuditEventV1(
         schema_version="context_audit.v1",
         event="context_resolution",
-        run_id="run_123",
+        run_id="context-governance-run",
         workflow_name="example_workflow",
         node_id="node_1",
         block_type="code",
@@ -338,7 +338,7 @@ def test_context_audit_event_rejects_invalid_schema_and_event_literals():
     cg = _load_contract_module()
 
     base_kwargs = dict(
-        run_id="run_123",
+        run_id="context-governance-run",
         workflow_name="example_workflow",
         node_id="node_1",
         block_type="code",

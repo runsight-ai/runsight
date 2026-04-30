@@ -1,4 +1,4 @@
-"""RED tests for RUN-928 sensitive workflow input redaction boundaries."""
+"""Tests for sensitive workflow input redaction boundaries."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def _state_with_redactor(
 def _resolver() -> ContextResolver:
     return ContextResolver(
         policy=ContextGovernancePolicy(),
-        run_id="run_928_core",
+        run_id="redaction-context-run",
         workflow_name="redaction_context",
     )
 

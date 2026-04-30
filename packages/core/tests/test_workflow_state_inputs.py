@@ -1,5 +1,5 @@
 """
-RED tests for RUN-899: wire validated workflow inputs into runtime state.
+Tests for wire validated workflow inputs into runtime state.
 
 These tests pin the contract at the core/runtime boundary:
 - named workflow inputs must come from WorkflowState.workflow_inputs
@@ -82,7 +82,7 @@ def _workflow_with_input_schema() -> tuple[Workflow, CapturingBlock]:
 def _resolver() -> ContextResolver:
     return ContextResolver(
         policy=ContextGovernancePolicy(),
-        run_id="run_899",
+        run_id="workflow-input-state-run",
         workflow_name="workflow_inputs",
     )
 

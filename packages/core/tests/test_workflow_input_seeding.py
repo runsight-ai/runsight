@@ -1,7 +1,7 @@
 """
-Failing tests for RUN-899-style workflow input state wiring.
+Tests for workflow input state wiring.
 
-Acceptance Criteria verified:
+Verified behavior:
 - Workflow.run() accepts an inputs: dict parameter
 - Before first block runs, WorkflowState.workflow_inputs contains the inputs
 - Blocks with declared_inputs: { x: "workflow.field" } can resolve the value
@@ -53,7 +53,7 @@ class _RecordingBlock(BaseBlock):
 
 def _make_single_block_workflow(block: BaseBlock) -> Workflow:
     """Build a minimal single-block Workflow with no transitions."""
-    wf = Workflow(name="test_wf")
+    wf = Workflow(name="workflow-input-seeding-workflow")
     wf.add_block(block)
     wf.set_entry(block.block_id)
     return wf
@@ -80,7 +80,7 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     workflow_file = base_dir / "workflow.yaml"
     content = textwrap.dedent(yaml_content)
     if "id: " not in content:
-        content = "id: test-workflow\nkind: workflow\n" + content
+        content = "id: workflow-input-seeding\nkind: workflow\n" + content
     workflow_file.write_text(content, encoding="utf-8")
     return str(workflow_file)
 
@@ -266,7 +266,7 @@ class TestDeclaredInputsResolvesWorkflowField:
         inner = _CapturingBlock("step1")
         step = Step(block=inner, declared_inputs={"x": "workflow.name"})
 
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-input-seeding-workflow")
         wf.add_block(step)
         wf.set_entry(step.block_id)
         initial_state = WorkflowState()
@@ -304,7 +304,7 @@ class TestDeclaredInputsResolvesWorkflowField:
         inner = _NoOpBlock("step1")
         step = Step(block=inner, declared_inputs={"x": "workflow.nonexistent"})
 
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="workflow-input-seeding-workflow")
         wf.add_block(step)
         wf.set_entry(step.block_id)
         initial_state = WorkflowState()

@@ -1,7 +1,7 @@
 """
-RED tests for RUN-910: govern special block context declarations.
+Tests for govern special block context declarations.
 
-RUN-910 brings implicit block reads into the same ContextDeclaration contract as
+Context governance brings implicit block reads into the same ContextDeclaration contract as
 user-declared inputs. These tests stay at the contract/build-context boundary:
 no observer publication, no CodeBlock all-access runtime behavior, and no
 isolation envelope scoping.
@@ -55,7 +55,7 @@ def _state(**kwargs: Any) -> WorkflowState:
 def _resolver() -> ContextResolver:
     return ContextResolver(
         policy=ContextGovernancePolicy(),
-        run_id="run_910",
+        run_id="special-context-run",
         workflow_name="special_context_governance",
     )
 

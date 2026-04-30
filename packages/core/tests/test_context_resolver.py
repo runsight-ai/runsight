@@ -1,5 +1,5 @@
 """
-RED tests for RUN-908: central ContextResolver enforcement path.
+Tests for central ContextResolver enforcement path.
 
 These tests pin the declared-only context access contract introduced by Epic C:
 - resolver contracts live in runsight_core.context_governance
@@ -86,7 +86,7 @@ def _resolver(*, mode: str = "strict") -> Any:
     cg = _cg()
     return cg.ContextResolver(
         policy=cg.ContextGovernancePolicy(mode=mode),
-        run_id="run_908",
+        run_id="context-resolver-run",
         workflow_name="resolver_contract",
     )
 
@@ -112,7 +112,7 @@ def _declaration(
 
 
 def test_context_governance_exports_resolver_contract_symbols() -> None:
-    """RUN-908 adds the central resolver contract to the governance module."""
+    """The central resolver contract is available to the governance module."""
     cg = _cg()
 
     for name in {
@@ -122,7 +122,7 @@ def test_context_governance_exports_resolver_contract_symbols() -> None:
         "ContextResolutionError",
         "ContextReadDeniedError",
     }:
-        assert hasattr(cg, name), f"missing RUN-908 context resolver symbol: {name}"
+        assert hasattr(cg, name), f"missing context resolver symbol: {name}"
 
 
 def test_context_declaration_defaults_and_rejects_invalid_access() -> None:
