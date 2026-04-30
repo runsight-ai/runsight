@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-276: built-in tools http, file_io, delegate.
+Built-in tool behavior for http, file_io, and delegate.
 
 Tests target:
 - HTTP tool: factory returns ToolInstance(name="http_request"), executes httpx
@@ -23,7 +23,7 @@ from runsight_core.tools import BUILTIN_TOOL_CATALOG, ToolInstance
 from runsight_core.yaml.schema import ExitDef
 
 # ===========================================================================
-# AC5: Catalog registration — all three tools registered
+# Catalog registration for built-in tools
 # ===========================================================================
 
 
@@ -62,7 +62,7 @@ class TestCatalogRegistration:
 
 
 # ===========================================================================
-# AC1: runsight/http — HTTP tool
+# HTTP tool behavior
 # ===========================================================================
 
 
@@ -559,7 +559,7 @@ class TestHttpToolExecute:
 
 
 # ===========================================================================
-# AC2: runsight/file-io — File I/O tool
+# File I/O tool behavior
 # ===========================================================================
 
 
@@ -726,7 +726,7 @@ class TestFileIoToolExecute:
 
 
 # ===========================================================================
-# AC3 + AC4: runsight/delegate — Delegate tool
+# Delegate tool behavior
 # ===========================================================================
 
 
@@ -759,7 +759,7 @@ class TestDelegateToolFactory:
 
 
 class TestDelegateToolSchemaEnum:
-    """AC4: Delegate tool JSON schema has enum constraint from exits."""
+    """Delegate tool JSON schema has enum constraint from exits."""
 
     def test_port_enum_from_exit_ids(self):
         """The port parameter enum is built from exit IDs."""

@@ -1,11 +1,5 @@
 """
 Tests for BaseBlock pause/kill mechanism.
-
-Acceptance Criteria:
-- AC-054: test_pause_event_initialized
-- AC-055: test_kill_flag_default_false
-- AC-056: test_check_pause_raises_on_kill
-- AC-057: test_node_killed_exception_has_block_id
 """
 
 import asyncio
@@ -37,26 +31,30 @@ def mock_runner():
 def sample_soul():
     """Sample soul for testing."""
     return Soul(
-        id="test_soul", kind="soul", name="Tester", role="Tester", system_prompt="You test things."
+        id="pause_kill_soul",
+        kind="soul",
+        name="Tester",
+        role="Tester",
+        system_prompt="You test things.",
     )
 
 
 def test_pause_event_initialized(sample_soul, mock_runner):
-    """AC-054: _pause_event is set (not paused) on block construction."""
-    block = LinearBlock("test", sample_soul, mock_runner)
+    """_pause_event is set (not paused) on block construction."""
+    block = LinearBlock("pause_event_block", sample_soul, mock_runner)
     assert block._pause_event.is_set() is True
 
 
 def test_kill_flag_default_false(sample_soul, mock_runner):
-    """AC-055: _kill_flag is False by default on block construction."""
-    block = LinearBlock("test", sample_soul, mock_runner)
+    """_kill_flag is False by default on block construction."""
+    block = LinearBlock("kill_flag_block", sample_soul, mock_runner)
     assert block._kill_flag is False
 
 
 @pytest.mark.asyncio
 async def test_check_pause_raises_on_kill():
-    """AC-056: _check_pause() raises NodeKilledException when kill_flag is True."""
-    block = SimpleTestBlock("test-block")
+    """_check_pause() raises NodeKilledException when kill_flag is True."""
+    block = SimpleTestBlock("pause_kill_block")
     # Verify block is in normal state
     assert block._kill_flag is False
     assert block._pause_event.is_set() is True
@@ -75,7 +73,7 @@ async def test_check_pause_raises_on_kill():
 @pytest.mark.asyncio
 async def test_check_pause_blocks_when_paused():
     """Verify _check_pause() blocks when pause event is cleared."""
-    block = SimpleTestBlock("test-block")
+    block = SimpleTestBlock("paused_block")
     block._pause_event.clear()  # Paused
 
     async def check_and_signal():
@@ -94,29 +92,29 @@ async def test_check_pause_blocks_when_paused():
 
 
 def test_node_killed_exception_has_block_id():
-    """AC-057: NodeKilledException stores block_id attribute."""
-    block_id = "test-block"
+    """NodeKilledException stores block_id attribute."""
+    block_id = "killed_block"
     exc = NodeKilledException(block_id)
-    assert exc.block_id == "test-block"
+    assert exc.block_id == block_id
     assert str(exc) == f"Node '{block_id}' was killed"
 
 
 def test_simple_test_block_pause_event_initialized():
     """Verify pause_event is initialized on custom BaseBlock subclass."""
-    block = SimpleTestBlock("custom-block")
+    block = SimpleTestBlock("custom_pause_block")
     assert block._pause_event.is_set() is True
 
 
 def test_simple_test_block_kill_flag_default():
     """Verify kill_flag is False by default on custom BaseBlock subclass."""
-    block = SimpleTestBlock("custom-block")
+    block = SimpleTestBlock("custom_kill_block")
     assert block._kill_flag is False
 
 
 @pytest.mark.asyncio
 async def test_check_pause_succeeds_when_not_killed():
     """Verify _check_pause() succeeds when not killed."""
-    block = SimpleTestBlock("test-block")
+    block = SimpleTestBlock("active_pause_block")
     assert block._kill_flag is False
     assert block._pause_event.is_set() is True
 

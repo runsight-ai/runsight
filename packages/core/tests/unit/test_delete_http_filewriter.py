@@ -1,5 +1,5 @@
 """
-RUN-280 — Red tests: Delete HttpRequestBlock and FileWriterBlock.
+Removal behavior for HttpRequestBlock and FileWriterBlock.
 
 These tests verify that both block modules have been fully removed:
 - files deleted from disk
@@ -33,11 +33,11 @@ def _make_minimal_yaml(block_type: str, **extra_fields: str) -> dict:
     block = {"type": block_type, **extra_fields}
     return {
         "version": "1.0",
-        "blocks": {"test_block": block},
+        "blocks": {"removed_block_probe": block},
         "workflow": {
-            "name": "test_wf",
-            "entry": "test_block",
-            "transitions": [{"from": "test_block", "to": None}],
+            "name": "removed_block_probe_workflow",
+            "entry": "removed_block_probe",
+            "transitions": [{"from": "removed_block_probe", "to": None}],
         },
     }
 

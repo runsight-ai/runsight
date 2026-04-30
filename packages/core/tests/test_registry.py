@@ -25,7 +25,7 @@ class SimpleBlock(BaseBlock):
 
 
 def test_registry_construction():
-    """AC-1: BlockRegistry() constructs with an empty internal registry."""
+    """BlockRegistry constructs with an empty internal registry."""
     registry = BlockRegistry()
     assert registry is not None
     assert isinstance(registry, BlockRegistry)
@@ -34,7 +34,7 @@ def test_registry_construction():
 
 
 def test_registry_register_and_get():
-    """AC-2: registry.register('x', factory) stores factory under key 'x'; registry.get('x') returns that factory."""
+    """Registered factories are returned by key."""
     registry = BlockRegistry()
 
     # Create a factory function
@@ -49,21 +49,21 @@ def test_registry_register_and_get():
     assert retrieved_factory is factory
 
     # Verify the factory works
-    block = retrieved_factory("test_block", "test description")
+    block = retrieved_factory("registry_factory_block", "test description")
     assert isinstance(block, SimpleBlock)
-    assert block.block_id == "test_block"
+    assert block.block_id == "registry_factory_block"
     assert block.description == "test description"
 
 
 def test_registry_get_unknown():
-    """AC-3: registry.get('unknown') returns None."""
+    """Unknown registry keys return None."""
     registry = BlockRegistry()
     result = registry.get("unknown")
     assert result is None
 
 
 def test_registry_register_overwrites_silently():
-    """AC-4: Calling register() with a step_id that is already registered silently overwrites the existing entry."""
+    """Registering an existing step_id overwrites the previous factory."""
     registry = BlockRegistry()
 
     def factory1(block_id: str, description: str) -> BaseBlock:
@@ -85,7 +85,7 @@ def test_registry_register_overwrites_silently():
 
 
 def test_block_factory_type_alias():
-    """AC-5: BlockFactory type alias equals Callable[[str, str], BaseBlock]."""
+    """BlockFactory accepts factories that construct BaseBlock instances."""
     # Verify BlockFactory is the correct type
 
     # BlockFactory should be Callable[[str, str], BaseBlock]

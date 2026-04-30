@@ -1,15 +1,15 @@
 """
-RUN-278 — Red tests: Agentic tool loop in RunsightTeamRunner.execute_task().
+Agentic tool loop behavior in RunsightTeamRunner.execute().
 
-These tests verify that execute_task() implements an agentic tool-use loop when
+These tests verify that execute() implements an agentic tool-use loop when
 the soul has resolved_tools, including:
-  AC1: Single-shot path unchanged when no tools
-  AC2: Tool loop — LLM calls tool -> executed -> result fed back -> LLM responds
-  AC3: Max iterations enforced, last iteration strips tools
-  AC4: Cost/tokens accumulated correctly across iterations
-  AC5: Tool errors fed back as strings (loop continues)
-  AC6: Unknown tool name -> error message to LLM
-  AC7: ExecutionResult.tool_iterations and tool_calls_made populated
+  - single-shot behavior when no tools are available
+  - tool calls executed and fed back before the final LLM response
+  - max iterations enforcement
+  - cost and token accumulation across iterations
+  - tool error feedback
+  - unknown tool handling
+  - ExecutionResult tool loop fields
 
 All tests mock LiteLLMClient.achat() to avoid real API calls.
 """
@@ -122,7 +122,7 @@ def _achat_tool_response(
 
 
 # ---------------------------------------------------------------------------
-# AC1: Single-shot path unchanged when no tools
+# Single-shot path when no tools are available
 # ---------------------------------------------------------------------------
 
 
@@ -173,7 +173,7 @@ class TestSingleShotNoTools:
 
 
 # ---------------------------------------------------------------------------
-# AC2: Tool loop — LLM calls tool -> executed -> result fed back -> LLM text
+# Tool call execution and feedback loop
 # ---------------------------------------------------------------------------
 
 
@@ -297,7 +297,7 @@ class TestToolLoopBasic:
 
 
 # ---------------------------------------------------------------------------
-# AC2 continued: Multi-iteration tool loop
+# Multi-iteration tool loop
 # ---------------------------------------------------------------------------
 
 
@@ -325,7 +325,7 @@ class TestToolLoopMultiIteration:
 
 
 # ---------------------------------------------------------------------------
-# AC3: Max iterations enforced, last iteration strips tools
+# Max iterations enforcement
 # ---------------------------------------------------------------------------
 
 
@@ -394,7 +394,7 @@ class TestMaxIterations:
 
 
 # ---------------------------------------------------------------------------
-# AC4: Cost/tokens accumulated across iterations
+# Cost and token accumulation across iterations
 # ---------------------------------------------------------------------------
 
 
@@ -453,7 +453,7 @@ class TestCostAccumulation:
 
 
 # ---------------------------------------------------------------------------
-# AC5: Tool errors fed back as strings (loop continues)
+# Tool errors fed back as strings
 # ---------------------------------------------------------------------------
 
 
@@ -516,7 +516,7 @@ class TestToolErrorHandling:
 
 
 # ---------------------------------------------------------------------------
-# AC6: Unknown tool name -> error message to LLM
+# Unknown tool names produce feedback
 # ---------------------------------------------------------------------------
 
 
@@ -574,7 +574,7 @@ class TestUnknownTool:
 
 
 # ---------------------------------------------------------------------------
-# AC7: ExecutionResult.tool_iterations and tool_calls_made populated
+# ExecutionResult tool loop fields
 # ---------------------------------------------------------------------------
 
 

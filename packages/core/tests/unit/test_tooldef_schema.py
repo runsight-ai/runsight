@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-577: workflow tool IDs are the only authoring contract.
+Workflow tool IDs are the only authoring contract.
 
 Tests target:
 - RunsightWorkflowFile.tools: List[str] of canonical tool IDs
@@ -12,12 +12,12 @@ import pytest
 from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
-# AC1: RunsightWorkflowFile — tools top-level section
+# RunsightWorkflowFile tools section
 # ---------------------------------------------------------------------------
 
 
 class TestRunsightWorkflowFileTools:
-    """RUN-577: workflow authoring uses a canonical tools whitelist of stable IDs."""
+    """Workflow authoring uses a canonical tools whitelist of stable IDs."""
 
     def test_workflow_file_tools_default_empty_list(self):
         """RunsightWorkflowFile.tools defaults to an empty whitelist."""
@@ -115,7 +115,7 @@ class TestRunsightWorkflowFileTools:
 
 
 # ---------------------------------------------------------------------------
-# AC2: SoulDef.tools accepts List[str]
+# SoulDef.tools accepts a list of strings
 # ---------------------------------------------------------------------------
 
 
@@ -181,7 +181,7 @@ class TestSoulDefToolsUpdate:
 
 
 # ---------------------------------------------------------------------------
-# AC3: SoulDef.max_tool_iterations defaults to 5
+# SoulDef.max_tool_iterations default
 # ---------------------------------------------------------------------------
 
 
@@ -217,7 +217,7 @@ class TestSoulDefMaxToolIterations:
 
 
 # ---------------------------------------------------------------------------
-# AC2 + AC3: Soul primitive — tools as List[str], max_tool_iterations
+# Soul primitive tools and max_tool_iterations
 # ---------------------------------------------------------------------------
 
 
@@ -295,7 +295,7 @@ class TestSoulToolsUpdate:
 
 
 # ---------------------------------------------------------------------------
-# AC4: Soul.resolved_tools excluded from serialization
+# Soul.resolved_tools serialization behavior
 # ---------------------------------------------------------------------------
 
 
@@ -368,7 +368,7 @@ class TestSoulResolvedTools:
 
 
 # ---------------------------------------------------------------------------
-# AC1 + AC2: Full YAML parse round-trip — tools section + soul referencing
+# Full YAML parse round-trip for tools and soul references
 # ---------------------------------------------------------------------------
 
 

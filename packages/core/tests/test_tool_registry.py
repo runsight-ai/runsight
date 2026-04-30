@@ -1,5 +1,5 @@
 """
-RUN-281 — Unit-level tests for tool registry: catalog, ToolInstance, registration.
+Tool registry behavior for catalog, ToolInstance, and registration.
 
 These complement the existing tests in unit/test_tool_catalog.py by covering
 the full catalog state after all built-in tools are auto-registered via the
@@ -7,13 +7,13 @@ parser import side-effect, and by testing the canonical builtin ids are present
 when the package is fully initialised.
 
 Tests cover:
-  AC1: All three built-in sources registered in BUILTIN_TOOL_CATALOG after import
-  AC2: ToolInstance.to_openai_schema() produces valid OpenAI tool format
-  AC3: register_builtin / get_builtin round-trip
-  AC4: resolve_tool raises ValueError for unknown source
-  AC5: resolve_tool passes kwargs to factory (e.g. exits= for delegate)
-  AC6: ToolInstance.execute is callable and async
-  AC7: Catalog is mutable — register then remove leaves it clean
+  - all built-in sources registered in BUILTIN_TOOL_CATALOG after import
+  - ToolInstance.to_openai_schema() produces valid OpenAI tool format
+  - register_builtin / get_builtin round-trip
+  - resolve_tool raises ValueError for unknown source
+  - resolve_tool passes kwargs to factory
+  - ToolInstance.execute is callable and async
+  - catalog entries can be registered and removed cleanly
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def _make_simple_tool_instance(name: str = "simple_tool"):
 
 
 # ===========================================================================
-# AC1: Built-in sources present in BUILTIN_TOOL_CATALOG after parser import
+# Built-in sources present in BUILTIN_TOOL_CATALOG after parser import
 # ===========================================================================
 
 
@@ -93,7 +93,7 @@ class TestBuiltinCatalogPopulated:
 
 
 # ===========================================================================
-# AC2: ToolInstance.to_openai_schema() — OpenAI tool format
+# ToolInstance.to_openai_schema() OpenAI tool format
 # ===========================================================================
 
 
@@ -184,7 +184,7 @@ class TestToolInstanceOpenAISchema:
 
 
 # ===========================================================================
-# AC3: register_builtin / get_builtin round-trip
+# register_builtin / get_builtin round-trip
 # ===========================================================================
 
 
@@ -232,12 +232,12 @@ class TestRegisterBuiltinRoundTrip:
         """get_builtin for a never-registered source returns None."""
         from runsight_core.tools import get_builtin
 
-        result = get_builtin("test/definitely_not_registered_xyz_281")
+        result = get_builtin("test/definitely_not_registered_tool_registry")
         assert result is None
 
 
 # ===========================================================================
-# AC4: resolve_tool raises ValueError for unknown source
+# resolve_tool raises ValueError for unknown source
 # ===========================================================================
 
 
@@ -281,7 +281,7 @@ class TestResolveToolUnknownSource:
 
 
 # ===========================================================================
-# AC5: resolve_tool passes kwargs to factory (e.g. exits= for delegate)
+# resolve_tool passes kwargs to factory
 # ===========================================================================
 
 
@@ -312,8 +312,8 @@ class TestResolveToolKwargs:
 
         try:
             register_builtin(source, factory)
-            resolve_tool(source, custom_param="test_value_281")
-            assert received.get("custom_param") == "test_value_281"
+            resolve_tool(source, custom_param="tool_registry_value")
+            assert received.get("custom_param") == "tool_registry_value"
         finally:
             if original_factory is None:
                 BUILTIN_TOOL_CATALOG.pop(source, None)
@@ -334,7 +334,7 @@ class TestResolveToolKwargs:
 
 
 # ===========================================================================
-# AC6: ToolInstance.execute is callable and returns a string asynchronously
+# ToolInstance.execute returns a string asynchronously
 # ===========================================================================
 
 
@@ -374,7 +374,7 @@ class TestToolInstanceExecuteAsync:
 
 
 # ===========================================================================
-# AC7: Catalog is mutable — register, confirm, remove, confirm gone
+# Catalog mutability
 # ===========================================================================
 
 
