@@ -1,0 +1,43 @@
+packages/core/tests/assertions/test_custom_return_validators.py
+  4adca821c1af8eb3 1
+packages/core/tests/assertions/test_performance_assertions.py
+  4adca821c1af8eb3 8,22,24,30-31,43,70,115,142
+packages/core/tests/assertions/test_structural_assertions.py
+  4adca821c1af8eb3 8,22,24,30-31,43,115,118,191,213,288
+packages/core/tests/assertions/test_assertion_isolation.py
+  4adca821c1af8eb3 1,20-23,29-30,93,103,106,131,179,189,205,236-238
+packages/core/tests/assertions/test_assertion_registry.py
+  4adca821c1af8eb3 27,29,35-36,79,85,130,136,152,168,200,335,342,354,385,396,429
+packages/core/tests/assertions/test_transform_hooks.py
+  4adca821c1af8eb3 1,6-8,36,38,44-45,104,109,237,242,325,330
+packages/core/tests/assertions/test_string_assertions.py
+  4adca821c1af8eb3 9,29,31,37-38,50,141,201,244,295,347,398,461
+packages/core/tests/assertions/test_base.py
+  4adca821c1af8eb3 133,135,141-142,147,149,155-156
+packages/core/tests/assertions/test_linguistic_assertions.py
+  4adca821c1af8eb3 8,23,25,31-32,44,133,155,227,236,261,283,363,372,394
+packages/core/tests/assertions/test_scoring.py
+  4adca821c1af8eb3 56,76,92,110,116,122
+packages/core/tests/assertions/test_custom_adapter.py
+  4adca821c1af8eb3 1,25,33-34,106,113-114,295-296,401,408-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "478c3ebe1b9307b494478058f375aa9fb34b50cb",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 123,
+      "total_deletions": 139,
+      "accepted_lines": 107290,
+      "overriden_lines": 0
+    }
+  }
+}
