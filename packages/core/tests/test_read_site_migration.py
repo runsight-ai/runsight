@@ -1,19 +1,15 @@
 """
-Failing tests for RUN-181: Trivial read site migrations (.output extraction).
+Read site behavior for explicit BlockResult.output extraction.
 
 Strategy:
   Five read sites currently consume BlockResult objects via str() wrapping
   or implicit __str__() conversion instead of explicit .output extraction.
 
-  To prove the code is NOT using .output, we patch BlockResult.__str__ to
-  return a sentinel value ("PATCHED_STR") that differs from the actual
-  .output value ("REAL_OUTPUT"). If the code path uses str(block_result)
-  or relies on __str__(), it will see "PATCHED_STR". If it uses .output,
-  it will see "REAL_OUTPUT".
+  These tests patch BlockResult.__str__ to return a sentinel value
+  ("PATCHED_STR") that differs from the actual .output value ("REAL_OUTPUT").
+  Code paths that use explicit .output extraction should see "REAL_OUTPUT".
 
-  Each test asserts the code produces results consistent with "REAL_OUTPUT",
-  which will FAIL until the Green agent replaces str() / implicit __str__
-  with explicit .output extraction.
+  Each test asserts the code produces results consistent with "REAL_OUTPUT".
 
 Read sites under test:
   1. workflow.py — evaluate_output_conditions receives state.results.get(block_id, "")
@@ -136,7 +132,7 @@ class TestEvaluateOutputConditionsReadSite:
             async def execute(self, ctx: BlockContext) -> BlockOutput:
                 return BlockOutput(output=REAL_OUTPUT)
 
-        wf = Workflow(name="test_wf")
+        wf = Workflow(name="read_site_workflow")
         wf.add_block(StubBlock("b1"))
         wf.add_transition("b1", None)
         wf.set_entry("b1")

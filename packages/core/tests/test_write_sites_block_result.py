@@ -5,7 +5,7 @@ Strategy:
   The auto-coercion validator in WorkflowState can convert raw strings to
   BlockResult, masking a write site that fails to construct BlockResult itself.
 
-  The regression guard uses NoCoercionWorkflowState, which inherits
+  The NoCoercionWorkflowState guard inherits
   WorkflowState but overrides the validator so raw strings are rejected with
   TypeError. If a block passes a raw string through
   model_copy(update={"results": {...}}), Pydantic invokes the validator on the
@@ -269,14 +269,14 @@ class TestWorkflowBlockEmitsBlockResult:
         from runsight_core.workflow import Workflow
 
         # Create a minimal child workflow that does nothing
-        child_wf = Workflow(name="child_wf")
+        child_workflow = Workflow(name="child_workflow")
 
         # Mock the child workflow's run method to return a clean state
-        child_wf.run = AsyncMock(return_value=WorkflowState())
+        child_workflow.run = AsyncMock(return_value=WorkflowState())
 
         block = WorkflowBlock(
-            "wf_block1",
-            child_workflow=child_wf,
+            "workflow_block_write_site",
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
         )
@@ -285,7 +285,7 @@ class TestWorkflowBlockEmitsBlockResult:
 
         result_state = await _exec(block, state, call_stack=[])
 
-        assert isinstance(result_state.results["wf_block1"], BlockResult)
+        assert isinstance(result_state.results["workflow_block_write_site"], BlockResult)
 
 
 # ==============================================================================

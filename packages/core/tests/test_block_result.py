@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-177: BlockResult model + WorkflowState type change.
+BlockResult model and WorkflowState result type behavior.
 
 Tests cover:
 - BlockResult model instantiation with required and optional fields
@@ -126,7 +126,7 @@ class TestWorkflowStateAutoCoercion:
     """Tests for the WorkflowState results field auto-coercing str -> BlockResult."""
 
     def test_string_value_rejected_by_workflow_state(self):
-        """WorkflowState(results={"key": "value"}) raises ValidationError after RUN-179."""
+        """WorkflowState rejects raw string result values."""
         from pydantic import ValidationError
         from runsight_core.state import WorkflowState
 
@@ -157,7 +157,7 @@ class TestWorkflowStateAutoCoercion:
         assert state.results["key"].output == "x"
 
     def test_mixed_dict_with_string_rejected(self):
-        """Mixed dict with str and BlockResult values raises ValidationError after RUN-179."""
+        """Mixed dicts with raw str and BlockResult values raise ValidationError."""
         from pydantic import ValidationError
         from runsight_core.state import BlockResult, WorkflowState
 

@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-170: Complex read site migrations.
+Complex read site behavior for BlockResult values.
 
 Three complex read sites that consume BlockResult from state.results:
 
@@ -11,9 +11,8 @@ Three complex read sites that consume BlockResult from state.results:
    Returns field_dict[key] which is now a BlockResult. Callers may need
    .output extraction. We verify the method works and returns a BlockResult.
 
-3. primitives._resolve_from_ref (primitives.py ~line 125):
-   Already fixed in RUN-177 — unwraps BlockResult.output. Tests verify
-   correctness with JSON, non-JSON, and plain outputs.
+3. block_io._resolve_ref:
+   unwraps BlockResult.output correctly with JSON, non-JSON, and plain outputs.
 """
 
 import json
@@ -224,14 +223,12 @@ class TestWorkflowBlockResolveDottedBlockResult:
 
 
 # =============================================================================
-# 3. primitives._resolve_from_ref with BlockResult (fixed in RUN-177)
+# 3. block_io._resolve_ref with BlockResult
 # =============================================================================
 
 
 class TestResolveFromRefBlockResult:
-    """Input resolution unwraps BlockResult.output (originally RUN-177).
-    Step._resolve_from_ref was removed in RUN-892; resolution now lives in
-    block_io._resolve_ref. These tests verify the canonical path."""
+    """Input resolution unwraps BlockResult.output through block_io._resolve_ref."""
 
     def test_resolve_ref_unwraps_block_result(self):
         """_resolve_ref extracts .output from BlockResult."""

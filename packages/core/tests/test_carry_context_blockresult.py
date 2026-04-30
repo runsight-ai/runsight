@@ -1,9 +1,9 @@
 """
-Failing tests for RUN-195: LoopBlock carry_context + BlockResult compatibility.
+LoopBlock carry_context compatibility with BlockResult values.
 
-Bug: LoopBlock.execute() collects round outputs via:
+LoopBlock.execute() collects round outputs via:
     round_outputs = {sid: state.results.get(sid) for sid in source_ids}
-Since RUN-178, state.results contains BlockResult objects (not raw strings).
+state.results contains BlockResult objects rather than raw strings.
 The carry_context code passes these BlockResult objects directly into
 shared_memory[inject_as] and carry_history, instead of extracting .output.
 
@@ -168,8 +168,7 @@ class TestCarryContextLastModeBlockResult:
         carried = result_state.shared_memory["prev_ctx"]
         assert carried is not None
 
-        # The carried dict maps source block IDs to their outputs
-        # BUG: currently carries BlockResult objects instead of strings
+        # The carried dict maps source block IDs to their string outputs.
         producer_value = carried["producer"]
         assert isinstance(producer_value, str), (
             f"Expected string in carried context, got {type(producer_value).__name__}. "
