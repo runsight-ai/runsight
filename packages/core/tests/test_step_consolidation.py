@@ -1,21 +1,8 @@
-"""
-Failing tests for RUN-892: Remove Step._resolve_from_ref, consolidate input resolution.
+"""Step input-resolution consolidation coverage.
 
-After this ticket:
-- Step._resolve_from_ref is deleted
-- Step.execute does: pre_hook → block.execute → post_hook only (no Phase 2)
-- build_block_context receives declared_inputs from Step wrapper, resolves them
-- _resolved_inputs key is NOT written to shared_memory
-
-All tests currently fail because the old code still exists. They should pass
-once the implementation is complete.
-
-AC coverage:
-  AC-1: Step._resolve_from_ref deleted (structural check)
-  AC-2: Step.execute simplified — no input resolution, no _resolved_inputs side-effect
-  AC-3: build_block_context with Step declared_inputs resolves correctly
-  AC-4: Pre/post hooks still fire in correct order
-  AC-5: _resolved_inputs no longer appears in shared_memory after execute_block
+Behavior boundary: Step no longer resolves declared inputs itself, block
+context construction owns declared input resolution, hook ordering stays stable,
+and execution does not write _resolved_inputs into shared memory.
 """
 
 from unittest.mock import MagicMock
@@ -26,12 +13,14 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
+MODEL_REQUIRED_SENTINEL = "__runsight_explicit_model_required__"
+
 # ===========================================================================
 # Helpers
 # ===========================================================================
 
 
-def make_state(results=None, shared_memory=None, current_task=None) -> WorkflowState:
+def make_state(results=None, shared_memory=None) -> WorkflowState:
     return WorkflowState(
         results=results or {},
         shared_memory=shared_memory or {},
@@ -51,61 +40,47 @@ class CapturingBlock(BaseBlock):
 
 
 # ===========================================================================
-# AC-1: Step._resolve_from_ref deleted
+# Retired Step private resolver surface
 # ===========================================================================
 
 
 class TestResolveFromRefRetired:
-    """_resolve_from_ref must not exist on Step after cleanup.
-
-    These tests CURRENTLY FAIL because Step still has _resolve_from_ref.
-    After RUN-892 implementation they should pass.
-    """
+    """_resolve_from_ref should stay absent from Step after input consolidation."""
 
     def test_step_has_no_resolve_from_ref_method(self):
         """Step class must not have a _resolve_from_ref attribute at all."""
-        # This assertion currently FAILS because the method exists.
-        assert not hasattr(Step, "_resolve_from_ref"), (
-            "Step._resolve_from_ref still exists — delete it as part of RUN-892"
-        )
+        assert not hasattr(Step, "_resolve_from_ref"), "Step._resolve_from_ref still exists"
 
     def test_step_instance_has_no_resolve_from_ref(self):
         """A Step instance must not expose _resolve_from_ref."""
-        block = CapturingBlock("inner")
-        step = Step(block=block, declared_inputs={"x": "src.output"})
-        # Fail while method exists on the class (and therefore on the instance)
-        assert not hasattr(step, "_resolve_from_ref"), (
-            "Step instance still has _resolve_from_ref — expected it to be removed"
-        )
+        block = CapturingBlock("capturing_block")
+        step = Step(block=block, declared_inputs={"payload": "source_block.output"})
+        assert not hasattr(step, "_resolve_from_ref"), "Step instance still has _resolve_from_ref"
 
     def test_resolve_from_ref_not_callable_on_step(self):
         """Calling step._resolve_from_ref must raise AttributeError."""
-        block = CapturingBlock("inner")
+        block = CapturingBlock("capturing_block")
         step = Step(block=block)
         with pytest.raises(AttributeError):
-            # After deletion this should raise; currently it does NOT raise.
             _ = step._resolve_from_ref("source", make_state())  # type: ignore[attr-defined]
 
 
 # ===========================================================================
-# AC-2: Step.execute simplified — no input resolution
+# Step.execute delegates without input-resolution side effects
 # ===========================================================================
 
 
 class TestStepExecuteDelegation:
     """Step.execute must not resolve inputs or write _resolved_inputs.
 
-    These tests confirm that the ONLY phases in Step.execute are:
-      pre_hook → block.execute → post_hook
+    These tests confirm that the Step.execute phases are:
+      pre_hook -> block.execute -> post_hook
     """
 
     @pytest.mark.asyncio
     async def test_step_execute_does_not_write_resolved_inputs_to_shared_memory(self):
-        """Step.execute with declared_inputs must NOT inject _resolved_inputs into shared_memory.
-
-        Currently FAILS because Phase 2 still writes this key.
-        """
-        block = CapturingBlock("inner")
+        """Step.execute with declared_inputs must not inject _resolved_inputs."""
+        block = CapturingBlock("capturing_block")
         step = Step(
             block=block,
             declared_inputs={"data": "source_block.output"},
@@ -116,27 +91,26 @@ class TestStepExecuteDelegation:
 
         result_state = await step.execute(state)
 
-        # The key must not appear — old code injects it, new code must not.
         assert "_resolved_inputs" not in result_state.shared_memory, (
-            "Step.execute still writes _resolved_inputs — Phase 2 must be removed"
+            "Step.execute still writes _resolved_inputs"
         )
 
     @pytest.mark.asyncio
     async def test_step_execute_calls_block_execute_and_returns_result(self):
         """Step.execute must still call the wrapped block and return its state."""
-        block = CapturingBlock("inner")
+        block = CapturingBlock("capturing_block")
         step = Step(block=block)
         state = make_state()
 
         result_state = await step.execute(state)
 
         assert block.received_ctx is not None
-        assert "inner" in result_state.results
+        assert "capturing_block" in result_state.results
 
     @pytest.mark.asyncio
     async def test_step_execute_no_resolution_side_effects_with_empty_declared_inputs(self):
         """With empty declared_inputs, shared_memory must be completely untouched."""
-        block = CapturingBlock("inner")
+        block = CapturingBlock("capturing_block")
         step = Step(block=block, declared_inputs={})
         initial_sm = {"existing_key": "existing_value"}
         state = make_state(
@@ -151,13 +125,13 @@ class TestStepExecuteDelegation:
     @pytest.mark.asyncio
     async def test_step_execute_does_not_mutate_input_state_shared_memory(self):
         """Step.execute must not add any keys to shared_memory beyond what the block adds."""
-        block = CapturingBlock("inner")
+        block = CapturingBlock("capturing_block")
         step = Step(
             block=block,
-            declared_inputs={"key": "prev.field"},
+            declared_inputs={"key": "previous_block.field"},
         )
         state = make_state(
-            results={"prev": BlockResult(output='{"field": "value"}')},
+            results={"previous_block": BlockResult(output='{"field": "value"}')},
         )
         keys_before = set(state.shared_memory.keys())
 
@@ -171,15 +145,14 @@ class TestStepExecuteDelegation:
 
 
 # ===========================================================================
-# AC-3: build_block_context with Step declared_inputs
+# build_block_context resolves Step declared inputs
 # ===========================================================================
 
 
 class TestStepBlockContextBuilder:
     """build_block_context must resolve declared_inputs from a Step wrapper.
 
-    This path already works (RUN-884), but we verify it continues to work
-    and is the CANONICAL way to do input resolution post-RUN-892.
+    This pins block context construction as the owner of input resolution.
     """
 
     def _make_linear_block(self, block_id: str = "analyze"):
@@ -193,10 +166,10 @@ class TestStepBlockContextBuilder:
             name="Analyst Soul",
             role="Analyst",
             system_prompt="You analyze.",
-            model_name="gpt-4o",
+            model_name=MODEL_REQUIRED_SENTINEL,
         )
         runner = MagicMock()
-        runner.model_name = "gpt-4o"
+        runner.model_name = MODEL_REQUIRED_SENTINEL
         return LinearBlock(block_id=block_id, soul=soul, runner=runner)
 
     def test_build_block_context_resolves_declared_inputs_from_step(self):
@@ -232,7 +205,7 @@ class TestStepBlockContextBuilder:
         assert ctx.inputs.get("status") == "ok"
 
     def test_build_block_context_empty_declared_inputs_produces_empty_inputs(self):
-        """Step with no declared_inputs → BlockContext.inputs is empty."""
+        """Step with no declared_inputs produces empty BlockContext.inputs."""
         block = self._make_linear_block("analyze")
         step = Step(block=block, declared_inputs={})
 
@@ -258,12 +231,12 @@ class TestStepBlockContextBuilder:
 
 
 # ===========================================================================
-# AC-4: Pre/post hooks still fire in correct order
+# Pre/post hook ordering
 # ===========================================================================
 
 
 class TestStepHookOrdering:
-    """Pre/post hooks must fire: pre → block → post."""
+    """Pre/post hooks must fire in pre, block, post order."""
 
     @pytest.mark.asyncio
     async def test_pre_hook_fires_before_block(self):
@@ -309,7 +282,7 @@ class TestStepHookOrdering:
 
     @pytest.mark.asyncio
     async def test_both_hooks_fire_in_correct_order(self):
-        """When both hooks present: pre → block → post."""
+        """When both hooks are present, order is pre, block, post."""
         call_order: list[str] = []
 
         class OrderBlock(BaseBlock):
@@ -385,10 +358,7 @@ class TestStepHookOrdering:
 
     @pytest.mark.asyncio
     async def test_hooks_and_declared_inputs_together_no_resolved_inputs_key(self):
-        """With both hooks and declared_inputs, _resolved_inputs must not appear.
-
-        Currently FAILS because Phase 2 still injects _resolved_inputs.
-        """
+        """With both hooks and declared_inputs, _resolved_inputs must not appear."""
         call_order: list[str] = []
 
         class TrackBlock(BaseBlock):
@@ -409,10 +379,10 @@ class TestStepHookOrdering:
             block=block,
             pre_hook=pre_hook,
             post_hook=post_hook,
-            declared_inputs={"x": "src"},
+            declared_inputs={"payload": "source_value"},
         )
         state = make_state(
-            results={"src": BlockResult(output="value")},
+            results={"source_value": BlockResult(output="value")},
         )
 
         result = await step.execute(state)
@@ -422,15 +392,13 @@ class TestStepHookOrdering:
 
 
 # ===========================================================================
-# AC-5: _resolved_inputs never appears in shared_memory after execute_block
+# execute_block keeps resolved inputs out of shared memory
 # ===========================================================================
 
 
 class TestResolvedInputsStayOutOfSharedMemory:
     """After execute_block processes a Step-wrapped block, shared_memory must
     not contain _resolved_inputs.
-
-    Currently FAILS because Step.execute Phase 2 writes it.
     """
 
     @pytest.mark.asyncio
@@ -438,7 +406,7 @@ class TestResolvedInputsStayOutOfSharedMemory:
         """execute_block with a Step-wrapped LinearBlock must not write _resolved_inputs."""
         from runsight_core.workflow import BlockExecutionContext, execute_block
 
-        block = CapturingBlock("cap")
+        block = CapturingBlock("capture_block")
         step = Step(
             block=block,
             declared_inputs={"data": "upstream"},
@@ -448,8 +416,8 @@ class TestResolvedInputsStayOutOfSharedMemory:
             results={"upstream": BlockResult(output="upstream_value")},
         )
         ctx = BlockExecutionContext(
-            workflow_name="test_wf",
-            blocks={"cap": step},
+            workflow_name="step_consolidation_workflow",
+            blocks={"capture_block": step},
             call_stack=[],
             workflow_registry=None,
             observer=None,
@@ -459,7 +427,7 @@ class TestResolvedInputsStayOutOfSharedMemory:
 
         assert "_resolved_inputs" not in result_state.shared_memory, (
             "_resolved_inputs should not exist in shared_memory after execute_block; "
-            "old Step.execute Phase 2 still writes it"
+            "Step.execute still writes it"
         )
 
     @pytest.mark.asyncio
@@ -467,38 +435,33 @@ class TestResolvedInputsStayOutOfSharedMemory:
         """shared_memory must contain exactly the keys that were there before execution.
 
         This verifies no side-effect keys leak from the old Phase 2 resolver.
-        Currently FAILS because _resolved_inputs is injected.
         """
-        block = CapturingBlock("cap")
+        block = CapturingBlock("capture_block")
         step = Step(
             block=block,
-            declared_inputs={"a": "block_a", "b": "block_b"},
+            declared_inputs={"alpha": "alpha_source", "beta": "beta_source"},
         )
         initial_sm = {"pre_existing": 42}
         state = make_state(
             results={
-                "block_a": BlockResult(output="alpha"),
-                "block_b": BlockResult(output="beta"),
+                "alpha_source": BlockResult(output="alpha"),
+                "beta_source": BlockResult(output="beta"),
             },
             shared_memory=dict(initial_sm),
         )
 
         result_state = await step.execute(state)
 
-        # Only pre_existing should be present — no _resolved_inputs injected
         assert set(result_state.shared_memory.keys()) == {"pre_existing"}, (
             f"shared_memory has unexpected keys: {set(result_state.shared_memory.keys())}"
         )
 
     @pytest.mark.asyncio
     async def test_no_resolved_inputs_even_with_json_path(self):
-        """JSON-path declared_input must not produce _resolved_inputs in shared_memory.
-
-        Currently FAILS — the old resolver resolves AND writes to shared_memory.
-        """
+        """JSON-path declared_input must not produce _resolved_inputs in shared_memory."""
         import json
 
-        block = CapturingBlock("cap")
+        block = CapturingBlock("capture_block")
         step = Step(
             block=block,
             declared_inputs={"status": "api.response.status"},
