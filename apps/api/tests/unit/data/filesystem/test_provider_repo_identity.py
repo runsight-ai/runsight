@@ -14,13 +14,13 @@ from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 def _provider_payload(**overrides):
     payload = {
         "kind": "provider",
-        "name": "OpenAI",
-        "type": "openai",
+        "name": "Fixture Provider",
+        "type": "fixture-provider",
         "api_key": "dummy-provider-key",
-        "base_url": "https://provider.example.invalid/v1",
+        "base_url": "http://localhost/fixture-provider/v1",
         "is_active": True,
         "status": "connected",
-        "models": ["gpt-4o", "gpt-4o-mini"],
+        "models": ["fixture-chat-model", "fixture-small-model"],
     }
     payload.update(overrides)
     return payload
@@ -36,11 +36,11 @@ def test_create_requires_explicit_embedded_id_and_uses_it_for_filename() -> None
         repo = FileSystemProviderRepo(base_path=tmpdir)
         providers_dir = Path(tmpdir) / "custom" / "providers"
 
-        entity = repo.create(_provider_payload(id="openai-provider", name="OpenAI"))
+        entity = repo.create(_provider_payload(id="embedded-provider", name="Fixture Provider"))
 
-        assert entity.id == "openai-provider"
-        assert (providers_dir / "openai-provider.yaml").exists()
-        assert not (providers_dir / "openai.yaml").exists()
+        assert entity.id == "embedded-provider"
+        assert (providers_dir / "embedded-provider.yaml").exists()
+        assert not (providers_dir / "fixture-provider.yaml").exists()
 
 
 def test_create_without_id_is_rejected() -> None:

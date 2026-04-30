@@ -31,15 +31,15 @@ from runsight_api.domain.value_objects import ProviderEntity
 # ---------------------------------------------------------------------------
 
 VALID_PROVIDER_DATA = {
-    "id": "openai",
+    "id": "fixture-provider",
     "kind": "provider",
-    "name": "OpenAI",
-    "type": "openai",
-    "api_key": "${OPENAI_API_KEY}",
-    "base_url": "https://provider.example.invalid/v1",
+    "name": "Fixture Provider",
+    "type": "fixture-provider",
+    "api_key": "${DUMMY_PROVIDER_KEY}",
+    "base_url": "http://localhost/fixture-provider/v1",
     "is_active": True,
     "status": "connected",
-    "models": ["gpt-4o", "gpt-4o-mini"],
+    "models": ["fixture-chat-model", "fixture-small-model"],
 }
 
 
@@ -104,7 +104,7 @@ class TestDirectoryCreationContract:
         providers_dir = tmp_path / "custom" / "providers"
         repo = FileSystemProviderRepo(base_path=str(tmp_path))
 
-        entity = repo.create(_make_provider_data(name="OpenAI"))
+        entity = repo.create(_make_provider_data(name="Fixture Provider"))
 
         assert providers_dir.exists()
         assert providers_dir.is_dir()
@@ -124,12 +124,12 @@ class TestCreate:
 
     def test_create_sets_id_from_slugified_name(self, repo):
         """Provider ID should be the slugified version of the name."""
-        entity = repo.create(_make_provider_data(name="OpenAI"))
-        assert entity.id == "openai"
+        entity = repo.create(_make_provider_data(name="Fixture Provider"))
+        assert entity.id == "fixture-provider"
 
     def test_create_writes_yaml_file(self, repo, providers_dir):
         """create() must persist a .yaml file in custom/providers/."""
-        entity = repo.create(_make_provider_data(name="OpenAI"))
+        entity = repo.create(_make_provider_data(name="Fixture Provider"))
         yaml_path = providers_dir / f"{entity.id}.yaml"
         assert yaml_path.exists()
 
@@ -142,28 +142,28 @@ class TestCreate:
         with open(yaml_path) as f:
             on_disk = yaml.safe_load(f)
 
-        assert on_disk["name"] == "OpenAI"
-        assert on_disk["type"] == "openai"
-        assert on_disk["api_key"] == "${OPENAI_API_KEY}"
-        assert on_disk["base_url"] == "https://provider.example.invalid/v1"
+        assert on_disk["name"] == "Fixture Provider"
+        assert on_disk["type"] == "fixture-provider"
+        assert on_disk["api_key"] == "${DUMMY_PROVIDER_KEY}"
+        assert on_disk["base_url"] == "http://localhost/fixture-provider/v1"
         assert on_disk["is_active"] is True
         assert on_disk["status"] == "connected"
-        assert on_disk["models"] == ["gpt-4o", "gpt-4o-mini"]
+        assert on_disk["models"] == ["fixture-chat-model", "fixture-small-model"]
 
     def test_create_entity_has_correct_fields(self, repo):
         """Returned entity must carry all fields from the input data."""
         entity = repo.create(_make_provider_data())
-        assert entity.name == "OpenAI"
-        assert entity.type == "openai"
+        assert entity.name == "Fixture Provider"
+        assert entity.type == "fixture-provider"
         assert entity.is_active is True
         assert entity.status == "connected"
-        assert entity.models == ["gpt-4o", "gpt-4o-mini"]
+        assert entity.models == ["fixture-chat-model", "fixture-small-model"]
 
     def test_create_slugifies_name_with_special_chars(self, repo):
         """Names with special characters must produce safe filesystem slugs."""
-        entity = repo.create(_make_provider_data(name="My OpenAI Provider!"))
+        entity = repo.create(_make_provider_data(name="My Fixture Provider!"))
         # Slug should be lowercase, alphanumeric + hyphens
-        assert entity.id == "my-openai-provider"
+        assert entity.id == "my-fixture-provider"
 
     def test_create_empty_name_gets_slug(self, repo):
         """An empty name should still produce a usable slug."""
@@ -176,7 +176,7 @@ class TestCreate:
         with pytest.raises(ValidationError):
             repo.create(data)
 
-        assert not (providers_dir / "openai.yaml").exists()
+        assert not (providers_dir / "fixture-provider.yaml").exists()
 
 
 class TestCreateDuplicates:
@@ -184,26 +184,26 @@ class TestCreateDuplicates:
 
     def test_create_duplicate_name_raises_value_error(self, repo):
         """Creating two providers with the same name must raise ValueError."""
-        repo.create(_make_provider_data(name="OpenAI"))
+        repo.create(_make_provider_data(name="Fixture Provider"))
         with pytest.raises(ValueError):
-            repo.create(_make_provider_data(name="OpenAI"))
+            repo.create(_make_provider_data(name="Fixture Provider"))
 
     def test_create_duplicate_slug_different_case_raises(self, repo):
         """Names that slugify to the same value must also collide."""
-        repo.create(_make_provider_data(name="Open AI"))
+        repo.create(_make_provider_data(name="Duplicate Provider"))
         with pytest.raises(ValueError):
-            repo.create(_make_provider_data(name="open-ai"))
+            repo.create(_make_provider_data(name="duplicate-provider"))
 
 
 class TestGetById:
     def test_get_by_id_returns_entity(self, repo):
         """get_by_id must return the previously created provider."""
-        created = repo.create(_make_provider_data(name="Anthropic"))
+        created = repo.create(_make_provider_data(name="Backup Provider"))
         fetched = repo.get_by_id(created.id)
         assert fetched is not None
         assert isinstance(fetched, ProviderEntity)
         assert fetched.id == created.id
-        assert fetched.name == "Anthropic"
+        assert fetched.name == "Backup Provider"
 
     def test_get_by_id_returns_none_for_missing(self, repo):
         """get_by_id must return None when the provider does not exist."""
@@ -229,28 +229,28 @@ class TestGetById:
 class TestGetByType:
     def test_get_by_type_returns_matching_providers(self, repo):
         """get_by_type must return providers matching the given type."""
-        repo.create(_make_provider_data(name="OpenAI Primary", type="openai"))
-        repo.create(_make_provider_data(name="OpenAI Secondary", type="openai"))
-        repo.create(_make_provider_data(name="Anthropic", type="anthropic"))
+        repo.create(_make_provider_data(name="Primary Provider", type="fixture-provider"))
+        repo.create(_make_provider_data(name="Secondary Provider", type="fixture-provider"))
+        repo.create(_make_provider_data(name="Backup Provider", type="backup-provider"))
 
-        results = repo.get_by_type("openai")
+        results = repo.get_by_type("fixture-provider")
         assert len(results) == 2
-        assert all(p.type == "openai" for p in results)
+        assert all(p.type == "fixture-provider" for p in results)
 
     def test_get_by_type_returns_empty_list_for_no_match(self, repo):
         """get_by_type must return an empty list when no providers match."""
-        repo.create(_make_provider_data(name="OpenAI", type="openai"))
-        results = repo.get_by_type("anthropic")
+        repo.create(_make_provider_data(name="Fixture Provider", type="fixture-provider"))
+        results = repo.get_by_type("backup-provider")
         assert results == []
 
     def test_get_by_type_returns_only_providers_of_type(self, repo):
         """get_by_type must not return providers of other types."""
-        repo.create(_make_provider_data(name="OpenAI", type="openai"))
-        repo.create(_make_provider_data(name="Anthropic", type="anthropic"))
+        repo.create(_make_provider_data(name="Fixture Provider", type="fixture-provider"))
+        repo.create(_make_provider_data(name="Backup Provider", type="backup-provider"))
 
-        results = repo.get_by_type("anthropic")
+        results = repo.get_by_type("backup-provider")
         assert len(results) == 1
-        assert results[0].name == "Anthropic"
+        assert results[0].name == "Backup Provider"
 
 
 class TestListAll:
@@ -268,18 +268,18 @@ class TestListAll:
 
     def test_list_all_returns_all_providers(self, repo):
         """list_all must return every provider in the directory."""
-        repo.create(_make_provider_data(name="OpenAI", type="openai"))
-        repo.create(_make_provider_data(name="Anthropic", type="anthropic"))
-        repo.create(_make_provider_data(name="Google", type="google"))
+        repo.create(_make_provider_data(name="Fixture Provider", type="fixture-provider"))
+        repo.create(_make_provider_data(name="Backup Provider", type="backup-provider"))
+        repo.create(_make_provider_data(name="Auxiliary Provider", type="auxiliary-provider"))
 
         result = repo.list_all()
         assert len(result) == 3
         names = {p.name for p in result}
-        assert names == {"OpenAI", "Anthropic", "Google"}
+        assert names == {"Fixture Provider", "Backup Provider", "Auxiliary Provider"}
 
     def test_list_all_returns_provider_entities(self, repo):
         """Each item from list_all must be a ProviderEntity."""
-        repo.create(_make_provider_data(name="OpenAI"))
+        repo.create(_make_provider_data(name="Fixture Provider"))
         result = repo.list_all()
         assert all(isinstance(p, ProviderEntity) for p in result)
 
@@ -302,7 +302,7 @@ class TestListAll:
 class TestUpdate:
     def test_update_modifies_existing_provider(self, repo):
         """update() must modify the provider data on disk."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         updated = repo.update(
             created.id,
             {"id": created.id, "kind": "provider", "status": "error", "is_active": False},
@@ -311,11 +311,11 @@ class TestUpdate:
         assert updated.status == "error"
         assert updated.is_active is False
         # Original fields are preserved
-        assert updated.name == "OpenAI"
+        assert updated.name == "Fixture Provider"
 
     def test_update_returns_provider_entity(self, repo):
         """update() must return a ProviderEntity."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         updated = repo.update(
             created.id, {"id": created.id, "kind": "provider", "status": "offline"}
         )
@@ -328,14 +328,14 @@ class TestUpdate:
 
     def test_update_preserves_id_from_filename(self, repo):
         """After update, the entity ID must still match the filename stem."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         updated = repo.update(
             created.id, {"id": created.id, "kind": "provider", "status": "offline"}
         )
         assert updated.id == created.id
 
     def test_update_rejects_unknown_fields_and_keeps_existing_yaml(self, repo, providers_dir):
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         yaml_path = providers_dir / f"{created.id}.yaml"
 
         before = yaml.safe_load(yaml_path.read_text())
@@ -352,33 +352,33 @@ class TestUpdate:
 class TestReadValidation:
     def test_get_by_id_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
         _ensure_providers_dir(providers_dir)
-        yaml_path = providers_dir / "openai.yaml"
+        yaml_path = providers_dir / "fixture-provider.yaml"
         yaml_path.write_text(
             yaml.safe_dump(
                 {
-                    "id": "openai",
+                    "id": "fixture-provider",
                     "kind": "provider",
-                    "name": "OpenAI",
-                    "type": "openai",
-                    "api_key": "${OPENAI_API_KEY}",
+                    "name": "Fixture Provider",
+                    "type": "fixture-provider",
+                    "api_key": "${DUMMY_PROVIDER_KEY}",
                     "custom_notes": "unsupported",
                 }
             )
         )
 
-        assert repo.get_by_id("openai") is None
+        assert repo.get_by_id("fixture-provider") is None
 
     def test_list_all_rejects_provider_yaml_with_unsupported_fields(self, repo, providers_dir):
         _ensure_providers_dir(providers_dir)
-        yaml_path = providers_dir / "openai.yaml"
+        yaml_path = providers_dir / "fixture-provider.yaml"
         yaml_path.write_text(
             yaml.safe_dump(
                 {
-                    "id": "openai",
+                    "id": "fixture-provider",
                     "kind": "provider",
-                    "name": "OpenAI",
-                    "type": "openai",
-                    "api_key": "${OPENAI_API_KEY}",
+                    "name": "Fixture Provider",
+                    "type": "fixture-provider",
+                    "api_key": "${DUMMY_PROVIDER_KEY}",
                     "custom_notes": "unsupported",
                 }
             )
@@ -391,7 +391,7 @@ class TestReadValidation:
 class TestDelete:
     def test_delete_removes_yaml_file(self, repo, providers_dir):
         """delete() must remove the YAML file from disk."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         yaml_path = providers_dir / f"{created.id}.yaml"
         assert yaml_path.exists()
 
@@ -401,7 +401,7 @@ class TestDelete:
 
     def test_delete_returns_true_when_exists(self, repo):
         """delete() must return True when the file was actually deleted."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         assert repo.delete(created.id) is True
 
     def test_delete_returns_false_when_missing(self, repo):
@@ -410,7 +410,7 @@ class TestDelete:
 
     def test_delete_makes_get_by_id_return_none(self, repo):
         """After deletion, get_by_id must return None."""
-        created = repo.create(_make_provider_data(name="OpenAI"))
+        created = repo.create(_make_provider_data(name="Fixture Provider"))
         repo.delete(created.id)
         assert repo.get_by_id(created.id) is None
 
@@ -423,7 +423,7 @@ class TestDelete:
 class TestEmbeddedIdMatchesFilename:
     def test_id_is_written_to_yaml_file(self, repo, providers_dir):
         """The 'id' field is embedded in the YAML file and must match the filename stem."""
-        entity = repo.create(_make_provider_data(name="OpenAI"))
+        entity = repo.create(_make_provider_data(name="Fixture Provider"))
         yaml_path = providers_dir / f"{entity.id}.yaml"
 
         with open(yaml_path) as f:
@@ -617,24 +617,29 @@ class TestRoundTrip:
         fetched = repo.get_by_id(created.id)
 
         assert fetched.name == "Round Trip Provider"
-        assert fetched.type == "openai"
-        assert fetched.api_key == "${OPENAI_API_KEY}"
-        assert fetched.base_url == "https://provider.example.invalid/v1"
+        assert fetched.type == "fixture-provider"
+        assert fetched.api_key == "${DUMMY_PROVIDER_KEY}"
+        assert fetched.base_url == "http://localhost/fixture-provider/v1"
         assert fetched.is_active is True
         assert fetched.status == "connected"
-        assert fetched.models == ["gpt-4o", "gpt-4o-mini"]
+        assert fetched.models == ["fixture-chat-model", "fixture-small-model"]
 
     def test_update_then_get_reflects_changes(self, repo):
         """Changes from update() must be visible in a subsequent get_by_id()."""
         created = repo.create(_make_provider_data(name="Updatable"))
         repo.update(
             created.id,
-            {"id": created.id, "kind": "provider", "status": "error", "models": ["gpt-4o-mini"]},
+            {
+                "id": created.id,
+                "kind": "provider",
+                "status": "error",
+                "models": ["fixture-small-model"],
+            },
         )
 
         fetched = repo.get_by_id(created.id)
         assert fetched.status == "error"
-        assert fetched.models == ["gpt-4o-mini"]
+        assert fetched.models == ["fixture-small-model"]
         # Unchanged fields are preserved
         assert fetched.name == "Updatable"
-        assert fetched.type == "openai"
+        assert fetched.type == "fixture-provider"
