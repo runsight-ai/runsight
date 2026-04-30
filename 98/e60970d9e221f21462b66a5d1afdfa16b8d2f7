@@ -1,0 +1,43 @@
+apps/api/tests/logic/test_eval_observer_custom_assertion.py
+  4adca821c1af8eb3 305,347
+apps/api/tests/test_workflow_input_redaction_integration.py
+  4adca821c1af8eb3 68
+apps/api/tests/test_api_e2e.py
+  4adca821c1af8eb3 10-12,59,124,128,252,294,433-434,436-437,444,456,473,479
+apps/api/tests/logic/test_ssrf_provider.py
+  4adca821c1af8eb3 48
+apps/api/tests/test_sse_streaming_e2e.py
+  4adca821c1af8eb3 16,240,322,424,504,564,661,747,751-752,755-756
+apps/api/tests/test_parser_warnings_e2e.py
+  4adca821c1af8eb3 267,330-331
+apps/api/tests/test_execution_transport_integration.py
+  4adca821c1af8eb3 102
+apps/api/tests/logic/test_async_httpx.py
+  4adca821c1af8eb3 53,519,561
+apps/api/tests/logic/test_execution_observer_collaborator_boundaries.py
+  4adca821c1af8eb3 120
+apps/api/tests/transport/test_settings_router.py
+  4adca821c1af8eb3 99,131,139,166,254-255
+apps/api/tests/test_assertions_fire_e2e.py
+  4adca821c1af8eb3 10,212,255,262,364,506,654
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "98e60970d9e221f21462b66a5d1afdfa16b8d2f7",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 55,
+      "total_deletions": 55,
+      "accepted_lines": 117750,
+      "overriden_lines": 0
+    }
+  }
+}
