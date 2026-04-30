@@ -75,7 +75,7 @@ def sample_soul():
         name="Senior Researcher",
         role="Senior Researcher",
         system_prompt="You are a senior researcher.",
-        model_name="gpt-4o",
+        model_name="fixture-chat-model",
     )
 
 
@@ -88,17 +88,21 @@ class TestOnBlockStartSoul:
     def test_on_block_start_with_soul_does_not_error(self, observer, sample_soul):
         """on_block_start(... soul=soul) does not raise TypeError."""
         obs, engine, run_id = observer
-        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=sample_soul)
+        obs.on_block_start(
+            "observer-soul-workflow", "soul_hash_block", "LinearBlock", soul=sample_soul
+        )
 
     def test_on_block_start_with_none_soul_does_not_error(self, observer):
         """on_block_start(... soul=None) does not raise."""
         obs, engine, run_id = observer
-        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=None)
+        obs.on_block_start(
+            "observer-soul-workflow", "none_soul_start_block", "LinearBlock", soul=None
+        )
 
     def test_on_block_start_without_soul_kwarg_backward_compat(self, observer):
         """on_block_start called without soul keyword still works (backward compat)."""
         obs, engine, run_id = observer
-        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock")
+        obs.on_block_start("observer-soul-workflow", "omitted_soul_start_block", "LinearBlock")
 
 
 # ---------------------------------------------------------------------------
@@ -109,14 +113,14 @@ class TestOnBlockStartSoul:
 class TestOnBlockCompleteSoulHashes:
     def _start_and_complete_with_soul(self, obs, engine, run_id, soul):
         """Helper: start then complete a block with a soul."""
-        obs.on_block_start("observer-soul-workflow", "block_a", "LinearBlock", soul=soul)
+        obs.on_block_start("observer-soul-workflow", "soul_hash_block", "LinearBlock", soul=soul)
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=1500,
-            results={"block_a": BlockResult(output="Some output")},
+            results={"soul_hash_block": BlockResult(output="Some output")},
         )
         obs.on_block_complete(
-            "observer-soul-workflow", "block_a", "LinearBlock", 2.5, state, soul=soul
+            "observer-soul-workflow", "soul_hash_block", "LinearBlock", 2.5, state, soul=soul
         )
 
     def test_populates_prompt_hash_from_soul(self, observer, sample_soul):
@@ -127,7 +131,7 @@ class TestOnBlockCompleteSoulHashes:
         expected_hash = hashlib.sha256(sample_soul.system_prompt.encode()).hexdigest()
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:soul_hash_block")
             assert node is not None
             assert node.prompt_hash == expected_hash
 
@@ -139,25 +143,25 @@ class TestOnBlockCompleteSoulHashes:
         expected_version = hashlib.sha256(sample_soul.model_dump_json().encode()).hexdigest()
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:soul_hash_block")
             assert node is not None
             assert node.soul_version == expected_version
 
     def test_none_soul_leaves_hashes_none(self, observer):
         """on_block_complete with soul=None leaves prompt_hash and soul_version as None."""
         obs, engine, run_id = observer
-        obs.on_block_start("observer-soul-workflow", "block_b", "LinearBlock", soul=None)
+        obs.on_block_start("observer-soul-workflow", "none_soul_block", "LinearBlock", soul=None)
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
-            results={"block_b": BlockResult(output="Output")},
+            results={"none_soul_block": BlockResult(output="Output")},
         )
         obs.on_block_complete(
-            "observer-soul-workflow", "block_b", "LinearBlock", 1.0, state, soul=None
+            "observer-soul-workflow", "none_soul_block", "LinearBlock", 1.0, state, soul=None
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_b")
+            node = session.get(RunNode, f"{run_id}:none_soul_block")
             assert node is not None
             assert node.prompt_hash is None
             assert node.soul_version is None
@@ -165,16 +169,18 @@ class TestOnBlockCompleteSoulHashes:
     def test_omitted_soul_leaves_hashes_none(self, observer):
         """on_block_complete without soul keyword leaves prompt_hash/soul_version as None."""
         obs, engine, run_id = observer
-        obs.on_block_start("observer-soul-workflow", "block_c", "LinearBlock")
+        obs.on_block_start("observer-soul-workflow", "omitted_soul_block", "LinearBlock")
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=500,
-            results={"block_c": BlockResult(output="Output")},
+            results={"omitted_soul_block": BlockResult(output="Output")},
         )
-        obs.on_block_complete("observer-soul-workflow", "block_c", "LinearBlock", 1.0, state)
+        obs.on_block_complete(
+            "observer-soul-workflow", "omitted_soul_block", "LinearBlock", 1.0, state
+        )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_c")
+            node = session.get(RunNode, f"{run_id}:omitted_soul_block")
             assert node is not None
             assert node.prompt_hash is None
             assert node.soul_version is None
@@ -198,7 +204,7 @@ class TestHashVariation:
             name="Researcher",
             role="Researcher",
             system_prompt="Research things.",
-            model_name="gpt-4o",
+            model_name="fixture-chat-model",
         )
         soul_b = Soul(
             id="coder",
@@ -206,7 +212,7 @@ class TestHashVariation:
             name="Coder",
             role="Coder",
             system_prompt="Write code.",
-            model_name="gpt-4o",
+            model_name="fixture-chat-model",
         )
 
         # Block A with soul_a

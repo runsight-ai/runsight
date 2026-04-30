@@ -48,8 +48,8 @@ souls:
     name: Analyst
     role: Analyst
     system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
+    provider: fixture-provider
+    model_name: fixture-chat-model
 config: {}
 """
 
@@ -95,10 +95,10 @@ def _seed_run(engine, run_id: str, workflow_id: str = "branch-only-workflow") ->
 
 def _provider() -> Mock:
     provider = Mock()
-    provider.id = "openai"
-    provider.type = "openai"
+    provider.id = "fixture-provider"
+    provider.type = "fixture-provider"
     provider.is_active = True
-    provider.models = ["gpt-4o"]
+    provider.models = ["fixture-chat-model"]
     return provider
 
 
@@ -183,8 +183,8 @@ kind: soul
 name: Reviewer
 role: Reviewer
 system_prompt: Review carefully.
-provider: openai
-model_name: gpt-4o
+provider: fixture-provider
+model_name: fixture-chat-model
 """
 
 
@@ -212,8 +212,8 @@ souls:
     name: Assistant
     role: Assistant
     system_prompt: Help carefully.
-    provider: openai
-    model_name: gpt-4o
+    provider: fixture-provider
+    model_name: fixture-chat-model
     tools:
       - helper_tool
 config: {{}}

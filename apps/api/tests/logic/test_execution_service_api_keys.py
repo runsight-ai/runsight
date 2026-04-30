@@ -26,15 +26,15 @@ class TestResolveApiKeys:
         secrets = Mock()
 
         # Two active providers
-        openai_provider = Mock()
-        openai_provider.type = "openai"
-        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
+        primary_provider = Mock()
+        primary_provider.type = "primary-provider"
+        primary_provider.api_key = "${DUMMY_PRIMARY_PROVIDER_TOKEN}"
 
-        anthropic_provider = Mock()
-        anthropic_provider.type = "anthropic"
-        anthropic_provider.api_key = "${TEST_ANTHROPIC_PROVIDER_KEY}"
+        backup_provider = Mock()
+        backup_provider.type = "backup-provider"
+        backup_provider.api_key = "${DUMMY_BACKUP_PROVIDER_TOKEN}"
 
-        provider_repo.list_all.return_value = [openai_provider, anthropic_provider]
+        provider_repo.list_all.return_value = [primary_provider, backup_provider]
         secrets.resolve.side_effect = lambda x: f"decrypted-{x}"
 
         svc = ExecutionService(
@@ -45,8 +45,8 @@ class TestResolveApiKeys:
 
         assert isinstance(result, dict)
         assert result == {
-            "openai": "decrypted-${TEST_OPENAI_PROVIDER_KEY}",
-            "anthropic": "decrypted-${TEST_ANTHROPIC_PROVIDER_KEY}",
+            "primary-provider": "decrypted-${DUMMY_PRIMARY_PROVIDER_TOKEN}",
+            "backup-provider": "decrypted-${DUMMY_BACKUP_PROVIDER_TOKEN}",
         }
 
     def test_resolve_api_keys_skips_providers_without_key(self):
@@ -54,15 +54,15 @@ class TestResolveApiKeys:
         provider_repo = Mock()
         secrets = Mock()
 
-        openai_provider = Mock()
-        openai_provider.type = "openai"
-        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
+        primary_provider = Mock()
+        primary_provider.type = "primary-provider"
+        primary_provider.api_key = "${DUMMY_PRIMARY_PROVIDER_TOKEN}"
 
         empty_provider = Mock()
-        empty_provider.type = "anthropic"
+        empty_provider.type = "backup-provider"
         empty_provider.api_key = None  # no key configured
 
-        provider_repo.list_all.return_value = [openai_provider, empty_provider]
+        provider_repo.list_all.return_value = [primary_provider, empty_provider]
         secrets.resolve.side_effect = lambda x: f"decrypted-{x}"
 
         svc = ExecutionService(
@@ -71,8 +71,8 @@ class TestResolveApiKeys:
 
         result = svc._resolve_api_keys()
 
-        assert "openai" in result
-        assert "anthropic" not in result
+        assert "primary-provider" in result
+        assert "backup-provider" not in result
 
     def test_resolve_api_keys_includes_env_var_fallback(self):
         """If no DB provider exists for a type, env vars are checked as fallback."""
@@ -83,6 +83,7 @@ class TestResolveApiKeys:
 
         svc = ExecutionService(run_repo=Mock(), workflow_repo=Mock(), provider_repo=provider_repo)
 
+        # The fallback map is intentionally provider-specific in production code.
         with patch.dict(os.environ, {"OPENAI_API_KEY": "dummy-env-openai-key"}, clear=True):
             result = svc._resolve_api_keys()
 
@@ -101,40 +102,42 @@ class TestLaunchExecutionPassesApiKeys:
         mock_entity = Mock()
         mock_entity.yaml = """
 version: "1.0"
-id: inline_test_workflow
+id: api-key-resolution-workflow
 kind: workflow
 workflow:
-  name: test
-  entry: b1
+  name: API Key Resolution Workflow
+  entry: api-key-resolution-step
   transitions:
-    - from: b1
+    - from: api-key-resolution-step
       to: null
 blocks:
-  b1:
+  api-key-resolution-step:
     type: linear
-    soul_ref: test
+    soul_ref: api-key-resolution-soul
 souls:
-  test:
-    id: test
+  api-key-resolution-soul:
+    id: api-key-resolution-soul
     kind: soul
-    name: Test Soul
-    role: tester
+    name: API Key Resolution Soul
+    role: API key resolution tester
     system_prompt: hello
     provider: openai
-    model_name: gpt-4o
+    model_name: openai/fixture-chat-model
 config: {}
 """
         workflow_repo.get_by_id.return_value = mock_entity
 
-        openai_provider = Mock()
-        openai_provider.id = "openai"
-        openai_provider.type = "openai"
-        openai_provider.is_active = True
-        openai_provider.models = ["gpt-4o"]
-        openai_provider.api_key = "${TEST_OPENAI_PROVIDER_KEY}"
-        provider_repo.list_all.return_value = [openai_provider]
-        provider_repo.get_by_type.return_value = openai_provider
-        secrets.resolve.return_value = "dummy-decrypted-openai-key"
+        # The launch path instantiates RunsightTeamRunner before the parser mock,
+        # so this fixture uses a provider-qualified model that LiteLLM can classify.
+        fixture_provider = Mock()
+        fixture_provider.id = "openai"
+        fixture_provider.type = "openai"
+        fixture_provider.is_active = True
+        fixture_provider.models = ["openai/fixture-chat-model"]
+        fixture_provider.api_key = "${DUMMY_FIXTURE_PROVIDER_TOKEN}"
+        provider_repo.list_all.return_value = [fixture_provider]
+        provider_repo.get_by_type.return_value = fixture_provider
+        secrets.resolve.return_value = "dummy-decrypted-fixture-key"
 
         svc = ExecutionService(
             run_repo=run_repo,
@@ -153,8 +156,8 @@ config: {}
             mock_parse.return_value = mock_wf
 
             await svc.launch_execution(
-                "api_key_resolution_run",
-                "api_key_resolution_workflow",
+                "api-key-resolution-run",
+                "api-key-resolution-workflow",
                 _prepared_inputs({"instruction": "test"}),
                 branch=None,
             )

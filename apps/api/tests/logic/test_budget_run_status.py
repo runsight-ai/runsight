@@ -187,8 +187,8 @@ souls:
     name: Budget Soul
     role: budget evaluator
     system_prompt: hello
-    provider: openai
-    model_name: gpt-4o
+    provider: fixture-provider
+    model_name: fixture-chat-model
 config: {}
 """
 
@@ -204,7 +204,12 @@ def _make_execution_service(engine=None):
     mock_entity = Mock()
     mock_entity.yaml = VALID_RUNTIME_YAML
     workflow_repo.get_by_id.return_value = mock_entity
-    provider = Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"])
+    provider = Mock(
+        id="fixture-provider",
+        type="fixture-provider",
+        is_active=True,
+        models=["fixture-chat-model"],
+    )
     provider_repo.list_all.return_value = [provider]
 
     svc = ExecutionService(
