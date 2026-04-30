@@ -1,0 +1,37 @@
+packages/core/tests/test_tool_registry.py
+  4adca821c1af8eb3 2,10-16,55,96,187,235,240,284,315-316,337,377
+packages/core/tests/test_base_block.py
+  4adca821c1af8eb3 34-38,43-44,49-50,56-57,76,95-96,98,104,110,117
+packages/core/tests/test_registry.py
+  4adca821c1af8eb3 28,37,52,54,59,66,88
+packages/core/tests/unit/test_delete_http_filewriter.py
+  4adca821c1af8eb3 2,36,38-40
+packages/core/tests/unit/test_builtin_tools.py
+  4adca821c1af8eb3 2,26,65,562,729,762
+packages/core/tests/unit/test_litellm_tool_calling.py
+  4adca821c1af8eb3 2,5-7,84,163,191,344,402
+packages/core/tests/unit/test_tooldef_schema.py
+  4adca821c1af8eb3 2,15,20,118,184,220,298,371
+packages/core/tests/unit/test_agentic_tool_loop.py
+  4adca821c1af8eb3 2,4,6-12,125,176,300,328,397,456,519,577
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7fc6b2e9484b9e696f4171d356b4c5f08fcb3e4a",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 88,
+      "total_deletions": 92,
+      "accepted_lines": 68917,
+      "overriden_lines": 0
+    }
+  }
+}
