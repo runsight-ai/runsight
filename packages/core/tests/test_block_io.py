@@ -1,22 +1,16 @@
 """
-Failing tests for RUN-883: Define BlockContext, BlockOutput models and apply_block_output.
+Tests for BlockContext, BlockOutput, and apply_block_output behavior.
 
-New file `block_io.py` in runsight_core. Tests import from `runsight_core.block_io`
-which does not exist yet — all tests are expected to fail with ImportError.
-
-AC coverage:
-1. BlockContext model defined with all fields including `artifact_store`
-2. BlockOutput model defined with all fields
-3. apply_block_output correctly maps all BlockOutput fields to WorkflowState
-4. BlockContext.conversation_history is a shallow copy, not a reference to state.conversation_histories
-5. log_entries follows existing execution_log format: {'role': 'system', 'content': '...'}
-6. shared_memory_updates supports retry metadata keys (`__retry__` prefix)
-7. Unit tests for apply_block_output cover: idempotency, cost accumulation, shared_memory merge, log append
+Coverage:
+- BlockContext model fields, defaults, and copy semantics
+- BlockOutput model fields and defaults
+- apply_block_output mapping into WorkflowState
+- retry metadata, conversation updates, and state immutability behavior
 """
 
 import pytest
 from runsight_core.artifacts import InMemoryArtifactStore
-from runsight_core.block_io import (  # noqa: F401 (import under test — module does not exist yet)
+from runsight_core.block_io import (  # noqa: F401 (imported as public API under test)
     BlockContext,
     BlockOutput,
     apply_block_output,
@@ -31,16 +25,16 @@ from runsight_core.state import BlockResult, WorkflowState
 
 def make_soul() -> Soul:
     return Soul(
-        id="soul_1",
+        id="analysis_soul",
         kind="soul",
-        name="Test",
+        name="Analysis Soul",
         role="Researcher",
         system_prompt="You are a researcher.",
     )
 
 
 def make_artifact_store() -> InMemoryArtifactStore:
-    return InMemoryArtifactStore(run_id="run-test-001")
+    return InMemoryArtifactStore(run_id="analysis-run-001")
 
 
 def make_state(**kwargs) -> WorkflowState:
@@ -79,89 +73,93 @@ class TestBlockContextModel:
 
     def test_minimal_construction(self):
         """BlockContext can be constructed with only block_id and instruction."""
-        ctx = BlockContext(block_id="b1", instruction="Do something")
-        assert ctx.block_id == "b1"
+        ctx = BlockContext(block_id="analysis_block", instruction="Do something")
+        assert ctx.block_id == "analysis_block"
         assert ctx.instruction == "Do something"
 
     def test_default_context_is_none(self):
         """context field defaults to None."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.context is None
 
     def test_default_inputs_is_empty_dict(self):
         """inputs field defaults to empty dict."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.inputs == {}
 
     def test_default_conversation_history_is_empty_list(self):
         """conversation_history field defaults to empty list."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.conversation_history == []
 
     def test_default_soul_is_none(self):
         """soul field defaults to None."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.soul is None
 
     def test_default_model_name_is_none(self):
         """model_name field defaults to None."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.model_name is None
 
     def test_default_artifact_store_is_none(self):
         """artifact_store field defaults to None."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.artifact_store is None
 
     def test_default_state_snapshot_is_none(self):
         """state_snapshot field defaults to None."""
-        ctx = BlockContext(block_id="b1", instruction="x")
+        ctx = BlockContext(block_id="analysis_block", instruction="x")
         assert ctx.state_snapshot is None
 
     def test_accepts_soul(self):
         """soul field accepts a Soul instance."""
         soul = make_soul()
-        ctx = BlockContext(block_id="b1", instruction="x", soul=soul)
+        ctx = BlockContext(block_id="analysis_block", instruction="x", soul=soul)
         assert ctx.soul is soul
-        assert ctx.soul.id == "soul_1"
+        assert ctx.soul.id == "analysis_soul"
 
     def test_accepts_artifact_store(self):
         """artifact_store field accepts an ArtifactStore instance."""
         store = make_artifact_store()
-        ctx = BlockContext(block_id="b1", instruction="x", artifact_store=store)
+        ctx = BlockContext(block_id="analysis_block", instruction="x", artifact_store=store)
         assert ctx.artifact_store is store
-        assert ctx.artifact_store.run_id == "run-test-001"
+        assert ctx.artifact_store.run_id == "analysis-run-001"
 
     def test_accepts_state_snapshot(self):
         """state_snapshot field accepts a WorkflowState instance."""
         snapshot = make_state(total_cost_usd=2.5)
-        ctx = BlockContext(block_id="b1", instruction="x", state_snapshot=snapshot)
+        ctx = BlockContext(block_id="analysis_block", instruction="x", state_snapshot=snapshot)
         assert ctx.state_snapshot is not None
         assert ctx.state_snapshot.total_cost_usd == 2.5
 
     def test_accepts_inputs_dict(self):
         """inputs field accepts a dict with arbitrary keys/values."""
-        ctx = BlockContext(block_id="b1", instruction="x", inputs={"key": "val", "num": 42})
+        ctx = BlockContext(
+            block_id="analysis_block", instruction="x", inputs={"key": "val", "num": 42}
+        )
         assert ctx.inputs["key"] == "val"
         assert ctx.inputs["num"] == 42
 
     def test_accepts_model_name(self):
         """model_name field accepts a string."""
-        ctx = BlockContext(block_id="b1", instruction="x", model_name="gpt-4o")
-        assert ctx.model_name == "gpt-4o"
+        ctx = BlockContext(
+            block_id="analysis_block", instruction="x", model_name="fixture-analysis-model"
+        )
+        assert ctx.model_name == "fixture-analysis-model"
 
     def test_conversation_history_is_shallow_copy_not_same_reference(self):
         """conversation_history must be a shallow copy — not the same list object passed in.
 
-        AC-4: BlockContext.conversation_history is a shallow copy, not a reference
-        to state.conversation_histories.
+        BlockContext.conversation_history is a shallow copy, not a reference to
+        state.conversation_histories.
         """
         original_history = [
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi there"},
         ]
         ctx = BlockContext(
-            block_id="b1",
+            block_id="analysis_block",
             instruction="x",
             conversation_history=original_history,
         )
@@ -177,7 +175,7 @@ class TestBlockContextModel:
             {"role": "assistant", "content": "Hi"},
         ]
         ctx = BlockContext(
-            block_id="b1",
+            block_id="analysis_block",
             instruction="x",
             conversation_history=original_history,
         )
@@ -187,7 +185,7 @@ class TestBlockContextModel:
         """Appending to the original list must not affect ctx.conversation_history."""
         original_history = [{"role": "user", "content": "Hello"}]
         ctx = BlockContext(
-            block_id="b1",
+            block_id="analysis_block",
             instruction="x",
             conversation_history=original_history,
         )
@@ -280,13 +278,13 @@ class TestBlockOutputModel:
     def test_log_entries_format_matches_execution_log(self):
         """log_entries must follow the same format as execution_log: {'role': ..., 'content': ...}.
 
-        AC-5: log_entries follows existing execution_log format.
+        log_entries follows existing execution_log format.
         """
-        entry = {"role": "system", "content": "Block b1 started"}
+        entry = {"role": "system", "content": "Block analysis_block started"}
         bo = BlockOutput(output="x", log_entries=[entry])
         assert len(bo.log_entries) == 1
         assert bo.log_entries[0]["role"] == "system"
-        assert bo.log_entries[0]["content"] == "Block b1 started"
+        assert bo.log_entries[0]["content"] == "Block analysis_block started"
 
     def test_accepts_exit_handle(self):
         """exit_handle field accepts a string."""
@@ -295,8 +293,8 @@ class TestBlockOutputModel:
 
     def test_accepts_artifact_ref_and_type(self):
         """artifact_ref and artifact_type fields accept strings."""
-        bo = BlockOutput(output="x", artifact_ref="s3://bucket/obj", artifact_type="json")
-        assert bo.artifact_ref == "s3://bucket/obj"
+        bo = BlockOutput(output="x", artifact_ref="artifact://fixture/object", artifact_type="json")
+        assert bo.artifact_ref == "artifact://fixture/object"
         assert bo.artifact_type == "json"
 
     def test_accepts_cost_and_tokens(self):
@@ -307,7 +305,7 @@ class TestBlockOutputModel:
 
     def test_accepts_conversation_updates(self):
         """conversation_updates accepts a dict of list-of-dicts."""
-        updates = {"b1_soul1": [{"role": "user", "content": "hi"}]}
+        updates = {"analysis_block_analyst_soul": [{"role": "user", "content": "hi"}]}
         bo = BlockOutput(output="x", conversation_updates=updates)
         assert bo.conversation_updates == updates
 
@@ -330,7 +328,7 @@ class TestBlockOutputModel:
 
 
 class TestApplyBlockOutput:
-    """apply_block_output(state, block_id, output) -> WorkflowState — full AC coverage."""
+    """apply_block_output(state, block_id, output) -> WorkflowState behavior."""
 
     # ------------------------------------------------------------------
     # 3a. Basic mapping: output -> state.results[block_id] as BlockResult
@@ -340,9 +338,9 @@ class TestApplyBlockOutput:
         """BlockOutput.output is stored in state.results[block_id] as a BlockResult."""
         state = make_state()
         bo = make_block_output(output="the answer")
-        new_state = apply_block_output(state, "block_a", bo)
-        assert "block_a" in new_state.results
-        result = new_state.results["block_a"]
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert "analysis_block" in new_state.results
+        result = new_state.results["analysis_block"]
         assert isinstance(result, BlockResult)
         assert result.output == "the answer"
 
@@ -350,30 +348,30 @@ class TestApplyBlockOutput:
         """BlockOutput.exit_handle is stored in state.results[block_id].exit_handle."""
         state = make_state()
         bo = make_block_output(output="x", exit_handle="success")
-        new_state = apply_block_output(state, "block_a", bo)
-        assert new_state.results["block_a"].exit_handle == "success"
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert new_state.results["analysis_block"].exit_handle == "success"
 
     def test_maps_artifact_ref_to_block_result(self):
         """BlockOutput.artifact_ref is stored in state.results[block_id].artifact_ref."""
         state = make_state()
-        bo = make_block_output(output="x", artifact_ref="s3://bucket/file.json")
-        new_state = apply_block_output(state, "block_a", bo)
-        assert new_state.results["block_a"].artifact_ref == "s3://bucket/file.json"
+        bo = make_block_output(output="x", artifact_ref="artifact://fixture/file.json")
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert new_state.results["analysis_block"].artifact_ref == "artifact://fixture/file.json"
 
     def test_maps_artifact_type_to_block_result(self):
         """BlockOutput.artifact_type is stored in state.results[block_id].artifact_type."""
         state = make_state()
         bo = make_block_output(output="x", artifact_type="json")
-        new_state = apply_block_output(state, "block_a", bo)
-        assert new_state.results["block_a"].artifact_type == "json"
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert new_state.results["analysis_block"].artifact_type == "json"
 
     def test_maps_metadata_to_block_result(self):
         """BlockOutput.metadata is stored in state.results[block_id].metadata."""
         state = make_state()
-        meta = {"duration_ms": 300, "model": "gpt-4o"}
+        meta = {"duration_ms": 300, "model": "fixture-analysis-model"}
         bo = make_block_output(output="x", metadata=meta)
-        new_state = apply_block_output(state, "block_a", bo)
-        assert new_state.results["block_a"].metadata == meta
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert new_state.results["analysis_block"].metadata == meta
 
     # ------------------------------------------------------------------
     # 3b. Cost and token accumulation
@@ -382,28 +380,28 @@ class TestApplyBlockOutput:
     def test_accumulates_cost_usd(self):
         """total_cost_usd is incremented by BlockOutput.cost_usd.
 
-        AC-7: cost accumulation test.
+        cost_usd accumulates onto WorkflowState.
         """
         state = make_state(total_cost_usd=1.0)
         bo = make_block_output(output="x", cost_usd=0.5)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.total_cost_usd == pytest.approx(1.5)
 
     def test_accumulates_total_tokens(self):
         """total_tokens is incremented by BlockOutput.total_tokens.
 
-        AC-7: token accumulation test.
+        total_tokens accumulates onto WorkflowState.
         """
         state = make_state(total_tokens=100)
         bo = make_block_output(output="x", total_tokens=50)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.total_tokens == 150
 
     def test_zero_cost_output_does_not_change_total(self):
         """When BlockOutput.cost_usd is 0.0, total_cost_usd is unchanged."""
         state = make_state(total_cost_usd=2.0)
         bo = make_block_output(output="x", cost_usd=0.0)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.total_cost_usd == pytest.approx(2.0)
 
     # ------------------------------------------------------------------
@@ -413,7 +411,7 @@ class TestApplyBlockOutput:
     def test_appends_log_entries_to_execution_log(self):
         """BlockOutput.log_entries are appended to state.execution_log.
 
-        AC-7: log append test.
+        log entries append onto WorkflowState.execution_log.
         """
         existing_entry = {"role": "system", "content": "Existing log"}
         state = make_state(execution_log=[existing_entry])
@@ -422,7 +420,7 @@ class TestApplyBlockOutput:
             {"role": "system", "content": "Block completed"},
         ]
         bo = make_block_output(output="x", log_entries=new_entries)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert len(new_state.execution_log) == 3
         assert new_state.execution_log[0] == existing_entry
         assert new_state.execution_log[1] == new_entries[0]
@@ -433,7 +431,7 @@ class TestApplyBlockOutput:
         existing_entry = {"role": "system", "content": "Only entry"}
         state = make_state(execution_log=[existing_entry])
         bo = make_block_output(output="x", log_entries=[])
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert len(new_state.execution_log) == 1
         assert new_state.execution_log[0] == existing_entry
 
@@ -444,11 +442,11 @@ class TestApplyBlockOutput:
     def test_merges_shared_memory_updates(self):
         """BlockOutput.shared_memory_updates are merged into state.shared_memory.
 
-        AC-7: shared_memory merge test.
+        shared_memory_updates merge into WorkflowState.shared_memory.
         """
         state = make_state(shared_memory={"existing_key": "existing_val"})
         bo = make_block_output(output="x", shared_memory_updates={"new_key": "new_val"})
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.shared_memory["existing_key"] == "existing_val"
         assert new_state.shared_memory["new_key"] == "new_val"
 
@@ -456,33 +454,33 @@ class TestApplyBlockOutput:
         """A shared_memory_updates key that already exists is overwritten."""
         state = make_state(shared_memory={"key": "old_value"})
         bo = make_block_output(output="x", shared_memory_updates={"key": "new_value"})
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.shared_memory["key"] == "new_value"
 
     def test_shared_memory_updates_none_does_not_crash(self):
         """When shared_memory_updates is None, shared_memory is unchanged and no crash.
 
-        AC-3: Handles None optional fields gracefully.
+        None optional fields are handled gracefully.
         """
         state = make_state(shared_memory={"keep": "this"})
         bo = make_block_output(output="x", shared_memory_updates=None)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.shared_memory == {"keep": "this"}
 
     def test_shared_memory_updates_supports_retry_prefix_keys(self):
         """shared_memory_updates accepts __retry__ prefixed keys (retry metadata).
 
-        AC-6: shared_memory_updates supports retry metadata keys.
+        shared_memory_updates supports retry metadata keys.
         """
         state = make_state()
         retry_updates = {
-            "__retry__block_a": {"attempt": 2, "reason": "timeout"},
+            "__retry__analysis_block": {"attempt": 2, "reason": "timeout"},
             "normal_key": "normal_val",
         }
         bo = make_block_output(output="x", shared_memory_updates=retry_updates)
-        new_state = apply_block_output(state, "block_a", bo)
-        assert "__retry__block_a" in new_state.shared_memory
-        assert new_state.shared_memory["__retry__block_a"]["attempt"] == 2
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert "__retry__analysis_block" in new_state.shared_memory
+        assert new_state.shared_memory["__retry__analysis_block"]["attempt"] == 2
         assert new_state.shared_memory["normal_key"] == "normal_val"
 
     # ------------------------------------------------------------------
@@ -492,16 +490,18 @@ class TestApplyBlockOutput:
     def test_merges_conversation_updates(self):
         """BlockOutput.conversation_updates are merged into state.conversation_histories."""
         state = make_state(
-            conversation_histories={"block_a_soul1": [{"role": "user", "content": "Hi"}]}
+            conversation_histories={
+                "analysis_block_analyst_soul": [{"role": "user", "content": "Hi"}]
+            }
         )
         new_turn = {"role": "assistant", "content": "Hello!"}
         bo = make_block_output(
             output="x",
-            conversation_updates={"block_a_soul1": [new_turn]},
+            conversation_updates={"analysis_block_analyst_soul": [new_turn]},
         )
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         # The new conversation_histories for this key should contain the update
-        history = new_state.conversation_histories["block_a_soul1"]
+        history = new_state.conversation_histories["analysis_block_analyst_soul"]
         assert any(msg["content"] == "Hello!" for msg in history)
 
     def test_conversation_updates_none_does_not_crash(self):
@@ -509,7 +509,7 @@ class TestApplyBlockOutput:
         existing = {"soul_key": [{"role": "user", "content": "question"}]}
         state = make_state(conversation_histories=existing)
         bo = make_block_output(output="x", conversation_updates=None)
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state.conversation_histories == existing
 
     # ------------------------------------------------------------------
@@ -524,8 +524,8 @@ class TestApplyBlockOutput:
             output="primary output",
             extra_results={"sibling_block": side_result},
         )
-        new_state = apply_block_output(state, "block_a", bo)
-        assert "block_a" in new_state.results
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert "analysis_block" in new_state.results
         assert "sibling_block" in new_state.results
         assert new_state.results["sibling_block"].output == "side effect output"
 
@@ -533,8 +533,8 @@ class TestApplyBlockOutput:
         """When extra_results is None, results only contains the primary block_id entry."""
         state = make_state()
         bo = make_block_output(output="x", extra_results=None)
-        new_state = apply_block_output(state, "block_a", bo)
-        assert list(new_state.results.keys()) == ["block_a"]
+        new_state = apply_block_output(state, "analysis_block", bo)
+        assert list(new_state.results.keys()) == ["analysis_block"]
 
     # ------------------------------------------------------------------
     # 3g. Immutability — original state must not be mutated
@@ -543,11 +543,11 @@ class TestApplyBlockOutput:
     def test_returns_new_workflow_state_instance(self):
         """apply_block_output must return a new WorkflowState, not mutate the original.
 
-        AC-3: Returns new WorkflowState (immutable).
+        apply_block_output returns a new WorkflowState.
         """
         state = make_state()
         bo = make_block_output(output="x")
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
         assert new_state is not state
 
     def test_original_state_results_unchanged(self):
@@ -555,7 +555,7 @@ class TestApplyBlockOutput:
         state = make_state()
         original_results = dict(state.results)
         bo = make_block_output(output="x")
-        apply_block_output(state, "block_a", bo)
+        apply_block_output(state, "analysis_block", bo)
         assert state.results == original_results
 
     def test_original_state_shared_memory_unchanged(self):
@@ -563,7 +563,7 @@ class TestApplyBlockOutput:
         state = make_state(shared_memory={"key": "val"})
         original_sm = dict(state.shared_memory)
         bo = make_block_output(output="x", shared_memory_updates={"new_key": "new_val"})
-        apply_block_output(state, "block_a", bo)
+        apply_block_output(state, "analysis_block", bo)
         assert state.shared_memory == original_sm
 
     def test_original_state_execution_log_unchanged(self):
@@ -575,14 +575,14 @@ class TestApplyBlockOutput:
             output="x",
             log_entries=[{"role": "system", "content": "new entry"}],
         )
-        apply_block_output(state, "block_a", bo)
+        apply_block_output(state, "analysis_block", bo)
         assert len(state.execution_log) == original_len
 
     def test_original_state_cost_unchanged(self):
         """The original state.total_cost_usd must not be modified."""
         state = make_state(total_cost_usd=1.0)
         bo = make_block_output(output="x", cost_usd=5.0)
-        apply_block_output(state, "block_a", bo)
+        apply_block_output(state, "analysis_block", bo)
         assert state.total_cost_usd == 1.0
 
     # ------------------------------------------------------------------
@@ -592,15 +592,15 @@ class TestApplyBlockOutput:
     def test_idempotency_applying_twice_accumulates_cost(self):
         """Applying the same BlockOutput twice accumulates cost twice.
 
-        AC-7: idempotency test — verifies deterministic accumulation.
+        applying the same output twice deterministically accumulates cost.
         Note: apply_block_output is NOT idempotent; applying twice doubles.
         This test documents that behavior explicitly.
         """
         state = make_state(total_cost_usd=0.0)
         bo = make_block_output(output="x", cost_usd=0.5)
-        state_after_first = apply_block_output(state, "block_a", bo)
-        state_after_second = apply_block_output(state_after_first, "block_a", bo)
-        # Second call overwrites block_a in results but doubles cost
+        state_after_first = apply_block_output(state, "analysis_block", bo)
+        state_after_second = apply_block_output(state_after_first, "analysis_block", bo)
+        # Second call overwrites analysis_block in results but doubles cost
         assert state_after_second.total_cost_usd == pytest.approx(1.0)
 
     def test_idempotency_applying_twice_overwrites_result(self):
@@ -608,9 +608,9 @@ class TestApplyBlockOutput:
         state = make_state()
         bo_first = make_block_output(output="first output")
         bo_second = make_block_output(output="second output")
-        state_after_first = apply_block_output(state, "block_a", bo_first)
-        state_after_second = apply_block_output(state_after_first, "block_a", bo_second)
-        assert state_after_second.results["block_a"].output == "second output"
+        state_after_first = apply_block_output(state, "analysis_block", bo_first)
+        state_after_second = apply_block_output(state_after_first, "analysis_block", bo_second)
+        assert state_after_second.results["analysis_block"].output == "second output"
 
     # ------------------------------------------------------------------
     # 3i. Full integration — all fields in one call
@@ -623,29 +623,34 @@ class TestApplyBlockOutput:
             total_tokens=100,
             execution_log=[{"role": "system", "content": "bootstrap"}],
             shared_memory={"existing": True},
-            conversation_histories={"block_a_soul1": []},
+            conversation_histories={"analysis_block_analyst_soul": []},
         )
         bo = BlockOutput(
             output="full output",
             exit_handle="done",
-            artifact_ref="s3://bucket/result.txt",
+            artifact_ref="artifact://fixture/result.txt",
             artifact_type="text",
-            metadata={"model": "gpt-4o", "latency_ms": 123},
+            metadata={"model": "fixture-analysis-model", "latency_ms": 123},
             cost_usd=0.25,
             total_tokens=300,
-            log_entries=[{"role": "system", "content": "block_a ran"}],
-            conversation_updates={"block_a_soul1": [{"role": "assistant", "content": "Reply"}]},
+            log_entries=[{"role": "system", "content": "analysis_block ran"}],
+            conversation_updates={
+                "analysis_block_analyst_soul": [{"role": "assistant", "content": "Reply"}]
+            },
             shared_memory_updates={"result_summary": "done well"},
             extra_results={"post_block": BlockResult(output="post output")},
         )
-        new_state = apply_block_output(state, "block_a", bo)
+        new_state = apply_block_output(state, "analysis_block", bo)
 
         # results
-        assert new_state.results["block_a"].output == "full output"
-        assert new_state.results["block_a"].exit_handle == "done"
-        assert new_state.results["block_a"].artifact_ref == "s3://bucket/result.txt"
-        assert new_state.results["block_a"].artifact_type == "text"
-        assert new_state.results["block_a"].metadata == {"model": "gpt-4o", "latency_ms": 123}
+        assert new_state.results["analysis_block"].output == "full output"
+        assert new_state.results["analysis_block"].exit_handle == "done"
+        assert new_state.results["analysis_block"].artifact_ref == "artifact://fixture/result.txt"
+        assert new_state.results["analysis_block"].artifact_type == "text"
+        assert new_state.results["analysis_block"].metadata == {
+            "model": "fixture-analysis-model",
+            "latency_ms": 123,
+        }
 
         # extra_results
         assert "post_block" in new_state.results
@@ -657,12 +662,12 @@ class TestApplyBlockOutput:
 
         # execution_log
         assert len(new_state.execution_log) == 2
-        assert new_state.execution_log[1] == {"role": "system", "content": "block_a ran"}
+        assert new_state.execution_log[1] == {"role": "system", "content": "analysis_block ran"}
 
         # shared_memory
         assert new_state.shared_memory["existing"] is True
         assert new_state.shared_memory["result_summary"] == "done well"
 
         # conversation_histories
-        histories = new_state.conversation_histories["block_a_soul1"]
+        histories = new_state.conversation_histories["analysis_block_analyst_soul"]
         assert any(m["content"] == "Reply" for m in histories)
