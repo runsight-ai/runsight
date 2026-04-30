@@ -1,0 +1,45 @@
+packages/core/tests/test_isolation_e2e.py
+  4adca821c1af8eb3 1,160,170,207,259,267,270,282-283,307,348,397,399,406-411,441,450,453,459-460,471,562,564,572,585,591-593,609,628,635,642,664,679,699,705,722,767,787
+packages/core/tests/test_isolation_ipc_artifacts_http.py
+  4adca821c1af8eb3 1,17,122,231
+packages/core/tests/test_isolation_ipc_lifecycle.py
+  4adca821c1af8eb3 1,17,101
+packages/core/tests/test_isolation_ipc_observer_interceptor.py
+  4adca821c1af8eb3 1,14,81,144,201,273
+packages/core/tests/test_isolation_ipc_interceptor_registry.py
+  4adca821c1af8eb3 1,55,72,179,191,205,231,239,257,300,310,324,372,384,398,442,450,464,485
+packages/core/tests/test_isolation_ipc_framing.py
+  4adca821c1af8eb3 1,19,68,297
+packages/core/tests/test_isolation_context_scope.py
+  4adca821c1af8eb3 2,4,93,95
+packages/core/tests/test_isolation_ipc_auth_handshake.py
+  4adca821c1af8eb3 1,20,50,72,93,95,118,139,141,157,161,182,186,213,215,231,235,260,273,275,298-299,319,323,336,357-358,374,378,405-406,422,453,461,486-488,544,600
+packages/core/tests/test_isolation_ipc_process_boundary.py
+  4adca821c1af8eb3 1,20,32,41,49,53,67,77,105,114,128,132,174,178,189,201-202,205,225,229,244,248,319,323,365,369,384,391,398,405,480,484
+packages/core/tests/test_isolation_ipc_frames.py
+  4adca821c1af8eb3 1,19,96,104,159,170,225
+packages/core/tests/test_isolation_ipc_budget_interceptor.py
+  4adca821c1af8eb3 1,19,27,35,59,67,91,99,126,134,158,166,197,207,211,223,237,246,257
+packages/core/tests/test_isolation_ipc_dispatch.py
+  4adca821c1af8eb3 1,18,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9e09c886f9063a1d5bbc73d7adbbc4e6d4491570",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 184,
+      "total_deletions": 182,
+      "accepted_lines": 84431,
+      "overriden_lines": 0
+    }
+  }
+}
