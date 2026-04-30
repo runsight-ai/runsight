@@ -1,18 +1,17 @@
-"""
-Failing tests for RUN-157: Implement retry execution in workflow runner.
+"""Workflow retry execution behavior coverage.
 
 Tests cover:
 - BaseBlock has retry_config attribute (set by parser, bridged from BlockDef)
 - Retry wrapper in Workflow.run() retries blocks on exception up to max_attempts
 - Block succeeds on 2nd attempt after 1 failure
-- non_retryable_errors: ValueError is NOT retried, RuntimeError IS retried
+- non_retryable_errors: ValueError bypasses retry, RuntimeError still retries
 - Fixed backoff waits correct duration (mock asyncio.sleep)
 - Exponential backoff waits correct durations (mock asyncio.sleep)
 - Retry metadata written to shared_memory correctly
 - Block without retry_config runs exactly once (no wrapper overhead)
 - KeyboardInterrupt and SystemExit are never retried
-- max_attempts=1 with failing block — runs once, raises original exception
-- Concurrent blocks with retry — each has independent retry state
+- max_attempts=1 with failing block runs once and raises original exception
+- Multiple retrying blocks keep independent retry state
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from runsight_core.state import WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.schema import RetryConfig
 
-# ── Test helpers ──────────────────────────────────────────────────────────
+# Test helpers
 
 
 class SucceedingBlock(BaseBlock):
@@ -88,16 +87,14 @@ class CountingBlock(BaseBlock):
 
 def _make_workflow_with_single_block(block: BaseBlock) -> Workflow:
     """Helper: create a one-block workflow with given block as entry + terminal."""
-    wf = Workflow(name="test_retry_wf")
-    wf.add_block(block)
-    wf.add_transition(block.block_id, None)
-    wf.set_entry(block.block_id)
-    return wf
+    workflow = Workflow(name="retry_behavior_workflow")
+    workflow.add_block(block)
+    workflow.add_transition(block.block_id, None)
+    workflow.set_entry(block.block_id)
+    return workflow
 
 
-# ===========================================================================
-# 1. BaseBlock has retry_config attribute
-# ===========================================================================
+# BaseBlock retry configuration
 
 
 class TestBaseBlockRetryConfigAttribute:
@@ -105,17 +102,17 @@ class TestBaseBlockRetryConfigAttribute:
 
     def test_base_block_has_retry_config_attribute(self):
         """BaseBlock instances should have a retry_config attribute."""
-        block = SucceedingBlock("b1")
+        block = SucceedingBlock("retrying_block")
         assert hasattr(block, "retry_config")
 
     def test_base_block_retry_config_default_none(self):
         """BaseBlock.retry_config defaults to None when not explicitly set."""
-        block = SucceedingBlock("b1")
+        block = SucceedingBlock("retrying_block")
         assert block.retry_config is None
 
     def test_base_block_retry_config_can_be_set(self):
         """retry_config can be assigned to a BaseBlock instance."""
-        block = SucceedingBlock("b1")
+        block = SucceedingBlock("retrying_block")
         rc = RetryConfig(max_attempts=5, backoff="exponential")
         block.retry_config = rc
         assert block.retry_config is rc
@@ -126,13 +123,11 @@ class TestBaseBlockRetryConfigAttribute:
         rc = RetryConfig(max_attempts=3, backoff="fixed")
         # The constructor should accept retry_config as a keyword argument
         block = SucceedingBlock.__new__(SucceedingBlock)
-        BaseBlock.__init__(block, "b1", retry_config=rc)
+        BaseBlock.__init__(block, "retrying_block", retry_config=rc)
         assert block.retry_config is rc
 
 
-# ===========================================================================
-# 2. Block with retry_config retries on exception up to max_attempts
-# ===========================================================================
+# Retry attempt limits
 
 
 class TestRetryUpToMaxAttempts:
@@ -144,11 +139,11 @@ class TestRetryUpToMaxAttempts:
         block = AlwaysFailingBlock("fail_block")
         block.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RuntimeError, match="boom"):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         # Must have been called exactly 3 times (initial + 2 retries)
         assert block.call_count == 3
@@ -156,21 +151,19 @@ class TestRetryUpToMaxAttempts:
     @pytest.mark.asyncio
     async def test_retries_exactly_max_attempts_times(self):
         """Block should be called exactly max_attempts times before giving up."""
-        block = FailNTimesThenSucceed("b1", fail_count=100)  # will never succeed
+        block = FailNTimesThenSucceed("retrying_block", fail_count=100)
         block.retry_config = RetryConfig(max_attempts=4, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         assert block._call_count == 4
 
 
-# ===========================================================================
-# 3. Block succeeds on 2nd attempt after 1 failure
-# ===========================================================================
+# Retry eventual success
 
 
 class TestRetrySucceedsAfterFailure:
@@ -178,36 +171,34 @@ class TestRetrySucceedsAfterFailure:
 
     @pytest.mark.asyncio
     async def test_succeeds_on_second_attempt(self):
-        """Block fails once, then succeeds — workflow completes normally."""
-        block = FailNTimesThenSucceed("b1", fail_count=1)
+        """Block fails once, then succeeds and workflow completes normally."""
+        block = FailNTimesThenSucceed("retrying_block", fail_count=1)
         block.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        assert "b1" in state.results
-        assert "ok on attempt 2" in state.results["b1"].output
+        assert "retrying_block" in state.results
+        assert "ok on attempt 2" in state.results["retrying_block"].output
 
     @pytest.mark.asyncio
     async def test_succeeds_on_third_attempt(self):
-        """Block fails twice, then succeeds — workflow completes normally."""
-        block = FailNTimesThenSucceed("b1", fail_count=2)
+        """Block fails twice, then succeeds and workflow completes normally."""
+        block = FailNTimesThenSucceed("retrying_block", fail_count=2)
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        assert "b1" in state.results
-        assert "ok on attempt 3" in state.results["b1"].output
+        assert "retrying_block" in state.results
+        assert "ok on attempt 3" in state.results["retrying_block"].output
 
 
-# ===========================================================================
-# 4. non_retryable_errors — ValueError NOT retried, RuntimeError IS retried
-# ===========================================================================
+# Non-retryable errors
 
 
 class TestNonRetryableErrors:
@@ -215,8 +206,8 @@ class TestNonRetryableErrors:
 
     @pytest.mark.asyncio
     async def test_non_retryable_error_not_retried(self):
-        """ValueError in non_retryable_errors list — should NOT be retried, re-raise immediately."""
-        block = AlwaysFailingBlock("b1", error_cls=ValueError, message="bad value")
+        """ValueError in non_retryable_errors list bypasses retry."""
+        block = AlwaysFailingBlock("retrying_block", error_cls=ValueError, message="bad value")
         block.retry_config = RetryConfig(
             max_attempts=5,
             backoff="fixed",
@@ -224,21 +215,19 @@ class TestNonRetryableErrors:
             non_retryable_errors=["ValueError"],
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(ValueError, match="bad value"):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
-        # Should NOT have slept — block was not retried
         mock_sleep.assert_not_called()
-        # Block called exactly once (no retry for non-retryable errors)
         assert block.call_count == 1
 
     @pytest.mark.asyncio
     async def test_retryable_error_is_retried_when_non_retryable_list_exists(self):
-        """RuntimeError not in non_retryable_errors — SHOULD be retried."""
-        block = FailNTimesThenSucceed("b1", fail_count=1, error_cls=RuntimeError)
+        """RuntimeError not in non_retryable_errors is retried."""
+        block = FailNTimesThenSucceed("retrying_block", fail_count=1, error_cls=RuntimeError)
         block.retry_config = RetryConfig(
             max_attempts=3,
             backoff="fixed",
@@ -246,17 +235,17 @@ class TestNonRetryableErrors:
             non_retryable_errors=["ValueError"],
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        assert "b1" in state.results
+        assert "retrying_block" in state.results
 
     @pytest.mark.asyncio
     async def test_non_retryable_error_raises_on_first_attempt(self):
-        """A non-retryable error should cause immediate failure — only 1 attempt."""
-        block = FailNTimesThenSucceed("b1", fail_count=5, error_cls=ValueError)
+        """A non-retryable error causes immediate failure with one attempt."""
+        block = FailNTimesThenSucceed("retrying_block", fail_count=5, error_cls=ValueError)
         block.retry_config = RetryConfig(
             max_attempts=5,
             backoff="fixed",
@@ -264,19 +253,16 @@ class TestNonRetryableErrors:
             non_retryable_errors=["ValueError"],
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(ValueError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
-        # Only called once — no retry
         assert block._call_count == 1
 
 
-# ===========================================================================
-# 5. Fixed backoff waits correct duration
-# ===========================================================================
+# Fixed backoff
 
 
 class TestFixedBackoff:
@@ -285,18 +271,18 @@ class TestFixedBackoff:
     @pytest.mark.asyncio
     async def test_fixed_backoff_waits_constant_duration(self):
         """Fixed backoff should sleep for backoff_base_seconds between each retry."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(
             max_attempts=4,
             backoff="fixed",
             backoff_base_seconds=2.0,
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         # 4 attempts = 3 retry sleeps (after attempt 1, 2, 3; not after last)
         assert mock_sleep.call_count == 3
@@ -306,24 +292,22 @@ class TestFixedBackoff:
     @pytest.mark.asyncio
     async def test_fixed_backoff_no_sleep_on_success(self):
         """If block succeeds on first attempt, no sleep should occur."""
-        block = SucceedingBlock("b1")
+        block = SucceedingBlock("retrying_block")
         block.retry_config = RetryConfig(
             max_attempts=3,
             backoff="fixed",
             backoff_base_seconds=1.0,
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            await wf.run(WorkflowState())
+            await workflow.run(WorkflowState())
 
         mock_sleep.assert_not_called()
 
 
-# ===========================================================================
-# 6. Exponential backoff waits correct durations
-# ===========================================================================
+# Exponential backoff
 
 
 class TestExponentialBackoff:
@@ -332,18 +316,18 @@ class TestExponentialBackoff:
     @pytest.mark.asyncio
     async def test_exponential_backoff_durations(self):
         """Exponential backoff: sleep durations should be base * 2^0, base * 2^1, base * 2^2, ..."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(
             max_attempts=4,
             backoff="exponential",
             backoff_base_seconds=1.0,
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         # 4 attempts = 3 sleeps
         assert mock_sleep.call_count == 3
@@ -355,27 +339,25 @@ class TestExponentialBackoff:
     @pytest.mark.asyncio
     async def test_exponential_backoff_with_custom_base(self):
         """Exponential backoff with base=0.5: 0.5, 1.0, 2.0."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(
             max_attempts=4,
             backoff="exponential",
             backoff_base_seconds=0.5,
         )
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         expected_durations = [0.5, 1.0, 2.0]
         actual_durations = [call.args[0] for call in mock_sleep.call_args_list]
         assert actual_durations == pytest.approx(expected_durations)
 
 
-# ===========================================================================
-# 7. Retry metadata written to shared_memory correctly
-# ===========================================================================
+# Retry metadata
 
 
 class TestRetryMetadataInSharedMemory:
@@ -388,30 +370,30 @@ class TestRetryMetadataInSharedMemory:
         Since Workflow.run() raises when the block exhausts all attempts,
         we verify the retry wrapper actually retried by checking call count.
         """
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         # Block must have been called exactly max_attempts times
         assert block.call_count == 3
 
     @pytest.mark.asyncio
     async def test_retry_metadata_after_successful_retry(self):
-        """Block fails once then succeeds — shared_memory should contain retry metadata."""
-        block = FailNTimesThenSucceed("b1", fail_count=1)
+        """Block fails once then succeeds and shared_memory contains retry metadata."""
+        block = FailNTimesThenSucceed("retrying_block", fail_count=1)
         block.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        meta_key = "__retry__b1"
+        meta_key = "__retry__retrying_block"
         assert meta_key in state.shared_memory
         meta = state.shared_memory[meta_key]
         assert meta["attempt"] == 2
@@ -423,15 +405,15 @@ class TestRetryMetadataInSharedMemory:
     @pytest.mark.asyncio
     async def test_retry_metadata_format(self):
         """Retry metadata should contain all required fields with correct types."""
-        block = FailNTimesThenSucceed("my_block", fail_count=2)
+        block = FailNTimesThenSucceed("metadata_block", fail_count=2)
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        meta_key = "__retry__my_block"
+        meta_key = "__retry__metadata_block"
         assert meta_key in state.shared_memory
         meta = state.shared_memory[meta_key]
 
@@ -449,22 +431,20 @@ class TestRetryMetadataInSharedMemory:
 
     @pytest.mark.asyncio
     async def test_no_retry_metadata_when_no_retry_needed(self):
-        """Block succeeds on first attempt — no retry metadata in shared_memory."""
-        block = SucceedingBlock("b1")
+        """Block succeeds on first attempt without retry metadata in shared_memory."""
+        block = SucceedingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=3, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
         # No retry occurred, so no retry metadata should be written
-        assert "__retry__b1" not in state.shared_memory
+        assert "__retry__retrying_block" not in state.shared_memory
 
 
-# ===========================================================================
-# 8. Block without retry_config runs exactly once (no wrapper overhead)
-# ===========================================================================
+# Execution without retry configuration
 
 
 class TestNoRetryConfig:
@@ -473,43 +453,39 @@ class TestNoRetryConfig:
     @pytest.mark.asyncio
     async def test_block_without_retry_config_runs_once(self):
         """A block without retry_config that succeeds runs exactly once."""
-        block = CountingBlock("b1")
-        # Explicitly do NOT set retry_config
+        block = CountingBlock("retrying_block")
 
-        wf = _make_workflow_with_single_block(block)
-        await wf.run(WorkflowState())
+        workflow = _make_workflow_with_single_block(block)
+        await workflow.run(WorkflowState())
 
         assert block.call_count == 1
 
     @pytest.mark.asyncio
     async def test_block_without_retry_config_error_propagates_immediately(self):
-        """A block without retry_config that fails raises immediately — no retry."""
-        block = AlwaysFailingBlock("b1")
-        # Explicitly do NOT set retry_config
+        """A block without retry_config that fails raises immediately."""
+        block = AlwaysFailingBlock("retrying_block")
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with pytest.raises(RuntimeError, match="boom"):
-            await wf.run(WorkflowState())
+            await workflow.run(WorkflowState())
 
     @pytest.mark.asyncio
     async def test_no_sleep_called_for_block_without_retry_config(self):
         """No asyncio.sleep should be called for blocks without retry_config."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         # No retry_config
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         mock_sleep.assert_not_called()
 
 
-# ===========================================================================
-# 9. KeyboardInterrupt and SystemExit are never retried
-# ===========================================================================
+# System exception propagation
 
 
 class TestNeverRetrySystemExceptions:
@@ -518,72 +494,67 @@ class TestNeverRetrySystemExceptions:
     @pytest.mark.asyncio
     async def test_keyboard_interrupt_not_retried(self):
         """KeyboardInterrupt should be re-raised immediately, never retried."""
-        block = AlwaysFailingBlock("b1", error_cls=KeyboardInterrupt, message="ctrl-c")
+        block = AlwaysFailingBlock("retrying_block", error_cls=KeyboardInterrupt, message="ctrl-c")
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(KeyboardInterrupt):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         mock_sleep.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_system_exit_not_retried(self):
         """SystemExit should be re-raised immediately, never retried."""
-        block = AlwaysFailingBlock("b1", error_cls=SystemExit, message="exit")
+        block = AlwaysFailingBlock("retrying_block", error_cls=SystemExit, message="exit")
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(SystemExit):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         mock_sleep.assert_not_called()
 
 
-# ===========================================================================
-# 10. max_attempts=1 edge case
-# ===========================================================================
+# Single-attempt retry configuration
 
 
 class TestMaxAttemptsOne:
-    """max_attempts=1 means run once — no retry on failure."""
+    """max_attempts=1 means run once with no retry on failure."""
 
     @pytest.mark.asyncio
     async def test_max_attempts_one_failing_block(self):
         """max_attempts=1: block runs once, fails, raises original exception."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=1, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError, match="boom"):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
-        # No sleep — only 1 attempt, no retry
         mock_sleep.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_max_attempts_one_succeeding_block(self):
-        """max_attempts=1: block succeeds on first attempt — works fine."""
-        block = SucceedingBlock("b1")
+        """max_attempts=1: block succeeds on first attempt."""
+        block = SucceedingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=1, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        assert state.results["b1"].output == "ok"
+        assert state.results["retrying_block"].output == "ok"
 
 
-# ===========================================================================
-# 11. Concurrent blocks with retry — independent retry state
-# ===========================================================================
+# Independent retry state
 
 
 class TestIndependentRetryState:
@@ -591,49 +562,46 @@ class TestIndependentRetryState:
 
     @pytest.mark.asyncio
     async def test_two_blocks_independent_retry_metadata(self):
-        """Two blocks in sequence, each with retry_config — each gets its own metadata."""
-        block_a = FailNTimesThenSucceed("block_a", fail_count=1)
-        block_a.retry_config = RetryConfig(
+        """Two blocks in sequence, each with retry_config, get separate metadata."""
+        ingest_step = FailNTimesThenSucceed("ingest_step", fail_count=1)
+        ingest_step.retry_config = RetryConfig(
             max_attempts=3, backoff="fixed", backoff_base_seconds=0.1
         )
 
-        block_b = FailNTimesThenSucceed("block_b", fail_count=2)
-        block_b.retry_config = RetryConfig(
+        publish_step = FailNTimesThenSucceed("publish_step", fail_count=2)
+        publish_step.retry_config = RetryConfig(
             max_attempts=5, backoff="fixed", backoff_base_seconds=0.1
         )
 
-        wf = Workflow(name="multi_retry_wf")
-        wf.add_block(block_a)
-        wf.add_block(block_b)
-        wf.add_transition("block_a", "block_b")
-        wf.add_transition("block_b", None)
-        wf.set_entry("block_a")
+        workflow = Workflow(name="independent_retry_workflow")
+        workflow.add_block(ingest_step)
+        workflow.add_block(publish_step)
+        workflow.add_transition("ingest_step", "publish_step")
+        workflow.add_transition("publish_step", None)
+        workflow.set_entry("ingest_step")
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(WorkflowState())
+            state = await workflow.run(WorkflowState())
 
-        # block_a: failed 1 time, succeeded on attempt 2
-        meta_a = state.shared_memory["__retry__block_a"]
-        assert meta_a["attempt"] == 2
-        assert meta_a["total_retries"] == 1
+        # ingest_step: failed 1 time, succeeded on attempt 2
+        ingest_meta = state.shared_memory["__retry__ingest_step"]
+        assert ingest_meta["attempt"] == 2
+        assert ingest_meta["total_retries"] == 1
 
-        # block_b: failed 2 times, succeeded on attempt 3
-        meta_b = state.shared_memory["__retry__block_b"]
-        assert meta_b["attempt"] == 3
-        assert meta_b["total_retries"] == 2
+        # publish_step: failed 2 times, succeeded on attempt 3
+        publish_meta = state.shared_memory["__retry__publish_step"]
+        assert publish_meta["attempt"] == 3
+        assert publish_meta["total_retries"] == 2
 
-        # They are independent — one doesn't affect the other
-        assert meta_a["max_attempts"] == 3
-        assert meta_b["max_attempts"] == 5
+        assert ingest_meta["max_attempts"] == 3
+        assert publish_meta["max_attempts"] == 5
 
 
-# ===========================================================================
-# 12. Retry is transparent to the block
-# ===========================================================================
+# Retry transparency
 
 
 class TestRetryTransparency:
-    """Retry should be transparent — block doesn't know it's being retried."""
+    """Retry is transparent to the retried block."""
 
     @pytest.mark.asyncio
     async def test_block_receives_same_state_on_each_retry(self):
@@ -657,23 +625,21 @@ class TestRetryTransparency:
                     raise RuntimeError(f"fail #{self._call_count}")
                 return BlockOutput(output="done")
 
-        block = StateCapturingBlock("b1")
+        block = StateCapturingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=5, backoff="fixed", backoff_base_seconds=0.1)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
         initial = WorkflowState(shared_memory={"key": "value"})
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await wf.run(initial)
+            state = await workflow.run(initial)
 
         # Block was called 3 times (2 failures + 1 success)
         assert block._call_count == 3
-        assert state.results["b1"].output == "done"
+        assert state.results["retrying_block"].output == "done"
 
 
-# ===========================================================================
-# 13. Retry wrapper uses asyncio.sleep (not time.sleep)
-# ===========================================================================
+# Async backoff
 
 
 class TestAsyncSleep:
@@ -682,14 +648,14 @@ class TestAsyncSleep:
     @pytest.mark.asyncio
     async def test_uses_asyncio_sleep_not_time_sleep(self):
         """Verify that asyncio.sleep is used, not time.sleep."""
-        block = AlwaysFailingBlock("b1")
+        block = AlwaysFailingBlock("retrying_block")
         block.retry_config = RetryConfig(max_attempts=2, backoff="fixed", backoff_base_seconds=1.0)
 
-        wf = _make_workflow_with_single_block(block)
+        workflow = _make_workflow_with_single_block(block)
 
         with patch("asyncio.sleep", new_callable=AsyncMock) as mock_async_sleep:
             with pytest.raises(RuntimeError):
-                await wf.run(WorkflowState())
+                await workflow.run(WorkflowState())
 
         # asyncio.sleep should have been called (once, between attempt 1 and 2)
         assert mock_async_sleep.call_count == 1
