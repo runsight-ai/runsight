@@ -1,0 +1,23 @@
+apps/api/tests/logic/test_execution_preparation.py
+  4adca821c1af8eb3 32,58,69,81,299-300,306-308,368,373-375,400,427,432-434,462,484,489-491,512,538,556-558,589,613-614,631-633,666,690,708-710,734,757,762,785,812,824,867,877,920,942,978-979
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d17a8732f2123362d5e8ebd75df83f815c649215",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 44,
+      "accepted_lines": 108584,
+      "overriden_lines": 0
+    }
+  }
+}
