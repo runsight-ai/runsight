@@ -13,16 +13,8 @@ from runsight_api.domain.errors import InputValidationError
 
 
 def _workflow_fixture_text() -> str:
-    repo_root = Path(__file__).resolve().parents[4]
     fixture_path = (
-        repo_root
-        / "packages"
-        / "core"
-        / "tests"
-        / "fixtures"
-        / "custom"
-        / "workflows"
-        / "research-review.yaml"
+        Path(__file__).resolve().parents[1] / "fixtures" / "workflows" / "research-review.yaml"
     )
     return fixture_path.read_text(encoding="utf-8")
 
@@ -84,7 +76,7 @@ def test_update_keeps_yaml_and_canvas_persistence_in_separate_workflow_contract_
         dedent(
             """
         version: "1.0"
-        id: wf_canvas_contract
+        id: canvas_contract_workflow
         kind: workflow
         workflow:
           name: Canvas Contract
@@ -112,29 +104,39 @@ def test_update_keeps_yaml_and_canvas_persistence_in_separate_workflow_contract_
     )
     updated_yaml = raw_yaml.replace("Canvas Contract", "Canvas Contract Updated")
     canvas_state = {
-        "nodes": [{"id": "node-1", "position": {"x": 12, "y": 34}}],
-        "edges": [{"id": "edge-1", "source": "node-1", "target": "node-2"}],
+        "nodes": [{"id": "analysis-node", "position": {"x": 12, "y": 34}}],
+        "edges": [
+            {
+                "id": "analysis-to-review-edge",
+                "source": "analysis-node",
+                "target": "review-node",
+            }
+        ],
         "viewport": {"x": 1, "y": 2, "zoom": 0.75},
-        "selected_node_id": "node-1",
+        "selected_node_id": "analysis-node",
         "canvas_mode": "dag",
     }
 
     repo.create({"yaml": raw_yaml})
     entity = repo.update(
-        "wf_canvas_contract",
+        "canvas_contract_workflow",
         {
             "yaml": updated_yaml,
             "canvas_state": canvas_state,
         },
     )
 
-    yaml_path = tmp_path / "custom" / "workflows" / "wf_canvas_contract.yaml"
-    canvas_path = tmp_path / "custom" / "workflows" / ".canvas" / "wf_canvas_contract.canvas.json"
+    yaml_path = tmp_path / "custom" / "workflows" / "canvas_contract_workflow.yaml"
+    canvas_path = (
+        tmp_path / "custom" / "workflows" / ".canvas" / "canvas_contract_workflow.canvas.json"
+    )
     assert yaml_path.read_text(encoding="utf-8") == updated_yaml
     assert "canvas_state" not in yaml_path.read_text(encoding="utf-8")
-    assert json.loads(canvas_path.read_text(encoding="utf-8"))["selected_node_id"] == "node-1"
+    assert json.loads(canvas_path.read_text(encoding="utf-8"))["selected_node_id"] == (
+        "analysis-node"
+    )
 
-    reloaded = repo.get_by_id("wf_canvas_contract")
+    reloaded = repo.get_by_id("canvas_contract_workflow")
     assert reloaded is not None
     reloaded_canvas = (
         reloaded.canvas_state.model_dump()

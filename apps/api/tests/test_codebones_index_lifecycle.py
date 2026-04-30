@@ -1,7 +1,7 @@
 """
-adopt the fixed code indexer flow and verify stale-index cleanup.
+Verify the code indexer lifecycle removes stale symbols.
 
-This ticket stays intentionally narrow:
+This suite stays intentionally narrow:
 - prove a local reindex drops symbols for deleted files
 - guard against stale rows surfacing in empty-query search results
 - require contributor-facing docs for a verified codebones install/upgrade flow
@@ -27,7 +27,7 @@ def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 def _codebones_executable() -> str:
     executable = shutil.which("codebones")
     assert executable, (
-        "codebones CLI must be available for Regression coverage. "
+        "codebones CLI must be available for code index lifecycle coverage. "
         "Run `uv sync --dev` from the repo root so the managed dev dependency is on PATH."
     )
     return executable
@@ -85,7 +85,7 @@ def _combined_doc_text() -> str:
     return "\n".join(path.read_text(encoding="utf-8") for path in DOC_PATHS)
 
 
-class TestCodebonesDeletedFileRegression:
+class TestCodebonesDeletedFileLifecycle:
     """Deleted files must disappear from local codebones results after reindex."""
 
     def test_reindex_removes_deleted_symbol_from_named_search(self, tmp_path: Path):

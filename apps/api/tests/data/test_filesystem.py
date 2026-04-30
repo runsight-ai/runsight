@@ -25,23 +25,23 @@ def test_workflow_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
-        # Test Create — id is embedded in the YAML
-        wf_id = "test-workflow"
+        # Create stores the embedded id in the YAML.
+        wf_id = "repository-round-trip"
         workflow_data = {
-            "name": "Test Workflow",
-            "yaml": _workflow_yaml(wf_id, "Test Workflow"),
+            "name": "Repository Round Trip",
+            "yaml": _workflow_yaml(wf_id, "Repository Round Trip"),
         }
         entity = repo.create(workflow_data)
         assert entity.id == wf_id
-        assert entity.name == "Test Workflow"
+        assert entity.name == "Repository Round Trip"
 
-        # Test Get — look up by embedded id
+        # Get looks up by embedded id.
         fetched = repo.get_by_id(wf_id)
         assert fetched is not None
         assert fetched.id == wf_id
-        assert fetched.name == "Test Workflow"
+        assert fetched.name == "Repository Round Trip"
 
-        # Test Update
+        # Update persists a new workflow name.
         updated_data = {
             "name": "Updated Workflow",
             "yaml": _workflow_yaml(wf_id, "Updated Workflow"),
@@ -51,7 +51,7 @@ def test_workflow_repository():
         assert fetched_updated.name == "Updated Workflow"
         assert fetched_updated.id == wf_id
 
-        # Test non-YAML structured fields are not synthesized back into the file
+        # Non-YAML structured fields are not synthesized back into the file.
         repo.update(
             wf_id,
             {
@@ -63,11 +63,11 @@ def test_workflow_repository():
         assert fetched_partial.name == "Updated Workflow"
         assert not hasattr(fetched_partial, "description")
 
-        # Test List
+        # List returns the single stored workflow.
         all_wfs = repo.list_all()
         assert len(all_wfs) == 1
 
-        # Test Delete
+        # Delete removes the workflow.
         assert repo.delete(wf_id) is True
         assert repo.get_by_id(wf_id) is None
 
@@ -108,8 +108,8 @@ def test_workflow_repository_rejects_update_without_yaml():
         repo = WorkflowRepository(base_path=tmpdir)
         entity = repo.create(
             {
-                "name": "Test Workflow",
-                "yaml": _workflow_yaml("test-workflow", "Test Workflow"),
+                "name": "Validation Workflow",
+                "yaml": _workflow_yaml("validation-workflow", "Validation Workflow"),
             }
         )
 
@@ -122,8 +122,8 @@ def test_workflow_repository_rejects_update_without_kind():
         repo = WorkflowRepository(base_path=tmpdir)
         entity = repo.create(
             {
-                "name": "Test Workflow",
-                "yaml": _workflow_yaml("test-workflow", "Test Workflow"),
+                "name": "Kind Validation Workflow",
+                "yaml": _workflow_yaml("kind-validation-workflow", "Kind Validation Workflow"),
             }
         )
         original_yaml = repo._get_path(entity.id).read_text()
@@ -133,7 +133,7 @@ def test_workflow_repository_rejects_update_without_kind():
                 entity.id,
                 {
                     "yaml": (
-                        "id: test-workflow\n"
+                        "id: kind-validation-workflow\n"
                         "version: '1.0'\n"
                         "blocks: {}\n"
                         "workflow:\n"
@@ -165,7 +165,7 @@ def test_workflow_repository_persists_name_updates_into_valid_yaml():
 
 
 def test_workflow_create_does_not_mutate_input():
-    """create() must not mutate the caller's dict (Fix 2)."""
+    """create() must not mutate the caller's dict."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = WorkflowRepository(base_path=tmpdir)
 
@@ -289,7 +289,7 @@ def test_workflow_get_does_not_materialize_orphan_canvas_sidecar():
                     "nodes": [],
                     "edges": [],
                     "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
-                    "selected_node_id": "node-1",
+                    "selected_node_id": "orphan-canvas-selected-node",
                     "canvas_mode": "state-machine",
                 }
             )
@@ -306,14 +306,14 @@ def test_soul_repository():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = SoulRepository(base_path=tmpdir)
 
-        soul_data = {"id": "sl-one", "kind": "soul", "name": "Test Soul", "role": "Test Soul"}
+        soul_data = {"id": "sl-one", "kind": "soul", "name": "Review Soul", "role": "Review Soul"}
         entity = repo.create(soul_data)
         assert entity.id == "sl-one"
-        assert entity.role == "Test Soul"
+        assert entity.role == "Review Soul"
 
         fetched = repo.get_by_id("sl-one")
         assert fetched is not None
-        assert fetched.role == "Test Soul"
+        assert fetched.role == "Review Soul"
 
         updated_data = {
             "id": "sl-one",
