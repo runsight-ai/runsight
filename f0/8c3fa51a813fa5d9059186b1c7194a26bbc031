@@ -1,0 +1,23 @@
+packages/core/tests/test_library_soul_tool_governance.py
+  4adca821c1af8eb3 1,3-5,10,13,19,35-37,48,65,70,74,76-77,110,112-113,147,152,154-156,191-193,234,238-239,241-243,262,275-277,296,311,315,318-320,350-354,401,406,408-410,456-458,504-505,517,519,552-554,556,598,600
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f08c3fa51a813fa5d9059186b1c7194a26bbc031",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 100,
+      "total_deletions": 132,
+      "accepted_lines": 97270,
+      "overriden_lines": 0
+    }
+  }
+}
