@@ -10,15 +10,15 @@ from runsight_api.domain.value_objects import ProviderEntity
 
 def _provider_payload(**overrides):
     payload = {
-        "id": "anthropic",
+        "id": "fixture-provider",
         "kind": "provider",
-        "name": "Anthropic",
-        "type": "anthropic",
-        "api_key": "dummy-anthropic-key-ref",
-        "base_url": "https://provider.example.invalid/anthropic/v1",
+        "name": "Fixture Provider",
+        "type": "fixture-provider",
+        "api_key": "dummy-fixture-provider-key-ref",
+        "base_url": "http://localhost/fixture-provider/v1",
         "is_active": True,
         "status": "connected",
-        "models": ["claude-3-5-sonnet"],
+        "models": ["fixture-provider-model"],
     }
     payload.update(overrides)
     return payload
@@ -34,9 +34,9 @@ def test_provider_entity_rejects_missing_kind():
     with pytest.raises(ValidationError) as exc_info:
         ProviderEntity.model_validate(
             {
-                "id": "anthropic",
-                "name": "Anthropic",
-                "type": "anthropic",
+                "id": "fixture-provider",
+                "name": "Fixture Provider",
+                "type": "fixture-provider",
             }
         )
 
@@ -52,7 +52,7 @@ def test_provider_entity_rejects_wrong_kind_value():
 @pytest.mark.parametrize(
     "provider_id",
     [
-        "OpenAI",
+        "Fixture Provider",
         "ab",
         "http",
         "provider/evil",
