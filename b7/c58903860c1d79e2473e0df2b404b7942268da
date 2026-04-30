@@ -1,0 +1,31 @@
+apps/api/tests/test_assertions_fire_e2e.py
+  4adca821c1af8eb3 277,322,379,421,465,522,568,614,670,734
+apps/api/tests/test_sse_streaming_e2e.py
+  4adca821c1af8eb3 92,95,100,102-104,226,467,497-508,716,746-747,749-750,864,976
+apps/api/tests/test_parser_warnings_e2e.py
+  4adca821c1af8eb3 336,410,505
+apps/api/tests/test_api_e2e.py
+  4adca821c1af8eb3 103,105-106,249,311,342,375,408,452,498,533,562
+apps/api/tests/test_execution_transport_integration.py
+  4adca821c1af8eb3 306,348
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b7c58903860c1d79e2473e0df2b404b7942268da",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 112,
+      "total_deletions": 104,
+      "accepted_lines": 89292,
+      "overriden_lines": 0
+    }
+  }
+}
