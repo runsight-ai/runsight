@@ -1,14 +1,11 @@
-"""
-Failing tests for RUN-279: parser tool validation and resolution.
+"""Parser tool validation and resolution coverage.
 
-Tests target the new tool resolution phase (Step 6.6) in parse_workflow_yaml():
-1. Validate ToolDef.source exists in BUILTIN_TOOL_CATALOG
-2. Validate soul.tools entries exist in file_def.tools keys
-3. Resolve ToolInstance objects per soul from catalog
-4. Delegate tool: pass block exits to delegate factory
-5. Attach resolved_tools to Soul primitive
-
-All tests should FAIL until the parser is updated with tool validation logic.
+Tests cover:
+1. Workflow-declared tool IDs are resolved to ToolInstance objects.
+2. Soul tool references stay inside the workflow tool whitelist.
+3. Unknown or invalid custom tool IDs produce warning-only empty resolutions.
+4. Delegate tools receive port schemas from block exits.
+5. Souls without tools keep resolved_tools unset.
 """
 
 from __future__ import annotations
@@ -35,11 +32,11 @@ def _make_yaml(
     souls: str = "",
     blocks: str = "",
     transitions: str = "",
-    entry: str = "my_block",
+    entry: str = "tool_validation_block",
 ) -> str:
     """Build a complete workflow YAML string for tool-validation tests."""
     return f"""\
-id: tool-test-workflow
+id: tool-validation-workflow
 kind: workflow
 version: "1.0"
 config:
@@ -49,7 +46,7 @@ config:
 blocks:
 {blocks}
 workflow:
-  name: tool_test
+  name: tool_validation
   entry: {entry}
   transitions:
 {transitions}
@@ -96,23 +93,23 @@ class _SnapshotGitService:
 
 
 # ===========================================================================
-# AC1: Valid YAML — soul.resolved_tools populated with ToolInstance objects
+# Declared tools populate soul.resolved_tools with ToolInstance objects
 # ===========================================================================
 
 
-class TestToolResolutionHappyPath:
+class TestDeclaredToolResolution:
     """After parsing, souls with declared tools get resolved_tools populated."""
 
     def test_soul_resolved_tools_is_list_of_tool_instance(self):
-        """AC1: Soul referencing valid tools gets resolved_tools as list of ToolInstance."""
+        """Soul referencing valid tools gets resolved_tools as ToolInstance values."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
   - http""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -120,16 +117,16 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is not None
@@ -138,15 +135,15 @@ souls:
         assert isinstance(soul.resolved_tools[0], ToolInstance)
 
     def test_soul_resolved_tools_contains_correct_tool_name(self):
-        """AC1: Resolved ToolInstance has the expected name from the factory."""
+        """Resolved ToolInstance has the expected name from the factory."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
   - http""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -154,23 +151,23 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is not None
         assert soul.resolved_tools[0].name == "http_request"
 
     def test_multiple_tools_all_resolved(self):
-        """AC1: Soul with multiple tools gets all of them resolved."""
+        """Soul with multiple tools gets all of them resolved."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -178,8 +175,8 @@ tools:
   - file_io""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -188,16 +185,16 @@ souls:
       - http
       - file_io""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is not None
@@ -207,12 +204,12 @@ souls:
         assert "file_io" in resolved_names
 
     def test_direct_builtin_soul_tools_require_workflow_tool_declarations(self):
-        """RUN-490: direct soul refs must be rejected when the workflow tools whitelist omits them."""
+        """Direct soul refs are rejected when the workflow tools whitelist omits them."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -221,21 +218,21 @@ souls:
       - http
       - file_io""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
         assert soul.resolved_tools == []
 
 
 # ===========================================================================
-# RUN-490: Workflow tool governance helpers
+# Workflow tool governance helpers
 # ===========================================================================
 
 
@@ -243,17 +240,17 @@ class TestWorkflowToolGovernanceHelpers:
     """Tool governance must be reusable outside parse_workflow_yaml()."""
 
     def test_parser_no_longer_exports_user_assignable_bypass_constant(self):
-        """RUN-490: the obsolete direct-assignment bypass constant should be removed entirely."""
+        """The obsolete direct-assignment bypass constant should be removed entirely."""
         assert not hasattr(parser_module, "USER_ASSIGNABLE_SOUL_TOOL_SOURCES"), (
             "Parser still exposes USER_ASSIGNABLE_SOUL_TOOL_SOURCES, leaving the bypass easy to resurrect"
         )
 
     def test_resolve_soul_tool_definition_only_uses_workflow_tools(self):
-        """RUN-490: _resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
+        """_resolve_soul_tool_definition must not bypass workflow_tools for built-ins."""
         assert _resolve_soul_tool_definition("http", {}) is None
 
     def test_validate_tool_governance_exists_for_api_layer_reuse(self):
-        """RUN-490: validate_tool_governance() remains callable for API-layer reuse."""
+        """validate_tool_governance() remains callable for API-layer reuse."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
@@ -266,11 +263,11 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: reviewer""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
         validator = getattr(parser_module, "validate_tool_governance", None)
@@ -282,7 +279,7 @@ souls:
         validator(file_def)
 
     def test_validate_tool_governance_accepts_declared_tool_id_refs_from_whitelist(self):
-        """RUN-577: governance should only care that soul refs stay within the workflow tool ID list."""
+        """Governance only checks that soul refs stay within the workflow tool ID list."""
         raw = yaml.safe_load(
             _make_yaml(
                 tools="""\
@@ -302,11 +299,11 @@ souls:
       - http
       - lookup_profile""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: reviewer""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             )
         )
@@ -321,7 +318,7 @@ souls:
 
 
 # ===========================================================================
-# RUN-577: Canonical workflow tool ID contract
+# Canonical workflow tool ID contract
 # ===========================================================================
 
 
@@ -337,8 +334,8 @@ tools:
   - file_io""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -347,16 +344,16 @@ souls:
       - http
       - file_io""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["http", "file_io"]
         assert soul.resolved_tools is not None
@@ -371,8 +368,8 @@ tools:
   - http""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -380,11 +377,11 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
@@ -399,8 +396,8 @@ tools:
   - missing_lookup""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -408,16 +405,16 @@ souls:
     tools:
       - missing_lookup""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["missing_lookup"]
         assert soul.resolved_tools == []
@@ -429,8 +426,8 @@ souls:
 tools: []""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -438,16 +435,16 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
         assert soul.resolved_tools == []
 
     def test_missing_custom_tool_id_parses_with_empty_resolved_tools(self, tmp_path):
@@ -460,8 +457,8 @@ tools:
   - lookup_profile""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -469,17 +466,17 @@ souls:
     tools:
       - lookup_profile""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
 
         workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["lookup_profile"]
         assert soul.resolved_tools == []
@@ -510,8 +507,8 @@ tools:
   - http""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -519,11 +516,11 @@ souls:
     tools:
       - http""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
@@ -534,7 +531,7 @@ souls:
             parse_workflow_yaml(workflow_file)
 
     def test_legacy_typed_tool_definitions_fail_clearly(self):
-        """Workflow authoing must reject builtin/custom/http dict definitions outright."""
+        """Workflow authoring must reject builtin/custom/http dict definitions outright."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -543,8 +540,8 @@ tools:
     source: runsight/http""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -552,11 +549,11 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
@@ -571,11 +568,11 @@ tools:
   http:
     type: http
     method: GET
-    url: https://example.com/users/{{ user_id }}""",
+    url: https://tool-catalog.test/users/{{ user_id }}""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -583,11 +580,11 @@ souls:
     tools:
       - http""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
@@ -596,7 +593,7 @@ souls:
 
 
 # ===========================================================================
-# AC2: Soul references undeclared tool -> warning at parse time
+# Soul references undeclared tool at parse time
 # ===========================================================================
 
 
@@ -604,15 +601,15 @@ class TestUndeclaredToolReference:
     """Soul referencing a tool not in the tools section should parse with warnings."""
 
     def test_soul_references_undeclared_tool_parses_with_empty_resolved_tools(self):
-        """AC2: Soul references tool 'foo' not in tools section -> warning and omission."""
+        """Soul referencing a tool outside the tools section resolves no tools."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
   - http""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -620,21 +617,21 @@ souls:
     tools:
       - foo""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.resolved_tools == []
 
     def test_undeclared_tool_warning_keeps_workflow_parseable_for_library_souls(self):
-        """AC2: A library soul with an undeclared tool should still parse successfully."""
+        """A library soul with an undeclared tool should still parse successfully."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -651,16 +648,16 @@ souls:
     tools:
       - nonexistent_tool""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: researcher_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.resolved_tools == []
 
@@ -678,7 +675,7 @@ souls:
     tools:
       - runsight/delegate""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: gate_agent
     exits:
@@ -687,7 +684,7 @@ souls:
       - id: reject
         label: Reject""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
@@ -696,7 +693,7 @@ souls:
 
 
 # ===========================================================================
-# AC3: Unknown tool IDs -> warning at parse time
+# Unknown tool IDs warn at parse time
 # ===========================================================================
 
 
@@ -711,8 +708,8 @@ tools:
   - runsight/unknown""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -720,16 +717,16 @@ souls:
     tools:
       - runsight/unknown""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["runsight/unknown"]
         assert soul.resolved_tools == []
@@ -742,8 +739,8 @@ tools:
   - runsight/nonexistent""",
             souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -751,23 +748,23 @@ souls:
     tools:
       - runsight/nonexistent""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["runsight/nonexistent"]
         assert soul.resolved_tools == []
 
 
 # ===========================================================================
-# RUN-528: Parser governance for discovered custom tool IDs
+# Parser governance for discovered custom tool IDs
 # ===========================================================================
 
 
@@ -784,8 +781,8 @@ tools:
   - missing_lookup""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -793,17 +790,17 @@ souls:
     tools:
       - missing_lookup""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
 
         workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == ["missing_lookup"]
         assert soul.resolved_tools == []
@@ -858,8 +855,8 @@ tools:
   - {slug}""",
                 souls=f"""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -867,17 +864,17 @@ souls:
     tools:
       - {slug}""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
 
         workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.tools == [slug]
         assert soul.resolved_tools == []
@@ -944,8 +941,8 @@ tools:
   - good_three""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -955,11 +952,11 @@ souls:
       - bad_two
       - good_three""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
@@ -970,7 +967,7 @@ souls:
             _discovery_git_service=_SnapshotGitService(tmp_path),
         )
 
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
         assert soul.tools == ["bad_one", "bad_two", "good_three"]
         assert soul.resolved_tools is not None
         assert [tool.name for tool in soul.resolved_tools] == ["good_three"]
@@ -1002,8 +999,8 @@ tools:
   - missing_unused""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -1011,11 +1008,11 @@ souls:
     tools:
       - bad_one""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
@@ -1059,8 +1056,8 @@ tools:
   - echo_tool""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -1069,17 +1066,17 @@ souls:
       - http
       - echo_tool""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
 
         workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.resolved_tools is not None
         assert len(soul.resolved_tools) == 2
@@ -1105,7 +1102,7 @@ souls:
                 - item_id
             request:
               method: GET
-              url: https://example.com/items/{{ item_id }}
+              url: https://tool-catalog.test/items/{{ item_id }}
               headers:
                 X-Test: runsight
               response_path: data.answer
@@ -1120,8 +1117,8 @@ tools:
   - fetch_answer""",
                 souls="""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -1129,17 +1126,17 @@ souls:
     tools:
       - fetch_answer""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
 
         workflow = parse_workflow_yaml(workflow_file)
-        soul = workflow.blocks["my_block"].soul
+        soul = workflow.blocks["tool_validation_block"].soul
 
         assert soul.resolved_tools is not None
         assert [tool.name for tool in soul.resolved_tools] == ["fetch_answer"]
@@ -1182,7 +1179,7 @@ souls:
                   type: object
                 request:
                   method: GET
-                  url: https://example.com/items/{{ item_id }}
+                  url: https://tool-catalog.test/items/{{ item_id }}
                 code: |
                   def main(args):
                       return args
@@ -1204,8 +1201,8 @@ tools:
   - {slug}""",
                 souls=f"""\
 souls:
-  my_agent:
-    id: my_agent
+  tool_enabled_agent:
+    id: tool_enabled_agent
     kind: soul
     name: Agent
     role: Agent
@@ -1213,11 +1210,11 @@ souls:
     tools:
       - {slug}""",
                 blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
-    soul_ref: my_agent""",
+    soul_ref: tool_enabled_agent""",
                 transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
             ),
         )
@@ -1227,7 +1224,7 @@ souls:
 
 
 # ===========================================================================
-# AC4: Delegate tool — port enum generated from block exits
+# Delegate tool port enum generated from block exits
 # ===========================================================================
 
 
@@ -1235,7 +1232,7 @@ class TestDelegateToolWithExits:
     """Delegate tool gets port enum from the block's declared exits."""
 
     def test_delegate_tool_resolves_with_exit_enum(self):
-        """AC4: Block with exits + soul with delegate tool -> ToolInstance has port enum."""
+        """Block with exits and a delegate tool produces a port enum."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -1251,7 +1248,7 @@ souls:
     tools:
       - delegate""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: gate_agent
     exits:
@@ -1260,12 +1257,12 @@ souls:
       - id: reject
         label: Reject""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is not None
@@ -1275,7 +1272,7 @@ souls:
         assert set(port_schema["enum"]) == {"approve", "reject"}
 
     def test_delegate_tool_with_three_exits(self):
-        """AC4: Delegate with three exits -> port enum has all three exit IDs."""
+        """Delegate with three exits has all three exit IDs in the port enum."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -1291,7 +1288,7 @@ souls:
     tools:
       - delegate""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: router_agent
     exits:
@@ -1302,12 +1299,12 @@ souls:
       - id: escalate
         label: Escalate""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is not None
@@ -1317,7 +1314,7 @@ souls:
 
 
 # ===========================================================================
-# AC5: Soul with delegate but block without exits -> ValueError
+# Soul with delegate but block without exits raises ValueError
 # ===========================================================================
 
 
@@ -1325,7 +1322,7 @@ class TestDelegateWithoutExits:
     """Delegate tool on a soul whose block has no exits -> ValueError."""
 
     def test_delegate_tool_without_block_exits_raises_valueerror(self):
-        """AC5: Soul has delegate tool but block has no exits defined -> ValueError."""
+        """Soul has delegate tool but block has no exits defined."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -1341,11 +1338,11 @@ souls:
     tools:
       - delegate""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: gate_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
@@ -1353,15 +1350,15 @@ souls:
             parse_workflow_yaml(yaml_str)
 
     def test_delegate_without_exits_error_mentions_soul_and_block(self):
-        """AC5: Error message mentions the soul name and block ID."""
+        """Error message mentions the soul name and block ID."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
   - delegate""",
             souls="""\
 souls:
-  my_evaluator:
-    id: my_evaluator
+  delegate_evaluator:
+    id: delegate_evaluator
     kind: soul
     name: Evaluator
     role: Evaluator
@@ -1371,19 +1368,19 @@ souls:
             blocks="""\
   eval_block:
     type: linear
-    soul_ref: my_evaluator""",
+    soul_ref: delegate_evaluator""",
             entry="eval_block",
             transitions="""\
     - from: eval_block
       to: null""",
         )
 
-        with pytest.raises(ValueError, match="my_evaluator|eval_block"):
+        with pytest.raises(ValueError, match="delegate_evaluator|eval_block"):
             parse_workflow_yaml(yaml_str)
 
 
 # ===========================================================================
-# AC6: Soul with no tools -> resolved_tools is None
+# Soul with no tools keeps resolved_tools unset
 # ===========================================================================
 
 
@@ -1391,7 +1388,7 @@ class TestSoulWithNoTools:
     """Soul without tools field -> resolved_tools stays None."""
 
     def test_soul_without_tools_has_none_resolved_tools(self):
-        """AC6: Soul with no tools field -> resolved_tools is None after parsing."""
+        """Soul with no tools field has no resolved_tools after parsing."""
         yaml_str = _make_yaml(
             tools="""\
 tools:
@@ -1405,22 +1402,22 @@ souls:
     role: Plain Agent
     system_prompt: Do plain things.""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: plain_agent""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is None
 
     def test_defined_soul_without_tools_has_none_resolved_tools(self):
-        """AC6: Explicitly defined soul (no tools) -> resolved_tools is None."""
+        """Explicitly defined soul without tools has no resolved_tools."""
         yaml_str = _make_yaml(
             souls="""\
 souls:
@@ -1431,23 +1428,23 @@ souls:
     role: Senior Researcher
     system_prompt: You research topics.""",
             blocks="""\
-  my_block:
+  tool_validation_block:
     type: linear
     soul_ref: researcher""",
             transitions="""\
-    - from: my_block
+    - from: tool_validation_block
       to: null""",
         )
 
         workflow = parse_workflow_yaml(yaml_str)
-        block = workflow.blocks["my_block"]
+        block = workflow.blocks["tool_validation_block"]
         soul = block.soul
 
         assert soul.resolved_tools is None
 
 
 # ===========================================================================
-# Multiple souls, different tools — each soul gets only its declared tools
+# Multiple souls, different tools: each soul gets only its declared tools
 # ===========================================================================
 
 
