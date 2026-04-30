@@ -74,13 +74,13 @@ def seed_run(db_engine):
 
 @pytest.fixture
 def seed_run_with_node(seed_run):
-    """Insert a Run + completed RunNode for block_a."""
+    """Insert a Run + completed RunNode for output_serialization_block."""
     engine, run_id = seed_run
     with Session(engine) as session:
         node = RunNode(
-            id=f"{run_id}:block_a",
+            id=f"{run_id}:output_serialization_block",
             run_id=run_id,
-            node_id="block_a",
+            node_id="output_serialization_block",
             block_type="LinearBlock",
             status="completed",
             cost_usd=0.05,
@@ -107,7 +107,7 @@ def sample_soul():
         name="Senior Researcher",
         role="Senior Researcher",
         system_prompt="You are a senior researcher.",
-        model_name="gpt-4o",
+        model_name="fixture-eval-model",
     )
 
 
@@ -117,15 +117,19 @@ def sample_state():
     return WorkflowState(
         total_cost_usd=0.05,
         total_tokens=1500,
-        results={"block_a": BlockResult(output="Some output containing Sources information.")},
+        results={
+            "output_serialization_block": BlockResult(
+                output="Some output containing Sources information."
+            )
+        },
     )
 
 
 @pytest.fixture
 def contains_assertion_configs():
-    """Assertion configs with a single 'contains' check for block_a."""
+    """Assertion configs with a single 'contains' check for output_serialization_block."""
     return {
-        "block_a": [
+        "output_serialization_block": [
             {"type": "contains", "value": "Sources", "weight": 1.0},
         ],
     }
@@ -133,9 +137,9 @@ def contains_assertion_configs():
 
 @pytest.fixture
 def multi_assertion_configs():
-    """Assertion configs with multiple weighted assertions for block_a."""
+    """Assertion configs with multiple weighted assertions for output_serialization_block."""
     return {
-        "block_a": [
+        "output_serialization_block": [
             {"type": "contains", "value": "Sources", "weight": 2.0},
             {"type": "contains", "value": "information", "weight": 1.0},
         ],
@@ -146,7 +150,7 @@ def multi_assertion_configs():
 def failing_assertion_configs():
     """Assertion configs where the assertion does not match the output."""
     return {
-        "block_a": [
+        "output_serialization_block": [
             {"type": "contains", "value": "NONEXISTENT_STRING_THAT_WONT_MATCH", "weight": 1.0},
         ],
     }
@@ -156,7 +160,7 @@ def failing_assertion_configs():
 def cost_assertion_configs():
     """Assertion configs with a cost threshold check."""
     return {
-        "block_a": [
+        "output_serialization_block": [
             {"type": "cost", "threshold": 0.10, "weight": 1.0},
         ],
     }
@@ -176,7 +180,7 @@ class TestEvalObserverImport:
             engine=engine,
             run_id=run_id,
             sse_queue=sse_queue,
-            assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
+            assertion_configs={"output_serialization_block": [{"type": "contains", "value": "x"}]},
         )
         assert obs is not None
 
@@ -216,11 +220,16 @@ class TestEvalObserverNoOp:
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=None,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_score is None
             assert node.eval_passed is None
             assert node.eval_results is None
@@ -233,7 +242,12 @@ class TestEvalObserverNoOp:
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=None,
         )
 
         assert sse_queue.empty()
@@ -249,11 +263,16 @@ class TestEvalObserverNoOp:
             assertion_configs={"other_block": [{"type": "contains", "value": "x"}]},
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=None,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_score is None
 
     def test_block_not_in_configs_no_sse_event(self, seed_run_with_node, sse_queue, sample_state):
@@ -267,7 +286,12 @@ class TestEvalObserverNoOp:
             assertion_configs={"other_block": [{"type": "contains", "value": "x"}]},
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=None,
         )
 
         assert sse_queue.empty()
@@ -275,21 +299,26 @@ class TestEvalObserverNoOp:
     def test_empty_assertion_list_for_block_no_op(
         self, seed_run_with_node, sse_queue, sample_state
     ):
-        """on_block_complete with an empty assertion list for block_a is a no-op."""
+        """on_block_complete with an empty assertion list for output_serialization_block is a no-op."""
         engine, run_id = seed_run_with_node
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
             engine=engine,
             run_id=run_id,
             sse_queue=sse_queue,
-            assertion_configs={"block_a": []},
+            assertion_configs={"output_serialization_block": []},
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=None
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=None,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_score is None
 
         assert sse_queue.empty()
@@ -315,11 +344,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_score is not None
             assert node.eval_score == pytest.approx(1.0)
 
@@ -337,11 +371,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=multi_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             # Both assertions pass: score should be 1.0 (weighted avg of 1.0*2 + 1.0*1) / 3
             assert node.eval_score is not None
             assert node.eval_score == pytest.approx(1.0)
@@ -360,11 +399,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=failing_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_passed is False
 
     @pytest.mark.asyncio
@@ -381,11 +425,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_passed is True
             assert node.eval_score == pytest.approx(1.0)
 
@@ -403,11 +452,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_results is not None
             results = node.eval_results
             # Should have an "assertions" list
@@ -434,11 +488,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=failing_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_score == pytest.approx(0.0)
 
     @pytest.mark.asyncio
@@ -451,7 +510,7 @@ class TestEvalObserverAssertionExecution:
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=1500,
-            results={"block_a": BlockResult(output="Output")},
+            results={"output_serialization_block": BlockResult(output="Output")},
         )
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
@@ -461,11 +520,16 @@ class TestEvalObserverAssertionExecution:
             assertion_configs=cost_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_passed is True
             assert node.eval_score == pytest.approx(1.0)
 
@@ -478,19 +542,26 @@ class TestEvalObserverAssertionExecution:
         state = WorkflowState(
             total_cost_usd=0.50,
             total_tokens=5000,
-            results={"block_a": BlockResult(output="Output")},
+            results={"output_serialization_block": BlockResult(output="Output")},
         )
-        configs = {"block_a": [{"type": "cost", "threshold": 0.01, "weight": 1.0}]}
+        configs = {
+            "output_serialization_block": [{"type": "cost", "threshold": 0.01, "weight": 1.0}]
+        }
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=configs
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
-            node = session.get(RunNode, f"{run_id}:block_a")
+            node = session.get(RunNode, f"{run_id}:output_serialization_block")
             assert node.eval_passed is False
 
 
@@ -514,7 +585,12 @@ class TestEvalObserverSSE:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         assert not sse_queue.empty()
@@ -535,13 +611,18 @@ class TestEvalObserverSSE:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
         data = event["data"]
         assert "node_id" in data
-        assert data["node_id"] == "block_a"
+        assert data["node_id"] == "output_serialization_block"
         assert "eval_score" in data
         assert "passed" in data
 
@@ -559,9 +640,9 @@ class TestEvalObserverSSE:
         with Session(engine) as session:
             for i in range(3):
                 baseline_node = RunNode(
-                    id=f"previous-baseline-run-{i}:block_a",
+                    id=f"previous-baseline-run-{i}:output_serialization_block",
                     run_id=f"previous-baseline-run-{i}",
-                    node_id="block_a",
+                    node_id="output_serialization_block",
                     block_type="LinearBlock",
                     status="completed",
                     soul_id=sample_soul.id,
@@ -581,7 +662,12 @@ class TestEvalObserverSSE:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -607,7 +693,12 @@ class TestEvalObserverSSE:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -630,9 +721,9 @@ class TestEvalObserverDelta:
         with Session(engine) as session:
             for i in range(count):
                 node = RunNode(
-                    id=f"soul-baseline-run-{i}:block_a",
+                    id=f"soul-baseline-run-{i}:output_serialization_block",
                     run_id=f"soul-baseline-run-{i}",
-                    node_id="block_a",
+                    node_id="output_serialization_block",
                     block_type="LinearBlock",
                     status="completed",
                     soul_id=soul.id,
@@ -660,7 +751,12 @@ class TestEvalObserverDelta:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -684,7 +780,12 @@ class TestEvalObserverDelta:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -703,7 +804,11 @@ class TestEvalObserverDelta:
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=1500,
-            results={"block_a": BlockResult(output="Some output containing Sources information.")},
+            results={
+                "output_serialization_block": BlockResult(
+                    output="Some output containing Sources information."
+                )
+            },
         )
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
@@ -713,7 +818,12 @@ class TestEvalObserverDelta:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -739,7 +849,11 @@ class TestEvalObserverDelta:
         state = WorkflowState(
             total_cost_usd=0.05,
             total_tokens=1500,
-            results={"block_a": BlockResult(output="Some output containing Sources information.")},
+            results={
+                "output_serialization_block": BlockResult(
+                    output="Some output containing Sources information."
+                )
+            },
         )
         EvalObserver = _import_eval_observer()
         obs = EvalObserver(
@@ -749,7 +863,12 @@ class TestEvalObserverDelta:
             assertion_configs=contains_assertion_configs,
         )
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            state,
+            soul=sample_soul,
         )
 
         event = sse_queue.get_nowait()
@@ -772,7 +891,7 @@ class TestEvalObserverDefensive:
         """on_block_complete does not raise even with invalid assertion config."""
         engine, run_id = seed_run_with_node
         broken_configs = {
-            "block_a": [
+            "output_serialization_block": [
                 {"type": "nonexistent_assertion_type_xyz", "value": "x", "weight": 1.0},
             ],
         }
@@ -785,7 +904,12 @@ class TestEvalObserverDefensive:
         )
         # Should NOT raise
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
     def test_on_block_complete_never_raises_with_db_error(
@@ -805,7 +929,12 @@ class TestEvalObserverDefensive:
         )
         # Should NOT raise
         obs.on_block_complete(
-            "eval-observer-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "eval-observer-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
     def test_on_workflow_complete_never_raises(self, sse_queue, sample_state):
@@ -847,7 +976,10 @@ class TestEvalObserverWorkflowComplete:
             )
             session.add(run)
             # Two nodes with eval scores
-            for block_id, score in [("block_a", 0.8), ("block_b", 1.0)]:
+            for block_id, score in [
+                ("output_serialization_block", 0.8),
+                ("secondary_eval_block", 1.0),
+            ]:
                 node = RunNode(
                     id=f"{run_id}:{block_id}",
                     run_id=run_id,
@@ -902,9 +1034,9 @@ class TestEvalObserverWorkflowComplete:
             session.add(run)
             # Node without eval_score
             node = RunNode(
-                id=f"{run_id}:block_a",
+                id=f"{run_id}:output_serialization_block",
                 run_id=run_id,
-                node_id="block_a",
+                node_id="output_serialization_block",
                 block_type="LinearBlock",
                 status="completed",
             )
@@ -938,9 +1070,9 @@ class TestEvalObserverWorkflowComplete:
             )
             session.add(run)
             node = RunNode(
-                id=f"{run_id}:block_a",
+                id=f"{run_id}:output_serialization_block",
                 run_id=run_id,
-                node_id="block_a",
+                node_id="output_serialization_block",
                 block_type="LinearBlock",
                 status="completed",
                 eval_score=0.75,
@@ -977,7 +1109,9 @@ class TestEvalObserverProtocol:
             engine=engine, run_id=run_id, sse_queue=sse_queue, assertion_configs=None
         )
         # Should not raise
-        obs.on_block_start("eval-observer-workflow", "block_a", "LinearBlock", soul=sample_soul)
+        obs.on_block_start(
+            "eval-observer-workflow", "output_serialization_block", "LinearBlock", soul=sample_soul
+        )
 
     def test_on_workflow_start_is_noop(self, seed_run, sse_queue):
         """EvalObserver.on_workflow_start does not raise (no-op for eval)."""
@@ -999,7 +1133,7 @@ class TestEvalObserverChildStreamIsolation:
             engine=engine,
             run_id=run_id,
             sse_queue=sse_queue,
-            assertion_configs={"block_a": [{"type": "contains", "value": "x"}]},
+            assertion_configs={"output_serialization_block": [{"type": "contains", "value": "x"}]},
         )
 
         child = parent.clone_for_child_run(child_run_id="child-eval-run")
@@ -1045,9 +1179,9 @@ class TestEvalObserverChildStreamIsolation:
             )
             session.add(
                 RunNode(
-                    id=f"{child_run_id}:block_a",
+                    id=f"{child_run_id}:output_serialization_block",
                     run_id=child_run_id,
-                    node_id="block_a",
+                    node_id="output_serialization_block",
                     block_type="LinearBlock",
                     status="completed",
                     cost_usd=0.05,
@@ -1067,7 +1201,12 @@ class TestEvalObserverChildStreamIsolation:
         child = parent.clone_for_child_run(child_run_id=child_run_id)
 
         child.on_block_complete(
-            "child-eval-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "child-eval-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         assert sse_queue.empty(), (
@@ -1076,7 +1215,7 @@ class TestEvalObserverChildStreamIsolation:
         )
         event = child.sse_queue.get_nowait()
         assert event["event"] == "node_eval_complete"
-        assert event["data"]["node_id"] == "block_a"
+        assert event["data"]["node_id"] == "output_serialization_block"
 
     @pytest.mark.asyncio
     async def test_sibling_child_eval_events_do_not_bleed_across_child_queues(
@@ -1110,9 +1249,9 @@ class TestEvalObserverChildStreamIsolation:
             for run_id in [child_a_run_id, child_b_run_id]:
                 session.add(
                     RunNode(
-                        id=f"{run_id}:block_a",
+                        id=f"{run_id}:output_serialization_block",
                         run_id=run_id,
-                        node_id="block_a",
+                        node_id="output_serialization_block",
                         block_type="LinearBlock",
                         status="completed",
                         cost_usd=0.05,
@@ -1133,7 +1272,12 @@ class TestEvalObserverChildStreamIsolation:
         child_b = parent.clone_for_child_run(child_run_id=child_b_run_id)
 
         child_a.on_block_complete(
-            "child-a-eval-workflow", "block_a", "LinearBlock", 2.5, sample_state, soul=sample_soul
+            "child-a-eval-workflow",
+            "output_serialization_block",
+            "LinearBlock",
+            2.5,
+            sample_state,
+            soul=sample_soul,
         )
 
         assert sse_queue.empty(), (
@@ -1144,7 +1288,7 @@ class TestEvalObserverChildStreamIsolation:
         )
         event = child_a.sse_queue.get_nowait()
         assert event["event"] == "node_eval_complete"
-        assert event["data"]["node_id"] == "block_a"
+        assert event["data"]["node_id"] == "output_serialization_block"
 
 
 class TestEvalObserverChildAssertionOwnership:

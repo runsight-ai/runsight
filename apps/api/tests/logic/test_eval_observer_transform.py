@@ -20,6 +20,10 @@ from sqlmodel import Session, SQLModel, create_engine
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.logic.observers.eval_observer import EvalObserver
 
+EVAL_TRANSFORM_RUN_ID = "eval-transform-run"
+EVAL_TRANSFORM_WORKFLOW_ID = "eval-transform-workflow"
+EVAL_TRANSFORM_WORKFLOW_NAME = "Eval Transform Workflow"
+
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -37,12 +41,12 @@ def db_engine():
 @pytest.fixture
 def seed_run(db_engine):
     """Insert a pending Run record and return (engine, run_id)."""
-    run_id = "run_eval_transform"
+    run_id = EVAL_TRANSFORM_RUN_ID
     with Session(db_engine) as session:
         run = Run(
             id=run_id,
-            workflow_id="wf_transform",
-            workflow_name="transform_workflow",
+            workflow_id=EVAL_TRANSFORM_WORKFLOW_ID,
+            workflow_name=EVAL_TRANSFORM_WORKFLOW_NAME,
             status=RunStatus.pending,
             task_json="{}",
             branch="main",
@@ -87,7 +91,7 @@ def sample_soul():
         name="Data Analyst",
         role="Data Analyst",
         system_prompt="You are a data analyst.",
-        model_name="gpt-4o",
+        model_name="fixture-eval-model",
     )
 
 
@@ -165,7 +169,12 @@ class TestEvalObserverTransformPositive:
             assertion_configs=transform_contains_success_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
@@ -191,7 +200,12 @@ class TestEvalObserverTransformPositive:
             assertion_configs=transform_contains_success_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
@@ -216,7 +230,12 @@ class TestEvalObserverTransformPositive:
             assertion_configs=transform_contains_success_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         assert not sse_queue.empty()
@@ -246,7 +265,12 @@ class TestEvalObserverTransformPositive:
             assertion_configs=transform_contains_success_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
@@ -288,7 +312,12 @@ class TestEvalObserverTransformNegative:
             assertion_configs=transform_contains_extra_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:
@@ -314,7 +343,12 @@ class TestEvalObserverTransformNegative:
             assertion_configs=transform_contains_extra_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         assert not sse_queue.empty()
@@ -342,7 +376,12 @@ class TestEvalObserverTransformNegative:
             assertion_configs=transform_contains_extra_configs,
         )
         obs.on_block_complete(
-            "transform_workflow", "analyze", "LinearBlock", 1.0, sample_state, soul=sample_soul
+            EVAL_TRANSFORM_WORKFLOW_ID,
+            "analyze",
+            "LinearBlock",
+            1.0,
+            sample_state,
+            soul=sample_soul,
         )
 
         with Session(engine) as session:

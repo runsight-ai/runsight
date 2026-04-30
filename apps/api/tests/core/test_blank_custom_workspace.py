@@ -35,8 +35,8 @@ SAMPLE_RELATIVE_PATHS = (
     Path("custom/souls/researcher.yaml"),
     Path("custom/souls/reviewer.yaml"),
     Path("custom/souls/writer.yaml"),
-    Path("custom/tools/slack_payload_builder.yaml"),
-    Path("custom/tools/slack_webhook.yaml"),
+    Path("custom/tools/notification_payload_builder.yaml"),
+    Path("custom/tools/notification_delivery_hook.yaml"),
 )
 
 _PACKAGE_STARTUP_SNIPPET = """
