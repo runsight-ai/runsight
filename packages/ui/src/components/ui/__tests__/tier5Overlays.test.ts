@@ -32,7 +32,7 @@ function readStory(filename: string): string {
 }
 
 // ===========================================================================
-// 1. DIALOG — surface-overlay on DialogContent (AC1)
+// 1. DIALOG — surface-overlay on DialogContent
 // ===========================================================================
 
 describe("Dialog — surface-overlay or elevation-overlay-surface token on DialogContent", () => {
@@ -44,7 +44,7 @@ describe("Dialog — surface-overlay or elevation-overlay-surface token on Dialo
 });
 
 // ===========================================================================
-// 2. DIALOG — elevation-overlay-shadow on DialogContent (AC1)
+// 2. DIALOG — elevation-overlay-shadow on DialogContent
 // ===========================================================================
 
 describe("Dialog — elevation-overlay-shadow token on DialogContent", () => {
@@ -57,7 +57,7 @@ describe("Dialog — elevation-overlay-shadow token on DialogContent", () => {
 });
 
 // ===========================================================================
-// 3. DIALOG — elevation-border-raised on DialogContent (AC1)
+// 3. DIALOG — elevation-border-raised on DialogContent
 // ===========================================================================
 
 describe("Dialog — elevation-border-raised token on DialogContent", () => {
@@ -70,7 +70,7 @@ describe("Dialog — elevation-border-raised token on DialogContent", () => {
 });
 
 // ===========================================================================
-// 4. DIALOG — text-heading token on DialogTitle (AC1)
+// 4. DIALOG — text-heading token on DialogTitle
 // ===========================================================================
 
 describe("Dialog — text-heading token on DialogTitle", () => {
@@ -83,7 +83,7 @@ describe("Dialog — text-heading token on DialogTitle", () => {
 });
 
 // ===========================================================================
-// 5. DIALOG — font-size-lg token on DialogTitle (AC1)
+// 5. DIALOG — font-size-lg token on DialogTitle
 // ===========================================================================
 
 describe("Dialog — font-size-lg or text-lg token on DialogTitle", () => {
@@ -96,7 +96,7 @@ describe("Dialog — font-size-lg or text-lg token on DialogTitle", () => {
 });
 
 // ===========================================================================
-// 6. DIALOG — overlay-width-md token for DialogContent width (AC1)
+// 6. DIALOG — overlay-width-md token for DialogContent width
 // ===========================================================================
 
 describe("Dialog — overlay-width-md token for dialog width", () => {
@@ -109,7 +109,7 @@ describe("Dialog — overlay-width-md token for dialog width", () => {
 });
 
 // ===========================================================================
-// 7. DIALOG — scale-in animation on DialogContent (AC1)
+// 7. DIALOG — scale-in animation on DialogContent
 // ===========================================================================
 
 describe("Dialog — scale-in animation token on DialogContent", () => {
@@ -122,7 +122,7 @@ describe("Dialog — scale-in animation token on DialogContent", () => {
 });
 
 // ===========================================================================
-// 8. DROPDOWN MENU — border-subtle token on separator (AC2)
+// 8. DROPDOWN MENU — border-subtle token on separator
 // ===========================================================================
 
 describe("DropdownMenu — border-subtle token on separator", () => {
@@ -135,7 +135,7 @@ describe("DropdownMenu — border-subtle token on separator", () => {
 });
 
 // ===========================================================================
-// 9. DROPDOWN MENU — icon-size-sm token for icons (AC2)
+// 9. DROPDOWN MENU — icon-size-sm token for icons
 // ===========================================================================
 
 describe("DropdownMenu — icon-size-sm token or icon usage in items", () => {
@@ -147,7 +147,7 @@ describe("DropdownMenu — icon-size-sm token or icon usage in items", () => {
 });
 
 // ===========================================================================
-// 10. DROPDOWN MENU — z-dropdown token on positioner (AC2)
+// 10. DROPDOWN MENU — z-dropdown token on positioner
 // ===========================================================================
 
 describe("DropdownMenu — z-dropdown token for z-index", () => {
@@ -160,7 +160,7 @@ describe("DropdownMenu — z-dropdown token for z-index", () => {
 });
 
 // ===========================================================================
-// 11. COMMAND — z-modal token (AC3)
+// 11. COMMAND — z-modal token
 // ===========================================================================
 
 describe("Command — z-modal token for command palette z-index", () => {
@@ -173,7 +173,7 @@ describe("Command — z-modal token for command palette z-index", () => {
 });
 
 // ===========================================================================
-// 12. COMMAND — font-mono token on CommandShortcut (AC3)
+// 12. COMMAND — font-mono token on CommandShortcut
 // ===========================================================================
 
 describe("Command — font-mono token on CommandShortcut", () => {
@@ -186,7 +186,7 @@ describe("Command — font-mono token on CommandShortcut", () => {
 });
 
 // ===========================================================================
-// 13. COMMAND — font-size-2xs token on CommandShortcut (AC3)
+// 13. COMMAND — font-size-2xs token on CommandShortcut
 // ===========================================================================
 
 describe("Command — font-size-2xs or text-2xs token on CommandShortcut", () => {
@@ -199,7 +199,7 @@ describe("Command — font-size-2xs or text-2xs token on CommandShortcut", () =>
 });
 
 // ===========================================================================
-// 14. SHEET — surface-overlay token on SheetContent (AC4)
+// 14. SHEET — surface-overlay token on SheetContent
 // ===========================================================================
 
 describe("Sheet — surface-overlay or elevation-overlay-surface token on SheetContent", () => {
@@ -211,7 +211,7 @@ describe("Sheet — surface-overlay or elevation-overlay-surface token on SheetC
 });
 
 // ===========================================================================
-// 15. SHEET — elevation-overlay-shadow on SheetContent (AC4)
+// 15. SHEET — elevation-overlay-shadow on SheetContent
 // ===========================================================================
 
 describe("Sheet — elevation-overlay-shadow token on SheetContent", () => {
@@ -224,7 +224,7 @@ describe("Sheet — elevation-overlay-shadow token on SheetContent", () => {
 });
 
 // ===========================================================================
-// 16. SHEET — DS duration or ease motion tokens (AC4)
+// 16. SHEET — DS duration or ease motion tokens
 // ===========================================================================
 
 describe("Sheet — design system duration or ease motion tokens", () => {
@@ -236,7 +236,7 @@ describe("Sheet — design system duration or ease motion tokens", () => {
 });
 
 // ===========================================================================
-// 17. POPOVER — surface-raised token on PopoverContent (AC5)
+// 17. POPOVER — surface-raised token on PopoverContent
 // ===========================================================================
 
 describe("Popover — surface-raised or elevation-overlay-surface token on PopoverContent", () => {
@@ -248,7 +248,7 @@ describe("Popover — surface-raised or elevation-overlay-surface token on Popov
 });
 
 // ===========================================================================
-// 18. POPOVER — elevation-raised-shadow on PopoverContent (AC5)
+// 18. POPOVER — elevation-raised-shadow on PopoverContent
 // ===========================================================================
 
 describe("Popover — elevation-raised-shadow or elevation-overlay-shadow token on PopoverContent", () => {
@@ -260,7 +260,7 @@ describe("Popover — elevation-raised-shadow or elevation-overlay-shadow token 
 });
 
 // ===========================================================================
-// 19. POPOVER — elevation-border-raised on PopoverContent (AC5)
+// 19. POPOVER — elevation-border-raised on PopoverContent
 // ===========================================================================
 
 describe("Popover — elevation-border-raised token on PopoverContent", () => {
@@ -273,7 +273,7 @@ describe("Popover — elevation-border-raised token on PopoverContent", () => {
 });
 
 // ===========================================================================
-// 20. STORYBOOK STORIES — overlay story files exist (AC7)
+// 20. STORYBOOK STORIES — overlay story files exist
 // ===========================================================================
 
 describe("Storybook stories — overlay story files exist", () => {
@@ -299,7 +299,7 @@ describe("Storybook stories — overlay story files exist", () => {
 });
 
 // ===========================================================================
-// 23. STORYBOOK STORIES — Dialog.stories.tsx structure (AC7)
+// 23. STORYBOOK STORIES — Dialog.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Dialog.stories.tsx structure", () => {
@@ -330,7 +330,7 @@ describe("Storybook stories — Dialog.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 24. STORYBOOK STORIES — DropdownMenu.stories.tsx structure (AC7)
+// 24. STORYBOOK STORIES — DropdownMenu.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — DropdownMenu.stories.tsx structure", () => {
@@ -361,7 +361,7 @@ describe("Storybook stories — DropdownMenu.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 25. STORYBOOK STORIES — Command.stories.tsx structure (AC7)
+// 25. STORYBOOK STORIES — Command.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Command.stories.tsx structure", () => {
@@ -392,7 +392,7 @@ describe("Storybook stories — Command.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 26. STORYBOOK STORIES — Sheet.stories.tsx structure (AC7)
+// 26. STORYBOOK STORIES — Sheet.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Sheet.stories.tsx structure", () => {
@@ -423,7 +423,7 @@ describe("Storybook stories — Sheet.stories.tsx structure", () => {
 });
 
 // ===========================================================================
-// 27. STORYBOOK STORIES — Popover.stories.tsx structure (AC7)
+// 27. STORYBOOK STORIES — Popover.stories.tsx structure
 // ===========================================================================
 
 describe("Storybook stories — Popover.stories.tsx structure", () => {
