@@ -8,6 +8,7 @@ layer must map it to a structured terminal state:
 """
 
 import asyncio
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -166,31 +167,11 @@ class TestRunModelBudgetFields:
 # Part 2: ExecutionService._run_workflow — BudgetKilledException handling
 # ---------------------------------------------------------------------------
 
-VALID_RUNTIME_YAML = """
-version: "1.0"
-id: inline-budget-workflow
-kind: workflow
-workflow:
-  name: Budget Workflow
-  entry: budgeted-block
-  transitions:
-    - from: budgeted-block
-      to: null
-blocks:
-  budgeted-block:
-    type: linear
-    soul_ref: budget-soul
-souls:
-  budget-soul:
-    id: budget-soul
-    kind: soul
-    name: Budget Soul
-    role: budget evaluator
-    system_prompt: hello
-    provider: fixture-provider
-    model_name: fixture-chat-model
-config: {}
-"""
+_FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "budget_run_status"
+
+
+def _workflow_fixture(name: str) -> str:
+    return (_FIXTURE_DIR / name).read_text(encoding="utf-8")
 
 
 def _make_execution_service(engine=None):
@@ -202,7 +183,7 @@ def _make_execution_service(engine=None):
     provider_repo = Mock()
 
     mock_entity = Mock()
-    mock_entity.yaml = VALID_RUNTIME_YAML
+    mock_entity.yaml = _workflow_fixture("valid-runtime-workflow.yaml")
     workflow_repo.get_by_id.return_value = mock_entity
     provider = Mock(
         id="fixture-provider",
