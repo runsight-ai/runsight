@@ -1,0 +1,31 @@
+packages/core/tests/parser_yaml_helpers.py
+  4adca821c1af8eb3 7,150-419
+packages/core/tests/unit/test_parser_delegate_exit_schema.py
+  4adca821c1af8eb3 1-96
+packages/core/tests/unit/test_parser_custom_tool_discovery_contract.py
+  4adca821c1af8eb3 1-140
+packages/core/tests/unit/test_parser_declared_tool_whitelist.py
+  4adca821c1af8eb3 1-200
+packages/core/tests/unit/test_parser_tool_validation.py
+  4adca821c1af8eb3 1,3-5,11-12,14,17-25,29-30,33-41,45-46,49-56,58,60-61,63-66,69-76,78,80-81,83-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d06a721eed566727f470db09ac80899fd2b220b5",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 770,
+      "total_deletions": 1471,
+      "accepted_lines": 53916,
+      "overriden_lines": 0
+    }
+  }
+}
