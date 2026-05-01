@@ -1,0 +1,25 @@
+version: "1.0"
+id: $workflow_id
+kind: workflow
+workflow:
+  id: $workflow_id
+  kind: workflow
+  name: $workflow_name
+  entry: process_request
+  transitions:
+    - from: process_request
+      to: null
+blocks:
+  process_request:
+    type: linear
+    soul_ref: execution-soul
+souls:
+  execution-soul:
+    id: execution-soul
+    kind: soul
+    name: Execution Soul
+    role: execution tester
+    system_prompt: hello
+    provider: openai
+    model_name: gpt-4o
+config: {}

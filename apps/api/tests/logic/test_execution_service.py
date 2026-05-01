@@ -7,6 +7,7 @@ with background asyncio execution.
 import asyncio
 import subprocess
 from pathlib import Path
+from string import Template
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -24,6 +25,7 @@ MISSING_PROVIDER_WORKFLOW_ID = "missing-provider-workflow"
 MISSING_WORKFLOW_ID = "missing-workflow"
 RUNTIME_RESOLUTION_WORKFLOW_ID = "runtime-resolution-workflow"
 RUNTIME_RESOLUTION_WORKFLOW_PATH = f"/isolated/workflows/{RUNTIME_RESOLUTION_WORKFLOW_ID}.yaml"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "execution_service"
 
 # --- Import target ---
 
@@ -69,33 +71,15 @@ def _init_git_repo_with_workflow(
     return repo
 
 
-VALID_RUNTIME_YAML = f"""
-version: "1.0"
-id: {EXECUTION_WORKFLOW_ID}
-kind: workflow
-workflow:
-  id: {EXECUTION_WORKFLOW_ID}
-  kind: workflow
-  name: {EXECUTION_WORKFLOW_NAME}
-  entry: process_request
-  transitions:
-    - from: process_request
-      to: null
-blocks:
-  process_request:
-    type: linear
-    soul_ref: execution-soul
-souls:
-  execution-soul:
-    id: execution-soul
-    kind: soul
-    name: Execution Soul
-    role: execution tester
-    system_prompt: hello
-    provider: openai
-    model_name: gpt-4o
-config: {{}}
-"""
+def _execution_workflow_fixture(name: str) -> str:
+    template = Template((FIXTURE_DIR / name).read_text(encoding="utf-8"))
+    return template.substitute(
+        workflow_id=EXECUTION_WORKFLOW_ID,
+        workflow_name=EXECUTION_WORKFLOW_NAME,
+    )
+
+
+VALID_RUNTIME_YAML = _execution_workflow_fixture("valid-runtime-workflow.yaml")
 
 
 def _prepared_inputs(inputs):
