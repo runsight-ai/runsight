@@ -1,0 +1,17 @@
+version: "1.0"
+id: parser-forwarding
+kind: workflow
+workflow:
+  id: parser-forwarding
+  kind: workflow
+  name: parser-forwarding
+  entry: step1
+  transitions:
+    - from: step1
+      to: null
+blocks:
+  step1:
+    type: linear
+    soul_ref: researcher
+config:
+  model_name: gpt-4o
