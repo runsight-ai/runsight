@@ -3,12 +3,90 @@ Tests for the unified discovery surface.
 """
 
 import importlib
-import tempfile
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
 from runsight_core.primitives import Soul
+
+
+def _write_soul_yaml(
+    base_dir: Path,
+    filename: str,
+    *,
+    soul_id: str,
+    name: str,
+    role: str,
+    system_prompt: str,
+    tools: list[str] | None = None,
+) -> Path:
+    souls_dir = base_dir / "custom" / "souls"
+    souls_dir.mkdir(parents=True, exist_ok=True)
+    soul_file = souls_dir / filename
+    soul_file.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        f"id: {soul_id}",
+        "kind: soul",
+        f"name: {name}",
+        f"role: {role}",
+        f"system_prompt: {system_prompt}",
+    ]
+    if tools:
+        lines.append("tools:")
+        lines.extend(f"  - {tool}" for tool in tools)
+
+    soul_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return soul_file
+
+
+def _write_tool_yaml(
+    base_dir: Path,
+    filename: str,
+    *,
+    tool_id: str,
+    type_: str = "custom",
+    executor: str | None = None,
+    name: str | None = None,
+    description: str | None = None,
+    parameters: list[str] | None = None,
+    code: str | None = None,
+    code_file: str | None = None,
+    request: list[str] | None = None,
+    extra_lines: list[str] | None = None,
+) -> Path:
+    tools_dir = base_dir / "custom" / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    tool_file = tools_dir / filename
+    tool_file.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        'version: "1.0"',
+        f"id: {tool_id}",
+        "kind: tool",
+        f"type: {type_}",
+    ]
+    if executor is not None:
+        lines.append(f"executor: {executor}")
+    if name is not None:
+        lines.append(f"name: {name}")
+    if description is not None:
+        lines.append(f"description: {description}")
+    if parameters is not None:
+        lines.append("parameters:")
+        lines.extend(f"  {line}" for line in parameters)
+    if code is not None:
+        lines.append("code: |")
+        lines.extend(f"  {line}" if line else "" for line in code.splitlines())
+    if code_file is not None:
+        lines.append(f"code_file: {code_file}")
+    if request is not None:
+        lines.append("request:")
+        lines.extend(f"  {line}" for line in request)
+    if extra_lines is not None:
+        lines.extend(extra_lines)
+
+    tool_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return tool_file
 
 
 class TestPublicDiscoverySurface:
@@ -66,152 +144,124 @@ class TestPublicDiscoverySurface:
 class TestDiscoverSouls:
     """Tests for soul discovery from YAML files."""
 
-    def test_discover_souls_empty_directory(self):
+    def test_discover_souls_empty_directory(self, tmp_path):
         """Empty custom/souls directory returns empty dict."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            souls_dir = base_dir / "custom" / "souls"
-            souls_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        souls_dir = base_dir / "custom" / "souls"
+        souls_dir.mkdir(parents=True)
 
-            from runsight_core.yaml.discovery import SoulScanner
+        from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().ids()
-            assert souls == {}
+        souls = SoulScanner(base_dir).scan().ids()
+        assert souls == {}
 
-    def test_discover_souls_nonexistent_directory(self):
+    def test_discover_souls_nonexistent_directory(self, tmp_path):
         """Nonexistent custom/souls directory returns empty dict without raising."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
+        base_dir = tmp_path
 
-            from runsight_core.yaml.discovery import SoulScanner
+        from runsight_core.yaml.discovery import SoulScanner
 
-            souls = SoulScanner(base_dir).scan().ids()
-            assert souls == {}
+        souls = SoulScanner(base_dir).scan().ids()
+        assert souls == {}
 
-    def test_discover_single_soul(self):
+    def test_discover_single_soul(self, tmp_path):
         """Discover a single Soul from a custom/souls YAML file."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            souls_dir = base_dir / "custom" / "souls"
-            souls_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        _write_soul_yaml(
+            base_dir,
+            "researcher_soul.yaml",
+            soul_id="researcher_soul",
+            name="Custom Researcher",
+            role="Custom Researcher",
+            system_prompt="You are a custom researcher",
+        )
 
-            soul_file = souls_dir / "researcher_soul.yaml"
-            soul_file.write_text(
-                dedent("""
-                id: researcher_soul
-                kind: soul
-                name: Custom Researcher
-                role: Custom Researcher
-                system_prompt: You are a custom researcher
-                """)
-            )
+        from runsight_core.yaml.discovery import SoulScanner
 
-            from runsight_core.yaml.discovery import SoulScanner
+        souls = SoulScanner(base_dir).scan().ids()
 
-            souls = SoulScanner(base_dir).scan().ids()
+        assert "researcher_soul" in souls
+        assert isinstance(souls["researcher_soul"], Soul)
+        assert souls["researcher_soul"].id == "researcher_soul"
+        assert souls["researcher_soul"].kind == "soul"
+        assert souls["researcher_soul"].name == "Custom Researcher"
+        assert souls["researcher_soul"].role == "Custom Researcher"
 
-            assert "researcher_soul" in souls
-            assert isinstance(souls["researcher_soul"], Soul)
-            assert souls["researcher_soul"].id == "researcher_soul"
-            assert souls["researcher_soul"].kind == "soul"
-            assert souls["researcher_soul"].name == "Custom Researcher"
-            assert souls["researcher_soul"].role == "Custom Researcher"
-
-    def test_discover_multiple_souls(self):
+    def test_discover_multiple_souls(self, tmp_path):
         """Discover multiple Souls from different custom/souls YAML files."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            souls_dir = base_dir / "custom" / "souls"
-            souls_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        _write_soul_yaml(
+            base_dir,
+            "researcher_soul.yaml",
+            soul_id="researcher_soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="Research the topic.",
+        )
+        _write_soul_yaml(
+            base_dir,
+            "writer_soul.yaml",
+            soul_id="writer_soul",
+            name="Writer",
+            role="Writer",
+            system_prompt="Write the summary.",
+        )
 
-            (souls_dir / "researcher_soul.yaml").write_text(
-                dedent("""
-                id: researcher_soul
-                kind: soul
-                name: Researcher
-                role: Researcher
-                system_prompt: Research the topic.
-                """)
-            )
+        from runsight_core.yaml.discovery import SoulScanner
 
-            (souls_dir / "writer_soul.yaml").write_text(
-                dedent("""
-                id: writer_soul
-                kind: soul
-                name: Writer
-                role: Writer
-                system_prompt: Write the summary.
-                """)
-            )
+        souls = SoulScanner(base_dir).scan().ids()
 
-            from runsight_core.yaml.discovery import SoulScanner
+        assert len(souls) == 2
+        assert "researcher_soul" in souls
+        assert "writer_soul" in souls
 
-            souls = SoulScanner(base_dir).scan().ids()
-
-            assert len(souls) == 2
-            assert "researcher_soul" in souls
-            assert "writer_soul" in souls
-
-    def test_discover_soul_with_tools(self):
+    def test_discover_soul_with_tools(self, tmp_path):
         """Discover Soul with optional tools field."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            souls_dir = base_dir / "custom" / "souls"
-            souls_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        _write_soul_yaml(
+            base_dir,
+            "tool_enabled_researcher.yaml",
+            soul_id="tool_enabled_researcher",
+            name="Tool User",
+            role="Tool User",
+            system_prompt="You have tools",
+            tools=["summarize"],
+        )
 
-            soul_file = souls_dir / "tool_enabled_researcher.yaml"
-            soul_file.write_text(
-                dedent("""
-                id: tool_enabled_researcher
-                kind: soul
-                name: Tool User
-                role: Tool User
-                system_prompt: You have tools
-                tools:
-                  - summarize
-                """)
-            )
+        from runsight_core.yaml.discovery import SoulScanner
 
-            from runsight_core.yaml.discovery import SoulScanner
+        souls = SoulScanner(base_dir).scan().ids()
 
-            souls = SoulScanner(base_dir).scan().ids()
+        assert "tool_enabled_researcher" in souls
+        assert souls["tool_enabled_researcher"].tools is not None
+        assert len(souls["tool_enabled_researcher"].tools) == 1
 
-            assert "tool_enabled_researcher" in souls
-            assert souls["tool_enabled_researcher"].tools is not None
-            assert len(souls["tool_enabled_researcher"].tools) == 1
-
-    def test_discover_soul_ignores_inline_override_keys(self):
+    def test_discover_soul_ignores_inline_override_keys(self, tmp_path):
         """ignore_keys filters stems that are overridden inline."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            souls_dir = base_dir / "custom" / "souls"
-            souls_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        _write_soul_yaml(
+            base_dir,
+            "overridden_soul.yaml",
+            soul_id="overridden_soul",
+            name="Overridden Soul",
+            role="Overridden Soul",
+            system_prompt="This should be ignored when overridden inline.",
+        )
+        _write_soul_yaml(
+            base_dir,
+            "kept_soul.yaml",
+            soul_id="kept_soul",
+            name="Kept Soul",
+            role="Kept Soul",
+            system_prompt="This should remain visible.",
+        )
 
-            (souls_dir / "overridden_soul.yaml").write_text(
-                dedent("""
-                id: overridden_soul
-                kind: soul
-                name: Overridden Soul
-                role: Overridden Soul
-                system_prompt: This should be ignored when overridden inline.
-                """)
-            )
-            (souls_dir / "kept_soul.yaml").write_text(
-                dedent("""
-                id: kept_soul
-                kind: soul
-                name: Kept Soul
-                role: Kept Soul
-                system_prompt: This should remain visible.
-                """)
-            )
+        from runsight_core.yaml.discovery import SoulScanner
 
-            from runsight_core.yaml.discovery import SoulScanner
+        souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).ids()
 
-            souls = SoulScanner(base_dir).scan(ignore_keys={"overridden_soul"}).ids()
-
-            assert "overridden_soul" not in souls
-            assert "kept_soul" in souls
+        assert "overridden_soul" not in souls
+        assert "kept_soul" in souls
 
     def test_legacy_discover_souls_helper_is_removed_from_public_module(self):
         """The public discovery surface should not expose _discover_souls anymore."""
@@ -280,462 +330,345 @@ class TestDiscoverCustomTools:
             legacy_helper_name,
         ), f"Legacy helper {legacy_helper_name} should move out of runsight_core.yaml.discovery"
 
-    def test_missing_custom_tools_directory_returns_empty_dict(self):
+    def test_missing_custom_tools_directory_returns_empty_dict(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            result = scan_tools(Path(tmpdir))
-            assert result == {}
+        result = scan_tools(tmp_path)
+        assert result == {}
 
-    def test_discovers_python_and_request_executor_tool_files_by_embedded_id(self):
+    def test_discovers_python_and_request_executor_tool_files_by_embedded_id(self, tmp_path):
         scan_tools, tool_meta = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
         assert tool_meta is not None, "Expected runsight_core.yaml.discovery.ToolMeta to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "python_helper_embedded.yaml",
+            tool_id="python_helper_embedded",
+            executor="python",
+            name="Python Helper",
+            description="Echo values back to the caller.",
+            parameters=[
+                "type: object",
+                "properties:",
+                "  value:",
+                "    type: string",
+                "required:",
+                "  - value",
+            ],
+            code="def main(args):\n    return args",
+        )
+        _write_tool_yaml(
+            base_dir,
+            "request_lookup_embedded.yaml",
+            tool_id="request_lookup_embedded",
+            executor="request",
+            name="Request Lookup",
+            description="Fetch data from a remote service.",
+            parameters=[
+                "type: object",
+                "properties:",
+                "  user_id:",
+                "    type: integer",
+                "required:",
+                "  - user_id",
+            ],
+            request=[
+                "method: GET",
+                "url: https://fixture.test/users/{{ user_id }}",
+                "headers:",
+                "  X-Test: runsight",
+                "response_path: data.id",
+            ],
+            extra_lines=["timeout_seconds: 12"],
+        )
 
-            (tools_dir / "python_helper_embedded.yaml").write_text(
-                dedent("""
-                version: "1.0"
-                id: python_helper_embedded
-                kind: tool
-                type: custom
-                executor: python
-                name: Python Helper
-                description: Echo values back to the caller.
-                parameters:
-                  type: object
-                  properties:
-                    value:
-                      type: string
-                  required:
-                    - value
-                code: |
-                  def main(args):
-                      return args
-                """)
-            )
-            (tools_dir / "request_lookup_embedded.yaml").write_text(
-                dedent("""
-                version: "1.0"
-                id: request_lookup_embedded
-                kind: tool
-                type: custom
-                executor: request
-                name: Request Lookup
-                description: Fetch data from a remote service.
-                parameters:
-                  type: object
-                  properties:
-                    user_id:
-                      type: integer
-                  required:
-                    - user_id
-                request:
-                  method: GET
-                  url: https://fixture.test/users/{{ user_id }}
-                  headers:
-                    X-Test: runsight
-                  response_path: data.id
-                timeout_seconds: 12
-                """)
-            )
+        discovered = scan_tools(base_dir)
 
-            discovered = scan_tools(base_dir)
+        assert set(discovered.keys()) == {
+            "python_helper_embedded",
+            "request_lookup_embedded",
+        }
+        assert isinstance(discovered["python_helper_embedded"], tool_meta)
+        assert isinstance(discovered["request_lookup_embedded"], tool_meta)
+        assert discovered["python_helper_embedded"].tool_id == "python_helper_embedded"
+        assert discovered["python_helper_embedded"].type == "custom"
+        assert discovered["python_helper_embedded"].executor == "python"
+        assert discovered["python_helper_embedded"].name == "Python Helper"
+        assert discovered["request_lookup_embedded"].tool_id == "request_lookup_embedded"
+        assert discovered["request_lookup_embedded"].type == "custom"
+        assert discovered["request_lookup_embedded"].executor == "request"
+        assert (
+            discovered["request_lookup_embedded"].request["url"]
+            == "https://fixture.test/users/{{ user_id }}"
+        )
 
-            assert set(discovered.keys()) == {
-                "python_helper_embedded",
-                "request_lookup_embedded",
-            }
-            assert isinstance(discovered["python_helper_embedded"], tool_meta)
-            assert isinstance(discovered["request_lookup_embedded"], tool_meta)
-            assert discovered["python_helper_embedded"].tool_id == "python_helper_embedded"
-            assert discovered["python_helper_embedded"].type == "custom"
-            assert discovered["python_helper_embedded"].executor == "python"
-            assert discovered["python_helper_embedded"].name == "Python Helper"
-            assert discovered["request_lookup_embedded"].tool_id == "request_lookup_embedded"
-            assert discovered["request_lookup_embedded"].type == "custom"
-            assert discovered["request_lookup_embedded"].executor == "request"
-            assert discovered["request_lookup_embedded"].request["url"] == (
-                "https://fixture.test/users/{{ user_id }}"
-            )
-
-    def test_legacy_type_http_is_rejected_with_file_specific_error(self):
+    def test_legacy_type_http_is_rejected_with_file_specific_error(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "legacy_http.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: legacy_http
-                kind: tool
-                type: http
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(base_dir, "legacy_http.yaml", tool_id="legacy_http", type_="http")
 
-            with pytest.raises(ValueError, match=r"legacy_http\.yaml.*type.*custom|legacy_http"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"legacy_http\.yaml.*type.*custom|legacy_http"):
+            scan_tools(base_dir)
 
-    def test_malformed_yaml_raises_file_specific_error(self):
+    def test_malformed_yaml_raises_file_specific_error(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "broken.yaml"
-            invalid_file.write_text(
-                'version: "1.0"\ntype: custom\nexecutor: python\ncode: [not: valid'
-            )
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        tools_dir.mkdir(parents=True)
+        invalid_file = tools_dir / "broken.yaml"
+        invalid_file.write_text('version: "1.0"\ntype: custom\nexecutor: python\ncode: [not: valid')
 
-            with pytest.raises(Exception, match="broken.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(Exception, match="broken.yaml"):
+            scan_tools(base_dir)
 
-    def test_invalid_metadata_raises_file_specific_error(self):
+    def test_invalid_metadata_raises_file_specific_error(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "missing_executor.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: missing_executor
-                kind: tool
-                type: custom
-                name: Missing Executor
-                description: Broken metadata.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "missing_executor.yaml",
+            tool_id="missing_executor",
+            name="Missing Executor",
+            description="Broken metadata.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+        )
 
-            with pytest.raises(ValueError, match="missing_executor.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match="missing_executor.yaml"):
+            scan_tools(base_dir)
 
-    def test_custom_tool_rejects_both_code_and_code_file(self):
+    def test_custom_tool_rejects_both_code_and_code_file(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "double_code.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: double_code
-                kind: tool
-                type: custom
-                executor: python
-                name: Double Code
-                description: Declares both code and code_file.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                code_file: helper.py
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "double_code.yaml",
+            tool_id="double_code",
+            executor="python",
+            name="Double Code",
+            description="Declares both code and code_file.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+            code_file="helper.py",
+        )
 
-            with pytest.raises(ValueError, match="double_code.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match="double_code.yaml"):
+            scan_tools(base_dir)
 
-    def test_custom_tool_rejects_missing_code_file(self):
+    def test_custom_tool_rejects_missing_code_file(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "missing_code_file.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: missing_code_file
-                kind: tool
-                type: custom
-                executor: python
-                name: Missing Code File
-                description: References a file that does not exist.
-                parameters:
-                  type: object
-                code_file: missing_impl.py
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "missing_code_file.yaml",
+            tool_id="missing_code_file",
+            executor="python",
+            name="Missing Code File",
+            description="References a file that does not exist.",
+            parameters=["type: object"],
+            code_file="missing_impl.py",
+        )
 
-            with pytest.raises(ValueError, match="missing_code_file.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match="missing_code_file.yaml"):
+            scan_tools(base_dir)
 
-    def test_custom_tool_rejects_unreadable_code_file(self):
+    def test_custom_tool_rejects_unreadable_code_file(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            (tools_dir / "impl_dir.py").mkdir()
-            invalid_file = tools_dir / "unreadable_code_file.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: unreadable_code_file
-                kind: tool
-                type: custom
-                executor: python
-                name: Unreadable Code File
-                description: Points at an unreadable code file.
-                parameters:
-                  type: object
-                code_file: impl_dir.py
-                """)
-            )
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        tools_dir.mkdir(parents=True)
+        (tools_dir / "impl_dir.py").mkdir()
+        _write_tool_yaml(
+            base_dir,
+            "unreadable_code_file.yaml",
+            tool_id="unreadable_code_file",
+            executor="python",
+            name="Unreadable Code File",
+            description="Points at an unreadable code file.",
+            parameters=["type: object"],
+            code_file="impl_dir.py",
+        )
 
-            with pytest.raises(ValueError, match=r"unreadable_code_file\.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"unreadable_code_file\.yaml"):
+            scan_tools(base_dir)
 
-    def test_custom_tool_rejects_invalid_main_signature(self):
+    def test_custom_tool_rejects_invalid_main_signature(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "bad_signature.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: bad_signature
-                kind: tool
-                type: custom
-                executor: python
-                name: Bad Signature
-                description: Uses the wrong main() signature.
-                parameters:
-                  type: object
-                code: |
-                  def main():
-                      return {}
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "bad_signature.yaml",
+            tool_id="bad_signature",
+            executor="python",
+            name="Bad Signature",
+            description="Uses the wrong main() signature.",
+            parameters=["type: object"],
+            code="def main():\n    return {}",
+        )
 
-            with pytest.raises(ValueError, match="bad_signature.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match="bad_signature.yaml"):
+            scan_tools(base_dir)
 
-    def test_request_executor_requires_request_url(self):
+    def test_request_executor_requires_request_url(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "missing_request_url.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: missing_request_url
-                kind: tool
-                type: custom
-                executor: request
-                name: Missing Request URL
-                description: Missing nested request.url.
-                parameters:
-                  type: object
-                request:
-                  method: GET
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "missing_request_url.yaml",
+            tool_id="missing_request_url",
+            executor="request",
+            name="Missing Request URL",
+            description="Missing nested request.url.",
+            parameters=["type: object"],
+            request=["method: GET"],
+        )
 
-            with pytest.raises(ValueError, match=r"missing_request_url\.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"missing_request_url\.yaml"):
+            scan_tools(base_dir)
 
-    def test_request_executor_rejects_python_fields(self):
+    def test_request_executor_rejects_python_fields(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "request_with_code.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: request_with_code
-                kind: tool
-                type: custom
-                executor: request
-                name: Request With Code
-                description: Request tools must not declare Python fields.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                request:
-                  method: GET
-                  url: https://fixture.test/users/{{ user_id }}
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "request_with_code.yaml",
+            tool_id="request_with_code",
+            executor="request",
+            name="Request With Code",
+            description="Request tools must not declare Python fields.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+            request=["method: GET", "url: https://fixture.test/users/{{ user_id }}"],
+        )
 
-            with pytest.raises(ValueError, match=r"request_with_code\.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"request_with_code\.yaml"):
+            scan_tools(base_dir)
 
-    def test_python_executor_rejects_request_fields(self):
+    def test_python_executor_rejects_request_fields(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "python_with_request.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: python_with_request
-                kind: tool
-                type: custom
-                executor: python
-                name: Python With Request
-                description: Python tools must not declare request metadata.
-                parameters:
-                  type: object
-                request:
-                  method: GET
-                  url: https://fixture.test/users/{{ user_id }}
-                code: |
-                  def main(args):
-                      return args
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "python_with_request.yaml",
+            tool_id="python_with_request",
+            executor="python",
+            name="Python With Request",
+            description="Python tools must not declare request metadata.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+            request=["method: GET", "url: https://fixture.test/users/{{ user_id }}"],
+        )
 
-            with pytest.raises(ValueError, match=r"python_with_request\.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"python_with_request\.yaml"):
+            scan_tools(base_dir)
 
-    def test_unknown_executor_raises_file_specific_error(self):
+    def test_unknown_executor_raises_file_specific_error(self, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            invalid_file = tools_dir / "unknown_executor.yaml"
-            invalid_file.write_text(
-                dedent("""
-                version: "1.0"
-                id: unknown_executor
-                kind: tool
-                type: custom
-                executor: shell
-                name: Unknown Executor
-                description: Unsupported executor.
-                parameters:
-                  type: object
-                """)
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            "unknown_executor.yaml",
+            tool_id="unknown_executor",
+            executor="shell",
+            name="Unknown Executor",
+            description="Unsupported executor.",
+            parameters=["type: object"],
+        )
 
-            with pytest.raises(ValueError, match=r"unknown_executor\.yaml"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"unknown_executor\.yaml"):
+            scan_tools(base_dir)
 
-    def test_duplicate_embedded_tool_id_raises_explicit_error(self, monkeypatch):
+    def test_duplicate_embedded_tool_id_raises_explicit_error(self, monkeypatch, tmp_path):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            shadow_dir = base_dir / "shadow"
-            tools_dir.mkdir(parents=True)
-            shadow_dir.mkdir()
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        shadow_dir = base_dir / "shadow"
+        shadow_dir.mkdir()
 
-            primary_file = tools_dir / "duplicate_primary.yaml"
-            shadow_file = shadow_dir / "duplicate_shadow.yaml"
-            tool_yaml = dedent("""
-            version: "1.0"
-            id: duplicate_tool_id
-            kind: tool
-            type: custom
-            executor: python
-            name: Duplicate Tool
-            description: Detect duplicate file-backed tool ids.
-            parameters:
-              type: object
-            code: |
-              def main(args):
-                  return args
-            """)
-            primary_file.write_text(tool_yaml, encoding="utf-8")
-            shadow_file.write_text(tool_yaml, encoding="utf-8")
+        primary_file = _write_tool_yaml(
+            base_dir,
+            "duplicate_primary.yaml",
+            tool_id="duplicate_tool_id",
+            executor="python",
+            name="Duplicate Tool",
+            description="Detect duplicate file-backed tool ids.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+        )
+        shadow_file = _write_tool_yaml(
+            shadow_dir.parent,
+            "shadow/duplicate_shadow.yaml",
+            tool_id="duplicate_tool_id",
+            executor="python",
+            name="Duplicate Tool",
+            description="Detect duplicate file-backed tool ids.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+        )
 
-            original_glob = Path.glob
+        original_glob = Path.glob
 
-            def _fake_glob(self, pattern):
-                if self == tools_dir and pattern == "*.yaml":
-                    return [primary_file, shadow_file]
-                return original_glob(self, pattern)
+        def _fake_glob(self, pattern):
+            if self == tools_dir and pattern == "*.yaml":
+                return [primary_file, shadow_file]
+            return original_glob(self, pattern)
 
-            monkeypatch.setattr(Path, "glob", _fake_glob)
+        monkeypatch.setattr(Path, "glob", _fake_glob)
 
-            with pytest.raises(ValueError, match=r"duplicate_tool_id.*duplicate|collision"):
-                scan_tools(base_dir)
+        with pytest.raises(ValueError, match=r"duplicate_tool_id.*duplicate|collision"):
+            scan_tools(base_dir)
 
     @pytest.mark.parametrize("reserved_tool_id", ["http", "file_io", "delegate"])
-    def test_reserved_builtin_tool_ids_are_rejected_during_discovery(self, reserved_tool_id):
+    def test_reserved_builtin_tool_ids_are_rejected_during_discovery(
+        self, reserved_tool_id, tmp_path
+    ):
         scan_tools, _ = self._load_symbols()
         assert callable(scan_tools), "Expected custom tool scan helper to exist"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
-            reserved_file = tools_dir / f"shadow_{reserved_tool_id}.yaml"
-            reserved_file.write_text(
-                dedent(f"""
-                version: "1.0"
-                id: {reserved_tool_id}
-                kind: tool
-                type: custom
-                executor: python
-                name: Shadow {reserved_tool_id}
-                description: Attempts to shadow the reserved builtin tool id.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                """),
-                encoding="utf-8",
-            )
+        base_dir = tmp_path
+        _write_tool_yaml(
+            base_dir,
+            f"shadow_{reserved_tool_id}.yaml",
+            tool_id=reserved_tool_id,
+            executor="python",
+            name=f"Shadow {reserved_tool_id}",
+            description="Attempts to shadow the reserved builtin tool id.",
+            parameters=["type: object"],
+            code="def main(args):\n    return args",
+        )
 
-            with pytest.raises(
-                ValueError,
-                match=rf"reserved builtin tool:{reserved_tool_id}|collision.*{reserved_tool_id}",
-            ):
-                scan_tools(base_dir)
+        with pytest.raises(
+            ValueError,
+            match=rf"reserved builtin tool:{reserved_tool_id}|collision.*{reserved_tool_id}",
+        ):
+            scan_tools(base_dir)
 
 
 class TestRepoPolicyForCustomTools:
