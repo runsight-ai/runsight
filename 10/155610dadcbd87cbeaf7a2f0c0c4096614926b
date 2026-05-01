@@ -1,0 +1,38 @@
+packages/core/tests/test_wire_soul_ref_to_library.py
+  d557a8fa1cd5a1d0 34-47,49-84,114,116-146,148-177,179-217,219-254,265,267-300,302-338,349,351-379,381-406,408-433,435-458,469,471-504,548,555-593,595-630,632-665,667-702
+tools/tests/test_core_wire_soul_ref_fixture_governance.py
+  4adca821c1af8eb3 1-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "10155610dadcbd87cbeaf7a2f0c0c4096614926b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 202,
+      "total_deletions": 2,
+      "accepted_lines": 53477,
+      "overriden_lines": 0
+    },
+    "d557a8fa1cd5a1d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de54e-5f37-7e21-829c-9e984d76a94e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 602,
+      "total_deletions": 599,
+      "accepted_lines": 538,
+      "overriden_lines": 0
+    }
+  }
+}
