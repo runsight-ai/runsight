@@ -12,7 +12,6 @@ validation job enforces the same boundary in CI.
 
 import re
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -362,63 +361,62 @@ class TestEntrypointBehavior:
             "and the container runs as non-root."
         )
 
-    def test_entrypoint_exits_nonzero_when_workspace_missing(self):
+    def test_entrypoint_exits_nonzero_when_workspace_missing(self, tmp_path):
         """
         When RUNSIGHT_BASE_PATH does not exist the entrypoint must exit with
         a non-zero status code and a meaningful error message.
         """
-        with tempfile.TemporaryDirectory() as tmp:
-            missing_path = str(Path(tmp) / "nonexistent-workspace")
-            result = subprocess.run(
-                ["sh", str(ENTRYPOINT), "true"],
-                env={
-                    "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
-                    "RUNSIGHT_BASE_PATH": missing_path,
-                },
-                capture_output=True,
-                text=True,
-            )
+        missing_path = str(tmp_path / "nonexistent-workspace")
+        result = subprocess.run(
+            ["sh", str(ENTRYPOINT), "true"],
+            env={
+                "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+                "RUNSIGHT_BASE_PATH": missing_path,
+            },
+            capture_output=True,
+            text=True,
+        )
         assert result.returncode != 0, (
             f"Entrypoint exited with code {result.returncode} (expected non-zero) "
             f"when workspace '{missing_path}' does not exist. "
             "Expected a fail-fast check: if workspace is absent, exit 1."
         )
 
-    def test_entrypoint_succeeds_when_workspace_exists(self):
+    def test_entrypoint_succeeds_when_workspace_exists(self, tmp_path):
         """
         When RUNSIGHT_BASE_PATH exists the entrypoint must exit with code 0
         and pass through to exec.
         """
-        with tempfile.TemporaryDirectory() as workspace:
-            result = subprocess.run(
-                ["sh", str(ENTRYPOINT), "true"],
-                env={
-                    "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
-                    "RUNSIGHT_BASE_PATH": workspace,
-                },
-                capture_output=True,
-                text=True,
-            )
+        workspace = str(tmp_path)
+        result = subprocess.run(
+            ["sh", str(ENTRYPOINT), "true"],
+            env={
+                "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+                "RUNSIGHT_BASE_PATH": workspace,
+            },
+            capture_output=True,
+            text=True,
+        )
         assert result.returncode == 0, (
             f"Entrypoint exited with code {result.returncode} when workspace exists. "
             f"stdout: {result.stdout!r}, stderr: {result.stderr!r}"
         )
 
-    def test_entrypoint_prints_scaffold_message_for_empty_workspace(self):
+    def test_entrypoint_prints_scaffold_message_for_empty_workspace(self, tmp_path):
         """
         When the workspace exists but is empty the entrypoint should print a
         message indicating Runsight will scaffold a new project.
         """
-        with tempfile.TemporaryDirectory() as workspace:
-            result = subprocess.run(
-                ["sh", str(ENTRYPOINT), "true"],
-                env={
-                    "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
-                    "RUNSIGHT_BASE_PATH": workspace,
-                },
-                capture_output=True,
-                text=True,
-            )
+        workspace = str(tmp_path)
+        result = subprocess.run(
+            ["sh", str(ENTRYPOINT), "true"],
+            env={
+                "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+                "RUNSIGHT_BASE_PATH": workspace,
+            },
+            capture_output=True,
+            text=True,
+        )
         combined = result.stdout + result.stderr
         assert "scaffold" in combined.lower(), (
             "Entrypoint did not print a scaffolding message for an empty workspace. "
