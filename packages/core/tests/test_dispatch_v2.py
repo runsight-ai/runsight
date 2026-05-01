@@ -25,8 +25,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from conftest import execute_block_for_test
+from dispatch_block_helpers import (
+    make_branches,
+    make_dispatch_context,
+    make_result,
+    setup_runner_side_effect,
+)
 from pydantic import ValidationError
-from runsight_core.primitives import Soul
+from runsight_core.block_io import BlockOutput
+from runsight_core.budget_enforcement import BudgetSession, _active_budget
+from runsight_core.primitives import Soul, Step
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import DispatchExitDef
@@ -449,6 +457,47 @@ class TestCombinedResult:
 
 
 # ===========================================================================
+# 5b. Direct BlockOutput contract
+# ===========================================================================
+
+
+class TestDirectBlockOutputContract:
+    """DispatchBlock.execute returns combined output plus per-exit BlockResult data."""
+
+    @pytest.mark.asyncio
+    async def test_block_output_contains_combined_output_cost_and_extra_results(
+        self, soul_analyst, soul_reviewer, mock_runner
+    ):
+        """Direct execution exposes the same public result contract before state apply."""
+        from runsight_core.blocks.dispatch import DispatchBlock
+
+        setup_runner_side_effect(
+            mock_runner,
+            {
+                "analyst": make_result("analyst", "Alpha final.", cost=0.04, tokens=400),
+                "reviewer": make_result("reviewer", "Beta final.", cost=0.06, tokens=600),
+            },
+        )
+        block = DispatchBlock("fan", make_branches(soul_analyst, soul_reviewer), mock_runner)
+
+        output = await block.execute(make_dispatch_context("fan"))
+
+        assert isinstance(output, BlockOutput)
+        assert output.cost_usd == pytest.approx(0.10)
+        assert output.total_tokens == 1000
+
+        combined = json.loads(output.output)
+        assert {item["exit_id"] for item in combined} == {"exit_a", "exit_b"}
+
+        assert output.extra_results is not None
+        assert set(output.extra_results) == {"fan.exit_a", "fan.exit_b"}
+        assert output.extra_results["fan.exit_a"].output == "Alpha final."
+        assert output.extra_results["fan.exit_a"].exit_handle == "exit_a"
+        assert output.extra_results["fan.exit_b"].output == "Beta final."
+        assert output.extra_results["fan.exit_b"].exit_handle == "exit_b"
+
+
+# ===========================================================================
 # 6. Context inherited from state.current_context
 # ===========================================================================
 
@@ -486,6 +535,35 @@ class TestContextInheritance:
         await execute_block_for_test(block, state)
 
         assert captured_tasks["analyst"]["context"] == "Budget is $10k"
+
+    @pytest.mark.asyncio
+    async def test_step_declared_context_reaches_each_branch(self, soul_analyst, mock_runner):
+        """Step declared inputs flow through BlockContext into every branch call."""
+        from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
+
+        branches = [
+            DispatchBranch(
+                exit_id="exit_a",
+                label="Exit A",
+                soul=soul_analyst,
+                task_instruction="Analyze",
+            ),
+        ]
+        captured_contexts = []
+
+        async def _capture(instruction, context, soul, **kwargs):
+            captured_contexts.append(context)
+            return _make_exec_result("execute", soul.id, "Output")
+
+        mock_runner.execute = AsyncMock(side_effect=_capture)
+
+        block = DispatchBlock("fan", branches, mock_runner)
+        step = Step(block=block, declared_inputs={"context": "source"})
+        state = WorkflowState(results={"source": BlockResult(output="declared context")})
+
+        await execute_block_for_test(block, state, step=step)
+
+        assert captured_contexts == ["declared context"]
 
     @pytest.mark.asyncio
     async def test_current_task_none_does_not_crash(self, soul_analyst, mock_runner):
@@ -591,6 +669,95 @@ class TestCostTokenAggregation:
 
         assert new_state.total_cost_usd == pytest.approx(0.18)  # 0.10 + 0.05 + 0.03
         assert new_state.total_tokens == 400  # 50 + 200 + 150
+
+
+# ===========================================================================
+# 7b. Budget isolation
+# ===========================================================================
+
+
+class TestBudgetIsolation:
+    """Branch budget sessions are isolated and reconciled for dispatch gather."""
+
+    @pytest.mark.asyncio
+    async def test_active_parent_budget_creates_isolated_branch_sessions(
+        self, soul_analyst, soul_reviewer, mock_runner
+    ):
+        """Each branch executes under a child budget session, never the parent."""
+        from runsight_core.blocks.dispatch import DispatchBlock
+
+        captured_sessions: dict[str, object] = {}
+
+        async def _capture_session(instruction, context, soul, **kwargs):
+            captured_sessions[soul.id] = _active_budget.get(None)
+            return make_result(soul.id, f"{soul.id} output", cost=0.001, tokens=10)
+
+        mock_runner.execute = AsyncMock(side_effect=_capture_session)
+        parent = BudgetSession(scope_name="workflow:dispatch_v2", cost_cap_usd=1.0)
+        token = _active_budget.set(parent)
+        try:
+            block = DispatchBlock("fan", make_branches(soul_analyst, soul_reviewer), mock_runner)
+            await block.execute(make_dispatch_context("fan"))
+        finally:
+            _active_budget.reset(token)
+
+        assert set(captured_sessions) == {"analyst", "reviewer"}
+        assert captured_sessions["analyst"] is not parent
+        assert captured_sessions["reviewer"] is not parent
+        assert captured_sessions["analyst"] is not captured_sessions["reviewer"]
+
+    @pytest.mark.asyncio
+    async def test_dispatch_without_parent_budget_runs_plain_block_output(
+        self, soul_analyst, soul_reviewer, mock_runner
+    ):
+        """Dispatch still returns BlockOutput when no parent budget session exists."""
+        from runsight_core.blocks.dispatch import DispatchBlock
+
+        setup_runner_side_effect(
+            mock_runner,
+            {
+                "analyst": make_result("analyst", "Alpha."),
+                "reviewer": make_result("reviewer", "Beta."),
+            },
+        )
+        assert _active_budget.get(None) is None
+
+        block = DispatchBlock("fan", make_branches(soul_analyst, soul_reviewer), mock_runner)
+        output = await block.execute(make_dispatch_context("fan"))
+
+        assert isinstance(output, BlockOutput)
+        assert len(json.loads(output.output)) == 2
+
+    @pytest.mark.asyncio
+    async def test_parent_budget_reconciles_branch_costs_after_gather(
+        self, soul_analyst, soul_reviewer, mock_runner
+    ):
+        """Parent budget totals include all child branch spend after dispatch."""
+        from runsight_core.blocks.dispatch import DispatchBlock
+
+        results_by_soul = {
+            "analyst": make_result("analyst", "Alpha.", cost=0.05, tokens=500),
+            "reviewer": make_result("reviewer", "Beta.", cost=0.03, tokens=300),
+        }
+
+        async def _accruing_side_effect(instruction, context, soul, **kwargs):
+            result = results_by_soul[soul.id]
+            session = _active_budget.get(None)
+            if session is not None:
+                session.accrue(cost_usd=result.cost_usd, tokens=result.total_tokens)
+            return result
+
+        mock_runner.execute = AsyncMock(side_effect=_accruing_side_effect)
+        parent = BudgetSession(scope_name="workflow:dispatch_v2", cost_cap_usd=10.0)
+        token = _active_budget.set(parent)
+        try:
+            block = DispatchBlock("fan", make_branches(soul_analyst, soul_reviewer), mock_runner)
+            await block.execute(make_dispatch_context("fan"))
+        finally:
+            _active_budget.reset(token)
+
+        assert parent.cost_usd == pytest.approx(0.08)
+        assert parent.tokens == 800
 
 
 # ===========================================================================

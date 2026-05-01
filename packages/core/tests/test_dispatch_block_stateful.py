@@ -12,41 +12,33 @@ Tests verify that when stateful=True, DispatchBlock:
 When stateful=False (default), conversation_histories must be untouched.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from dispatch_block_helpers import (
+    make_mock_runner,
+    make_soul_alpha,
+    make_soul_beta,
+    make_soul_gamma_with_model,
+)
+from dispatch_block_helpers import (
+    make_result as _make_result,
+)
+from dispatch_block_helpers import (
+    make_stateful_dispatch as _make_stateful_dispatch,
+)
+from dispatch_block_helpers import (
+    run_block as _run_block,
+)
+from dispatch_block_helpers import (
+    setup_runner_side_effect as _setup_runner_side_effect,
+)
+from dispatch_block_helpers import (
+    souls_to_branches as _souls_to_branches,
+)
 from runsight_core import DispatchBlock
-from runsight_core.blocks.dispatch import DispatchBranch
-from runsight_core.primitives import Soul
-from runsight_core.runner import ExecutionResult
+from runsight_core.block_io import BlockOutput, build_block_context
 from runsight_core.state import WorkflowState
-
-
-async def _run_block(block, state: WorkflowState) -> WorkflowState:
-    """Helper: build BlockContext, run block, apply output → WorkflowState."""
-    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
-
-    ctx = build_block_context(block, state)
-    output = await block.execute(ctx)
-    if isinstance(output, WorkflowState):
-        return output
-    if isinstance(output, BlockOutput):
-        return apply_block_output(state, block.block_id, output)
-    return state
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def mock_runner():
-    """Mock RunsightTeamRunner with controlled outputs."""
-    runner = MagicMock()
-    runner.execute = AsyncMock()
-    runner.model_name = "runner-default-model"
-    return runner
 
 
 @pytest.fixture(autouse=True)
@@ -81,83 +73,54 @@ def stub_dispatch_budget(monkeypatch):
 
 
 @pytest.fixture
+def mock_runner():
+    return make_mock_runner("runner-default-model")
+
+
+@pytest.fixture
 def soul_alpha():
-    """Soul A without model_name override."""
-    return Soul(
-        id="soul_alpha",
-        kind="soul",
-        name="Reviewer A",
-        role="Reviewer A",
-        system_prompt="You are reviewer A.",
-    )
+    return make_soul_alpha()
 
 
 @pytest.fixture
 def soul_beta():
-    """Soul B without model_name override."""
-    return Soul(
-        id="soul_beta",
-        kind="soul",
-        name="Reviewer B",
-        role="Reviewer B",
-        system_prompt="You are reviewer B.",
-    )
+    return make_soul_beta()
 
 
 @pytest.fixture
 def soul_gamma_with_model():
-    """Soul C with an explicit model_name override."""
-    return Soul(
-        id="soul_gamma",
-        kind="soul",
-        name="Reviewer C",
-        role="Reviewer C",
-        system_prompt="You are reviewer C.",
-        model_name="soul-override-model",
-    )
-
-
-def _make_result(soul_id, output, cost=0.0, tokens=0):
-    """Helper to create an ExecutionResult."""
-    return ExecutionResult(
-        task_id=f"{soul_id}_dispatch_execution",
-        soul_id=soul_id,
-        output=output,
-        cost_usd=cost,
-        total_tokens=tokens,
-    )
-
-
-def _souls_to_branches(souls):
-    """Convert a list of Soul objects to DispatchBranch objects (exit_id = soul.id)."""
-    return [
-        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
-        for s in souls
-    ]
-
-
-def _make_stateful_dispatch(block_id, souls, runner):
-    """Helper to create a stateful DispatchBlock."""
-    block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
-    block.stateful = True
-    return block
-
-
-def _setup_runner_side_effect(mock_runner, soul_output_map):
-    """Configure runner.execute to return different outputs per soul.
-
-    soul_output_map: dict mapping soul_id -> ExecutionResult
-    """
-
-    async def _side_effect(instruction, context, soul, **kwargs):
-        return soul_output_map[soul.id]
-
-    mock_runner.execute = AsyncMock(side_effect=_side_effect)
+    return make_soul_gamma_with_model()
 
 
 # ---------------------------------------------------------------------------
 # First invocation — each soul gets its own history entry
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stateful_execute_returns_block_output_with_replacement_histories(
+    mock_runner, soul_alpha, soul_beta
+):
+    """Stateful DispatchBlock exposes full replacement histories before state application."""
+    _setup_runner_side_effect(
+        mock_runner,
+        {
+            "soul_alpha": _make_result("soul_alpha", "Alpha answer."),
+            "soul_beta": _make_result("soul_beta", "Beta answer."),
+        },
+    )
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
+    state = WorkflowState()
+
+    output = await block.execute(build_block_context(block, state))
+
+    assert isinstance(output, BlockOutput)
+    assert output.conversation_replacements is not None
+    assert set(output.conversation_replacements) == {"review_soul_alpha", "review_soul_beta"}
+    assert output.conversation_replacements["review_soul_alpha"][-1] == {
+        "role": "assistant",
+        "content": "Alpha answer.",
+    }
 
 
 @pytest.mark.asyncio
