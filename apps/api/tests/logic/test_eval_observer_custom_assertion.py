@@ -377,7 +377,7 @@ class TestLiveCustomAssertionPath:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://api.fixture.test",
         ) as client:
             with (
                 patch(
@@ -431,7 +431,7 @@ class TestLiveCustomAssertionPath:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://api.fixture.test",
         ) as client:
             with (
                 patch(
@@ -484,7 +484,7 @@ class TestLiveCustomAssertionPath:
 
         async with AsyncClient(
             transport=ASGITransport(app=app_with_real_services),
-            base_url="http://test",
+            base_url="http://api.fixture.test",
         ) as client:
             with (
                 patch(

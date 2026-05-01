@@ -195,7 +195,7 @@ class TestLateStreamSubscribers:
 
         async with AsyncClient(
             transport=ASGITransport(app=app),
-            base_url="http://test",
+            base_url="http://api.fixture.test",
         ) as client:
             chunks = []
             async with client.stream(
