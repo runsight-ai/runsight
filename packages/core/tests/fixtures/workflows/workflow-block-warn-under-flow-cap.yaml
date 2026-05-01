@@ -1,0 +1,36 @@
+version: "1.0"
+id: workflow-block-warn-under-flow-cap-workflow
+kind: workflow
+souls:
+  limit-worker:
+    id: limit-worker
+    kind: soul
+    name: Limit Worker
+    role: Limit Worker
+    system_prompt: Execute the workflow limit fixture block.
+    provider: fixture-provider
+    model_name: fixture-workflow-limit-model
+blocks:
+  block1:
+    type: linear
+    soul_ref: limit-worker
+    limits:
+      cost_cap_usd: 0.001
+      on_exceed: warn
+  block2:
+    type: linear
+    soul_ref: limit-worker
+    limits:
+      cost_cap_usd: 0.001
+      on_exceed: warn
+workflow:
+  name: workflow_block_warn_under_flow_cap_workflow
+  entry: block1
+  transitions:
+    - from: block1
+      to: block2
+    - from: block2
+      to: null
+limits:
+  cost_cap_usd: 0.01
+  on_exceed: fail

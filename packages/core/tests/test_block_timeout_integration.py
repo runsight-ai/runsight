@@ -1,174 +1,34 @@
 """
-End-to-end per-block timeout enforcement.
+Integration coverage for per-block timeout enforcement.
 
-Full-path integration: YAML parse -> Workflow.run() -> execute_block() ->
-asyncio.wait_for wrapping -> BudgetKilledException on timeout.
-
-Mocks only: litellm.acompletion (external LLM call) and litellm.completion_cost
-(cost calculator).  All internal modules exercise real code paths.
-
-Scenarios:
-1. Block timeout — no error route → run fails
-2. Block timeout — with error route → fallback block executes
-3. Block completes before timeout — no kill, workflow completes normally
+Owner decision: this suite owns block-level ``max_duration_seconds`` behavior,
+including timeout failure, error-route recovery, and the successful fast path.
+Workflow-level timeout and cost warn behavior have separate suites.
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from runsight_core.budget_enforcement import BudgetKilledException
 from runsight_core.state import WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml as _parse_workflow_yaml
+from workflow_limit_helpers import (
+    make_litellm_response,
+    parse_workflow_fixture,
+    patch_fixture_model_budget,
+)
 
-_TEST_API_KEYS = {"openai": "sk-test-openai"}
-
-
-def parse_workflow_yaml(*args, **kwargs):
-    """Parse legacy e2e workflows with the engine-side IPC credential seam wired."""
-    kwargs.setdefault("api_keys", _TEST_API_KEYS)
-    return _parse_workflow_yaml(*args, **kwargs)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+_NO_ERROR_ROUTE_FIXTURE = "block-timeout-no-error-route.yaml"
+_ERROR_ROUTE_FIXTURE = "block-timeout-with-error-route.yaml"
+_FAST_SUCCESS_FIXTURE = "block-timeout-fast-success.yaml"
 
 
-def _make_litellm_response(
-    content: str = "done",
-    prompt_tokens: int = 50,
-    completion_tokens: int = 30,
-    total_tokens: int = 80,
-):
-    """Build a mock object mimicking litellm.acompletion() return value."""
-    message = MagicMock()
-    message.content = content
-    message.tool_calls = None
-
-    choice = MagicMock()
-    choice.message = message
-    choice.finish_reason = "stop"
-
-    usage = MagicMock()
-    usage.prompt_tokens = prompt_tokens
-    usage.completion_tokens = completion_tokens
-    usage.total_tokens = total_tokens
-
-    response = MagicMock()
-    response.choices = [choice]
-    response.usage = usage
-    return response
-
-
-# ---------------------------------------------------------------------------
-# YAML templates
-# ---------------------------------------------------------------------------
-
-_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE = """\
-version: "1.0"
-id: block-timeout-workflow
-kind: workflow
-souls:
-  worker:
-    id: worker
-    kind: soul
-    name: Worker
-    role: Worker
-    system_prompt: Do work.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  slow_block:
-    type: linear
-    soul_ref: worker
-    limits:
-      max_duration_seconds: 1
-  block2:
-    type: linear
-    soul_ref: worker
-workflow:
-  name: timeout_no_error_route
-  entry: slow_block
-  transitions:
-    - from: slow_block
-      to: block2
-    - from: block2
-      to: null
-"""
-
-_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE = """\
-version: "1.0"
-id: block-timeout-workflow
-kind: workflow
-souls:
-  worker:
-    id: worker
-    kind: soul
-    name: Worker
-    role: Worker
-    system_prompt: Do work.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  slow_block:
-    type: linear
-    soul_ref: worker
-    limits:
-      max_duration_seconds: 1
-    error_route: fallback
-  fallback:
-    type: linear
-    soul_ref: worker
-workflow:
-  name: timeout_with_fallback
-  entry: slow_block
-  transitions:
-    - from: slow_block
-      to: null
-    - from: fallback
-      to: null
-"""
-
-_YAML_FAST_BLOCK_WITH_TIMEOUT = """\
-version: "1.0"
-id: block-timeout-workflow
-kind: workflow
-souls:
-  worker:
-    id: worker
-    kind: soul
-    name: Worker
-    role: Worker
-    system_prompt: Do work.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  fast_block:
-    type: linear
-    soul_ref: worker
-    limits:
-      max_duration_seconds: 60
-  block2:
-    type: linear
-    soul_ref: worker
-workflow:
-  name: fast_with_timeout
-  entry: fast_block
-  transitions:
-    - from: fast_block
-      to: block2
-    - from: block2
-      to: null
-"""
-
-
-# ===========================================================================
-# Scenario 1: Block timeout — no error route → run fails
-# ===========================================================================
+@pytest.fixture(autouse=True)
+def _fixture_model_budget(monkeypatch):
+    patch_fixture_model_budget(monkeypatch)
 
 
 class TestBlockTimeoutNoErrorRoute:
@@ -183,12 +43,12 @@ class TestBlockTimeoutNoErrorRoute:
 
         async def slow_response(*args, **kwargs):
             await asyncio.sleep(5)
-            return _make_litellm_response(content="slow result")
+            return make_litellm_response(content="slow result")
 
         mock_acompletion.side_effect = slow_response
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_NO_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
@@ -208,12 +68,12 @@ class TestBlockTimeoutNoErrorRoute:
 
         async def slow_response(*args, **kwargs):
             await asyncio.sleep(5)
-            return _make_litellm_response(content="slow result")
+            return make_litellm_response(content="slow result")
 
         mock_acompletion.side_effect = slow_response
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_NO_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         t0 = time.monotonic()
@@ -236,12 +96,12 @@ class TestBlockTimeoutNoErrorRoute:
             nonlocal call_count
             call_count += 1
             await asyncio.sleep(5)
-            return _make_litellm_response(content="slow result")
+            return make_litellm_response(content="slow result")
 
         mock_acompletion.side_effect = slow_response
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_NO_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         with pytest.raises(BudgetKilledException):
@@ -259,12 +119,12 @@ class TestBlockTimeoutNoErrorRoute:
 
         async def slow_response(*args, **kwargs):
             await asyncio.sleep(5)
-            return _make_litellm_response(content="slow result")
+            return make_litellm_response(content="slow result")
 
         mock_acompletion.side_effect = slow_response
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_NO_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_NO_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         with pytest.raises(BudgetKilledException) as exc_info:
@@ -272,11 +132,6 @@ class TestBlockTimeoutNoErrorRoute:
 
         # actual_value is set to the timeout value itself (not wall-clock elapsed)
         assert exc_info.value.actual_value == 1
-
-
-# ===========================================================================
-# Scenario 2: Block timeout — with error route → fallback
-# ===========================================================================
 
 
 class TestBlockTimeoutWithErrorRoute:
@@ -297,15 +152,15 @@ class TestBlockTimeoutWithErrorRoute:
             if call_index == 1:
                 # slow_block: sleep longer than timeout
                 await asyncio.sleep(5)
-                return _make_litellm_response(content="slow result")
+                return make_litellm_response(content="slow result")
             else:
                 # fallback: return instantly
-                return _make_litellm_response(content="fallback result")
+                return make_litellm_response(content="fallback result")
 
         mock_acompletion.side_effect = side_effect
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         result = await wf.run(state)
@@ -329,14 +184,14 @@ class TestBlockTimeoutWithErrorRoute:
             call_index += 1
             if call_index == 1:
                 await asyncio.sleep(5)
-                return _make_litellm_response(content="slow result")
+                return make_litellm_response(content="slow result")
             else:
-                return _make_litellm_response(content="fallback result")
+                return make_litellm_response(content="fallback result")
 
         mock_acompletion.side_effect = side_effect
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         result = await wf.run(state)
@@ -361,14 +216,14 @@ class TestBlockTimeoutWithErrorRoute:
             call_index += 1
             if call_index == 1:
                 await asyncio.sleep(5)
-                return _make_litellm_response(content="slow result")
+                return make_litellm_response(content="slow result")
             else:
-                return _make_litellm_response(content="recovered")
+                return make_litellm_response(content="recovered")
 
         mock_acompletion.side_effect = side_effect
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         # Should NOT raise — error_route catches the exception
@@ -388,14 +243,14 @@ class TestBlockTimeoutWithErrorRoute:
             call_index += 1
             if call_index == 1:
                 await asyncio.sleep(5)
-                return _make_litellm_response(content="slow result")
+                return make_litellm_response(content="slow result")
             else:
-                return _make_litellm_response(content="recovered")
+                return make_litellm_response(content="recovered")
 
         mock_acompletion.side_effect = side_effect
         mock_cost.return_value = 0.001
 
-        wf = parse_workflow_yaml(_YAML_BLOCK_TIMEOUT_WITH_ERROR_ROUTE)
+        wf = parse_workflow_fixture(_ERROR_ROUTE_FIXTURE)
         state = WorkflowState()
 
         result = await wf.run(state)
@@ -404,11 +259,6 @@ class TestBlockTimeoutWithErrorRoute:
         error_info = result.shared_memory.get("__error__slow_block")
         assert error_info is not None
         assert error_info["type"] == "BudgetKilledException"
-
-
-# ===========================================================================
-# Scenario 3: Block completes before timeout — no kill
-# ===========================================================================
 
 
 class TestBlockCompletesBeforeTimeout:
@@ -421,12 +271,12 @@ class TestBlockCompletesBeforeTimeout:
     async def test_workflow_completes_normally(self, mock_cost, mock_acompletion):
         """Workflow with generous timeout runs both blocks and completes normally."""
         mock_acompletion.side_effect = [
-            _make_litellm_response(content="result one", total_tokens=100),
-            _make_litellm_response(content="result two", total_tokens=120),
+            make_litellm_response(content="result one", total_tokens=100),
+            make_litellm_response(content="result two", total_tokens=120),
         ]
         mock_cost.side_effect = [0.01, 0.02]
 
-        wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
+        wf = parse_workflow_fixture(_FAST_SUCCESS_FIXTURE)
         state = WorkflowState()
 
         result = await wf.run(state)
@@ -442,12 +292,12 @@ class TestBlockCompletesBeforeTimeout:
     async def test_no_exception_raised(self, mock_cost, mock_acompletion):
         """No BudgetKilledException should be raised when block completes within timeout."""
         mock_acompletion.side_effect = [
-            _make_litellm_response(content="fast one", total_tokens=100),
-            _make_litellm_response(content="fast two", total_tokens=120),
+            make_litellm_response(content="fast one", total_tokens=100),
+            make_litellm_response(content="fast two", total_tokens=120),
         ]
         mock_cost.side_effect = [0.01, 0.02]
 
-        wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
+        wf = parse_workflow_fixture(_FAST_SUCCESS_FIXTURE)
         state = WorkflowState()
 
         # Should not raise any exception
@@ -460,12 +310,12 @@ class TestBlockCompletesBeforeTimeout:
     async def test_both_blocks_execute(self, mock_cost, mock_acompletion):
         """Both blocks should execute — the timeout-bearing block and its successor."""
         mock_acompletion.side_effect = [
-            _make_litellm_response(content="first", total_tokens=100),
-            _make_litellm_response(content="second", total_tokens=120),
+            make_litellm_response(content="first", total_tokens=100),
+            make_litellm_response(content="second", total_tokens=120),
         ]
         mock_cost.side_effect = [0.01, 0.02]
 
-        wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
+        wf = parse_workflow_fixture(_FAST_SUCCESS_FIXTURE)
         state = WorkflowState()
 
         await wf.run(state)
@@ -479,7 +329,7 @@ class TestBlockCompletesBeforeTimeout:
     async def test_block_without_timeout_not_wrapped(self, mock_cost, mock_acompletion):
         """block2 (no timeout) should NOT have max_duration_seconds set, confirming
         that only explicitly configured blocks get timeout wrapping."""
-        wf = parse_workflow_yaml(_YAML_FAST_BLOCK_WITH_TIMEOUT)
+        wf = parse_workflow_fixture(_FAST_SUCCESS_FIXTURE)
 
         fast_block = wf.blocks["fast_block"]
         block2 = wf.blocks["block2"]
