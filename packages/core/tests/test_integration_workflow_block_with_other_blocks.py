@@ -77,21 +77,21 @@ async def test_workflow_block_followed_by_linear_block():
     3. State transitions correctly through both blocks
     4. Costs are accumulated from both blocks
     """
-    # Create child workflow with placeholder (doesn't need current_task)
+    # Create the invoked workflow used before the final LinearBlock step.
     child_sequence_workflow = Workflow(name="linear_sequence_child_workflow")
-    child_sequence_workflow.add_block(EchoBlock("child_sequence_step", "child result"))
-    child_sequence_workflow.set_entry("child_sequence_step")
-    child_sequence_workflow.add_transition("child_sequence_step", None)
+    child_sequence_workflow.add_block(EchoBlock("analysis_sequence_step", "analysis result"))
+    child_sequence_workflow.set_entry("analysis_sequence_step")
+    child_sequence_workflow.add_transition("analysis_sequence_step", None)
 
     # Create parent workflow
     linear_sequence_workflow = Workflow(name="linear_sequence_parent_workflow")
 
     # Add WorkflowBlock
     workflow_block = WorkflowBlock(
-        block_id="child_workflow_runner",
+        block_id="analysis_workflow_block",
         child_workflow=child_sequence_workflow,
         inputs={},
-        outputs={"results.child_output": "results.child_sequence_step"},
+        outputs={"results.analysis_output": "results.analysis_sequence_step"},
         max_depth=10,
     )
     linear_sequence_workflow.add_block(workflow_block)
@@ -99,11 +99,11 @@ async def test_workflow_block_followed_by_linear_block():
     # Add LinearBlock after WorkflowBlock
     mock_runner_parent = MockRunner()
     final_step = LinearBlock(
-        block_id="parent_linear",
+        block_id="final_linear_step",
         soul=Soul(
-            id="parent_soul",
+            id="sequence_manager_soul",
             kind="soul",
-            name="Parent Soul",
+            name="Sequence Manager Soul",
             role="Manager",
             system_prompt="Manage",
         ),
@@ -111,9 +111,9 @@ async def test_workflow_block_followed_by_linear_block():
     )
     linear_sequence_workflow.add_block(final_step)
 
-    linear_sequence_workflow.set_entry("child_workflow_runner")
-    linear_sequence_workflow.add_transition("child_workflow_runner", "parent_linear")
-    linear_sequence_workflow.add_transition("parent_linear", None)
+    linear_sequence_workflow.set_entry("analysis_workflow_block")
+    linear_sequence_workflow.add_transition("analysis_workflow_block", "final_linear_step")
+    linear_sequence_workflow.add_transition("final_linear_step", None)
 
     # Create initial state with current_task for LinearBlock
     initial_state = WorkflowState(
@@ -125,12 +125,12 @@ async def test_workflow_block_followed_by_linear_block():
     final_state = await linear_sequence_workflow.run(initial_state)
 
     # Verify: Both blocks executed
-    assert "child_workflow_runner" in final_state.results
-    assert "parent_linear" in final_state.results
+    assert "analysis_workflow_block" in final_state.results
+    assert "final_linear_step" in final_state.results
 
     # Verify: Output mapping from child worked
-    assert "child_output" in final_state.results
-    assert final_state.results["child_output"].output == "child result"
+    assert "analysis_output" in final_state.results
+    assert final_state.results["analysis_output"].output == "analysis result"
 
     # Verify: Cost accumulation (from parent LinearBlock)
     assert final_state.total_cost_usd >= 0.01
@@ -138,12 +138,12 @@ async def test_workflow_block_followed_by_linear_block():
     # Verify: Messages from both blocks
     assert len(final_state.execution_log) > 0
     system_msgs = [m for m in final_state.execution_log if m["role"] == "system"]
-    assert any("child_workflow_runner" in m["content"] for m in system_msgs)
-    assert any("parent_linear" in m["content"] for m in system_msgs)
+    assert any("analysis_workflow_block" in m["content"] for m in system_msgs)
+    assert any("final_linear_step" in m["content"] for m in system_msgs)
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_with_placeholder_before_and_after():
+async def test_workflow_block_runs_between_echo_blocks():
     """
     Verify WorkflowBlock integrates with EchoBlocks in sequence.
 
@@ -154,19 +154,19 @@ async def test_workflow_block_with_placeholder_before_and_after():
     """
     # Create child workflow
     echo_sequence_child_workflow = Workflow(name="echo_sequence_child_workflow")
-    echo_sequence_child_workflow.add_block(EchoBlock("child_echo_step", "Child execution"))
-    echo_sequence_child_workflow.set_entry("child_echo_step")
-    echo_sequence_child_workflow.add_transition("child_echo_step", None)
+    echo_sequence_child_workflow.add_block(EchoBlock("analysis_echo_step", "Analysis execution"))
+    echo_sequence_child_workflow.set_entry("analysis_echo_step")
+    echo_sequence_child_workflow.add_transition("analysis_echo_step", None)
 
     # Create parent workflow
     echo_sequence_parent_workflow = Workflow(name="echo_sequence_parent_workflow")
 
     # Add EchoBlock before WorkflowBlock
-    echo_sequence_parent_workflow.add_block(EchoBlock("before_child_echo", "Before execution"))
+    echo_sequence_parent_workflow.add_block(EchoBlock("before_analysis_echo", "Before execution"))
 
     # Add WorkflowBlock
     workflow_block = WorkflowBlock(
-        block_id="child_echo_workflow_block",
+        block_id="analysis_echo_workflow_block",
         child_workflow=echo_sequence_child_workflow,
         inputs={},
         outputs={},
@@ -175,30 +175,34 @@ async def test_workflow_block_with_placeholder_before_and_after():
     echo_sequence_parent_workflow.add_block(workflow_block)
 
     # Add EchoBlock after WorkflowBlock
-    echo_sequence_parent_workflow.add_block(EchoBlock("after_child_echo", "After execution"))
+    echo_sequence_parent_workflow.add_block(EchoBlock("after_analysis_echo", "After execution"))
 
-    echo_sequence_parent_workflow.set_entry("before_child_echo")
-    echo_sequence_parent_workflow.add_transition("before_child_echo", "child_echo_workflow_block")
-    echo_sequence_parent_workflow.add_transition("child_echo_workflow_block", "after_child_echo")
-    echo_sequence_parent_workflow.add_transition("after_child_echo", None)
+    echo_sequence_parent_workflow.set_entry("before_analysis_echo")
+    echo_sequence_parent_workflow.add_transition(
+        "before_analysis_echo", "analysis_echo_workflow_block"
+    )
+    echo_sequence_parent_workflow.add_transition(
+        "analysis_echo_workflow_block", "after_analysis_echo"
+    )
+    echo_sequence_parent_workflow.add_transition("after_analysis_echo", None)
 
     # Execute
     initial_state = WorkflowState()
     final_state = await echo_sequence_parent_workflow.run(initial_state)
 
     # Verify: All blocks executed in order
-    assert "before_child_echo" in final_state.results
-    assert "child_echo_workflow_block" in final_state.results
-    assert "after_child_echo" in final_state.results
+    assert "before_analysis_echo" in final_state.results
+    assert "analysis_echo_workflow_block" in final_state.results
+    assert "after_analysis_echo" in final_state.results
 
     # Verify: Messages show correct execution order
     messages = [m["content"] for m in final_state.execution_log if m["role"] == "system"]
-    before_idx = next((i for i, m in enumerate(messages) if "before_child_echo" in m), -1)
+    before_idx = next((i for i, m in enumerate(messages) if "before_analysis_echo" in m), -1)
     invoke_idx = next(
-        (i for i, m in enumerate(messages) if "child_echo_workflow_block" in m),
+        (i for i, m in enumerate(messages) if "analysis_echo_workflow_block" in m),
         -1,
     )
-    after_idx = next((i for i, m in enumerate(messages) if "after_child_echo" in m), -1)
+    after_idx = next((i for i, m in enumerate(messages) if "after_analysis_echo" in m), -1)
 
     assert before_idx >= 0
     assert invoke_idx > before_idx
@@ -228,7 +232,7 @@ async def test_nested_workflow_blocks():
         block_id="leaf_workflow_block",
         child_workflow=nested_leaf_workflow,
         inputs={},
-        outputs={"results.gc_result": "results.nested_leaf_step"},
+        outputs={"results.leaf_result": "results.nested_leaf_step"},
         max_depth=10,
     )
     nested_middle_workflow.add_block(gc_block)
@@ -241,7 +245,7 @@ async def test_nested_workflow_blocks():
         block_id="middle_workflow_block",
         child_workflow=nested_middle_workflow,
         inputs={},
-        outputs={"results.child_result": "results.gc_result"},
+        outputs={"results.nested_leaf_result": "results.leaf_result"},
         max_depth=10,
     )
     nested_parent_workflow.add_block(c_block)
@@ -254,8 +258,8 @@ async def test_nested_workflow_blocks():
 
     # Verify: All levels executed
     assert "middle_workflow_block" in final_state.results
-    assert "child_result" in final_state.results
-    assert final_state.results["child_result"].output == "Grandchild executed"
+    assert "nested_leaf_result" in final_state.results
+    assert final_state.results["nested_leaf_result"].output == "Grandchild executed"
 
     # Verify: System messages from top-level blocks
     # Note: Messages from nested workflows are propagated up through the parent message stream
@@ -263,7 +267,7 @@ async def test_nested_workflow_blocks():
     assert any("middle_workflow_block" in m for m in messages)  # Parent → child block
     # The grandchild execution message may be in the child's state, then propagated
     # We verify the final output was correctly mapped instead
-    assert final_state.results["child_result"].output == "Grandchild executed"
+    assert final_state.results["nested_leaf_result"].output == "Grandchild executed"
 
 
 @pytest.mark.asyncio
@@ -290,9 +294,18 @@ async def test_workflow_block_state_isolation_complex():
             # Try to modify all state fields
             new_state = state.model_copy(
                 update={
-                    "results": {**state.results, "child_secret": BlockResult(output="hidden")},
-                    "shared_memory": {**state.shared_memory, "child_only": "secret_data"},
-                    "metadata": {**state.metadata, "child_meta": "private"},
+                    "results": {
+                        **state.results,
+                        "unmapped_internal_result": BlockResult(output="hidden"),
+                    },
+                    "shared_memory": {
+                        **state.shared_memory,
+                        "unmapped_internal_memory": "secret_data",
+                    },
+                    "metadata": {
+                        **state.metadata,
+                        "unmapped_internal_metadata": "private",
+                    },
                 }
             )
             final_state = new_state.model_copy(
@@ -312,10 +325,10 @@ async def test_workflow_block_state_isolation_complex():
             )
             return block_output_from_state(self.block_id, state, final_state)
 
-    child_block = ModifyingBlock("modify_step", "Modified state")
+    child_block = ModifyingBlock("isolation_modifier_step", "Modified state")
     state_isolation_child_workflow.add_block(child_block)
-    state_isolation_child_workflow.set_entry("modify_step")
-    state_isolation_child_workflow.add_transition("modify_step", None)
+    state_isolation_child_workflow.set_entry("isolation_modifier_step")
+    state_isolation_child_workflow.add_transition("isolation_modifier_step", None)
 
     # Create parent workflow
     state_isolation_parent_workflow = Workflow(name="state_isolation_parent_workflow")
@@ -323,7 +336,7 @@ async def test_workflow_block_state_isolation_complex():
         block_id="state_isolation_workflow_block",
         child_workflow=state_isolation_child_workflow,
         inputs={},
-        outputs={"results.mapped_out": "results.modify_step"},
+        outputs={"results.mapped_isolation_output": "results.isolation_modifier_step"},
         max_depth=10,
     )
     state_isolation_parent_workflow.add_block(workflow_block)
@@ -332,27 +345,27 @@ async def test_workflow_block_state_isolation_complex():
 
     # Create parent state with existing data
     initial_state = WorkflowState(
-        results={"parent_data": BlockResult(output="keep_me")},
-        shared_memory={"parent_key": "keep_me"},
-        metadata={"parent_meta": "keep_me"},
+        results={"caller_result": BlockResult(output="keep_me")},
+        shared_memory={"caller_memory": "keep_me"},
+        metadata={"caller_metadata": "keep_me"},
     )
 
     # Execute
     final_state = await state_isolation_parent_workflow.run(initial_state)
 
     # Verify: Parent's original data is preserved
-    assert "parent_data" in final_state.results
-    assert final_state.results["parent_data"].output == "keep_me"
-    assert final_state.shared_memory["parent_key"] == "keep_me"
-    assert final_state.metadata["parent_meta"] == "keep_me"
+    assert "caller_result" in final_state.results
+    assert final_state.results["caller_result"].output == "keep_me"
+    assert final_state.shared_memory["caller_memory"] == "keep_me"
+    assert final_state.metadata["caller_metadata"] == "keep_me"
 
     # Verify: Child's modifications didn't leak (except mapped outputs)
-    assert "child_secret" not in final_state.results
-    assert "child_only" not in final_state.shared_memory
-    assert "child_meta" not in final_state.metadata
+    assert "unmapped_internal_result" not in final_state.results
+    assert "unmapped_internal_memory" not in final_state.shared_memory
+    assert "unmapped_internal_metadata" not in final_state.metadata
 
     # Verify: Only mapped output is present
-    assert "mapped_out" in final_state.results
+    assert "mapped_isolation_output" in final_state.results
 
 
 @pytest.mark.asyncio
@@ -366,7 +379,7 @@ async def test_workflow_block_cost_propagation_multiple_levels():
     3. Multiple child executions accumulate properly
     """
     # Create child workflow that reports costs
-    cost_tracking_child_workflow = Workflow(name="child_cost_tracking_workflow")
+    cost_tracking_child_workflow = Workflow(name="cost_source_workflow")
 
     class CostProducingBlock(BaseBlock):
         def __init__(self, block_id: str, cost: float):
@@ -388,19 +401,19 @@ async def test_workflow_block_cost_propagation_multiple_levels():
             )
             return block_output_from_state(self.block_id, state, next_state)
 
-    cost_tracking_child_workflow.add_block(CostProducingBlock("child_cost_step", 0.05))
-    cost_tracking_child_workflow.set_entry("child_cost_step")
-    cost_tracking_child_workflow.add_transition("child_cost_step", None)
+    cost_tracking_child_workflow.add_block(CostProducingBlock("cost_source_step", 0.05))
+    cost_tracking_child_workflow.set_entry("cost_source_step")
+    cost_tracking_child_workflow.add_transition("cost_source_step", None)
 
     # Create parent workflow
     cost_tracking_parent_workflow = Workflow(name="cost_tracking_parent_workflow")
 
     # Add initial cost block
-    cost_tracking_parent_workflow.add_block(CostProducingBlock("parent_initial", 0.02))
+    cost_tracking_parent_workflow.add_block(CostProducingBlock("pre_invocation_cost_step", 0.02))
 
     # Add WorkflowBlock (will invoke child which costs 0.05)
     workflow_block = WorkflowBlock(
-        block_id="cost_child_workflow_block",
+        block_id="cost_source_workflow_block",
         child_workflow=cost_tracking_child_workflow,
         inputs={},
         outputs={},
@@ -409,21 +422,25 @@ async def test_workflow_block_cost_propagation_multiple_levels():
     cost_tracking_parent_workflow.add_block(workflow_block)
 
     # Add final cost block
-    cost_tracking_parent_workflow.add_block(CostProducingBlock("parent_final", 0.03))
+    cost_tracking_parent_workflow.add_block(CostProducingBlock("post_invocation_cost_step", 0.03))
 
-    cost_tracking_parent_workflow.set_entry("parent_initial")
-    cost_tracking_parent_workflow.add_transition("parent_initial", "cost_child_workflow_block")
-    cost_tracking_parent_workflow.add_transition("cost_child_workflow_block", "parent_final")
-    cost_tracking_parent_workflow.add_transition("parent_final", None)
+    cost_tracking_parent_workflow.set_entry("pre_invocation_cost_step")
+    cost_tracking_parent_workflow.add_transition(
+        "pre_invocation_cost_step", "cost_source_workflow_block"
+    )
+    cost_tracking_parent_workflow.add_transition(
+        "cost_source_workflow_block", "post_invocation_cost_step"
+    )
+    cost_tracking_parent_workflow.add_transition("post_invocation_cost_step", None)
 
     # Execute
     initial_state = WorkflowState(total_cost_usd=0.0, total_tokens=0)
     final_state = await cost_tracking_parent_workflow.run(initial_state)
 
     # Verify: Total costs accumulated
-    # parent_initial: 0.02
-    # child: 0.05
-    # parent_final: 0.03
+    # pre_invocation_cost_step: 0.02
+    # cost_source_workflow_block: 0.05
+    # post_invocation_cost_step: 0.03
     # Total: 0.10
     assert final_state.total_cost_usd == pytest.approx(0.10, abs=0.001)
     assert final_state.total_tokens == 30  # 3 blocks × 10 tokens
