@@ -1,0 +1,49 @@
+packages/core/tests/unit/test_isolation_harness_split_governance.py
+  4adca821c1af8eb3 1-73,75-159
+  f82da7e0a8943666 74
+packages/core/tests/test_isolation_harness_ipc_wiring.py
+  f82da7e0a8943666 1-812
+packages/core/tests/test_isolation_harness.py
+  f82da7e0a8943666 1,3-4,11-15,19-20,22,24
+packages/core/tests/test_isolation_harness_subprocess_runtime.py
+  f82da7e0a8943666 1-410
+packages/core/tests/test_isolation_harness_process_lifecycle.py
+  f82da7e0a8943666 1-314
+packages/core/tests/isolation_harness_helpers.py
+  f82da7e0a8943666 1-200
+packages/core/tests/test_isolation_harness_result_contracts.py
+  f82da7e0a8943666 1-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "25e60608697e52c82d7fd2766badc995cb379f40",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 160,
+      "total_deletions": 0,
+      "accepted_lines": 53304,
+      "overriden_lines": 0
+    },
+    "f82da7e0a8943666": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de58f-c386-7131-a88f-5a34da65f3f4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2268,
+      "total_deletions": 2333,
+      "accepted_lines": 2036,
+      "overriden_lines": 0
+    }
+  }
+}
