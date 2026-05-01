@@ -53,7 +53,7 @@ def gate_soul():
     return Soul(
         id="gate_quality_soul",
         kind="soul",
-        name="Test",
+        name="Quality Gate Soul",
         role="Gate",
         system_prompt="Evaluate quality strictly.",
     )
@@ -152,7 +152,7 @@ async def test_gateblock_execute_accepts_block_context(mock_runner, gate_soul):
 
     assert isinstance(result, BlockOutput), (
         f"Expected BlockOutput but got {type(result).__name__}. "
-        "GateBlock.execute must return BlockOutput after the migration."
+        "GateBlock.execute must return BlockOutput under the execution contract."
     )
 
 
@@ -488,7 +488,7 @@ async def test_gateblock_extract_field_not_applied_on_fail(mock_runner, gate_sou
 
 
 @pytest.mark.asyncio
-async def test_execute_block_dispatches_gateblock_via_new_path(
+async def test_execute_block_dispatches_gateblock_via_block_context_path(
     mock_runner, gate_soul, block_execution_ctx
 ):
     """execute_block must route GateBlock through build_block_context + apply_block_output."""
@@ -512,7 +512,7 @@ async def test_execute_block_dispatches_gateblock_via_new_path(
         result_state = await execute_block(block, state, block_execution_ctx)
 
     assert mock_build_ctx.called, (
-        "execute_block must call build_block_context for GateBlock (new dispatch path)"
+        "execute_block must call build_block_context for GateBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
     assert "quality_gate" in result_state.results
@@ -574,7 +574,7 @@ async def test_execute_block_gateblock_fail_routing(mock_runner, gate_soul, bloc
 async def test_execute_block_gateblock_accumulates_cost(
     mock_runner, gate_soul, block_execution_ctx
 ):
-    """execute_block via GateBlock new path must accumulate cost_usd in state."""
+    """execute_block via GateBlock BlockContext path must accumulate cost_usd in state."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="quality_gate_eval",
         soul_id="gate_quality_soul",
@@ -607,10 +607,10 @@ async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 
-    sample_soul = Soul(
+    writer_soul = Soul(
         id="writer_quality_soul",
         kind="soul",
-        name="Test",
+        name="Quality Writer Soul",
         role="Writer",
         system_prompt="Write content.",
     )
@@ -642,10 +642,10 @@ async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_
         ),
     ]
 
-    linear_block = LinearBlock("writer", sample_soul, mock_runner)
+    linear_block = LinearBlock("writer", writer_soul, mock_runner)
     gate_block = GateBlock("quality_gate", gate_soul, "writer", mock_runner)
-    publish_block = LinearBlock("publish", sample_soul, mock_runner)
-    revise_block = LinearBlock("revise", sample_soul, mock_runner)
+    publish_block = LinearBlock("publish", writer_soul, mock_runner)
+    revise_block = LinearBlock("revise", writer_soul, mock_runner)
 
     wf = Workflow("gate_routing_workflow")
     wf.add_block(linear_block)
@@ -681,10 +681,10 @@ async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, 
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 
-    sample_soul = Soul(
+    writer_soul = Soul(
         id="writer_quality_soul",
         kind="soul",
-        name="Test",
+        name="Quality Writer Soul",
         role="Writer",
         system_prompt="Write content.",
     )
@@ -716,10 +716,10 @@ async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, 
         ),
     ]
 
-    linear_block = LinearBlock("writer", sample_soul, mock_runner)
+    linear_block = LinearBlock("writer", writer_soul, mock_runner)
     gate_block = GateBlock("quality_gate", gate_soul, "writer", mock_runner)
-    publish_block = LinearBlock("publish", sample_soul, mock_runner)
-    revise_block = LinearBlock("revise", sample_soul, mock_runner)
+    publish_block = LinearBlock("publish", writer_soul, mock_runner)
+    revise_block = LinearBlock("revise", writer_soul, mock_runner)
 
     wf = Workflow("gate_fail_workflow")
     wf.add_block(linear_block)
@@ -753,7 +753,7 @@ async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, 
 async def test_execute_block_gateblock_apply_block_output_called(
     mock_runner, gate_soul, block_execution_ctx
 ):
-    """execute_block must call apply_block_output for GateBlock (new path)."""
+    """execute_block must call apply_block_output for GateBlock dispatch."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="quality_gate_eval",
         soul_id="gate_quality_soul",
@@ -780,7 +780,7 @@ async def test_execute_block_gateblock_apply_block_output_called(
         result_state = await execute_block(block, state, block_execution_ctx)
 
     assert "quality_gate" in apply_calls, (
-        "execute_block must call apply_block_output for GateBlock (new dispatch path)"
+        "execute_block must call apply_block_output for GateBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
     assert result_state.total_cost_usd == pytest.approx(0.12)
