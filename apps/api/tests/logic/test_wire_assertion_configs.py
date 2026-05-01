@@ -1,6 +1,5 @@
 """Block assertion wiring without soul-level assertion configs."""
 
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 from types import SimpleNamespace
@@ -18,105 +17,7 @@ from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.logic.services.execution_service import PreparedRunInputs
 
 
-YAML_BLOCK_WITH_ASSERTIONS = """\
-id: block-assertion-test
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: contains
-        value: analysis
-workflow:
-  name: block_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-
-YAML_STEP_WITH_ASSERTIONS = """\
-id: step-assertion-test
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  fetch:
-    type: linear
-    soul_ref: researcher
-  analyze:
-    type: linear
-    soul_ref: analyst
-    inputs:
-      data:
-        from: fetch.output
-    assertions:
-      - type: contains
-        value: analysis
-      - type: cost
-        threshold: 0.05
-workflow:
-  name: step_assertion_test
-  entry: fetch
-  transitions:
-    - from: fetch
-      to: analyze
-    - from: analyze
-      to: null
-"""
-
-
-YAML_INVALID_SOUL_ASSERTIONS = """\
-id: soul-only-assertion-test
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    soul_assertions:
-      - type: contains
-        value: analysis
-workflow:
-  name: soul_only_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-
-YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS = """\
-id: soul-and-block-assertion-test
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    soul_assertions:
-      - type: cost
-        threshold: 0.10
-    assertions:
-      - type: contains
-        value: analysis
-workflow:
-  name: soul_and_block_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
+ASSERTION_WIRING_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "assertion_wiring"
 
 
 def _write_soul_file(base_dir: Path, name: str, content: str) -> None:
@@ -126,12 +27,14 @@ def _write_soul_file(base_dir: Path, name: str, content: str) -> None:
     (souls_dir / f"{name}.yaml").write_text(dedent(content), encoding="utf-8")
 
 
-def _parse_block_assertion_workflow() -> object:
-    """Parse the block-assertion workflow using a temp directory with the analyst soul."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
+class AssertionWiringWorkspace:
+    def __init__(self, base_dir: Path):
+        self.base_dir = base_dir
+        self.base_dir.mkdir()
+
+    def parse_block_assertion_workflow(self) -> object:
         _write_soul_file(
-            base,
+            self.base_dir,
             "analyst",
             """\
             id: analyst
@@ -141,17 +44,11 @@ def _parse_block_assertion_workflow() -> object:
             system_prompt: You are a careful analyst.
             """,
         )
-        workflow_file = base / "workflow.yaml"
-        workflow_file.write_text(YAML_BLOCK_WITH_ASSERTIONS, encoding="utf-8")
-        return parse_workflow_yaml(str(workflow_file))
+        return self._parse_fixture("block-with-assertions.yaml")
 
-
-def _parse_step_assertion_workflow() -> object:
-    """Parse a workflow where asserted blocks are Step-wrapped by declared inputs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
+    def parse_step_assertion_workflow(self) -> object:
         _write_soul_file(
-            base,
+            self.base_dir,
             "researcher",
             """\
             id: researcher
@@ -162,7 +59,7 @@ def _parse_step_assertion_workflow() -> object:
             """,
         )
         _write_soul_file(
-            base,
+            self.base_dir,
             "analyst",
             """\
             id: analyst
@@ -172,9 +69,16 @@ def _parse_step_assertion_workflow() -> object:
             system_prompt: You are a careful analyst.
             """,
         )
-        workflow_file = base / "workflow.yaml"
-        workflow_file.write_text(YAML_STEP_WITH_ASSERTIONS, encoding="utf-8")
+        return self._parse_fixture("step-with-assertions.yaml")
+
+    def _parse_fixture(self, filename: str) -> object:
+        workflow_file = self.base_dir / "workflow.yaml"
+        workflow_file.write_text(_workflow_fixture_yaml(filename), encoding="utf-8")
         return parse_workflow_yaml(str(workflow_file))
+
+
+def _workflow_fixture_yaml(filename: str) -> str:
+    return (ASSERTION_WIRING_FIXTURES / filename).read_text(encoding="utf-8")
 
 
 def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
@@ -182,6 +86,11 @@ def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
         normalized_inputs=dict(inputs),
         input_redactor=RunRedactor(),
     )
+
+
+@pytest.fixture
+def assertion_wiring_workspace(tmp_path: Path) -> AssertionWiringWorkspace:
+    return AssertionWiringWorkspace(tmp_path / "assertion-wiring-workspace")
 
 
 @pytest.fixture
@@ -225,15 +134,15 @@ def _drain_queue(queue):
 class TestParserPropagatesAssertions:
     """Workflow parsing should attach block-owned assertions to runtime blocks."""
 
-    def test_runtime_block_has_assertions_after_parse(self):
-        wf = _parse_block_assertion_workflow()
+    def test_runtime_block_has_assertions_after_parse(self, assertion_wiring_workspace):
+        wf = assertion_wiring_workspace.parse_block_assertion_workflow()
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
         assert len(block.assertions) == 1
 
-    def test_block_assertions_preserve_yaml_fields(self):
-        wf = _parse_block_assertion_workflow()
+    def test_block_assertions_preserve_yaml_fields(self, assertion_wiring_workspace):
+        wf = assertion_wiring_workspace.parse_block_assertion_workflow()
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
@@ -242,7 +151,7 @@ class TestParserPropagatesAssertions:
 
     def test_soul_level_assertions_raise_validation_error(self):
         with pytest.raises(ValidationError):
-            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
+            parse_workflow_yaml(_workflow_fixture_yaml("soul-only-assertions.yaml"))
 
 
 class TestExecutionServiceBuildsAssertionConfigs:
@@ -313,10 +222,12 @@ class TestExecutionServiceBuildsAssertionConfigs:
 
         assert configs is None
 
-    def test_build_assertion_configs_reads_parsed_step_wrapped_assertions(self):
+    def test_build_assertion_configs_reads_parsed_step_wrapped_assertions(
+        self, assertion_wiring_workspace
+    ):
         from runsight_api.logic.services.execution_service import ExecutionService
 
-        wf = _parse_step_assertion_workflow()
+        wf = assertion_wiring_workspace.parse_step_assertion_workflow()
 
         configs = ExecutionService._build_assertion_configs(wf)
 
@@ -331,7 +242,9 @@ class TestIntegrationEvalScoreViaService:
     """ExecutionService should wire block assertions through EvalObserver."""
 
     @pytest.mark.asyncio
-    async def test_block_assertions_populate_eval_score(self, db_engine):
+    async def test_block_assertions_populate_eval_score(
+        self, db_engine, assertion_wiring_workspace
+    ):
         from runsight_api.logic.services.execution_service import ExecutionService
 
         svc = ExecutionService(
@@ -343,7 +256,7 @@ class TestIntegrationEvalScoreViaService:
 
         run_id = "run_block_eval"
         _seed_run(db_engine, run_id, "block_assertion_test")
-        wf = _parse_block_assertion_workflow()
+        wf = assertion_wiring_workspace.parse_block_assertion_workflow()
 
         with patch(
             "runsight_core.runner.RunsightTeamRunner.execute",
@@ -363,7 +276,9 @@ class TestIntegrationEvalScoreViaService:
             assert node.eval_results is not None
 
     @pytest.mark.asyncio
-    async def test_block_assertions_still_emit_baseline_delta_using_soul_identity(self, db_engine):
+    async def test_block_assertions_still_emit_baseline_delta_using_soul_identity(
+        self, db_engine, assertion_wiring_workspace
+    ):
         from runsight_api.logic.services.execution_service import ExecutionService
 
         svc = ExecutionService(
@@ -385,7 +300,7 @@ class TestIntegrationEvalScoreViaService:
 
         run_id = "run_baseline_delta"
         _seed_run(db_engine, run_id, "block_assertion_test")
-        wf = _parse_block_assertion_workflow()
+        wf = assertion_wiring_workspace.parse_block_assertion_workflow()
         soul = wf._blocks["analyze"].soul
         soul_version = compute_soul_version(soul)
 
@@ -430,8 +345,8 @@ class TestInvalidSoulAssertionYaml:
 
     def test_soul_only_assertions_fail_validation_before_execution(self):
         with pytest.raises(ValidationError):
-            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
+            parse_workflow_yaml(_workflow_fixture_yaml("soul-only-assertions.yaml"))
 
     def test_soul_and_block_assertions_fail_validation_before_execution(self):
         with pytest.raises(ValidationError):
-            parse_workflow_yaml(YAML_INVALID_SOUL_AND_BLOCK_ASSERTIONS)
+            parse_workflow_yaml(_workflow_fixture_yaml("soul-and-block-assertions.yaml"))

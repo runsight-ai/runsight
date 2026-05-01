@@ -1,0 +1,28 @@
+id: step-assertion-test
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+blocks:
+  fetch:
+    type: linear
+    soul_ref: researcher
+  analyze:
+    type: linear
+    soul_ref: analyst
+    inputs:
+      data:
+        from: fetch.output
+    assertions:
+      - type: contains
+        value: analysis
+      - type: cost
+        threshold: 0.05
+workflow:
+  name: step_assertion_test
+  entry: fetch
+  transitions:
+    - from: fetch
+      to: analyze
+    - from: analyze
+      to: null

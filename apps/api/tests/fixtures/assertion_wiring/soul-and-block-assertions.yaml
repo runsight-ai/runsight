@@ -1,0 +1,21 @@
+id: soul-and-block-assertion-test
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    soul_assertions:
+      - type: cost
+        threshold: 0.10
+    assertions:
+      - type: contains
+        value: analysis
+workflow:
+  name: soul_and_block_assertion_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

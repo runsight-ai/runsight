@@ -1,0 +1,18 @@
+id: block-assertion-test
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    assertions:
+      - type: contains
+        value: analysis
+workflow:
+  name: block_assertion_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
