@@ -87,20 +87,20 @@ class NoCoercionWorkflowState(WorkflowState):
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.model_name = "gpt-4o"
+    runner.model_name = None
     runner.execute = AsyncMock()
     return runner
 
 
 @pytest.fixture
-def sample_soul():
+def write_site_soul():
     """Sample soul for testing."""
     return Soul(
-        id="test_soul",
+        id="block_result_soul",
         kind="soul",
-        name="Test Soul",
-        role="Tester",
-        system_prompt="You test things.",
+        name="Block Result Soul",
+        role="Write Site Tester",
+        system_prompt="You verify write-site outputs.",
     )
 
 
@@ -119,8 +119,8 @@ def _make_state(**kwargs) -> NoCoercionWorkflowState:
 def _mock_execution_result(**overrides) -> ExecutionResult:
     """Create an ExecutionResult with sensible defaults."""
     defaults = {
-        "task_id": "t1",
-        "soul_id": "test_soul",
+        "task_id": "write-site-task",
+        "soul_id": "block_result_soul",
         "output": "mock LLM output",
         "cost_usd": 0.001,
         "total_tokens": 100,
@@ -138,20 +138,22 @@ class TestLinearBlockEmitsBlockResult:
     """LinearBlock.execute must write BlockResult to state.results."""
 
     @pytest.mark.asyncio
-    async def test_linear_block_writes_block_result_not_raw_string(self, mock_runner, sample_soul):
+    async def test_linear_block_writes_block_result_not_raw_string(
+        self, mock_runner, write_site_soul
+    ):
         """LinearBlock must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import LinearBlock
 
         mock_runner.execute.return_value = _mock_execution_result()
 
-        block = LinearBlock("linear1", sample_soul, mock_runner)
+        block = LinearBlock("linear_write_site", write_site_soul, mock_runner)
         state = _make_state()
 
         # This will raise TypeError if the block writes a raw string
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["linear1"], BlockResult)
-        assert result_state.results["linear1"].output == "mock LLM output"
+        assert isinstance(result_state.results["linear_write_site"], BlockResult)
+        assert result_state.results["linear_write_site"].output == "mock LLM output"
 
 
 # ==============================================================================
@@ -164,7 +166,7 @@ class TestDispatchBlockEmitsBlockResult:
 
     @pytest.mark.asyncio
     async def test_dispatch_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul
+        self, mock_runner, write_site_soul
     ):
         """DispatchBlock must emit BlockResult(output=...) instead of raw json.dumps string."""
         from runsight_core import DispatchBlock
@@ -187,12 +189,12 @@ class TestDispatchBlockEmitsBlockResult:
             DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work")
             for s in [soul_a, soul_b]
         ]
-        block = DispatchBlock("dispatch1", branches, mock_runner)
+        block = DispatchBlock("dispatch_write_site", branches, mock_runner)
         state = _make_state()
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["dispatch1"], BlockResult)
+        assert isinstance(result_state.results["dispatch_write_site"], BlockResult)
 
 
 # ==============================================================================
@@ -205,7 +207,7 @@ class TestSynthesizeBlockEmitsBlockResult:
 
     @pytest.mark.asyncio
     async def test_synthesize_block_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul
+        self, mock_runner, write_site_soul
     ):
         """SynthesizeBlock must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import SynthesizeBlock
@@ -213,16 +215,21 @@ class TestSynthesizeBlockEmitsBlockResult:
         mock_runner.execute.return_value = _mock_execution_result(output="synthesized content")
 
         block = SynthesizeBlock(
-            "synth1", input_block_ids=["input_a"], synthesizer_soul=sample_soul, runner=mock_runner
+            "synthesis_write_site",
+            input_block_ids=["synthesis_input_write_site"],
+            synthesizer_soul=write_site_soul,
+            runner=mock_runner,
         )
 
         # Seed with an already-valid BlockResult for the input block
-        state = _make_state(results={"input_a": BlockResult(output="previous block output")})
+        state = _make_state(
+            results={"synthesis_input_write_site": BlockResult(output="previous block output")}
+        )
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["synth1"], BlockResult)
-        assert result_state.results["synth1"].output == "synthesized content"
+        assert isinstance(result_state.results["synthesis_write_site"], BlockResult)
+        assert result_state.results["synthesis_write_site"].output == "synthesized content"
 
 
 # ==============================================================================
@@ -244,14 +251,16 @@ class TestLoopBlockEmitsBlockResult:
             async def execute(self, ctx) -> BlockOutput:
                 return BlockOutput(output="inner done")
 
-        inner = PassthroughBlock("inner1")
-        loop = LoopBlock("loop1", inner_block_refs=["inner1"], max_rounds=1)
+        inner = PassthroughBlock("passthrough_inner_write_site")
+        loop = LoopBlock(
+            "loop_write_site", inner_block_refs=["passthrough_inner_write_site"], max_rounds=1
+        )
 
         state = _make_state()
 
-        result_state = await _exec(loop, state, blocks={"inner1": inner})
+        result_state = await _exec(loop, state, blocks={"passthrough_inner_write_site": inner})
 
-        assert isinstance(result_state.results["loop1"], BlockResult)
+        assert isinstance(result_state.results["loop_write_site"], BlockResult)
 
 
 # ==============================================================================
@@ -269,14 +278,14 @@ class TestWorkflowBlockEmitsBlockResult:
         from runsight_core.workflow import Workflow
 
         # Create a minimal child workflow that does nothing
-        child_workflow = Workflow(name="child_workflow")
+        invoked_workflow = Workflow(name="write_site_invoked_workflow")
 
         # Mock the child workflow's run method to return a clean state
-        child_workflow.run = AsyncMock(return_value=WorkflowState())
+        invoked_workflow.run = AsyncMock(return_value=WorkflowState())
 
         block = WorkflowBlock(
             "workflow_block_write_site",
-            child_workflow=child_workflow,
+            child_workflow=invoked_workflow,
             inputs={},
             outputs={},
         )
@@ -298,7 +307,7 @@ class TestGateBlockEmitsBlockResult:
 
     @pytest.mark.asyncio
     async def test_gate_block_pass_writes_block_result_not_raw_string(
-        self, mock_runner, sample_soul
+        self, mock_runner, write_site_soul
     ):
         """GateBlock on PASS must emit BlockResult(output=...) instead of raw string."""
         from runsight_core import GateBlock
@@ -306,21 +315,23 @@ class TestGateBlockEmitsBlockResult:
         mock_runner.execute.return_value = _mock_execution_result(output="PASS - looks good")
 
         block = GateBlock(
-            "gate1",
-            gate_soul=sample_soul,
-            eval_key="input_block",
+            "gate_pass_write_site",
+            gate_soul=write_site_soul,
+            eval_key="gate_review_source",
             runner=mock_runner,
         )
 
-        state = _make_state(results={"input_block": BlockResult(output="content to evaluate")})
+        state = _make_state(
+            results={"gate_review_source": BlockResult(output="content to evaluate")}
+        )
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["gate1"], BlockResult)
+        assert isinstance(result_state.results["gate_pass_write_site"], BlockResult)
 
     @pytest.mark.asyncio
     async def test_gate_block_pass_with_extract_field_writes_block_result(
-        self, mock_runner, sample_soul
+        self, mock_runner, write_site_soul
     ):
         """GateBlock on PASS with extract_field must also emit BlockResult."""
         from runsight_core import GateBlock
@@ -329,18 +340,18 @@ class TestGateBlockEmitsBlockResult:
 
         json_content = json.dumps([{"output": "extracted_value", "id": "1"}])
         block = GateBlock(
-            "gate2",
-            gate_soul=sample_soul,
-            eval_key="input_block",
+            "gate_extract_write_site",
+            gate_soul=write_site_soul,
+            eval_key="gate_review_source",
             runner=mock_runner,
             extract_field="output",
         )
 
-        state = _make_state(results={"input_block": BlockResult(output=json_content)})
+        state = _make_state(results={"gate_review_source": BlockResult(output=json_content)})
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["gate2"], BlockResult)
+        assert isinstance(result_state.results["gate_extract_write_site"], BlockResult)
 
 
 # ==============================================================================
@@ -357,15 +368,15 @@ class TestCodeBlockErrorEmitsBlockResult:
         from runsight_core import CodeBlock
 
         code = 'def main(data):\n    raise ValueError("boom")\n'
-        block = CodeBlock("code_err", code=code, timeout_seconds=10)
+        block = CodeBlock("code_error_write_site", code=code, timeout_seconds=10)
 
         state = _make_state()
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["code_err"], BlockResult)
+        assert isinstance(result_state.results["code_error_write_site"], BlockResult)
         # The output should contain the error message
-        assert "Error" in result_state.results["code_err"].output
+        assert "Error" in result_state.results["code_error_write_site"].output
 
 
 # ==============================================================================
@@ -400,14 +411,14 @@ class TestCodeBlockNonJsonEmitsBlockResult:
         code = (
             "def main(data):\n    print('extra garbage on stdout')\n    return {'key': 'value'}\n"
         )
-        block = CodeBlock("code_nonjson", code=code, timeout_seconds=10)
+        block = CodeBlock("code_non_json_write_site", code=code, timeout_seconds=10)
 
         state = _make_state()
 
         result_state = await _exec(block, state)
 
         # The result should be a BlockResult regardless of path taken
-        assert isinstance(result_state.results["code_nonjson"], BlockResult)
+        assert isinstance(result_state.results["code_non_json_write_site"], BlockResult)
 
 
 # ==============================================================================
@@ -424,13 +435,13 @@ class TestCodeBlockSuccessEmitsBlockResult:
         from runsight_core import CodeBlock
 
         code = 'def main(data):\n    return {"answer": 42}\n'
-        block = CodeBlock("code_ok", code=code, timeout_seconds=10)
+        block = CodeBlock("code_success_write_site", code=code, timeout_seconds=10)
 
         state = _make_state()
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["code_ok"], BlockResult)
+        assert isinstance(result_state.results["code_success_write_site"], BlockResult)
 
     @pytest.mark.asyncio
     async def test_code_block_success_string_return_writes_block_result(self):
@@ -438,14 +449,14 @@ class TestCodeBlockSuccessEmitsBlockResult:
         from runsight_core import CodeBlock
 
         code = 'def main(data):\n    return "hello world"\n'
-        block = CodeBlock("code_str", code=code, timeout_seconds=10)
+        block = CodeBlock("code_string_write_site", code=code, timeout_seconds=10)
 
         state = _make_state()
 
         result_state = await _exec(block, state)
 
-        assert isinstance(result_state.results["code_str"], BlockResult)
-        assert result_state.results["code_str"].output == "hello world"
+        assert isinstance(result_state.results["code_string_write_site"], BlockResult)
+        assert result_state.results["code_string_write_site"].output == "hello world"
 
 
 # ==============================================================================
@@ -458,7 +469,7 @@ class TestNoRawStringsInResultsAfterExecution:
 
     @pytest.mark.asyncio
     async def test_all_results_are_block_result_after_linear_and_dispatch(
-        self, mock_runner, sample_soul
+        self, mock_runner, write_site_soul
     ):
         """After running LinearBlock then DispatchBlock, all results are BlockResult."""
         from runsight_core import DispatchBlock, LinearBlock
@@ -469,7 +480,7 @@ class TestNoRawStringsInResultsAfterExecution:
             _mock_execution_result(soul_id="soul_b", output="fan B"),
         ]
 
-        linear = LinearBlock("step1", sample_soul, mock_runner)
+        linear = LinearBlock("linear_sequence_write_site", write_site_soul, mock_runner)
         from runsight_core.blocks.dispatch import DispatchBranch as _FB
 
         _souls = [
@@ -477,7 +488,7 @@ class TestNoRawStringsInResultsAfterExecution:
             Soul(id="soul_b", kind="soul", name="Agent B", role="B", system_prompt="B"),
         ]
         dispatch = DispatchBlock(
-            "step2",
+            "dispatch_sequence_write_site",
             [_FB(exit_id=s.id, label=s.role, soul=s, task_instruction="Do work") for s in _souls],
             mock_runner,
         )
