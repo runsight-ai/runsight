@@ -1,0 +1,27 @@
+id: simple-workflow
+kind: workflow
+version: "1.0"
+inputs:
+  instruction:
+    type: string
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: You are a careful analyst.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: simple_execution_transport_integration
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

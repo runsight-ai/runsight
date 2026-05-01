@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import tempfile
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
@@ -45,35 +44,11 @@ _PROVIDER_SECRET_ENV_NAMES = (
     "GOOGLE_API_KEY",
 )
 
-SIMPLE_WORKFLOW_YAML = """\
-id: simple-workflow
-kind: workflow
-version: "1.0"
-inputs:
-  instruction:
-    type: string
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: simple_execution_transport_integration
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
+_FIXTURE_DIR = Path(__file__).parent / "fixtures" / "execution_transport"
+
+
+def _read_workflow_fixture(name: str) -> str:
+    return (_FIXTURE_DIR / name).read_text(encoding="utf-8")
 
 
 def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
@@ -279,19 +254,24 @@ def db_engine(tmp_path: Path):
 
 
 @pytest.fixture
-def base_dir():
-    with tempfile.TemporaryDirectory(prefix="execution-transport-base-") as tmpdir:
-        base = Path(tmpdir)
-        _write_workflow_file(base, "simple-workflow", SIMPLE_WORKFLOW_YAML)
-        _write_provider_file(base)
-        _write_secrets_file(base)
-        yield base
+def simple_workflow_yaml() -> str:
+    return _read_workflow_fixture("simple-workflow.yaml")
+
+
+@pytest.fixture
+def base_dir(tmp_path: Path, simple_workflow_yaml: str):
+    base = tmp_path / "execution-transport-base"
+    _write_workflow_file(base, "simple-workflow", simple_workflow_yaml)
+    _write_provider_file(base)
+    _write_secrets_file(base)
+    return base
 
 
 @pytest.mark.asyncio
 async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduling_execution(
     db_engine,
     base_dir: Path,
+    simple_workflow_yaml: str,
 ):
     from httpx import ASGITransport, AsyncClient
 
@@ -303,10 +283,10 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
     def _blocked_read_file(*_args, **_kwargs):
         read_calls["count"] += 1
         if read_calls["count"] == 1:
-            return SIMPLE_WORKFLOW_YAML
+            return simple_workflow_yaml
         read_started.set()
         _cancel_latest_run(db_engine, workflow_repo)
-        return SIMPLE_WORKFLOW_YAML
+        return simple_workflow_yaml
 
     git_service.read_file.side_effect = _blocked_read_file
     git_service.get_sha.return_value = "a" * 40
@@ -346,11 +326,15 @@ async def test_post_run_cancel_during_prepare_returns_cancelled_without_scheduli
 
 
 @pytest.mark.asyncio
-async def test_post_run_then_stream_replays_persisted_execution_logs(db_engine, base_dir: Path):
+async def test_post_run_then_stream_replays_persisted_execution_logs(
+    db_engine,
+    base_dir: Path,
+    simple_workflow_yaml: str,
+):
     from httpx import ASGITransport, AsyncClient
 
     git_service = Mock()
-    git_service.read_file.return_value = SIMPLE_WORKFLOW_YAML
+    git_service.read_file.return_value = simple_workflow_yaml
     git_service.get_sha.return_value = "a" * 40
 
     app, _execution_service = _build_app(
