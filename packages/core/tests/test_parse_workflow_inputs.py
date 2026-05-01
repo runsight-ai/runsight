@@ -12,11 +12,11 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 def _workflow_yaml(
     *,
-    workflow_id: str = "typed_inputs_workflow",
+    workflow_id: str = "typed_input_schema_workflow",
     workflow_name: str | None = None,
     inputs: dict[str, dict[str, Any]] | None = None,
     blocks: dict[str, Any] | None = None,
-    entry: str = "start",
+    entry: str = "input_schema_start_step",
 ) -> dict[str, Any]:
     raw: dict[str, Any] = {
         "version": "1.0",
@@ -24,7 +24,7 @@ def _workflow_yaml(
         "kind": "workflow",
         "blocks": blocks
         or {
-            "start": {
+            entry: {
                 "type": "code",
                 "code": "def main(data):\n    return {'ok': True}",
             }
@@ -153,7 +153,7 @@ interface:
       target: shared_memory.query
       type: string
 blocks:
-  start:
+  legacy_interface_code_step:
     type: code
     code: |
       def main(data):
@@ -162,9 +162,9 @@ workflow:
   id: legacy_interface_workflow
   kind: workflow
   name: legacy_interface_workflow
-  entry: start
+  entry: legacy_interface_code_step
   transitions:
-    - from: start
+    - from: legacy_interface_code_step
       to: null
 """
 
@@ -190,8 +190,8 @@ workflow:
 def test_workflowblock_child_parse_preserves_child_input_schema() -> None:
     child_file = RunsightWorkflowFile.model_validate(
         _workflow_yaml(
-            workflow_id="child_workflow",
-            workflow_name="child_workflow",
+            workflow_id="child_input_schema_workflow",
+            workflow_name="child_input_schema_workflow",
             inputs={
                 "query": {
                     "type": "string",
@@ -205,28 +205,28 @@ def test_workflowblock_child_parse_preserves_child_input_schema() -> None:
         )
     )
     registry = WorkflowRegistry()
-    registry.register("child_workflow", child_file)
+    registry.register("child_input_schema_workflow", child_file)
 
     parent_workflow = parse_workflow_yaml(
         _workflow_yaml(
-            workflow_id="parent_workflow",
-            workflow_name="parent_workflow",
+            workflow_id="parent_input_schema_workflow",
+            workflow_name="parent_input_schema_workflow",
             blocks={
-                "invoke_child": {
+                "child_input_schema_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "child_input_schema_workflow",
                     "inputs": {
                         "query": "shared_memory.query",
                         "secret_key": "metadata.secret_key",
                     },
                 }
             },
-            entry="invoke_child",
+            entry="child_input_schema_workflow_block",
         ),
         workflow_registry=registry,
     )
 
-    workflow_block = parent_workflow.blocks["invoke_child"]
+    workflow_block = parent_workflow.blocks["child_input_schema_workflow_block"]
     assert isinstance(workflow_block, WorkflowBlock)
     assert _input_schema_as_dict(workflow_block.child_workflow.input_schema) == {
         "query": {
