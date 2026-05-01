@@ -53,25 +53,25 @@ def _workflow(name: str, block: object) -> Workflow:
 @pytest.mark.asyncio
 async def test_parent_workflow_passes_name_based_inputs_and_maps_child_state_outputs() -> None:
     child_workflow = _workflow(
-        "mapped_input_child_workflow", _EchoInvocationInputBlock("echo", "topic")
+        "mapped_input_child_workflow", _EchoInvocationInputBlock("topic_echo_step", "topic")
     )
     wb = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="mapped_input_workflow_block",
         child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
-        outputs={"results.child_summary": "results.echo"},
+        outputs={"results.child_summary": "results.topic_echo_step"},
     )
 
     parent_workflow = Workflow(name="mapped_input_parent_workflow")
     parent_workflow.add_block(wb)
-    parent_workflow.set_entry("invoke_child")
+    parent_workflow.set_entry("mapped_input_workflow_block")
 
     final_state = await parent_workflow.run(
         WorkflowState(shared_memory={"parent_topic": "quantum computing"})
     )
 
     assert str(final_state.results["child_summary"]) == "quantum computing"
-    assert final_state.results["invoke_child"].exit_handle == "completed"
+    assert final_state.results["mapped_input_workflow_block"].exit_handle == "completed"
 
 
 @pytest.mark.asyncio
@@ -80,23 +80,28 @@ async def test_child_results_do_not_leak_without_explicit_output_mapping() -> No
         "isolated_child_results_workflow", _WriterBlock("secret_child_step", "secret data")
     )
     wb = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="isolated_results_workflow_block",
         child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={},
     )
 
-    result_state = await _exec(wb, WorkflowState(shared_memory={"parent_topic": "test"}))
+    result_state = await _exec(
+        wb,
+        WorkflowState(shared_memory={"parent_topic": "isolated topic"}),
+    )
 
-    assert "invoke_child" in result_state.results
+    assert "isolated_results_workflow_block" in result_state.results
     assert "secret_child_step" not in result_state.results
-    assert "secret_child_step" not in (result_state.results["invoke_child"].metadata or {})
+    assert "secret_child_step" not in (
+        result_state.results["isolated_results_workflow_block"].metadata or {}
+    )
 
 
 @pytest.mark.asyncio
 async def test_on_error_catch_continues_parent_routing() -> None:
     class _FailingBlock:
-        block_id = "fail_step"
+        block_id = "caught_error_step"
         retry_config = None
         stateful = False
         context_access = "none"
@@ -106,71 +111,79 @@ async def test_on_error_catch_continues_parent_routing() -> None:
 
     child_workflow = _workflow("catch_error_child_workflow", _FailingBlock())
     wb = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="caught_error_workflow_block",
         child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={},
         on_error="catch",
     )
 
-    result_state = await _exec(wb, WorkflowState(shared_memory={"parent_topic": "test"}))
+    result_state = await _exec(
+        wb,
+        WorkflowState(shared_memory={"parent_topic": "catch topic"}),
+    )
 
-    br = result_state.results["invoke_child"]
+    br = result_state.results["caught_error_workflow_block"]
     assert br.exit_handle == "error"
     assert br.metadata["child_status"] == "failed"
 
 
 @pytest.mark.asyncio
 async def test_workflowblock_rejects_private_child_state_input_targets() -> None:
-    child_workflow = _workflow("private_input_child_workflow", _WriterBlock("writer", "done"))
+    child_workflow = _workflow(
+        "private_input_child_workflow",
+        _WriterBlock("private_input_writer_step", "done"),
+    )
 
     with pytest.raises(ValueError, match="private child state|child invocation input"):
         wb = WorkflowBlock(
-            block_id="invoke_child",
+            block_id="private_input_workflow_block",
             child_workflow=child_workflow,
             inputs={"shared_memory.topic": "shared_memory.parent_topic"},
             outputs={},
         )
-        await _exec(wb, WorkflowState(shared_memory={"parent_topic": "test"}))
+        await _exec(wb, WorkflowState(shared_memory={"parent_topic": "private topic"}))
 
 
 @pytest.mark.asyncio
 async def test_missing_child_output_source_path_raises() -> None:
     child_workflow = _workflow(
-        "missing_output_child_workflow", _WriterBlock("writer", "some output")
+        "missing_output_child_workflow",
+        _WriterBlock("available_output_step", "some output"),
     )
     wb = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="missing_output_workflow_block",
         child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
         outputs={"results.parent_summary": "results.nonexistent"},
     )
 
     with pytest.raises((KeyError, ValueError), match="nonexistent"):
-        await _exec(wb, WorkflowState(shared_memory={"parent_topic": "test"}))
+        await _exec(wb, WorkflowState(shared_memory={"parent_topic": "missing output topic"}))
 
 
 @pytest.mark.asyncio
 async def test_nested_subflows_use_name_based_invocation_recursively() -> None:
     grandchild_workflow = _workflow(
-        "nested_invocation_grandchild_workflow", _EchoInvocationInputBlock("gc_echo", "msg")
+        "nested_invocation_grandchild_workflow",
+        _EchoInvocationInputBlock("nested_payload_echo_step", "msg"),
     )
-    invoke_grandchild = WorkflowBlock(
-        block_id="invoke_grandchild",
+    nested_grandchild_block = WorkflowBlock(
+        block_id="nested_grandchild_workflow_block",
         child_workflow=grandchild_workflow,
         inputs={"msg": "workflow.topic"},
-        outputs={"results.gc_output": "results.gc_echo"},
+        outputs={"results.gc_output": "results.nested_payload_echo_step"},
     )
-    child_workflow = _workflow("nested_invocation_child_workflow", invoke_grandchild)
-    invoke_child = WorkflowBlock(
-        block_id="invoke_child",
+    child_workflow = _workflow("nested_invocation_child_workflow", nested_grandchild_block)
+    nested_child_block = WorkflowBlock(
+        block_id="nested_child_workflow_block",
         child_workflow=child_workflow,
         inputs={"topic": "shared_memory.parent_topic"},
-        outputs={"results.final_output": "results.invoke_grandchild"},
+        outputs={"results.final_output": "results.nested_grandchild_workflow_block"},
     )
 
     result_state = await _exec(
-        invoke_child,
+        nested_child_block,
         WorkflowState(shared_memory={"parent_topic": "nested payload"}),
     )
 
@@ -181,51 +194,51 @@ def test_parser_builds_workflowblock_without_child_interface() -> None:
     child_file = RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
-            "id": "child_workflow",
+            "id": "parser_child_workflow",
             "kind": "workflow",
             "inputs": {"topic": {"type": "string"}},
             "blocks": {
-                "child_step": {
+                "parser_child_step": {
                     "type": "code",
                     "code": "def main(topic=None):\n    return {'ok': True}",
                 }
             },
             "workflow": {
-                "id": "child_workflow",
+                "id": "parser_child_workflow",
                 "kind": "workflow",
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_child_workflow",
+                "entry": "parser_child_step",
+                "transitions": [{"from": "parser_child_step", "to": None}],
             },
         }
     )
     registry = WorkflowRegistry()
-    registry.register("child_workflow", child_file)
+    registry.register("parser_child_workflow", child_file)
 
     parent_yaml = {
         "version": "1.0",
-        "id": "parent_workflow",
+        "id": "parser_parent_workflow",
         "kind": "workflow",
         "blocks": {
-            "invoke_child": {
+            "parser_child_workflow_block": {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": "parser_child_workflow",
                 "inputs": {"topic": "shared_memory.parent_topic"},
-                "outputs": {"results.analysis": "results.child_step"},
+                "outputs": {"results.analysis": "results.parser_child_step"},
             }
         },
         "workflow": {
-            "id": "parent_workflow",
+            "id": "parser_parent_workflow",
             "kind": "workflow",
-            "name": "parent_workflow",
-            "entry": "invoke_child",
-            "transitions": [{"from": "invoke_child", "to": None}],
+            "name": "parser_parent_workflow",
+            "entry": "parser_child_workflow_block",
+            "transitions": [{"from": "parser_child_workflow_block", "to": None}],
         },
     }
 
     wf = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
 
-    block = wf.blocks["invoke_child"]
+    block = wf.blocks["parser_child_workflow_block"]
     assert isinstance(block, WorkflowBlock)
     assert block.inputs == {"topic": "shared_memory.parent_topic"}
-    assert block.outputs == {"results.analysis": "results.child_step"}
+    assert block.outputs == {"results.analysis": "results.parser_child_step"}
