@@ -67,16 +67,16 @@ class ResultBlock(BaseBlock):
         return BlockOutput(output=self.output)
 
 
-class FlakyChildBlock(BaseBlock):
-    def __init__(self, block_id: str = "retry_child_step") -> None:
+class FlakyInvokedBlock(BaseBlock):
+    def __init__(self, block_id: str = "retry_invoked_step") -> None:
         super().__init__(block_id)
         self.calls = 0
 
     async def execute(self, ctx: BlockContext) -> BlockOutput:
         self.calls += 1
         if self.calls == 1:
-            raise RuntimeError("child fail once")
-        return BlockOutput(output="child recovered")
+            raise RuntimeError("invoked workflow step failed once")
+        return BlockOutput(output="invoked workflow step recovered")
 
 
 class InjectingPlannerBlock(BaseBlock):
@@ -95,8 +95,8 @@ class InjectingPlannerBlock(BaseBlock):
         )
 
 
-def _make_child_workflow(
-    block: BaseBlock, *, name: str = "single_block_child_workflow"
+def _make_invoked_workflow(
+    block: BaseBlock, *, name: str = "single_block_invoked_workflow"
 ) -> Workflow:
     wf = Workflow(name)
     wf.add_block(block)
@@ -126,13 +126,13 @@ def _make_parent_loop_workflow(
 @pytest.mark.asyncio
 async def test_workflow_block_exit_handle_routes_to_conditional_successor_after_execute_block():
     """Workflow.run should resolve the next step from the WorkflowBlock result returned by execute_block."""
-    child_workflow = _make_child_workflow(
-        ResultBlock("routing_child_step", "child output"),
-        name="routing_child_workflow",
+    invoked_workflow = _make_invoked_workflow(
+        ResultBlock("routing_invoked_step", "invoked output"),
+        name="routing_invoked_workflow",
     )
     routing_workflow_block = WorkflowBlock(
-        block_id="routing_child_workflow_block",
-        child_workflow=child_workflow,
+        block_id="routing_invoked_workflow_block",
+        child_workflow=invoked_workflow,
         inputs={},
         outputs={},
     )
@@ -153,7 +153,7 @@ async def test_workflow_block_exit_handle_routes_to_conditional_successor_after_
 
     final_state = await wf.run(WorkflowState())
 
-    assert final_state.results["routing_child_workflow_block"].exit_handle == "completed"
+    assert final_state.results["routing_invoked_workflow_block"].exit_handle == "completed"
     assert completed_path.calls == 1
     assert fallback_path.calls == 0
     assert final_state.results["completed_path"].output == "completed output"
@@ -162,13 +162,13 @@ async def test_workflow_block_exit_handle_routes_to_conditional_successor_after_
 @pytest.mark.asyncio
 async def test_loopblock_nested_workflow_block_preserves_parent_observer_event_order():
     """WorkflowBlock nested inside LoopBlock should still emit its own block lifecycle events."""
-    child_workflow = _make_child_workflow(
-        ResultBlock("observer_child_step", "child output"),
-        name="observer_child_workflow",
+    invoked_workflow = _make_invoked_workflow(
+        ResultBlock("observer_invoked_step", "invoked output"),
+        name="observer_invoked_workflow",
     )
     observer_workflow_block = WorkflowBlock(
-        block_id="observer_child_workflow_block",
-        child_workflow=child_workflow,
+        block_id="observer_invoked_workflow_block",
+        child_workflow=invoked_workflow,
         inputs={},
         outputs={},
     )
@@ -189,15 +189,20 @@ async def test_loopblock_nested_workflow_block_preserves_parent_observer_event_o
         (
             "block_start",
             "loop_observer_parent_workflow",
-            "observer_child_workflow_block",
+            "observer_invoked_workflow_block",
             "WorkflowBlock",
         ),
-        ("block_start", "observer_child_workflow", "observer_child_step", "ResultBlock"),
-        ("block_complete", "observer_child_workflow", "observer_child_step", "ResultBlock"),
+        ("block_start", "observer_invoked_workflow", "observer_invoked_step", "ResultBlock"),
+        (
+            "block_complete",
+            "observer_invoked_workflow",
+            "observer_invoked_step",
+            "ResultBlock",
+        ),
         (
             "block_complete",
             "loop_observer_parent_workflow",
-            "observer_child_workflow_block",
+            "observer_invoked_workflow_block",
             "WorkflowBlock",
         ),
         ("block_complete", "loop_observer_parent_workflow", "observer_loop_block", "LoopBlock"),
@@ -215,11 +220,11 @@ async def test_loopblock_nested_workflow_block_preserves_parent_observer_event_o
 @pytest.mark.asyncio
 async def test_loopblock_nested_workflow_block_preserves_retry_config_and_multiblock_progress():
     """retry_config on a WorkflowBlock should still apply when the block is run inside LoopBlock."""
-    flaky_child = FlakyChildBlock()
-    child_workflow = _make_child_workflow(flaky_child, name="retry_child_workflow")
+    flaky_invoked = FlakyInvokedBlock()
+    invoked_workflow = _make_invoked_workflow(flaky_invoked, name="retry_invoked_workflow")
     retry_workflow_block = WorkflowBlock(
-        block_id="retry_child_workflow_block",
-        child_workflow=child_workflow,
+        block_id="retry_invoked_workflow_block",
+        child_workflow=invoked_workflow,
         inputs={},
         outputs={},
     )
@@ -239,22 +244,22 @@ async def test_loopblock_nested_workflow_block_preserves_retry_config_and_multib
     with patch("asyncio.sleep", new_callable=AsyncMock) as sleep_mock:
         final_state = await wf.run(WorkflowState())
 
-    assert flaky_child.calls == 2
+    assert flaky_invoked.calls == 2
     assert sleep_mock.await_count == 1
-    assert final_state.results["retry_child_workflow_block"].exit_handle == "completed"
+    assert final_state.results["retry_invoked_workflow_block"].exit_handle == "completed"
     assert final_state.results["retry_tail_step"].output == "tail output"
 
 
 @pytest.mark.asyncio
-async def test_loopblock_nested_workflow_block_forwards_unified_context_to_child_workflow_run():
+async def test_loopblock_nested_workflow_block_forwards_unified_context_to_invoked_workflow_run():
     """LoopBlock -> WorkflowBlock should forward call_stack, workflow_registry, and observer context."""
-    child_workflow = AsyncMock()
-    child_workflow.name = "context_child_workflow"
-    child_workflow.run = AsyncMock(return_value=WorkflowState())
+    invoked_workflow = AsyncMock()
+    invoked_workflow.name = "context_invoked_workflow"
+    invoked_workflow.run = AsyncMock(return_value=WorkflowState())
 
     context_workflow_block = WorkflowBlock(
-        block_id="context_child_workflow_block",
-        child_workflow=child_workflow,
+        block_id="context_invoked_workflow_block",
+        child_workflow=invoked_workflow,
         inputs={},
         outputs={},
     )
@@ -275,13 +280,13 @@ async def test_loopblock_nested_workflow_block_forwards_unified_context_to_child
         observer=observer,
     )
 
-    call_kwargs = child_workflow.run.call_args.kwargs
+    call_kwargs = invoked_workflow.run.call_args.kwargs
 
-    assert final_state.results["context_child_workflow_block"].exit_handle == "completed"
+    assert final_state.results["context_invoked_workflow_block"].exit_handle == "completed"
     assert call_kwargs["call_stack"] == [
         "root_workflow",
         "context_parent_workflow",
-        "context_child_workflow",
+        "context_invoked_workflow",
     ]
     assert call_kwargs["workflow_registry"] is registry
     assert call_kwargs["observer"] is not None
@@ -289,13 +294,13 @@ async def test_loopblock_nested_workflow_block_forwards_unified_context_to_child
 
 
 @pytest.mark.asyncio
-async def test_loopblock_break_on_completed_exit_handle_from_workflow_block_stops_after_child_success():
+async def test_loopblock_break_on_completed_exit_handle_from_workflow_block_stops_after_invoked_success():
     """WorkflowBlock success should expose exit_handle='completed' for LoopBlock.break_on_exit."""
-    child_step = ResultBlock("break_child_step", "child output")
-    child_workflow = _make_child_workflow(child_step, name="break_child_workflow")
+    invoked_step = ResultBlock("break_invoked_step", "invoked output")
+    invoked_workflow = _make_invoked_workflow(invoked_step, name="break_invoked_workflow")
     break_workflow_block = WorkflowBlock(
-        block_id="break_child_workflow_block",
-        child_workflow=child_workflow,
+        block_id="break_invoked_workflow_block",
+        child_workflow=invoked_workflow,
         inputs={},
         outputs={},
     )
@@ -317,8 +322,8 @@ async def test_loopblock_break_on_completed_exit_handle_from_workflow_block_stop
 
     final_state = await workflow.run(WorkflowState())
 
-    assert child_step.calls == 1
-    assert final_state.results["break_child_workflow_block"].exit_handle == "completed"
+    assert invoked_step.calls == 1
+    assert final_state.results["break_invoked_workflow_block"].exit_handle == "completed"
     assert final_state.shared_memory["__loop__break_on_completed_loop_block"] == {
         "rounds_completed": 1,
         "broke_early": True,
@@ -346,12 +351,12 @@ async def test_dynamic_injection_keeps_injected_loopblock_and_injected_leaf_in_s
     )
 
     wf = Workflow("injection_workflow")
-    planner = InjectingPlannerBlock()
-    terminal = ResultBlock("terminal", "terminal output")
-    wf.add_block(planner)
+    injection_planner = InjectingPlannerBlock()
+    terminal = ResultBlock("injection_terminal_step", "terminal output")
+    wf.add_block(injection_planner)
     wf.add_block(terminal)
-    wf.set_entry(planner.block_id)
-    wf.add_transition(planner.block_id, terminal.block_id)
+    wf.set_entry(injection_planner.block_id)
+    wf.add_transition(injection_planner.block_id, terminal.block_id)
     wf.add_transition(terminal.block_id, None)
 
     final_state = await wf.run(WorkflowState(), registry=registry)
@@ -359,4 +364,4 @@ async def test_dynamic_injection_keeps_injected_loopblock_and_injected_leaf_in_s
     assert final_state.results["planner"].output == "planned injected steps"
     assert final_state.results["injected_leaf"].output == "injected leaf output"
     assert final_state.results["inner_loop"].output == "completed_1_rounds"
-    assert final_state.results["terminal"].output == "terminal output"
+    assert final_state.results["injection_terminal_step"].output == "terminal output"
