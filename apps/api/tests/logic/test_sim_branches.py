@@ -20,13 +20,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 BRANCH_PATTERN = re.compile(r"^sim/[a-z0-9-]+/\d{8}/[a-z0-9]{5}$")
-
-SAMPLE_YAML = """\
-name: research-review
-steps:
-  - id: summarize
-    soul: researcher
-"""
+SIM_BRANCH_FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "sim_branches"
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -54,6 +48,10 @@ def _init_repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _sample_yaml() -> str:
+    return (SIM_BRANCH_FIXTURE_ROOT / "research-review.yaml").read_text(encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # 1. Branch naming convention
 # ---------------------------------------------------------------------------
@@ -70,7 +68,7 @@ class TestSimBranchNaming:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -87,7 +85,7 @@ class TestSimBranchNaming:
 
         result = svc.create_sim_branch(
             workflow_slug="my-cool-workflow",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/my-cool-workflow.yaml",
         )
 
@@ -105,7 +103,7 @@ class TestSimBranchNaming:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -121,7 +119,7 @@ class TestSimBranchNaming:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -148,13 +146,13 @@ class TestSimBranchCommit:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
         # Verify the file exists on the sim branch via git show
         content = _git(repo, "show", f"{result.branch}:workflows/research-review.yaml")
-        assert content == SAMPLE_YAML.strip()
+        assert content == _sample_yaml().strip()
 
     def test_yaml_not_committed_to_main(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
@@ -164,7 +162,7 @@ class TestSimBranchCommit:
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -187,7 +185,7 @@ class TestSimBranchCommit:
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -204,7 +202,7 @@ class TestSimBranchCommit:
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -229,7 +227,7 @@ class TestSimBranchReturnValue:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -245,7 +243,7 @@ class TestSimBranchReturnValue:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -262,7 +260,7 @@ class TestSimBranchReturnValue:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -286,7 +284,7 @@ class TestReadFileFromSimBranch:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -302,7 +300,7 @@ class TestReadFileFromSimBranch:
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -311,7 +309,7 @@ class TestReadFileFromSimBranch:
 
         # read_file should work via git show, not checkout
         content = svc.read_file("workflows/research-review.yaml", result.branch)
-        assert content.strip() == SAMPLE_YAML.strip()
+        assert content.strip() == _sample_yaml().strip()
 
         # Still on main after read
         assert svc.current_branch() == "main"
@@ -338,7 +336,7 @@ class TestSimBranchWorktreeSnapshot:
         svc = GitService(repo_path=str(repo))
         result = svc.create_sim_branch(
             workflow_slug="parent-flow",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="custom/workflows/parent-flow.yaml",
         )
 
@@ -366,12 +364,12 @@ class TestMultipleSimBranches:
 
         r1 = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
         r2 = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=SAMPLE_YAML,
+            yaml_content=_sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
