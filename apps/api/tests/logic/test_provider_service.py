@@ -540,7 +540,10 @@ async def test_test_connection_http_error():
     repo.update.return_value = prov
     service = ProviderService(repo, secrets)
 
-    with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+    with (
+        patch("runsight_api.logic.services.provider_service.validate_ssrf", new_callable=AsyncMock),
+        patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+    ):
         mock_resp = Mock()
         mock_resp.status_code = 401
         mock_client = AsyncMock()
@@ -585,10 +588,17 @@ async def test_test_connection_timeout_exception():
     repo.update.return_value = prov
     service = ProviderService(repo, secrets)
 
-    with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+    with (
+        patch("runsight_api.logic.services.provider_service.validate_ssrf", new_callable=AsyncMock),
+        patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+    ):
         import httpx
 
-        mock_httpx.get.side_effect = httpx.TimeoutException("Connection timed out")
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = httpx.TimeoutException("Connection timed out")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx.AsyncClient.return_value = mock_client
 
         result = await service.test_connection("openai-provider")
 
