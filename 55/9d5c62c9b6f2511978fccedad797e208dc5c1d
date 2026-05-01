@@ -1,0 +1,33 @@
+apps/api/tests/fixtures/workflow_repo_tool_governance/valid-declared-tool.yaml
+  4adca821c1af8eb3 1-19
+tools/tests/test_api_workflow_repo_tool_governance_fixture_governance.py
+  4adca821c1af8eb3 1-143
+apps/api/tests/fixtures/workflow_repo_tool_governance/legacy-typed-tool.yaml
+  4adca821c1af8eb3 1-30
+apps/api/tests/fixtures/workflow_repo_tool_governance/undeclared-library-soul-tool.yaml
+  4adca821c1af8eb3 1-15
+apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py
+  4adca821c1af8eb3 12-13,21,24-25,50-55,73-78,80,105-110,120-125,135-140,159-164,199,227,239,271
+apps/api/tests/fixtures/workflow_repo_tool_governance/missing-custom-tool.yaml
+  4adca821c1af8eb3 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "559d5c62c9b6f2511978fccedad797e208dc5c1d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 274,
+      "total_deletions": 105,
+      "accepted_lines": 53654,
+      "overriden_lines": 0
+    }
+  }
+}
