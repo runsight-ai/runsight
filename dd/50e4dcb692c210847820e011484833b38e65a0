@@ -1,0 +1,37 @@
+apps/api/tests/test_run_creation_execution_integration.py
+  35e285ede4f8c784 52-53
+  fd650fa719dc74e2 33,50-51,169,171-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "dd50e4dcb692c210847820e011484833b38e65a0",
+  "prompts": {
+    "35e285ede4f8c784": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bcca-7c43-abcb-e0fd1f450899",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 519,
+      "overriden_lines": 0
+    },
+    "fd650fa719dc74e2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de49f-0501-78d2-b209-71dd20edee17",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 69,
+      "accepted_lines": 12,
+      "overriden_lines": 0
+    }
+  }
+}
