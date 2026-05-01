@@ -1,0 +1,29 @@
+id: two-block
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Writer
+    system_prompt: You are a writer.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  draft_stream_block:
+    type: linear
+    soul_ref: writer
+  publish_stream_block:
+    type: linear
+    soul_ref: writer
+workflow:
+  name: two_block_sse_test
+  entry: draft_stream_block
+  transitions:
+    - from: draft_stream_block
+      to: publish_stream_block
+    - from: publish_stream_block
+      to: null
