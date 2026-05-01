@@ -1,0 +1,23 @@
+packages/core/tests/test_write_sites_block_result.py
+  4adca821c1af8eb3 90,96,99,101-103,122-123,141-143,149,155-156,169,192,197,210,218-221,225-227,231-232,254-257,261,263,281,284,288,310,318-320,324-326,330,334,343-345,350,354,371,377,379,414,421,438,444,452,458-459,472,483,491
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e7dc87caf89d531d7e97fe6ecdd1ad35fe07ab83",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 71,
+      "total_deletions": 60,
+      "accepted_lines": 59065,
+      "overriden_lines": 0
+    }
+  }
+}
