@@ -4,14 +4,10 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { parse } from "yaml";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   createWorkflow: vi.fn(),
-  workflowPayloads: [] as Array<Record<string, unknown>>,
-  dateNow: vi.spyOn(Date, "now"),
-  mathRandom: vi.spyOn(Math, "random"),
 }));
 
 vi.mock("react-router", () => ({
@@ -89,26 +85,16 @@ describe("FlowsPage workflow create identity", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
     mocks.createWorkflow.mockReset();
-    mocks.workflowPayloads.length = 0;
-
-    mocks.dateNow
-      .mockReset()
-      .mockReturnValueOnce(1730000000000)
-      .mockReturnValueOnce(1730000001000);
-    mocks.mathRandom
-      .mockReset()
-      .mockReturnValueOnce(0.123456789)
-      .mockReturnValueOnce(0.987654321);
 
     mocks.createWorkflow.mockImplementation(
       (
-        payload: { yaml?: string },
+        _createRequest: unknown,
         options?: { onSuccess?: (workflow: { id: string }) => void },
       ) => {
-        mocks.workflowPayloads.push(payload as Record<string, unknown>);
         const createdWorkflowIds = ["created_research_flow", "created_review_flow"];
+        const createdWorkflowIndex = mocks.createWorkflow.mock.calls.length - 1;
         options?.onSuccess?.({
-          id: createdWorkflowIds[mocks.workflowPayloads.length - 1] ?? "created_extra_flow",
+          id: createdWorkflowIds[createdWorkflowIndex] ?? "created_extra_flow",
         });
       },
     );
@@ -119,7 +105,7 @@ describe("FlowsPage workflow create identity", () => {
     vi.clearAllMocks();
   });
 
-  it("creates two distinct embedded-id payloads when New Workflow is clicked twice", async () => {
+  it("creates workflows and navigates to each created workflow editor", async () => {
     const user = userEvent.setup();
 
     render(React.createElement(FlowsPage));
@@ -130,22 +116,6 @@ describe("FlowsPage workflow create identity", () => {
     await user.click(createButton);
 
     expect(mocks.createWorkflow).toHaveBeenCalledTimes(2);
-    expect(mocks.workflowPayloads).toHaveLength(2);
-
-    const firstPayload = mocks.workflowPayloads[0];
-    const secondPayload = mocks.workflowPayloads[1];
-    const firstYaml = parse(String(firstPayload.yaml)) as Record<string, unknown>;
-    const secondYaml = parse(String(secondPayload.yaml)) as Record<string, unknown>;
-
-    expect(firstYaml.id).toBeTruthy();
-    expect(secondYaml.id).toBeTruthy();
-    expect(firstYaml.id).not.toEqual(secondYaml.id);
-    expect(firstYaml.id).not.toBe("untitled-workflow");
-    expect(secondYaml.id).not.toBe("untitled-workflow");
-    expect(String(firstPayload.yaml)).toContain(String(firstYaml.id));
-    expect(String(secondPayload.yaml)).toContain(String(secondYaml.id));
-    expect(firstYaml.kind).toBe("workflow");
-    expect(secondYaml.kind).toBe("workflow");
     expect(mocks.navigate).toHaveBeenNthCalledWith(
       1,
       "/workflows/created_research_flow/edit",

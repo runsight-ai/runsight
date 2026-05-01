@@ -1,4 +1,5 @@
 import { stringify } from "yaml";
+import type { WorkflowCreate } from "@runsight/shared/zod";
 
 const WORKFLOW_ID_PATTERN = /^[a-z](?:[a-z0-9_-]{1,98})[a-z0-9]$/;
 
@@ -34,4 +35,25 @@ export function buildBlankWorkflowYaml(workflowId: string, workflowName: string)
       transitions: [],
     },
   });
+}
+
+export function buildBlankWorkflowCreate(): WorkflowCreate {
+  const baseId = deriveWorkflowId(DEFAULT_WORKFLOW_NAME);
+  const uniqueSuffix = `${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  const workflowId = `${baseId}-${uniqueSuffix}`;
+
+  return {
+    name: DEFAULT_WORKFLOW_NAME,
+    yaml: buildBlankWorkflowYaml(workflowId, DEFAULT_WORKFLOW_NAME),
+    canvas_state: {
+      nodes: [],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      selected_node_id: null,
+      canvas_mode: "dag",
+    },
+    commit: false,
+  };
 }

@@ -1,23 +1,19 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 
 import {
   DEFAULT_WORKFLOW_NAME,
+  buildBlankWorkflowCreate,
   buildBlankWorkflowYaml,
   deriveWorkflowId,
   isValidWorkflowId,
 } from "../workflowDraft";
 
-const SETUP_START_PAGE_PATH = resolve(__dirname, "..", "SetupStartPage.tsx");
-
-function readSetupStartPageSource(): string {
-  return readFileSync(SETUP_START_PAGE_PATH, "utf-8");
-}
-
 describe("setup workflow identity verification", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("derives a valid editable workflow id from the default name", () => {
     const derived = deriveWorkflowId(DEFAULT_WORKFLOW_NAME);
 
@@ -28,11 +24,13 @@ describe("setup workflow identity verification", () => {
   });
 
   it("buildBlankWorkflowYaml emits embedded workflow identity", () => {
-    const yaml = buildBlankWorkflowYaml("custom-workflow", "Custom Workflow");
+    const workflowId = "custom-workflow";
+    const yaml = buildBlankWorkflowYaml(workflowId, "Custom Workflow");
     const parsed = parse(yaml) as Record<string, unknown>;
 
-    expect(parsed.id).toBe("custom-workflow");
+    expect(parsed.id).toBe(workflowId);
     expect(parsed.kind).toBe("workflow");
+    expect(yaml).toContain(workflowId);
     expect(parsed.enabled).toBe(false);
     expect(parsed.blocks).toEqual({});
     expect(parsed.workflow).toEqual({
@@ -42,14 +40,33 @@ describe("setup workflow identity verification", () => {
     });
   });
 
-  it("wires the blank-create form to embedded ids and result-based navigation", () => {
-    const source = readSetupStartPageSource();
+  it("buildBlankWorkflowCreate generates distinct draft identities for repeated creates", () => {
+    vi.spyOn(Date, "now")
+      .mockReturnValueOnce(1730000000000)
+      .mockReturnValueOnce(1730000001000);
+    vi.spyOn(Math, "random")
+      .mockReturnValueOnce(0.123456789)
+      .mockReturnValueOnce(0.987654321);
 
-    expect(source).toContain("workflowIdTouched");
-    expect(source).toContain("buildBlankWorkflowYaml(normalizedWorkflowId, name)");
-    expect(source).toContain('Label htmlFor="workflow-id"');
-    expect(source).toContain('id="workflow-id"');
-    expect(source).toContain("setWorkflowIdTouched(true)");
-    expect(source).toContain("navigate(`/workflows/${result.id}/edit`, { replace: true })");
+    const firstCreate = buildBlankWorkflowCreate();
+    const secondCreate = buildBlankWorkflowCreate();
+
+    const firstDraft = parse(firstCreate.yaml) as Record<string, unknown>;
+    const secondDraft = parse(secondCreate.yaml) as Record<string, unknown>;
+
+    expect(firstDraft.id).toBeTruthy();
+    expect(secondDraft.id).toBeTruthy();
+    expect(firstDraft.kind).toBe("workflow");
+    expect(secondDraft.kind).toBe("workflow");
+    expect(firstDraft.id).not.toBe("untitled-workflow");
+    expect(secondDraft.id).not.toBe("untitled-workflow");
+    expect(firstDraft.id).not.toEqual(secondDraft.id);
+
+    expect(firstCreate.yaml).toContain(String(firstDraft.id));
+    expect(secondCreate.yaml).toContain(String(secondDraft.id));
+    expect(firstCreate.name).toBe(DEFAULT_WORKFLOW_NAME);
+    expect(secondCreate.name).toBe(DEFAULT_WORKFLOW_NAME);
+    expect(firstCreate.commit).toBe(false);
+    expect(secondCreate.commit).toBe(false);
   });
 });

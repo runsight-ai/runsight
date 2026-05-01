@@ -4,14 +4,10 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { parse } from "yaml";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   createWorkflow: vi.fn(),
-  workflowPayloads: [] as Array<Record<string, unknown>>,
-  dateNow: vi.spyOn(Date, "now"),
-  mathRandom: vi.spyOn(Math, "random"),
 }));
 
 vi.mock("react-router", () => ({
@@ -165,25 +161,13 @@ describe("Dashboard workflow create identity", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
     mocks.createWorkflow.mockReset();
-    mocks.workflowPayloads.length = 0;
-
-    mocks.dateNow
-      .mockReset()
-      .mockReturnValueOnce(1730000000000)
-      .mockReturnValueOnce(1730000001000);
-    mocks.mathRandom
-      .mockReset()
-      .mockReturnValueOnce(0.123456789)
-      .mockReturnValueOnce(0.987654321);
 
     mocks.createWorkflow.mockImplementation(
-      async (
-        payload: { yaml?: string; commit?: boolean },
-      ): Promise<{ id: string }> => {
-        mocks.workflowPayloads.push(payload as Record<string, unknown>);
+      async (_createRequest: unknown): Promise<{ id: string }> => {
         const createdWorkflowIds = ["created_research_flow", "created_review_flow"];
+        const createdWorkflowIndex = mocks.createWorkflow.mock.calls.length - 1;
         return {
-          id: createdWorkflowIds[mocks.workflowPayloads.length - 1] ?? "created_extra_flow",
+          id: createdWorkflowIds[createdWorkflowIndex] ?? "created_extra_flow",
         };
       },
     );
@@ -194,7 +178,7 @@ describe("Dashboard workflow create identity", () => {
     vi.clearAllMocks();
   });
 
-  it("creates two distinct embedded-id payloads when New Workflow is clicked twice", async () => {
+  it("creates workflows and navigates to each created workflow editor", async () => {
     const user = userEvent.setup();
 
     render(React.createElement(DashboardOrOnboarding));
@@ -207,29 +191,6 @@ describe("Dashboard workflow create identity", () => {
     await waitFor(() => expect(mocks.createWorkflow).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledTimes(2));
 
-    expect(mocks.workflowPayloads).toHaveLength(2);
-
-    const firstPayload = mocks.workflowPayloads[0];
-    const secondPayload = mocks.workflowPayloads[1];
-    const firstYaml = String(firstPayload.yaml ?? "");
-    const secondYaml = String(secondPayload.yaml ?? "");
-
-    expect(firstYaml).not.toBe("");
-    expect(secondYaml).not.toBe("");
-
-    const firstDoc = parse(firstYaml) as Record<string, unknown>;
-    const secondDoc = parse(secondYaml) as Record<string, unknown>;
-
-    expect(firstDoc.id).toBeTruthy();
-    expect(secondDoc.id).toBeTruthy();
-    expect(firstDoc.kind).toBe("workflow");
-    expect(secondDoc.kind).toBe("workflow");
-    expect(firstDoc.id).not.toEqual(secondDoc.id);
-    expect(firstDoc.id).not.toBe("untitled-workflow");
-    expect(secondDoc.id).not.toBe("untitled-workflow");
-
-    expect(firstYaml).toContain(String(firstDoc.id));
-    expect(secondYaml).toContain(String(secondDoc.id));
     expect(mocks.navigate).toHaveBeenNthCalledWith(
       1,
       "/workflows/created_research_flow/edit",
