@@ -1,20 +1,4 @@
-"""
-Failing tests for RUN-159: Add break conditions to LoopBlock.
-
-Tests cover:
-- Schema: LoopBlockDef accepts break_condition (ConditionDef | ConditionGroupDef)
-- Unit: LoopBlock breaks early when condition met on round 2 of 5
-- Unit: LoopBlock runs all max_rounds when condition never met
-- Unit: LoopBlock with no break_condition runs all max_rounds (backward compat)
-- Unit: ConditionGroupDef (AND/OR) works as break condition
-- Unit: Break metadata in shared_memory records rounds_completed and broke_early
-- Integration: Inner block output contains keyword -> break condition triggers
-- Integration: GateBlock PASS -> break condition triggers exit
-- Integration: Complex condition group works
-- Edge: Break condition references missing field -> treat as False (continue)
-- Edge: Break condition on round 1 -> loop exits after single execution
-- Edge: Condition evaluation throws error -> propagate, don't swallow
-"""
+"""LoopBlock break-condition schema, execution, metadata, and workflow behavior."""
 
 from __future__ import annotations
 
@@ -177,7 +161,7 @@ class BadFieldBlock(BaseBlock):
 
         self.calls.append(len(self.calls) + 1)
         # Output has "name" but NOT "status" — condition referencing "status" should get None
-        output = json.dumps({"name": "test", "round": len(self.calls)})
+        output = json.dumps({"name": "status source", "round": len(self.calls)})
         return BlockOutput(
             output=output,
             shared_memory_updates={f"{self.block_id}_calls": list(self.calls)},
@@ -197,7 +181,7 @@ class TestLoopBlockDefBreakConditionSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
                 "break_condition": {
                     "eval_key": "status",
@@ -218,7 +202,7 @@ class TestLoopBlockDefBreakConditionSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
                 "break_condition": {
                     "combinator": "and",
@@ -240,7 +224,7 @@ class TestLoopBlockDefBreakConditionSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
             }
         )
@@ -251,7 +235,7 @@ class TestLoopBlockDefBreakConditionSchema:
         """break_condition should parse correctly inside a full RunsightWorkflowFile."""
         raw = {
             "version": "1.0",
-            "id": "break_cond_test",
+            "id": "break_condition_workflow",
             "kind": "workflow",
             "souls": {
                 "writer": {
@@ -276,9 +260,9 @@ class TestLoopBlockDefBreakConditionSchema:
                 },
             },
             "workflow": {
-                "id": "break_cond_test",
+                "id": "break_condition_workflow",
                 "kind": "workflow",
-                "name": "break_cond_test",
+                "name": "break condition workflow",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],
             },
@@ -355,7 +339,7 @@ class TestLoopBlockBreakEarly:
 
     @pytest.mark.asyncio
     async def test_no_break_condition_runs_all_rounds(self):
-        """LoopBlock with break_condition=None should run all max_rounds (backward compat)."""
+        """LoopBlock with break_condition=None should run all max_rounds by default."""
         from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner_block")
@@ -586,7 +570,7 @@ class TestLoopBlockBreakMetadata:
         downstream = DownstreamBlock("downstream")
         blocks["downstream"] = downstream
 
-        wf = Workflow(name="meta_test")
+        wf = Workflow(name="loop_metadata_workflow")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_block(downstream)
@@ -734,7 +718,7 @@ class TestLoopBlockBreakEdgeCases:
         from runsight_core import LoopBlock
         from runsight_core.conditions.engine import Condition
 
-        # BadFieldBlock outputs {"name": "test", "round": N} -- no "status" field
+        # BadFieldBlock outputs a name and round, but no status field.
         inner = BadFieldBlock("inner_block")
         blocks = {"inner_block": inner}
 

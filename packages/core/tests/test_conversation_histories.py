@@ -1,14 +1,4 @@
-"""
-Failing tests for RUN-189: Add conversation_histories to WorkflowState.
-
-Tests cover:
-- WorkflowState has conversation_histories field with empty dict default
-- model_copy(update={"conversation_histories": ...}) works
-- "conversation_histories" in WorkflowState.model_fields
-- model_dump() includes conversation_histories
-- model_dump_json() works with populated histories
-- Serialization round-trip
-"""
+"""WorkflowState conversation history storage and serialization behavior."""
 
 import json
 
@@ -53,25 +43,29 @@ class TestConversationHistoriesModelCopy:
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi there"},
         ]
-        new_state = state.model_copy(update={"conversation_histories": {"block1_soul1": history}})
-        assert new_state.conversation_histories == {"block1_soul1": history}
+        new_state = state.model_copy(update={"conversation_histories": {"draft_writer": history}})
+        assert new_state.conversation_histories == {"draft_writer": history}
         # Must be a real field, not extra data
         dumped = new_state.model_dump()
         assert "conversation_histories" in dumped
-        assert dumped["conversation_histories"] == {"block1_soul1": history}
+        assert dumped["conversation_histories"] == {"draft_writer": history}
 
     def test_model_copy_preserves_conversation_histories(self):
         """model_copy on other fields preserves conversation_histories."""
-        history = [{"role": "user", "content": "test"}]
-        state = WorkflowState(conversation_histories={"b1_s1": history})
+        history = [{"role": "user", "content": "summarize the current draft"}]
+        state = WorkflowState(conversation_histories={"summary_writer": history})
         new_state = state.model_copy(update={"total_tokens": 100})
-        assert new_state.conversation_histories == {"b1_s1": history}
+        assert new_state.conversation_histories == {"summary_writer": history}
 
     def test_model_copy_does_not_mutate_original(self):
         """model_copy must not mutate the original state."""
         state = WorkflowState()
         new_state = state.model_copy(
-            update={"conversation_histories": {"k": [{"role": "user", "content": "x"}]}}
+            update={
+                "conversation_histories": {
+                    "planning_writer": [{"role": "user", "content": "prepare the outline"}]
+                }
+            }
         )
         assert state.conversation_histories == {}
         assert len(new_state.conversation_histories) == 1
@@ -91,27 +85,27 @@ class TestConversationHistoriesConstruction:
             {"role": "user", "content": "What is 2+2?"},
             {"role": "assistant", "content": "4"},
         ]
-        state = WorkflowState(conversation_histories={"block1_soul1": history})
-        assert state.conversation_histories["block1_soul1"] == history
+        state = WorkflowState(conversation_histories={"math_writer": history})
+        assert state.conversation_histories["math_writer"] == history
 
     def test_construct_with_multiple_keys(self):
         """Multiple block_soul keys."""
         histories = {
-            "block1_soul1": [{"role": "user", "content": "hi"}],
-            "block2_soul1": [{"role": "assistant", "content": "hello"}],
-            "block1_soul2": [
-                {"role": "user", "content": "q"},
-                {"role": "assistant", "content": "a"},
+            "draft_writer": [{"role": "user", "content": "draft the intro"}],
+            "draft_reviewer": [{"role": "assistant", "content": "intro looks clear"}],
+            "outline_writer": [
+                {"role": "user", "content": "outline the goals"},
+                {"role": "assistant", "content": "goals are listed"},
             ],
         }
         state = WorkflowState(conversation_histories=histories)
         assert len(state.conversation_histories) == 3
-        assert len(state.conversation_histories["block1_soul2"]) == 2
+        assert len(state.conversation_histories["outline_writer"]) == 2
 
     def test_construct_with_empty_list_value(self):
         """A key can map to an empty list."""
-        state = WorkflowState(conversation_histories={"block1_soul1": []})
-        assert state.conversation_histories["block1_soul1"] == []
+        state = WorkflowState(conversation_histories={"empty_writer_thread": []})
+        assert state.conversation_histories["empty_writer_thread"] == []
 
 
 # ===========================================================================
@@ -135,9 +129,9 @@ class TestConversationHistoriesSerialization:
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "world"},
         ]
-        state = WorkflowState(conversation_histories={"b1_s1": history})
+        state = WorkflowState(conversation_histories={"draft_writer": history})
         dumped = state.model_dump()
-        assert dumped["conversation_histories"]["b1_s1"] == history
+        assert dumped["conversation_histories"]["draft_writer"] == history
 
     def test_model_dump_json_empty(self):
         """model_dump_json() works with empty conversation_histories."""
@@ -150,7 +144,7 @@ class TestConversationHistoriesSerialization:
     def test_model_dump_json_populated(self):
         """model_dump_json() works with populated conversation_histories."""
         histories = {
-            "block1_soul1": [
+            "draft_writer": [
                 {"role": "user", "content": "question"},
                 {"role": "assistant", "content": "answer"},
             ],
@@ -158,14 +152,14 @@ class TestConversationHistoriesSerialization:
         state = WorkflowState(conversation_histories=histories)
         json_str = state.model_dump_json()
         parsed = json.loads(json_str)
-        assert parsed["conversation_histories"]["block1_soul1"][0]["role"] == "user"
-        assert len(parsed["conversation_histories"]["block1_soul1"]) == 2
+        assert parsed["conversation_histories"]["draft_writer"][0]["role"] == "user"
+        assert len(parsed["conversation_histories"]["draft_writer"]) == 2
 
     def test_round_trip_via_model_dump(self):
         """model_dump -> WorkflowState(**dump) round-trip preserves conversation_histories."""
         histories = {
-            "b1_s1": [{"role": "user", "content": "x"}],
-            "b2_s1": [{"role": "assistant", "content": "y"}],
+            "draft_writer": [{"role": "user", "content": "outline the plan"}],
+            "draft_reviewer": [{"role": "assistant", "content": "the outline is concise"}],
         }
         state = WorkflowState(conversation_histories=histories)
         dumped = state.model_dump()

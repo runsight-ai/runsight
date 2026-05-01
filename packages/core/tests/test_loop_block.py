@@ -1,15 +1,4 @@
-"""
-Failing tests for RUN-158: Rename RetryBlock -> LoopBlock with multi-block support.
-
-Tests cover:
-- LoopBlockDef schema: type="loop", inner_block_refs, max_rounds defaults/validation
-- LoopBlock unit: 1 ref runs max_rounds times, 3 refs sequential per round,
-  max_rounds=1 runs once, round counter in shared_memory, empty refs rejected,
-  invalid ref raises at runtime, self-reference detection
-- YAML parsing: type=loop parses in single pass, type=retry raises clear error,
-  parser produces correct block graph
-- Integration: writer + critic pattern for 3 rounds inside LoopBlock
-"""
+"""LoopBlock schema, parsing, execution, and workflow integration behavior."""
 
 from __future__ import annotations
 
@@ -135,14 +124,16 @@ class TestLoopBlockDefSchema:
         """type='loop' should resolve to LoopBlockDef in the BlockDef union."""
         from runsight_core.blocks.loop import LoopBlockDef
 
-        block = _validate_block({"type": "loop", "inner_block_refs": ["block_a", "block_b"]})
+        block = _validate_block(
+            {"type": "loop", "inner_block_refs": ["draft_block", "review_block"]}
+        )
         assert isinstance(block, LoopBlockDef)
 
     def test_loop_default_max_rounds(self):
         """LoopBlockDef default max_rounds should be 5."""
         from runsight_core.blocks.loop import LoopBlockDef
 
-        block = _validate_block({"type": "loop", "inner_block_refs": ["block_a"]})
+        block = _validate_block({"type": "loop", "inner_block_refs": ["draft_block"]})
         assert isinstance(block, LoopBlockDef)
         assert block.max_rounds == 5
 
@@ -150,25 +141,29 @@ class TestLoopBlockDefSchema:
         """LoopBlockDef should accept a custom max_rounds value."""
         from runsight_core.blocks.loop import LoopBlockDef
 
-        block = _validate_block({"type": "loop", "inner_block_refs": ["block_a"], "max_rounds": 10})
+        block = _validate_block(
+            {"type": "loop", "inner_block_refs": ["draft_block"], "max_rounds": 10}
+        )
         assert isinstance(block, LoopBlockDef)
         assert block.max_rounds == 10
 
     def test_loop_inner_block_refs_stored(self):
         """inner_block_refs should be stored as list[str]."""
 
-        block = _validate_block({"type": "loop", "inner_block_refs": ["a", "b", "c"]})
-        assert block.inner_block_refs == ["a", "b", "c"]
+        block = _validate_block(
+            {"type": "loop", "inner_block_refs": ["draft_block", "review_block", "publish_block"]}
+        )
+        assert block.inner_block_refs == ["draft_block", "review_block", "publish_block"]
 
     def test_loop_max_rounds_minimum_1(self):
         """max_rounds must be >= 1."""
         with pytest.raises(ValidationError, match="max_rounds"):
-            _validate_block({"type": "loop", "inner_block_refs": ["a"], "max_rounds": 0})
+            _validate_block({"type": "loop", "inner_block_refs": ["draft_block"], "max_rounds": 0})
 
     def test_loop_max_rounds_maximum_50(self):
         """max_rounds must be <= 50."""
         with pytest.raises(ValidationError, match="max_rounds"):
-            _validate_block({"type": "loop", "inner_block_refs": ["a"], "max_rounds": 51})
+            _validate_block({"type": "loop", "inner_block_refs": ["draft_block"], "max_rounds": 51})
 
     def test_loop_empty_inner_block_refs_rejected(self):
         """Empty inner_block_refs should raise a validation error."""
@@ -192,7 +187,7 @@ class TestLoopBlockDefSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["a"],
+                "inner_block_refs": ["draft_block"],
                 "retry_config": {"max_attempts": 2, "backoff": "fixed"},
             }
         )
@@ -260,18 +255,18 @@ class TestLoopBlockMultiRef:
         """3 inner refs with max_rounds=2 should produce 6 total executions (3 per round)."""
         from runsight_core import LoopBlock
 
-        block_a = TrackingBlock("block_a")
-        block_b = TrackingBlock("block_b")
-        block_c = TrackingBlock("block_c")
+        draft_block = TrackingBlock("draft_block")
+        review_block = TrackingBlock("review_block")
+        publish_block = TrackingBlock("publish_block")
         blocks = {
-            "block_a": block_a,
-            "block_b": block_b,
-            "block_c": block_c,
+            "draft_block": draft_block,
+            "review_block": review_block,
+            "publish_block": publish_block,
         }
 
         loop = LoopBlock(
             block_id="loop_block",
-            inner_block_refs=["block_a", "block_b", "block_c"],
+            inner_block_refs=["draft_block", "review_block", "publish_block"],
             max_rounds=2,
         )
         blocks["loop_block"] = loop
@@ -280,9 +275,9 @@ class TestLoopBlockMultiRef:
         result_state = await _run_loop(loop, state, blocks)
 
         # Each block should have been called exactly 2 times (once per round)
-        assert len(result_state.shared_memory.get("block_a_calls", [])) == 2
-        assert len(result_state.shared_memory.get("block_b_calls", [])) == 2
-        assert len(result_state.shared_memory.get("block_c_calls", [])) == 2
+        assert len(result_state.shared_memory.get("draft_block_calls", [])) == 2
+        assert len(result_state.shared_memory.get("review_block_calls", [])) == 2
+        assert len(result_state.shared_memory.get("publish_block_calls", [])) == 2
 
 
 class TestLoopBlockMaxRoundsOne:
@@ -429,7 +424,7 @@ class TestLoopBlockErrorHandling:
         with pytest.raises(ValueError, match="self-reference|itself|circular"):
             LoopBlock(
                 block_id="loop_block",
-                inner_block_refs=["block_a", "loop_block", "block_b"],
+                inner_block_refs=["draft_block", "loop_block", "review_block"],
                 max_rounds=3,
             )
 
@@ -497,7 +492,7 @@ class TestLoopBlockYamlParsing:
 
         raw = {
             "version": "1.0",
-            "id": "loop_test",
+            "id": "loop_schema_workflow",
             "kind": "workflow",
             "souls": {
                 "writer": {
@@ -517,9 +512,9 @@ class TestLoopBlockYamlParsing:
                 },
             },
             "workflow": {
-                "id": "loop_test",
+                "id": "loop_schema_workflow",
                 "kind": "workflow",
-                "name": "loop_test",
+                "name": "loop schema workflow",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],
             },
@@ -531,10 +526,10 @@ class TestLoopBlockYamlParsing:
         assert loop_def.max_rounds == 3
 
     def test_retry_type_raises_clear_error(self):
-        """type: retry in YAML should raise a clear error (clean break, no backward compat)."""
+        """type: retry in YAML should raise a clear error with no legacy alias path."""
         raw = {
             "version": "1.0",
-            "id": "retry_test",
+            "id": "legacy_retry_workflow",
             "kind": "workflow",
             "blocks": {
                 "retry_block": {
@@ -544,9 +539,9 @@ class TestLoopBlockYamlParsing:
                 },
             },
             "workflow": {
-                "id": "retry_test",
+                "id": "legacy_retry_workflow",
                 "kind": "workflow",
-                "name": "retry_test",
+                "name": "legacy retry workflow",
                 "entry": "retry_block",
                 "transitions": [],
             },
@@ -561,7 +556,7 @@ class TestLoopBlockYamlParsing:
 
         yaml_str = """
 version: "1.0"
-id: inline_test_workflow
+id: inline_retry_workflow
 kind: workflow
 souls:
   writer:
@@ -579,9 +574,9 @@ blocks:
     inner_block_ref: write_block
     max_retries: 3
 workflow:
-  id: retry_test
+  id: legacy_retry_workflow
   kind: workflow
-  name: retry_test
+  name: legacy retry workflow
   entry: retry_block
   transitions:
     - from: retry_block
@@ -597,7 +592,7 @@ workflow:
 
         yaml_str = """
 version: "1.0"
-id: inline_test_workflow
+id: inline_loop_workflow
 kind: workflow
 souls:
   writer:
@@ -616,9 +611,9 @@ blocks:
       - write_block
     max_rounds: 3
 workflow:
-  id: loop_parse_test
+  id: loop_parse_workflow
   kind: workflow
-  name: loop_parse_test
+  name: loop parse workflow
   entry: loop_block
   transitions:
     - from: loop_block
@@ -643,7 +638,7 @@ workflow:
 
         yaml_str = """
 version: "1.0"
-id: inline_test_workflow
+id: inline_loop_refs_workflow
 kind: workflow
 souls:
   writer:
@@ -672,9 +667,9 @@ blocks:
       - review_block
     max_rounds: 2
 workflow:
-  id: loop_refs_test
+  id: loop_refs_workflow
   kind: workflow
-  name: loop_refs_test
+  name: loop refs workflow
   entry: loop_block
   transitions:
     - from: loop_block
@@ -710,7 +705,7 @@ class TestLoopBlockWorkflowIntegration:
             max_rounds=2,
         )
 
-        wf = Workflow(name="loop_wf_test")
+        wf = Workflow(name="loop_runtime_workflow")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_transition("loop_block", None)
@@ -735,7 +730,7 @@ class TestLoopBlockWorkflowIntegration:
             max_rounds=1,
         )
 
-        wf = Workflow(name="isinstance_test")
+        wf = Workflow(name="loop_instance_workflow")
         wf.add_block(inner)
         wf.add_block(loop)
         wf.add_transition("loop_block", None)

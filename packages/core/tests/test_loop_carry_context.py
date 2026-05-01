@@ -1,23 +1,4 @@
-"""
-Failing tests for RUN-160: Generalize context passing between LoopBlock rounds.
-
-Tests cover:
-- Schema: CarryContextConfig model validation (enabled, mode, source_blocks, inject_as)
-- Schema: LoopBlockDef accepts carry_context field
-- Unit: mode="last" carries only previous round output
-- Unit: mode="all" carries concatenated history of all rounds
-- Unit: source_blocks filters to specific inner block outputs
-- Unit: source_blocks=None carries all inner block outputs
-- Unit: inject_as key appears in shared_memory for inner blocks to read
-- Unit: Round 1 has no carried context (first iteration)
-- Unit: carry_context=None means no context passing (backward compatible)
-- Unit: carry_context.enabled=False explicitly disables context passing
-- Validation: source_blocks references non-existent block ID -> raise error
-- Validation: source_blocks validated against inner_block_refs
-- Edge: Inner block produces empty output -> carry empty string, don't skip
-- Integration: Writer-Critic loop: critic feedback from round 1 visible to writer in round 2
-- Integration: Carried context is correctly formatted and readable
-"""
+"""LoopBlock carry-context schema, round propagation, filtering, and workflow behavior."""
 
 from __future__ import annotations
 
@@ -257,8 +238,8 @@ class TestCarryContextConfigSchema:
         """source_blocks should accept a list of block IDs."""
         from runsight_core.blocks.loop import CarryContextConfig
 
-        config = CarryContextConfig(source_blocks=["block_a", "block_b"])
-        assert config.source_blocks == ["block_a", "block_b"]
+        config = CarryContextConfig(source_blocks=["draft_block", "review_block"])
+        assert config.source_blocks == ["draft_block", "review_block"]
 
     def test_source_blocks_none_means_all(self):
         """source_blocks=None means carry all inner block outputs."""
@@ -295,7 +276,7 @@ class TestLoopBlockDefCarryContextSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
                 "carry_context": {
                     "enabled": True,
@@ -314,7 +295,7 @@ class TestLoopBlockDefCarryContextSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
             }
         )
@@ -343,7 +324,7 @@ class TestLoopBlockDefCarryContextSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
                 "carry_context": {
                     "mode": "all",
@@ -357,7 +338,7 @@ class TestLoopBlockDefCarryContextSchema:
         """carry_context should parse correctly inside a full RunsightWorkflowFile."""
         raw = {
             "version": "1.0",
-            "id": "carry_context_test",
+            "id": "carry_context_workflow",
             "kind": "workflow",
             "souls": {
                 "writer": {
@@ -390,9 +371,9 @@ class TestLoopBlockDefCarryContextSchema:
                 },
             },
             "workflow": {
-                "id": "carry_context_test",
+                "id": "carry_context_workflow",
                 "kind": "workflow",
-                "name": "carry_context_test",
+                "name": "carry context workflow",
                 "entry": "loop_block",
                 "transitions": [{"from": "loop_block", "to": None}],
             },
@@ -410,7 +391,7 @@ class TestLoopBlockDefCarryContextSchema:
         block = _validate_block(
             {
                 "type": "loop",
-                "inner_block_refs": ["block_a"],
+                "inner_block_refs": ["draft_block"],
                 "max_rounds": 5,
                 "carry_context": {
                     "enabled": False,
@@ -754,24 +735,24 @@ class TestCarryContextSourceBlocks:
 
         config = CarryContextConfig(
             mode="last",
-            source_blocks=["block_a", "block_c"],
+            source_blocks=["draft_block", "publish_block"],
             inject_as="ctx",
         )
 
-        block_a = TrackingBlock("block_a")
-        block_b = TrackingBlock("block_b")
-        block_c = TrackingBlock("block_c")
+        draft_block = TrackingBlock("draft_block")
+        review_block = TrackingBlock("review_block")
+        publish_block = TrackingBlock("publish_block")
         reader = ContextReaderBlock("reader", read_key="ctx")
         blocks = {
-            "block_a": block_a,
-            "block_b": block_b,
-            "block_c": block_c,
+            "draft_block": draft_block,
+            "review_block": review_block,
+            "publish_block": publish_block,
             "reader": reader,
         }
 
         loop = LoopBlock(
             block_id="loop_block",
-            inner_block_refs=["block_a", "block_b", "block_c", "reader"],
+            inner_block_refs=["draft_block", "review_block", "publish_block", "reader"],
             max_rounds=2,
             carry_context=config,
         )
@@ -782,12 +763,12 @@ class TestCarryContextSourceBlocks:
 
         snapshots = result_state.shared_memory.get("reader_snapshots", [])
 
-        # Round 2: context should have block_a and block_c but NOT block_b
+        # Round 2: context should have the selected draft and publish blocks but not review.
         round_2_ctx = snapshots[1]
         assert round_2_ctx is not None
-        assert "block_a" in str(round_2_ctx)
-        assert "block_c" in str(round_2_ctx)
-        assert "block_b" not in str(round_2_ctx)
+        assert "draft_block" in str(round_2_ctx)
+        assert "publish_block" in str(round_2_ctx)
+        assert "review_block" not in str(round_2_ctx)
 
 
 # ==============================================================================
@@ -943,12 +924,12 @@ class TestCarryContextRoundOne:
 
 
 # ==============================================================================
-# 9. Unit tests -- carry_context=None means no context passing (backward compat)
+# 9. Unit tests -- carry_context=None means no context passing
 # ==============================================================================
 
 
-class TestCarryContextNoneBackwardCompat:
-    """carry_context=None means no context passing (backward compatible)."""
+class TestCarryContextNone:
+    """carry_context=None means no context passing."""
 
     @pytest.mark.asyncio
     async def test_no_carry_context_leaves_seeded_slot_empty(self):
@@ -977,8 +958,8 @@ class TestCarryContextNoneBackwardCompat:
         assert all(s is None for s in snapshots)
 
     @pytest.mark.asyncio
-    async def test_existing_loop_tests_still_pass_without_carry_context(self):
-        """LoopBlock without carry_context should behave exactly as before."""
+    async def test_loop_without_carry_context_runs_rounds(self):
+        """LoopBlock without carry_context should still execute configured rounds."""
         from runsight_core import LoopBlock
 
         inner = TrackingBlock("inner")
@@ -1257,7 +1238,7 @@ class TestCarryContextWriterCriticIntegration:
             carry_context=config,
         )
 
-        wf = Workflow(name="carry_ctx_wf")
+        wf = Workflow(name="carry_context_runtime_workflow")
         wf.add_block(writer)
         wf.add_block(critic)
         wf.add_block(loop)
