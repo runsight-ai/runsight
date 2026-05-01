@@ -1,0 +1,26 @@
+id: assertion-step-workflow
+kind: workflow
+version: "1.0"
+blocks:
+  fetch:
+    type: linear
+    soul_ref: researcher
+  analyze:
+    type: linear
+    soul_ref: analyst
+    inputs:
+      data:
+        from: fetch.output
+    assertions:
+      - type: contains
+        value: analysis
+      - type: cost
+        threshold: 0.05
+workflow:
+  name: inputs_and_assertions
+  entry: fetch
+  transitions:
+    - from: fetch
+      to: analyze
+    - from: analyze
+      to: null

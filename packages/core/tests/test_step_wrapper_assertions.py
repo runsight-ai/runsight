@@ -1,6 +1,5 @@
 """Step wrapper assertion delegation through parser and execution-service config building."""
 
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 
@@ -8,6 +7,7 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
+from workflow_fixture_helpers import workflow_fixture_text
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -88,98 +88,45 @@ class TestStepDelegatesAssertions:
 # ===========================================================================
 
 
-YAML_INPUTS_AND_ASSERTIONS = """\
-id: assertion-step-workflow
-kind: workflow
-version: "1.0"
-blocks:
-  fetch:
-    type: linear
-    soul_ref: researcher
-  analyze:
-    type: linear
-    soul_ref: analyst
-    inputs:
-      data:
-        from: fetch.output
-    assertions:
-      - type: contains
-        value: analysis
-      - type: cost
-        threshold: 0.05
-workflow:
-  name: inputs_and_assertions
-  entry: fetch
-  transitions:
-    - from: fetch
-      to: analyze
-    - from: analyze
-      to: null
-"""
+INPUTS_AND_ASSERTIONS_FIXTURE = "step-wrapper-inputs-and-assertions.yaml"
+INPUTS_NO_ASSERTIONS_FIXTURE = "step-wrapper-inputs-no-assertions.yaml"
 
 
-YAML_INPUTS_NO_ASSERTIONS = """\
-id: input-only-step-workflow
-kind: workflow
-version: "1.0"
-blocks:
-  fetch:
-    type: linear
-    soul_ref: researcher
-  analyze:
-    type: linear
-    soul_ref: analyst
-    inputs:
-      data:
-        from: fetch.output
-workflow:
-  name: inputs_no_assertions
-  entry: fetch
-  transitions:
-    - from: fetch
-      to: analyze
-    - from: analyze
-      to: null
-"""
-
-
-def _parse_with_souls(yaml_content: str) -> object:
-    """Parse workflow YAML using a temp directory with required soul files."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
-        _write_soul_file(
-            base,
-            "researcher",
-            """\
-            id: researcher
-            kind: soul
-            name: Researcher
-            role: Researcher
-            system_prompt: You research topics.
-            """,
-        )
-        _write_soul_file(
-            base,
-            "analyst",
-            """\
-            id: analyst
-            kind: soul
-            name: Analyst
-            role: Analyst
-            system_prompt: You analyze data.
-            """,
-        )
-        workflow_file = base / "workflow.yaml"
-        workflow_file.write_text(yaml_content, encoding="utf-8")
-        return parse_workflow_yaml(str(workflow_file))
+def _parse_with_souls(tmp_path: Path, fixture_name: str) -> object:
+    """Parse workflow fixture YAML using pytest-owned workspace soul files."""
+    _write_soul_file(
+        tmp_path,
+        "researcher",
+        """\
+        id: researcher
+        kind: soul
+        name: Researcher
+        role: Researcher
+        system_prompt: You research topics.
+        """,
+    )
+    _write_soul_file(
+        tmp_path,
+        "analyst",
+        """\
+        id: analyst
+        kind: soul
+        name: Analyst
+        role: Analyst
+        system_prompt: You analyze data.
+        """,
+    )
+    workflow_file = tmp_path / "workflow.yaml"
+    workflow_file.write_text(workflow_fixture_text(fixture_name), encoding="utf-8")
+    return parse_workflow_yaml(str(workflow_file))
 
 
 class TestParserPreservesAssertionsWithInputs:
     """Parser must preserve assertions on blocks that also have inputs (Step-wrapped)."""
 
-    def test_block_with_inputs_and_assertions_retains_assertions_after_parse(self):
+    def test_block_with_inputs_and_assertions_retains_assertions_after_parse(self, tmp_path: Path):
         """A parsed block with both inputs and assertions must expose assertions."""
-        wf = _parse_with_souls(YAML_INPUTS_AND_ASSERTIONS)
+        wf = _parse_with_souls(tmp_path, INPUTS_AND_ASSERTIONS_FIXTURE)
 
         block = wf._blocks["analyze"]
         # The block is Step-wrapped because it has inputs.
@@ -187,9 +134,9 @@ class TestParserPreservesAssertionsWithInputs:
         assert block.assertions is not None
         assert len(block.assertions) == 2
 
-    def test_block_with_inputs_and_assertions_preserves_assertion_fields(self):
+    def test_block_with_inputs_and_assertions_preserves_assertion_fields(self, tmp_path: Path):
         """Assertion config fields from YAML must survive Step wrapping."""
-        wf = _parse_with_souls(YAML_INPUTS_AND_ASSERTIONS)
+        wf = _parse_with_souls(tmp_path, INPUTS_AND_ASSERTIONS_FIXTURE)
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
@@ -198,16 +145,16 @@ class TestParserPreservesAssertionsWithInputs:
         assert block.assertions[1]["type"] == "cost"
         assert block.assertions[1]["threshold"] == 0.05
 
-    def test_block_with_inputs_but_no_assertions_returns_none(self):
+    def test_block_with_inputs_but_no_assertions_returns_none(self, tmp_path: Path):
         """A Step-wrapped block without assertions must return None."""
-        wf = _parse_with_souls(YAML_INPUTS_NO_ASSERTIONS)
+        wf = _parse_with_souls(tmp_path, INPUTS_NO_ASSERTIONS_FIXTURE)
 
         block = wf._blocks["analyze"]
         assert getattr(block, "assertions", None) is None
 
-    def test_block_without_inputs_still_works(self):
+    def test_block_without_inputs_still_works(self, tmp_path: Path):
         """A block without inputs is not wrapped in Step — assertions work as before."""
-        wf = _parse_with_souls(YAML_INPUTS_AND_ASSERTIONS)
+        wf = _parse_with_souls(tmp_path, INPUTS_AND_ASSERTIONS_FIXTURE)
 
         # 'fetch' has no inputs, so it should be a raw block, not Step-wrapped
         fetch_block = wf._blocks["fetch"]
