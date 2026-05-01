@@ -1,0 +1,31 @@
+packages/core/tests/test_migrate_blocks.py
+  4adca821c1af8eb3 9-10,275,289,302
+packages/core/tests/fixtures/workflows/migrated-linear-block-roundtrip.yaml
+  4adca821c1af8eb3 1-22
+tools/tests/test_core_migrated_block_fixture_governance.py
+  4adca821c1af8eb3 1-147
+packages/core/tests/fixtures/workflows/migrated-loop-block-roundtrip.yaml
+  4adca821c1af8eb3 1-27
+packages/core/tests/fixtures/workflows/migrated-code-block-roundtrip.yaml
+  4adca821c1af8eb3 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4be06b7d1ffd73c0de0eeab30e31a843032c22ca",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 219,
+      "total_deletions": 79,
+      "accepted_lines": 53599,
+      "overriden_lines": 0
+    }
+  }
+}
