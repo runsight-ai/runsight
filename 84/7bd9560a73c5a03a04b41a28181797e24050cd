@@ -1,0 +1,27 @@
+packages/core/tests/test_discover_soul_fields.py
+  4adca821c1af8eb3 1,23,25-26,40,42-43,127,139
+packages/core/tests/test_entity_identity_manifests.py
+  4adca821c1af8eb3 1
+packages/core/tests/test_core_decomposition.py
+  4adca821c1af8eb3 1,23,59,95,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "847bd9560a73c5a03a04b41a28181797e24050cd",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 32,
+      "accepted_lines": 62476,
+      "overriden_lines": 0
+    }
+  }
+}
