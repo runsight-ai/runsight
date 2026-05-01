@@ -1,0 +1,23 @@
+packages/core/tests/test_workflowblock_governed_inputs.py
+  4adca821c1af8eb3 19,68,93,103,115-116,133,148,155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "319f0de3c0c064df5e1bee6b482154029e105b5f",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 9,
+      "accepted_lines": 59220,
+      "overriden_lines": 0
+    }
+  }
+}
