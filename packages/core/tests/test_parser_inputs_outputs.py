@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from parser_yaml_helpers import RESEARCHER_REVIEWER_SOULS_YAML as SOULS_YAML
+from parser_yaml_helpers import researcher_reviewer_souls_yaml
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.blocks.base import BaseBlock
@@ -58,7 +58,7 @@ class TestInputParsing:
 version: "1.0"
 id: inputs_cross_reference_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -102,7 +102,7 @@ workflow:
 version: "1.0"
 id: invalid_input_reference_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -133,7 +133,7 @@ workflow:
 version: "1.0"
 id: self_reference_input_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_b:
     type: linear
@@ -159,7 +159,7 @@ workflow:
 version: "1.0"
 id: two_node_input_cycle_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -193,7 +193,7 @@ workflow:
 version: "1.0"
 id: three_node_input_cycle_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -235,7 +235,7 @@ workflow:
 version: "1.0"
 id: multiple_declared_inputs_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -275,7 +275,7 @@ workflow:
 version: "1.0"
 id: no_declared_inputs_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -307,7 +307,7 @@ class TestOutputDeclarations:
 version: "1.0"
 id: typed_outputs_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   evaluator:
     type: linear
@@ -333,7 +333,7 @@ workflow:
 version: "1.0"
 id: no_outputs_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -365,7 +365,7 @@ class TestOutputConditionsWiring:
 version: "1.0"
 id: output_conditions_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   evaluator:
     type: linear
@@ -401,7 +401,7 @@ workflow:
 version: "1.0"
 id: output_conditions_conditional_transition_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   evaluator:
     type: linear
@@ -450,7 +450,7 @@ workflow:
 version: "1.0"
 id: no_output_conditions_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -580,7 +580,7 @@ class TestParserWiresInputsToStep:
 version: "1.0"
 id: declared_input_step_wiring_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear
@@ -629,7 +629,7 @@ workflow:
 version: "1.0"
 id: full_parser_roundtrip_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   research:
     type: linear
@@ -723,7 +723,7 @@ class TestBuilderSimplification:
 version: "1.0"
 id: builder_schema_validation_workflow
 kind: workflow
-{SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   step_a:
     type: linear

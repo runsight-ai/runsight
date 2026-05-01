@@ -5,32 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from textwrap import dedent
 
-RESEARCHER_SOUL_YAML = """\
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
-"""
-
-RESEARCHER_REVIEWER_SOULS_YAML = """\
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
-  reviewer:
-    id: reviewer
-    kind: soul
-    name: Peer Reviewer
-    role: Peer Reviewer
-    system_prompt: You review topics.
-"""
-
 RESEARCHER_SOUL_DICT = {
     "id": "researcher",
     "kind": "soul",
@@ -76,6 +50,36 @@ def soul_entry_yaml(
 def souls_yaml(*entries: str) -> str:
     """Build a top-level inline `souls:` YAML section from soul entries."""
     return "souls:\n" + "\n".join(entry.rstrip("\n") for entry in entries)
+
+
+def researcher_soul_yaml() -> str:
+    """Build the canonical single-researcher souls YAML section."""
+    return souls_yaml(
+        soul_entry_yaml(
+            "researcher",
+            name="Senior Researcher",
+            role="Senior Researcher",
+            prompt="You research topics.",
+        )
+    )
+
+
+def researcher_reviewer_souls_yaml() -> str:
+    """Build the canonical researcher/reviewer souls YAML section."""
+    return souls_yaml(
+        soul_entry_yaml(
+            "researcher",
+            name="Senior Researcher",
+            role="Senior Researcher",
+            prompt="You research topics.",
+        ),
+        soul_entry_yaml(
+            "reviewer",
+            name="Peer Reviewer",
+            role="Peer Reviewer",
+            prompt="You review topics.",
+        ),
+    )
 
 
 def tools_yaml(*tool_ids: str) -> str:

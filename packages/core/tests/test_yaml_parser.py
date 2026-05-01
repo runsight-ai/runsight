@@ -12,9 +12,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 from parser_yaml_helpers import (
-    RESEARCHER_REVIEWER_SOULS_YAML,
     RESEARCHER_SOUL_DICT,
-    RESEARCHER_SOUL_YAML,
+    researcher_reviewer_souls_yaml,
+    researcher_soul_yaml,
 )
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
@@ -192,7 +192,7 @@ workflow:
 version: "1.0"
 id: linear_block_workflow
 kind: workflow
-{RESEARCHER_SOUL_YAML}
+{researcher_soul_yaml()}
 blocks:
   linear_block:
     type: linear
@@ -219,7 +219,7 @@ class TestDispatchBlock:
 version: "1.0"
 id: dispatch_block_workflow
 kind: workflow
-{RESEARCHER_REVIEWER_SOULS_YAML}
+{researcher_reviewer_souls_yaml()}
 blocks:
   dispatch_block:
     type: dispatch
@@ -602,7 +602,7 @@ class TestVersionValidation:
 version: "{{version}}"
 id: version_test
 kind: workflow
-{RESEARCHER_SOUL_YAML}
+{researcher_soul_yaml()}
 blocks:
   version_entry_block:
     type: linear
