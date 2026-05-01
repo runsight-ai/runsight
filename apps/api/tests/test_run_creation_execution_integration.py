@@ -14,7 +14,6 @@ These tests exercise that full path with:
 """
 
 import asyncio
-import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -31,66 +30,7 @@ _PROVIDER_SECRET_ENV_NAMES = (
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
 )
-
-
-# ---------------------------------------------------------------------------
-# Workflow YAML definitions
-# ---------------------------------------------------------------------------
-
-SIMPLE_WORKFLOW_YAML = """\
-id: simple-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: simple_run_creation_execution_integration
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-# A workflow with a block that exercises LLM exception handling.
-FAILING_WORKFLOW_YAML = """\
-id: failing-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  broken_step:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: failing_run_creation_execution_integration
-  entry: broken_step
-  transitions:
-    - from: broken_step
-      to: null
-"""
+_FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "run_creation_execution"
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +45,10 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
     canvas_dir = wf_dir / ".canvas"
     canvas_dir.mkdir(parents=True, exist_ok=True)
     (wf_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
+
+
+def _read_workflow_fixture(file_name: str) -> str:
+    return (_FIXTURE_ROOT / file_name).read_text(encoding="utf-8")
 
 
 def _write_provider_file(base_dir: Path) -> None:
@@ -222,15 +166,14 @@ def db_engine():
 
 
 @pytest.fixture
-def base_dir():
+def base_dir(tmp_path):
     """Temporary directory for workflow/soul/provider YAML files and secrets.env."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
-        _write_workflow_file(base, "simple-workflow", SIMPLE_WORKFLOW_YAML)
-        _write_workflow_file(base, "failing-workflow", FAILING_WORKFLOW_YAML)
-        _write_provider_file(base)
-        _write_secrets_file(base)
-        yield base
+    base = tmp_path / "run-creation-execution-workspace"
+    _write_workflow_file(base, "simple-workflow", _read_workflow_fixture("simple-workflow.yaml"))
+    _write_workflow_file(base, "failing-workflow", _read_workflow_fixture("failing-workflow.yaml"))
+    _write_provider_file(base)
+    _write_secrets_file(base)
+    return base
 
 
 @pytest.fixture

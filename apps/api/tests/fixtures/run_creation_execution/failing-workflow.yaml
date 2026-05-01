@@ -1,0 +1,24 @@
+id: failing-workflow
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: You are a careful analyst.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  broken_step:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: failing_run_creation_execution_integration
+  entry: broken_step
+  transitions:
+    - from: broken_step
+      to: null
