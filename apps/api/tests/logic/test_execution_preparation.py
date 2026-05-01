@@ -13,7 +13,6 @@ import asyncio
 import logging
 import subprocess
 import threading
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import AsyncMock, Mock, patch
@@ -38,8 +37,8 @@ BRANCH_ONLY_YAML = _load_workflow_fixture("branch-only-workflow.yaml")
 PREP_REGISTRY_YAML = _load_workflow_fixture("prepare-parent-workflow.yaml")
 
 
-def _db_engine():
-    db_path = Path(tempfile.mkdtemp(prefix="execution-prep-db-")) / "runsight.db"
+def _db_engine(tmp_path: Path):
+    db_path = tmp_path / "runsight.db"
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     return engine
@@ -250,6 +249,7 @@ class TestRequestedSnapshotSourceOfTruth:
     @pytest.mark.asyncio
     async def test_launch_execution_keeps_parse_registry_and_commit_sha_bound_to_same_requested_snapshot(
         self,
+        tmp_path: Path,
     ):
         """A requested git snapshot must be sufficient to prepare a run.
 
@@ -262,7 +262,7 @@ class TestRequestedSnapshotSourceOfTruth:
         explicitly requested.
         """
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "coherent-snapshot-run"
         workflow_id = "prepare-parent-workflow"
         requested_sha = "a" * 40
@@ -324,14 +324,17 @@ class TestRequestedSnapshotSourceOfTruth:
         )
 
     @pytest.mark.asyncio
-    async def test_launch_execution_fails_explicitly_when_requested_snapshot_sha_is_missing(self):
+    async def test_launch_execution_fails_explicitly_when_requested_snapshot_sha_is_missing(
+        self,
+        tmp_path: Path,
+    ):
         """Requested snapshot metadata must stay explicit.
 
         If the branch/ref SHA cannot be resolved, the run should fail during
         prepare instead of launching with a synthesized or missing commit.
         """
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "missing-sha-run"
         _seed_run(engine, run_id)
 
@@ -386,11 +389,12 @@ class TestRequestedSnapshotSourceOfTruth:
     @pytest.mark.parametrize("branch", ["feature/sim", "main"])
     async def test_launch_execution_fails_closed_when_git_snapshot_read_hits_old_fallback_error(
         self,
+        tmp_path: Path,
         branch: str,
     ):
         """Fallback-eligible git snapshot read errors must still fail closed."""
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "no-working-tree-fallback-run"
         _seed_run(engine, run_id)
 
@@ -446,8 +450,11 @@ class TestRequestedSnapshotSourceOfTruth:
         )
 
     @pytest.mark.asyncio
-    async def test_launch_execution_explicit_main_snapshot_requires_git_service(self):
-        engine = _db_engine()
+    async def test_launch_execution_explicit_main_snapshot_requires_git_service(
+        self,
+        tmp_path: Path,
+    ):
+        engine = _db_engine(tmp_path)
         run_id = "main-snapshot-requires-git-run"
         _seed_run(engine, run_id)
 
@@ -498,10 +505,13 @@ class TestRequestedSnapshotSourceOfTruth:
 
 class TestPrepareTimeCancellation:
     @pytest.mark.asyncio
-    async def test_cancel_during_snapshot_read_prevents_execution_from_being_scheduled(self):
+    async def test_cancel_during_snapshot_read_prevents_execution_from_being_scheduled(
+        self,
+        tmp_path: Path,
+    ):
         """A cancel that lands during requested-snapshot loading must win."""
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "cancel-during-read-run"
         _seed_run(engine, run_id)
 
@@ -573,10 +583,13 @@ class TestPrepareTimeCancellation:
         )
 
     @pytest.mark.asyncio
-    async def test_cancel_during_registry_build_prevents_execution_from_being_scheduled(self):
+    async def test_cancel_during_registry_build_prevents_execution_from_being_scheduled(
+        self,
+        tmp_path: Path,
+    ):
         """Cancellation during downstream prepare work must not resurrect the run."""
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "cancel-during-registry-run"
         _seed_run(engine, run_id, workflow_id="prepare-parent-workflow")
 
@@ -650,10 +663,13 @@ class TestPrepareTimeCancellation:
         )
 
     @pytest.mark.asyncio
-    async def test_cancelled_run_stays_cancelled_when_prepare_later_errors(self):
+    async def test_cancelled_run_stays_cancelled_when_prepare_later_errors(
+        self,
+        tmp_path: Path,
+    ):
         """Prepare-time errors after a winning cancel must not rewrite the run to failed."""
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "cancel-before-prepare-error-run"
         _seed_run(engine, run_id)
 
@@ -719,8 +735,10 @@ class TestPrepareTimeCancellation:
 
 
 @pytest.mark.asyncio
-async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens() -> None:
-    engine = _db_engine()
+async def test_cancelled_run_is_not_resurrected_when_queued_execution_slot_opens(
+    tmp_path: Path,
+) -> None:
+    engine = _db_engine(tmp_path)
     run_id = "cancelled-before-start-run"
     _seed_run(engine, run_id)
 
@@ -787,7 +805,7 @@ class TestSnapshotDiscoveryFailsClosed:
         )
         _write_repo_files(repo, {"custom/souls/reviewer.yaml": _working_tree_external_soul()})
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "missing-soul-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
@@ -840,7 +858,7 @@ class TestSnapshotDiscoveryFailsClosed:
         )
         _write_repo_files(repo, {"custom/tools/helper_tool.yaml": _working_tree_tool_definition()})
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "missing-tool-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
@@ -905,7 +923,7 @@ class TestSnapshotDiscoveryFailsClosed:
             },
         )
 
-        engine = _db_engine()
+        engine = _db_engine(tmp_path)
         run_id = "missing-assertion-snapshot-run"
         _seed_run(engine, run_id, workflow_id=workflow_id)
 
@@ -940,8 +958,12 @@ class TestSnapshotDiscoveryFailsClosed:
         )
 
     @pytest.mark.asyncio
-    async def test_launch_execution_logs_requested_ref_when_prepare_fails(self, caplog) -> None:
-        engine = _db_engine()
+    async def test_launch_execution_logs_requested_ref_when_prepare_fails(
+        self,
+        tmp_path: Path,
+        caplog,
+    ) -> None:
+        engine = _db_engine(tmp_path)
         run_id = "prepare-log-context-run"
         workflow_id = "prepare-log-context-workflow"
         requested_ref = "feature/snapshot-review"
