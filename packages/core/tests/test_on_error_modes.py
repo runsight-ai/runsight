@@ -10,7 +10,7 @@ WorkflowBlock accepts an ``on_error`` parameter and WorkflowBlockDef has an
   - child_status="failed" and child_error metadata are produced for caught failures
 
 Expected behavior:
-  1. ``raise`` preserves current behavior (child exception propagates)
+  1. ``raise`` propagates the child exception
   2. ``catch`` produces a normal BlockResult with exit_handle="error"
   3. Parent status and child status remain distinguishable in monitoring
   4. No alternate/legacy error-routing path for callable sub-workflows
@@ -49,28 +49,8 @@ class _FailingBlock:
         self.stateful = False
         self._error_msg = error_msg
 
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, ctx) -> WorkflowState:
         raise RuntimeError(self._error_msg)
-
-
-class _WriterBlock:
-    """Fake block that writes a hard-coded value into results."""
-
-    def __init__(self, block_id: str, *, value: str = "written"):
-        self.block_id = block_id
-        self.retry_config = None
-        self.stateful = False
-        self._value = value
-
-    async def execute(self, state: WorkflowState, **kwargs) -> WorkflowState:
-        return state.model_copy(
-            update={
-                "results": {
-                    **state.results,
-                    self.block_id: BlockResult(output=self._value),
-                },
-            }
-        )
 
 
 def _build_child_workflow(name: str, block: object) -> Workflow:
@@ -88,19 +68,19 @@ def _build_child_workflow(name: str, block: object) -> Workflow:
 
 @pytest.mark.asyncio
 class TestOnErrorModes:
-    """All tests target the new on_error parameter for WorkflowBlock."""
+    """All tests target WorkflowBlock on_error behavior."""
 
     async def test_on_error_raise_propagates_child_exception(self) -> None:
         """
         With on_error="raise" (explicit), the child exception propagates to
         the caller unchanged.
         """
-        child_block = _FailingBlock("fail_block", error_msg="kaboom")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("raise_error_step", error_msg="kaboom")
+        child_workflow = _build_child_workflow("raise_error_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="raise_child_error_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
             on_error="raise",
@@ -119,12 +99,12 @@ class TestOnErrorModes:
         execute() returns a WorkflowState where the BlockResult for this block
         has exit_handle="error".
         """
-        child_block = _FailingBlock("fail_block", error_msg="child exploded")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("catch_error_step", error_msg="child exploded")
+        child_workflow = _build_child_workflow("catch_error_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="caught_child_error_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
             on_error="catch",
@@ -137,7 +117,7 @@ class TestOnErrorModes:
         # Must NOT raise — the error is caught
         result_state = await _exec(wb, parent_state)
 
-        br = result_state.results.get("invoke_child")
+        br = result_state.results.get("caught_child_error_workflow_block")
         assert br is not None, "WorkflowBlock must store its own BlockResult even on catch"
         assert isinstance(br, BlockResult)
         assert br.exit_handle == "error", (
@@ -149,12 +129,12 @@ class TestOnErrorModes:
         With on_error="catch", BlockResult.metadata includes
         child_status="failed" so parent and child status are distinguishable.
         """
-        child_block = _FailingBlock("fail_block")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("metadata_status_failure_step")
+        child_workflow = _build_child_workflow("metadata_status_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="child_status_metadata_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
             on_error="catch",
@@ -166,7 +146,7 @@ class TestOnErrorModes:
 
         result_state = await _exec(wb, parent_state)
 
-        br = result_state.results["invoke_child"]
+        br = result_state.results["child_status_metadata_workflow_block"]
         assert br.metadata is not None, "metadata must be populated on catch"
         assert br.metadata.get("child_status") == "failed", (
             f"child_status must be 'failed', got '{br.metadata.get('child_status')}'"
@@ -177,12 +157,12 @@ class TestOnErrorModes:
         Metadata includes the error message so the parent workflow can inspect
         what went wrong without re-raising.
         """
-        child_block = _FailingBlock("fail_block", error_msg="timeout reached")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("timeout_failure_step", error_msg="timeout reached")
+        child_workflow = _build_child_workflow("error_message_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="child_error_metadata_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
             on_error="catch",
@@ -194,7 +174,7 @@ class TestOnErrorModes:
 
         result_state = await _exec(wb, parent_state)
 
-        br = result_state.results["invoke_child"]
+        br = result_state.results["child_error_metadata_workflow_block"]
         assert br.metadata is not None
         assert "child_error" in br.metadata, "metadata must include 'child_error' key"
         assert "timeout reached" in br.metadata["child_error"], (
@@ -207,14 +187,14 @@ class TestOnErrorModes:
         happen (child state is incomplete/absent). The parent state should
         remain unchanged except for the WorkflowBlock's own BlockResult.
         """
-        child_block = _FailingBlock("writer", error_msg="writer crashed")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("failing_writer_step", error_msg="writer crashed")
+        child_workflow = _build_child_workflow("failed_output_mapping_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="failed_output_mapping_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
-            outputs={"results.analysis": "results.writer"},
+            outputs={"results.analysis": "results.failing_writer_step"},
             on_error="catch",
         )
 
@@ -230,7 +210,7 @@ class TestOnErrorModes:
         )
 
         # But the WorkflowBlock's own result must exist
-        br = result_state.results.get("invoke_child")
+        br = result_state.results.get("failed_output_mapping_workflow_block")
         assert br is not None
         assert br.exit_handle == "error"
 
@@ -239,16 +219,15 @@ class TestOnErrorModes:
         When on_error is NOT specified, the default behavior must be
         identical to on_error="raise" — the child exception propagates.
         """
-        child_block = _FailingBlock("fail_block", error_msg="default should raise")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        child_block = _FailingBlock("default_raise_failure_step", error_msg="default should raise")
+        child_workflow = _build_child_workflow("default_raise_child_workflow", child_block)
 
         # on_error not passed — should default to "raise"
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="default_raise_workflow_block",
+            child_workflow=child_workflow,
             inputs={"topic": "shared_memory.parent_topic"},
             outputs={},
-            on_error="raise",
         )
 
         parent_state = WorkflowState(
@@ -266,7 +245,7 @@ class TestWorkflowBlockDefOnErrorField:
         """WorkflowBlockDef must accept on_error='raise'."""
         block_def = WorkflowBlockDef(
             type="workflow",
-            workflow_ref="child_wf",
+            workflow_ref="on_error_raise_child_workflow",
             on_error="raise",
         )
         assert block_def.on_error == "raise"
@@ -275,7 +254,7 @@ class TestWorkflowBlockDefOnErrorField:
         """WorkflowBlockDef must accept on_error='catch'."""
         block_def = WorkflowBlockDef(
             type="workflow",
-            workflow_ref="child_wf",
+            workflow_ref="on_error_catch_child_workflow",
             on_error="catch",
         )
         assert block_def.on_error == "catch"
@@ -284,7 +263,7 @@ class TestWorkflowBlockDefOnErrorField:
         """When on_error is not specified, the default must be 'raise'."""
         block_def = WorkflowBlockDef(
             type="workflow",
-            workflow_ref="child_wf",
+            workflow_ref="default_on_error_child_workflow",
         )
         assert block_def.on_error == "raise"
 
@@ -298,7 +277,7 @@ class TestWorkflowBlockDefOnErrorField:
         # First, confirm valid values are accepted (field exists)
         valid = WorkflowBlockDef(
             type="workflow",
-            workflow_ref="child_wf",
+            workflow_ref="invalid_on_error_child_workflow",
             on_error="raise",
         )
         assert valid.on_error == "raise"
@@ -307,6 +286,6 @@ class TestWorkflowBlockDefOnErrorField:
         with pytest.raises(ValidationError, match="raise|catch"):
             WorkflowBlockDef(
                 type="workflow",
-                workflow_ref="child_wf",
+                workflow_ref="invalid_on_error_child_workflow",
                 on_error="ignore",
             )
