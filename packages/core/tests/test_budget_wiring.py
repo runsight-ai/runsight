@@ -1,14 +1,4 @@
-"""
-Tests for budget enforcement wiring — parser, entry point, execute_block.
-
-Three parts:
-1. Parser reads `limits:` from YAML and sets `max_duration_seconds` on block instances
-2. Entry point (`Workflow.run`) creates flow-level BudgetSession, sets `_active_budget`
-   contextvar, wraps with `asyncio.wait_for` for flow timeout
-3. `execute_block()` swaps `_active_budget` to block-level session before `_dispatch()`
-
-All tests are expected to FAIL because the wiring has not been implemented yet.
-"""
+"""Budget enforcement wiring across parser, workflow run, and block execution."""
 
 from __future__ import annotations
 
@@ -32,74 +22,74 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 _MINIMAL_YAML_WITH_BLOCK_LIMITS = """\
 version: "1.0"
-id: test-wiring
+id: block_budget_wiring_workflow
 kind: workflow
 souls:
-  test_soul:
-    id: test_soul
+  budget_runner:
+    id: budget_runner
     kind: soul
-    name: Test Soul
-    role: Tester
-    system_prompt: Run tests.
+    name: Budget Runner
+    role: Budget Executor
+    system_prompt: Run budgeted workflow steps.
 blocks:
-  block1:
+  budgeted_step:
     type: linear
-    soul_ref: test_soul
+    soul_ref: budget_runner
     limits:
       max_duration_seconds: 60
       cost_cap_usd: 1.50
       token_cap: 5000
 workflow:
-  name: test_wiring
-  entry: block1
+  name: block_budget_wiring_workflow
+  entry: budgeted_step
   transitions:
-    - from: block1
+    - from: budgeted_step
       to: null
 """
 
 _MINIMAL_YAML_NO_BLOCK_LIMITS = """\
 version: "1.0"
-id: test-no-limits
+id: unlimited_budget_workflow
 kind: workflow
 souls:
-  test_soul:
-    id: test_soul
+  budget_runner:
+    id: budget_runner
     kind: soul
-    name: Test Soul
-    role: Tester
-    system_prompt: Run tests.
+    name: Budget Runner
+    role: Budget Executor
+    system_prompt: Run budgeted workflow steps.
 blocks:
-  block1:
+  budgeted_step:
     type: linear
-    soul_ref: test_soul
+    soul_ref: budget_runner
 workflow:
-  name: test_no_limits
-  entry: block1
+  name: unlimited_budget_workflow
+  entry: budgeted_step
   transitions:
-    - from: block1
+    - from: budgeted_step
       to: null
 """
 
 _MINIMAL_YAML_WITH_FLOW_LIMITS = """\
 version: "1.0"
-id: test-flow-limits
+id: flow_budget_limits_workflow
 kind: workflow
 souls:
-  test_soul:
-    id: test_soul
+  budget_runner:
+    id: budget_runner
     kind: soul
-    name: Test Soul
-    role: Tester
-    system_prompt: Run tests.
+    name: Budget Runner
+    role: Budget Executor
+    system_prompt: Run budgeted workflow steps.
 blocks:
-  block1:
+  budgeted_step:
     type: linear
-    soul_ref: test_soul
+    soul_ref: budget_runner
 workflow:
-  name: test_flow_limits
-  entry: block1
+  name: flow_budget_limits_workflow
+  entry: budgeted_step
   transitions:
-    - from: block1
+    - from: budgeted_step
       to: null
 limits:
   max_duration_seconds: 300
@@ -109,27 +99,27 @@ limits:
 
 _MINIMAL_YAML_BOTH_LIMITS = """\
 version: "1.0"
-id: test-both-limits
+id: nested_budget_limits_workflow
 kind: workflow
 souls:
-  test_soul:
-    id: test_soul
+  budget_runner:
+    id: budget_runner
     kind: soul
-    name: Test Soul
-    role: Tester
-    system_prompt: Run tests.
+    name: Budget Runner
+    role: Budget Executor
+    system_prompt: Run budgeted workflow steps.
 blocks:
-  block1:
+  budgeted_step:
     type: linear
-    soul_ref: test_soul
+    soul_ref: budget_runner
     limits:
       max_duration_seconds: 60
       cost_cap_usd: 1.50
 workflow:
-  name: test_both_limits
-  entry: block1
+  name: nested_budget_limits_workflow
+  entry: budgeted_step
   transitions:
-    - from: block1
+    - from: budgeted_step
       to: null
 limits:
   max_duration_seconds: 600
@@ -196,7 +186,7 @@ class TestParserBridgesBlockLimits:
         """When block_def has limits.max_duration_seconds=60,
         the built block has block.max_duration_seconds == 60."""
         wf = parse_workflow_yaml(_MINIMAL_YAML_WITH_BLOCK_LIMITS)
-        block = wf._blocks["block1"]
+        block = wf._blocks["budgeted_step"]
         # Unwrap Step wrapper if present
         inner = getattr(block, "block", block)
         # Unwrap IsolatedBlockWrapper if present
@@ -207,7 +197,7 @@ class TestParserBridgesBlockLimits:
         """When block_def has no limits, getattr(block, 'max_duration_seconds', None)
         returns None."""
         wf = parse_workflow_yaml(_MINIMAL_YAML_NO_BLOCK_LIMITS)
-        block = wf._blocks["block1"]
+        block = wf._blocks["budgeted_step"]
         inner = getattr(block, "block", block)
         inner = getattr(inner, "inner_block", inner)
         assert getattr(inner, "max_duration_seconds", None) is None
@@ -215,7 +205,7 @@ class TestParserBridgesBlockLimits:
     def test_block_limits_cost_cap_bridged(self):
         """Parser should also bridge cost_cap_usd from limits to the block."""
         wf = parse_workflow_yaml(_MINIMAL_YAML_WITH_BLOCK_LIMITS)
-        block = wf._blocks["block1"]
+        block = wf._blocks["budgeted_step"]
         inner = getattr(block, "block", block)
         inner = getattr(inner, "inner_block", inner)
         # The block should carry the full limits for BudgetSession creation
@@ -226,7 +216,7 @@ class TestParserBridgesBlockLimits:
     def test_block_limits_token_cap_bridged(self):
         """Parser should bridge token_cap from limits to the block."""
         wf = parse_workflow_yaml(_MINIMAL_YAML_WITH_BLOCK_LIMITS)
-        block = wf._blocks["block1"]
+        block = wf._blocks["budgeted_step"]
         inner = getattr(block, "block", block)
         inner = getattr(inner, "inner_block", inner)
         limits = getattr(inner, "limits", None)
@@ -246,10 +236,10 @@ class TestFlowLevelBudgetSession:
     async def test_active_budget_set_during_block_execution_when_flow_has_limits(self):
         """When workflow has limits, _active_budget should be a BudgetSession
         during block execution."""
-        wf = Workflow(name="flow_budget_test")
-        block = InstantBlock("block1")
+        wf = Workflow(name="flow_budget_workflow")
+        block = InstantBlock("budgeted_step")
         wf.add_block(block)
-        wf.set_entry("block1")
+        wf.set_entry("budgeted_step")
 
         # Simulate the flow-level limits by attaching them to the workflow
         from runsight_core.yaml.schema import WorkflowLimitsDef
@@ -265,10 +255,10 @@ class TestFlowLevelBudgetSession:
     @pytest.mark.asyncio
     async def test_active_budget_is_none_when_no_flow_limits(self):
         """When workflow has no limits, _active_budget should stay None."""
-        wf = Workflow(name="no_limits_test")
-        block = InstantBlock("block1")
+        wf = Workflow(name="unlimited_budget_workflow")
+        block = InstantBlock("budgeted_step")
         wf.add_block(block)
-        wf.set_entry("block1")
+        wf.set_entry("budgeted_step")
 
         state = WorkflowState()
         await wf.run(state)
@@ -280,10 +270,10 @@ class TestFlowLevelBudgetSession:
     async def test_active_budget_reset_after_workflow_run(self):
         """_active_budget contextvar should be reset (to None) after Workflow.run()
         completes, even on success."""
-        wf = Workflow(name="reset_test")
-        block = InstantBlock("block1")
+        wf = Workflow(name="reset_budget_workflow")
+        block = InstantBlock("budgeted_step")
         wf.add_block(block)
-        wf.set_entry("block1")
+        wf.set_entry("budgeted_step")
 
         from runsight_core.yaml.schema import WorkflowLimitsDef
 
@@ -299,9 +289,9 @@ class TestFlowLevelBudgetSession:
     async def test_flow_session_scope_name_contains_workflow_name(self):
         """The flow-level BudgetSession scope_name should contain the workflow name."""
         wf = Workflow(name="scoped_pipeline")
-        block = InstantBlock("block1")
+        block = InstantBlock("budgeted_step")
         wf.add_block(block)
-        wf.set_entry("block1")
+        wf.set_entry("budgeted_step")
 
         from runsight_core.yaml.schema import WorkflowLimitsDef
 
@@ -341,9 +331,9 @@ class TestFlowLevelBudgetSession:
         """When workflow limits exist but max_duration_seconds is None,
         no asyncio.wait_for wrapping happens."""
         wf = Workflow(name="no_timeout_flow")
-        block = InstantBlock("block1")
+        block = InstantBlock("budgeted_step")
         wf.add_block(block)
-        wf.set_entry("block1")
+        wf.set_entry("budgeted_step")
 
         from runsight_core.yaml.schema import WorkflowLimitsDef
 
@@ -353,7 +343,7 @@ class TestFlowLevelBudgetSession:
         state = WorkflowState()
         result = await wf.run(state)
 
-        assert result.results["block1"].output == "done"
+        assert result.results["budgeted_step"].output == "done"
 
 
 # ===========================================================================
@@ -543,7 +533,7 @@ class TestEndToEndBudgetWiring:
         assert flow_limits.max_duration_seconds == 600
 
         # Block-level limits should be on the block
-        block = wf._blocks["block1"]
+        block = wf._blocks["budgeted_step"]
         inner = getattr(block, "block", block)
         inner = getattr(inner, "inner_block", inner)
         block_limits = getattr(inner, "limits", None)

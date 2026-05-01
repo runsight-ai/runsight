@@ -243,9 +243,9 @@ describe("NodeCard — interactive-default token for port handles", () => {
 describe("EmptyState — text-muted token for icon color", () => {
   it("uses text-muted token for icon color (not generic Tailwind)", () => {
     const source = readShared("EmptyState.tsx");
-    // text-muted is present in current code but via generic usage;
+    // text-muted is present through generic usage;
     // this test ensures it's the DS token applied correctly to the icon element
-    // The icon currently uses 'text-muted' — passes; deeper checks below enforce DS tokens
+    // The icon uses 'text-muted'; deeper checks below enforce DS tokens.
     expect(source).toMatch(/text-muted/);
   });
 });
