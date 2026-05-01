@@ -1,10 +1,10 @@
-"""Governance tests for API execution preparation database fixture isolation.
+"""Governance tests for API execution transport database fixture isolation.
 
 Owner: tools/tests owns temporary static checks for API test isolation cleanup.
-Boundary: the API execution preparation suite may use pytest-owned tmp_path
-fixtures for git repository setup, but DB setup helpers must not allocate
-unmanaged file-backed databases through tempfile helpers.
-Exit criteria: delete this suite once execution preparation database state is
+Boundary: the API execution transport integration suite may use tempfile-backed
+workspace setup for non-DB runtime fixtures, but its DB setup fixture must not
+allocate unmanaged file-backed databases outside pytest-owned lifecycle state.
+Exit criteria: delete this suite once execution transport database state is
 owned by pytest lifecycle fixtures, or by an explicit in-memory database, and
 the API package suite covers that ownership directly.
 """
@@ -18,10 +18,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-EXECUTION_PREPARATION_TEST = (
-    REPO_ROOT / "apps" / "api" / "tests" / "logic" / "test_execution_preparation.py"
+EXECUTION_TRANSPORT_TEST = (
+    REPO_ROOT / "apps" / "api" / "tests" / "test_execution_transport_integration.py"
 )
-DB_SETUP_HELPERS = frozenset({"_db_engine"})
+DB_SETUP_FIXTURES = frozenset({"db_engine"})
 UNMANAGED_TEMPFILE_FACTORIES = frozenset({"mkdtemp", "TemporaryDirectory", "NamedTemporaryFile"})
 
 pytestmark = pytest.mark.governance
@@ -35,7 +35,7 @@ class TempfileImport:
 
 @dataclass(frozen=True)
 class UnmanagedTempfileUsage:
-    helper_name: str
+    fixture_name: str
     line_number: int
     factory_name: str
 
@@ -97,7 +97,7 @@ def _called_tempfile_factory(
     return None
 
 
-def _db_setup_tempfile_usages(path: Path) -> list[UnmanagedTempfileUsage]:
+def _db_fixture_tempfile_usages(path: Path) -> list[UnmanagedTempfileUsage]:
     tree = _source_tree(path)
     tempfile_imports = _tempfile_imports(tree)
     usages: list[UnmanagedTempfileUsage] = []
@@ -105,7 +105,7 @@ def _db_setup_tempfile_usages(path: Path) -> list[UnmanagedTempfileUsage]:
     for statement in tree.body:
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if statement.name not in DB_SETUP_HELPERS:
+        if statement.name not in DB_SETUP_FIXTURES:
             continue
 
         for node in ast.walk(statement):
@@ -116,7 +116,7 @@ def _db_setup_tempfile_usages(path: Path) -> list[UnmanagedTempfileUsage]:
                 continue
             usages.append(
                 UnmanagedTempfileUsage(
-                    helper_name=statement.name,
+                    fixture_name=statement.name,
                     line_number=node.lineno,
                     factory_name=factory_name,
                 )
@@ -125,17 +125,18 @@ def _db_setup_tempfile_usages(path: Path) -> list[UnmanagedTempfileUsage]:
     return usages
 
 
-def test_api_execution_preparation_db_setup_uses_pytest_owned_isolation() -> None:
-    """Owner/boundary/exit: DB setup must use pytest-owned or in-memory state."""
-    usages = _db_setup_tempfile_usages(EXECUTION_PREPARATION_TEST)
+def test_api_execution_transport_db_fixture_uses_pytest_owned_isolation() -> None:
+    """Owner/boundary/exit: transport DB setup must use pytest-owned or in-memory state."""
+    usages = _db_fixture_tempfile_usages(EXECUTION_TRANSPORT_TEST)
 
     assert usages == [], (
-        f"{_relative(EXECUTION_PREPARATION_TEST)} DB setup helpers must not create "
+        f"{_relative(EXECUTION_TRANSPORT_TEST)} DB setup fixtures must not create "
         "unmanaged file-backed test databases with tempfile factories. Pass tmp_path "
-        "into the DB helper/test, or use an explicit in-memory DB when compatible. "
-        "Pytest tmp_path fixtures used for git repository setup are allowed. Found:\n"
+        "into the db_engine fixture/test, or use an explicit in-memory DB when "
+        "compatible. tempfile.TemporaryDirectory in the base_dir fixture remains "
+        "outside this DB isolation check. Found:\n"
         + "\n".join(
-            f"  - {usage.helper_name} calls {usage.factory_name} at line {usage.line_number}"
+            f"  - {usage.fixture_name} calls {usage.factory_name} at line {usage.line_number}"
             for usage in usages
         )
     )

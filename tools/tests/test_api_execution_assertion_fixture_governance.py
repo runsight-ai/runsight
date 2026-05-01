@@ -54,7 +54,7 @@ def _assignment_targets(statement: ast.Assign | ast.AnnAssign) -> list[str]:
 
 
 def _string_assignment_value(statement: ast.stmt) -> str | None:
-    if not isinstance(statement, ast.Assign | ast.AnnAssign):
+    if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
         return None
     if not isinstance(statement.value, ast.Constant) or not isinstance(statement.value.value, str):
         return None

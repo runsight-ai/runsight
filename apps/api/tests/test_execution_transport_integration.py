@@ -267,14 +267,15 @@ def _clear_provider_secret_env(monkeypatch):
 
 
 @pytest.fixture
-def db_engine():
-    db_path = Path(tempfile.mkdtemp(prefix="execution-transport-db-")) / "runsight.db"
+def db_engine(tmp_path: Path):
+    db_path = tmp_path / "runsight.db"
     engine = create_engine(
         f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
     )
     SQLModel.metadata.create_all(engine)
-    return engine
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture
