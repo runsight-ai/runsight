@@ -47,26 +47,21 @@ def mock_runner():
 
 
 @pytest.fixture
-def sample_soul():
+def analysis_soul():
     return Soul(
         id="analysis_soul",
         kind="soul",
-        name="Test",
+        name="Analysis Soul",
         role="Analyst",
         system_prompt="You analyze things.",
     )
 
 
 @pytest.fixture
-def sample_task():
-    return {"instruction": "Summarize the data"}
-
-
-@pytest.fixture
-def block_execution_ctx(mock_runner, sample_soul):
+def block_execution_ctx():
     """Minimal BlockExecutionContext for execute_block dispatch tests."""
     return BlockExecutionContext(
-        workflow_name="test_workflow",
+        workflow_name="linear_dispatch_workflow",
         blocks={},
         call_stack=[],
         workflow_registry=None,
@@ -91,7 +86,7 @@ def _make_minimal_block_context(block_id: str, soul: Soul, instruction: str) -> 
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_accepts_block_context(mock_runner, sample_soul):
+async def test_linearblock_execute_accepts_block_context(mock_runner, analysis_soul):
     """LinearBlock.execute must accept a BlockContext argument and return BlockOutput."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -101,19 +96,19 @@ async def test_linearblock_execute_accepts_block_context(mock_runner, sample_sou
         total_tokens=100,
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize the data")
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize the data")
 
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput), (
         f"Expected BlockOutput but got {type(result).__name__}. "
-        "LinearBlock.execute must return BlockOutput after the migration."
+        "LinearBlock.execute must return BlockOutput under the execution contract."
     )
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_output_contains_llm_response(mock_runner, sample_soul):
+async def test_linearblock_execute_output_contains_llm_response(mock_runner, analysis_soul):
     """BlockOutput.output must contain the LLM response string."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -121,8 +116,8 @@ async def test_linearblock_execute_output_contains_llm_response(mock_runner, sam
         output="The final analysis.",
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize")
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize")
 
     result = await block.execute(ctx)
 
@@ -131,7 +126,7 @@ async def test_linearblock_execute_output_contains_llm_response(mock_runner, sam
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_populates_cost_and_tokens(mock_runner, sample_soul):
+async def test_linearblock_execute_populates_cost_and_tokens(mock_runner, analysis_soul):
     """BlockOutput.cost_usd and total_tokens must be populated from ExecutionResult."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -141,8 +136,8 @@ async def test_linearblock_execute_populates_cost_and_tokens(mock_runner, sample
         total_tokens=500,
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize")
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize")
 
     result = await block.execute(ctx)
 
@@ -152,7 +147,7 @@ async def test_linearblock_execute_populates_cost_and_tokens(mock_runner, sample
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_log_entries_contain_block_id(mock_runner, sample_soul):
+async def test_linearblock_execute_log_entries_contain_block_id(mock_runner, analysis_soul):
     """BlockOutput.log_entries must contain at least one entry referencing the block_id."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -160,15 +155,15 @@ async def test_linearblock_execute_log_entries_contain_block_id(mock_runner, sam
         output="Analysis done.",
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize")
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize")
 
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput)
     assert len(result.log_entries) >= 1
-    assert any("analyze" in entry.get("content", "") for entry in result.log_entries), (
-        "Expected log_entries to contain an entry referencing block_id 'analyze'"
+    assert any("analysis_block" in entry.get("content", "") for entry in result.log_entries), (
+        "Expected log_entries to contain an entry referencing block_id 'analysis_block'"
     )
 
 
@@ -176,7 +171,7 @@ async def test_linearblock_execute_log_entries_contain_block_id(mock_runner, sam
 
 
 @pytest.mark.asyncio
-async def test_linearblock_execute_returns_data_not_state(mock_runner, sample_soul):
+async def test_linearblock_execute_returns_data_not_state(mock_runner, analysis_soul):
     """BlockOutput is a pure data object with no state mutation surface."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -184,8 +179,8 @@ async def test_linearblock_execute_returns_data_not_state(mock_runner, sample_so
         output="Result.",
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize")
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize")
 
     result = await block.execute(ctx)
 
@@ -202,8 +197,8 @@ async def test_linearblock_execute_returns_data_not_state(mock_runner, sample_so
 
 
 @pytest.mark.asyncio
-async def test_execute_block_uses_new_path_for_linearblock(
-    mock_runner, sample_soul, sample_task, block_execution_ctx
+async def test_execute_block_dispatches_linearblock_via_block_context(
+    mock_runner, analysis_soul, block_execution_ctx
 ):
     """execute_block must route LinearBlock through build_block_context + apply_block_output."""
     mock_runner.execute.return_value = ExecutionResult(
@@ -214,10 +209,10 @@ async def test_execute_block_uses_new_path_for_linearblock(
         total_tokens=200,
     )
 
-    block = LinearBlock("analysis_linear", sample_soul, mock_runner)
+    block = LinearBlock("analysis_linear", analysis_soul, mock_runner)
     state = WorkflowState()
 
-    # Patch build_block_context to verify it's called (new path)
+    # Patch build_block_context to verify dispatch uses BlockContext.
     with patch(
         "runsight_core.workflow.build_block_context",
         wraps=build_block_context,
@@ -225,7 +220,7 @@ async def test_execute_block_uses_new_path_for_linearblock(
         result_state = await execute_block(block, state, block_execution_ctx)
 
     assert mock_build_ctx.called, (
-        "execute_block must call build_block_context for LinearBlock (new dispatch path)"
+        "execute_block must call build_block_context for LinearBlock dispatch"
     )
     # Outer contract: still returns WorkflowState
     assert isinstance(result_state, WorkflowState)
@@ -233,8 +228,8 @@ async def test_execute_block_uses_new_path_for_linearblock(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_uses_new_path_for_gate_block(
-    mock_runner, sample_soul, block_execution_ctx
+async def test_execute_block_dispatches_gateblock_via_block_context(
+    mock_runner, analysis_soul, block_execution_ctx
 ):
     """execute_block must use the BlockContext path for GateBlock."""
     from runsight_core.blocks.gate import GateBlock
@@ -245,7 +240,7 @@ async def test_execute_block_uses_new_path_for_gate_block(
         output="PASS",
     )
 
-    gate_block = GateBlock("approval_gate", sample_soul, "prior_block", mock_runner)
+    gate_block = GateBlock("approval_gate", analysis_soul, "prior_block", mock_runner)
     state = WorkflowState(
         results={"prior_block": BlockResult(output="Some content to evaluate")},
     )
@@ -257,13 +252,13 @@ async def test_execute_block_uses_new_path_for_gate_block(
         result_state = await execute_block(gate_block, state, block_execution_ctx)
 
     assert mock_build_ctx.called, (
-        "execute_block must call build_block_context for GateBlock (new dispatch path)"
+        "execute_block must call build_block_context for GateBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
 
 
 @pytest.mark.asyncio
-async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_soul):
+async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, analysis_soul):
     """A workflow containing both LinearBlock and GateBlock should work end-to-end.
 
     LinearBlock and GateBlock both use build_block_context and produce the
@@ -289,8 +284,8 @@ async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_
         ),
     ]
 
-    linear_block = LinearBlock("research", sample_soul, mock_runner)
-    gate_block = GateBlock("quality_gate", sample_soul, "research", mock_runner)
+    linear_block = LinearBlock("research", analysis_soul, mock_runner)
+    gate_block = GateBlock("quality_gate", analysis_soul, "research", mock_runner)
 
     workflow = Workflow("mixed_workflow")
     workflow.add_block(linear_block)
@@ -318,7 +313,7 @@ async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_
     assert "quality_gate" in final_state.results
 
     assert "research" in build_ctx_calls, (
-        "build_block_context must be called for LinearBlock in mixed workflow (new path)"
+        "build_block_context must be called for LinearBlock in mixed workflow"
     )
     assert "quality_gate" in build_ctx_calls, (
         "build_block_context must be called for GateBlock in mixed workflow"
@@ -329,11 +324,11 @@ async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, sample_
 
 
 @pytest.mark.asyncio
-async def test_stateful_history_round_trip_via_block_context(mock_runner, sample_soul):
-    """BlockOutput.conversation_updates must contain updated history from BlockContext.
+async def test_stateful_history_round_trip_via_block_context(mock_runner, analysis_soul):
+    """BlockOutput.conversation_replacements must contain updated history from BlockContext.
 
     When a stateful LinearBlock receives existing history via BlockContext,
-    it must return BlockOutput with conversation_updates containing original + new pair.
+    it must return BlockOutput with conversation_replacements containing original + new pair.
     """
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -346,16 +341,16 @@ async def test_stateful_history_round_trip_via_block_context(mock_runner, sample
         {"role": "assistant", "content": "First response"},
     ]
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
     block.stateful = True
 
     ctx = BlockContext(
-        block_id="analyze",
+        block_id="analysis_block",
         instruction="Summarize again",
         context=None,
         inputs={},
         conversation_history=prior_history,
-        soul=sample_soul,
+        soul=analysis_soul,
         model_name=UNSET_MODEL_SENTINEL,
     )
 
@@ -366,7 +361,7 @@ async def test_stateful_history_round_trip_via_block_context(mock_runner, sample
         "Stateful LinearBlock must set conversation_replacements on BlockOutput"
     )
 
-    history_key = f"analyze_{sample_soul.id}"
+    history_key = f"analysis_block_{analysis_soul.id}"
     assert history_key in result.conversation_replacements, (
         f"Expected conversation_replacements to contain key '{history_key}'"
     )
@@ -380,9 +375,9 @@ async def test_stateful_history_round_trip_via_block_context(mock_runner, sample
 
 
 @pytest.mark.asyncio
-async def test_stateful_history_applied_via_apply_block_output(mock_runner, sample_soul):
+async def test_stateful_history_applied_via_apply_block_output(mock_runner, analysis_soul):
     """apply_block_output must correctly extend state.conversation_histories
-    from BlockOutput.conversation_updates (verifying full round-trip).
+    from BlockOutput.conversation_replacements (verifying full round-trip).
     """
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -394,18 +389,18 @@ async def test_stateful_history_applied_via_apply_block_output(mock_runner, samp
         {"role": "user", "content": "First prompt"},
         {"role": "assistant", "content": "First response"},
     ]
-    history_key = f"analyze_{sample_soul.id}"
+    history_key = f"analysis_block_{analysis_soul.id}"
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
     block.stateful = True
 
     ctx = BlockContext(
-        block_id="analyze",
+        block_id="analysis_block",
         instruction="Summarize again",
         context=None,
         inputs={},
         conversation_history=prior_history,
-        soul=sample_soul,
+        soul=analysis_soul,
         model_name=UNSET_MODEL_SENTINEL,
     )
 
@@ -416,7 +411,7 @@ async def test_stateful_history_applied_via_apply_block_output(mock_runner, samp
     initial_state = WorkflowState(
         conversation_histories={history_key: prior_history},
     )
-    new_state = apply_block_output(initial_state, "analyze", result)
+    new_state = apply_block_output(initial_state, "analysis_block", result)
 
     assert history_key in new_state.conversation_histories
     final_history = new_state.conversation_histories[history_key]
@@ -429,7 +424,7 @@ async def test_stateful_history_applied_via_apply_block_output(mock_runner, samp
 
 
 @pytest.mark.asyncio
-async def test_non_stateful_block_no_conversation_updates(mock_runner, sample_soul):
+async def test_non_stateful_block_no_conversation_updates(mock_runner, analysis_soul):
     """Non-stateful LinearBlock must return BlockOutput with conversation_updates=None."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="analysis-task",
@@ -437,10 +432,10 @@ async def test_non_stateful_block_no_conversation_updates(mock_runner, sample_so
         output="Output.",
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
     assert block.stateful is False
 
-    ctx = _make_minimal_block_context("analyze", sample_soul, "Summarize")
+    ctx = _make_minimal_block_context("analysis_block", analysis_soul, "Summarize")
     result = await block.execute(ctx)
 
     assert isinstance(result, BlockOutput)
@@ -454,9 +449,9 @@ async def test_non_stateful_block_no_conversation_updates(mock_runner, sample_so
 
 @pytest.mark.asyncio
 async def test_execute_block_linearblock_maps_cost_to_state(
-    mock_runner, sample_soul, sample_task, block_execution_ctx
+    mock_runner, analysis_soul, block_execution_ctx
 ):
-    """execute_block must accumulate cost_usd via apply_block_output (new path) for LinearBlock.
+    """execute_block must accumulate cost_usd via apply_block_output for LinearBlock.
 
     Verifies that apply_block_output is called in the dispatch path for LinearBlock.
     """
@@ -468,7 +463,7 @@ async def test_execute_block_linearblock_maps_cost_to_state(
         total_tokens=500,
     )
 
-    block = LinearBlock("analyze", sample_soul, mock_runner)
+    block = LinearBlock("analysis_block", analysis_soul, mock_runner)
     state = WorkflowState(total_cost_usd=0.10, total_tokens=100)
 
     apply_calls = []
@@ -481,8 +476,8 @@ async def test_execute_block_linearblock_maps_cost_to_state(
     with patch("runsight_core.workflow.apply_block_output", side_effect=tracking_apply):
         result_state = await execute_block(block, state, block_execution_ctx)
 
-    assert "analyze" in apply_calls, (
-        "execute_block must call apply_block_output for LinearBlock (new dispatch path)"
+    assert "analysis_block" in apply_calls, (
+        "execute_block must call apply_block_output for LinearBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
     assert result_state.total_cost_usd == pytest.approx(0.15)
@@ -491,7 +486,7 @@ async def test_execute_block_linearblock_maps_cost_to_state(
 
 @pytest.mark.asyncio
 async def test_execute_block_linearblock_maps_result_to_state(
-    mock_runner, sample_soul, sample_task, block_execution_ctx
+    mock_runner, analysis_soul, block_execution_ctx
 ):
     """execute_block must store BlockOutput.output in state.results via apply_block_output."""
     mock_runner.execute.return_value = ExecutionResult(
@@ -500,7 +495,7 @@ async def test_execute_block_linearblock_maps_result_to_state(
         output="Research findings here.",
     )
 
-    block = LinearBlock("research", sample_soul, mock_runner)
+    block = LinearBlock("research", analysis_soul, mock_runner)
     state = WorkflowState()
 
     apply_calls = []
@@ -521,7 +516,7 @@ async def test_execute_block_linearblock_maps_result_to_state(
 
 @pytest.mark.asyncio
 async def test_execute_block_linearblock_maps_log_to_state(
-    mock_runner, sample_soul, sample_task, block_execution_ctx
+    mock_runner, analysis_soul, block_execution_ctx
 ):
     """execute_block must extend state.execution_log via apply_block_output for LinearBlock."""
     mock_runner.execute.return_value = ExecutionResult(
@@ -530,7 +525,7 @@ async def test_execute_block_linearblock_maps_log_to_state(
         output="Log test output.",
     )
 
-    block = LinearBlock("logblock", sample_soul, mock_runner)
+    block = LinearBlock("log_capture_block", analysis_soul, mock_runner)
     state = WorkflowState(
         execution_log=[{"role": "system", "content": "Prior log entry"}],
     )
@@ -545,17 +540,17 @@ async def test_execute_block_linearblock_maps_log_to_state(
     with patch("runsight_core.workflow.apply_block_output", side_effect=tracking_apply):
         result_state = await execute_block(block, state, block_execution_ctx)
 
-    assert "logblock" in apply_calls, (
-        "execute_block must call apply_block_output for LinearBlock (new dispatch path)"
+    assert "log_capture_block" in apply_calls, (
+        "execute_block must call apply_block_output for LinearBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
     assert len(result_state.execution_log) >= 2
     assert result_state.execution_log[0]["content"] == "Prior log entry"
-    assert any("logblock" in e.get("content", "") for e in result_state.execution_log[1:])
+    assert any("log_capture_block" in e.get("content", "") for e in result_state.execution_log[1:])
 
 
 @pytest.mark.asyncio
-async def test_execute_block_calls_build_block_context_for_gate(mock_runner, sample_soul):
+async def test_execute_block_calls_build_block_context_for_gate(mock_runner, analysis_soul):
     """GateBlock goes through build_block_context dispatch."""
     from runsight_core.blocks.gate import GateBlock
 
@@ -565,12 +560,12 @@ async def test_execute_block_calls_build_block_context_for_gate(mock_runner, sam
         output="PASS",
     )
 
-    gate_block = GateBlock("approval_gate", sample_soul, "prior", mock_runner)
+    gate_block = GateBlock("approval_gate", analysis_soul, "prior", mock_runner)
     state = WorkflowState(
         results={"prior": BlockResult(output="Content")},
     )
     ctx = BlockExecutionContext(
-        workflow_name="test",
+        workflow_name="gate_dispatch_workflow",
         blocks={"approval_gate": gate_block},
         call_stack=[],
         workflow_registry=None,
