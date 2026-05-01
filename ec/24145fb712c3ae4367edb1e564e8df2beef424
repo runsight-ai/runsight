@@ -1,0 +1,74 @@
+packages/core/tests/test_integration_state_blocks.py
+  4adca821c1af8eb3 74,84
+packages/core/tests/test_loop_no_current_task.py
+  4adca821c1af8eb3 5
+packages/core/tests/test_test_safety_governance.py
+  4adca821c1af8eb3 1-9,14,17,60-73,81-88,211-313,495-572
+packages/core/tests/test_nested_loopblock_observer.py
+  4adca821c1af8eb3 2
+packages/core/tests/unit/test_tool_governance_validation_result.py
+  21dc8fac2b2e2e55 26,35
+packages/core/tests/test_gateblock_migration.py
+  4adca821c1af8eb3 605-606,679-680
+packages/core/tests/test_retryblock_migration.py
+  4adca821c1af8eb3 3-8
+packages/core/tests/test_dispatchblock_migration.py
+  4adca821c1af8eb3 3-9
+packages/core/tests/test_library_soul_tool_governance.py
+  4adca821c1af8eb3 6-11
+packages/core/tests/test_codeblock_migration.py
+  4adca821c1af8eb3 3-8
+packages/core/tests/test_special_context_governance.py
+  4adca821c1af8eb3 8-14
+packages/core/tests/test_tool_parse_validation.py
+  4adca821c1af8eb3 114
+packages/core/tests/test_custom_asset_tool_contract.py
+  4adca821c1af8eb3 1-9
+packages/core/tests/test_codeblock_access_governance.py
+  4adca821c1af8eb3 6-11
+packages/core/tests/test_block_io.py
+  4adca821c1af8eb3 37,127
+apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py
+  21dc8fac2b2e2e55 1-9
+packages/core/tests/test_task_removal_governance.py
+  21dc8fac2b2e2e55 6-11
+packages/core/tests/test_windowing.py
+  4adca821c1af8eb3 217
+packages/core/tests/unit/test_resolve_next_exit_handle.py
+  4adca821c1af8eb3 289
+packages/core/tests/test_block_io_context_governance.py
+  21dc8fac2b2e2e55 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ec24145fb712c3ae4367edb1e564e8df2beef424",
+  "prompts": {
+    "21dc8fac2b2e2e55": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3f3-8d7c-7720-b4a7-256217cece3b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 3,
+      "accepted_lines": 24,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 284,
+      "total_deletions": 20,
+      "accepted_lines": 57950,
+      "overriden_lines": 0
+    }
+  }
+}
