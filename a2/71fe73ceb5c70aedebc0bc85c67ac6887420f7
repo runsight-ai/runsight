@@ -1,0 +1,67 @@
+packages/core/tests/fixtures/eval/unknown-transform-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/fixtures/eval/all-fail-test.yaml
+  4adca821c1af8eb3 1-34
+packages/core/tests/fixtures/eval/transform-eval-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/fixtures/eval/missing-path-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/fixtures/eval/normal-execution-ignores-eval.yaml
+  4adca821c1af8eb3 1-30
+packages/core/tests/fixtures/eval/mixed-transform-test.yaml
+  4adca821c1af8eb3 1-30
+packages/core/tests/fixtures/eval/transform-reject-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/fixtures/eval/mixed-case-eval.yaml
+  4adca821c1af8eb3 1-43
+packages/core/tests/fixtures/eval/mixed-test.yaml
+  4adca821c1af8eb3 1-34
+packages/core/tests/fixtures/eval/custom-assertion-test.yaml
+  4adca821c1af8eb3 1-26
+packages/core/tests/fixtures/eval/multi-exec-test.yaml
+  4adca821c1af8eb3 1-34
+packages/core/tests/fixtures/eval/threshold-test.yaml
+  4adca821c1af8eb3 1-38
+packages/core/tests/fixtures/eval/multi-block-eval.yaml
+  4adca821c1af8eb3 1-37
+packages/core/tests/fixtures/eval/research-pipeline.yaml
+  4adca821c1af8eb3 1-48
+packages/core/tests/test_eval_fixture_mode_integration.py
+  4adca821c1af8eb3 1-509
+packages/core/tests/fixtures/eval/unknown-type-test.yaml
+  4adca821c1af8eb3 1-26
+packages/core/tests/fixtures/eval/json-fail-test.yaml
+  4adca821c1af8eb3 1-27
+packages/core/tests/fixtures/eval/bad-transform-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/fixtures/eval/boundary-test.yaml
+  4adca821c1af8eb3 1-34
+packages/core/tests/fixtures/eval/executor-test.yaml
+  4adca821c1af8eb3 1-27
+packages/core/tests/fixtures/eval/malformed-transform-test.yaml
+  4adca821c1af8eb3 1-28
+packages/core/tests/test_eval_runner_integration.py
+  4adca821c1af8eb3 1-365
+packages/core/tests/fixtures/eval/fixture-transform-pipeline.yaml
+  4adca821c1af8eb3 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a271fe73ceb5c70aedebc0bc85c67ac6887420f7",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2433,
+      "total_deletions": 895,
+      "accepted_lines": 61014,
+      "overriden_lines": 0
+    }
+  }
+}
