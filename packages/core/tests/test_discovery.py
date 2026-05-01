@@ -337,7 +337,7 @@ class TestDiscoverCustomTools:
                     - user_id
                 request:
                   method: GET
-                  url: https://example.com/users/{{ user_id }}
+                  url: https://fixture.test/users/{{ user_id }}
                   headers:
                     X-Test: runsight
                   response_path: data.id
@@ -361,7 +361,7 @@ class TestDiscoverCustomTools:
             assert discovered["request_lookup_embedded"].type == "custom"
             assert discovered["request_lookup_embedded"].executor == "request"
             assert discovered["request_lookup_embedded"].request["url"] == (
-                "https://example.com/users/{{ user_id }}"
+                "https://fixture.test/users/{{ user_id }}"
             )
 
     def test_legacy_type_http_is_rejected_with_file_specific_error(self):
@@ -596,7 +596,7 @@ class TestDiscoverCustomTools:
                       return args
                 request:
                   method: GET
-                  url: https://example.com/users/{{ user_id }}
+                  url: https://fixture.test/users/{{ user_id }}
                 """)
             )
 
@@ -625,7 +625,7 @@ class TestDiscoverCustomTools:
                   type: object
                 request:
                   method: GET
-                  url: https://example.com/users/{{ user_id }}
+                  url: https://fixture.test/users/{{ user_id }}
                 code: |
                   def main(args):
                       return args

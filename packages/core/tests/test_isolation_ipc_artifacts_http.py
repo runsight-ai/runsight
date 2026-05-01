@@ -138,7 +138,7 @@ class TestHTTPRoundTrip:
 
         async def http_handler(params: dict) -> dict:
             assert params["method"] == "GET"
-            assert params["url"] == "https://api.example.com/data"
+            assert params["url"] == "https://api.fixture.test/data"
             return {
                 "status_code": 200,
                 "body": '{"items": [1, 2, 3]}',
@@ -160,7 +160,7 @@ class TestHTTPRoundTrip:
                 "http",
                 {
                     "method": "GET",
-                    "url": "https://api.example.com/data",
+                    "url": "https://api.fixture.test/data",
                     "headers": {"Authorization": "Bearer tok"},
                     "body": None,
                 },
@@ -210,7 +210,7 @@ class TestHTTPRoundTrip:
                 "http",
                 {
                     "method": "POST",
-                    "url": "https://api.example.com/items",
+                    "url": "https://api.fixture.test/items",
                     "headers": {"content-type": "application/json"},
                     "body": '{"name": "test"}',
                 },

@@ -51,7 +51,7 @@ parameters:
     - item_id
 request:
   method: POST
-  url: https://example.com/items
+  url: https://fixture.test/items
   headers:
     X-Trace: static-header
   body_template: '{"item_id": {{ item_id }}, "trace_id": "{{ trace_id }}"}'
@@ -121,7 +121,7 @@ workflow:
                 content: str | None = None,
             ) -> _FakeResponse:
                 assert method == "POST"
-                assert url == "https://example.com/items"
+                assert url == "https://fixture.test/items"
                 assert headers == {"X-Trace": "static-header"}
                 assert content == '{"item_id": 7, "trace_id": "trace-7"}'
                 return _FakeResponse()
@@ -135,7 +135,10 @@ workflow:
             _text_response("Request tool complete."),
         ]
 
-        with patch("httpx.AsyncClient", _FakeAsyncClient):
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient", _FakeAsyncClient),
+        ):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute("Fetch answer", None, soul)
 

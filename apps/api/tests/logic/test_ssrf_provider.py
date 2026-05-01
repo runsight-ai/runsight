@@ -49,6 +49,13 @@ def _make_service_and_repo(provider: ProviderEntity) -> tuple[ProviderService, M
     return ProviderService(repo, secrets), repo
 
 
+def _public_dns_patch():
+    """Resolve fixture hosts to a public IP without touching live DNS."""
+    fake_loop = Mock()
+    fake_loop.getaddrinfo = AsyncMock(return_value=[(None, None, None, "", ("93.184.216.34", 0))])
+    return patch("runsight_core.security.asyncio.get_running_loop", return_value=fake_loop)
+
+
 # ===========================================================================
 # 1. Shared SSRF utility exists and is importable
 # ===========================================================================
@@ -79,9 +86,9 @@ class TestSharedSSRFUtilityExists:
         """The shared validator should not raise for public URLs."""
         from runsight_core.security import validate_ssrf
 
-        # Should not raise. Use an example domain so the test never depends on
-        # live third-party DNS or service availability.
-        await validate_ssrf("https://provider.example.com/v1/models")
+        # Should not raise. The fixture host resolves through a mocked public IP.
+        with _public_dns_patch():
+            await validate_ssrf("https://provider.fixture.test/v1/models")
 
     @pytest.mark.asyncio
     async def test_shared_validator_respects_allow_private_flag(self):
@@ -322,11 +329,14 @@ class TestPublicURLsStillWork:
         """Public provider URL should pass SSRF validation."""
         provider = _make_provider(
             provider_type="openai",
-            base_url="https://provider.example.com/v1",
+            base_url="https://provider.fixture.test/v1",
         )
         service, _ = _make_service_and_repo(provider)
 
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+        with (
+            _public_dns_patch(),
+            patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+        ):
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
@@ -346,11 +356,14 @@ class TestPublicURLsStillWork:
         """Custom provider with a public URL should pass SSRF validation."""
         provider = _make_provider(
             provider_type="custom",
-            base_url="https://my-custom-llm.example.com/v1",
+            base_url="https://custom-llm.fixture.test/v1",
         )
         service, _ = _make_service_and_repo(provider)
 
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+        with (
+            _public_dns_patch(),
+            patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+        ):
             mock_resp = Mock()
             mock_resp.status_code = 200
             mock_resp.json.return_value = {"data": [{"id": "custom-model"}]}

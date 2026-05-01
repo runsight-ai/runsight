@@ -93,7 +93,7 @@ class TestRunsightWorkflowFileTools:
                         "http": {
                             "type": "http",
                             "method": "GET",
-                            "url": "https://example.com/users/{{ user_id }}",
+                            "url": "https://fixture.test/users/{{ user_id }}",
                         }
                     },
                 }

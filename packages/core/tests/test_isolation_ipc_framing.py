@@ -133,7 +133,7 @@ class TestNDJSONFraming:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await client.connect()
-            await client.request("http", {"method": "GET", "url": "http://example.com"})
+            await client.request("http", {"method": "GET", "url": "http://fixture.test"})
             await client.close()
         finally:
             server_task.cancel()
@@ -155,7 +155,7 @@ class TestNDJSONFraming:
         assert handshake["action"] == "capability_negotiation"
         assert set(parsed) == {"id", "action", "payload"}
         assert parsed["action"] == "http"
-        assert parsed["payload"] == {"method": "GET", "url": "http://example.com"}
+        assert parsed["payload"] == {"method": "GET", "url": "http://fixture.test"}
 
     @pytest.mark.asyncio
     async def test_ipc_client_removes_grant_token_env_after_successful_connect(
@@ -340,7 +340,7 @@ class TestIPCClientRequestResponseCorrelation:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await _connect_client_with_grant_token(client, grant_token)
-            result = await client.request("http", {"method": "GET", "url": "http://example.com"})
+            result = await client.request("http", {"method": "GET", "url": "http://fixture.test"})
 
             assert isinstance(result, dict)
             assert result["status_code"] == 200

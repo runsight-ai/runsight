@@ -71,7 +71,7 @@ class TestBuiltinHttpToolPipeline:
                 content: str | None = None,
             ) -> _FakeResponse:
                 assert method == "GET"
-                assert url == "https://example.com/data"
+                assert url == "https://fixture.test/data"
                 assert headers is None
                 assert content is None
                 return _FakeResponse()
@@ -79,13 +79,16 @@ class TestBuiltinHttpToolPipeline:
         mock_achat.side_effect = [
             _tool_call_response(
                 "http_request",
-                arguments='{"method": "GET", "url": "https://example.com/data"}',
+                arguments='{"method": "GET", "url": "https://fixture.test/data"}',
                 call_id="builtin_http_1",
             ),
             _text_response("Builtin http complete."),
         ]
 
-        with patch("httpx.AsyncClient", _FakeAsyncClient):
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient", _FakeAsyncClient),
+        ):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute("Fetch data", None, soul)
 
@@ -146,7 +149,7 @@ class TestBuiltinHttpToolPipeline:
                 content: str | None = None,
             ) -> _FakeResponse:
                 assert method == "GET"
-                assert url == "https://example.com/data"
+                assert url == "https://fixture.test/data"
                 assert headers is None
                 assert content is None
                 return _FakeResponse()
@@ -154,13 +157,16 @@ class TestBuiltinHttpToolPipeline:
         mock_achat.side_effect = [
             _tool_call_response(
                 "http_request",
-                arguments='{"method": "GET", "url": "https://example.com/data", "response_path": "data.answer"}',
+                arguments='{"method": "GET", "url": "https://fixture.test/data", "response_path": "data.answer"}',
                 call_id="builtin_http_response_path_1",
             ),
             _text_response("Builtin http response_path complete."),
         ]
 
-        with patch("httpx.AsyncClient", _FakeAsyncClient):
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient", _FakeAsyncClient),
+        ):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute("Fetch nested data", None, soul)
 
@@ -200,7 +206,7 @@ class TestBuiltinHttpToolPipeline:
         soul = workflow.blocks["step"].soul
 
         page_inputs = {
-            "https://example.com/page-1": (
+            "https://fixture.test/page-1": (
                 "<html><body><article><h1>Runsight Docs One</h1>"
                 + "".join(
                     f"<section><h2>Heading {i}</h2><p>Keep responses bounded.</p></section>"
@@ -208,7 +214,7 @@ class TestBuiltinHttpToolPipeline:
                 )
                 + '<script>console.log("drop me")</script></article></body></html>'
             ),
-            "https://example.com/page-2": (
+            "https://fixture.test/page-2": (
                 "<html><body><article><h1>Runsight Docs Two</h1>"
                 + "".join(
                     f"<div><span>Chunk {i}</span><p>Trim raw HTML before tool replay.</p></div>"
@@ -252,18 +258,21 @@ class TestBuiltinHttpToolPipeline:
         mock_achat.side_effect = [
             _tool_call_response(
                 "http_request",
-                arguments='{"method": "GET", "url": "https://example.com/page-1"}',
+                arguments='{"method": "GET", "url": "https://fixture.test/page-1"}',
                 call_id="builtin_http_html_1",
             ),
             _tool_call_response(
                 "http_request",
-                arguments='{"method": "GET", "url": "https://example.com/page-2"}',
+                arguments='{"method": "GET", "url": "https://fixture.test/page-2"}',
                 call_id="builtin_http_html_2",
             ),
             _text_response("Builtin http HTML complete."),
         ]
 
-        with patch("httpx.AsyncClient", _FakeAsyncClient):
+        with (
+            patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock),
+            patch("httpx.AsyncClient", _FakeAsyncClient),
+        ):
             runner = RunsightTeamRunner(model_name="gpt-4o")
             result = await runner.execute("Fetch two HTML pages", None, soul)
 
@@ -279,8 +288,8 @@ class TestBuiltinHttpToolPipeline:
         assert len(tool_messages) == 2
         expected_titles = ["Runsight Docs One", "Runsight Docs Two"]
         raw_input_sizes = [
-            len(page_inputs["https://example.com/page-1"]),
-            len(page_inputs["https://example.com/page-2"]),
+            len(page_inputs["https://fixture.test/page-1"]),
+            len(page_inputs["https://fixture.test/page-2"]),
         ]
         for message, expected_title, raw_size in zip(
             tool_messages, expected_titles, raw_input_sizes, strict=True

@@ -121,7 +121,7 @@ def test_create_provider_returns_created_entity():
         kind="provider",
         name="OpenAI",
         api_key="dummy-provider-key",
-        base_url="https://provider.example.com/v1",
+        base_url="https://provider.fixture.test/v1",
         provider_type="openai",
     )
     assert created is not None
@@ -130,7 +130,7 @@ def test_create_provider_returns_created_entity():
     assert created["name"] == "OpenAI"
     assert created["type"] == "openai"
     assert created["api_key"] == "${TEST_OPENAI_PROVIDER_KEY}"
-    assert created["base_url"] == "https://provider.example.com/v1"
+    assert created["base_url"] == "https://provider.fixture.test/v1"
     assert result.id == "openai"
     assert result.name == "OpenAI"
     assert result.api_key == "${TEST_OPENAI_PROVIDER_KEY}"
@@ -222,7 +222,7 @@ def test_update_provider_returns_updated_entity():
         kind="provider",
         name="Old",
         type="openai",
-        base_url="https://old-provider.example.com",
+        base_url="https://old-provider.fixture.test",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = ProviderEntity(
@@ -231,7 +231,7 @@ def test_update_provider_returns_updated_entity():
         name="New Name",
         type="openai",
         api_key="${TEST_OPENAI_PROVIDER_KEY}",
-        base_url="https://new-provider.example.com",
+        base_url="https://new-provider.fixture.test",
     )
     service = ProviderService(repo, secrets)
     result = service.update_provider(
@@ -240,12 +240,12 @@ def test_update_provider_returns_updated_entity():
         kind="provider",
         name="New Name",
         api_key="new_key",
-        base_url="https://new-provider.example.com",
+        base_url="https://new-provider.fixture.test",
     )
     assert result is not None
     assert result.name == "New Name"
     assert result.api_key == "${TEST_OPENAI_PROVIDER_KEY}"
-    assert result.base_url == "https://new-provider.example.com"
+    assert result.base_url == "https://new-provider.fixture.test"
     secrets.store_key.assert_called_once_with("openai", "new_key")
 
 
@@ -267,7 +267,7 @@ def test_update_provider_partial_update():
         kind="provider",
         name="Original",
         type="openai",
-        base_url="https://stable-provider.example.com",
+        base_url="https://stable-provider.fixture.test",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = ProviderEntity(
@@ -275,14 +275,14 @@ def test_update_provider_partial_update():
         kind="provider",
         name="Updated",
         type="openai",
-        base_url="https://stable-provider.example.com",
+        base_url="https://stable-provider.fixture.test",
     )
     service = ProviderService(repo, secrets)
     result = service.update_provider(
         "openai-provider", id="openai-provider", kind="provider", name="Updated"
     )
     assert result.name == "Updated"
-    assert result.base_url == "https://stable-provider.example.com"  # unchanged
+    assert result.base_url == "https://stable-provider.fixture.test"  # unchanged
     secrets.store_key.assert_not_called()
 
 
@@ -294,7 +294,7 @@ def test_update_provider_preserves_embedded_identity_in_repo_payload():
         kind="provider",
         name="Original",
         type="openai",
-        base_url="https://stable-provider.example.com",
+        base_url="https://stable-provider.fixture.test",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = ProviderEntity(
@@ -302,7 +302,7 @@ def test_update_provider_preserves_embedded_identity_in_repo_payload():
         kind="provider",
         name="Updated",
         type="openai",
-        base_url="https://stable-provider.example.com",
+        base_url="https://stable-provider.fixture.test",
     )
     service = ProviderService(repo, secrets)
 
@@ -481,13 +481,16 @@ async def test_test_connection_successful_openai():
         name="OpenAI",
         type="openai",
         api_key="${TEST_OPENAI_PROVIDER_KEY}",
-        base_url="https://provider.example.com/v1",
+        base_url="https://provider.fixture.test/v1",
     )
     repo.get_by_id.return_value = prov
     repo.update.return_value = prov
     service = ProviderService(repo, secrets)
 
-    with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
+    with (
+        patch("runsight_api.logic.services.provider_service.validate_ssrf", new_callable=AsyncMock),
+        patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx,
+    ):
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}, {"id": "gpt-3.5"}]}

@@ -39,7 +39,7 @@ def _make_request_tool_meta(tool_id: str = "fetch_profile") -> ToolMeta:
         parameters={"type": "object"},
         request={
             "method": "GET",
-            "url": "https://example.com/profiles/{{ profile_id }}",
+            "url": "https://fixture.test/profiles/{{ profile_id }}",
             "headers": {},
             "body_template": None,
             "response_path": "data.profile",

@@ -39,7 +39,7 @@ class TestInterceptorRegistryContract:
             async def on_request(self, action: str, payload: dict, engine_context: dict) -> dict:
                 observed.append(dict(engine_context))
                 assert action == "http"
-                assert payload == {"url": "https://example.com"}
+                assert payload == {"url": "https://fixture.test"}
                 engine_context["budget_remaining_usd"] = 12.5
                 return engine_context
 
@@ -64,7 +64,7 @@ class TestInterceptorRegistryContract:
         registry.register(BudgetLikeInterceptor())
         registry.register(ObserverLikeInterceptor())
 
-        context = await registry.run_on_request("http", {"url": "https://example.com"}, {})
+        context = await registry.run_on_request("http", {"url": "https://fixture.test"}, {})
         assert observed[0] == {}
         assert observed[1] == {"budget_remaining_usd": 12.5}
         assert context == {

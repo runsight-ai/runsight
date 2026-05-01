@@ -29,16 +29,16 @@ class TestIPCFrameModels:
 
         assert set(IPCRequest.model_fields) == {"id", "action", "payload"}
 
-        req = IPCRequest(id="req-1", action="http", payload={"url": "https://example.com"})
+        req = IPCRequest(id="req-1", action="http", payload={"url": "https://fixture.test"})
         assert req.id == "req-1"
         assert req.action == "http"
-        assert req.payload == {"url": "https://example.com"}
+        assert req.payload == {"url": "https://fixture.test"}
 
         with pytest.raises(ValidationError):
             IPCRequest(
                 id="req-2",
                 action="http",
-                payload={"url": "https://example.com"},
+                payload={"url": "https://fixture.test"},
                 engine_context={"trace_id": "forbidden"},
             )
 
@@ -273,7 +273,7 @@ class TestIPCClientFrameConsumption:
         client = IPCClient(socket_path=str(sock_path))
         try:
             await client.connect()
-            result = await client.request("http", {"url": "https://example.com"})
+            result = await client.request("http", {"url": "https://fixture.test"})
             assert result == {"final": "result"}
         finally:
             await client.close()

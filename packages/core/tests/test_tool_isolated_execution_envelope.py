@@ -72,7 +72,7 @@ parameters:
     - item_id
 request:
   method: GET
-  url: https://example.com/items/{{ item_id }}
+  url: https://fixture.test/items/{{ item_id }}
 """,
         )
         workflow_path = _write_workflow_file(

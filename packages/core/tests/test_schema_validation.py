@@ -434,7 +434,7 @@ class TestRunsightWorkflowFile:
                         "http": {
                             "type": "http",
                             "method": "GET",
-                            "url": "https://example.com",
+                            "url": "https://fixture.test",
                         }
                     },
                 }

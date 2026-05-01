@@ -397,7 +397,7 @@ class TestProcessBoundaryIntegration:
                     reader,
                     request_id="process-http-request",
                     action="http",
-                    payload={"url": "https://api.example.com/data"},
+                    payload={"url": "https://api.fixture.test/data"},
                 ),
                 await send(
                     writer,

@@ -50,7 +50,7 @@ class TestIPCServerDispatches:
         try:
             client = IPCClient(socket_path=str(sock_path))
             await _connect_client_with_grant_token(client, grant_token)
-            result = await client.request("http", {"method": "GET", "url": "http://example.com"})
+            result = await client.request("http", {"method": "GET", "url": "http://fixture.test"})
             assert http_called
             assert result["status_code"] == 200
         finally:

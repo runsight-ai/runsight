@@ -90,7 +90,7 @@ class TestSocketCleanup:
 
             # After close, request should raise
             with pytest.raises(Exception):
-                await client.request("http", {"method": "GET", "url": "http://x.com"})
+                await client.request("http", {"method": "GET", "url": "http://fixture.test"})
         finally:
             accept_task.cancel()
             server_sock.close()
@@ -147,7 +147,7 @@ class TestSocketDropFailure:
 
             # Request after server disconnect should fail
             with pytest.raises((ConnectionError, OSError, EOFError)):
-                await client.request("http", {"method": "GET", "url": "http://example.com"})
+                await client.request("http", {"method": "GET", "url": "http://fixture.test"})
         finally:
             accept_task.cancel()
             server_sock.close()
@@ -203,13 +203,13 @@ class TestSocketDropFailure:
 
             # First request fails due to drop
             try:
-                await client.request("http", {"method": "GET", "url": "http://example.com"})
+                await client.request("http", {"method": "GET", "url": "http://fixture.test"})
             except Exception:
                 pass
 
             # Second request should also fail (no reconnect)
             try:
-                await client.request("http", {"method": "GET", "url": "http://example.com"})
+                await client.request("http", {"method": "GET", "url": "http://fixture.test"})
             except Exception:
                 pass
 

@@ -117,7 +117,7 @@ class TestGrantTokenAuthAndAllowlist:
                 {
                     "id": "auth-unauthorized-request-1",
                     "action": "http",
-                    "payload": {"method": "GET", "url": "https://example.com"},
+                    "payload": {"method": "GET", "url": "https://fixture.test"},
                 },
             )
             assert handler_called is False

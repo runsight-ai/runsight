@@ -139,6 +139,19 @@ class TestHttpToolFactory:
 class TestHttpToolExecute:
     """HTTP tool execute function: canonical request behavior."""
 
+    @pytest.fixture(autouse=True)
+    def _allow_fixture_host_without_dns(self, request):
+        """Keep success-path HTTP tests off live DNS while preserving SSRF cases."""
+        if request.node.name in {
+            "test_execute_ssrf_blocks_private_ip",
+            "test_execute_dns_resolution_failure_raises_ssrf_and_skips_request",
+        }:
+            yield
+            return
+
+        with patch("runsight_core.tools._catalog.validate_ssrf", new_callable=AsyncMock):
+            yield
+
     @pytest.mark.asyncio
     async def test_execute_get_returns_normalized_json_payload(self):
         """JSON responses should return the shared normalized payload, not the legacy wrapper."""
@@ -159,7 +172,7 @@ class TestHttpToolExecute:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            result = await tool.execute({"method": "GET", "url": "https://example.com/api"})
+            result = await tool.execute({"method": "GET", "url": "https://fixture.test/api"})
 
         parsed = json.loads(result)
         assert parsed == {"ok": True}
@@ -200,7 +213,7 @@ class TestHttpToolExecute:
             result = await tool.execute(
                 {
                     "method": "GET",
-                    "url": "https://example.com/api",
+                    "url": "https://fixture.test/api",
                     "response_path": response_path,
                 }
             )
@@ -231,7 +244,7 @@ class TestHttpToolExecute:
                 await tool.execute(
                     {
                         "method": "GET",
-                        "url": "https://example.com/api",
+                        "url": "https://fixture.test/api",
                         "response_path": "data.missing",
                     }
                 )
@@ -264,7 +277,7 @@ class TestHttpToolExecute:
                 await tool.execute(
                     {
                         "method": "GET",
-                        "url": "https://example.com/api",
+                        "url": "https://fixture.test/api",
                         "response_path": response_path,
                     }
                 )
@@ -288,7 +301,7 @@ class TestHttpToolExecute:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            result = await tool.execute({"method": "GET", "url": "https://example.com"})
+            result = await tool.execute({"method": "GET", "url": "https://fixture.test"})
 
         assert result == "hello"
 
@@ -314,7 +327,7 @@ class TestHttpToolExecute:
             result = await tool.execute(
                 {
                     "method": "GET",
-                    "url": "https://example.com",
+                    "url": "https://fixture.test",
                     "response_path": "data.answer",
                 }
             )
@@ -350,7 +363,7 @@ class TestHttpToolExecute:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            result = await tool.execute({"method": "GET", "url": "https://example.com/docs"})
+            result = await tool.execute({"method": "GET", "url": "https://fixture.test/docs"})
 
         assert "Runsight Docs" in result
         assert "Keep tool output bounded." in result
@@ -389,7 +402,7 @@ class TestHttpToolExecute:
             result = await tool.execute(
                 {
                     "method": "GET",
-                    "url": "https://example.com/docs",
+                    "url": "https://fixture.test/docs",
                     "response_path": "data.answer",
                 }
             )
@@ -421,7 +434,7 @@ class TestHttpToolExecute:
             result = await tool.execute(
                 {
                     "method": "POST",
-                    "url": "https://example.com/api",
+                    "url": "https://fixture.test/api",
                     "body": '{"key": "value"}',
                 }
             )
@@ -493,7 +506,7 @@ class TestHttpToolExecute:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            result = await tool.execute({"method": "GET", "url": "https://example.com"})
+            result = await tool.execute({"method": "GET", "url": "https://fixture.test"})
 
         assert result == "truncated body"
         response_size_policy.assert_called_once()
@@ -522,7 +535,7 @@ class TestHttpToolExecute:
             result = await tool.execute(
                 {
                     "method": "GET",
-                    "url": "https://example.com/api",
+                    "url": "https://fixture.test/api",
                     "response_path": "data.answer",
                 }
             )
@@ -551,7 +564,7 @@ class TestHttpToolExecute:
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
 
-            result = await tool.execute({"method": "GET", "url": "https://example.com/huge"})
+            result = await tool.execute({"method": "GET", "url": "https://fixture.test/huge"})
 
         assert result == "default-capped body"
         response_size_policy.assert_called_once()

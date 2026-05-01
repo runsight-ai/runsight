@@ -130,7 +130,7 @@ class TestYamlParseFails:
     def test_yaml_http_request_raises(self):
         yaml_dict = _make_minimal_yaml(
             "http_request",
-            url="https://example.com",
+            url="https://fixture.test",
         )
         from runsight_core.yaml.parser import parse_workflow_yaml
 
