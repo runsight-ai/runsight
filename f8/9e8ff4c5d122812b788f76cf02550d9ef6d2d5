@@ -1,0 +1,25 @@
+packages/core/tests/test_docker_hardening.py
+  4adca821c1af8eb3 364,369-378,385,390-399,405,410-419
+tools/tests/test_core_docker_entrypoint_tmp_path_governance.py
+  4adca821c1af8eb3 1-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f89e8ff4c5d122812b788f76cf02550d9ef6d2d5",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 223,
+      "total_deletions": 42,
+      "accepted_lines": 53493,
+      "overriden_lines": 0
+    }
+  }
+}
