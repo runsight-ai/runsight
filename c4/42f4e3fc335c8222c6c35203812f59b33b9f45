@@ -1,0 +1,23 @@
+apps/api/tests/test_execution_assertion_evaluation.py
+  8c5581dfa1ffcbba 25,42-45,119-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c442f4e3fc335c8222c6c35203812f59b33b9f45",
+  "prompts": {
+    "8c5581dfa1ffcbba": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de46d-5f80-7d93-94ed-8f12f1475858",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 65,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    }
+  }
+}
