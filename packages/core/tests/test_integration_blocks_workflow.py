@@ -1,9 +1,8 @@
-"""
-Integration tests for blocks + workflow interactions.
+"""Integration coverage for block and Workflow interactions.
 
-PRIORITY 1: Tests conflict resolution area (implementations.py merge)
-PRIORITY 2: Tests cross-feature interactions (Workflow orchestrating blocks)
-PRIORITY 3: Tests multi-block workflow scenarios
+This suite verifies that LinearBlock, DispatchBlock, and SynthesizeBlock can be
+instantiated together, share WorkflowState through Workflow execution, and
+preserve state immutability/error propagation across multi-block flows.
 """
 
 import json
@@ -35,14 +34,14 @@ def _souls_to_branches(souls):
 def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
-    runner.model_name = "gpt-4o"
+    runner.model_name = None
     runner.execute = AsyncMock()
     return runner
 
 
 @pytest.fixture
-def sample_souls():
-    """Create sample souls for testing."""
+def workflow_souls():
+    """Create workflow integration souls."""
     return {
         "researcher": Soul(
             id="researcher",
@@ -86,55 +85,48 @@ def sample_souls():
 
 
 # ============================================================================
-# PRIORITY 1: CONFLICT RESOLUTION AREA TESTS
-# Test that all 4 blocks work together in implementations.py after merge
+# Block construction and state-sharing coverage
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_all_three_blocks_import_and_instantiate(mock_runner, sample_souls):
-    """
-    CONFLICT RESOLUTION TEST: Verify all 3 blocks can be imported and instantiated.
-
-    This tests the merge conflict resolution where HEAD had all blocks and the
-    correct import statements (Dict, List from typing and Task from primitives).
-    """
+async def test_all_three_blocks_import_and_instantiate(mock_runner, workflow_souls):
+    """Linear, Dispatch, and Synthesize blocks instantiate together."""
     # Verify all blocks can be instantiated without errors
-    linear = LinearBlock("linear1", sample_souls["researcher"], mock_runner)
-    assert linear.block_id == "linear1"
+    linear = LinearBlock("import_linear_block", workflow_souls["researcher"], mock_runner)
+    assert linear.block_id == "import_linear_block"
 
     dispatch = DispatchBlock(
-        "dispatch1",
-        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        "import_dispatch_block",
+        _souls_to_branches([workflow_souls["reviewer1"], workflow_souls["reviewer2"]]),
         mock_runner,
     )
-    assert dispatch.block_id == "dispatch1"
+    assert dispatch.block_id == "import_dispatch_block"
 
     synthesize = SynthesizeBlock(
-        "synth1", ["block_a", "block_b"], sample_souls["synthesizer"], mock_runner
+        "import_synthesis_block",
+        ["synthesis_source_a", "synthesis_source_b"],
+        workflow_souls["synthesizer"],
+        mock_runner,
     )
-    assert synthesize.block_id == "synth1"
+    assert synthesize.block_id == "import_synthesis_block"
 
 
 @pytest.mark.asyncio
-async def test_blocks_share_state_correctly(mock_runner, sample_souls):
-    """
-    CONFLICT RESOLUTION TEST: Verify blocks properly share WorkflowState.
-
-    Tests that the Task import and Dict typing work correctly across all blocks.
-    """
+async def test_blocks_share_state_correctly(mock_runner, workflow_souls):
+    """Linear and Dispatch blocks share WorkflowState during sequential execution."""
     # Setup mock responses
     mock_runner.execute.side_effect = [
-        ExecutionResult(task_id="t1", soul_id="researcher", output="Research complete"),
-        ExecutionResult(task_id="t2", soul_id="reviewer1", output="Review A"),
-        ExecutionResult(task_id="t2", soul_id="reviewer2", output="Review B"),
+        ExecutionResult(task_id="research-task", soul_id="researcher", output="Research complete"),
+        ExecutionResult(task_id="review-task", soul_id="reviewer1", output="Review A"),
+        ExecutionResult(task_id="review-task", soul_id="reviewer2", output="Review B"),
     ]
 
     # Create initial state
     state = WorkflowState()
 
     # Execute LinearBlock
-    linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
+    linear = LinearBlock("research", workflow_souls["researcher"], mock_runner)
     state = await execute_block_for_test(linear, state)
     assert "research" in state.results
     assert state.results["research"].output == "Research complete"
@@ -143,7 +135,7 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
 
     dispatch = DispatchBlock(
         "reviews",
-        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        _souls_to_branches([workflow_souls["reviewer1"], workflow_souls["reviewer2"]]),
         mock_runner,
     )
     state = await execute_block_for_test(dispatch, state)
@@ -156,35 +148,37 @@ async def test_blocks_share_state_correctly(mock_runner, sample_souls):
 
 
 # ============================================================================
-# PRIORITY 2: CROSS-FEATURE INTERACTION TESTS
-# Test Workflow orchestrating different block types
+# Workflow orchestration across block types
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_workflow_linear_to_dispatch_workflow(mock_runner, sample_souls):
-    """
-    CROSS-FEATURE TEST: Workflow orchestrates Linear → Dispatch.
-
-    Tests interaction between Workflow state machine and block execution,
-    verifying state propagation across block types.
-    """
+async def test_workflow_linear_to_dispatch_workflow(mock_runner, workflow_souls):
+    """Workflow orchestrates Linear -> Dispatch with state propagation."""
     # Setup mock responses
     mock_runner.execute.side_effect = [
-        ExecutionResult(task_id="task1", soul_id="researcher", output="Research findings"),
-        ExecutionResult(task_id="task2", soul_id="reviewer1", output="Critique from R1"),
-        ExecutionResult(task_id="task2", soul_id="reviewer2", output="Critique from R2"),
-        ExecutionResult(task_id="task2", soul_id="reviewer3", output="Critique from R3"),
+        ExecutionResult(
+            task_id="research-pipeline-task", soul_id="researcher", output="Research findings"
+        ),
+        ExecutionResult(
+            task_id="review-pipeline-task", soul_id="reviewer1", output="Critique from R1"
+        ),
+        ExecutionResult(
+            task_id="review-pipeline-task", soul_id="reviewer2", output="Critique from R2"
+        ),
+        ExecutionResult(
+            task_id="review-pipeline-task", soul_id="reviewer3", output="Critique from R3"
+        ),
     ]
 
     # Build workflow
     wf = Workflow("research_review_pipeline")
 
-    linear = LinearBlock("research", sample_souls["researcher"], mock_runner)
+    linear = LinearBlock("research", workflow_souls["researcher"], mock_runner)
     dispatch = DispatchBlock(
         "reviews",
         _souls_to_branches(
-            [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
+            [workflow_souls["reviewer1"], workflow_souls["reviewer2"], workflow_souls["reviewer3"]]
         ),
         mock_runner,
     )
@@ -214,21 +208,18 @@ async def test_workflow_linear_to_dispatch_workflow(mock_runner, sample_souls):
 
 
 @pytest.mark.asyncio
-async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_souls):
-    """
-    CROSS-FEATURE TEST: Workflow orchestrates Dispatch → Synthesize.
-
-    Tests that SynthesizeBlock can read Dispatch's JSON output from state.results
-    and combine multiple inputs correctly.
-    """
+async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, workflow_souls):
+    """Workflow orchestrates Dispatch -> Synthesize using Dispatch JSON output."""
     # Setup mock responses
     mock_runner.execute.side_effect = [
         # Dispatch responses
-        ExecutionResult(task_id="t1", soul_id="reviewer1", output="Positive review"),
-        ExecutionResult(task_id="t1", soul_id="reviewer2", output="Critical review"),
+        ExecutionResult(task_id="research-task", soul_id="reviewer1", output="Positive review"),
+        ExecutionResult(task_id="research-task", soul_id="reviewer2", output="Critical review"),
         # Synthesize response
         ExecutionResult(
-            task_id="synth_task", soul_id="synthesizer", output="Combined: Mixed feedback overall"
+            task_id="synthesis-summary-task",
+            soul_id="synthesizer",
+            output="Combined: Mixed feedback overall",
         ),
     ]
 
@@ -237,11 +228,11 @@ async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_soul
 
     dispatch = DispatchBlock(
         "dispatch",
-        _souls_to_branches([sample_souls["reviewer1"], sample_souls["reviewer2"]]),
+        _souls_to_branches([workflow_souls["reviewer1"], workflow_souls["reviewer2"]]),
         mock_runner,
     )
     synthesize = SynthesizeBlock(
-        "synthesis", ["dispatch"], sample_souls["synthesizer"], mock_runner
+        "synthesis", ["dispatch"], workflow_souls["synthesizer"], mock_runner
     )
 
     wf.add_block(dispatch).add_block(synthesize)
@@ -264,42 +255,37 @@ async def test_workflow_dispatch_to_synthesize_workflow(mock_runner, sample_soul
 
 
 # ============================================================================
-# PRIORITY 3: MULTI-BLOCK WORKFLOW SCENARIOS
-# End-to-end workflow tests
+# Multi-block workflow scenarios
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_complete_research_review_synthesis_workflow(mock_runner, sample_souls):
-    """
-    END-TO-END TEST: Research → Dispatch Reviews → Synthesize.
-
-    Simulates a real workflow: research a topic, get parallel reviews, synthesize.
-    """
+async def test_complete_research_review_synthesis_workflow(mock_runner, workflow_souls):
+    """Research -> parallel reviews -> synthesis runs as one multi-block workflow."""
     # Setup realistic mock responses
     mock_runner.execute.side_effect = [
         ExecutionResult(
-            task_id="research_task",
+            task_id="research-report-task",
             soul_id="researcher",
             output="Research: AI safety is critical. Key risks: alignment, capabilities.",
         ),
         ExecutionResult(
-            task_id="review_task",
+            task_id="review-feedback-task",
             soul_id="reviewer1",
             output="R1: Strong research, needs more on scalability",
         ),
         ExecutionResult(
-            task_id="review_task",
+            task_id="review-feedback-task",
             soul_id="reviewer2",
             output="R2: Good coverage, missing practical examples",
         ),
         ExecutionResult(
-            task_id="review_task",
+            task_id="review-feedback-task",
             soul_id="reviewer3",
             output="R3: Excellent analysis, suggest adding timelines",
         ),
         ExecutionResult(
-            task_id="synth_task",
+            task_id="synthesis-report-task",
             soul_id="synthesizer",
             output="Synthesis: Research is strong. Add scalability, examples, timelines.",
         ),
@@ -308,16 +294,16 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
     # Build workflow
     wf = Workflow("research_workflow")
 
-    research_block = LinearBlock("research", sample_souls["researcher"], mock_runner)
+    research_block = LinearBlock("research", workflow_souls["researcher"], mock_runner)
     review_block = DispatchBlock(
         "peer_reviews",
         _souls_to_branches(
-            [sample_souls["reviewer1"], sample_souls["reviewer2"], sample_souls["reviewer3"]]
+            [workflow_souls["reviewer1"], workflow_souls["reviewer2"], workflow_souls["reviewer3"]]
         ),
         mock_runner,
     )
     synthesis_block = SynthesizeBlock(
-        "final_report", ["research", "peer_reviews"], sample_souls["synthesizer"], mock_runner
+        "final_report", ["research", "peer_reviews"], workflow_souls["synthesizer"], mock_runner
     )
 
     wf.add_block(research_block).add_block(review_block).add_block(synthesis_block)
@@ -348,25 +334,26 @@ async def test_complete_research_review_synthesis_workflow(mock_runner, sample_s
 
 
 @pytest.mark.asyncio
-async def test_state_immutability_across_workflow_execution(mock_runner, sample_souls):
-    """
-    STATE IMMUTABILITY TEST: Verify blocks don't mutate state in-place.
-
-    Tests that each block returns a new state via model_copy, preserving
-    immutability contract across the workflow.
-    """
+async def test_state_immutability_across_workflow_execution(mock_runner, workflow_souls):
+    """Workflow execution preserves state immutability across blocks."""
     mock_runner.execute.side_effect = [
-        ExecutionResult(task_id="t1", soul_id="researcher", output="Output 1"),
-        ExecutionResult(task_id="t2", soul_id="reviewer1", output="Output 2"),
+        ExecutionResult(task_id="research-task", soul_id="researcher", output="Output 1"),
+        ExecutionResult(task_id="review-task", soul_id="reviewer1", output="Output 2"),
     ]
 
     # Build simple workflow
-    wf = Workflow("immutability_test")
-    block1 = LinearBlock("b1", sample_souls["researcher"], mock_runner)
-    block2 = LinearBlock("b2", sample_souls["reviewer1"], mock_runner)
-    wf.add_block(block1).add_block(block2)
-    wf.add_transition("b1", "b2").add_transition("b2", None)
-    wf.set_entry("b1")
+    wf = Workflow("immutability_workflow")
+    immutable_research_block = LinearBlock(
+        "immutable_research_step", workflow_souls["researcher"], mock_runner
+    )
+    immutable_review_block = LinearBlock(
+        "immutable_review_step", workflow_souls["reviewer1"], mock_runner
+    )
+    wf.add_block(immutable_research_block).add_block(immutable_review_block)
+    wf.add_transition("immutable_research_step", "immutable_review_step").add_transition(
+        "immutable_review_step", None
+    )
+    wf.set_entry("immutable_research_step")
 
     # Execute and capture states
     initial_state = WorkflowState(
@@ -389,31 +376,30 @@ async def test_state_immutability_across_workflow_execution(mock_runner, sample_
 
     # Verify final state has accumulated data
     assert "initial" in final_state.results
-    assert "b1" in final_state.results
-    assert "b2" in final_state.results
+    assert "immutable_research_step" in final_state.results
+    assert "immutable_review_step" in final_state.results
     assert len(final_state.execution_log) == 2
 
 
 @pytest.mark.asyncio
-async def test_error_propagation_through_workflow(mock_runner, sample_souls):
-    """
-    ERROR HANDLING TEST: Verify exceptions propagate through workflow.
-
-    Tests that if a block raises an exception, the workflow execution stops
-    and the error propagates to the caller.
-    """
+async def test_error_propagation_through_workflow(mock_runner, workflow_souls):
+    """Workflow execution stops and propagates block errors to the caller."""
     # First block succeeds, second raises exception
     mock_runner.execute.side_effect = [
-        ExecutionResult(task_id="t1", soul_id="researcher", output="Success"),
+        ExecutionResult(task_id="error-start-task", soul_id="researcher", output="Success"),
         Exception("Simulated execution failure"),
     ]
 
-    wf = Workflow("error_test")
-    block1 = LinearBlock("b1", sample_souls["researcher"], mock_runner)
-    block2 = LinearBlock("b2", sample_souls["reviewer1"], mock_runner)
-    wf.add_block(block1).add_block(block2)
-    wf.add_transition("b1", "b2").add_transition("b2", None)
-    wf.set_entry("b1")
+    wf = Workflow("error_propagation_workflow")
+    error_start_block = LinearBlock("error_start_step", workflow_souls["researcher"], mock_runner)
+    error_failure_block = LinearBlock(
+        "error_failure_step", workflow_souls["reviewer1"], mock_runner
+    )
+    wf.add_block(error_start_block).add_block(error_failure_block)
+    wf.add_transition("error_start_step", "error_failure_step").add_transition(
+        "error_failure_step", None
+    )
+    wf.set_entry("error_start_step")
 
     initial_state = WorkflowState()
 
