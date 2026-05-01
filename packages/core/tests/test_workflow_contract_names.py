@@ -20,7 +20,7 @@ def _workflow_block(
 ) -> dict:
     block = {
         "type": "workflow",
-        "workflow_ref": "custom/workflows/child.yaml",
+        "workflow_ref": "custom/workflows/contract_source.yaml",
     }
     if inputs is not None:
         block["inputs"] = inputs
@@ -29,24 +29,24 @@ def _workflow_block(
     return block
 
 
-def _child_file_without_interface() -> RunsightWorkflowFile:
+def _workflow_file_without_interface() -> RunsightWorkflowFile:
     return RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
-            "id": "child_workflow",
+            "id": "contract_source_workflow",
             "kind": "workflow",
             "blocks": {
-                "child_step": {
+                "contract_source_code_step": {
                     "type": "code",
                     "code": "def main(data):\n    return {'ok': True}",
                 }
             },
             "workflow": {
-                "id": "child_workflow",
+                "id": "contract_source_workflow",
                 "kind": "workflow",
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "contract_source_workflow",
+                "entry": "contract_source_code_step",
+                "transitions": [{"from": "contract_source_code_step", "to": None}],
             },
         }
     )
@@ -152,58 +152,58 @@ class TestWorkflowBlockBindingValidation:
             adapter.validate_python(_workflow_block(outputs={target_path: "results.summary"}))
 
     def test_parse_workflow_yaml_rejects_invalid_child_binding_before_runtime(self) -> None:
-        child_file = _child_file_without_interface()
+        child_file = _workflow_file_without_interface()
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("contract_source_workflow", child_file)
 
-        parent_yaml = {
+        invalid_binding_workflow_yaml = {
             "version": "1.0",
-            "id": "parent_workflow",
+            "id": "invalid_binding_workflow",
             "kind": "workflow",
             "blocks": {
-                "invoke_child": {
+                "bind_invalid_contract_input": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "contract_source_workflow",
                     "inputs": {"UserId": "shared_memory.parent_user_id"},
                 }
             },
             "workflow": {
-                "id": "parent_workflow",
+                "id": "invalid_binding_workflow",
                 "kind": "workflow",
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "invalid_binding_workflow",
+                "entry": "bind_invalid_contract_input",
+                "transitions": [{"from": "bind_invalid_contract_input", "to": None}],
             },
         }
 
         with pytest.raises((ValidationError, ValueError), match="workflow contract name"):
-            parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+            parse_workflow_yaml(invalid_binding_workflow_yaml, workflow_registry=registry)
 
     def test_parse_workflow_yaml_rejects_duplicate_workflow_block_binding_names(self) -> None:
-        child_file = _child_file_without_interface()
+        child_file = _workflow_file_without_interface()
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("contract_source_workflow", child_file)
 
-        parent_yaml = """
+        duplicate_binding_workflow_yaml = """
 version: "1.0"
-id: parent_workflow
+id: duplicate_binding_workflow
 kind: workflow
 blocks:
-  invoke_child:
+  bind_duplicate_contract_input:
     type: workflow
-    workflow_ref: child_workflow
+    workflow_ref: contract_source_workflow
     inputs:
       topic: shared_memory.first_topic
       topic: shared_memory.second_topic
 workflow:
-  id: parent_workflow
+  id: duplicate_binding_workflow
   kind: workflow
-  name: parent_workflow
-  entry: invoke_child
+  name: duplicate_binding_workflow
+  entry: bind_duplicate_contract_input
   transitions:
-    - from: invoke_child
+    - from: bind_duplicate_contract_input
       to: null
 """
 
         with pytest.raises((ValidationError, ValueError), match="duplicate"):
-            parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+            parse_workflow_yaml(duplicate_binding_workflow_yaml, workflow_registry=registry)
