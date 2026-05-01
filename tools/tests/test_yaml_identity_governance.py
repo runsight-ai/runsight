@@ -1,16 +1,27 @@
+"""
+Governance tests for canonical YAML and inline workflow identity fields.
+
+Owner: repo tooling governance.
+Boundary: package-owned fixtures, docs, and checked-in inline test fixtures that
+must preserve canonical id/kind/name fields. Repo-root custom/ is runtime/user
+state and is intentionally not scanned here.
+Exit criteria: replace this suite only after YAML identity validation moves into
+a documented repo tooling command with equivalent fixture/docs coverage.
+"""
+
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
+
+pytestmark = pytest.mark.governance
 
 YAML_ROOTS = [
-    (ROOT / "custom" / "souls", "soul", True, False),
-    (ROOT / "custom" / "tools", "tool", False, False),
-    (ROOT / "custom" / "workflows", "workflow", False, False),
     (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "souls", "soul", True, True),
     (ROOT / "packages" / "core" / "tests" / "fixtures" / "custom" / "tools", "tool", False, True),
     (
@@ -94,7 +105,7 @@ def _iter_inline_fixture_files() -> list[Path]:
     return sorted(path for path in INLINE_FIXTURE_FILES if path not in INTENTIONAL_NEGATIVE_FILES)
 
 
-def test_yaml_identity_fields_match_filename_stem() -> None:
+def test_package_fixture_yaml_identity_fields_match_filename_stem() -> None:
     mismatches: list[str] = []
     for root, expected_kind, requires_name, required in YAML_ROOTS:
         if not root.exists():
@@ -135,7 +146,7 @@ def test_docs_do_not_reference_suffixed_soul_ids() -> None:
     )
 
 
-def test_inline_yaml_and_dict_literals_use_embedded_identity_fields() -> None:
+def test_inline_fixtures_use_canonical_identity_fields() -> None:
     stale_locations: list[str] = []
 
     for path in _iter_inline_fixture_files():

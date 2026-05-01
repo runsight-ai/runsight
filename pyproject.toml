@@ -25,7 +25,7 @@ runsight-core = { workspace = true }
 runsight = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "packages/core/tests"]
+testpaths = ["apps/api/tests", "packages/core/tests", "tools/tests"]
 asyncio_mode = "auto"
 # Pytest is single-process by default. Keep broad accidental runs bounded:
 # stop on first failure and disable xdist worker fan-out if the plugin is present.
