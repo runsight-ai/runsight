@@ -1,0 +1,59 @@
+packages/core/tests/fixtures/workflows/workflow-block-warn-under-flow-cap.yaml
+  4adca821c1af8eb3 1-36
+packages/core/tests/fixtures/workflows/block-timeout-fast-success.yaml
+  4adca821c1af8eb3 1-29
+packages/core/tests/test_workflow_cost_warn_integration.py
+  c8e2c738d74b9b3b 156
+  4adca821c1af8eb3 2,4-6,11,19-23,25-27,30-32,46-48,52,70-72,76,89-91,95,108-110,114,128-130,134,141,145,148,158-159,165,181-182,186,200-201,205,220-222,226,244-246,250,265-267,271,288,298,315-317,321
+packages/core/tests/fixtures/workflows/block-timeout-with-error-route.yaml
+  4adca821c1af8eb3 1-30
+packages/core/tests/fixtures/workflows/workflow-timeout-short.yaml
+  4adca821c1af8eb3 1-29
+packages/core/tests/workflow_limit_helpers.py
+  4adca821c1af8eb3 1-54
+packages/core/tests/fixtures/workflows/workflow-block-warn-over-flow-cap.yaml
+  4adca821c1af8eb3 1-52
+packages/core/tests/test_workflow_timeout_integration.py
+  4adca821c1af8eb3 1-212
+packages/core/tests/fixtures/workflows/workflow-timeout-generous.yaml
+  4adca821c1af8eb3 1-29
+packages/core/tests/test_block_timeout_integration.py
+  4adca821c1af8eb3 1-341
+packages/core/tests/fixtures/workflows/block-timeout-no-error-route.yaml
+  4adca821c1af8eb3 1-29
+packages/core/tests/fixtures/workflows/workflow-cost-warn.yaml
+  4adca821c1af8eb3 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ce80ebf93e8e8fcff4a0d8391870d26578419e9e",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2029,
+      "total_deletions": 1700,
+      "accepted_lines": 60337,
+      "overriden_lines": 0
+    },
+    "c8e2c738d74b9b3b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de356-e2c7-7182-8a55-1f1a41ea2b03",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 3,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
