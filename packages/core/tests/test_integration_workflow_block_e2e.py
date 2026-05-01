@@ -37,11 +37,11 @@ def _child_workflow_file(name: str = "analysis_child") -> RunsightWorkflowFile:
                 "topic": {"type": "string", "required": False},
                 "input": {"type": "string", "required": False},
             },
-            "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
+            "blocks": {"analysis_step": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
                 "name": name,
-                "entry": "step1",
-                "transitions": [{"from": "step1", "to": None}],
+                "entry": "analysis_step",
+                "transitions": [{"from": "analysis_step", "to": None}],
             },
         }
     )
@@ -90,13 +90,18 @@ class TestParserRegistryIntegration:
     def test_parser_requires_registry_for_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "missing-child-registry-parent",
             "kind": "workflow",
-            "blocks": {"child_ref": {"type": "workflow", "workflow_ref": "missing_child"}},
+            "blocks": {
+                "missing_child_workflow_block": {
+                    "type": "workflow",
+                    "workflow_ref": "missing_child",
+                }
+            },
             "workflow": {
-                "name": "parent",
-                "entry": "child_ref",
-                "transitions": [{"from": "child_ref", "to": None}],
+                "name": "missing_child_parent_workflow",
+                "entry": "missing_child_workflow_block",
+                "transitions": [{"from": "missing_child_workflow_block", "to": None}],
             },
         }
 
@@ -110,18 +115,18 @@ class TestParserRegistryIntegration:
 
         parent_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "analysis-registry-parent",
             "kind": "workflow",
             "blocks": {
                 "invoke_analysis": {
                     "type": "workflow",
                     "workflow_ref": "analysis_child",
                     "inputs": {"topic": "shared_memory.research_topic"},
-                    "outputs": {"results.analysis": "results.step1"},
+                    "outputs": {"results.analysis": "results.analysis_step"},
                 }
             },
             "workflow": {
-                "name": "main_workflow",
+                "name": "analysis_parent_workflow",
                 "entry": "invoke_analysis",
                 "transitions": [{"from": "invoke_analysis", "to": None}],
             },
@@ -134,75 +139,86 @@ class TestParserRegistryIntegration:
         assert isinstance(block, WorkflowBlock)
         assert block.child_workflow.name == "analysis_child"
         assert block.inputs == {"topic": "shared_memory.research_topic"}
-        assert block.outputs == {"results.analysis": "results.step1"}
+        assert block.outputs == {"results.analysis": "results.analysis_step"}
 
 
 class TestParserMaxDepthResolution:
     def test_block_level_max_depth_overrides_global(self) -> None:
-        child_file = _child_workflow_file("child-c")
+        child_file = _child_workflow_file("block_depth_child_workflow")
         registry = WorkflowRegistry()
-        registry.register("child-c", child_file)
+        registry.register("block_depth_child_workflow", child_file)
 
         parent_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "block-depth-parent",
             "kind": "workflow",
             "config": {"max_workflow_depth": 12},
-            "blocks": {"invoke": {"type": "workflow", "workflow_ref": "child-c", "max_depth": 5}},
+            "blocks": {
+                "block_depth_workflow_block": {
+                    "type": "workflow",
+                    "workflow_ref": "block_depth_child_workflow",
+                    "max_depth": 5,
+                }
+            },
             "workflow": {
-                "name": "p",
-                "entry": "invoke",
-                "transitions": [{"from": "invoke", "to": None}],
+                "name": "block_depth_parent_workflow",
+                "entry": "block_depth_workflow_block",
+                "transitions": [{"from": "block_depth_workflow_block", "to": None}],
             },
         }
 
         wf = parse_workflow_yaml(parent_dict, workflow_registry=registry)
-        assert wf._blocks["invoke"].max_depth == 5
+        assert wf._blocks["block_depth_workflow_block"].max_depth == 5
 
     def test_global_config_used_when_no_block_level(self) -> None:
-        child_file = _child_workflow_file("child-c")
+        child_file = _child_workflow_file("global_depth_child_workflow")
         registry = WorkflowRegistry()
-        registry.register("child-c", child_file)
+        registry.register("global_depth_child_workflow", child_file)
 
         parent_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "global-depth-parent",
             "kind": "workflow",
             "config": {"max_workflow_depth": 7},
-            "blocks": {"invoke": {"type": "workflow", "workflow_ref": "child-c"}},
+            "blocks": {
+                "global_depth_workflow_block": {
+                    "type": "workflow",
+                    "workflow_ref": "global_depth_child_workflow",
+                }
+            },
             "workflow": {
-                "name": "p",
-                "entry": "invoke",
-                "transitions": [{"from": "invoke", "to": None}],
+                "name": "global_depth_parent_workflow",
+                "entry": "global_depth_workflow_block",
+                "transitions": [{"from": "global_depth_workflow_block", "to": None}],
             },
         }
 
         wf = parse_workflow_yaml(parent_dict, workflow_registry=registry)
-        assert wf._blocks["invoke"].max_depth == 7
+        assert wf._blocks["global_depth_workflow_block"].max_depth == 7
 
 
 @pytest.mark.asyncio
 class TestWorkflowBlockErrorHandling:
     async def test_invalid_input_mapping_path_raises_at_runtime(self) -> None:
-        child_file = _child_workflow_file("child-c")
+        child_file = _child_workflow_file("invalid_mapping_child_workflow")
         registry = WorkflowRegistry()
-        registry.register("child-c", child_file)
+        registry.register("invalid_mapping_child_workflow", child_file)
 
         parent_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "invalid-input-parent",
             "kind": "workflow",
             "blocks": {
-                "invoke": {
+                "invalid_input_mapping_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "child-c",
+                    "workflow_ref": "invalid_mapping_child_workflow",
                     "inputs": {"input": "shared_memory.nonexistent_key"},
                 }
             },
             "workflow": {
-                "name": "p",
-                "entry": "invoke",
-                "transitions": [{"from": "invoke", "to": None}],
+                "name": "invalid_mapping_parent_workflow",
+                "entry": "invalid_input_mapping_workflow_block",
+                "transitions": [{"from": "invalid_input_mapping_workflow_block", "to": None}],
             },
         }
         parent_workflow = parse_workflow_yaml(parent_dict, workflow_registry=registry)
@@ -211,24 +227,24 @@ class TestWorkflowBlockErrorHandling:
             await parent_workflow.run(WorkflowState())
 
 
-class TestBackwardCompatibility:
+class TestWorkflowWithoutWorkflowBlocks:
     def test_parse_simple_workflow_without_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "workflow-block-e2e-workflow",
+            "id": "simple-linear-parent",
             "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
-            "blocks": {"step1": {"type": "linear", "soul_ref": "researcher"}},
+            "blocks": {"simple_linear_step": {"type": "linear", "soul_ref": "researcher"}},
             "workflow": {
-                "name": "simple",
-                "entry": "step1",
-                "transitions": [{"from": "step1", "to": None}],
+                "name": "simple_linear_workflow",
+                "entry": "simple_linear_step",
+                "transitions": [{"from": "simple_linear_step", "to": None}],
             },
         }
 
         wf = parse_workflow_yaml(yaml_dict)
-        assert wf.name == "simple"
-        assert "step1" in wf._blocks
+        assert wf.name == "simple_linear_workflow"
+        assert "simple_linear_step" in wf._blocks
 
 
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
@@ -271,7 +287,7 @@ class TestExternalSoulFileResolution:
                 base,
                 """\
                 version: "1.0"
-                id: workflow-block-e2e-workflow
+                id: external-soul-analysis-parent
                 kind: workflow
                 blocks:
                   invoke_analysis:
@@ -280,9 +296,9 @@ class TestExternalSoulFileResolution:
                     inputs:
                       topic: shared_memory.input_topic
                     outputs:
-                      results.analysis: results.step1
+                      results.analysis: results.analysis_step
                 workflow:
-                  name: main_workflow
+                  name: external_soul_analysis_parent_workflow
                   entry: invoke_analysis
                   transitions:
                     - from: invoke_analysis
