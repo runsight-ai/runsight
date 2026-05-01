@@ -1,0 +1,23 @@
+packages/core/tests/test_integration_blocks_workflow.py
+  4adca821c1af8eb3 1,3-5,37,43-44,88,93-94,96-97,100-101,104,107-110,112,116-117,120-122,129,138,151,156-157,160-171,177,181,211-212,216-217,220-222,231,235,258,263-264,268,273,278,283,288,297,301,306,337-338,340-341,345-356,379-380,385-386,389,393-402
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "404e6669b1c472f0fee600b31e88f7cf2a2ce746",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 111,
+      "total_deletions": 125,
+      "accepted_lines": 59098,
+      "overriden_lines": 0
+    }
+  }
+}
