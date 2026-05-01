@@ -22,69 +22,7 @@ from sqlmodel import SQLModel, Session, create_engine
 from runsight_api.domain.entities.run import Run, RunStatus
 
 
-# ---------------------------------------------------------------------------
-# YAML workflow definitions
-# ---------------------------------------------------------------------------
-
-YAML_CONTAINS_ASSERTION = """\
-id: contains-assertion-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: contains
-        value: "X"
-workflow:
-  name: contains_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-YAML_COST_ASSERTION = """\
-id: cost-assertion-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: cost
-        threshold: 0.05
-workflow:
-  name: cost_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
+FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "execution_assertions"
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +37,10 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
     canvas_dir = wf_dir / ".canvas"
     canvas_dir.mkdir(parents=True, exist_ok=True)
     (wf_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
+
+
+def _read_workflow_fixture(workflow_id: str) -> str:
+    return (FIXTURE_ROOT / f"{workflow_id}.yaml").read_text(encoding="utf-8")
 
 
 def _git_service_for(base_dir: Path) -> Mock:
@@ -174,8 +116,16 @@ def base_dir():
     """Temporary directory for workflow YAML files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
-        _write_workflow_file(base, "contains-assertion-workflow", YAML_CONTAINS_ASSERTION)
-        _write_workflow_file(base, "cost-assertion-workflow", YAML_COST_ASSERTION)
+        _write_workflow_file(
+            base,
+            "contains-assertion-workflow",
+            _read_workflow_fixture("contains-assertion-workflow"),
+        )
+        _write_workflow_file(
+            base,
+            "cost-assertion-workflow",
+            _read_workflow_fixture("cost-assertion-workflow"),
+        )
         yield base
 
 
