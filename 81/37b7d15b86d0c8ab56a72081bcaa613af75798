@@ -1,0 +1,23 @@
+packages/core/tests/test_depends_error_routes.py
+  4adca821c1af8eb3 328,330,334,340-342,347,349-350,354,356,366-367,369,375,377,379
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "8137b7d15b86d0c8ab56a72081bcaa613af75798",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 17,
+      "accepted_lines": 59019,
+      "overriden_lines": 0
+    }
+  }
+}
