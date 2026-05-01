@@ -1,0 +1,23 @@
+packages/core/tests/test_parse_workflow_inputs.py
+  4adca821c1af8eb3 15,19,27,156,165,167,193-194,208,212-213,215,217,224,229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ce1989dbf5b9cbc57163e5d0d9aab43c1a759a87",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 15,
+      "accepted_lines": 59226,
+      "overriden_lines": 0
+    }
+  }
+}
