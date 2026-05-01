@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 
@@ -26,7 +25,7 @@ _RESEARCHER_SOUL = {
 }
 
 
-def _child_workflow_file(name: str = "analysis_child") -> RunsightWorkflowFile:
+def _analysis_workflow_file(name: str = "registry_analysis_workflow") -> RunsightWorkflowFile:
     return RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
@@ -60,7 +59,7 @@ class TestSchemaParsingIntegration:
         block_def = adapter.validate_python(
             {
                 "type": "workflow",
-                "workflow_ref": "child_pipeline",
+                "workflow_ref": "analysis_pipeline",
                 "inputs": {"task": "task.id"},
                 "outputs": {"results.out": "results.summary"},
                 "max_depth": 8,
@@ -68,7 +67,7 @@ class TestSchemaParsingIntegration:
         )
 
         assert block_def.type == "workflow"
-        assert block_def.workflow_ref == "child_pipeline"
+        assert block_def.workflow_ref == "analysis_pipeline"
         assert block_def.inputs == {"task": "task.id"}
         assert block_def.outputs == {"results.out": "results.summary"}
         assert block_def.max_depth == 8
@@ -80,7 +79,7 @@ class TestSchemaParsingIntegration:
             adapter.validate_python(
                 {
                     "type": "workflow",
-                    "workflow_ref": "child_pipeline",
+                    "workflow_ref": "analysis_pipeline",
                     "outputs": {"results.out": "summary"},
                 }
             )
@@ -90,18 +89,18 @@ class TestParserRegistryIntegration:
     def test_parser_requires_registry_for_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "missing-child-registry-parent",
+            "id": "missing-analysis-registry-parent",
             "kind": "workflow",
             "blocks": {
-                "missing_child_workflow_block": {
+                "missing_analysis_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "missing_child",
+                    "workflow_ref": "missing_analysis_workflow",
                 }
             },
             "workflow": {
-                "name": "missing_child_parent_workflow",
-                "entry": "missing_child_workflow_block",
-                "transitions": [{"from": "missing_child_workflow_block", "to": None}],
+                "name": "missing_analysis_parent_workflow",
+                "entry": "missing_analysis_workflow_block",
+                "transitions": [{"from": "missing_analysis_workflow_block", "to": None}],
             },
         }
 
@@ -109,9 +108,9 @@ class TestParserRegistryIntegration:
             parse_workflow_yaml(yaml_dict)
 
     def test_parser_resolves_workflow_from_registry_without_child_interface(self) -> None:
-        child_file = _child_workflow_file()
+        analysis_workflow_file = _analysis_workflow_file()
         registry = WorkflowRegistry()
-        registry.register("analysis_child", child_file)
+        registry.register("registry_analysis_workflow", analysis_workflow_file)
 
         parent_dict = {
             "version": "1.0",
@@ -120,7 +119,7 @@ class TestParserRegistryIntegration:
             "blocks": {
                 "invoke_analysis": {
                     "type": "workflow",
-                    "workflow_ref": "analysis_child",
+                    "workflow_ref": "registry_analysis_workflow",
                     "inputs": {"topic": "shared_memory.research_topic"},
                     "outputs": {"results.analysis": "results.analysis_step"},
                 }
@@ -137,16 +136,16 @@ class TestParserRegistryIntegration:
         assert isinstance(parent_workflow, Workflow)
         block = parent_workflow._blocks["invoke_analysis"]
         assert isinstance(block, WorkflowBlock)
-        assert block.child_workflow.name == "analysis_child"
+        assert block.child_workflow.name == "registry_analysis_workflow"
         assert block.inputs == {"topic": "shared_memory.research_topic"}
         assert block.outputs == {"results.analysis": "results.analysis_step"}
 
 
 class TestParserMaxDepthResolution:
     def test_block_level_max_depth_overrides_global(self) -> None:
-        child_file = _child_workflow_file("block_depth_child_workflow")
+        analysis_workflow_file = _analysis_workflow_file("block_depth_analysis_workflow")
         registry = WorkflowRegistry()
-        registry.register("block_depth_child_workflow", child_file)
+        registry.register("block_depth_analysis_workflow", analysis_workflow_file)
 
         parent_dict = {
             "version": "1.0",
@@ -156,7 +155,7 @@ class TestParserMaxDepthResolution:
             "blocks": {
                 "block_depth_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "block_depth_child_workflow",
+                    "workflow_ref": "block_depth_analysis_workflow",
                     "max_depth": 5,
                 }
             },
@@ -171,9 +170,9 @@ class TestParserMaxDepthResolution:
         assert wf._blocks["block_depth_workflow_block"].max_depth == 5
 
     def test_global_config_used_when_no_block_level(self) -> None:
-        child_file = _child_workflow_file("global_depth_child_workflow")
+        analysis_workflow_file = _analysis_workflow_file("global_depth_analysis_workflow")
         registry = WorkflowRegistry()
-        registry.register("global_depth_child_workflow", child_file)
+        registry.register("global_depth_analysis_workflow", analysis_workflow_file)
 
         parent_dict = {
             "version": "1.0",
@@ -183,7 +182,7 @@ class TestParserMaxDepthResolution:
             "blocks": {
                 "global_depth_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "global_depth_child_workflow",
+                    "workflow_ref": "global_depth_analysis_workflow",
                 }
             },
             "workflow": {
@@ -200,9 +199,9 @@ class TestParserMaxDepthResolution:
 @pytest.mark.asyncio
 class TestWorkflowBlockErrorHandling:
     async def test_invalid_input_mapping_path_raises_at_runtime(self) -> None:
-        child_file = _child_workflow_file("invalid_mapping_child_workflow")
+        analysis_workflow_file = _analysis_workflow_file("invalid_mapping_analysis_workflow")
         registry = WorkflowRegistry()
-        registry.register("invalid_mapping_child_workflow", child_file)
+        registry.register("invalid_mapping_analysis_workflow", analysis_workflow_file)
 
         parent_dict = {
             "version": "1.0",
@@ -211,7 +210,7 @@ class TestWorkflowBlockErrorHandling:
             "blocks": {
                 "invalid_input_mapping_workflow_block": {
                     "type": "workflow",
-                    "workflow_ref": "invalid_mapping_child_workflow",
+                    "workflow_ref": "invalid_mapping_analysis_workflow",
                     "inputs": {"input": "shared_memory.nonexistent_key"},
                 }
             },
@@ -231,7 +230,7 @@ class TestWorkflowWithoutWorkflowBlocks:
     def test_parse_simple_workflow_without_workflow_blocks(self) -> None:
         yaml_dict = {
             "version": "1.0",
-            "id": "simple-linear-parent",
+            "id": "simple-linear-workflow",
             "kind": "workflow",
             "souls": _RESEARCHER_SOUL,
             "blocks": {"simple_linear_step": {"type": "linear", "soul_ref": "researcher"}},
@@ -269,46 +268,44 @@ def _write_soul_file(base_dir: Path, name: str, *, soul_id: str, role: str, prom
 
 
 class TestExternalSoulFileResolution:
-    def test_external_soul_resolves_for_workflow_with_registry(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base = Path(tmpdir)
-            _write_soul_file(
-                base,
-                "researcher",
-                soul_id="researcher",
-                role="Senior Researcher",
-                prompt="You research topics.",
-            )
-            child_file = _child_workflow_file()
-            registry = WorkflowRegistry()
-            registry.register("analysis_child", child_file)
+    def test_external_soul_resolves_for_workflow_with_registry(self, tmp_path: Path) -> None:
+        _write_soul_file(
+            tmp_path,
+            "researcher",
+            soul_id="researcher",
+            role="Senior Researcher",
+            prompt="You research topics.",
+        )
+        analysis_workflow_file = _analysis_workflow_file()
+        registry = WorkflowRegistry()
+        registry.register("registry_analysis_workflow", analysis_workflow_file)
 
-            path = _write_workflow_file(
-                base,
-                """\
-                version: "1.0"
-                id: external-soul-analysis-parent
-                kind: workflow
-                blocks:
-                  invoke_analysis:
-                    type: workflow
-                    workflow_ref: analysis_child
-                    inputs:
-                      topic: shared_memory.input_topic
-                    outputs:
-                      results.analysis: results.analysis_step
-                workflow:
-                  name: external_soul_analysis_parent_workflow
-                  entry: invoke_analysis
-                  transitions:
-                    - from: invoke_analysis
-                      to: null
-                """,
-            )
+        path = _write_workflow_file(
+            tmp_path,
+            """\
+            version: "1.0"
+            id: external-soul-analysis-parent
+            kind: workflow
+            blocks:
+              invoke_analysis:
+                type: workflow
+                workflow_ref: registry_analysis_workflow
+                inputs:
+                  topic: shared_memory.input_topic
+                outputs:
+                  results.analysis: results.analysis_step
+            workflow:
+              name: external_soul_analysis_parent_workflow
+              entry: invoke_analysis
+              transitions:
+                - from: invoke_analysis
+                  to: null
+            """,
+        )
 
-            parent_workflow = parse_workflow_yaml(path, workflow_registry=registry)
+        parent_workflow = parse_workflow_yaml(path, workflow_registry=registry)
 
-            assert isinstance(parent_workflow, Workflow)
-            block = parent_workflow._blocks["invoke_analysis"]
-            assert isinstance(block, WorkflowBlock)
-            assert block.child_workflow.name == "analysis_child"
+        assert isinstance(parent_workflow, Workflow)
+        block = parent_workflow._blocks["invoke_analysis"]
+        assert isinstance(block, WorkflowBlock)
+        assert block.child_workflow.name == "registry_analysis_workflow"
