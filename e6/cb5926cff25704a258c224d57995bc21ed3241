@@ -1,0 +1,269 @@
+apps/api/tests/test_run_creation_execution_integration.py
+  181342b41fe25253 1,60,88,136,313,499
+  35e285ede4f8c784 3-4,6-7,9-14,16-19,21-22,24-25,37,40-59,61-65,67-87,89-93,97,101-126,128,131-135,137,141-142,144-153,155-200,212,216-251,253,257-280,282,284-288,290-291,293-296,298-300,302,304-305,309,314-381,383-491,495,500-539,541-605
+  4adca821c1af8eb3 27-33,201-208
+testing/gui-e2e/tests/settings-fallback-configuration.spec.ts
+  971fed59d45101d8 3-11,46,48,50-53,79,83-85
+apps/api/tests/logic/test_wire_assertion_configs.py
+  4adca821c1af8eb3 12,43-74,149-179,294-327
+apps/gui/src/features/setup/__tests__/apiKeyModalBehavior.test.tsx
+  4adca821c1af8eb3 56-71,73-91,120-121,145,149,157-160
+testing/gui-e2e/tests/onboarding.spec.ts
+  4adca821c1af8eb3 3-11,31,45,56-58
+apps/api/tests/transport/test_git_file_read.py
+  4adca821c1af8eb3 195
+apps/api/tests/test_codebones_index_lifecycle_governance.py
+  7ed265960ee8baff 2-9,90,113
+packages/core/tests/test_integration_workflow_block.py
+  4adca821c1af8eb3 2,48
+apps/api/tests/test_tools_canonical_home_governance.py
+  971fed59d45101d8 1,9-23,25-39,41-64
+  7ed265960ee8baff 2-8,24,40
+apps/api/tests/test_api_dead_code_boundary_governance.py
+  1018989ce9231ea3 4-8,11,25-27,31,35-36,38-39,41-45,47-52,54-57
+  971fed59d45101d8 1-2,12
+apps/api/tests/logic/test_execution_service.py
+  7ed265960ee8baff 123-137
+testing/gui-e2e/tests/subflows.spec.ts
+  7ed265960ee8baff 1-552
+packages/core/tests/test_isolation_boundary_integration.py
+  7ed265960ee8baff 2-41,43-44,46-239,241-413,415-576,578-797
+  181342b41fe25253 1,42,45,240,414,577
+packages/core/tests/unit/test_parser_tool_validation.py
+  1018989ce9231ea3 16-17,20,23,26-27
+  7ed265960ee8baff 18-19,21-22,24-25
+apps/api/tests/test_run_inputs_source_governance.py
+  971fed59d45101d8 1,9-10,13-16,30-35,39-41,43-52,86-87,98,101,107-108,111,120,126-127,130,139
+  7ed265960ee8baff 2
+  1018989ce9231ea3 3-8,11-12,17-29,36-38,42,53-85,88-97,99-100,102-106,109-110,112-119,121-125,128-129,131-138,140-147
+testing/gui-e2e/tests/typed-workflow-inputs.spec.ts
+  4adca821c1af8eb3 535-536,588
+  35e285ede4f8c784 392-407,409-410,412-414,416-418,420-421,423-425,427-428,430-434,436-442,444-447,449-450,452-456,458-459,461-468,470-486,488-508,511,514-519,521-534,537,539-541,543,545-568,570-573,575,577-582,584-587,590-591,593-596,598-599,601-605,607-684
+apps/api/tests/test_startup_stale_run_recovery.py
+  7ed265960ee8baff 1-231
+apps/api/tests/unit/cleanup/test_decrypt_stub_removal_governance.py
+  971fed59d45101d8 10-31,33-43,46-69,72-77
+  7ed265960ee8baff 1-9,32,44-45,70-71
+packages/core/tests/test_integration_workflow.py
+  4adca821c1af8eb3 7,36,38,76,101,103,210,212,257,286,288,330,332,377,379,418
+packages/core/tests/test_wire_soul_ref_to_library.py
+  4adca821c1af8eb3 17,28-33,38
+packages/core/tests/test_yaml_parser.py
+  4adca821c1af8eb3 14-18,191,195,218,222,491,601-602,605,623
+apps/api/tests/transport/test_eval_kpis.py
+  4adca821c1af8eb3 2
+packages/core/tests/unit/test_resolve_next_exit_handle.py
+  4adca821c1af8eb3 251,258,434-435,437
+apps/api/tests/test_execution_assertion_evaluation.py
+  181342b41fe25253 1,212
+  7ed265960ee8baff 2-211,213-765
+packages/core/tests/test_yaml_dx_runtime_integration.py
+  181342b41fe25253 1,17,61,69,83
+  7ed265960ee8baff 2-16,18-60,62-68,70-82,84-514
+apps/gui/src/api/__tests__/apiClientParsingGovernance.test.ts
+  4adca821c1af8eb3 2-8,22
+packages/core/tests/test_workflow_output_conditions.py
+  4adca821c1af8eb3 481,485,490,735
+packages/core/tests/test_budget_wiring.py
+  4adca821c1af8eb3 514,518
+packages/core/tests/test_tool_pipeline_execution.py
+  4adca821c1af8eb3 29
+packages/core/tests/test_budget_limits_schema.py
+  4adca821c1af8eb3 504,509
+packages/core/tests/test_sandbox_hardening.py
+  4adca821c1af8eb3 395
+packages/core/tests/test_workflow_error_routing_and_output_mapping.py
+  4adca821c1af8eb3 422
+packages/core/tests/test_parser_round_trip.py
+  4adca821c1af8eb3 23,25
+packages/core/tests/parser_yaml_helpers.py
+  4adca821c1af8eb3 1-241
+apps/api/tests/test_health_route.py
+  7ed265960ee8baff 1-11
+apps/api/tests/logic/test_execution_observer.py
+  4adca821c1af8eb3 10,167-188
+packages/core/tests/test_budget_session.py
+  4adca821c1af8eb3 587
+apps/api/tests/logic/test_state_flow.py
+  4adca821c1af8eb3 161
+testing/gui-e2e/tests/helpers/shellReady.ts
+  4adca821c1af8eb3 24-28
+apps/api/tests/unit/logic/test_provider_service_wiring.py
+  4adca821c1af8eb3 25-33,39-45,590,594
+testing/gui-e2e/playwright.config.ts
+  4adca821c1af8eb3 8-19,46-50
+apps/api/tests/test_ci_workspace_layout_governance.py
+  7ed265960ee8baff 2-9,162,182
+packages/core/tests/test_isolation_harness.py
+  4adca821c1af8eb3 1982
+apps/api/tests/test_placeholder_block_removal_governance.py
+  1018989ce9231ea3 2-11,27-38,60-82,88-89,97,105,113,115,132-133,152,154,166,168,174-175,184-185,196,206,215,227-228,245,249,256
+  971fed59d45101d8 1,12-26,39-59,83-87,90-96,98-104,106-112,114,116-131,134-151,153,155-165,167,169-173,176-183,186-195,197-198,200-205,207-208,210-213,216-226,229-244,246-248,250-255,257-258
+  181342b41fe25253 214
+  35e285ede4f8c784 199,209
+apps/api/tests/transport/test_tools_router.py
+  7ed265960ee8baff 3-4,6,160-180
+packages/core/tests/test_isolation_monitoring.py
+  1018989ce9231ea3 16
+apps/api/tests/unit/data/filesystem/test_workflow_repo_discovery_symbol_governance.py
+  4adca821c1af8eb3 1-57
+apps/api/tests/test_execution_transport_integration.py
+  4adca821c1af8eb3 40-47,71,262-266
+apps/api/tests/test_tracked_artifact_boundary_governance.py
+  7ed265960ee8baff 2-9,74,84
+testing/gui-e2e/tests/parser-warnings.spec.ts
+  4adca821c1af8eb3 147
+apps/api/tests/logic/test_streaming_observer.py
+  4adca821c1af8eb3 112-113,506,510,522,575,626,664
+  7ed265960ee8baff 11,96-111
+apps/api/tests/test_sse_streaming_integration.py
+  4adca821c1af8eb3 1-1021
+packages/core/tests/test_isolation_ipc_artifacts_http.py
+  4adca821c1af8eb3 127,236
+packages/core/tests/test_parser_inputs_outputs.py
+  181342b41fe25253 6
+apps/api/tests/logic/test_stale_run_recovery_service.py
+  7ed265960ee8baff 1-77
+packages/core/tests/conftest.py
+  4adca821c1af8eb3 8
+apps/api/tests/logic/test_eval_observer_custom_assertion.py
+  4adca821c1af8eb3 305
+packages/core/tests/test_workflow_block_input_contract_integration.py
+  181342b41fe25253 1
+  7ed265960ee8baff 2-311
+apps/api/tests/unit/cleanup/test_sqlite_encryption_removal_governance.py
+  35e285ede4f8c784 225
+  7ed265960ee8baff 2-10,32-33,58-59,109-110,127-128,142-143,168-169,228-229,244-245,268-269,296-297,327
+  971fed59d45101d8 1,11-31,34-57,60-108,111-126,129-141,144-167,170-224,226-227,230-243,246-267,270-295,298-326,328-335
+apps/api/tests/test_parser_warning_run_snapshots.py
+  181342b41fe25253 1
+  7ed265960ee8baff 2-509
+packages/core/tests/test_block_result_output_consumers.py
+  7ed265960ee8baff 1-2,4-36,38-49,51-53,55-75,78-309
+packages/core/tests/test_schema_validation.py
+  4adca821c1af8eb3 359
+packages/core/tests/test_discovery_symbol_governance.py
+  4adca821c1af8eb3 1-10,13-14,18,21-40,42-47,49
+packages/core/tests/unit/test_exit_ports_integration.py
+  4adca821c1af8eb3 152,156,258,262,461,838,943
+packages/core/tests/test_yaml_dx_sugar.py
+  4adca821c1af8eb3 9,16,30,34-41
+apps/api/tests/unit/data/filesystem/test_workflow_repo_scanner_collaboration.py
+  4adca821c1af8eb3 3,8-13,15,38-137,166-173,175,182-228,230-282
+packages/core/tests/test_migrate_blocks.py
+  4adca821c1af8eb3 339
+packages/core/tests/test_workflow_input_seeding.py
+  4adca821c1af8eb3 493,497,499,521
+testing/gui-e2e/tests/context-audit-flow.spec.ts
+  7ed265960ee8baff 448-491,493-526
+packages/core/tests/unit/test_tooldef_schema.py
+  4adca821c1af8eb3 376
+packages/core/tests/test_mixed_block_pipeline_integration.py
+  7ed265960ee8baff 1-38,40-405
+  181342b41fe25253 39
+packages/core/tests/test_custom_assertion_eval_runner_integration.py
+  181342b41fe25253 1,82
+  7ed265960ee8baff 2-81,83-239
+apps/api/tests/transport/test_run_inputs_transport_contract.py
+  4adca821c1af8eb3 1-207
+packages/core/tests/test_linearblock_migration.py
+  4adca821c1af8eb3 262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e6cb5926cff25704a258c224d57995bc21ed3241",
+  "prompts": {
+    "1018989ce9231ea3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-b99e-7461-8eef-e404977e2f7b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 219,
+      "total_deletions": 808,
+      "accepted_lines": 216,
+      "overriden_lines": 0
+    },
+    "181342b41fe25253": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bb77-7641-be42-02be09d870bd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 76,
+      "total_deletions": 46,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    },
+    "35e285ede4f8c784": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bcca-7c43-abcb-e0fd1f450899",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 879,
+      "total_deletions": 287,
+      "accepted_lines": 872,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2273,
+      "total_deletions": 1182,
+      "accepted_lines": 61216,
+      "overriden_lines": 0
+    },
+    "7ed265960ee8baff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bf56-7c03-91cc-2945ca9e5e6d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 4949,
+      "total_deletions": 151,
+      "accepted_lines": 4931,
+      "overriden_lines": 0
+    },
+    "971fed59d45101d8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-ba89-7750-99a8-08fd44891b58",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1716,
+      "total_deletions": 114,
+      "accepted_lines": 1136,
+      "overriden_lines": 0
+    },
+    "c8a45c12c7ac1a61": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3cb-bce6-78e2-801a-cf10a3e2e2b8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 35,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
