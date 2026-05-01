@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import AsyncMock, Mock, patch
@@ -13,6 +12,10 @@ import yaml
 from sqlmodel import SQLModel, Session, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
+
+WORKFLOW_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "eval_observer_custom_assertion"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -36,112 +39,22 @@ def _isolate_custom_assertion_registry():
     _PARAM_SCHEMAS.update(saved_param_schemas)
 
 
-_PROMPTFOO_WORKFLOW_YAML = """\
-id: promptfoo-eval-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: custom:tone_check
-        config:
-          prefix: calm
-      - type: contains
-        value: "calm"
-workflow:
-  name: promptfoo_eval_live_path
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-_NEGATED_CUSTOM_WORKFLOW_YAML = """\
-id: negated-custom-eval-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: not-custom:blocked_word
-        config:
-          blocked: storm
-      - type: contains
-        value: "calm"
-workflow:
-  name: negated_custom_eval_live_path
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-_INVALID_CONFIG_WORKFLOW_YAML = """\
-id: invalid-config-eval-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: openai
-    model_name: gpt-4o
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: custom:budget_guard
-        config: {}
-workflow:
-  name: invalid_config_eval_live_path
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-
 def _write_yaml(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
-def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
+def _workflow_fixture_text(filename: str) -> str:
+    return (WORKFLOW_FIXTURE_DIR / filename).read_text(encoding="utf-8")
+
+
+def _write_workflow_file(base_dir: Path, workflow_id: str, fixture_name: str) -> None:
     workflows_dir = base_dir / "custom" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
-    (workflows_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
+    (workflows_dir / f"{workflow_id}.yaml").write_text(
+        _workflow_fixture_text(fixture_name),
+        encoding="utf-8",
+    )
 
 
 def _write_custom_assertion(
@@ -230,17 +143,28 @@ def db_engine():
 
 
 @pytest.fixture
-def base_dir():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
-        _write_workflow_file(base, "promptfoo-eval-workflow", _PROMPTFOO_WORKFLOW_YAML)
-        _write_workflow_file(base, "negated-custom-eval-workflow", _NEGATED_CUSTOM_WORKFLOW_YAML)
-        _write_workflow_file(base, "invalid-config-eval-workflow", _INVALID_CONFIG_WORKFLOW_YAML)
-        _write_custom_assertion(
-            base,
-            stem="tone_check",
-            returns="grading_result",
-            code="""
+def base_dir(tmp_path):
+    base = tmp_path / "runtime-workspace"
+    _write_workflow_file(
+        base,
+        "promptfoo-eval-workflow",
+        "promptfoo-eval-workflow.yaml",
+    )
+    _write_workflow_file(
+        base,
+        "negated-custom-eval-workflow",
+        "negated-custom-eval-workflow.yaml",
+    )
+    _write_workflow_file(
+        base,
+        "invalid-config-eval-workflow",
+        "invalid-config-eval-workflow.yaml",
+    )
+    _write_custom_assertion(
+        base,
+        stem="tone_check",
+        returns="grading_result",
+        code="""
             def get_assert(output, context):
                 config = context.get("config", {})
                 return {
@@ -249,31 +173,31 @@ def base_dir():
                     "reason": f"prefix={config.get('prefix', '')}",
                 }
             """,
-        )
-        _write_custom_assertion(
-            base,
-            stem="blocked_word",
-            returns="bool",
-            code="""
+    )
+    _write_custom_assertion(
+        base,
+        stem="blocked_word",
+        returns="bool",
+        code="""
             def get_assert(output, context):
                 return context.get("config", {}).get("blocked") in output
             """,
-        )
-        _write_custom_assertion(
-            base,
-            stem="budget_guard",
-            returns="bool",
-            params={
-                "type": "object",
-                "properties": {"budget": {"type": "number"}},
-                "required": ["budget"],
-            },
-            code="""
+    )
+    _write_custom_assertion(
+        base,
+        stem="budget_guard",
+        returns="bool",
+        params={
+            "type": "object",
+            "properties": {"budget": {"type": "number"}},
+            "required": ["budget"],
+        },
+        code="""
             def get_assert(output, context):
                 return True
             """,
-        )
-        yield base
+    )
+    return base
 
 
 @pytest.fixture

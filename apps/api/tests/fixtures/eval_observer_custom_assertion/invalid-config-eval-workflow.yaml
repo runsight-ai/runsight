@@ -1,0 +1,27 @@
+id: invalid-config-eval-workflow
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: You are a careful analyst.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    assertions:
+      - type: custom:budget_guard
+        config: {}
+workflow:
+  name: invalid_config_eval_live_path
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
