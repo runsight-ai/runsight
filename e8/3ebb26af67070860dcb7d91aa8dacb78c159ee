@@ -1,0 +1,23 @@
+packages/core/tests/test_workflow_block_builder_path.py
+  4adca821c1af8eb3 4,28,32,34,38-40,48,55,57,59,61,66-67,69-70,82,136-144,153,155,159,171-172,181,186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e83ebb26af67070860dcb7d91aa8dacb78c159ee",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 33,
+      "total_deletions": 28,
+      "accepted_lines": 59244,
+      "overriden_lines": 0
+    }
+  }
+}
