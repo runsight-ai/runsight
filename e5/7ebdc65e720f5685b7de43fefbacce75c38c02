@@ -1,0 +1,23 @@
+packages/core/tests/test_workflow_state_inputs.py
+  4adca821c1af8eb3 2,37,53,69,77-78,192,249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e57ebdc65e720f5685b7de43fefbacce75c38c02",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 8,
+      "accepted_lines": 59219,
+      "overriden_lines": 0
+    }
+  }
+}
