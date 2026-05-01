@@ -1,0 +1,42 @@
+packages/core/tests/parser_yaml_helpers.py
+  4adca821c1af8eb3 55-82
+packages/core/tests/test_parser_inputs_outputs.py
+  d52e43cb71f8b609 6,61,105,136,162,196,238,278,310,336,368,404,453,583,632,726
+packages/core/tests/test_yaml_parser.py
+  d52e43cb71f8b609 16-17,195,222,605
+tools/tests/test_core_parser_yaml_helper_fixture_governance.py
+  4adca821c1af8eb3 1-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a8fa0985f37499571eda2d849225767c1a188c67",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 156,
+      "total_deletions": 26,
+      "accepted_lines": 53433,
+      "overriden_lines": 0
+    },
+    "d52e43cb71f8b609": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de556-211f-7652-998d-9703f91ccebf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 21,
+      "total_deletions": 21,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    }
+  }
+}
