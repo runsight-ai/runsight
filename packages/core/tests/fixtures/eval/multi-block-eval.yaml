@@ -1,0 +1,37 @@
+version: "1.0"
+souls:
+  analyst:
+    id: analyst
+    model: fixture-eval-model
+    system_prompt: "You are an analyst."
+blocks:
+  analyze:
+    type: llm
+    soul: analyst
+    prompt_template: "Analyze: {topic}"
+  summarize:
+    type: llm
+    soul: analyst
+    prompt_template: "Summarize."
+workflow:
+  name: multi_block_eval
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: summarize
+    - from: summarize
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: multi_block_case
+      fixtures:
+        analyze: "Thorough research into LLM scaling laws."
+        summarize: '{"summary": "LLMs scale well", "confidence": 0.95}'
+      expected:
+        analyze:
+          - type: contains
+            value: "research"
+        summarize:
+          - type: is-json
+            value:

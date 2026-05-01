@@ -1,0 +1,30 @@
+id: normal-execution-workflow
+kind: workflow
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    kind: soul
+    name: Research Assistant
+    role: research_assistant
+    system_prompt: "You are a research assistant."
+blocks:
+  analyze:
+    type: code
+    code: "result = 'fixture'"
+workflow:
+  name: normal_execution_ignores_eval
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: eval_only_case
+      fixtures:
+        analyze: "Some fixture output."
+      expected:
+        analyze:
+          - type: contains
+            value: "fixture"

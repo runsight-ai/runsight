@@ -1,0 +1,26 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze."
+workflow:
+  name: unknown_type_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: unknown_case
+      fixtures:
+        analyze: "any output"
+      expected:
+        analyze:
+          - type: eval-nonexistent-type

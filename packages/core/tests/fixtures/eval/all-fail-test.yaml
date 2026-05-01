@@ -1,0 +1,34 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-eval-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze."
+workflow:
+  name: all_fail_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 0.1
+  cases:
+    - id: fail_a
+      fixtures:
+        analyze: "No match here."
+      expected:
+        analyze:
+          - type: contains
+            value: "XYZNONEXISTENT"
+    - id: fail_b
+      fixtures:
+        analyze: "Also no match."
+      expected:
+        analyze:
+          - type: contains
+            value: "ABCNONEXISTENT"

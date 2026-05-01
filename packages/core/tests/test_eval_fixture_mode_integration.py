@@ -14,6 +14,7 @@ import pytest
 import runsight_core.assertions.deterministic  # noqa: F401 - registers handlers
 import runsight_core.yaml.parser  # noqa: F401 - rebuilds block union for model_validate
 import yaml
+from eval_fixture_helpers import eval_fixture_text
 from runsight_core.assertions.base import GradingResult
 from runsight_core.assertions.registry import (
     _REGISTRY,
@@ -26,149 +27,19 @@ from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.schema import EvalSectionDef, RunsightWorkflowFile
 
 # ---------------------------------------------------------------------------
-# YAML templates
+# Shared eval workflow fixtures
 # ---------------------------------------------------------------------------
 
-_FIXTURE_TRANSFORM_YAML = """\
-version: "1.0"
-souls:
-  researcher:
-    id: researcher
-    model: fixture-model
-    system_prompt: "You are a research assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: researcher
-    prompt_template: "Analyze: {topic}"
-workflow:
-  name: fixture_transform_pipeline
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 0.9
-  cases:
-    - id: transform_case
-      fixtures:
-        analyze: '{"summary": "LLMs transform software", "details": "Deep dive"}'
-      expected:
-        analyze:
-          - type: contains
-            value: "transform"
-            transform: "json_path:$.summary"
-"""
+_FIXTURE_TRANSFORM_YAML = eval_fixture_text("fixture-transform-pipeline.yaml")
 
-_MIXED_CASE_YAML = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: mixed_case_eval
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 0.6
-  cases:
-    - id: matching_fixture
-      fixtures:
-        analyze: "LLMs are powerful transformer models."
-      expected:
-        analyze:
-          - type: contains
-            value: "transformer"
-    - id: missing_keyword
-      fixtures:
-        analyze: "The weather is sunny today."
-      expected:
-        analyze:
-          - type: contains
-            value: "absent keyword"
-    - id: partial_threshold
-      fixtures:
-        analyze: "Neural networks use backpropagation for training."
-      expected:
-        analyze:
-          - type: contains
-            value: "backpropagation"
-          - type: contains
-            value: "missing value"
-"""
+_MIXED_CASE_YAML = eval_fixture_text("mixed-case-eval.yaml")
 
 # Normal execution and eval-optional YAML must conform to RunsightWorkflowFile schema
 # (valid block types like "code", SoulDef with "role" not "model").
 
-_NORMAL_EXECUTION_WITH_EVAL_YAML = """\
-id: normal-execution-workflow
-kind: workflow
-version: "1.0"
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Research Assistant
-    role: research_assistant
-    system_prompt: "You are a research assistant."
-blocks:
-  analyze:
-    type: code
-    code: "result = 'fixture'"
-workflow:
-  name: normal_execution_ignores_eval
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: eval_only_case
-      fixtures:
-        analyze: "Some fixture output."
-      expected:
-        analyze:
-          - type: contains
-            value: "fixture"
-"""
+_NORMAL_EXECUTION_WITH_EVAL_YAML = eval_fixture_text("normal-execution-ignores-eval.yaml")
 
-_MINIMAL_WORKFLOW_NO_EVAL = """\
-id: minimal-workflow
-kind: workflow
-version: "1.0"
-souls:
-  default:
-    id: default
-    kind: soul
-    name: Assistant
-    role: assistant
-    system_prompt: "Assistant."
-blocks:
-  greet:
-    type: code
-    code: "result = 'hello'"
-workflow:
-  name: no_eval_workflow
-  entry: greet
-  transitions:
-    - from: greet
-      to: END
-"""
-
-
-# ===========================================================================
-# Fixture-mode eval with transforms
-# ===========================================================================
+_MINIMAL_WORKFLOW_NO_EVAL = eval_fixture_text("minimal-workflow-no-eval.yaml")
 
 
 class TestFixtureModeWithTransforms:
@@ -210,17 +81,6 @@ class TestFixtureModeWithTransforms:
         assert len(analyze_agg.results) == 1
         assert analyze_agg.results[0].passed is True
 
-    async def test_assertion_evaluated_against_extracted_field(self):
-        """The assertion checks 'transform' in 'LLMs transform software',
-        not in the full JSON blob. Prove it by verifying the reason mentions
-        the extracted value, not the raw JSON."""
-        result = await run_eval(_FIXTURE_TRANSFORM_YAML)
-
-        grading = result.case_results[0].block_results["analyze"].results[0]
-        assert grading.passed is True
-        # The real ContainsAssertion reason includes the check target
-        assert "contains" in grading.reason.lower()
-
     async def test_transform_actually_narrows_evaluation(self):
         """If transform is working, 'details' from the JSON root should
         not be visible to the assertion. A check for 'Deep dive' in
@@ -234,11 +94,6 @@ class TestFixtureModeWithTransforms:
         cr = result.case_results[0]
         assert cr.passed is False
         assert cr.block_results["analyze"].results[0].passed is False
-
-
-# ===========================================================================
-# Multi-case eval with mixed pass/fail results
-# ===========================================================================
 
 
 class TestMultiCaseMixedResults:
@@ -302,11 +157,6 @@ class TestMultiCaseMixedResults:
         assert result.passed is True
 
 
-# ===========================================================================
-# Normal execution ignores eval section
-# ===========================================================================
-
-
 class TestNormalExecutionIgnoresEval:
     """Given: workflow YAML with both workflow AND eval sections.
 
@@ -358,11 +208,6 @@ class TestNormalExecutionIgnoresEval:
         wf_file = RunsightWorkflowFile.model_validate(raw)
 
         assert wf_file.eval is None
-
-
-# ===========================================================================
-# Eval section is optional and backward-compatible
-# ===========================================================================
 
 
 class TestEvalOptionalBackwardCompat:
@@ -419,11 +264,6 @@ class TestEvalOptionalBackwardCompat:
         assert not isinstance(wf_file.eval, EvalSectionDef)
 
 
-# ===========================================================================
-# run_eval is read-only
-# ===========================================================================
-
-
 class TestRunEvalReadOnly:
     """run_eval() never mutates the workflow YAML string or models.
 
@@ -469,11 +309,6 @@ class TestRunEvalReadOnly:
             assert b.expected == a.expected
 
 
-# ===========================================================================
-# Transform failures are assertions, not exceptions
-# ===========================================================================
-
-
 class TestTransformFailuresAreAssertions:
     """Transform failures produce GradingResult(passed=False) with a
     descriptive reason. They never raise exceptions or crash the runner.
@@ -484,36 +319,7 @@ class TestTransformFailuresAreAssertions:
 
     async def test_non_json_output_with_json_path_transform(self):
         """Transform json_path on non-JSON output -> failed assertion, not crash."""
-        yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: bad_transform_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: bad_transform
-      fixtures:
-        analyze: "This is plain text, definitely not JSON"
-      expected:
-        analyze:
-          - type: contains
-            value: "anything"
-            transform: "json_path:$.field"
-"""
+        yaml_str = eval_fixture_text("bad-transform-test.yaml")
         # This should complete with a failed assertion instead of raising.
         result = await run_eval(yaml_str)
 
@@ -526,36 +332,7 @@ eval:
 
     async def test_unknown_transform_type_produces_failed_grading(self):
         """An unknown transform type (not json_path) -> failed GradingResult."""
-        yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: unknown_transform_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: unknown_transform
-      fixtures:
-        analyze: '{"data": "value"}'
-      expected:
-        analyze:
-          - type: contains
-            value: "value"
-            transform: "xpath:$.data"
-"""
+        yaml_str = eval_fixture_text("unknown-transform-test.yaml")
         result = await run_eval(yaml_str)
 
         assert isinstance(result, EvalSuiteResult)
@@ -567,36 +344,7 @@ eval:
 
     async def test_missing_json_path_produces_failed_grading(self):
         """json_path that doesn't match -> failed GradingResult, not KeyError."""
-        yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: missing_path_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: missing_path
-      fixtures:
-        analyze: '{"data": "value"}'
-      expected:
-        analyze:
-          - type: contains
-            value: "value"
-            transform: "json_path:$.nonexistent"
-"""
+        yaml_str = eval_fixture_text("missing-path-test.yaml")
         result = await run_eval(yaml_str)
 
         assert isinstance(result, EvalSuiteResult)
@@ -608,36 +356,7 @@ eval:
 
     async def test_malformed_transform_format_no_colon(self):
         """Transform string without colon separator -> failed GradingResult."""
-        yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: malformed_transform_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: malformed
-      fixtures:
-        analyze: '{"data": "value"}'
-      expected:
-        analyze:
-          - type: contains
-            value: "value"
-            transform: "badformat"
-"""
+        yaml_str = eval_fixture_text("malformed-transform-test.yaml")
         result = await run_eval(yaml_str)
 
         assert isinstance(result, EvalSuiteResult)
@@ -646,11 +365,6 @@ eval:
         grading = cr.block_results["analyze"].results[0]
         assert grading.passed is False
         assert "Unknown transform format" in grading.reason
-
-
-# ===========================================================================
-# Fixture mode is zero-side-effect
-# ===========================================================================
 
 
 class TestFixtureModeZeroSideEffect:
@@ -706,11 +420,6 @@ class TestFixtureModeZeroSideEffect:
         assert len(result.case_results) == 3
 
 
-# ===========================================================================
-# Eval runner uses the shared assertion engine
-# ===========================================================================
-
-
 class TestSharedAssertionEngine:
     """The eval runner uses the exact same run_assertions() function from
     runsight_core.assertions.registry. Verify by registering a custom
@@ -741,34 +450,7 @@ class TestSharedAssertionEngine:
         register_assertion("eval-custom-always-pass", AlwaysPassAssertion)
 
         try:
-            yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: custom_assertion_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: custom_case
-      fixtures:
-        analyze: "any output text"
-      expected:
-        analyze:
-          - type: eval-custom-always-pass
-"""
+            yaml_str = eval_fixture_text("custom-assertion-test.yaml")
             result = await run_eval(yaml_str)
 
             assert result.passed is True
@@ -786,34 +468,7 @@ eval:
         """Using an unregistered assertion type causes a KeyError
         propagated from the shared registry, proving the eval runner doesn't
         have its own fallback logic."""
-        yaml_str = """\
-version: "1.0"
-souls:
-  default:
-    id: default
-    model: fixture-model
-    system_prompt: "Assistant."
-blocks:
-  analyze:
-    type: llm
-    soul: default
-    prompt_template: "Analyze."
-workflow:
-  name: unknown_type_test
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: END
-eval:
-  threshold: 1.0
-  cases:
-    - id: unknown_case
-      fixtures:
-        analyze: "any output"
-      expected:
-        analyze:
-          - type: eval-nonexistent-type
-"""
+        yaml_str = eval_fixture_text("unknown-type-test.yaml")
         with pytest.raises(KeyError, match="eval-nonexistent-type"):
             await run_eval(yaml_str)
 

@@ -1,0 +1,48 @@
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    model: fixture-eval-model
+    system_prompt: "You are a research assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: researcher
+    prompt_template: "Analyze: {topic}"
+  summarize:
+    type: llm
+    soul: researcher
+    prompt_template: "Summarize the analysis."
+workflow:
+  name: research_pipeline
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: summarize
+    - from: summarize
+      to: END
+eval:
+  threshold: 0.8
+  cases:
+    - id: case_research
+      fixtures:
+        analyze: "Deep research into LLM architectures and transformer models."
+        summarize: "LLMs use transformer architecture for language understanding."
+      expected:
+        analyze:
+          - type: contains
+            value: "research"
+        summarize:
+          - type: contains
+            value: "transformer"
+    - id: case_summary_quality
+      fixtures:
+        analyze: "Analysis of neural network training methodologies."
+        summarize: "Neural networks require careful training procedures."
+      expected:
+        analyze:
+          - type: contains
+            value: "neural"
+        summarize:
+          - type: contains
+            value: "training"

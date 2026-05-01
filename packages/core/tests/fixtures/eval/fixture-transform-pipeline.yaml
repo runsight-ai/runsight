@@ -1,0 +1,28 @@
+version: "1.0"
+souls:
+  researcher:
+    id: researcher
+    model: fixture-model
+    system_prompt: "You are a research assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: researcher
+    prompt_template: "Analyze: {topic}"
+workflow:
+  name: fixture_transform_pipeline
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 0.9
+  cases:
+    - id: transform_case
+      fixtures:
+        analyze: '{"summary": "LLMs transform software", "details": "Deep dive"}'
+      expected:
+        analyze:
+          - type: contains
+            value: "transform"
+            transform: "json_path:$.summary"

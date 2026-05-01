@@ -1,0 +1,34 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-eval-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze: {topic}"
+workflow:
+  name: multi_exec_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 0.5
+  cases:
+    - id: exec_a
+      inputs:
+        topic: "LLMs"
+      expected:
+        analyze:
+          - type: contains
+            value: "LLM"
+    - id: exec_b
+      inputs:
+        topic: "transformers"
+      expected:
+        analyze:
+          - type: contains
+            value: "transformer"
