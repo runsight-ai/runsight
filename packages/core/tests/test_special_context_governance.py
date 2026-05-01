@@ -39,13 +39,13 @@ def analyst_soul() -> Soul:
         name="Analyst",
         role="Analyst",
         system_prompt="Analyze carefully.",
-        model_name="gpt-4o",
+        model_name=None,
     )
 
 
 @pytest.fixture
 def fake_runner() -> SimpleNamespace:
-    return SimpleNamespace(model_name="gpt-4o")
+    return SimpleNamespace(model_name=None)
 
 
 def _state(**kwargs: Any) -> WorkflowState:
@@ -224,10 +224,10 @@ def test_workflow_and_loop_system_keys_are_injected_after_governance_not_audit_r
     step = Step(block=block, declared_inputs={"payload": "workflow.payload"})
     state = _state(workflow_inputs={"payload": "hello"})
     execution_context = BlockExecutionContext(
-        workflow_name="parent",
+        workflow_name="governance_caller_workflow",
         blocks={"capture": block},
-        call_stack=["parent"],
-        workflow_registry={"child": object()},
+        call_stack=["governance_root_workflow"],
+        workflow_registry={"governed_invoked_workflow": object()},
         observer=object(),
     )
 
@@ -253,7 +253,10 @@ def test_workflow_and_loop_system_keys_are_injected_after_governance_not_audit_r
         "observer": execution_context.observer,
     }
     assert workflow_inputs["payload"] == "hello"
-    assert workflow_inputs["call_stack"] == ["parent", "parent"]
+    assert workflow_inputs["call_stack"] == [
+        "governance_root_workflow",
+        "governance_caller_workflow",
+    ]
     assert "call_stack" not in scoped.inputs
     assert "workflow_registry" not in scoped.inputs
     assert "observer" not in scoped.inputs
@@ -273,10 +276,10 @@ def test_workflow_and_loop_system_keys_are_injected_after_governance_not_audit_r
 
 def test_workflow_and_loop_build_context_do_not_audit_system_keys() -> None:
     """Real special block declarations exclude workflow/loop system execution keys."""
-    child_workflow = SimpleNamespace(name="child")
+    invoked_workflow = SimpleNamespace(name="governed_invoked_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_workflow,
+        block_id="call_governed_workflow",
+        child_workflow=invoked_workflow,
         inputs={"payload": "workflow.payload"},
         outputs={},
     )
