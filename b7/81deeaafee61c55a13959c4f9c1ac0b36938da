@@ -1,0 +1,25 @@
+apps/api/tests/logic/test_stream_subscription.py
+  4adca821c1af8eb3 198
+apps/api/tests/logic/test_eval_observer_custom_assertion.py
+  4adca821c1af8eb3 380,434,487
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b781deeaafee61c55a13959c4f9c1ac0b36938da",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 59676,
+      "overriden_lines": 0
+    }
+  }
+}
