@@ -1,0 +1,25 @@
+packages/core/tests/test_discovery.py
+  4adca821c1af8eb3 12-91,147,149-151,153,155-156,158,160,162,164-165,167,169-190,192-218,220-239,241-264,333,337-338,340,345-408,412-418,422-426,428-429,431,435-449,453-469,473-488,492-510,514-529,533-548,552-568,572-588,592-606,610-646,649-651,655-671
+tools/tests/test_core_discovery_scanner_fixture_governance.py
+  4adca821c1af8eb3 1-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "cf0c0be177922254f87a473e06ae29f02f22af4e",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 711,
+      "total_deletions": 552,
+      "accepted_lines": 53975,
+      "overriden_lines": 0
+    }
+  }
+}
