@@ -1,0 +1,31 @@
+id: loop-assertion-observer-workflow
+kind: workflow
+version: "1.0"
+souls:
+  critic:
+    id: critic
+    kind: soul
+    name: Quality Critic
+    role: Quality Critic
+    system_prompt: Evaluate quality.
+    model_name: fixture-dispatch-loop-model
+blocks:
+  evaluate:
+    type: linear
+    soul_ref: critic
+    assertions:
+      - type: contains
+        value: "PASS"
+      - type: contains
+        value: "score"
+  review_loop:
+    type: loop
+    inner_block_refs:
+      - evaluate
+    max_rounds: 2
+workflow:
+  name: loop_assertion_observer_workflow
+  entry: review_loop
+  transitions:
+    - from: review_loop
+      to: null

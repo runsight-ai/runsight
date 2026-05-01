@@ -1,17 +1,17 @@
 """
-E2E tests for Dispatch — soul calls delegate tool -> exit routing -> downstream block runs.
+Integration coverage for dispatch delegate routing.
 
 Dispatch block, the delegate tool, and the agentic tool loop are each well
-unit-tested in isolation. These integration tests wire them together end-to-end
-through parse_workflow_yaml() -> Workflow.run() and verify that:
+unit-tested in isolation. These integration tests wire them through
+parse_workflow_yaml() -> Workflow.run() and verify that:
 
-  Full routing E2E — YAML workflow with a block whose soul uses the
+  Full routing: YAML workflow with a block whose soul uses the
        delegate tool -> runtime routes to the correct exit block -> exit block result
        present in final state.
   Multi-exit routing: Multi-exit dispatch — soul picks port B -> only port B block executes,
        port A block result absent from final state.
-  Downstream routing: Dispatch -> downstream block — result from dispatch exit feeds a subsequent
-       linear block that executes after the exit block.
+  Downstream routing: Dispatch -> selected exit -> downstream block receives the selected
+       exit block result through declared inputs.
 
 All tests use mocked LLM (no real API keys). Mocking strategy:
   - LiteLLMClient.achat() is patched via unittest.mock.patch to return controlled
@@ -28,6 +28,23 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
+
+_FIXTURE_MODEL = "fixture-dispatch-delegate-model"
+
+
+@pytest.fixture(autouse=True)
+def _fixture_model_budget(monkeypatch):
+    from runsight_core.memory import budget as budget_module
+
+    original_get_model_info = budget_module.get_model_info
+
+    def _get_model_info(model: str):
+        if model == _FIXTURE_MODEL:
+            return {"max_input_tokens": 8192}
+        return original_get_model_info(model)
+
+    monkeypatch.setattr(budget_module, "get_model_info", _get_model_info)
+
 
 # ---------------------------------------------------------------------------
 # Shared response builders (same pattern as test_tool_integration.py)
@@ -87,8 +104,8 @@ _ROUTER_SOUL = {
     "kind": "soul",
     "name": "Router Agent",
     "role": "Router Agent",
-    "provider": "openai",
-    "model_name": "gpt-4o",
+    "provider": "fixture-provider",
+    "model_name": "fixture-dispatch-delegate-model",
     "system_prompt": "You route tasks to the correct exit port using the delegate tool.",
     "tools": ["delegate"],
 }
@@ -98,8 +115,8 @@ _WORKER_SOUL_A = {
     "kind": "soul",
     "name": "Worker A",
     "role": "Worker A",
-    "provider": "openai",
-    "model_name": "gpt-4o",
+    "provider": "fixture-provider",
+    "model_name": "fixture-dispatch-delegate-model",
     "system_prompt": "You handle port A tasks.",
 }
 
@@ -108,8 +125,8 @@ _WORKER_SOUL_B = {
     "kind": "soul",
     "name": "Worker B",
     "role": "Worker B",
-    "provider": "openai",
-    "model_name": "gpt-4o",
+    "provider": "fixture-provider",
+    "model_name": "fixture-dispatch-delegate-model",
     "system_prompt": "You handle port B tasks.",
 }
 
@@ -118,8 +135,8 @@ _DOWNSTREAM_SOUL = {
     "kind": "soul",
     "name": "Downstream Worker",
     "role": "Downstream Worker",
-    "provider": "openai",
-    "model_name": "gpt-4o",
+    "provider": "fixture-provider",
+    "model_name": "fixture-dispatch-delegate-model",
     "system_prompt": "You process the results from the exit block.",
 }
 
@@ -134,7 +151,7 @@ def _two_exit_workflow() -> Dict[str, Any]:
         -> port_b: port_b_handler_block (linear)
     """
     return {
-        "id": "dispatch-e2e-workflow",
+        "id": "dispatch-delegate-routing-workflow",
         "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
@@ -162,7 +179,7 @@ def _two_exit_workflow() -> Dict[str, Any]:
             },
         },
         "workflow": {
-            "name": "dispatch_e2e_two_exit",
+            "name": "dispatch_delegate_two_exit",
             "entry": "router",
             "transitions": [
                 {"from": "port_a_handler_block", "to": None},
@@ -179,18 +196,17 @@ def _two_exit_workflow() -> Dict[str, Any]:
     }
 
 
-def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
+def _three_exit_workflow() -> Dict[str, Any]:
     """Build a YAML dict for a workflow where:
       router (linear, delegate tool, 3 exits)
         -> port_a: exit_port_a_handler_block
         -> port_b: exit_port_b_handler_block
         -> port_c: port_c_exit_block
-      exit_port_b_handler_block -> downstream_linear_block (linear, sequential after exit)
 
-    This verifies downstream routing: result from dispatch exit feeds a subsequent linear block.
+    This verifies multi-exit routing without downstream successor behavior.
     """
     return {
-        "id": "dispatch-e2e-workflow",
+        "id": "dispatch-delegate-routing-workflow",
         "kind": "workflow",
         "version": "1.0",
         "tools": ["delegate"],
@@ -200,8 +216,8 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
                 "kind": "soul",
                 "name": "Router Agent",
                 "role": "Router Agent",
-                "provider": "openai",
-                "model_name": "gpt-4o",
+                "provider": "fixture-provider",
+                "model_name": "fixture-dispatch-delegate-model",
                 "system_prompt": "Route using delegate tool.",
                 "tools": ["delegate"],
             },
@@ -212,11 +228,10 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
                 "kind": "soul",
                 "name": "Worker C",
                 "role": "Worker C",
-                "provider": "openai",
-                "model_name": "gpt-4o",
+                "provider": "fixture-provider",
+                "model_name": "fixture-dispatch-delegate-model",
                 "system_prompt": "You handle port C tasks.",
             },
-            "downstream": _DOWNSTREAM_SOUL,
         },
         "blocks": {
             "router": {
@@ -240,19 +255,14 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
                 "type": "linear",
                 "soul_ref": "worker_c",
             },
-            "downstream_linear_block": {
-                "type": "linear",
-                "soul_ref": "downstream",
-            },
         },
         "workflow": {
-            "name": "dispatch_e2e_three_exit_downstream",
+            "name": "dispatch_delegate_three_exit",
             "entry": "router",
             "transitions": [
                 {"from": "exit_port_a_handler_block", "to": None},
-                {"from": "exit_port_b_handler_block", "to": "downstream_linear_block"},
+                {"from": "exit_port_b_handler_block", "to": None},
                 {"from": "port_c_exit_block", "to": None},
-                {"from": "downstream_linear_block", "to": None},
             ],
             "conditional_transitions": [
                 {
@@ -266,23 +276,37 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
     }
 
 
-# ===========================================================================
-# Full dispatch routing E2E
-# ===========================================================================
+def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
+    """Build a three-exit workflow where selected port_b result feeds a successor block."""
+    workflow = _three_exit_workflow()
+    workflow["souls"]["downstream"] = _DOWNSTREAM_SOUL
+    workflow["blocks"]["downstream_linear_block"] = {
+        "type": "linear",
+        "soul_ref": "downstream",
+        "inputs": {"summary": {"from": "exit_port_b_handler_block"}},
+    }
+    workflow["workflow"]["name"] = "dispatch_delegate_three_exit_downstream"
+    workflow["workflow"]["transitions"] = [
+        {"from": "exit_port_a_handler_block", "to": None},
+        {"from": "exit_port_b_handler_block", "to": "downstream_linear_block"},
+        {"from": "port_c_exit_block", "to": None},
+        {"from": "downstream_linear_block", "to": None},
+    ]
+    return workflow
 
 
 @pytest.mark.asyncio
-class TestFullDispatchRoutingE2E:
+class TestDispatchDelegateRouting:
     """YAML workflow with a block whose soul calls delegate tool -> runtime
     routes to the correct exit block -> exit block result in final state."""
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_delegate_to_port_a_routes_to_port_a_handler_block(
-        self, mock_achat: AsyncMock
+        self, mock_achat: AsyncMock, tmp_path
     ) -> None:
         """Router soul calls delegate(port='port_a') -> port_a_handler_block executes,
         port_a_handler_block result present in final state."""
-        workflow = parse_workflow_yaml(_two_exit_workflow())
+        workflow = parse_workflow_yaml(_two_exit_workflow(), _base_dir=str(tmp_path))
 
         # LLM call sequence:
         # 1. Router block: LLM returns delegate tool call for port_a
@@ -327,10 +351,10 @@ class TestFullDispatchRoutingE2E:
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_delegate_to_port_b_routes_to_port_b_handler_block(
-        self, mock_achat: AsyncMock
+        self, mock_achat: AsyncMock, tmp_path
     ) -> None:
         """Router soul calls delegate(port='port_b') -> port_b_handler_block executes."""
-        workflow = parse_workflow_yaml(_two_exit_workflow())
+        workflow = parse_workflow_yaml(_two_exit_workflow(), _base_dir=str(tmp_path))
 
         mock_achat.side_effect = [
             _tool_call_response(
@@ -371,9 +395,11 @@ class TestMultiExitDispatchRouting:
     executes, other port blocks are absent from final state."""
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_three_exits_pick_port_b_only_b_executes(self, mock_achat: AsyncMock) -> None:
+    async def test_three_exits_pick_port_b_only_b_executes(
+        self, mock_achat: AsyncMock, tmp_path
+    ) -> None:
         """Router with 3 exits picks port_b -> only exit_port_b_handler_block executes."""
-        workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
+        workflow = parse_workflow_yaml(_three_exit_workflow(), _base_dir=str(tmp_path))
 
         mock_achat.side_effect = [
             # Router: delegate to port_b
@@ -385,8 +411,6 @@ class TestMultiExitDispatchRouting:
             _text_response("Routed to port B."),
             # exit_port_b_handler_block executes
             _text_response("Exit block B output."),
-            # downstream_linear_block executes (connected after exit_port_b_handler_block)
-            _text_response("Downstream processed B's result."),
         ]
 
         state = WorkflowState()
@@ -409,10 +433,11 @@ class TestMultiExitDispatchRouting:
         )
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_three_exits_pick_port_c_only_c_executes(self, mock_achat: AsyncMock) -> None:
-        """Router with 3 exits picks port_c -> only port_c_exit_block runs,
-        downstream_linear_block does NOT run (it's only connected to exit_port_b_handler_block)."""
-        workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
+    async def test_three_exits_pick_port_c_only_c_executes(
+        self, mock_achat: AsyncMock, tmp_path
+    ) -> None:
+        """Router with 3 exits picks port_c -> only port_c_exit_block runs."""
+        workflow = parse_workflow_yaml(_three_exit_workflow(), _base_dir=str(tmp_path))
 
         mock_achat.side_effect = [
             # Router: delegate to port_c
@@ -438,28 +463,27 @@ class TestMultiExitDispatchRouting:
         )
         assert "exit_port_a_handler_block" not in final.results
         assert "exit_port_b_handler_block" not in final.results
-        # downstream_linear_block is only after exit_port_b_handler_block, should not run
-        assert "downstream_linear_block" not in final.results, (
-            "downstream_linear_block must NOT run when port_c is selected "
-            "(it is only connected after exit_port_b_handler_block)"
-        )
 
 
 # ===========================================================================
-# Downstream dispatch -> downstream block — exit result feeds subsequent block
+# Downstream dispatch -> selected exit result reaches successor block
 # ===========================================================================
 
 
 @pytest.mark.asyncio
-class TestDispatchExitFeedsDownstream:
+class TestSelectedDispatchExitFeedsDownstream:
     """Result from dispatch exit block feeds a subsequent linear block
     that executes after the exit."""
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
-    async def test_exit_block_result_reaches_downstream(self, mock_achat: AsyncMock) -> None:
+    async def test_selected_exit_result_reaches_downstream_declared_input(
+        self, mock_achat: AsyncMock, tmp_path
+    ) -> None:
         """Router -> port_b -> exit_port_b_handler_block -> downstream_linear_block.
-        downstream_linear_block must execute and its result must be in final state."""
-        workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
+        downstream_linear_block must receive the selected exit block result."""
+        workflow = parse_workflow_yaml(
+            _three_exit_workflow_with_downstream(), _base_dir=str(tmp_path)
+        )
 
         mock_achat.side_effect = [
             # Router: delegate to port_b
@@ -489,6 +513,9 @@ class TestDispatchExitFeedsDownstream:
             f"Results: {list(final.results.keys())}"
         )
         assert final.results["downstream_linear_block"].output == "Final processing of B's output."
+        downstream_messages = mock_achat.call_args_list[-1].kwargs["messages"]
+        downstream_prompt = downstream_messages[-1]["content"]
+        assert "Report summary from B." in downstream_prompt
 
         # Other exit blocks must not have run
         assert "exit_port_a_handler_block" not in final.results
@@ -496,11 +523,13 @@ class TestDispatchExitFeedsDownstream:
 
     @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_downstream_linear_block_count_matches_chain_length(
-        self, mock_achat: AsyncMock
+        self, mock_achat: AsyncMock, tmp_path
     ) -> None:
         """Verify that exactly 3 blocks executed: router, exit_port_b_handler_block,
         downstream_linear_block — confirming the chain is correct."""
-        workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream())
+        workflow = parse_workflow_yaml(
+            _three_exit_workflow_with_downstream(), _base_dir=str(tmp_path)
+        )
 
         mock_achat.side_effect = [
             _tool_call_response(

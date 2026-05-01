@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from runsight_core import WorkflowBlock
 from runsight_core.state import WorkflowState
+from workflow_block_integration_helpers import ResultBlock, make_single_block_workflow
 
 
 @pytest.fixture
@@ -149,3 +150,64 @@ async def test_empty_call_stack_executes(mock_child_workflow):
     # Assert
     assert isinstance(result, WorkflowState)
     assert mock_child_workflow.run.called
+
+
+def _workflow_with_result_block(name: str, block_id: str = "step"):
+    workflow = make_single_block_workflow(name, ResultBlock(block_id, f"{name} done"))
+    return workflow
+
+
+@pytest.mark.asyncio
+async def test_workflow_run_nested_workflowblock_depth_limit_raises_recursion_error():
+    """Workflow.run should enforce WorkflowBlock max_depth across nested child workflows."""
+    grandchild_workflow = _workflow_with_result_block("grandchild_workflow", "gc_step")
+
+    invoke_grandchild = WorkflowBlock(
+        block_id="invoke_grandchild",
+        child_workflow=grandchild_workflow,
+        inputs={},
+        outputs={},
+        max_depth=1,
+    )
+    child_workflow = make_single_block_workflow("child_workflow", invoke_grandchild)
+
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+        max_depth=10,
+    )
+    parent_workflow = make_single_block_workflow("depth_limit_workflow", invoke_child)
+
+    with pytest.raises(RecursionError, match="maximum depth"):
+        await parent_workflow.run(WorkflowState())
+
+
+@pytest.mark.asyncio
+async def test_workflow_run_child_parent_cycle_raises_recursion_error():
+    """Workflow.run should reject a child workflow that invokes its parent."""
+    from runsight_core.workflow import Workflow
+
+    parent_workflow = Workflow("parent_cycle_workflow")
+
+    invoke_parent = WorkflowBlock(
+        block_id="invoke_parent",
+        child_workflow=parent_workflow,
+        inputs={},
+        outputs={},
+    )
+    child_workflow = make_single_block_workflow("child_cycle_workflow", invoke_parent)
+
+    invoke_child = WorkflowBlock(
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={},
+        outputs={},
+    )
+    parent_workflow.add_block(invoke_child)
+    parent_workflow.set_entry("invoke_child")
+    parent_workflow.add_transition("invoke_child", None)
+
+    with pytest.raises(RecursionError, match="cycle detected"):
+        await parent_workflow.run(WorkflowState())
