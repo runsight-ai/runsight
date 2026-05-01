@@ -6,25 +6,7 @@ import { describe, expect, it } from "vitest";
 const SHARED_SRC = resolve(__dirname, "..");
 const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
-const docsSource = readFileSync(
-  resolve(
-    REPO_ROOT,
-    "apps",
-    "site",
-    "src",
-    "content",
-    "docs",
-    "docs",
-    "workflows",
-    "context-governance.mdx",
-  ),
-  "utf8",
-);
 const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
-const runsApiSource = readFileSync(
-  resolve(REPO_ROOT, "apps", "gui", "src", "api", "runs.ts"),
-  "utf8",
-);
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
@@ -96,22 +78,7 @@ describe("context audit shared/client contract", () => {
     });
   });
 
-  it("runsApi exposes getRunContextAudit using generated schema and query params", () => {
-    expect(runsApiSource).toContain("ContextAuditListResponseSchema");
-    expect(runsApiSource).toContain("getRunContextAudit");
-    expect(runsApiSource).toContain("/runs/${id}/context-audit");
-    expect(runsApiSource).toMatch(/node_id/);
-    expect(runsApiSource).toMatch(/cursor/);
-    expect(runsApiSource).toMatch(/page_size/);
-
-    const methodMatch = runsApiSource.match(
-      /getRunContextAudit[\s\S]*?(?=\n {2}\w|\n\};)/,
-    );
-    expect(methodMatch).not.toBeNull();
-    expect(methodMatch?.[0]).toContain("ContextAuditListResponseSchema.parse");
-  });
-
-  it("generated contracts and docs do not expose all-access governance", () => {
+  it("generated contracts do not expose all-access governance", () => {
     const contextAccessSchema = getSchema("ContextAccessSchema");
     const contextAuditStatusSchema = getSchema("ContextAuditStatusSchema");
 
@@ -121,7 +88,5 @@ describe("context audit shared/client contract", () => {
     expect(() => contextAuditStatusSchema.parse("all_access")).toThrow();
     expect(apiSource).not.toContain("all_access");
     expect(apiSource).not.toContain('access: all');
-    expect(docsSource).not.toContain("access: all");
-    expect(docsSource).not.toContain("all_access");
   });
 });

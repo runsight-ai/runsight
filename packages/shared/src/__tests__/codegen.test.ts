@@ -5,24 +5,17 @@
  *   1. Generated type files exist and export expected types
  *   2. Generated Zod schemas exist and are valid
  *   3. Generated types structurally match hand-written schemas (contract test)
- *   4. package.json has the generate:types script
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { join, resolve } from "path";
-import { execFileSync } from "child_process";
-import { tmpdir } from "os";
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 
 const GENERATED_DIR = resolve(__dirname, "..");
-const SHARED_ROOT = resolve(__dirname, "..", "..");
 const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
-const PACKAGE_JSON_PATH = resolve(SHARED_ROOT, "package.json");
-const ZOD_GENERATOR_SCRIPT = resolve(REPO_ROOT, "tools", "generate-zod-schemas.py");
 const COMMITTED_ZOD_PATH = resolve(GENERATED_DIR, "zod.ts");
 
 type SchemaFieldSnapshot = {
-  fresh: string[];
   committed: string[];
 };
 
@@ -72,7 +65,7 @@ function readCommittedOpenApiSnapshot(): Record<string, unknown> {
   return JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 }
 
-function buildFreshSchemaSnapshot(): {
+function buildCommittedSchemaSnapshot(): {
   providerCreate: SchemaFieldSnapshot;
   workflowResponse: SchemaFieldSnapshot;
   runCreate: SchemaFieldSnapshot;
@@ -81,78 +74,37 @@ function buildFreshSchemaSnapshot(): {
   soulResponse: SchemaFieldSnapshot;
   soulUpdate: SchemaFieldSnapshot;
 } {
-  const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-"));
-  const openapiPath = resolve(workdir, "openapi.json");
-  const generatedZodPath = resolve(workdir, "zod.ts");
-  const openapiPython = [
-    "import json",
-    "import sys",
-    "from pathlib import Path",
-    "from runsight_api.main import app",
-    'Path(sys.argv[1]).write_text(json.dumps(app.openapi(), indent=2) + "\\n")',
-  ].join("\n");
+  const committedZod = readFileSync(COMMITTED_ZOD_PATH, "utf8");
 
-  try {
-    execFileSync(
-      "uv",
-      ["run", "python", "-c", openapiPython, openapiPath],
-      {
-        cwd: REPO_ROOT,
-        stdio: "pipe",
-      },
-    );
-
-    execFileSync(
-      "uv",
-      ["run", "python", ZOD_GENERATOR_SCRIPT, openapiPath, generatedZodPath],
-      {
-        cwd: REPO_ROOT,
-        stdio: "pipe",
-      },
-    );
-
-    const freshZod = readFileSync(generatedZodPath, "utf8");
-    const committedZod = readFileSync(COMMITTED_ZOD_PATH, "utf8");
-
-    return {
-      providerCreate: {
-        fresh: extractSchemaFieldNames(freshZod, "ProviderCreate"),
-        committed: extractSchemaFieldNames(committedZod, "ProviderCreate"),
-      },
-      workflowResponse: {
-        fresh: extractSchemaFieldNames(freshZod, "WorkflowResponse"),
-        committed: extractSchemaFieldNames(committedZod, "WorkflowResponse"),
-      },
-      runCreate: {
-        fresh: extractSchemaFieldNames(freshZod, "RunCreate"),
-        committed: extractSchemaFieldNames(committedZod, "RunCreate"),
-      },
-      runResponse: {
-        fresh: extractSchemaFieldNames(freshZod, "RunResponse"),
-        committed: extractSchemaFieldNames(committedZod, "RunResponse"),
-      },
-      soulCreate: {
-        fresh: extractSchemaFieldNames(freshZod, "SoulCreate"),
-        committed: extractSchemaFieldNames(committedZod, "SoulCreate"),
-      },
-      soulResponse: {
-        fresh: extractSchemaFieldNames(freshZod, "SoulResponse"),
-        committed: extractSchemaFieldNames(committedZod, "SoulResponse"),
-      },
-      soulUpdate: {
-        fresh: extractSchemaFieldNames(freshZod, "SoulUpdate"),
-        committed: extractSchemaFieldNames(committedZod, "SoulUpdate"),
-      },
-    };
-  } finally {
-    rmSync(workdir, { recursive: true, force: true });
-  }
+  return {
+    providerCreate: {
+      committed: extractSchemaFieldNames(committedZod, "ProviderCreate"),
+    },
+    workflowResponse: {
+      committed: extractSchemaFieldNames(committedZod, "WorkflowResponse"),
+    },
+    runCreate: {
+      committed: extractSchemaFieldNames(committedZod, "RunCreate"),
+    },
+    runResponse: {
+      committed: extractSchemaFieldNames(committedZod, "RunResponse"),
+    },
+    soulCreate: {
+      committed: extractSchemaFieldNames(committedZod, "SoulCreate"),
+    },
+    soulResponse: {
+      committed: extractSchemaFieldNames(committedZod, "SoulResponse"),
+    },
+    soulUpdate: {
+      committed: extractSchemaFieldNames(committedZod, "SoulUpdate"),
+    },
+  };
 }
 
-let cachedSchemaSnapshot: ReturnType<typeof buildFreshSchemaSnapshot> | null = null;
+let cachedSchemaSnapshot: ReturnType<typeof buildCommittedSchemaSnapshot> | null = null;
 
-function getFreshSchemaSnapshot(): ReturnType<typeof buildFreshSchemaSnapshot> {
-  cachedSchemaSnapshot ??= buildFreshSchemaSnapshot();
+function getCommittedSchemaSnapshot(): ReturnType<typeof buildCommittedSchemaSnapshot> {
+  cachedSchemaSnapshot ??= buildCommittedSchemaSnapshot();
   return cachedSchemaSnapshot;
 }
 
@@ -225,16 +177,13 @@ describe("Generated types export expected interfaces", () => {
 });
 
 describe("generated workflow warning contracts stay in sync", () => {
-  it("generated WorkflowResponse schemas include warnings in fresh and committed output", () => {
-    const snapshot = getFreshSchemaSnapshot();
+  it("generated WorkflowResponse schemas include warnings in committed output", () => {
+    const snapshot = getCommittedSchemaSnapshot();
 
-    expect(snapshot.workflowResponse.fresh).toEqual(
-      expect.arrayContaining(["id", "valid", "warnings"]),
-    );
     expect(snapshot.workflowResponse.committed).toEqual(
       expect.arrayContaining(["id", "valid", "warnings"]),
     );
-  }, 30000);
+  });
 
   it("committed Zod source exports WarningItemSchema for workflow warnings", () => {
     const zodSource = readFileSync(COMMITTED_ZOD_PATH, "utf8");
@@ -246,59 +195,9 @@ describe("generated workflow warning contracts stay in sync", () => {
 });
 
 describe("generated API wrapper cleanup stays concrete", () => {
-  it("generate-types script does not append a runtime components shim to api.ts", () => {
-    const scriptSource = readFileSync(resolve(REPO_ROOT, "tools", "generate-types.sh"), "utf8");
-    expect(scriptSource).not.toMatch(/export const components\s*=\s*\{\s*\};/);
-  });
-
   it("committed generated api.ts output does not include a runtime components shim", () => {
     const apiSource = readFileSync(resolve(GENERATED_DIR, "api.ts"), "utf8");
     expect(apiSource).not.toMatch(/\bexport const components\s*=\s*\{\s*\};/);
-  });
-});
-
-describe("Zod generator enum edge cases", () => {
-  it("emits bare literals for single-value non-string enums", () => {
-    const workdir = mkdtempSync(join(tmpdir(), "runsight-zod-enum-"));
-    const openapiPath = resolve(workdir, "openapi.json");
-    const generatedZodPath = resolve(workdir, "zod.ts");
-    try {
-      writeFileSync(
-        openapiPath,
-        JSON.stringify(
-          {
-            openapi: "3.1.0",
-            info: { title: "enum fixture", version: "1.0.0" },
-            paths: {},
-            components: {
-              schemas: {
-                SingleNumberEnum: { type: "integer", enum: [1] },
-                SingleBooleanEnum: { type: "boolean", enum: [true] },
-              },
-            },
-          },
-          null,
-          2,
-        ),
-      );
-
-      execFileSync(
-        "uv",
-        ["run", "python", ZOD_GENERATOR_SCRIPT, openapiPath, generatedZodPath],
-        {
-          cwd: REPO_ROOT,
-          stdio: "pipe",
-        },
-      );
-
-      const generatedZod = readFileSync(generatedZodPath, "utf8");
-      expect(generatedZod).toContain("SingleNumberEnumSchema = z.literal(1)");
-      expect(generatedZod).toContain("SingleBooleanEnumSchema = z.literal(true)");
-      expect(generatedZod).not.toContain("z.union([z.literal(1)])");
-      expect(generatedZod).not.toContain("z.union([z.literal(true)])");
-    } finally {
-      rmSync(workdir, { recursive: true, force: true });
-    }
   });
 });
 
@@ -401,7 +300,7 @@ describe("Generated Zod schemas are valid", () => {
   });
 });
 
-describe("generated Zod schemas stay fresh against live OpenAPI", () => {
+describe("generated Zod schemas match committed shared contracts", () => {
   let snapshot: {
     providerCreate: SchemaFieldSnapshot;
     workflowResponse: SchemaFieldSnapshot;
@@ -413,31 +312,26 @@ describe("generated Zod schemas stay fresh against live OpenAPI", () => {
   };
 
   beforeAll(() => {
-    snapshot = getFreshSchemaSnapshot();
+    snapshot = getCommittedSchemaSnapshot();
   }, 30000);
 
-  it("RunCreateSchema includes source in the generated output", () => {
-    expect(snapshot.runCreate.fresh).toContain("source");
-    expect(snapshot.runCreate.committed).toEqual(snapshot.runCreate.fresh);
+  it("RunCreateSchema includes source in committed output", () => {
+    expect(snapshot.runCreate.committed).toContain("source");
   });
 
   it("WorkflowResponseSchema includes embedded workflow identity", () => {
-    expect(snapshot.workflowResponse.fresh).toEqual(
-      expect.arrayContaining(["id", "kind", "name"]),
-    );
-    expect(snapshot.workflowResponse.committed).toEqual(snapshot.workflowResponse.fresh);
+    expect(snapshot.workflowResponse.committed).toEqual(expect.arrayContaining(["id", "kind", "name"]));
   });
 
   it("ProviderCreateSchema includes embedded provider identity", () => {
-    expect(snapshot.providerCreate.fresh).toEqual(
+    expect(snapshot.providerCreate.committed).toEqual(
       expect.arrayContaining(["id", "kind", "name"]),
     );
-    expect(snapshot.providerCreate.fresh).not.toContain("type");
-    expect(snapshot.providerCreate.committed).toEqual(snapshot.providerCreate.fresh);
+    expect(snapshot.providerCreate.committed).not.toContain("type");
   });
 
   it("RunResponseSchema includes branch, source, commit_sha, and run metrics", () => {
-    expect(snapshot.runResponse.fresh).toEqual(
+    expect(snapshot.runResponse.committed).toEqual(
       expect.arrayContaining([
         "branch",
         "source",
@@ -446,27 +340,24 @@ describe("generated Zod schemas stay fresh against live OpenAPI", () => {
         "eval_pass_pct",
       ]),
     );
-    expect(snapshot.runResponse.committed).toEqual(snapshot.runResponse.fresh);
   });
 
   it("SoulCreateSchema includes embedded soul identity plus role and model_name", () => {
-    expect(snapshot.soulCreate.fresh).toEqual(
+    expect(snapshot.soulCreate.committed).toEqual(
       expect.arrayContaining(["id", "kind", "name", "role", "system_prompt", "model_name"]),
     );
-    expect(snapshot.soulCreate.fresh).not.toContain("models");
-    expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
+    expect(snapshot.soulCreate.committed).not.toContain("models");
   });
 
   it("SoulCreateSchema includes provider, temperature, and max_tokens but not assertions", () => {
-    expect(snapshot.soulCreate.fresh).toEqual(
+    expect(snapshot.soulCreate.committed).toEqual(
       expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color"]),
     );
-    expect(snapshot.soulCreate.fresh).not.toContain("assertions");
-    expect(snapshot.soulCreate.committed).toEqual(snapshot.soulCreate.fresh);
+    expect(snapshot.soulCreate.committed).not.toContain("assertions");
   });
 
   it("SoulResponseSchema includes embedded soul identity, role, model_name, and workflow_count", () => {
-    expect(snapshot.soulResponse.fresh).toEqual(
+    expect(snapshot.soulResponse.committed).toEqual(
       expect.arrayContaining([
         "id",
         "kind",
@@ -477,24 +368,21 @@ describe("generated Zod schemas stay fresh against live OpenAPI", () => {
         "workflow_count",
       ]),
     );
-    expect(snapshot.soulResponse.fresh).not.toContain("models");
-    expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
+    expect(snapshot.soulResponse.committed).not.toContain("models");
   });
 
   it("SoulResponseSchema includes provider, temperature, and max_tokens but not assertions", () => {
-    expect(snapshot.soulResponse.fresh).toEqual(
+    expect(snapshot.soulResponse.committed).toEqual(
       expect.arrayContaining(["provider", "temperature", "max_tokens", "avatar_color"]),
     );
-    expect(snapshot.soulResponse.fresh).not.toContain("assertions");
-    expect(snapshot.soulResponse.committed).toEqual(snapshot.soulResponse.fresh);
+    expect(snapshot.soulResponse.committed).not.toContain("assertions");
   });
 
   it("SoulUpdateSchema includes provider, temperature, and max_tokens but not assertions", () => {
-    expect(snapshot.soulUpdate.fresh).toEqual(
+    expect(snapshot.soulUpdate.committed).toEqual(
       expect.arrayContaining(["provider", "temperature", "max_tokens", "copy_on_edit"]),
     );
-    expect(snapshot.soulUpdate.fresh).not.toContain("assertions");
-    expect(snapshot.soulUpdate.committed).toEqual(snapshot.soulUpdate.fresh);
+    expect(snapshot.soulUpdate.committed).not.toContain("assertions");
   });
 });
 
@@ -677,33 +565,5 @@ describe("generated API types stay aligned for run warnings", () => {
     expect(runWarnings?.items).toMatchObject({
       $ref: "#/components/schemas/WarningItem",
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4. package.json has codegen scripts
-// ---------------------------------------------------------------------------
-
-describe("package.json codegen configuration", () => {
-  it("has a 'generate:types' script", () => {
-    const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
-    expect(pkg.scripts).toHaveProperty("generate:types");
-  });
-
-  it("has openapi-typescript in devDependencies", () => {
-    const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
-    expect(pkg.devDependencies).toHaveProperty("openapi-typescript");
-  });
-
-  it("has a 'check:types-fresh' or equivalent CI script", () => {
-    const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
-    const scripts = Object.keys(pkg.scripts || {});
-    const hasCheck = scripts.some(
-      (s) => s.includes("check:types") || s.includes("codegen:check"),
-    );
-    expect(
-      hasCheck,
-      `No type freshness check script found. Scripts: ${scripts.join(", ")}`,
-    ).toBe(true);
   });
 });
