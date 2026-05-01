@@ -12,7 +12,6 @@ Results are verified through GET /api/runs/{run_id}/nodes (HTTP layer, not direc
 """
 
 import asyncio
-import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -112,21 +111,19 @@ def db_engine():
 
 
 @pytest.fixture
-def base_dir():
-    """Temporary directory for workflow YAML files."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
-        _write_workflow_file(
-            base,
-            "contains-assertion-workflow",
-            _read_workflow_fixture("contains-assertion-workflow"),
-        )
-        _write_workflow_file(
-            base,
-            "cost-assertion-workflow",
-            _read_workflow_fixture("cost-assertion-workflow"),
-        )
-        yield base
+def base_dir(tmp_path):
+    """Pytest-owned temporary runtime workspace for workflow YAML files."""
+    _write_workflow_file(
+        tmp_path,
+        "contains-assertion-workflow",
+        _read_workflow_fixture("contains-assertion-workflow"),
+    )
+    _write_workflow_file(
+        tmp_path,
+        "cost-assertion-workflow",
+        _read_workflow_fixture("cost-assertion-workflow"),
+    )
+    return tmp_path
 
 
 @pytest.fixture

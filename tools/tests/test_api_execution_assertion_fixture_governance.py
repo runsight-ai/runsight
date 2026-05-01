@@ -1,15 +1,19 @@
-"""Governance tests for API execution assertion workflow fixture ownership.
+"""Governance tests for API execution assertion fixture ownership.
 
 Owner: tools/tests owns temporary static checks for API test fixture ownership
 migrations.
-Boundary: reusable workflow payloads for the API execution assertion evaluation
-suite belong under apps/api/tests/fixtures and must not remain as module-level
-inline YAML constants in apps/api/tests/test_execution_assertion_evaluation.py.
-Inline YAML inside an individual test is local behavior setup and is
-intentionally outside this static check.
+Boundary: reusable workflow payloads and runtime workspace ownership for the
+API execution assertion evaluation suite belong to apps/api/tests. Reusable
+workflow YAML must live under apps/api/tests/fixtures and must not remain as
+module-level inline YAML constants in
+apps/api/tests/test_execution_assertion_evaluation.py. The base_dir runtime
+workspace fixture must be explicitly owned by pytest tmp_path rather than an
+unmanaged tempfile.TemporaryDirectory context. Inline YAML inside an individual
+test is local behavior setup and is intentionally outside this static check.
 Exit criteria: delete this suite once those reusable workflow payloads have
 been externalized and the API package suite has stable fixture-loading coverage
-for execution assertion evaluation.
+for execution assertion evaluation, and base_dir uses pytest-owned tmp_path for
+its temporary runtime workspace.
 """
 
 from __future__ import annotations
@@ -104,6 +108,29 @@ def _module_level_workflow_constants(path: Path) -> list[ModuleWorkflowConstant]
     return constants
 
 
+def _function_named(tree: ast.Module, name: str) -> ast.FunctionDef | None:
+    for statement in tree.body:
+        if isinstance(statement, ast.FunctionDef) and statement.name == name:
+            return statement
+    return None
+
+
+def _call_name(call: ast.Call) -> str | None:
+    function = call.func
+    if isinstance(function, ast.Name):
+        return function.id
+    if isinstance(function, ast.Attribute) and isinstance(function.value, ast.Name):
+        return f"{function.value.id}.{function.attr}"
+    return None
+
+
+def _uses_tempfile_temporary_directory(function: ast.FunctionDef) -> bool:
+    return any(
+        isinstance(node, ast.Call) and _call_name(node) == "tempfile.TemporaryDirectory"
+        for node in ast.walk(function)
+    )
+
+
 def test_api_execution_assertion_suite_uses_package_owned_workflow_fixtures() -> None:
     """Reusable API execution assertion workflows should live in API-owned fixtures."""
     constants = _module_level_workflow_constants(EXECUTION_ASSERTION_EVALUATION_TEST)
@@ -118,4 +145,28 @@ def test_api_execution_assertion_suite_uses_package_owned_workflow_fixtures() ->
             f"(workflow id: {constant.workflow_id})"
             for constant in constants
         )
+    )
+
+
+def test_api_execution_assertion_base_dir_uses_pytest_owned_tmp_path() -> None:
+    """base_dir should make runtime workspace ownership visible to pytest."""
+    tree = _source_tree(EXECUTION_ASSERTION_EVALUATION_TEST)
+    base_dir = _function_named(tree, "base_dir")
+
+    assert base_dir is not None, (
+        f"{_relative(EXECUTION_ASSERTION_EVALUATION_TEST)} must keep a base_dir "
+        "fixture for execution assertion runtime workspace setup."
+    )
+
+    argument_names = [argument.arg for argument in base_dir.args.args]
+    assert "tmp_path" in argument_names, (
+        f"{_relative(EXECUTION_ASSERTION_EVALUATION_TEST)} base_dir fixture must "
+        "accept pytest's tmp_path fixture so the API runtime workspace is owned "
+        "and cleaned up by pytest."
+    )
+
+    assert not _uses_tempfile_temporary_directory(base_dir), (
+        f"{_relative(EXECUTION_ASSERTION_EVALUATION_TEST)} base_dir fixture must "
+        "not create its runtime workspace with tempfile.TemporaryDirectory. Use "
+        "tmp_path and build custom/workflows under that pytest-owned path."
     )
