@@ -1,0 +1,23 @@
+packages/core/tests/test_dispatch_budget_workflow_integration.py
+  4adca821c1af8eb3 1-319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1c7f98bc92137e133515c00cc2abc219353f479b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 620,
+      "total_deletions": 301,
+      "accepted_lines": 59631,
+      "overriden_lines": 0
+    }
+  }
+}
