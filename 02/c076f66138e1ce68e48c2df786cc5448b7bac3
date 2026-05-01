@@ -1,0 +1,33 @@
+apps/api/tests/fixtures/assertion_wiring/step-with-assertions.yaml
+  4adca821c1af8eb3 1-28
+apps/api/tests/logic/test_wire_assertion_configs.py
+  4adca821c1af8eb3 20,30-35,37,47,49,51,62,72-76,80-83,91-95,137-138,144-145,154,225-227,230,245-247,259,279-281,303,348,352
+tools/tests/test_api_assertion_wiring_fixture_governance.py
+  4adca821c1af8eb3 1-243
+apps/api/tests/fixtures/assertion_wiring/soul-and-block-assertions.yaml
+  4adca821c1af8eb3 1-21
+apps/api/tests/fixtures/assertion_wiring/soul-only-assertions.yaml
+  4adca821c1af8eb3 1-18
+apps/api/tests/fixtures/assertion_wiring/block-with-assertions.yaml
+  4adca821c1af8eb3 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "02c076f66138e1ce68e48c2df786cc5448b7bac3",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 373,
+      "total_deletions": 130,
+      "accepted_lines": 54198,
+      "overriden_lines": 0
+    }
+  }
+}
