@@ -1,0 +1,29 @@
+packages/core/tests/test_parser_soul_field_forwarding.py
+  4adca821c1af8eb3 11,14,17,29-47,49-52,54-68,70-73
+packages/core/tests/fixtures/workflows/parser-soul-field-forwarding-minimal.yaml
+  4adca821c1af8eb3 1-17
+tools/tests/test_core_parser_soul_field_forwarding_fixture_governance.py
+  4adca821c1af8eb3 1-210
+packages/core/tests/fixtures/workflows/parser-soul-field-forwarding-extended.yaml
+  4adca821c1af8eb3 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9be8c8b4f5fd0c5c89912ac750dca5bdf1f53e05",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 294,
+      "total_deletions": 96,
+      "accepted_lines": 53569,
+      "overriden_lines": 0
+    }
+  }
+}
