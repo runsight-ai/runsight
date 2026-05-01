@@ -1,0 +1,23 @@
+tools/tests/test_core_parser_tool_validation_suite_governance.py
+  dac1fc8782d1419d 1-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c681cd82eefbe15cb6405f60bd24e83d51d8259b",
+  "prompts": {
+    "dac1fc8782d1419d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de55d-1d0d-75f0-a5e5-5d87c7159ccd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 239,
+      "total_deletions": 3,
+      "accepted_lines": 236,
+      "overriden_lines": 0
+    }
+  }
+}
