@@ -1,0 +1,23 @@
+packages/core/tests/test_artifact_store_wiring.py
+  4adca821c1af8eb3 82,90,92,98,107,123,132,134-136,144,170,176,178-179,198,205-208,210,213-214,224-225,235,241-244,246,249-250,282,316,359,413-414,416,418-419,426,435-437,439-444,450-451,458-459,461-462,468
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a2fe4b710e83d9bc081891262e43b42ab1ae32a4",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 56,
+      "accepted_lines": 59269,
+      "overriden_lines": 0
+    }
+  }
+}
