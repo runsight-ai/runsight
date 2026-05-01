@@ -1,4 +1,4 @@
-"""Red tests for RUN-469: standalone soul discovery preserves all Soul fields."""
+"""Standalone soul discovery preserves declared Soul fields and defaults."""
 
 import tempfile
 from pathlib import Path
@@ -20,10 +20,10 @@ class TestDiscoverSoulFieldPreservation:
                 role: Extended Soul
                 system_prompt: Preserve every field.
                 tools:
-                  - web_search
+                  - profile_lookup
                 max_tool_iterations: 9
-                model_name: gpt-4o
-                provider: openai
+                model_name: local-analysis-model
+                provider: local_provider
                 temperature: 0.6
                 max_tokens: 8192
                 avatar_color: "#224466"
@@ -37,10 +37,10 @@ class TestDiscoverSoulFieldPreservation:
 
             assert soul.kind == "soul"
             assert soul.name == "Extended Soul"
-            assert soul.tools == ["web_search"]
+            assert soul.tools == ["profile_lookup"]
             assert soul.max_tool_iterations == 9
-            assert soul.model_name == "gpt-4o"
-            assert soul.provider == "openai"
+            assert soul.model_name == "local-analysis-model"
+            assert soul.provider == "local_provider"
             assert soul.temperature == 0.6
             assert soul.max_tokens == 8192
             assert soul.avatar_color == "#224466"
@@ -124,7 +124,7 @@ class TestDiscoverSoulFieldPreservation:
                 name: Future Soul
                 role: Future Soul
                 system_prompt: Ignore unknown keys.
-                provider: anthropic
+                provider: local_provider
                 unknown_future_flag: true
                 """)
             )
@@ -136,7 +136,7 @@ class TestDiscoverSoulFieldPreservation:
 
             assert soul.kind == "soul"
             assert soul.name == "Future Soul"
-            assert soul.provider == "anthropic"
+            assert soul.provider == "local_provider"
 
     def test_discover_empty_soul_yaml_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmpdir:

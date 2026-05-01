@@ -1,4 +1,4 @@
-"""Red tests for RUN-825: mandatory embedded identity on tool and assertion manifests."""
+"""Embedded identity contracts for tool and assertion manifests."""
 
 from __future__ import annotations
 

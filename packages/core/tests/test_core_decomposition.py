@@ -1,16 +1,4 @@
-"""
-RUN-856: Failing tests for Workflow.run and execute decomposition.
-
-AC:
-1. Workflow.run decomposed into sub-methods (main loop, error routing, observer lifecycle)
-2. execute decomposed (single-shot path, agentic loop, tool dispatch as separate methods)
-3. Nesting ≤3 levels in all resulting functions
-4. All existing tests still pass
-
-These tests are written BEFORE the refactor — they will fail (AttributeError or
-assertion failures) against the current implementations and pass only once the
-Green team completes the decomposition.
-"""
+"""Workflow and runner decomposition boundaries for method shape and async behavior."""
 
 from __future__ import annotations
 
@@ -32,8 +20,7 @@ def _count_non_blank_non_comment_lines(source: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 1: Sub-method existence on Workflow
-# Expected failure: AttributeError — methods do not yet exist.
+# Workflow sub-method boundaries
 # ---------------------------------------------------------------------------
 
 
@@ -69,8 +56,7 @@ class TestWorkflowSubMethodExistence:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 2: Sub-method existence on RunsightTeamRunner
-# Expected failure: AttributeError — methods do not yet exist.
+# RunsightTeamRunner sub-method boundaries
 # ---------------------------------------------------------------------------
 
 
@@ -106,8 +92,7 @@ class TestRunnerSubMethodExistence:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 3: Line count guards
-# Expected failure: current functions are 175 and 158 lines respectively.
+# Line-count guards
 # ---------------------------------------------------------------------------
 
 
@@ -138,9 +123,7 @@ class TestLineCounts:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 4: Async behavioural guards
-# These check that the public API remains async after decomposition.
-# Expected: PASS currently (regression guards — must remain green after refactor).
+# Async behavioral guards
 # ---------------------------------------------------------------------------
 
 
