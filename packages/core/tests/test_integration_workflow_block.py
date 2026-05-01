@@ -59,12 +59,12 @@ async def test_parent_child_workflow_execution():
     """
     # ==== Setup: Create child workflow ====
     child_workflow = Workflow(name="analysis_child_workflow")
-    child_step = SimpleBlock(
+    analysis_child_block = SimpleBlock(
         "analysis_child_step",
         "child output",
         declared_inputs={"topic": "workflow.topic"},
     )
-    child_workflow.add_block(child_step)
+    child_workflow.add_block(analysis_child_block)
     child_workflow.set_entry("analysis_child_step")
     child_workflow.add_transition("analysis_child_step", None)  # Terminal
 
@@ -123,7 +123,7 @@ async def test_parent_child_workflow_execution():
     # ==== Verify: Output mapping (child results → parent state) ====
     assert "analysis" in final_state.results
     assert final_state.results["analysis"].output == "child output"
-    assert child_step.seen_workflow_inputs == {"topic": "quantum computing"}
+    assert analysis_child_block.seen_workflow_inputs == {"topic": "quantum computing"}
 
     # ==== Verify: Existing parent data preserved ====
     assert final_state.results["existing"].output == "value"
@@ -438,7 +438,7 @@ async def test_workflow_block_input_output_mapping():
     """
     # Create child workflow
     child_workflow = Workflow(name="mapping_child_workflow")
-    child_step = SimpleBlock(
+    mapping_child_block = SimpleBlock(
         "mapping_child_step",
         "child result",
         declared_inputs={
@@ -446,7 +446,7 @@ async def test_workflow_block_input_output_mapping():
             "context": "workflow.context",
         },
     )
-    child_workflow.add_block(child_step)
+    child_workflow.add_block(mapping_child_block)
     child_workflow.set_entry("mapping_child_step")
     child_workflow.add_transition("mapping_child_step", None)
 
@@ -487,7 +487,7 @@ async def test_workflow_block_input_output_mapping():
     # This should be mapped to results.output_key in parent
     assert "output_key" in final_state.results
     assert final_state.results["output_key"].output == "child result"
-    assert child_step.seen_workflow_inputs == {
+    assert mapping_child_block.seen_workflow_inputs == {
         "input_key": "parent_shared_value",
         "context": "context_data",
     }
