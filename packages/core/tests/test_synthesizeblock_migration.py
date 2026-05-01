@@ -52,7 +52,7 @@ def synthesis_soul():
     return Soul(
         id="synthesis_soul",
         kind="soul",
-        name="Test",
+        name="Synthesis Soul",
         role="Synthesizer",
         system_prompt="Synthesize everything.",
     )
@@ -62,7 +62,7 @@ def synthesis_soul():
 def block_execution_ctx():
     """Minimal BlockExecutionContext for execute_block dispatch tests."""
     return BlockExecutionContext(
-        workflow_name="test_workflow",
+        workflow_name="synthesis_dispatch_workflow",
         blocks={},
         call_stack=[],
         workflow_registry=None,
@@ -114,13 +114,13 @@ async def test_synthesizeblock_execute_accepts_block_context(mock_runner, synthe
 
     assert isinstance(result, BlockOutput), (
         f"Expected BlockOutput but got {type(result).__name__}. "
-        "SynthesizeBlock.execute must return BlockOutput after the migration."
+        "SynthesizeBlock.execute must return BlockOutput under the execution contract."
     )
 
 
 @pytest.mark.asyncio
-async def test_synthesizeblock_execute_output_contains_llm_response(mock_runner, synthesis_soul):
-    """BlockOutput.output must contain the LLM response string."""
+async def test_synthesizeblock_execute_output_contains_runner_response(mock_runner, synthesis_soul):
+    """BlockOutput.output must contain the runner response string."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="final-synthesis-task",
         soul_id="synthesis_soul",
@@ -392,7 +392,7 @@ def test_build_block_context_synthesize_error_message_lists_available(mock_runne
 
 
 @pytest.mark.asyncio
-async def test_execute_block_dispatches_synthesizeblock_via_new_path(
+async def test_execute_block_dispatches_synthesizeblock_via_block_context(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
     """execute_block must route SynthesizeBlock through build_block_context + apply_block_output."""
@@ -421,7 +421,7 @@ async def test_execute_block_dispatches_synthesizeblock_via_new_path(
         result_state = await execute_block(block, state, block_execution_ctx)
 
     assert mock_build_ctx.called, (
-        "execute_block must call build_block_context for SynthesizeBlock (new dispatch path)"
+        "execute_block must call build_block_context for SynthesizeBlock dispatch"
     )
     # Outer contract: still returns WorkflowState
     assert isinstance(result_state, WorkflowState)
@@ -432,7 +432,7 @@ async def test_execute_block_dispatches_synthesizeblock_via_new_path(
 async def test_execute_block_synthesizeblock_state_has_output(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
-    """After execute_block with SynthesizeBlock, state.results[synth_id].output is the LLM output."""
+    """After execute_block with SynthesizeBlock, state.results[synth_id].output is the runner output."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="final-synthesis-task",
         soul_id="synthesis_soul",
@@ -463,7 +463,7 @@ async def test_execute_block_synthesizeblock_state_has_output(
 async def test_execute_block_synthesizeblock_accumulates_cost(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
-    """execute_block via SynthesizeBlock new path must accumulate cost_usd in state."""
+    """execute_block via SynthesizeBlock dispatch must accumulate cost_usd in state."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="final-synthesis-task",
         soul_id="synthesis_soul",
@@ -494,7 +494,7 @@ async def test_execute_block_synthesizeblock_accumulates_cost(
 async def test_execute_block_synthesizeblock_apply_block_output_called(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
-    """execute_block must call apply_block_output for SynthesizeBlock (new path)."""
+    """execute_block must call apply_block_output for SynthesizeBlock dispatch."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="final-synthesis-task",
         soul_id="synthesis_soul",
@@ -526,7 +526,7 @@ async def test_execute_block_synthesizeblock_apply_block_output_called(
         result_state = await execute_block(block, state, block_execution_ctx)
 
     assert "final_synthesis" in apply_calls, (
-        "execute_block must call apply_block_output for SynthesizeBlock (new dispatch path)"
+        "execute_block must call apply_block_output for SynthesizeBlock dispatch"
     )
     assert isinstance(result_state, WorkflowState)
     assert result_state.total_cost_usd == pytest.approx(0.12)
@@ -534,10 +534,10 @@ async def test_execute_block_synthesizeblock_apply_block_output_called(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_synthesizeblock_combined_context_passed_to_llm(
+async def test_execute_block_synthesizeblock_combined_context_passed_to_runner(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
-    """The combined outputs must be passed as context to execute_task (identical to old path)."""
+    """The combined outputs must be passed as context to the runner."""
     mock_runner.execute.return_value = ExecutionResult(
         task_id="final-synthesis-task",
         soul_id="synthesis_soul",
@@ -559,7 +559,7 @@ async def test_execute_block_synthesizeblock_combined_context_passed_to_llm(
     # Verify runner.execute was called and the context contains combined outputs
     assert mock_runner.execute.called
     call_args = mock_runner.execute.call_args
-    # runner.execute is called as (instruction, context, soul) after migration
+    # runner.execute receives (instruction, context, soul).
     context_arg = call_args[0][1]  # Second positional arg is context string
     assert "Output A" in context_arg, "Context must include 'Output A' from research_report"
     assert "Output B" in context_arg, "Context must include 'Output B' from market_notes"
@@ -597,10 +597,10 @@ async def test_execute_block_synthesizeblock_execution_log_extended(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_synthesizeblock_missing_input_raises_before_llm_call(
+async def test_execute_block_synthesizeblock_missing_input_raises_before_runner_call(
     mock_runner, synthesis_soul, block_execution_ctx
 ):
-    """execute_block must raise ValueError for missing inputs before calling the LLM."""
+    """execute_block must raise ValueError for missing inputs before calling the runner."""
     block = SynthesizeBlock(
         "final_synthesis", ["research_report", "market_notes"], synthesis_soul, mock_runner
     )
