@@ -1,4 +1,4 @@
-"""RUN-869 Amber regressions for WorkflowBlock child input contracts."""
+"""Tests for WorkflowBlock child input contracts."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from runsight_core.yaml.schema import RunsightWorkflowFile, WorkflowInputDef
 
 class ChildWorkflowSpy:
     def __init__(self, input_schema: dict[str, WorkflowInputDef]) -> None:
-        self.name = "run869_child"
+        self.name = "child_input_contract_workflow"
         self.input_schema = input_schema
         self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, Any] | None = None
@@ -44,7 +44,7 @@ async def test_workflowblock_rejects_unknown_child_input_name_before_child_execu
         }
     )
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="child_invocation_block",
         child_workflow=child,
         inputs={"typo_query": "shared_memory.query"},
         outputs={},
@@ -62,7 +62,7 @@ async def test_workflowblock_rejects_unknown_child_input_name_before_child_execu
 async def test_workflowblock_rejects_any_child_input_when_child_schema_is_empty() -> None:
     child = ChildWorkflowSpy({})
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="child_invocation_block",
         child_workflow=child,
         inputs={"foo": "shared_memory.query"},
         outputs={},
@@ -81,7 +81,7 @@ async def test_parsed_workflowblock_rejects_mapped_input_for_child_with_no_parse
     child_file = RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
-            "id": "child_workflow",
+            "id": "child-input-contract-workflow",
             "kind": "workflow",
             "blocks": {
                 "start": {
@@ -90,36 +90,36 @@ async def test_parsed_workflowblock_rejects_mapped_input_for_child_with_no_parse
                 }
             },
             "workflow": {
-                "id": "child_workflow",
+                "id": "child-input-contract-workflow",
                 "kind": "workflow",
-                "name": "child_workflow",
+                "name": "child_input_contract_workflow",
                 "entry": "start",
                 "transitions": [{"from": "start", "to": None}],
             },
         }
     )
     registry = WorkflowRegistry()
-    registry.register("child_workflow", child_file)
+    registry.register("child_input_contract", child_file)
 
     with pytest.raises((ValidationError, ValueError), match="no parser inputs|not declared|input"):
         parse_workflow_yaml(
             {
                 "version": "1.0",
-                "id": "parent_workflow",
+                "id": "parent-input-contract-workflow",
                 "kind": "workflow",
                 "blocks": {
-                    "invoke_child": {
+                    "child_invocation_block": {
                         "type": "workflow",
-                        "workflow_ref": "child_workflow",
+                        "workflow_ref": "child_input_contract",
                         "inputs": {"foo": "shared_memory.query"},
                     }
                 },
                 "workflow": {
-                    "id": "parent_workflow",
+                    "id": "parent-input-contract-workflow",
                     "kind": "workflow",
-                    "name": "parent_workflow",
-                    "entry": "invoke_child",
-                    "transitions": [{"from": "invoke_child", "to": None}],
+                    "name": "parent_input_contract_workflow",
+                    "entry": "child_invocation_block",
+                    "transitions": [{"from": "child_invocation_block", "to": None}],
                 },
             },
             workflow_registry=registry,
@@ -134,7 +134,7 @@ async def test_workflowblock_rejects_missing_required_child_input_before_child_e
         }
     )
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="child_invocation_block",
         child_workflow=child,
         inputs={},
         outputs={},
@@ -156,7 +156,7 @@ async def test_workflowblock_rejects_child_input_type_mismatch_before_child_exec
         }
     )
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="child_invocation_block",
         child_workflow=child,
         inputs={"limit": "shared_memory.limit"},
         outputs={},
@@ -179,7 +179,7 @@ async def test_workflowblock_applies_child_defaults_to_valid_invocation_inputs()
         }
     )
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="child_invocation_block",
         child_workflow=child,
         inputs={"query": "shared_memory.query"},
         outputs={},

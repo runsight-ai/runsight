@@ -1,4 +1,4 @@
-"""Red tests for RUN-953: Step-wrapped workflow behavior must stay intact.
+"""Tests for Step-wrapped workflow behavior.
 
 These tests avoid source-shape assertions and instead lock down public behavior
 that should remain the same when execution ownership is decomposed away from the
