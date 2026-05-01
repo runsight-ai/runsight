@@ -9,6 +9,8 @@ contract suite.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 import runsight_api.data.filesystem.workflow_repo as workflow_repo_module
@@ -16,100 +18,11 @@ from runsight_api.domain.errors import InputValidationError
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_core.yaml.validation import ValidationResult
 
-UNDECLARED_LIBRARY_SOUL_TOOL_YAML = """\
-version: "1.0"
-id: governance_failure
-kind: workflow
-config:
-  model_name: gpt-4o
-blocks:
-  my_block:
-    type: linear
-    soul_ref: researcher
-workflow:
-  name: Governance Warning
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
+FIXTURE_ROOT = Path(__file__).resolve().parents[3] / "fixtures" / "workflow_repo_tool_governance"
 
-VALID_DECLARED_TOOL_YAML = """\
-version: "1.0"
-id: governance_success
-kind: workflow
-config:
-  model_name: gpt-4o
-tools:
-  - http
-blocks:
-  my_block:
-    type: linear
-    soul_ref: researcher
-workflow:
-  id: governance_success
-  kind: workflow
-  name: Governance Success
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
 
-MISSING_CUSTOM_TOOL_YAML = """\
-version: "1.0"
-id: missing_custom_tool
-kind: workflow
-config:
-  model_name: gpt-4o
-tools:
-  - lookup_profile
-blocks:
-  my_block:
-    type: linear
-    soul_ref: researcher
-workflow:
-  id: missing_custom_tool
-  kind: workflow
-  name: Missing Custom Tool
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
-
-LEGACY_TYPED_TOOL_YAML = """\
-version: "1.0"
-id: legacy_typed_tool
-kind: workflow
-config:
-  model_name: gpt-4o
-tools:
-  http:
-    type: builtin
-    source: runsight/http
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Researcher
-    role: Researcher
-    system_prompt: Search the web.
-    tools:
-      - http
-blocks:
-  my_block:
-    type: linear
-    soul_ref: researcher
-workflow:
-  id: legacy_typed_tool
-  kind: workflow
-  name: Legacy Typed Tool
-  entry: my_block
-  transitions:
-    - from: my_block
-      to: null
-"""
+def _workflow_fixture_text(name: str) -> str:
+    return (FIXTURE_ROOT / name).read_text(encoding="utf-8")
 
 
 def _write_soul_file(tmp_path, soul_name: str, tools: list[str] | None = None) -> None:
@@ -134,7 +47,12 @@ def test_create_stores_tool_governance_warning_on_entity(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     _write_soul_file(tmp_path, "researcher", ["http"])
 
-    entity = repo.create({"name": "Governance Warning", "yaml": UNDECLARED_LIBRARY_SOUL_TOOL_YAML})
+    entity = repo.create(
+        {
+            "name": "Governance Warning",
+            "yaml": _workflow_fixture_text("undeclared-library-soul-tool.yaml"),
+        }
+    )
 
     assert entity.valid is True
     assert entity.validation_error is None
@@ -152,9 +70,14 @@ def test_create_stores_tool_governance_warning_on_entity(tmp_path):
 
 def test_update_recomputes_tool_governance_warning_from_raw_yaml(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
-    created = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
+    created = repo.create(
+        {
+            "name": "Governance Success",
+            "yaml": _workflow_fixture_text("valid-declared-tool.yaml"),
+        }
+    )
     _write_soul_file(tmp_path, "researcher", ["http"])
-    updated_yaml = UNDECLARED_LIBRARY_SOUL_TOOL_YAML.replace(
+    updated_yaml = _workflow_fixture_text("undeclared-library-soul-tool.yaml").replace(
         "id: governance_failure",
         f"id: {created.id}",
     )
@@ -179,7 +102,12 @@ def test_create_validates_canonical_builtin_tool_ids_against_repo_contract(tmp_p
     repo = WorkflowRepository(base_path=str(tmp_path))
     _write_soul_file(tmp_path, "researcher", ["http"])
 
-    entity = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
+    entity = repo.create(
+        {
+            "name": "Governance Success",
+            "yaml": _workflow_fixture_text("valid-declared-tool.yaml"),
+        }
+    )
 
     assert entity.valid is True
     assert entity.validation_error is None
@@ -189,7 +117,12 @@ def test_create_surfaces_missing_custom_tool_id_validation_error(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     _write_soul_file(tmp_path, "researcher", ["lookup_profile"])
 
-    entity = repo.create({"name": "Missing Custom Tool", "yaml": MISSING_CUSTOM_TOOL_YAML})
+    entity = repo.create(
+        {
+            "name": "Missing Custom Tool",
+            "yaml": _workflow_fixture_text("missing-custom-tool.yaml"),
+        }
+    )
 
     assert entity.valid is True
     assert entity.validation_error is None
@@ -199,7 +132,12 @@ def test_create_rejects_legacy_typed_tool_authoring(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     with pytest.raises(InputValidationError, match="list"):
-        repo.create({"name": "Legacy Typed Tool", "yaml": LEGACY_TYPED_TOOL_YAML})
+        repo.create(
+            {
+                "name": "Legacy Typed Tool",
+                "yaml": _workflow_fixture_text("legacy-typed-tool.yaml"),
+            }
+        )
 
 
 def test_create_rejects_reserved_builtin_id_collision_with_custom_slug(tmp_path):
@@ -218,7 +156,12 @@ code: |
         encoding="utf-8",
     )
 
-    entity = repo.create({"name": "Governance Success", "yaml": VALID_DECLARED_TOOL_YAML})
+    entity = repo.create(
+        {
+            "name": "Governance Success",
+            "yaml": _workflow_fixture_text("valid-declared-tool.yaml"),
+        }
+    )
 
     assert entity.valid is False
     assert entity.validation_error is not None
@@ -253,7 +196,7 @@ def test_validate_yaml_content_preserves_error_and_warning_payloads(tmp_path, mo
     )
 
     valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-error", VALID_DECLARED_TOOL_YAML
+        "governance-error", _workflow_fixture_text("valid-declared-tool.yaml")
     )
 
     assert valid is False
@@ -281,7 +224,7 @@ def test_validate_yaml_content_returns_warning_payloads_for_warning_only_result(
     )
 
     valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-warning", VALID_DECLARED_TOOL_YAML
+        "governance-warning", _workflow_fixture_text("valid-declared-tool.yaml")
     )
 
     assert valid is True
@@ -293,7 +236,7 @@ def test_validate_yaml_content_returns_empty_warning_list_for_schema_error(tmp_p
     repo = WorkflowRepository(base_path=str(tmp_path))
 
     valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-schema-error", LEGACY_TYPED_TOOL_YAML
+        "governance-schema-error", _workflow_fixture_text("legacy-typed-tool.yaml")
     )
 
     assert valid is False
@@ -325,7 +268,7 @@ def test_build_entity_attaches_warnings_from_validation_result(tmp_path, monkeyp
             "workflow": {"name": "Governance Success"},
         },
         "governance_success",
-        raw_yaml=VALID_DECLARED_TOOL_YAML,
+        raw_yaml=_workflow_fixture_text("valid-declared-tool.yaml"),
     )
 
     assert entity.warnings == warning_payloads
