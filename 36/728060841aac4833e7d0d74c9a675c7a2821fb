@@ -1,0 +1,66 @@
+apps/gui/src/features/__tests__/workflowCreateIdentityOwnershipGovernance.test.ts
+  8dca4d273e323263 45,47-52,56,63-80,83-97,123,127,130-136,156,167,169-170
+  dac1fc8782d1419d 1-44,46,53-55,57-62,98-99,122,128-129,137-155,166,171-172
+  269512d5ca9861a3 81-82,100-121,124-126,157-165,168
+apps/gui/src/features/setup/__tests__/workflowCreateIdentity.test.tsx
+  57c6da30b21240cb 1,6,13-16,27-28,31,33,43-63,65-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "36728060841aac4833e7d0d74c9a675c7a2821fb",
+  "prompts": {
+    "269512d5ca9861a3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de561-69af-79b2-9aee-9d17f6a26ea5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 38,
+      "total_deletions": 9,
+      "accepted_lines": 37,
+      "overriden_lines": 0
+    },
+    "57c6da30b21240cb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de566-c7b9-7ab3-a949-c63b5860b875",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 38,
+      "total_deletions": 21,
+      "accepted_lines": 38,
+      "overriden_lines": 0
+    },
+    "8dca4d273e323263": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de561-9433-77b3-9e9e-8b860c82639a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 14,
+      "accepted_lines": 54,
+      "overriden_lines": 0
+    },
+    "dac1fc8782d1419d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de55d-1d0d-75f0-a5e5-5d87c7159ccd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 99,
+      "total_deletions": 0,
+      "accepted_lines": 81,
+      "overriden_lines": 0
+    }
+  }
+}
