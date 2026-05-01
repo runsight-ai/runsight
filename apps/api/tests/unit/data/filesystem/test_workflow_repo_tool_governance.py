@@ -1,3 +1,12 @@
+"""Workflow repository tool governance validation.
+
+Owner: apps/api filesystem workflow repository.
+Boundary: API persistence must surface shared workflow tool-governance warnings
+without reading developer runtime assets.
+Exit criteria: remove when repository validation is covered by a stable shared
+contract suite.
+"""
+
 from __future__ import annotations
 
 import pytest

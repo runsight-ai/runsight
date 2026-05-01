@@ -5,6 +5,13 @@ Context governance brings implicit block reads into the same ContextDeclaration 
 user-declared inputs. These tests stay at the contract/build-context boundary:
 no observer publication, no CodeBlock all-access runtime behavior, and no
 isolation envelope scoping.
+
+Owner: packages/core context governance.
+Boundary: special block context declarations must resolve through
+ContextDeclaration and build_block_context without crossing into observers,
+CodeBlock all-access behavior, or isolation envelope scoping.
+Exit criteria: remove when special block context declarations are covered by
+ordinary context-governance contract tests.
 """
 
 from __future__ import annotations

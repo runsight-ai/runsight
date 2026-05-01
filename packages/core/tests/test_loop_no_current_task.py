@@ -2,7 +2,7 @@
 
 - LoopBlock no longer references state.current_task
 - Carry context still flows through shared_memory to inner blocks
-- Loop-based E2E tests pass
+- Loop-based runtime integration tests pass
 
 - No `current_task` references in loop.py
 - Carry context only flows via shared_memory (which LinearBlock reads via _resolved_inputs)

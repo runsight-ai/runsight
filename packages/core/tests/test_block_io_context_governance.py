@@ -1,4 +1,10 @@
-"""Block IO and context governance behavior."""
+"""Block IO and context governance behavior.
+
+Owner: packages/core block IO and context resolver.
+Boundary: BlockContext construction, declared input resolution, observer audits,
+and isolation serialization must enforce context-governance contracts.
+Exit criteria: remove when these contracts are covered by focused module suites.
+"""
 
 from __future__ import annotations
 

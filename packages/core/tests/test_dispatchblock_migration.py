@@ -1,5 +1,12 @@
 """DispatchBlock BlockContext/BlockOutput migration coverage.
 
+Owner: packages/core DispatchBlock runtime migration.
+Boundary: DispatchBlock execution, branch context construction, budget isolation,
+extra results, and workflow dispatch must preserve the BlockContext/BlockOutput
+contract.
+Exit criteria: remove once equivalent coverage lives in ordinary DispatchBlock
+and workflow execution suites.
+
 Tests verify:
 - DispatchBlock.execute accepts BlockContext and returns BlockOutput.
 - DispatchBlock.execute avoids direct state mutation.

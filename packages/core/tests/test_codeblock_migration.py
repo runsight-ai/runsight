@@ -1,5 +1,11 @@
 """CodeBlock BlockContext/BlockOutput migration coverage.
 
+Owner: packages/core CodeBlock runtime migration.
+Boundary: CodeBlock execution, error handling, exit handles, context building,
+and workflow dispatch must preserve the BlockContext/BlockOutput contract.
+Exit criteria: remove once equivalent coverage lives in ordinary CodeBlock and
+workflow execution suites.
+
 Tests verify:
 - CodeBlock.execute accepts BlockContext and returns BlockOutput.
 - ctx.inputs are passed to the subprocess unchanged.

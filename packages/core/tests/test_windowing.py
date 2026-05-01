@@ -214,7 +214,7 @@ class TestGetMaxTokens:
 class TestPruneWithModelResolution:
     """Verify prune_messages works with get_max_tokens-resolved budget."""
 
-    def test_end_to_end_with_model_resolution(self):
+    def test_prune_messages_integration_with_model_resolution(self):
         """Resolve max_tokens from model, then prune."""
         msgs = _make_messages(5)  # 10 messages
 

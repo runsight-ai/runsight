@@ -602,8 +602,8 @@ async def test_execute_block_gateblock_accumulates_cost(
 
 
 @pytest.mark.asyncio
-async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_soul):
-    """Full workflow routes through GateBlock with conditional pass/fail transitions."""
+async def test_execute_block_integration_gate_routing_workflow(mock_runner, gate_soul):
+    """Runtime workflow routes through GateBlock with conditional pass/fail transitions."""
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 
@@ -676,8 +676,8 @@ async def test_execute_block_end_to_end_gate_routing_workflow(mock_runner, gate_
 
 
 @pytest.mark.asyncio
-async def test_execute_block_end_to_end_gate_fail_routing_workflow(mock_runner, gate_soul):
-    """Full workflow routes from GateBlock to revise on FAIL."""
+async def test_execute_block_integration_gate_fail_routing_workflow(mock_runner, gate_soul):
+    """Runtime workflow routes from GateBlock to revise on FAIL."""
     from runsight_core.blocks.linear import LinearBlock
     from runsight_core.workflow import Workflow
 

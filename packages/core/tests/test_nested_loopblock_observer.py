@@ -1,5 +1,5 @@
 """
-E2E tests for nested LoopBlock with observer parity.
+Runtime integration tests for nested LoopBlock with observer parity.
 
 Scenarios:
 1. Observer event counts for nested loops — verifies the observer sees the correct

@@ -3,6 +3,12 @@ CodeBlock declared-only governance behavior.
 
 CodeBlock must stop receiving implicit full-state input. Only declared inputs
 may survive into the runtime contract.
+
+Owner: packages/core CodeBlock runtime.
+Boundary: CodeBlock subprocess inputs must come only from declared BlockContext
+inputs and never implicit WorkflowState fields.
+Exit criteria: remove when declared-only CodeBlock access is enforced by
+ordinary CodeBlock behavior coverage.
 """
 
 from __future__ import annotations

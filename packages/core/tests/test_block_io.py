@@ -34,7 +34,7 @@ def make_soul() -> Soul:
 
 
 def make_artifact_store() -> InMemoryArtifactStore:
-    return InMemoryArtifactStore(run_id="analysis-run-001")
+    return InMemoryArtifactStore(run_id="analysis-artifact-run")
 
 
 def make_state(**kwargs) -> WorkflowState:
@@ -124,7 +124,7 @@ class TestBlockContextModel:
         store = make_artifact_store()
         ctx = BlockContext(block_id="analysis_block", instruction="x", artifact_store=store)
         assert ctx.artifact_store is store
-        assert ctx.artifact_store.run_id == "analysis-run-001"
+        assert ctx.artifact_store.run_id == "analysis-artifact-run"
 
     def test_accepts_state_snapshot(self):
         """state_snapshot field accepts a WorkflowState instance."""

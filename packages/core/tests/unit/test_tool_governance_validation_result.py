@@ -23,7 +23,7 @@ def _make_yaml(
 ) -> str:
     return f"""\
 version: "1.0"
-id: run-839-tool-governance-test
+id: tool-governance-validation-workflow
 kind: workflow
 config:
   model_name: gpt-4o
@@ -32,7 +32,7 @@ config:
 blocks:
 {blocks}
 workflow:
-  name: run_839_tool_governance_test
+  name: tool_governance_validation_workflow
   entry: {entry}
   transitions:
 {transitions}

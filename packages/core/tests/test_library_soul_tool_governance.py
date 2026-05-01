@@ -3,6 +3,12 @@
 The suite verifies workflow-local tool declarations are applied to discovered
 library soul files, including linear blocks, dispatch branch soul refs, missing
 tool declarations, and invalid source-style tool references.
+
+Owner: packages/core workflow YAML parser.
+Boundary: parser governance for library soul tool declarations must use isolated
+tmp_path fixtures and never repo-root custom assets.
+Exit criteria: remove when library soul tool governance is covered by parser
+contract tests.
 """
 
 from __future__ import annotations

@@ -1,9 +1,20 @@
+"""Test safety governance boundary.
+
+Owner: core runtime test safety maintainers.
+Boundary: test naming, isolation, and fixture-governance checks for core/API
+test workspaces and browser harness tests.
+Exit criteria: delete this suite only after repo test ownership, isolation, and
+naming policies are enforced by package-local tooling or pre-commit checks.
+"""
+
 from __future__ import annotations
 
 import ast
 import re
+import tokenize
 from dataclasses import dataclass
 from datetime import date
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -46,6 +57,20 @@ TEST_FILE_NAME_TICKET_RE = re.compile(
 PYTHON_SYMBOL_TICKET_RE = re.compile(
     r"(?:^|_)(?:test_)?(?:run_?\d{3,}|iso_?\d{3,})|Run\d{3,}|RUN_?\d{3,}",
 )
+PYTHON_GOVERNANCE_DOCSTRING_FIELD_RES = (
+    re.compile(r"\bowner\b", re.IGNORECASE),
+    re.compile(r"\bboundary\b", re.IGNORECASE),
+    re.compile(r"\bexit\s+criteria\b", re.IGNORECASE),
+)
+NON_BROWSER_E2E_WORDING_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:e2e|E2E)(?![A-Za-z0-9])|"
+    r"E2E(?=[A-Z])|"
+    r"(?<![A-Za-z0-9])(?i:end(?:[-_]|\s+)to(?:[-_]|\s+)end)(?![A-Za-z0-9])",
+)
+TICKET_FIXTURE_IDENTITY_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9]+[-_])*run[-_]\d{3,}(?:[-_][A-Za-z0-9]+)*(?![A-Za-z0-9_-])",
+    re.IGNORECASE,
+)
 STRUCTURAL_TITLE_TICKET_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|AC\d+)",
     re.IGNORECASE,
@@ -53,6 +78,14 @@ STRUCTURAL_TITLE_TICKET_RE = re.compile(
 TEST_FILE_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT, E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
 PYTHON_TEST_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT)
 TYPESCRIPT_TEST_ROOTS = (E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
+GOVERNANCE_TEST_FILE = Path(__file__).resolve()
+SELF_POLICY_CONSTANT_NAMES = (
+    "TEST_FILE_NAME_TICKET_RE",
+    "PYTHON_SYMBOL_TICKET_RE",
+    "STRUCTURAL_TITLE_TICKET_RE",
+    "TICKET_FIXTURE_IDENTITY_RE",
+    "NON_BROWSER_E2E_WORDING_RE",
+)
 
 
 POLICY_PATTERNS = (
@@ -173,6 +206,109 @@ def _find_policy_violations(pattern: PolicyPattern) -> list[str]:
                     relative = source_file.relative_to(REPO_ROOT)
                     violations.append(f"{relative}:{line_number}: {line.strip()}")
     return violations
+
+
+def _python_tree_and_source(source_file: Path) -> tuple[ast.Module, str]:
+    source = source_file.read_text(encoding="utf-8")
+    return ast.parse(source, filename=str(source_file)), source
+
+
+def _python_module_is_marked_or_named_governance_or_migration(
+    source_file: Path, tree: ast.Module, source: str
+) -> bool:
+    stem = source_file.stem
+    if stem.endswith(("_governance", "_migration")):
+        return True
+
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets
+        ):
+            continue
+        if any(
+            isinstance(child, ast.Attribute) and child.attr in {"governance", "migration"}
+            for child in ast.walk(node.value)
+        ):
+            return True
+    return False
+
+
+def _iter_python_comments(source: str) -> list[tuple[int, str]]:
+    comments: list[tuple[int, str]] = []
+    for token in tokenize.generate_tokens(StringIO(source).readline):
+        if token.type == tokenize.COMMENT:
+            comments.append((token.start[0], token.string))
+    return comments
+
+
+def _iter_python_docstrings(tree: ast.Module) -> list[tuple[int, str, str]]:
+    docstrings: list[tuple[int, str, str]] = []
+    module_docstring = ast.get_docstring(tree, clean=False)
+    if module_docstring is not None and tree.body:
+        docstrings.append((tree.body[0].lineno, "module docstring", module_docstring))
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        docstring = ast.get_docstring(node, clean=False)
+        if docstring is None or not node.body:
+            continue
+        docstrings.append((node.body[0].lineno, f"{node.name} docstring", docstring))
+    return docstrings
+
+
+def _python_docstring_line_numbers(tree: ast.Module) -> set[int]:
+    line_numbers: set[int] = set()
+    docstring_owners: list[ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = [
+        tree
+    ]
+    docstring_owners.extend(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    )
+
+    for owner in docstring_owners:
+        if not owner.body:
+            continue
+        first_statement = owner.body[0]
+        if not (
+            isinstance(first_statement, ast.Expr)
+            and isinstance(first_statement.value, ast.Constant)
+            and isinstance(first_statement.value.value, str)
+        ):
+            continue
+        end_lineno = first_statement.end_lineno or first_statement.lineno
+        line_numbers.update(range(first_statement.lineno, end_lineno + 1))
+    return line_numbers
+
+
+def _is_self_governance_policy_source(source_file: Path) -> bool:
+    return source_file.resolve() == GOVERNANCE_TEST_FILE
+
+
+def _is_self_e2e_policy_name(source_file: Path, node_name: str) -> bool:
+    if not _is_self_governance_policy_source(source_file):
+        return False
+    return node_name in {
+        "_is_self_e2e_policy_name",
+        "test_non_browser_python_tests_do_not_use_e2e_wording",
+    }
+
+
+def _is_self_ticket_fixture_policy_line(
+    source_file: Path, line_number: int, line: str, docstring_lines: set[int]
+) -> bool:
+    if not _is_self_governance_policy_source(source_file):
+        return False
+    stripped = line.lstrip()
+    return (
+        line_number in docstring_lines
+        or stripped.startswith("#")
+        or any(policy_name in line for policy_name in SELF_POLICY_CONSTANT_NAMES)
+    )
 
 
 def _line_number(source: str, index: int) -> int:
@@ -353,6 +489,87 @@ def test_python_test_symbols_use_behavioral_names_not_ticket_ids() -> None:
     assert violations == [], (
         "Python test classes/functions should describe behavior instead of ticket IDs.\n"
         + "\n".join(violations)
+    )
+
+
+def test_python_governance_and_migration_modules_document_owner_boundary_and_exit() -> None:
+    violations: list[str] = []
+    for root in PYTHON_TEST_ROOTS:
+        for source_file in _iter_test_source_files(root):
+            tree, source = _python_tree_and_source(source_file)
+            if not _python_module_is_marked_or_named_governance_or_migration(
+                source_file, tree, source
+            ):
+                continue
+
+            module_docstring = ast.get_docstring(tree, clean=False) or ""
+            missing_fields = [
+                field.pattern.replace("\\b", "").replace("\\s+", " ")
+                for field in PYTHON_GOVERNANCE_DOCSTRING_FIELD_RES
+                if not field.search(module_docstring)
+            ]
+            if missing_fields:
+                relative = source_file.relative_to(REPO_ROOT)
+                violations.append(f"{relative}: missing {', '.join(missing_fields)}")
+
+    assert violations == [], (
+        "Governance and migration Python test modules must state Owner, Boundary, "
+        "and Exit criteria in the top module docstring so temporary guards have a "
+        "clear owner and removal path.\n" + "\n".join(violations)
+    )
+
+
+def test_non_browser_python_tests_do_not_use_e2e_wording() -> None:
+    violations: list[str] = []
+    for root in PYTHON_TEST_ROOTS:
+        for source_file in _iter_test_source_files(root):
+            tree, source = _python_tree_and_source(source_file)
+            relative = source_file.relative_to(REPO_ROOT)
+
+            for line_number, label, text in _iter_python_docstrings(tree):
+                if NON_BROWSER_E2E_WORDING_RE.search(text):
+                    violations.append(f"{relative}:{line_number}: {label}")
+
+            for line_number, comment in _iter_python_comments(source):
+                if NON_BROWSER_E2E_WORDING_RE.search(comment):
+                    violations.append(f"{relative}:{line_number}: {comment.strip()}")
+
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                if _is_self_e2e_policy_name(source_file, node.name):
+                    continue
+                if NON_BROWSER_E2E_WORDING_RE.search(node.name):
+                    violations.append(f"{relative}:{node.lineno}: {node.name}")
+
+    assert violations == [], (
+        "Python tests in apps/api/tests and packages/core/tests are not browser E2E "
+        "suites; reserve E2E/end-to-end wording for testing/gui-e2e.\n" + "\n".join(violations)
+    )
+
+
+def test_test_fixture_identities_use_behavioral_names_not_ticket_ids() -> None:
+    violations: list[str] = []
+    for root in PYTHON_TEST_ROOTS:
+        for source_file in _iter_test_source_files(root):
+            tree, source = _python_tree_and_source(source_file)
+            docstring_lines = (
+                _python_docstring_line_numbers(tree)
+                if _is_self_governance_policy_source(source_file)
+                else set()
+            )
+            for line_number, line in enumerate(source.splitlines(), 1):
+                if _is_self_ticket_fixture_policy_line(
+                    source_file, line_number, line, docstring_lines
+                ):
+                    continue
+                if TICKET_FIXTURE_IDENTITY_RE.search(line):
+                    relative = source_file.relative_to(REPO_ROOT)
+                    violations.append(f"{relative}:{line_number}: {line.strip()}")
+
+    assert violations == [], (
+        "Test fixture identities should describe the behavior under test, not the "
+        "ticket that introduced them.\n" + "\n".join(violations)
     )
 
 

@@ -71,7 +71,7 @@ async def test_state_immutability_across_block_execution(mock_runner, integratio
         results={"previous": BlockResult(output="data")},
         execution_log=[{"role": "system", "content": "Original message"}],
         shared_memory={"key": "value"},
-        metadata={"execution_id": "integration-run-123"},
+        metadata={"execution_id": "integration-state-run"},
     )
 
     # Execute block
@@ -81,7 +81,7 @@ async def test_state_immutability_across_block_execution(mock_runner, integratio
     assert original_state.results == {"previous": BlockResult(output="data")}
     assert len(original_state.execution_log) == 1
     assert original_state.shared_memory == {"key": "value"}
-    assert original_state.metadata == {"execution_id": "integration-run-123"}
+    assert original_state.metadata == {"execution_id": "integration-state-run"}
 
     # New state should have updates
     assert new_state.results == {

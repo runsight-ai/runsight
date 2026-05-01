@@ -111,7 +111,7 @@ class TestCanonicalWorkflowToolIdIntegration:
     """Canonical workflow tool whitelist coverage."""
 
     def test_canonical_builtin_ids_parse_from_workflow_whitelist(self) -> None:
-        """A workflow whitelist like ['http', 'file_io'] should resolve builtin tools end to end."""
+        """A workflow whitelist like ['http', 'file_io'] should resolve builtin tools through the full parser path."""
         yaml_dict = _workflow_dict(
             tools=["http", "file_io"],
             souls={

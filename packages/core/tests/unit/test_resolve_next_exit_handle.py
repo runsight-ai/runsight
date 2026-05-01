@@ -286,7 +286,7 @@ class TestExitHandleWorkflowIntegration:
     async def test_full_run_exit_handle_fail(self):
         """Full workflow run: gate block sets exit_handle='fail', routes to on_fail
         (not to on_default which is the 'default' key target)."""
-        wf = Workflow(name="exit_handle_end_to_end_fail")
+        wf = Workflow(name="exit_handle_full_run_fail")
 
         gate = ExitHandleBlock("gate", exit_handle="fail", output="gate_output")
         on_fail = ExitHandleBlock("on_fail", exit_handle="done", output="fail_output")

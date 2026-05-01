@@ -3,6 +3,12 @@
 These tests protect the boundary that workflow execution no longer exposes
 task oriented primitives or runner APIs.
 
+Owner: packages/core public runtime API.
+Boundary: removed Task/current_task symbols must stay absent from primitives,
+state, YAML parser/schema, runner, and package exports.
+Exit criteria: remove when the Task API removal is old enough to be enforced by
+public API compatibility checks.
+
 The suite verifies:
 - Task class does not exist in primitives.py.
 - WorkflowState has no current_task field.

@@ -1,5 +1,11 @@
 """RetryBlock behavior is covered by the LoopBlock runtime.
 
+Owner: packages/core LoopBlock runtime migration.
+Boundary: LoopBlock integration behavior must replace removed RetryBlock flows
+for chained workflows, retry-on-error, and shared-memory state flow.
+Exit criteria: remove when RetryBlock compatibility expectations are no longer
+needed or are covered by ordinary LoopBlock tests.
+
 Validates:
 1. LoopBlock integration tests replace removed RetryBlock integration tests:
    - LoopBlock in full workflow with upstream block (chain pattern)

@@ -1,3 +1,12 @@
+"""Custom asset tool contract governance.
+
+Owner: packages/core custom asset fixtures.
+Boundary: checked-in custom soul and workflow fixtures must use canonical tool
+IDs and declare soul-required tools without depending on runtime custom assets.
+Exit criteria: remove when fixture validation is handled by shared asset
+contract checks.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
