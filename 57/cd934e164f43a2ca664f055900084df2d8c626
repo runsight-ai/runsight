@@ -1,0 +1,33 @@
+packages/core/tests/unit/test_tool_catalog_split_governance.py
+  4adca821c1af8eb3 1-149
+packages/core/tests/tool_catalog_fixtures.py
+  4adca821c1af8eb3 1-315
+packages/core/tests/unit/test_tool_catalog_builtin_registry.py
+  4adca821c1af8eb3 1-200
+packages/core/tests/unit/test_tool_catalog_custom_python.py
+  4adca821c1af8eb3 1-70
+packages/core/tests/unit/test_tool_catalog_request_tools.py
+  4adca821c1af8eb3 1-272
+packages/core/tests/unit/test_tool_catalog.py
+  4adca821c1af8eb3 1,3-5,11-18,21-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "57cd934e164f43a2ca664f055900084df2d8c626",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1024,
+      "total_deletions": 1057,
+      "accepted_lines": 54170,
+      "overriden_lines": 0
+    }
+  }
+}
