@@ -42,70 +42,71 @@ class TestParseWorkflowBlock:
     """Tests for parsing workflow blocks from YAML."""
 
     def test_parse_loopblock_with_workflow_block_inner_ref_resolves_child_workflow(self):
-        """LoopBlock should preserve WorkflowBlock refs and the parser should resolve the child."""
-        child_yaml_dict = {
+        """LoopBlock should preserve WorkflowBlock refs and the parser should resolve the invoked workflow."""
+        invoked_workflow_yaml = {
             "version": "1.0",
-            "id": "child_workflow",
+            "id": "parser_invoked_workflow",
             "kind": "workflow",
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "code",
-                    "code": "def main(data):\n    return {'child_step': 'done'}",
+                    "code": "def main(data):\n    return {'parser_invoked_step': 'done'}",
                 }
             },
             "workflow": {
-                "id": "child_workflow",
+                "id": "parser_invoked_workflow",
                 "kind": "workflow",
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        parent_yaml_dict = {
+        caller_workflow_yaml = {
             "version": "1.0",
-            "id": "parent_workflow",
+            "id": "workflow_block_parser_workflow",
             "kind": "workflow",
             "blocks": {
-                "loop_step": {
+                "loop_workflow_call": {
                     "type": "loop",
-                    "inner_block_refs": ["invoke_child"],
+                    "inner_block_refs": ["call_parser_invoked_workflow"],
                     "max_rounds": 2,
                 },
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                 },
             },
             "workflow": {
-                "id": "parent_workflow",
+                "id": "workflow_block_parser_workflow",
                 "kind": "workflow",
-                "name": "parent_workflow",
-                "entry": "loop_step",
-                "transitions": [{"from": "loop_step", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "loop_workflow_call",
+                "transitions": [{"from": "loop_workflow_call", "to": None}],
             },
         }
 
-        parent_workflow = parse_workflow_yaml(
-            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        workflow_block_parser_workflow = parse_workflow_yaml(
+            _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
+            workflow_registry=registry,
         )
 
-        assert isinstance(parent_workflow, Workflow)
-        loop_block = parent_workflow.blocks["loop_step"]
-        workflow_block = parent_workflow.blocks["invoke_child"]
+        assert isinstance(workflow_block_parser_workflow, Workflow)
+        loop_block = workflow_block_parser_workflow.blocks["loop_workflow_call"]
+        workflow_block = workflow_block_parser_workflow.blocks["call_parser_invoked_workflow"]
 
         assert isinstance(loop_block, LoopBlock)
-        assert loop_block.inner_block_refs == ["invoke_child"]
+        assert loop_block.inner_block_refs == ["call_parser_invoked_workflow"]
         assert isinstance(workflow_block, WorkflowBlock)
-        assert workflow_block.block_id == "invoke_child"
-        assert workflow_block.workflow_ref == "child_workflow"
-        assert workflow_block.child_workflow.name == "child_workflow"
+        assert workflow_block.block_id == "call_parser_invoked_workflow"
+        assert workflow_block.workflow_ref == "parser_invoked_workflow"
+        assert workflow_block.child_workflow.name == "parser_invoked_workflow"
 
     def test_exit_conditions_bridged_from_schema_to_runtime_block(self):
         """Parser should copy exit_conditions from BaseBlockDef to runtime BaseBlock."""
@@ -152,41 +153,41 @@ class TestParseWorkflowBlock:
         - WorkflowBlock.child_workflow.name matches workflow_ref
         - Input/output mappings are correctly set
         """
-        # Create and register child workflow
-        child_yaml_dict = {
+        # Create and register invoked workflow
+        invoked_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "inputs": {"topic": {"type": "string"}},
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 }
             },
             "workflow": {
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
-        # Set up registry with child workflow
+        # Set up registry with invoked workflow
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        # Create parent YAML with workflow block
-        parent_yaml_dict = {
+        # Create caller YAML with workflow block
+        caller_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                     "inputs": {"topic": "shared_memory.research_topic"},
-                    "outputs": {"results.child_result": "results.child_step"},
+                    "outputs": {"results.invoked_result": "results.parser_invoked_step"},
                 },
                 "final_step": {
                     "type": "linear",
@@ -194,89 +195,90 @@ class TestParseWorkflowBlock:
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
                 "transitions": [
-                    {"from": "invoke_child", "to": "final_step"},
+                    {"from": "call_parser_invoked_workflow", "to": "final_step"},
                     {"from": "final_step", "to": None},
                 ],
             },
         }
 
-        # Parse parent workflow with registry
-        parent_workflow = parse_workflow_yaml(
-            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        # Parse caller workflow with registry
+        workflow_block_parser_workflow = parse_workflow_yaml(
+            _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
+            workflow_registry=registry,
         )
 
         # Assert Workflow is valid
-        assert isinstance(parent_workflow, Workflow)
-        assert parent_workflow.name == "parent_workflow"
+        assert isinstance(workflow_block_parser_workflow, Workflow)
+        assert workflow_block_parser_workflow.name == "workflow_block_parser_workflow"
 
         # Assert workflow contains WorkflowBlock instance
-        assert "invoke_child" in parent_workflow._blocks
-        workflow_block = parent_workflow._blocks["invoke_child"]
+        assert "call_parser_invoked_workflow" in workflow_block_parser_workflow._blocks
+        workflow_block = workflow_block_parser_workflow._blocks["call_parser_invoked_workflow"]
         assert isinstance(workflow_block, WorkflowBlock)
 
-        # Assert WorkflowBlock has correct child workflow
-        assert workflow_block.child_workflow.name == "child_workflow"
+        # Assert WorkflowBlock has correct invoked workflow
+        assert workflow_block.child_workflow.name == "parser_invoked_workflow"
 
         # Assert name-based invocation mappings are correctly set
         assert workflow_block.inputs == {"topic": "shared_memory.research_topic"}
-        assert workflow_block.outputs == {"results.child_result": "results.child_step"}
+        assert workflow_block.outputs == {"results.invoked_result": "results.parser_invoked_step"}
 
     def test_parse_workflow_block_forwards_snapshot_discovery_context_to_child_parse(self):
         """Nested workflow parsing must preserve explicit snapshot discovery context."""
         import runsight_core.yaml.parser as parser_module
 
-        child_yaml_dict = {
+        invoked_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 }
             },
             "workflow": {
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        parent_yaml_dict = {
+        caller_workflow_yaml = {
             "version": "1.0",
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
+                "transitions": [{"from": "call_parser_invoked_workflow", "to": None}],
             },
         }
 
         original_parse = parser_module.parse_workflow_yaml
-        child_parse_calls: list[dict[str, object]] = []
+        invoked_parse_calls: list[dict[str, object]] = []
         git_service = type("GitServiceDouble", (), {"repo_path": "."})()
 
-        def _record_child_parse(*args, **kwargs):
-            child_parse_calls.append(kwargs)
+        def _record_invoked_parse(*args, **kwargs):
+            invoked_parse_calls.append(kwargs)
             return original_parse(*args, **kwargs)
 
         from unittest.mock import patch
 
         with (
-            patch.object(parser_module, "parse_workflow_yaml", side_effect=_record_child_parse),
+            patch.object(parser_module, "parse_workflow_yaml", side_effect=_record_invoked_parse),
             patch.object(parser_module.AssertionScanner, "scan") as mock_assertion_scan,
             patch.object(parser_module.SoulScanner, "scan") as mock_soul_scan,
             patch.object(parser_module.ToolScanner, "scan") as mock_tool_scan,
@@ -285,17 +287,19 @@ class TestParseWorkflowBlock:
             mock_soul_scan.return_value.ids.return_value = {}
             mock_tool_scan.return_value.ids.return_value = {}
 
-            parent_workflow = original_parse(
-                _with_workflow_identity(parent_yaml_dict, "parent_workflow"),
+            workflow_block_parser_workflow = original_parse(
+                _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
                 workflow_registry=registry,
                 _discovery_git_ref="main",
                 _discovery_git_service=git_service,
             )
 
-        assert isinstance(parent_workflow._blocks["invoke_child"], WorkflowBlock)
-        assert len(child_parse_calls) == 1
-        assert child_parse_calls[0]["_discovery_git_ref"] == "main"
-        assert child_parse_calls[0]["_discovery_git_service"] is git_service
+        assert isinstance(
+            workflow_block_parser_workflow._blocks["call_parser_invoked_workflow"], WorkflowBlock
+        )
+        assert len(invoked_parse_calls) == 1
+        assert invoked_parse_calls[0]["_discovery_git_ref"] == "main"
+        assert invoked_parse_calls[0]["_discovery_git_service"] is git_service
 
     def test_parse_workflow_block_no_registry_raises(self):
         """
@@ -309,18 +313,18 @@ class TestParseWorkflowBlock:
         # Create YAML with workflow block
         yaml_dict = {
             "version": "1.0",
-            "id": "parent_workflow",
+            "id": "workflow_block_parser_workflow",
             "kind": "workflow",
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
+                "transitions": [{"from": "call_parser_invoked_workflow", "to": None}],
             },
         }
 
@@ -339,51 +343,52 @@ class TestParseWorkflowBlock:
 
         Create workflow block with explicit max_depth, verify WorkflowBlock.max_depth is set.
         """
-        # Create and register child workflow
-        child_yaml_dict = {
+        # Create and register invoked workflow
+        invoked_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 }
             },
             "workflow": {
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        # Create parent with block-level max_depth
-        parent_yaml_dict = {
+        # Create caller with block-level max_depth
+        caller_workflow_yaml = {
             "version": "1.0",
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                     "max_depth": 5,
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
+                "transitions": [{"from": "call_parser_invoked_workflow", "to": None}],
             },
         }
 
-        parent_workflow = parse_workflow_yaml(
-            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        workflow_block_parser_workflow = parse_workflow_yaml(
+            _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
+            workflow_registry=registry,
         )
 
-        workflow_block = parent_workflow._blocks["invoke_child"]
+        workflow_block = workflow_block_parser_workflow._blocks["call_parser_invoked_workflow"]
         assert workflow_block.max_depth == 5
 
     def test_parse_workflow_block_max_depth_global_config(self):
@@ -393,105 +398,106 @@ class TestParseWorkflowBlock:
         Create workflow with global max_workflow_depth config, no block-level max_depth.
         Verify WorkflowBlock.max_depth uses global config.
         """
-        # Create and register child workflow
-        child_yaml_dict = {
+        # Create and register invoked workflow
+        invoked_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 }
             },
             "workflow": {
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        # Create parent with global max_workflow_depth config
-        parent_yaml_dict = {
+        # Create caller with global max_workflow_depth config
+        caller_workflow_yaml = {
             "version": "1.0",
             "config": {
-                "model_name": "gpt-4o",
                 "max_workflow_depth": 7,
             },
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                     # No max_depth at block level
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
+                "transitions": [{"from": "call_parser_invoked_workflow", "to": None}],
             },
         }
 
-        parent_workflow = parse_workflow_yaml(
-            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        workflow_block_parser_workflow = parse_workflow_yaml(
+            _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
+            workflow_registry=registry,
         )
 
-        workflow_block = parent_workflow._blocks["invoke_child"]
+        workflow_block = workflow_block_parser_workflow._blocks["call_parser_invoked_workflow"]
         assert workflow_block.max_depth == 7
 
     def test_parse_workflow_block_max_depth_default(self):
         """
         Verify max_depth defaults to 10 when neither block-level nor global config set.
         """
-        # Create and register child workflow
-        child_yaml_dict = {
+        # Create and register invoked workflow
+        invoked_workflow_yaml = {
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "child_step": {
+                "parser_invoked_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 }
             },
             "workflow": {
-                "name": "child_workflow",
-                "entry": "child_step",
-                "transitions": [{"from": "child_step", "to": None}],
+                "name": "parser_invoked_workflow",
+                "entry": "parser_invoked_step",
+                "transitions": [{"from": "parser_invoked_step", "to": None}],
             },
         }
-        child_file = RunsightWorkflowFile.model_validate(
-            _with_workflow_identity(child_yaml_dict, "child_workflow")
+        invoked_workflow_file = RunsightWorkflowFile.model_validate(
+            _with_workflow_identity(invoked_workflow_yaml, "parser_invoked_workflow")
         )
 
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("parser_invoked_workflow", invoked_workflow_file)
 
-        # Create parent without max_depth at any level
-        parent_yaml_dict = {
+        # Create caller without max_depth at any level
+        caller_workflow_yaml = {
             "version": "1.0",
             "blocks": {
-                "invoke_child": {
+                "call_parser_invoked_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "parser_invoked_workflow",
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "workflow_block_parser_workflow",
+                "entry": "call_parser_invoked_workflow",
+                "transitions": [{"from": "call_parser_invoked_workflow", "to": None}],
             },
         }
 
-        parent_workflow = parse_workflow_yaml(
-            _with_workflow_identity(parent_yaml_dict, "parent_workflow"), workflow_registry=registry
+        workflow_block_parser_workflow = parse_workflow_yaml(
+            _with_workflow_identity(caller_workflow_yaml, "workflow_block_parser_workflow"),
+            workflow_registry=registry,
         )
 
-        workflow_block = parent_workflow._blocks["invoke_child"]
+        workflow_block = workflow_block_parser_workflow._blocks["call_parser_invoked_workflow"]
         assert workflow_block.max_depth == 10  # default
 
     def test_parse_workflow_no_registry_no_workflow_blocks(self):
@@ -507,15 +513,15 @@ class TestParseWorkflowBlock:
             "version": "1.0",
             "souls": _RESEARCHER_SOUL,
             "blocks": {
-                "step1": {
+                "solo_linear_step": {
                     "type": "linear",
                     "soul_ref": "researcher",
                 },
             },
             "workflow": {
                 "name": "simple_workflow",
-                "entry": "step1",
-                "transitions": [{"from": "step1", "to": None}],
+                "entry": "solo_linear_step",
+                "transitions": [{"from": "solo_linear_step", "to": None}],
             },
         }
 
@@ -525,4 +531,4 @@ class TestParseWorkflowBlock:
         # Verify parsing succeeds
         assert isinstance(workflow, Workflow)
         assert workflow.name == "simple_workflow"
-        assert "step1" in workflow._blocks
+        assert "solo_linear_step" in workflow._blocks
