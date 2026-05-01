@@ -45,8 +45,39 @@ def mock_runner():
     """Mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
     runner.execute = AsyncMock()
-    runner.model_name = "gpt-4o"
+    runner.model_name = "runner-default-model"
     return runner
+
+
+@pytest.fixture(autouse=True)
+def stub_dispatch_budget(monkeypatch):
+    """Keep dispatch stateful tests independent from real model catalog lookups."""
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+    def _fit_to_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=0,
+            p3_tokens_after=0,
+            p3_pairs_dropped=0,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        return BudgetedContext(
+            instruction=request.instruction,
+            context=request.context or "",
+            messages=list(request.conversation_history),
+            report=report,
+        )
+
+    monkeypatch.setattr("runsight_core.blocks.dispatch.fit_to_budget", _fit_to_budget)
 
 
 @pytest.fixture
@@ -82,14 +113,14 @@ def soul_gamma_with_model():
         name="Reviewer C",
         role="Reviewer C",
         system_prompt="You are reviewer C.",
-        model_name="claude-3-opus-20240229",
+        model_name="soul-override-model",
     )
 
 
 def _make_result(soul_id, output, cost=0.0, tokens=0):
     """Helper to create an ExecutionResult."""
     return ExecutionResult(
-        task_id="t1",
+        task_id=f"{soul_id}_dispatch_execution",
         soul_id=soul_id,
         output=output,
         cost_usd=cost,
@@ -551,7 +582,7 @@ async def test_stateful_windowing_called_per_soul(mock_runner, soul_alpha, soul_
 @pytest.mark.asyncio
 async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, soul_beta):
     """When a soul's history exceeds the token budget, older pairs must be dropped.
-    Simulated via a prune_messages mock that truncates to last 4 messages."""
+    Simulated via a budget stub that truncates to the last 4 messages."""
     # Build a large prior history for alpha (10 pairs = 20 messages)
     large_history = []
     for i in range(10):
@@ -574,14 +605,40 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
         },
     )
 
-    new_state = await _run_block(block, state)
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+    def _pruning_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=len(request.conversation_history),
+            p3_tokens_after=min(len(request.conversation_history), 4),
+            p3_pairs_dropped=8,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        return BudgetedContext(
+            instruction=request.instruction,
+            context=request.context or "",
+            messages=list(request.conversation_history)[-4:],
+            report=report,
+        )
+
+    with patch("runsight_core.blocks.dispatch.fit_to_budget", side_effect=_pruning_budget):
+        new_state = await _run_block(block, state)
 
     history_a = new_state.conversation_histories["review_soul_alpha"]
-    # With 10 prior pairs + 1 new pair = 22 messages, windowing should prune.
-    # At minimum the new pair must be present
+    assert len(history_a) == 6
+    assert not any("Prompt 0" in msg["content"] for msg in history_a)
+    assert any("Prompt 9" in msg["content"] for msg in history_a)
     assert history_a[-1]["role"] == "assistant"
     assert history_a[-1]["content"] == "New output A."
-    assert len(history_a) >= 2
 
 
 # ---------------------------------------------------------------------------
@@ -593,9 +650,7 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
 async def test_stateful_windowing_uses_soul_specific_model(
     mock_runner, soul_alpha, soul_gamma_with_model
 ):
-    """When souls have different models, fit_to_budget must use each soul's
-    correct model. soul_alpha uses runner default (gpt-4o),
-    soul_gamma uses its own model (claude-3-opus-20240229)."""
+    """When souls have different models, fit_to_budget uses each soul's model."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -642,11 +697,11 @@ async def test_stateful_windowing_uses_soul_specific_model(
         await _run_block(block, state)
 
     # fit_to_budget must have been called with both models
-    assert "gpt-4o" in models_seen, (
-        f"Expected 'gpt-4o' (runner default) in models_seen, got {models_seen}"
+    assert "runner-default-model" in models_seen, (
+        f"Expected runner-default-model in models_seen, got {models_seen}"
     )
-    assert "claude-3-opus-20240229" in models_seen, (
-        f"Expected 'claude-3-opus-20240229' (soul override) in models_seen, got {models_seen}"
+    assert "soul-override-model" in models_seen, (
+        f"Expected soul-override-model in models_seen, got {models_seen}"
     )
 
 
@@ -696,10 +751,10 @@ async def test_stateful_windowing_falls_back_to_runner_model(mock_runner, soul_a
     ) as mock_budget:
         await _run_block(block, state)
 
-    # fit_to_budget must have been called with "gpt-4o" (runner default)
+    # fit_to_budget must have been called with the runner default model.
     assert mock_budget.call_count == 1
     call_request = mock_budget.call_args[0][0]
-    assert call_request.model == "gpt-4o"
+    assert call_request.model == "runner-default-model"
 
 
 # ---------------------------------------------------------------------------
@@ -823,7 +878,7 @@ async def test_non_stateful_does_not_pass_messages_to_runner(mock_runner, soul_a
 @pytest.mark.asyncio
 async def test_stateful_still_stores_result_and_log(mock_runner, soul_alpha, soul_beta):
     """Stateful DispatchBlock must still produce results, execution_log, cost, and tokens
-    exactly like the non-stateful path (regression guard)."""
+    exactly like the non-stateful path."""
     _setup_runner_side_effect(
         mock_runner,
         {
