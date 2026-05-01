@@ -1,0 +1,10 @@
+version: "1.0"
+blocks:
+  bad_block:
+    type: code
+workflow:
+  name: test_bad_code
+  entry: bad_block
+  transitions:
+    - from: bad_block
+      to: null

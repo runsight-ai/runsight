@@ -23,6 +23,7 @@ from runsight_core.llm.client import LiteLLMClient
 from runsight_core.workflow import Workflow
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import BlockDef
+from workflow_fixture_helpers import workflow_fixture_text
 
 # ---------------------------------------------------------------------------
 # 1. BLOCK_TYPE_REGISTRY includes "code"
@@ -43,37 +44,17 @@ class TestCodeBlockRegistration:
 # 2. parse_workflow_yaml with type: code → CodeBlock
 # ---------------------------------------------------------------------------
 
-VALID_CODE_YAML = """\
-id: code-parser-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  transform:
-    type: code
-    code: |
-      def main(data):
-          return {"out": 1}
-workflow:
-  name: code_parser_workflow
-  entry: transform
-  transitions:
-    - from: transform
-      to: null
-"""
-
 
 class TestCodeBlockParsing:
     def test_parse_code_block_returns_workflow(self):
         """parse_workflow_yaml with type: code must return a valid Workflow."""
-        wf = parse_workflow_yaml(VALID_CODE_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("code-block-parser-basic.yaml"))
         assert isinstance(wf, Workflow)
         assert wf.name == "code_parser_workflow"
 
     def test_parsed_code_block_is_codeblock_instance(self):
         """The block built by the parser must be a CodeBlock instance."""
-        wf = parse_workflow_yaml(VALID_CODE_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("code-block-parser-basic.yaml"))
         # Workflow stores blocks keyed by block_id
         block = wf.blocks.get("transform")
         assert block is not None
@@ -81,7 +62,7 @@ class TestCodeBlockParsing:
 
     def test_parsed_code_block_has_code(self):
         """The parsed CodeBlock must carry the code source from YAML."""
-        wf = parse_workflow_yaml(VALID_CODE_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("code-block-parser-basic.yaml"))
         block = wf.blocks["transform"]
         assert hasattr(block, "code")
         assert "def main(data)" in block.code
@@ -91,42 +72,18 @@ class TestCodeBlockParsing:
 # 3. CodeBlock with custom timeout and allowed_imports via YAML
 # ---------------------------------------------------------------------------
 
-CODE_YAML_CUSTOM_OPTS = """\
-id: code-parser-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-blocks:
-  compute:
-    type: code
-    code: |
-      import math
-      def main(data):
-          return {"pi": math.pi}
-    timeout_seconds: 10
-    allowed_imports:
-      - math
-workflow:
-  name: code_parser_workflow_opts
-  entry: compute
-  transitions:
-    - from: compute
-      to: null
-"""
-
 
 class TestCodeBlockParsingOptions:
     def test_custom_timeout_seconds(self):
         """Parser must pass timeout_seconds from YAML to CodeBlock."""
-        wf = parse_workflow_yaml(CODE_YAML_CUSTOM_OPTS)
+        wf = parse_workflow_yaml(workflow_fixture_text("code-block-parser-custom-options.yaml"))
         block = wf.blocks["compute"]
         assert isinstance(block, CodeBlock)
         assert block.timeout_seconds == 10
 
     def test_custom_allowed_imports(self):
         """Parser must pass allowed_imports from YAML to CodeBlock."""
-        wf = parse_workflow_yaml(CODE_YAML_CUSTOM_OPTS)
+        wf = parse_workflow_yaml(workflow_fixture_text("code-block-parser-custom-options.yaml"))
         block = wf.blocks["compute"]
         assert isinstance(block, CodeBlock)
         assert block.allowed_imports == ["math"]
@@ -136,25 +93,12 @@ class TestCodeBlockParsingOptions:
 # 4. CodeBlock with missing `code` field → Pydantic ValidationError
 # ---------------------------------------------------------------------------
 
-CODE_YAML_MISSING_CODE = """\
-version: "1.0"
-blocks:
-  bad_block:
-    type: code
-workflow:
-  name: test_bad_code
-  entry: bad_block
-  transitions:
-    - from: bad_block
-      to: null
-"""
-
 
 class TestCodeBlockSchemaValidation:
     def test_missing_code_field_raises_validation_error(self):
         """type: code without a `code` field must fail at Pydantic schema level."""
         with pytest.raises((ValidationError, ValueError), match=r"(?i)code"):
-            parse_workflow_yaml(CODE_YAML_MISSING_CODE)
+            parse_workflow_yaml(workflow_fixture_text("code-block-parser-missing-code.yaml"))
 
 
 # ---------------------------------------------------------------------------

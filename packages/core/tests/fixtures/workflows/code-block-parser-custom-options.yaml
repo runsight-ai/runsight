@@ -1,0 +1,21 @@
+id: code-parser-workflow
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+blocks:
+  compute:
+    type: code
+    code: |
+      import math
+      def main(data):
+          return {"pi": math.pi}
+    timeout_seconds: 10
+    allowed_imports:
+      - math
+workflow:
+  name: code_parser_workflow_opts
+  entry: compute
+  transitions:
+    - from: compute
+      to: null
