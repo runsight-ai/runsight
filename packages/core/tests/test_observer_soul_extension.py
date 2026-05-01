@@ -1,8 +1,6 @@
 """WorkflowObserver soul keyword propagation across logging, file, and composite observers."""
 
 import logging
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -55,16 +53,15 @@ class TestProtocolOnBlockStartSoul:
         obs = LoggingObserver(level=logging.INFO)
         obs.on_block_start("observer_soul_workflow", "analysis_block", "LinearBlock", soul=None)
 
-    def test_file_observer_on_block_start_accepts_soul(self, sample_soul):
+    def test_file_observer_on_block_start_accepts_soul(self, sample_soul, tmp_path):
         """FileObserver.on_block_start accepts soul keyword argument."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obs = FileObserver(str(Path(tmpdir) / "observer.log"))
-            obs.on_block_start(
-                "observer_soul_workflow",
-                "analysis_block",
-                "LinearBlock",
-                soul=sample_soul,
-            )
+        obs = FileObserver(str(tmp_path / "observer.log"))
+        obs.on_block_start(
+            "observer_soul_workflow",
+            "analysis_block",
+            "LinearBlock",
+            soul=sample_soul,
+        )
 
     def test_composite_observer_on_block_start_forwards_soul(self, sample_soul):
         """CompositeObserver.on_block_start passes soul to all children."""
@@ -109,18 +106,17 @@ class TestProtocolOnBlockCompleteSoul:
             "observer_soul_workflow", "analysis_block", "LinearBlock", 2.5, state, soul=None
         )
 
-    def test_file_observer_on_block_complete_accepts_soul(self, sample_soul, state):
+    def test_file_observer_on_block_complete_accepts_soul(self, sample_soul, state, tmp_path):
         """FileObserver.on_block_complete accepts soul keyword argument."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obs = FileObserver(str(Path(tmpdir) / "observer.log"))
-            obs.on_block_complete(
-                "observer_soul_workflow",
-                "analysis_block",
-                "LinearBlock",
-                2.5,
-                state,
-                soul=sample_soul,
-            )
+        obs = FileObserver(str(tmp_path / "observer.log"))
+        obs.on_block_complete(
+            "observer_soul_workflow",
+            "analysis_block",
+            "LinearBlock",
+            2.5,
+            state,
+            soul=sample_soul,
+        )
 
     def test_composite_observer_on_block_complete_forwards_soul(self, sample_soul, state):
         """CompositeObserver.on_block_complete passes soul to all children."""
@@ -171,19 +167,15 @@ class TestObserverCallsWithoutSoul:
         obs = LoggingObserver(level=logging.INFO)
         obs.on_block_complete("observer_soul_workflow", "analysis_block", "LinearBlock", 1.0, state)
 
-    def test_file_observer_on_block_start_without_soul(self):
+    def test_file_observer_on_block_start_without_soul(self, tmp_path):
         """FileObserver accepts on_block_start without soul."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obs = FileObserver(str(Path(tmpdir) / "observer.log"))
-            obs.on_block_start("observer_soul_workflow", "analysis_block", "LinearBlock")
+        obs = FileObserver(str(tmp_path / "observer.log"))
+        obs.on_block_start("observer_soul_workflow", "analysis_block", "LinearBlock")
 
-    def test_file_observer_on_block_complete_without_soul(self, state):
+    def test_file_observer_on_block_complete_without_soul(self, state, tmp_path):
         """FileObserver accepts on_block_complete without soul."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obs = FileObserver(str(Path(tmpdir) / "observer.log"))
-            obs.on_block_complete(
-                "observer_soul_workflow", "analysis_block", "LinearBlock", 1.0, state
-            )
+        obs = FileObserver(str(tmp_path / "observer.log"))
+        obs.on_block_complete("observer_soul_workflow", "analysis_block", "LinearBlock", 1.0, state)
 
     def test_composite_observer_on_block_start_without_soul(self):
         """CompositeObserver accepts on_block_start without soul."""

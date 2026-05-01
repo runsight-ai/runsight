@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from textwrap import dedent
 
@@ -347,133 +346,130 @@ class TestValidateToolMainContractUsesConstants:
 class TestToolScannerUsesPydanticValidation:
     """ToolScanner must delegate field validation to Pydantic, not hand-rolled checks."""
 
-    def test_scan_extra_field_raises_pydantic_validation_error(self):
+    def test_scan_extra_field_raises_pydantic_validation_error(self, tmp_path):
         """A tool YAML with an extra field should produce an error rooted in ValidationError."""
         import pydantic
         from runsight_core.yaml.discovery import ToolScanner
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "profile_lookup_tool.yaml"
-            tool_yaml.write_text(
-                dedent("""
-                version: "1.0"
-                id: profile_lookup_tool
-                kind: tool
-                type: custom
-                executor: python
-                name: Profile Lookup
-                description: Returns profile data.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                bogus_extra_field: should_fail
-                """).lstrip()
-            )
+        tool_yaml = tools_dir / "profile_lookup_tool.yaml"
+        tool_yaml.write_text(
+            dedent("""
+            version: "1.0"
+            id: profile_lookup_tool
+            kind: tool
+            type: custom
+            executor: python
+            name: Profile Lookup
+            description: Returns profile data.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return args
+            bogus_extra_field: should_fail
+            """).lstrip()
+        )
 
-            with pytest.raises(Exception) as exc_info:
-                ToolScanner(base_dir).scan()
+        with pytest.raises(Exception) as exc_info:
+            ToolScanner(base_dir).scan()
 
-            # The exception chain must include a Pydantic ValidationError
-            exc = exc_info.value
-            chain = []
-            while exc is not None:
-                chain.append(exc)
-                exc = exc.__cause__ or exc.__context__
+        # The exception chain must include a Pydantic ValidationError
+        exc = exc_info.value
+        chain = []
+        while exc is not None:
+            chain.append(exc)
+            exc = exc.__cause__ or exc.__context__
 
-            assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
-                "Expected a pydantic.ValidationError somewhere in the exception chain, "
-                f"got: {[type(e).__name__ for e in chain]}"
-            )
+        assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
+            "Expected a pydantic.ValidationError somewhere in the exception chain, "
+            f"got: {[type(e).__name__ for e in chain]}"
+        )
 
-    def test_scan_missing_required_field_raises_pydantic_validation_error(self):
+    def test_scan_missing_required_field_raises_pydantic_validation_error(self, tmp_path):
         """A tool YAML missing a required field should produce an error rooted in ValidationError."""
         import pydantic
         from runsight_core.yaml.discovery import ToolScanner
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "profile_missing_name_tool.yaml"
-            tool_yaml.write_text(
-                dedent("""
-                version: "1.0"
-                id: profile_missing_name_tool
-                kind: tool
-                type: custom
-                executor: python
-                description: Returns profile data without a name field.
-                parameters:
-                  type: object
-                code: |
-                  def main(args):
-                      return args
-                """).lstrip()
-            )
+        tool_yaml = tools_dir / "profile_missing_name_tool.yaml"
+        tool_yaml.write_text(
+            dedent("""
+            version: "1.0"
+            id: profile_missing_name_tool
+            kind: tool
+            type: custom
+            executor: python
+            description: Returns profile data without a name field.
+            parameters:
+              type: object
+            code: |
+              def main(args):
+                  return args
+            """).lstrip()
+        )
 
-            with pytest.raises(Exception) as exc_info:
-                ToolScanner(base_dir).scan()
+        with pytest.raises(Exception) as exc_info:
+            ToolScanner(base_dir).scan()
 
-            exc = exc_info.value
-            chain = []
-            while exc is not None:
-                chain.append(exc)
-                exc = exc.__cause__ or exc.__context__
+        exc = exc_info.value
+        chain = []
+        while exc is not None:
+            chain.append(exc)
+            exc = exc.__cause__ or exc.__context__
 
-            assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
-                "Expected a pydantic.ValidationError somewhere in the exception chain, "
-                f"got: {[type(e).__name__ for e in chain]}"
-            )
+        assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
+            "Expected a pydantic.ValidationError somewhere in the exception chain, "
+            f"got: {[type(e).__name__ for e in chain]}"
+        )
 
-    def test_scan_extra_request_field_raises_pydantic_validation_error(self):
+    def test_scan_extra_request_field_raises_pydantic_validation_error(self, tmp_path):
         """A request config with extra fields should produce an error rooted in ValidationError."""
         import pydantic
         from runsight_core.yaml.discovery import ToolScanner
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-            tools_dir = base_dir / "custom" / "tools"
-            tools_dir.mkdir(parents=True)
+        base_dir = tmp_path
+        tools_dir = base_dir / "custom" / "tools"
+        tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "profile_request_tool.yaml"
-            tool_yaml.write_text(
-                dedent("""
-                version: "1.0"
-                id: profile_request_tool
-                kind: tool
-                type: custom
-                executor: request
-                name: Profile Request
-                description: Fetches profile data from a local harness.
-                parameters:
-                  type: object
-                request:
-                  method: GET
-                  url: http://127.0.0.1:18080/api
-                  unsupported_extra: oops
-                """).lstrip()
-            )
+        tool_yaml = tools_dir / "profile_request_tool.yaml"
+        tool_yaml.write_text(
+            dedent("""
+            version: "1.0"
+            id: profile_request_tool
+            kind: tool
+            type: custom
+            executor: request
+            name: Profile Request
+            description: Fetches profile data from a local harness.
+            parameters:
+              type: object
+            request:
+              method: GET
+              url: http://127.0.0.1:18080/api
+              unsupported_extra: oops
+            """).lstrip()
+        )
 
-            with pytest.raises(Exception) as exc_info:
-                ToolScanner(base_dir).scan()
+        with pytest.raises(Exception) as exc_info:
+            ToolScanner(base_dir).scan()
 
-            exc = exc_info.value
-            chain = []
-            while exc is not None:
-                chain.append(exc)
-                exc = exc.__cause__ or exc.__context__
+        exc = exc_info.value
+        chain = []
+        while exc is not None:
+            chain.append(exc)
+            exc = exc.__cause__ or exc.__context__
 
-            assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
-                "Expected a pydantic.ValidationError somewhere in the exception chain, "
-                f"got: {[type(e).__name__ for e in chain]}"
-            )
+        assert any(isinstance(e, pydantic.ValidationError) for e in chain), (
+            "Expected a pydantic.ValidationError somewhere in the exception chain, "
+            f"got: {[type(e).__name__ for e in chain]}"
+        )
 
 
 # ---------------------------------------------------------------------------

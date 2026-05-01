@@ -2,8 +2,6 @@
 
 import json
 import logging
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from runsight_core.observer import (
@@ -43,55 +41,51 @@ class TestLoggingObserver:
 
 
 class TestFileObserver:
-    def test_writes_json_lines(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_path = str(Path(tmpdir) / "test.log")
-            obs = FileObserver(log_path)
+    def test_writes_json_lines(self, tmp_path):
+        log_path = tmp_path / "test.log"
+        obs = FileObserver(str(log_path))
 
-            state = WorkflowState()
-            obs.on_workflow_start("test_wf", state)
-            obs.on_block_start("test_wf", "b1", "LinearBlock")
+        state = WorkflowState()
+        obs.on_workflow_start("test_wf", state)
+        obs.on_block_start("test_wf", "b1", "LinearBlock")
 
-            lines = Path(log_path).read_text().strip().split("\n")
-            assert len(lines) == 2
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
 
-            event1 = json.loads(lines[0])
-            assert event1["event"] == "workflow_start"
-            assert event1["workflow"] == "test_wf"
-            assert "ts" in event1
+        event1 = json.loads(lines[0])
+        assert event1["event"] == "workflow_start"
+        assert event1["workflow"] == "test_wf"
+        assert "ts" in event1
 
-            event2 = json.loads(lines[1])
-            assert event2["event"] == "block_start"
-            assert event2["block_id"] == "b1"
+        event2 = json.loads(lines[1])
+        assert event2["event"] == "block_start"
+        assert event2["block_id"] == "b1"
 
-    def test_truncates_on_init(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_path = str(Path(tmpdir) / "test.log")
-            Path(log_path).write_text("old content\n")
+    def test_truncates_on_init(self, tmp_path):
+        log_path = tmp_path / "test.log"
+        log_path.write_text("old content\n")
 
-            FileObserver(log_path)
-            assert Path(log_path).read_text() == ""
+        FileObserver(str(log_path))
+        assert log_path.read_text() == ""
 
-    def test_creates_parent_dirs(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_path = str(Path(tmpdir) / "deep" / "nested" / "test.log")
-            obs = FileObserver(log_path)
-            obs.on_workflow_start("wf", WorkflowState())
-            assert Path(log_path).exists()
+    def test_creates_parent_dirs(self, tmp_path):
+        log_path = tmp_path / "deep" / "nested" / "test.log"
+        obs = FileObserver(str(log_path))
+        obs.on_workflow_start("wf", WorkflowState())
+        assert log_path.exists()
 
-    def test_block_complete_includes_metrics(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_path = str(Path(tmpdir) / "test.log")
-            obs = FileObserver(log_path)
+    def test_block_complete_includes_metrics(self, tmp_path):
+        log_path = tmp_path / "test.log"
+        obs = FileObserver(str(log_path))
 
-            state = WorkflowState(total_cost_usd=0.123, total_tokens=5000)
-            obs.on_block_complete("wf", "b1", "LinearBlock", 3.14, state)
+        state = WorkflowState(total_cost_usd=0.123, total_tokens=5000)
+        obs.on_block_complete("wf", "b1", "LinearBlock", 3.14, state)
 
-            line = Path(log_path).read_text().strip()
-            event = json.loads(line)
-            assert event["duration_s"] == 3.14
-            assert event["cost_usd"] == 0.123
-            assert event["tokens"] == 5000
+        line = log_path.read_text().strip()
+        event = json.loads(line)
+        assert event["duration_s"] == 3.14
+        assert event["cost_usd"] == 0.123
+        assert event["tokens"] == 5000
 
 
 class TestCompositeObserver:
@@ -146,10 +140,9 @@ class TestWorkflowObserverProtocol:
     def test_logging_observer_is_workflow_observer(self):
         assert isinstance(LoggingObserver(), WorkflowObserver)
 
-    def test_file_observer_is_workflow_observer(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            obs = FileObserver(str(Path(tmpdir) / "test.log"))
-            assert isinstance(obs, WorkflowObserver)
+    def test_file_observer_is_workflow_observer(self, tmp_path):
+        obs = FileObserver(str(tmp_path / "test.log"))
+        assert isinstance(obs, WorkflowObserver)
 
     def test_composite_observer_is_workflow_observer(self):
         assert isinstance(CompositeObserver(), WorkflowObserver)
