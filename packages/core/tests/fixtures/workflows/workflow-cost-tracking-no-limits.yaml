@@ -1,0 +1,27 @@
+version: "1.0"
+id: workflow-cost-tracking-no-limits
+kind: workflow
+souls:
+  budget-worker:
+    id: budget-worker
+    kind: soul
+    name: Budget Worker
+    role: Budget Worker
+    system_prompt: Run the cost-tracking workflow block.
+    provider: fixture-provider
+    model_name: fixture-cost-cap-model
+blocks:
+  cost_tracking_start:
+    type: linear
+    soul_ref: budget-worker
+  cost_tracking_followup:
+    type: linear
+    soul_ref: budget-worker
+workflow:
+  name: workflow_cost_tracking_without_limits
+  entry: cost_tracking_start
+  transitions:
+    - from: cost_tracking_start
+      to: cost_tracking_followup
+    - from: cost_tracking_followup
+      to: null

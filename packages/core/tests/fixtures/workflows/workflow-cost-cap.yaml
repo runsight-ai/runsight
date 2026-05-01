@@ -1,0 +1,30 @@
+version: "1.0"
+id: workflow-cost-cap
+kind: workflow
+souls:
+  budget-worker:
+    id: budget-worker
+    kind: soul
+    name: Budget Worker
+    role: Budget Worker
+    system_prompt: Run the budget-gated workflow block.
+    provider: fixture-provider
+    model_name: fixture-cost-cap-model
+blocks:
+  budget_gate_start:
+    type: linear
+    soul_ref: budget-worker
+  budget_gate_followup:
+    type: linear
+    soul_ref: budget-worker
+workflow:
+  name: workflow_cost_cap_stops_followup_block
+  entry: budget_gate_start
+  transitions:
+    - from: budget_gate_start
+      to: budget_gate_followup
+    - from: budget_gate_followup
+      to: null
+limits:
+  cost_cap_usd: 0.001
+  on_exceed: fail
