@@ -1,7 +1,6 @@
-"""
-Regression tests for workflow blocks nested inside LoopBlock inner refs.
+"""WorkflowBlock-in-LoopBlock validation behavior.
 
-These tests pin the currently supported runtime behavior:
+These tests cover the supported workflow-call validation boundary:
 - top-level workflow blocks are allowed
 - loop.inner_block_refs may point at workflow blocks
 - recursive workflow-call validation should accept the placement
@@ -22,7 +21,7 @@ from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
-def _code_workflow(name: str, *, entry: str = "step") -> dict:
+def _code_workflow(name: str, *, entry: str = "workflow_code_step") -> dict:
     return {
         "version": "1.0",
         "id": name,
@@ -58,100 +57,103 @@ def _write_workflow_file(path: Path, data: dict) -> None:
 
 def test_parse_workflow_yaml_allows_loop_referencing_workflow_block() -> None:
     """Workflow blocks remain valid both at top level and inside a loop."""
-    child_file = RunsightWorkflowFile.model_validate(_code_workflow("child_workflow"))
+    callable_workflow_ref = "loop_callable_workflow"
+    child_file = RunsightWorkflowFile.model_validate(
+        _code_workflow(callable_workflow_ref, entry="callable_workflow_code_step")
+    )
     registry = WorkflowRegistry()
-    registry.register("child_workflow", child_file)
+    registry.register(callable_workflow_ref, child_file)
 
-    allowed_parent = {
+    top_level_workflow_caller = {
         "version": "1.0",
-        "id": "allowed_parent",
+        "id": "top_level_workflow_caller",
         "kind": "workflow",
         "blocks": {
-            "call_child": {
+            "call_workflow_directly": {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": callable_workflow_ref,
             }
         },
         "workflow": {
-            "name": "allowed_parent",
-            "entry": "call_child",
+            "name": "top_level_workflow_caller",
+            "entry": "call_workflow_directly",
             "transitions": [
                 {
-                    "from": "call_child",
+                    "from": "call_workflow_directly",
                     "to": None,
                 }
             ],
         },
     }
 
-    wf = parse_workflow_yaml(allowed_parent, workflow_registry=registry)
-    assert wf.blocks["call_child"].workflow_ref == "child_workflow"
+    wf = parse_workflow_yaml(top_level_workflow_caller, workflow_registry=registry)
+    assert wf.blocks["call_workflow_directly"].workflow_ref == callable_workflow_ref
 
-    nested_parent = {
+    loop_inner_workflow_caller = {
         "version": "1.0",
-        "id": "nested_parent",
+        "id": "loop_inner_workflow_caller",
         "kind": "workflow",
         "blocks": {
-            "call_child": {
+            "call_workflow_from_loop": {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": callable_workflow_ref,
             },
-            "loop_block": {
+            "workflow_call_loop": {
                 "type": "loop",
-                "inner_block_refs": ["call_child"],
+                "inner_block_refs": ["call_workflow_from_loop"],
                 "max_rounds": 1,
             },
         },
         "workflow": {
-            "name": "nested_parent",
-            "entry": "call_child",
+            "name": "loop_inner_workflow_caller",
+            "entry": "call_workflow_from_loop",
             "transitions": [
                 {
-                    "from": "call_child",
-                    "to": "loop_block",
+                    "from": "call_workflow_from_loop",
+                    "to": "workflow_call_loop",
                 },
                 {
-                    "from": "loop_block",
+                    "from": "workflow_call_loop",
                     "to": None,
                 },
             ],
         },
     }
 
-    wf = parse_workflow_yaml(nested_parent, workflow_registry=registry)
-    assert wf.blocks["call_child"].workflow_ref == "child_workflow"
+    wf = parse_workflow_yaml(loop_inner_workflow_caller, workflow_registry=registry)
+    assert wf.blocks["call_workflow_from_loop"].workflow_ref == callable_workflow_ref
 
 
 def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursively(
     tmp_path: Path,
 ) -> None:
     """Recursive workflow-call validation should accept nested loop workflow refs."""
-    parent_path = tmp_path / "custom" / "workflows" / "parent_workflow.yaml"
-    child_path = tmp_path / "custom" / "workflows" / "child_workflow.yaml"
-    grandchild_path = tmp_path / "custom" / "workflows" / "grandchild_workflow.yaml"
+    parent_path = tmp_path / "custom" / "workflows" / "recursive_contract_root.yaml"
+    child_path = tmp_path / "custom" / "workflows" / "loop_contract_child.yaml"
+    grandchild_path = tmp_path / "custom" / "workflows" / "loop_contract_leaf.yaml"
 
-    grandchild_data = _code_workflow("grandchild_workflow")
+    grandchild_data = _code_workflow("loop_contract_leaf", entry="leaf_contract_code_step")
     child_data = {
         "version": "1.0",
-        "id": "child_workflow",
+        "id": "loop_contract_child",
         "kind": "workflow",
         "blocks": {
-            "invoke_grandchild": {
+            "call_leaf_from_loop": {
                 "type": "workflow",
-                "workflow_ref": "grandchild_workflow",
+                "workflow_ref": "loop_contract_leaf",
             },
-            "loop_block": {
+            "recursive_validation_loop": {
                 "type": "loop",
-                "inner_block_refs": ["invoke_grandchild"],
+                "inner_block_refs": ["call_leaf_from_loop"],
                 "max_rounds": 1,
             },
         },
         "workflow": {
-            "name": "child_workflow",
-            "entry": "loop_block",
+            "name": "loop_contract_child",
+            "entry": "recursive_validation_loop",
             "transitions": [
                 {
-                    "from": "loop_block",
+                    "from": "recursive_validation_loop",
                     "to": None,
                 }
             ],
@@ -159,20 +161,20 @@ def test_validate_workflow_call_contracts_allows_nested_loop_workflow_recursivel
     }
     parent_data = {
         "version": "1.0",
-        "id": "parent_workflow",
+        "id": "recursive_contract_root",
         "kind": "workflow",
         "blocks": {
-            "invoke_child": {
+            "enter_loop_child_contract": {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": "loop_contract_child",
             }
         },
         "workflow": {
-            "name": "parent_workflow",
-            "entry": "invoke_child",
+            "name": "recursive_contract_root",
+            "entry": "enter_loop_child_contract",
             "transitions": [
                 {
-                    "from": "invoke_child",
+                    "from": "enter_loop_child_contract",
                     "to": None,
                 }
             ],
