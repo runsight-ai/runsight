@@ -1,18 +1,55 @@
 """Pytest configuration for API tests."""
 
 import os
+import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
 # ---------------------------------------------------------------------------
+# Test runtime root: force a pytest-owned workspace regardless of developer env.
+#
+# API tests must never inherit a real RUNSIGHT_BASE_PATH or place runsight.db in
+# a shared temp root. They also must not inherit shell credentials, because API
+# key resolution checks os.environ before .runsight/secrets.env. Keep runtime
+# workspace, DB state, and provider credentials isolated by default.
+#
 # Test DB: temp-file SQLite so all connections share the same database.
 # :memory: gives each connection its own isolated DB — tables created by
 # Alembic or create_all() are invisible to other connections.
 # ---------------------------------------------------------------------------
-_TEST_DB_PATH = os.path.join(tempfile.gettempdir(), f"runsight_test_{os.getpid()}.db")
+_SECRET_ENV_FRAGMENTS = (
+    "API_KEY",
+    "ACCESS_KEY",
+    "CREDENTIAL",
+    "PASSWORD",
+    "PRIVATE_KEY",
+    "SECRET",
+    "TOKEN",
+)
+_RUNSIGHT_ENV_ALLOWLIST = {"RUNSIGHT_BASE_PATH", "RUNSIGHT_DB_URL"}
+_TEST_WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "main")
+_TEST_RUNTIME_ROOT = Path(
+    tempfile.mkdtemp(prefix=f"runsight-api-pytest-{_TEST_WORKER_ID}-{os.getpid()}-")
+).resolve()
+_TEST_RUNSIGHT_DIR = _TEST_RUNTIME_ROOT / ".runsight"
+_TEST_RUNSIGHT_DIR.mkdir(parents=True, exist_ok=True)
+_TEST_DB_PATH = _TEST_RUNSIGHT_DIR / "runsight.db"
+
+
+def _scrub_inherited_runtime_env() -> None:
+    for name in tuple(os.environ):
+        if name.startswith("RUNSIGHT_") and name not in _RUNSIGHT_ENV_ALLOWLIST:
+            os.environ.pop(name, None)
+            continue
+        if any(fragment in name for fragment in _SECRET_ENV_FRAGMENTS):
+            os.environ.pop(name, None)
+
+
+_scrub_inherited_runtime_env()
+os.environ["RUNSIGHT_BASE_PATH"] = str(_TEST_RUNTIME_ROOT)
 os.environ["RUNSIGHT_DB_URL"] = f"sqlite:///{_TEST_DB_PATH}"
-os.environ["RUNSIGHT_BASE_PATH"] = os.environ.get("RUNSIGHT_BASE_PATH", tempfile.gettempdir())
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -26,11 +63,11 @@ def _create_test_tables():
     SQLModel.metadata.create_all(engine)
     yield
     SQLModel.metadata.drop_all(engine)
-    # Remove the temp DB file
     try:
         os.unlink(_TEST_DB_PATH)
     except OSError:
         pass
+    shutil.rmtree(_TEST_RUNTIME_ROOT, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
