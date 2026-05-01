@@ -1,0 +1,46 @@
+apps/gui/src/features/surface/__tests__/yamlCompilerWorkflowDocument.test.ts
+  4adca821c1af8eb3 1-192
+apps/gui/src/features/surface/__tests__/helpers/yamlCompilerFixtures.ts
+  4adca821c1af8eb3 1-81
+apps/gui/src/features/surface/__tests__/yamlCompilerSerializationFiltering.test.ts
+  4adca821c1af8eb3 1-205
+tools/tests/test_gui_yaml_compiler_suite_governance.py
+  4adca821c1af8eb3 1-192
+apps/gui/src/features/surface/__tests__/yamlCompilerBlockFields.test.ts
+  4adca821c1af8eb3 1-6
+apps/gui/src/features/surface/__tests__/yamlCompilerConditionalTransitions.test.ts
+  4adca821c1af8eb3 1-203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ac069f7009b70b0a5e591d274e7b24b8b950d1b9",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1235,
+      "total_deletions": 1084,
+      "accepted_lines": 56097,
+      "overriden_lines": 0
+    },
+    "c6fe64d90f9d0404": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de447-dbcd-7450-a53c-202bab3e8f06",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1047,
+      "total_deletions": 4,
+      "accepted_lines": 1043,
+      "overriden_lines": 0
+    }
+  }
+}
