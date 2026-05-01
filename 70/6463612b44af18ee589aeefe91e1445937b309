@@ -1,0 +1,37 @@
+apps/api/tests/test_parser_warning_run_snapshots.py
+  7ed265960ee8baff 25
+  85fe0725eccbe662 24,150-151,188-191,390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "706463612b44af18ee589aeefe91e1445937b309",
+  "prompts": {
+    "7ed265960ee8baff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bf56-7c03-91cc-2945ca9e5e6d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3987,
+      "overriden_lines": 0
+    },
+    "85fe0725eccbe662": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de4ae-4db5-7da3-92da-f5c5ed446ef0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 35,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
