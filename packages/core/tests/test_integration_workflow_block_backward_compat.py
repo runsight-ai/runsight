@@ -1,10 +1,10 @@
 """
-Integration tests for WorkflowBlock backward compatibility and error handling.
+Integration tests for WorkflowBlock legacy block compatibility and error handling.
 
 These tests verify that:
 1. Existing blocks still work when passed **kwargs by Workflow.run()
 2. Error propagation works correctly through WorkflowBlock
-3. Old code that doesn't use WorkflowBlock still works (backward compatibility)
+3. Workflows that don't use WorkflowBlock still run unchanged
 4. Error messages are clear and helpful
 """
 
@@ -45,7 +45,7 @@ class EchoBlock(BaseBlock):
 
 
 class BlockWithoutKwargs(BaseBlock):
-    """Block that explicitly doesn't accept **kwargs (old-style block)."""
+    """Block that explicitly doesn't accept **kwargs."""
 
     async def execute(self, ctx):
         """Execute without **kwargs signature."""
@@ -61,9 +61,9 @@ class BlockWithoutKwargs(BaseBlock):
 
 
 class BlockWithKwargs(BaseBlock):
-    """Block that accepts **kwargs (new-style block)."""
+    """Block that accepts **kwargs."""
 
-    async def execute(self, ctx):
+    async def execute(self, ctx, **kwargs):
         """Execute with **kwargs signature."""
         state = ctx.state_snapshot
         next_state = state.model_copy(
@@ -80,95 +80,90 @@ class BlockWithKwargs(BaseBlock):
 
 
 @pytest.mark.asyncio
-async def test_old_style_blocks_still_work_without_workflow_blocks():
+async def test_block_execute_without_kwargs_runs_without_workflow_blocks():
     """
-    Verify that old-style blocks (no **kwargs) still work in workflows without WorkflowBlocks.
+    Verify that blocks without **kwargs run in workflows without WorkflowBlocks.
 
     Tests:
-    1. Workflow without WorkflowBlock can use old-style blocks
+    1. Workflow without WorkflowBlock can use blocks without **kwargs
     2. Execution succeeds without errors
-    3. Backward compatibility is maintained
+    3. Plain workflow behavior is maintained
     """
-    wf = Workflow(name="old_style_workflow")
+    wf = Workflow(name="without_kwargs_block_workflow")
 
-    # Add old-style block (no **kwargs)
-    old_block = BlockWithoutKwargs("old_step")
-    wf.add_block(old_block)
+    block_without_kwargs = BlockWithoutKwargs("without_kwargs_step")
+    wf.add_block(block_without_kwargs)
 
-    wf.set_entry("old_step")
-    wf.add_transition("old_step", None)
+    wf.set_entry("without_kwargs_step")
+    wf.add_transition("without_kwargs_step", None)
 
     # Execute
     initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify: Block executed successfully
-    assert "old_step" in final_state.results
-    assert final_state.results["old_step"].output == "executed"
+    assert "without_kwargs_step" in final_state.results
+    assert final_state.results["without_kwargs_step"].output == "executed"
 
 
 @pytest.mark.asyncio
-async def test_new_style_blocks_with_kwargs():
+async def test_block_execute_with_kwargs_runs_in_plain_workflow():
     """
-    Verify that new-style blocks (with **kwargs) work correctly.
+    Verify that blocks with **kwargs execute in a plain workflow.
 
     Tests:
-    1. Blocks with **kwargs work in normal workflows
-    2. Blocks with **kwargs work when passed kwargs
-    3. Kwargs are safely ignored if not used
+    1. Blocks with **kwargs work in workflows without WorkflowBlocks
+    2. Execution succeeds without errors
+    3. Kwargs are optional for block execution
     """
-    wf = Workflow(name="new_style_workflow")
+    wf = Workflow(name="with_kwargs_block_workflow")
 
-    # Add new-style block (with **kwargs)
-    new_block = BlockWithKwargs("new_step")
-    wf.add_block(new_block)
+    block_with_kwargs = BlockWithKwargs("with_kwargs_step")
+    wf.add_block(block_with_kwargs)
 
-    wf.set_entry("new_step")
-    wf.add_transition("new_step", None)
+    wf.set_entry("with_kwargs_step")
+    wf.add_transition("with_kwargs_step", None)
 
     # Execute
     initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify: Block executed successfully
-    assert "new_step" in final_state.results
-    assert final_state.results["new_step"].output == "executed_with_kwargs"
+    assert "with_kwargs_step" in final_state.results
+    assert final_state.results["with_kwargs_step"].output == "executed_with_kwargs"
 
 
 @pytest.mark.asyncio
-async def test_mixed_old_and_new_style_blocks():
+async def test_workflow_can_mix_execute_signatures():
     """
-    Verify that workflows can mix old-style and new-style blocks.
+    Verify that workflows can mix blocks with and without **kwargs.
 
     Tests:
-    1. Old-style and new-style blocks can coexist
+    1. Both execute signatures can coexist
     2. Both execute correctly
-    3. No interference between different block styles
+    3. No interference between different block signatures
     """
-    wf = Workflow(name="mixed_workflow")
+    wf = Workflow(name="mixed_execute_signature_workflow")
 
-    # Add old-style block
-    wf.add_block(BlockWithoutKwargs("old_step"))
+    wf.add_block(BlockWithoutKwargs("without_kwargs_first_step"))
 
-    # Add new-style block
-    wf.add_block(BlockWithKwargs("new_step"))
+    wf.add_block(BlockWithKwargs("with_kwargs_step"))
 
-    # Add another old-style block
-    wf.add_block(BlockWithoutKwargs("old_step_2"))
+    wf.add_block(BlockWithoutKwargs("without_kwargs_final_step"))
 
-    wf.set_entry("old_step")
-    wf.add_transition("old_step", "new_step")
-    wf.add_transition("new_step", "old_step_2")
-    wf.add_transition("old_step_2", None)
+    wf.set_entry("without_kwargs_first_step")
+    wf.add_transition("without_kwargs_first_step", "with_kwargs_step")
+    wf.add_transition("with_kwargs_step", "without_kwargs_final_step")
+    wf.add_transition("without_kwargs_final_step", None)
 
     # Execute
     initial_state = WorkflowState()
     final_state = await wf.run(initial_state)
 
     # Verify: All blocks executed
-    assert "old_step" in final_state.results
-    assert "new_step" in final_state.results
-    assert "old_step_2" in final_state.results
+    assert "without_kwargs_first_step" in final_state.results
+    assert "with_kwargs_step" in final_state.results
+    assert "without_kwargs_final_step" in final_state.results
 
 
 @pytest.mark.asyncio
@@ -187,29 +182,29 @@ async def test_error_in_workflow_block_propagates():
             raise ValueError("Intentional failure in child")
 
     # Create child workflow that fails
-    child_wf = Workflow(name="failing_child")
-    child_wf.add_block(FailingBlock("fail_step"))
-    child_wf.set_entry("fail_step")
-    child_wf.add_transition("fail_step", None)
+    error_child_workflow = Workflow(name="error_propagation_child_workflow")
+    error_child_workflow.add_block(FailingBlock("workflow_error_step"))
+    error_child_workflow.set_entry("workflow_error_step")
+    error_child_workflow.add_transition("workflow_error_step", None)
 
     # Create parent with WorkflowBlock
-    parent_wf = Workflow(name="parent")
+    error_parent_workflow = Workflow(name="error_propagation_parent_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
+        block_id="error_child_workflow_block",
+        child_workflow=error_child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    error_parent_workflow.add_block(workflow_block)
+    error_parent_workflow.set_entry("error_child_workflow_block")
+    error_parent_workflow.add_transition("error_child_workflow_block", None)
 
     # Execute and expect error
     initial_state = WorkflowState()
 
     with pytest.raises(ValueError) as exc_info:
-        await parent_wf.run(initial_state)
+        await error_parent_workflow.run(initial_state)
 
     assert "Intentional failure" in str(exc_info.value)
 
@@ -225,31 +220,31 @@ async def test_invalid_input_mapping_raises_clear_error():
     3. Error includes block_id and path
     """
     # Create child workflow
-    child_wf = Workflow(name="child")
-    child_wf.add_block(EchoBlock("child_step", "output"))
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)
+    input_mapping_child_workflow = Workflow(name="input_mapping_child_workflow")
+    input_mapping_child_workflow.add_block(EchoBlock("input_mapping_child_step", "output"))
+    input_mapping_child_workflow.set_entry("input_mapping_child_step")
+    input_mapping_child_workflow.add_transition("input_mapping_child_step", None)
 
     # Create parent with invalid input mapping
-    parent_wf = Workflow(name="parent")
+    input_mapping_parent_workflow = Workflow(name="invalid_input_mapping_parent_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
+        block_id="invalid_input_mapping_workflow_block",
+        child_workflow=input_mapping_child_workflow,
         inputs={
             "input": "shared_memory.nonexistent_key",  # Key doesn't exist
         },
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    input_mapping_parent_workflow.add_block(workflow_block)
+    input_mapping_parent_workflow.set_entry("invalid_input_mapping_workflow_block")
+    input_mapping_parent_workflow.add_transition("invalid_input_mapping_workflow_block", None)
 
     # Execute with state that doesn't have the key
     initial_state = WorkflowState(shared_memory={"other_key": "value"})
 
     with pytest.raises(KeyError) as exc_info:
-        await parent_wf.run(initial_state)
+        await input_mapping_parent_workflow.run(initial_state)
 
     error_msg = str(exc_info.value)
     assert "nonexistent_key" in error_msg or "not found" in error_msg.lower()
@@ -266,49 +261,49 @@ async def test_invalid_output_mapping_raises_clear_error():
     3. Error includes block_id and path
     """
     # Create child workflow that produces limited output
-    child_wf = Workflow(name="child")
-    child_wf.add_block(EchoBlock("child_step", "output"))
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)
+    output_mapping_child_workflow = Workflow(name="output_mapping_child_workflow")
+    output_mapping_child_workflow.add_block(EchoBlock("output_mapping_child_step", "output"))
+    output_mapping_child_workflow.set_entry("output_mapping_child_step")
+    output_mapping_child_workflow.add_transition("output_mapping_child_step", None)
 
     # Create parent with invalid output mapping
-    parent_wf = Workflow(name="parent")
+    output_mapping_parent_workflow = Workflow(name="invalid_output_mapping_parent_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
+        block_id="invalid_output_mapping_workflow_block",
+        child_workflow=output_mapping_child_workflow,
         inputs={},
         outputs={
             "results.mapped": "results.nonexistent",  # Child doesn't produce this
         },
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    output_mapping_parent_workflow.add_block(workflow_block)
+    output_mapping_parent_workflow.set_entry("invalid_output_mapping_workflow_block")
+    output_mapping_parent_workflow.add_transition("invalid_output_mapping_workflow_block", None)
 
     # Execute
     initial_state = WorkflowState()
 
     with pytest.raises(KeyError) as exc_info:
-        await parent_wf.run(initial_state)
+        await output_mapping_parent_workflow.run(initial_state)
 
     error_msg = str(exc_info.value)
     assert "nonexistent" in error_msg or "not found" in error_msg.lower()
 
 
 @pytest.mark.asyncio
-async def test_backward_compat_workflow_without_workflow_blocks():
+async def test_workflow_without_workflow_blocks_runs_without_workflow_block_parameters():
     """
-    Verify complete backward compatibility: old workflows work unchanged.
+    Verify complete legacy compatibility: workflows without WorkflowBlock run unchanged.
 
     Tests:
     1. Complex workflow without any WorkflowBlocks works
     2. All existing block types work
-    3. No changes needed to existing code
+    3. No WorkflowBlock-specific parameters are required
     """
 
     class MockRunner:
-        model_name = "gpt-4o"
+        model_name = None
 
         async def execute(self, instruction, context, soul, messages=None, **kwargs):
             class Result:
@@ -322,14 +317,20 @@ async def test_backward_compat_workflow_without_workflow_blocks():
             return Result()
 
     # Create a comprehensive workflow with various blocks
-    wf = Workflow(name="complex_old_workflow")
+    wf = Workflow(name="legacy_linear_echo_workflow")
 
     runner = MockRunner()
-    soul = Soul(id="test_soul", kind="soul", name="Test Soul", role="Tester", system_prompt="Test")
+    soul = Soul(
+        id="legacy_linear_soul",
+        kind="soul",
+        name="Legacy Linear Soul",
+        role="Fixture runner",
+        system_prompt="Run the legacy linear step",
+    )
 
     # Add LinearBlock
     linear_block = LinearBlock(
-        block_id="linear",
+        block_id="legacy_linear_step",
         soul=soul,
         runner=runner,
     )
@@ -338,8 +339,8 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     # Add EchoBlock
     wf.add_block(EchoBlock("echo_step", "echo output"))
 
-    wf.set_entry("linear")
-    wf.add_transition("linear", "echo_step")
+    wf.set_entry("legacy_linear_step")
+    wf.add_transition("legacy_linear_step", "echo_step")
     wf.add_transition("echo_step", None)
 
     # Execute without any WorkflowRegistry or special parameters
@@ -347,7 +348,7 @@ async def test_backward_compat_workflow_without_workflow_blocks():
     final_state = await wf.run(initial_state)
 
     # Verify: Execution successful
-    assert "linear" in final_state.results
+    assert "legacy_linear_step" in final_state.results
     assert "echo_step" in final_state.results
 
 
@@ -362,27 +363,27 @@ async def test_workflow_block_with_kwargs_in_chain():
     3. Child receives correct parameters
     """
     # Create child workflow
-    child_wf = Workflow(name="child")
-    child_wf.add_block(EchoBlock("child_step", "child_out"))
-    child_wf.set_entry("child_step")
-    child_wf.add_transition("child_step", None)
+    call_stack_child_workflow = Workflow(name="call_stack_child_workflow")
+    call_stack_child_workflow.add_block(EchoBlock("call_stack_child_step", "child_out"))
+    call_stack_child_workflow.set_entry("call_stack_child_step")
+    call_stack_child_workflow.add_transition("call_stack_child_step", None)
 
     # Create parent with WorkflowBlock
-    parent_wf = Workflow(name="parent")
+    call_stack_parent_workflow = Workflow(name="call_stack_parent_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke",
-        child_workflow=child_wf,
+        block_id="call_stack_workflow_block",
+        child_workflow=call_stack_child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke")
-    parent_wf.add_transition("invoke", None)
+    call_stack_parent_workflow.add_block(workflow_block)
+    call_stack_parent_workflow.set_entry("call_stack_workflow_block")
+    call_stack_parent_workflow.add_transition("call_stack_workflow_block", None)
 
     # Capture what the child receives
     captured_call_stack = []
-    original_run = child_wf.run
+    original_run = call_stack_child_workflow.run
 
     async def mock_run(
         state,
@@ -402,98 +403,104 @@ async def test_workflow_block_with_kwargs_in_chain():
             observer=observer,
         )
 
-    child_wf.run = mock_run
+    call_stack_child_workflow.run = mock_run
 
     # Execute with explicit call_stack
     initial_state = WorkflowState()
-    initial_call_stack = ["initial_wf"]
+    initial_call_stack = ["root_call_stack_workflow"]
 
-    try:
-        await parent_wf.run(initial_state, call_stack=initial_call_stack)
-    except Exception:
-        pass  # We're just testing parameter passing
+    await call_stack_parent_workflow.run(initial_state, call_stack=initial_call_stack)
 
     # Verify: call_stack was passed and extended
     assert len(captured_call_stack) > 0
     received_stack = captured_call_stack[0]
-    assert "parent" in received_stack or len(received_stack) > 0
+    assert received_stack == [
+        "root_call_stack_workflow",
+        "call_stack_parent_workflow",
+        "call_stack_child_workflow",
+    ]
 
 
 @pytest.mark.asyncio
-async def test_nested_workflow_blocks_error_includes_stack():
+async def test_nested_workflow_block_extends_explicit_call_stack():
     """
-    Verify that errors in deeply nested workflows include call_stack in error message.
+    Verify that nested WorkflowBlock execution extends an explicit call stack.
 
     Tests:
-    1. Errors from nested levels include context
-    2. Call stack helps debugging
-    3. Error message is informative
+    1. Explicit root call stack is preserved
+    2. Parent and child workflow names are appended before child workflow execution
+    3. Nested workflow execution still succeeds
     """
+    nested_call_stack_child_workflow = Workflow(name="nested_call_stack_child_workflow")
+    nested_call_stack_child_workflow.add_block(
+        EchoBlock("nested_call_stack_child_step", "nested child executed")
+    )
+    nested_call_stack_child_workflow.set_entry("nested_call_stack_child_step")
+    nested_call_stack_child_workflow.add_transition("nested_call_stack_child_step", None)
 
-    class FailAtDepth(BaseBlock):
-        def __init__(self, block_id: str, fail_at_depth: int):
-            super().__init__(block_id)
-            self.fail_at_depth = fail_at_depth
+    captured_call_stacks = []
+    original_run = nested_call_stack_child_workflow.run
 
-        async def execute(self, ctx):
-            state = ctx.state_snapshot
-            call_stack = ctx.inputs.get("call_stack", [])
-            depth = len(call_stack) if call_stack else 0
-            if depth >= self.fail_at_depth:
-                raise ValueError(f"Failed at depth {depth}: {' -> '.join(call_stack or [])}")
-            next_state = state.model_copy(
-                update={
-                    "results": {**state.results, self.block_id: BlockResult(output="ok")},
-                    "execution_log": state.execution_log
-                    + [{"role": "system", "content": f"[{self.block_id}] OK"}],
-                }
-            )
-            return block_output_from_state(self.block_id, state, next_state)
+    async def capture_child_run(
+        state,
+        *,
+        inputs=None,
+        registry=None,
+        call_stack=None,
+        workflow_registry=None,
+        observer=None,
+    ):
+        captured_call_stacks.append(list(call_stack or []))
+        return await original_run(
+            state,
+            inputs=inputs,
+            registry=registry,
+            call_stack=call_stack,
+            workflow_registry=workflow_registry,
+            observer=observer,
+        )
 
-    # Create child workflow
-    child_wf = Workflow(name="child_wf")
-    child_block = FailAtDepth("child_fail", fail_at_depth=2)
-    child_wf.add_block(child_block)
-    child_wf.set_entry("child_fail")
-    child_wf.add_transition("child_fail", None)
+    nested_call_stack_child_workflow.run = capture_child_run
 
     # Create parent with WorkflowBlock
-    parent_wf = Workflow(name="parent_wf")
+    nested_call_stack_parent_workflow = Workflow(name="nested_call_stack_parent_workflow")
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
+        block_id="nested_call_stack_workflow_block",
+        child_workflow=nested_call_stack_child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    nested_call_stack_parent_workflow.add_block(workflow_block)
+    nested_call_stack_parent_workflow.set_entry("nested_call_stack_workflow_block")
+    nested_call_stack_parent_workflow.add_transition("nested_call_stack_workflow_block", None)
 
-    # Execute from depth 1 (will reach depth 2 in child)
-    initial_state = WorkflowState()
+    final_state = await nested_call_stack_parent_workflow.run(
+        WorkflowState(),
+        call_stack=["root_call_stack_workflow"],
+    )
 
-    # This should execute successfully at depth 0, then reach depth 1 in child
-    # and fail because child_fail expects depth >= 2
-    try:
-        await parent_wf.run(initial_state, call_stack=["root_wf"])
-    except ValueError:
-        pass  # Expected
-
-    # Also test direct execution at depth 0 (should succeed)
-    final_state = await parent_wf.run(initial_state)
-    assert "invoke_child" in final_state.results
+    assert "nested_call_stack_workflow_block" in final_state.results
+    assert captured_call_stacks == [
+        [
+            "root_call_stack_workflow",
+            "nested_call_stack_parent_workflow",
+            "nested_call_stack_child_workflow",
+        ]
+    ]
 
 
 @pytest.mark.asyncio
-async def test_cost_accumulation_with_error():
+async def test_parent_and_child_cost_steps_run_until_child_error():
     """
-    Verify that partial costs are preserved even when workflow fails.
+    Verify that cost-producing steps execute up to the failing child step.
 
     Tests:
-    1. If child fails partway through, costs up to that point are preserved
-    2. Error doesn't lose intermediate cost tracking
+    1. Parent cost step runs before invoking the child workflow
+    2. Child workflow runs its first cost step before the failing step
+    3. Child error propagates to the parent workflow
     """
+    executed_blocks = []
 
     class CostTrackingBlock(BaseBlock):
         def __init__(self, block_id: str, cost: float, fail: bool = False):
@@ -503,6 +510,7 @@ async def test_cost_accumulation_with_error():
 
         async def execute(self, ctx):
             state = ctx.state_snapshot
+            executed_blocks.append(self.block_id)
             new_state = state.model_copy(
                 update={
                     "total_cost_usd": state.total_cost_usd + self.cost,
@@ -515,35 +523,41 @@ async def test_cost_accumulation_with_error():
             return block_output_from_state(self.block_id, state, new_state)
 
     # Create child with two blocks: first succeeds, second fails
-    child_wf = Workflow(name="partial_child")
-    child_wf.add_block(CostTrackingBlock("step1", 0.05, fail=False))
-    child_wf.add_block(CostTrackingBlock("step2", 0.03, fail=True))
-    child_wf.set_entry("step1")
-    child_wf.add_transition("step1", "step2")
-    child_wf.add_transition("step2", None)
+    partial_cost_child_workflow = Workflow(name="partial_cost_child_workflow")
+    partial_cost_child_workflow.add_block(CostTrackingBlock("child_cost_first_step", 0.05))
+    partial_cost_child_workflow.add_block(
+        CostTrackingBlock("child_cost_failure_step", 0.03, fail=True)
+    )
+    partial_cost_child_workflow.set_entry("child_cost_first_step")
+    partial_cost_child_workflow.add_transition(
+        "child_cost_first_step",
+        "child_cost_failure_step",
+    )
+    partial_cost_child_workflow.add_transition("child_cost_failure_step", None)
 
     # Create parent
-    parent_wf = Workflow(name="parent")
-    parent_wf.add_block(CostTrackingBlock("parent_step", 0.02, fail=False))
+    cost_error_parent_workflow = Workflow(name="cost_error_parent_workflow")
+    cost_error_parent_workflow.add_block(CostTrackingBlock("parent_cost_step", 0.02))
     workflow_block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child_wf,
+        block_id="cost_error_workflow_block",
+        child_workflow=partial_cost_child_workflow,
         inputs={},
         outputs={},
         max_depth=10,
     )
-    parent_wf.add_block(workflow_block)
-    parent_wf.set_entry("parent_step")
-    parent_wf.add_transition("parent_step", "invoke_child")
-    parent_wf.add_transition("invoke_child", None)
+    cost_error_parent_workflow.add_block(workflow_block)
+    cost_error_parent_workflow.set_entry("parent_cost_step")
+    cost_error_parent_workflow.add_transition("parent_cost_step", "cost_error_workflow_block")
+    cost_error_parent_workflow.add_transition("cost_error_workflow_block", None)
 
     # Execute
     initial_state = WorkflowState()
 
-    try:
-        await parent_wf.run(initial_state)
-    except RuntimeError:
-        pass  # Expected: child fails
+    with pytest.raises(RuntimeError, match="child_cost_failure_step"):
+        await cost_error_parent_workflow.run(initial_state)
 
-    # Note: We can't easily verify intermediate costs here without more complex
-    # instrumentation, but the test verifies the flow is correct
+    assert executed_blocks == [
+        "parent_cost_step",
+        "child_cost_first_step",
+        "child_cost_failure_step",
+    ]
