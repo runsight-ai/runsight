@@ -8,91 +8,11 @@ from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
+from workflow_fixture_helpers import workflow_fixture_text
 
-YAML_BLOCK_WITH_ASSERTIONS = """\
-version: "1.0"
-id: block-assertions
-kind: workflow
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: Analyze the data.
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-    assertions:
-      - type: contains
-        value: analysis
-      - type: cost
-        threshold: 0.02
-workflow:
-  name: block_assertions
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-
-YAML_BLOCK_WITHOUT_ASSERTIONS = """\
-version: "1.0"
-id: block-without-assertions
-kind: workflow
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: Analyze the data.
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: block_without_assertions
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
-
-
-YAML_INVALID_SOUL_ASSERTIONS = """\
-version: "1.0"
-id: soul-only-assertions
-kind: workflow
-config:
-  model_name: gpt-4o
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: Analyze the data.
-    assertions:
-      - type: contains
-        value: analysis
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: soul_only_assertions
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
+BLOCK_ASSERTIONS_FIXTURE = "block-assertions-propagation.yaml"
+BLOCK_WITHOUT_ASSERTIONS_FIXTURE = "block-assertions-omitted.yaml"
+INVALID_SOUL_ASSERTIONS_FIXTURE = "soul-level-assertions-rejected.yaml"
 
 
 class DummyBlock(BaseBlock):
@@ -155,7 +75,7 @@ class TestAssertionConfigsPropagation:
 
     def test_parser_bridges_block_assertions_to_runtime_block(self):
         """Parsed runtime block exposes block_def.assertions after build."""
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = parse_workflow_yaml(workflow_fixture_text(BLOCK_ASSERTIONS_FIXTURE))
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
@@ -163,7 +83,7 @@ class TestAssertionConfigsPropagation:
 
     def test_parser_preserves_block_assertion_fields(self):
         """Bridged block assertions retain the YAML config fields."""
-        wf = parse_workflow_yaml(YAML_BLOCK_WITH_ASSERTIONS)
+        wf = parse_workflow_yaml(workflow_fixture_text(BLOCK_ASSERTIONS_FIXTURE))
 
         block = wf._blocks["analyze"]
         assert block.assertions is not None
@@ -174,7 +94,7 @@ class TestAssertionConfigsPropagation:
 
     def test_parser_leaves_runtime_block_assertions_none_when_omitted(self):
         """Blocks without YAML assertions still expose assertions=None."""
-        wf = parse_workflow_yaml(YAML_BLOCK_WITHOUT_ASSERTIONS)
+        wf = parse_workflow_yaml(workflow_fixture_text(BLOCK_WITHOUT_ASSERTIONS_FIXTURE))
 
         block = wf._blocks["analyze"]
         assert hasattr(block, "assertions")
@@ -183,7 +103,7 @@ class TestAssertionConfigsPropagation:
     def test_parser_rejects_soul_level_assertions_in_yaml(self):
         """Soul YAML should fail validation when assertions are declared on a soul."""
         with pytest.raises(ValidationError):
-            parse_workflow_yaml(YAML_INVALID_SOUL_ASSERTIONS)
+            parse_workflow_yaml(workflow_fixture_text(INVALID_SOUL_ASSERTIONS_FIXTURE))
 
     def test_parser_does_not_pass_assertions_kwarg_to_soul(self):
         """Parser should stop threading assertions into runtime Soul validation."""
@@ -197,7 +117,7 @@ class TestAssertionConfigsPropagation:
                 return real_soul.model_validate(payload, *args, **kwargs)
 
         with patch("runsight_core.yaml.parser.Soul", _RecordingSoul):
-            parse_workflow_yaml(YAML_BLOCK_WITHOUT_ASSERTIONS)
+            parse_workflow_yaml(workflow_fixture_text(BLOCK_WITHOUT_ASSERTIONS_FIXTURE))
 
         assert captured_payloads
         assert "assertions" not in captured_payloads[0]

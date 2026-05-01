@@ -1,0 +1,22 @@
+version: "1.0"
+id: block-without-assertions
+kind: workflow
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: Analyze the data.
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: block_without_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null
