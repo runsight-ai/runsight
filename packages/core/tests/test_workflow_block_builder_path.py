@@ -1,7 +1,7 @@
 """
 Tests for route workflow blocks through the registered builder.
 
-These tests pin the remaining actionable debt in the workflow-block parser path:
+These tests pin the workflow-block parser/builder path:
 - parse_workflow_yaml should use the registered "workflow" builder, not a parser-only special case
 - the registered builder should be able to construct a real WorkflowBlock when given parser context
 - missing WorkflowRegistry should fail with an actionable ValueError from the builder path
@@ -25,19 +25,19 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 def _child_workflow_file() -> RunsightWorkflowFile:
     child_dict = {
-        "id": "child-workflow",
+        "id": "builder-child-workflow",
         "kind": "workflow",
         "version": "1.0",
         "blocks": {
-            "child_step": {
+            "builder_child_step": {
                 "type": "code",
-                "code": "def main(data):\n    return {'child_step': 'done'}",
+                "code": "def main(data):\n    return {'builder_child_step': 'done'}",
             }
         },
         "workflow": {
-            "name": "child_workflow",
-            "entry": "child_step",
-            "transitions": [{"from": "child_step", "to": None}],
+            "name": "builder_child_workflow",
+            "entry": "builder_child_step",
+            "transitions": [{"from": "builder_child_step", "to": None}],
         },
     }
     return RunsightWorkflowFile.model_validate(child_dict)
@@ -45,29 +45,29 @@ def _child_workflow_file() -> RunsightWorkflowFile:
 
 def _parent_workflow_dict() -> dict[str, Any]:
     return {
-        "id": "parent-workflow",
+        "id": "builder-parent-workflow",
         "kind": "workflow",
         "version": "1.0",
         "config": {
             "max_workflow_depth": 7,
         },
         "blocks": {
-            "invoke_child": {
+            "builder_child_workflow_block": {
                 "type": "workflow",
-                "workflow_ref": "child-workflow",
+                "workflow_ref": "builder-child-workflow",
             },
-            "loop_block": {
+            "builder_loop_block": {
                 "type": "loop",
-                "inner_block_refs": ["invoke_child"],
+                "inner_block_refs": ["builder_child_workflow_block"],
                 "max_rounds": 1,
             },
         },
         "workflow": {
-            "name": "parent_workflow",
-            "entry": "invoke_child",
+            "name": "builder_parent_workflow",
+            "entry": "builder_child_workflow_block",
             "transitions": [
-                {"from": "invoke_child", "to": "loop_block"},
-                {"from": "loop_block", "to": None},
+                {"from": "builder_child_workflow_block", "to": "builder_loop_block"},
+                {"from": "builder_loop_block", "to": None},
             ],
         },
     }
@@ -79,7 +79,7 @@ def test_parse_workflow_yaml_routes_workflow_blocks_through_registered_builder_e
     """Parsing should invoke the registered workflow builder instead of a parser special case."""
     child_file = _child_workflow_file()
     registry = WorkflowRegistry()
-    registry.register("child-workflow", child_file)
+    registry.register("builder-child-workflow", child_file)
 
     calls: list[dict[str, Any]] = []
 
@@ -133,10 +133,15 @@ def test_parse_workflow_yaml_routes_workflow_blocks_through_registered_builder_e
 
     assert calls, "parse_workflow_yaml did not call the registered workflow builder"
     assert isinstance(parent_workflow, Workflow)
-    assert isinstance(parent_workflow.blocks["invoke_child"], WorkflowBlock)
-    assert parent_workflow.blocks["invoke_child"].child_workflow.name == "child_workflow"
-    assert isinstance(parent_workflow.blocks["loop_block"], LoopBlock)
-    assert parent_workflow.blocks["loop_block"].inner_block_refs == ["invoke_child"]
+    assert isinstance(parent_workflow.blocks["builder_child_workflow_block"], WorkflowBlock)
+    assert (
+        parent_workflow.blocks["builder_child_workflow_block"].child_workflow.name
+        == "builder_child_workflow"
+    )
+    assert isinstance(parent_workflow.blocks["builder_loop_block"], LoopBlock)
+    assert parent_workflow.blocks["builder_loop_block"].inner_block_refs == [
+        "builder_child_workflow_block"
+    ]
 
 
 def test_registered_workflow_builder_accepts_parser_context_and_builds_real_workflow_block(
@@ -145,13 +150,13 @@ def test_registered_workflow_builder_accepts_parser_context_and_builds_real_work
     """The registered workflow builder should build a real WorkflowBlock with parser context."""
     child_file = _child_workflow_file()
     registry = WorkflowRegistry()
-    registry.register("child-workflow", child_file)
+    registry.register("builder-child-workflow", child_file)
     parent_file = RunsightWorkflowFile.model_validate(_parent_workflow_dict())
-    block_def = parent_file.blocks["invoke_child"]
+    block_def = parent_file.blocks["builder_child_workflow_block"]
     builder = BLOCK_BUILDER_REGISTRY["workflow"]
 
     block = builder(
-        "invoke_child",
+        "builder_child_workflow_block",
         block_def,
         {},
         MagicMock(),
@@ -163,8 +168,8 @@ def test_registered_workflow_builder_accepts_parser_context_and_builds_real_work
     )
 
     assert isinstance(block, WorkflowBlock)
-    assert block.child_workflow.name == "child_workflow"
-    assert block.workflow_ref == "child-workflow"
+    assert block.child_workflow.name == "builder_child_workflow"
+    assert block.workflow_ref == "builder-child-workflow"
     assert block.max_depth == 7
 
 
@@ -173,12 +178,12 @@ def test_registered_workflow_builder_requires_workflow_registry_with_actionable_
 ) -> None:
     """The builder should fail explicitly when workflow_registry is missing."""
     parent_file = RunsightWorkflowFile.model_validate(_parent_workflow_dict())
-    block_def = parent_file.blocks["invoke_child"]
+    block_def = parent_file.blocks["builder_child_workflow_block"]
     builder = BLOCK_BUILDER_REGISTRY["workflow"]
 
     with pytest.raises(ValueError, match="WorkflowRegistry|workflow_registry|registry"):
         builder(
-            "invoke_child",
+            "builder_child_workflow_block",
             block_def,
             {},
             MagicMock(),
