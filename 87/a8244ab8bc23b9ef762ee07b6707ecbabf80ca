@@ -1,0 +1,29 @@
+apps/api/tests/fixtures/execution_preparation/branch-only-workflow.yaml
+  4adca821c1af8eb3 1-23
+tools/tests/test_api_execution_preparation_fixture_governance.py
+  4adca821c1af8eb3 1-121
+apps/api/tests/logic/test_execution_preparation.py
+  4adca821c1af8eb3 30,32-38
+apps/api/tests/fixtures/execution_preparation/prepare-parent-workflow.yaml
+  4adca821c1af8eb3 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "87a8244ab8bc23b9ef762ee07b6707ecbabf80ca",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 166,
+      "total_deletions": 41,
+      "accepted_lines": 54007,
+      "overriden_lines": 0
+    }
+  }
+}
