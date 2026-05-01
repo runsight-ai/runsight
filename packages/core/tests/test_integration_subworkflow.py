@@ -191,7 +191,7 @@ async def test_nested_subflows_use_name_based_invocation_recursively() -> None:
 
 
 def test_parser_builds_workflowblock_without_child_interface() -> None:
-    child_file = RunsightWorkflowFile.model_validate(
+    parser_child_workflow_file = RunsightWorkflowFile.model_validate(
         {
             "version": "1.0",
             "id": "parser_child_workflow",
@@ -213,9 +213,9 @@ def test_parser_builds_workflowblock_without_child_interface() -> None:
         }
     )
     registry = WorkflowRegistry()
-    registry.register("parser_child_workflow", child_file)
+    registry.register("parser_child_workflow", parser_child_workflow_file)
 
-    parent_yaml = {
+    parser_parent_workflow_yaml = {
         "version": "1.0",
         "id": "parser_parent_workflow",
         "kind": "workflow",
@@ -236,7 +236,7 @@ def test_parser_builds_workflowblock_without_child_interface() -> None:
         },
     }
 
-    wf = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+    wf = parse_workflow_yaml(parser_parent_workflow_yaml, workflow_registry=registry)
 
     block = wf.blocks["parser_child_workflow_block"]
     assert isinstance(block, WorkflowBlock)
