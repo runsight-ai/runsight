@@ -1,0 +1,29 @@
+packages/core/tests/fixtures/workflows/step-wrapper-inputs-and-assertions.yaml
+  4adca821c1af8eb3 1-26
+tools/tests/test_core_step_wrapper_assertion_fixture_governance.py
+  4adca821c1af8eb3 1-197
+packages/core/tests/fixtures/workflows/step-wrapper-inputs-no-assertions.yaml
+  4adca821c1af8eb3 1-21
+packages/core/tests/test_step_wrapper_assertions.py
+  4adca821c1af8eb3 10,91-121,127,129,137,139,148,150,155,157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a29276a9d9b3e7c714ed5962e7a9ea97209d7f50",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 284,
+      "total_deletions": 93,
+      "accepted_lines": 53664,
+      "overriden_lines": 0
+    }
+  }
+}
