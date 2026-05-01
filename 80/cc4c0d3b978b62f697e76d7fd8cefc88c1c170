@@ -1,0 +1,25 @@
+tools/tests/test_api_workflow_input_redaction_fixture_governance.py
+  4adca821c1af8eb3 1-170
+apps/api/tests/test_workflow_input_redaction_integration.py
+  4adca821c1af8eb3 44-51,56,111-124,137-141,614
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "80cc4c0d3b978b62f697e76d7fd8cefc88c1c170",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 199,
+      "total_deletions": 33,
+      "accepted_lines": 54024,
+      "overriden_lines": 0
+    }
+  }
+}
