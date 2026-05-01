@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
-import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -35,20 +34,6 @@ def _fixture_text(relative_path: str) -> str:
     return (_FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
 
 
-DIRECT_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-direct.yaml")
-FAILING_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-failing.yaml")
-PARENT_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-parent.yaml")
-CHILD_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-child.yaml")
-CONFLICTING_WORKFLOW_RESULT_YAML = _fixture_text(
-    "custom/workflows/input-redaction-conflicting-workflow-result.yaml"
-)
-CONFLICT_SEED_WORKFLOW_YAML = _fixture_text("custom/workflows/input-redaction-conflict-seed.yaml")
-LEGACY_INTERFACE_TARGET_YAML = _fixture_text(
-    "custom/workflows/input-redaction-legacy-interface.yaml"
-)
-PROVIDER_FIXTURE_YAML = _fixture_text("custom/providers/input-redaction-fixture-provider.yaml")
-
-
 def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
     workflows_dir = base_dir / "custom" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
@@ -56,11 +41,19 @@ def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None
     (workflows_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
 
 
+def _write_workflow_fixture(base_dir: Path, workflow_id: str) -> None:
+    _write_workflow_file(
+        base_dir,
+        workflow_id,
+        _fixture_text(f"custom/workflows/{workflow_id}.yaml"),
+    )
+
+
 def _write_provider_file(base_dir: Path) -> None:
     provider_dir = base_dir / "custom" / "providers"
     provider_dir.mkdir(parents=True, exist_ok=True)
     (provider_dir / "input-redaction-fixture-provider.yaml").write_text(
-        PROVIDER_FIXTURE_YAML,
+        _fixture_text("custom/providers/input-redaction-fixture-provider.yaml"),
         encoding="utf-8",
     )
 
@@ -115,6 +108,20 @@ def _init_git_repo(base_dir: Path) -> None:
     )
 
 
+def _build_workflow_input_redaction_workspace(base_dir: Path) -> None:
+    for workflow_id in (
+        "input-redaction-direct",
+        "input-redaction-failing",
+        "input-redaction-parent",
+        "input-redaction-child",
+        "input-redaction-conflicting-workflow-result",
+        "input-redaction-conflict-seed",
+    ):
+        _write_workflow_fixture(base_dir, workflow_id)
+    _write_provider_file(base_dir)
+    _init_git_repo(base_dir)
+
+
 @pytest.fixture
 def db_engine():
     engine = create_engine(
@@ -127,22 +134,11 @@ def db_engine():
 
 
 @pytest.fixture
-def base_dir():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        base = Path(tmpdir)
-        _write_workflow_file(base, "input-redaction-direct", DIRECT_WORKFLOW_YAML)
-        _write_workflow_file(base, "input-redaction-failing", FAILING_WORKFLOW_YAML)
-        _write_workflow_file(base, "input-redaction-parent", PARENT_WORKFLOW_YAML)
-        _write_workflow_file(base, "input-redaction-child", CHILD_WORKFLOW_YAML)
-        _write_workflow_file(
-            base,
-            "input-redaction-conflicting-workflow-result",
-            CONFLICTING_WORKFLOW_RESULT_YAML,
-        )
-        _write_workflow_file(base, "input-redaction-conflict-seed", CONFLICT_SEED_WORKFLOW_YAML)
-        _write_provider_file(base)
-        _init_git_repo(base)
-        yield base
+def base_dir(tmp_path):
+    base = tmp_path / "workflow-input-redaction-workspace"
+    base.mkdir()
+    _build_workflow_input_redaction_workspace(base)
+    return base
 
 
 @pytest.fixture
@@ -615,7 +611,7 @@ async def test_legacy_interface_target_yaml_returns_422_before_run_creation(
 ) -> None:
     from httpx import ASGITransport, AsyncClient
 
-    _write_workflow_file(base_dir, "input-redaction-legacy-interface", LEGACY_INTERFACE_TARGET_YAML)
+    _write_workflow_fixture(base_dir, "input-redaction-legacy-interface")
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_real_services),
