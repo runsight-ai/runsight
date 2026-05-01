@@ -16,7 +16,7 @@ class CapturingWorkflow:
     """Child workflow spy that records the state and kwargs WorkflowBlock passes."""
 
     def __init__(self) -> None:
-        self.name = "child_workflow"
+        self.name = "governed_child_workflow"
         self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, Any] | None = None
 
@@ -65,7 +65,7 @@ async def test_workflowblock_passes_governed_ctx_inputs_as_child_invocation_inpu
 ) -> None:
     child_workflow = CapturingWorkflow()
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="governed_input_workflow_block",
         child_workflow=child_workflow,
         inputs={public_name: parent_ref},
         outputs={},
@@ -90,7 +90,7 @@ async def test_workflowblock_keeps_execution_plumbing_out_of_child_invocation_in
     observer = object()
     registry = object()
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="plumbing_filtered_workflow_block",
         child_workflow=child_workflow,
         inputs={"branch": "metadata.runtime.branch"},
         outputs={},
@@ -100,7 +100,7 @@ async def test_workflowblock_keeps_execution_plumbing_out_of_child_invocation_in
         update={
             "inputs": {
                 **governed_ctx.inputs,
-                "call_stack": ["parent_workflow"],
+                "call_stack": ["governed_parent_workflow"],
                 "workflow_registry": registry,
                 "observer": observer,
             }
@@ -112,8 +112,8 @@ async def test_workflowblock_keeps_execution_plumbing_out_of_child_invocation_in
     assert child_workflow.received_kwargs is not None
     assert child_workflow.received_kwargs["inputs"] == {"branch": "main"}
     assert child_workflow.received_kwargs["call_stack"] == [
-        "parent_workflow",
-        "child_workflow",
+        "governed_parent_workflow",
+        "governed_child_workflow",
     ]
     assert child_workflow.received_kwargs["workflow_registry"] is registry
     assert child_workflow.received_kwargs["observer"] is observer
@@ -130,7 +130,7 @@ async def test_workflowblock_rejects_private_child_state_input_targets(
 
     with pytest.raises(ValueError, match="private child state|child invocation input"):
         block = WorkflowBlock(
-            block_id="invoke_child",
+            block_id="private_input_workflow_block",
             child_workflow=child_workflow,
             inputs={private_target: "metadata.runtime.branch"},
             outputs={},
@@ -145,14 +145,14 @@ async def test_workflowblock_rejects_private_child_state_input_targets(
 async def test_execute_block_direct_workflowblock_preserves_governed_declared_inputs() -> None:
     child_workflow = CapturingWorkflow()
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="direct_execute_governed_workflow_block",
         child_workflow=child_workflow,
         inputs={"branch": "metadata.runtime.branch"},
         outputs={},
     )
     state = _state_with_parent_context()
     exec_ctx = BlockExecutionContext(
-        workflow_name="parent_workflow",
+        workflow_name="governed_parent_workflow",
         blocks={},
         call_stack=[],
         workflow_registry=None,
