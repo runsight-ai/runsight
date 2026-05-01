@@ -1,0 +1,27 @@
+apps/api/tests/test_execution_transport_integration.py
+  4adca821c1af8eb3 47-51,257-267,274,286,289,329-333,337
+apps/api/tests/fixtures/execution_transport/simple-workflow.yaml
+  4adca821c1af8eb3 1-27
+tools/tests/test_api_execution_transport_fixture_governance.py
+  4adca821c1af8eb3 1-245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e0dd68345a846b5612b3bd75393fccaf602ae440",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 297,
+      "total_deletions": 41,
+      "accepted_lines": 54138,
+      "overriden_lines": 0
+    }
+  }
+}
