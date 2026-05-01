@@ -27,48 +27,15 @@ from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.services.execution_service import ExecutionService, PreparedRunInputs
 from runsight_api.logic.services.run_service import RunService
 
-BRANCH_ONLY_YAML = """\
-version: "1.0"
-id: branch-only-workflow
-kind: workflow
-workflow:
-  name: Branch Only Workflow
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: You are a careful analyst.
-    provider: fixture-provider
-    model_name: fixture-chat-model
-config: {}
-"""
+FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "execution_preparation"
 
-PREP_REGISTRY_YAML = """\
-version: "1.0"
-id: prepare-parent-workflow
-kind: workflow
-workflow:
-  name: Prepare Parent Workflow
-  entry: child
-  transitions:
-    - from: child
-      to: null
-blocks:
-  child:
-    type: workflow
-    workflow_ref: prepare-child-workflow
-config: {}
-"""
+
+def _load_workflow_fixture(name: str) -> str:
+    return (FIXTURE_ROOT / name).read_text(encoding="utf-8")
+
+
+BRANCH_ONLY_YAML = _load_workflow_fixture("branch-only-workflow.yaml")
+PREP_REGISTRY_YAML = _load_workflow_fixture("prepare-parent-workflow.yaml")
 
 
 def _db_engine():
