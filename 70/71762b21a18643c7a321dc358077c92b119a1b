@@ -1,0 +1,27 @@
+apps/api/tests/fixtures/branch_aware_execution/branch-aware-workflow.yaml
+  4adca821c1af8eb3 1-12
+tools/tests/test_api_branch_aware_execution_fixture_governance.py
+  4adca821c1af8eb3 1-123
+apps/api/tests/logic/test_branch_aware_exec.py
+  4adca821c1af8eb3 13,28-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7071762b21a18643c7a321dc358077c92b119a1b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 142,
+      "total_deletions": 14,
+      "accepted_lines": 53967,
+      "overriden_lines": 0
+    }
+  }
+}
