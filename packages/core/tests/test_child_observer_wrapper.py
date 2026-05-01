@@ -1,21 +1,4 @@
-"""
-RUN-663 — Failing tests for ChildObserverWrapper (SSE gap) and on_error parser wiring.
-
-The parent's observer is currently passed raw to the child workflow. When
-the child completes, ``on_workflow_complete`` fires on the parent's
-``StreamingObserver``, emitting SSE_RUN_COMPLETED and closing the stream
-prematurely.
-
-Fix requires a ``ChildObserverWrapper`` that forwards non-terminal events
-(on_block_start, on_block_complete, etc.) but intercepts
-``on_workflow_complete`` and ``on_workflow_error`` so they never reach the
-parent observer.
-
-These tests MUST fail against the current implementation because:
-  - ``ChildObserverWrapper`` does not exist yet (ImportError)
-  - ``WorkflowBlock.execute()`` passes the raw observer to the child
-  - The parser does not wire ``on_error`` from block_def to WorkflowBlock
-"""
+"""Child observer terminal-event isolation and WorkflowBlock on_error parser wiring."""
 
 from __future__ import annotations
 
@@ -100,62 +83,64 @@ def _build_child_workflow(name: str, block: object) -> Workflow:
 
 
 # ---------------------------------------------------------------------------
-# 1a-d: ChildObserverWrapper unit tests
+# ChildObserverWrapper forwarding and interception
 # ---------------------------------------------------------------------------
 
 
 class TestChildObserverWrapper:
-    """Tests for the ChildObserverWrapper that does not exist yet."""
+    """ChildObserverWrapper forwards block events and intercepts workflow terminal events."""
 
     def test_child_observer_wrapper_forwards_on_block_start(self) -> None:
-        """(a) Wrapper must forward on_block_start to the parent observer."""
+        """Wrapper must forward on_block_start to the parent observer."""
         from runsight_core.observer import ChildObserverWrapper
 
         parent_obs = RecordingObserver()
         wrapper = ChildObserverWrapper(parent_obs)
 
-        wrapper.on_block_start("child_wf", "block1", "LLMBlock")
+        wrapper.on_block_start("analysis_child_workflow", "analysis_block", "LinearBlock")
 
         assert any(name == "on_block_start" for name in parent_obs.method_names()), (
             "on_block_start must be forwarded to parent observer"
         )
 
     def test_child_observer_wrapper_forwards_on_block_complete(self) -> None:
-        """(b) Wrapper must forward on_block_complete to the parent observer."""
+        """Wrapper must forward on_block_complete to the parent observer."""
         from runsight_core.observer import ChildObserverWrapper
 
         parent_obs = RecordingObserver()
         wrapper = ChildObserverWrapper(parent_obs)
         state = WorkflowState()
 
-        wrapper.on_block_complete("child_wf", "block1", "LLMBlock", 0.5, state)
+        wrapper.on_block_complete(
+            "analysis_child_workflow", "analysis_block", "LinearBlock", 0.5, state
+        )
 
         assert any(name == "on_block_complete" for name in parent_obs.method_names()), (
             "on_block_complete must be forwarded to parent observer"
         )
 
     def test_child_observer_wrapper_intercepts_on_workflow_complete(self) -> None:
-        """(c) Wrapper must NOT forward on_workflow_complete to the parent."""
+        """Wrapper must not forward on_workflow_complete to the parent."""
         from runsight_core.observer import ChildObserverWrapper
 
         parent_obs = RecordingObserver()
         wrapper = ChildObserverWrapper(parent_obs)
         state = WorkflowState()
 
-        wrapper.on_workflow_complete("child_wf", state, 1.0)
+        wrapper.on_workflow_complete("analysis_child_workflow", state, 1.0)
 
         assert "on_workflow_complete" not in parent_obs.method_names(), (
             "on_workflow_complete must be intercepted, not forwarded to parent"
         )
 
     def test_child_observer_wrapper_intercepts_on_workflow_error(self) -> None:
-        """(d) Wrapper must NOT forward on_workflow_error to the parent."""
+        """Wrapper must not forward on_workflow_error to the parent."""
         from runsight_core.observer import ChildObserverWrapper
 
         parent_obs = RecordingObserver()
         wrapper = ChildObserverWrapper(parent_obs)
 
-        wrapper.on_workflow_error("child_wf", RuntimeError("boom"), 1.0)
+        wrapper.on_workflow_error("analysis_child_workflow", RuntimeError("boom"), 1.0)
 
         assert "on_workflow_error" not in parent_obs.method_names(), (
             "on_workflow_error must be intercepted, not forwarded to parent"
@@ -163,7 +148,7 @@ class TestChildObserverWrapper:
 
 
 # ---------------------------------------------------------------------------
-# 1e: WorkflowBlock.execute uses ChildObserverWrapper
+# WorkflowBlock.execute uses ChildObserverWrapper
 # ---------------------------------------------------------------------------
 
 
@@ -172,17 +157,17 @@ class TestWorkflowBlockUsesChildObserver:
     """Integration tests: WorkflowBlock must wrap the observer."""
 
     async def test_workflow_block_execute_uses_child_observer(self) -> None:
-        """(e) After child completes, parent observer's on_workflow_complete
+        """After child completes, parent observer's on_workflow_complete
         must NOT have been called. The child workflow fires
         on_workflow_complete internally, but the wrapper intercepts it."""
         parent_obs = RecordingObserver()
 
         child_block = _EchoBlock("echo")
-        child_wf = _build_child_workflow("child_wf", child_block)
+        analysis_child_workflow = _build_child_workflow("analysis_child_workflow", child_block)
 
         wb = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_wf,
+            block_id="analysis_child_invocation_block",
+            child_workflow=analysis_child_workflow,
             inputs={},
             outputs={},
         )
@@ -203,29 +188,28 @@ class TestWorkflowBlockUsesChildObserver:
         )
 
     async def test_nested_child_observers_compose(self) -> None:
-        """(f) Parent -> child -> grandchild. Each level wraps the observer.
+        """Parent -> child -> grandchild. Each level wraps the observer.
         Grandchild completion must not trigger parent's on_workflow_complete."""
         parent_obs = RecordingObserver()
 
-        # grandchild workflow
         grandchild_block = _EchoBlock("gc_echo")
-        grandchild_wf = _build_child_workflow("grandchild_wf", grandchild_block)
+        review_grandchild_workflow = _build_child_workflow(
+            "review_grandchild_workflow", grandchild_block
+        )
 
-        # child workflow contains a WorkflowBlock that calls grandchild
         child_wb = WorkflowBlock(
-            block_id="call_grandchild",
-            child_workflow=grandchild_wf,
+            block_id="review_grandchild_invocation_block",
+            child_workflow=review_grandchild_workflow,
             inputs={},
             outputs={},
         )
-        child_wf = Workflow(name="child_wf")
-        child_wf.add_block(child_wb)
-        child_wf.set_entry("call_grandchild")
+        analysis_child_workflow = Workflow(name="analysis_child_workflow")
+        analysis_child_workflow.add_block(child_wb)
+        analysis_child_workflow.set_entry("review_grandchild_invocation_block")
 
-        # parent workflow block calls child
         parent_wb = WorkflowBlock(
-            block_id="call_child",
-            child_workflow=child_wf,
+            block_id="analysis_child_invocation_block",
+            child_workflow=analysis_child_workflow,
             inputs={},
             outputs={},
         )
@@ -247,7 +231,7 @@ class TestWorkflowBlockUsesChildObserver:
 
 
 # ---------------------------------------------------------------------------
-# 2g: on_error wired through parser
+# on_error wired through parser
 # ---------------------------------------------------------------------------
 
 
@@ -255,62 +239,57 @@ class TestParserOnErrorWiring:
     """Verify parse_workflow_yaml passes on_error to WorkflowBlock."""
 
     def test_parse_workflow_yaml_passes_on_error_to_workflow_block(self) -> None:
-        """(g) Parse a YAML dict with on_error: catch on a workflow block.
+        """Parse a YAML dict with on_error: catch on a workflow block.
         The resulting WorkflowBlock must have on_error == 'catch'."""
         from runsight_core.yaml.parser import parse_workflow_yaml
         from runsight_core.yaml.registry import WorkflowRegistry
         from runsight_core.yaml.schema import RunsightWorkflowFile
 
-        # Build a minimal child workflow definition using a code block
-        # (no soul_ref needed, avoids inline-soul validation)
         child_yaml = {
-            "id": "child_wf",
+            "id": "on-error-child-workflow",
             "kind": "workflow",
             "version": "1.0",
             "blocks": {
-                "step1": {
+                "child_code_step": {
                     "type": "code",
                     "code": "def main(data):\n    return 'done'",
                 }
             },
             "workflow": {
-                "name": "child_wf",
-                "entry": "step1",
+                "name": "on_error_child_workflow",
+                "entry": "child_code_step",
                 "transitions": [],
             },
         }
 
-        # Register child in a registry
         registry = WorkflowRegistry()
         child_file = RunsightWorkflowFile.model_validate(child_yaml)
-        registry.register("child_wf", child_file)
+        registry.register("on_error_child_workflow", child_file)
 
-        # Parent workflow that calls child with on_error: catch
         parent_yaml = {
-            "id": "parent_wf",
+            "id": "on-error-parent-workflow",
             "kind": "workflow",
             "version": "1.0",
             "blocks": {
-                "invoke_child": {
+                "on_error_child_invocation_block": {
                     "type": "workflow",
-                    "workflow_ref": "child_wf",
+                    "workflow_ref": "on_error_child_workflow",
                     "on_error": "catch",
                 }
             },
             "workflow": {
-                "name": "parent_wf",
-                "entry": "invoke_child",
+                "name": "on_error_parent_workflow",
+                "entry": "on_error_child_invocation_block",
                 "transitions": [],
             },
         }
 
-        parent_wf = parse_workflow_yaml(
+        on_error_parent_workflow = parse_workflow_yaml(
             parent_yaml,
             workflow_registry=registry,
         )
 
-        # The built WorkflowBlock must have on_error="catch"
-        wb = parent_wf.blocks["invoke_child"]
+        wb = on_error_parent_workflow.blocks["on_error_child_invocation_block"]
         assert hasattr(wb, "on_error"), "WorkflowBlock built by parser must have on_error attribute"
         assert wb.on_error == "catch", (
             f"Expected on_error='catch', got '{wb.on_error}'. "

@@ -1,15 +1,4 @@
-"""Red tests for RUN-693: Step wrapper silently swallowing block assertions.
-
-The bug: When a block has both `inputs:` and `assertions:` in YAML, the parser
-sets `.assertions` on the BaseBlock (step 6.5b), then wraps it in a Step for
-input resolution (step 6.6). Step has no `.assertions` property, so
-`getattr(step, "assertions", None)` returns None — assertions are silently lost.
-
-Tests cover:
-- Group 1: Step unit tests — accessing .assertions on a Step-wrapped block
-- Group 2: Parser integration — YAML with both inputs and assertions parsed correctly
-- Group 3: _build_assertion_configs pipeline — assertions visible through Step wrapper
-"""
+"""Step wrapper assertion delegation through parser and execution-service config building."""
 
 import tempfile
 from pathlib import Path
@@ -44,7 +33,7 @@ def _write_soul_file(base_dir: Path, name: str, content: str) -> None:
 
 
 # ===========================================================================
-# Group 1: Step unit tests — .assertions delegation
+# Step .assertions delegation
 # ===========================================================================
 
 
@@ -97,16 +86,14 @@ class TestStepDelegatesAssertions:
 
 
 # ===========================================================================
-# Group 2: Parser integration — YAML with both inputs and assertions
+# Parser integration for inputs plus assertions
 # ===========================================================================
 
 
 YAML_INPUTS_AND_ASSERTIONS = """\
-id: test-workflow
+id: assertion-step-workflow
 kind: workflow
 version: "1.0"
-config:
-  model_name: gpt-4o
 blocks:
   fetch:
     type: linear
@@ -134,11 +121,9 @@ workflow:
 
 
 YAML_INPUTS_NO_ASSERTIONS = """\
-id: test-workflow
+id: input-only-step-workflow
 kind: workflow
 version: "1.0"
-config:
-  model_name: gpt-4o
 blocks:
   fetch:
     type: linear
@@ -232,7 +217,7 @@ class TestParserPreservesAssertionsWithInputs:
 
 
 # ===========================================================================
-# Group 3: _build_assertion_configs pipeline — Step-wrapped blocks
+# _build_assertion_configs with Step-wrapped blocks
 # ===========================================================================
 
 
