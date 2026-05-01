@@ -1,13 +1,4 @@
-"""
-RUN-803: ToolScanner Pydantic migration — failing tests.
-
-These tests verify that:
-- ToolManifest and RequestConfig are Pydantic BaseModels with extra="forbid"
-- ToolMeta is converted from @dataclass to Pydantic BaseModel
-- runsight_core/tools/contract.py exists with TOOL_FUNCTION_NAME / TOOL_FUNCTION_PARAMS
-- _validate_tool_main_contract references the shared constants
-- End-to-end ToolScanner raises Pydantic ValidationError for invalid YAML
-"""
+"""ToolScanner Pydantic manifest and metadata validation behavior."""
 
 from __future__ import annotations
 
@@ -26,12 +17,12 @@ def _valid_tool_dict() -> dict:
     """Minimal valid tool YAML dict (python executor)."""
     return {
         "version": "1.0",
-        "id": "my_tool",
+        "id": "profile_lookup_tool",
         "kind": "tool",
         "type": "custom",
         "executor": "python",
-        "name": "My Tool",
-        "description": "Does a thing.",
+        "name": "Profile Lookup",
+        "description": "Returns profile data.",
         "parameters": {"type": "object"},
         "code": "def main(args):\n    return args\n",
     }
@@ -41,12 +32,12 @@ def _valid_request_dict() -> dict:
     """Minimal valid request config dict."""
     return {
         "method": "GET",
-        "url": "https://example.com/api",
+        "url": "http://127.0.0.1:18080/api",
     }
 
 
 # ---------------------------------------------------------------------------
-# 1. ToolManifest exists and is a Pydantic BaseModel with extra="forbid"
+# ToolManifest model contract
 # ---------------------------------------------------------------------------
 
 
@@ -70,7 +61,7 @@ class TestToolManifestIsABaseModel:
 
 
 # ---------------------------------------------------------------------------
-# 2. ToolManifest rejects extra fields with ValidationError (not ValueError)
+# ToolManifest extra-field rejection
 # ---------------------------------------------------------------------------
 
 
@@ -108,7 +99,7 @@ class TestToolManifestRejectsExtraFields:
 
 
 # ---------------------------------------------------------------------------
-# 3. ToolManifest rejects missing required fields with ValidationError
+# ToolManifest missing-field rejection
 # ---------------------------------------------------------------------------
 
 
@@ -165,7 +156,7 @@ class TestToolManifestRejectsMissingFields:
 
 
 # ---------------------------------------------------------------------------
-# 4. RequestConfig exists and is a Pydantic BaseModel with extra="forbid"
+# RequestConfig model contract
 # ---------------------------------------------------------------------------
 
 
@@ -191,7 +182,7 @@ class TestRequestConfigIsABaseModel:
 
 
 # ---------------------------------------------------------------------------
-# 5. RequestConfig rejects extra request fields with ValidationError
+# RequestConfig extra-field rejection
 # ---------------------------------------------------------------------------
 
 
@@ -229,7 +220,7 @@ class TestRequestConfigRejectsExtraFields:
 
 
 # ---------------------------------------------------------------------------
-# 6. ToolMeta is a Pydantic BaseModel, not a dataclass
+# ToolMeta model contract
 # ---------------------------------------------------------------------------
 
 
@@ -256,7 +247,7 @@ class TestToolMetaIsBaseModel:
 
 
 # ---------------------------------------------------------------------------
-# 7. Shared contract constants exist
+# Shared contract constants
 # ---------------------------------------------------------------------------
 
 
@@ -282,7 +273,7 @@ class TestToolContractConstants:
 
 
 # ---------------------------------------------------------------------------
-# 8. _validate_tool_main_contract uses shared constants
+# _validate_tool_main_contract constant usage
 # ---------------------------------------------------------------------------
 
 
@@ -349,7 +340,7 @@ class TestValidateToolMainContractUsesConstants:
 
 
 # ---------------------------------------------------------------------------
-# 9. End-to-end: ToolScanner raises errors originating from Pydantic validation
+# ToolScanner Pydantic validation errors
 # ---------------------------------------------------------------------------
 
 
@@ -366,16 +357,16 @@ class TestToolScannerUsesPydanticValidation:
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "my_tool.yaml"
+            tool_yaml = tools_dir / "profile_lookup_tool.yaml"
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
-                id: my_tool
+                id: profile_lookup_tool
                 kind: tool
                 type: custom
                 executor: python
-                name: My Tool
-                description: Does a thing.
+                name: Profile Lookup
+                description: Returns profile data.
                 parameters:
                   type: object
                 code: |
@@ -410,15 +401,15 @@ class TestToolScannerUsesPydanticValidation:
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "bad_tool.yaml"
+            tool_yaml = tools_dir / "profile_missing_name_tool.yaml"
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
-                id: bad_tool
+                id: profile_missing_name_tool
                 kind: tool
                 type: custom
                 executor: python
-                description: Missing name field.
+                description: Returns profile data without a name field.
                 parameters:
                   type: object
                 code: |
@@ -451,21 +442,21 @@ class TestToolScannerUsesPydanticValidation:
             tools_dir = base_dir / "custom" / "tools"
             tools_dir.mkdir(parents=True)
 
-            tool_yaml = tools_dir / "http_tool.yaml"
+            tool_yaml = tools_dir / "profile_request_tool.yaml"
             tool_yaml.write_text(
                 dedent("""
                 version: "1.0"
-                id: http_tool
+                id: profile_request_tool
                 kind: tool
                 type: custom
                 executor: request
-                name: HTTP Tool
-                description: Fetches something.
+                name: Profile Request
+                description: Fetches profile data from a local harness.
                 parameters:
                   type: object
                 request:
                   method: GET
-                  url: https://example.com/api
+                  url: http://127.0.0.1:18080/api
                   unsupported_extra: oops
                 """).lstrip()
             )
@@ -486,7 +477,7 @@ class TestToolScannerUsesPydanticValidation:
 
 
 # ---------------------------------------------------------------------------
-# 10. ToolMeta attribute access unchanged for consumers
+# ToolMeta attribute access for consumers
 # ---------------------------------------------------------------------------
 
 
@@ -497,8 +488,8 @@ class TestToolMetaAttributeAccess:
         from runsight_core.yaml.discovery import ToolMeta
 
         meta = ToolMeta(
-            tool_id="lookup_profile",
-            file_path=Path("/tmp/lookup_profile.yaml"),
+            tool_id="profile_lookup_tool",
+            file_path=Path("/tmp/profile_lookup_tool.yaml"),
             version="1.0",
             type="custom",
             executor="python",
@@ -508,8 +499,8 @@ class TestToolMetaAttributeAccess:
             code="def main(args):\n    return args\n",
         )
 
-        assert meta.tool_id == "lookup_profile"
-        assert meta.file_path == Path("/tmp/lookup_profile.yaml")
+        assert meta.tool_id == "profile_lookup_tool"
+        assert meta.file_path == Path("/tmp/profile_lookup_tool.yaml")
         assert meta.executor == "python"
         assert meta.name == "Lookup Profile"
         assert meta.description == "Look up a profile."
@@ -522,17 +513,17 @@ class TestToolMetaAttributeAccess:
         from runsight_core.yaml.discovery import ToolMeta
 
         meta = ToolMeta(
-            tool_id="fetch_profile",
-            file_path=Path("/tmp/fetch_profile.yaml"),
+            tool_id="profile_request_tool",
+            file_path=Path("/tmp/profile_request_tool.yaml"),
             version="1.0",
             type="custom",
             executor="request",
-            name="Fetch Profile",
-            description="Fetch a remote profile.",
+            name="Profile Request",
+            description="Fetch profile data from a local harness.",
             parameters={"type": "object"},
             request={
                 "method": "GET",
-                "url": "https://example.com/profiles/{{ profile_id }}",
+                "url": "http://127.0.0.1:18080/profiles/{{ profile_id }}",
                 "headers": {},
                 "body_template": None,
                 "response_path": "data.profile",
@@ -540,7 +531,7 @@ class TestToolMetaAttributeAccess:
             timeout_seconds=9,
         )
 
-        assert meta.tool_id == "fetch_profile"
+        assert meta.tool_id == "profile_request_tool"
         assert meta.executor == "request"
         assert meta.request is not None
         assert meta.request["method"] == "GET"

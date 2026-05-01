@@ -1,18 +1,4 @@
-"""
-Tests for RUN-222: Migrate Remaining Block Types.
-
-After migration, every block type is self-contained: schema (BlockDef) +
-runtime class + builder (build()) in one file, auto-registered via
-__init_subclass__ and build() convention.
-
-Tests verify:
-1. Co-located BlockDef importable from each block file
-2. Co-located build() function importable from each block file
-3. Registry counts (7 entries each for BLOCK_DEF_REGISTRY and BLOCK_BUILDER_REGISTRY)
-4. CarryContextConfig migrated with LoopBlockDef to blocks/loop.py
-5. JSON schema stability (generate_schema.py --check)
-6. End-to-end round-trip: parse_workflow_yaml still works for migrated block types
-"""
+"""Block schema, builder registry, and parser round-trip contracts."""
 
 from __future__ import annotations
 
@@ -64,7 +50,7 @@ ALL_BLOCK_TYPES = {
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 1. Co-located BlockDef importable from each block file
+# Co-located BlockDef imports
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -108,7 +94,7 @@ class TestBlockDefImportable:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 3. Co-located build() function importable from each block file
+# Co-located build() functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -152,12 +138,12 @@ class TestBuildFunctionExists:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 4. Registry counts — all 12 types auto-registered
+# Registry counts for migrated block types
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestRegistryCounts:
-    """After full migration, all 12 types are auto-registered (no hardcoded entries)."""
+    """Migrated block types are auto-registered without hardcoded parser entries."""
 
     def test_block_def_registry_has_7_entries(self):
         """BLOCK_DEF_REGISTRY must have exactly 7 entries from auto-discovery."""
@@ -211,7 +197,7 @@ class TestRegistryCounts:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 3. CarryContextConfig migration (moved with LoopBlockDef to blocks/loop.py)
+# CarryContextConfig loop-module ownership
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -235,20 +221,20 @@ class TestCarryContextConfigMigration:
         assert config.inject_as == "previous_round_context"
 
     def test_carry_context_config_re_exported_from_schema(self):
-        """schema.py should re-export CarryContextConfig for backward compatibility."""
+        """schema.py should preserve the legacy CarryContextConfig import path."""
         from runsight_core.blocks.loop import CarryContextConfig  # noqa: F401
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 8. JSON schema stability (generate_schema.py --check)
+# JSON schema stability (generate_schema.py --check)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestGenerateSchemaCheck:
-    """Verify generate_schema.py --check passes after migration."""
+    """Verify generate_schema.py --check passes for migrated block schemas."""
 
     def test_generate_schema_check_passes(self):
-        """Running `python generate_schema.py --check` must exit 0 after migration."""
+        """Running `python generate_schema.py --check` must exit 0."""
         import subprocess
 
         script = Path(__file__).resolve().parent.parent / "scripts" / "generate_schema.py"
@@ -270,15 +256,13 @@ class TestGenerateSchemaCheck:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 9. End-to-end round-trip: parse_workflow_yaml still works
+# Parser round-trips for migrated block types
 # ═══════════════════════════════════════════════════════════════════════════════
 
 VALID_LINEAR_YAML = """\
 version: "1.0"
-id: test_linear
+id: linear_roundtrip_workflow
 kind: workflow
-config:
-  model_name: gpt-4o
 souls:
   writer:
     id: writer
@@ -291,9 +275,9 @@ blocks:
     type: linear
     soul_ref: writer
 workflow:
-  id: test_linear
+  id: linear_roundtrip_workflow
   kind: workflow
-  name: test_linear
+  name: linear_roundtrip_workflow
   entry: write_step
   transitions:
     - from: write_step
@@ -302,10 +286,8 @@ workflow:
 
 VALID_LOOP_YAML = """\
 version: "1.0"
-id: test_loop
+id: loop_roundtrip_workflow
 kind: workflow
-config:
-  model_name: gpt-4o
 souls:
   worker:
     id: worker
@@ -323,9 +305,9 @@ blocks:
       - task_step
     max_rounds: 3
 workflow:
-  id: test_loop
+  id: loop_roundtrip_workflow
   kind: workflow
-  name: test_loop
+  name: loop_roundtrip_workflow
   entry: loop_step
   transitions:
     - from: loop_step
@@ -334,10 +316,8 @@ workflow:
 
 VALID_CODE_YAML = """\
 version: "1.0"
-id: test_code
+id: code_roundtrip_workflow
 kind: workflow
-config:
-  model_name: gpt-4o
 blocks:
   transform:
     type: code
@@ -346,9 +326,9 @@ blocks:
           return {"result": input_data.get("value", 0) * 2}
     timeout_seconds: 10
 workflow:
-  id: test_code
+  id: code_roundtrip_workflow
   kind: workflow
-  name: test_code
+  name: code_roundtrip_workflow
   entry: transform
   transitions:
     - from: transform
@@ -360,7 +340,7 @@ class TestEndToEndRoundTrip:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
 
     def test_parse_linear_block(self):
-        """parse_workflow_yaml must still work with linear blocks after migration."""
+        """parse_workflow_yaml must work with linear blocks."""
         from runsight_core import LinearBlock
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.workflow import Workflow
@@ -368,34 +348,34 @@ class TestEndToEndRoundTrip:
 
         wf = parse_workflow_yaml(VALID_LINEAR_YAML)
         assert isinstance(wf, Workflow)
-        assert wf.name == "test_linear"
+        assert wf.name == "linear_roundtrip_workflow"
         block = wf.blocks.get("write_step")
         assert block is not None
         assert isinstance(block, IsolatedBlockWrapper)
         assert isinstance(block.inner_block, LinearBlock)
 
     def test_parse_loop_block(self):
-        """parse_workflow_yaml must still work with loop blocks after migration."""
+        """parse_workflow_yaml must work with loop blocks."""
         from runsight_core import LoopBlock
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         wf = parse_workflow_yaml(VALID_LOOP_YAML)
         assert isinstance(wf, Workflow)
-        assert wf.name == "test_loop"
+        assert wf.name == "loop_roundtrip_workflow"
         block = wf.blocks.get("loop_step")
         assert block is not None
         assert isinstance(block, LoopBlock)
 
     def test_parse_code_block(self):
-        """parse_workflow_yaml must still work with code blocks after migration."""
+        """parse_workflow_yaml must work with code blocks."""
         from runsight_core import CodeBlock
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         wf = parse_workflow_yaml(VALID_CODE_YAML)
         assert isinstance(wf, Workflow)
-        assert wf.name == "test_code"
+        assert wf.name == "code_roundtrip_workflow"
         block = wf.blocks.get("transform")
         assert block is not None
         assert isinstance(block, CodeBlock)

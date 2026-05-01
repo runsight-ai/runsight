@@ -1,21 +1,4 @@
-"""
-Red-phase tests for RUN-112: Parser + Explicit Inputs/Outputs.
-
-Tests cover:
-- Group 1: Input parsing & cross-reference validation
-- Group 2: Output declarations
-- Group 3: output_conditions wired to Workflow
-- Group 4: Step input resolution (declared_inputs)
-- Group 5: Parser wires inputs to Step
-- Group 6: Builder simplification
-
-All tests are expected to FAIL until RUN-112 implementation is complete.
-
-Dependencies assumed done (RUN-110, RUN-111):
-- schema.py has InputRef, ConditionDef, ConditionGroupDef, CaseDef
-- conditions/engine.py has Case, Condition, ConditionGroup
-- Workflow has set_output_conditions() and _output_conditions
-"""
+"""Parser input, output, condition, and Step wiring behavior."""
 
 import json
 
@@ -81,7 +64,7 @@ class CapturingBlock(BaseBlock):
 
 
 # ===========================================================================
-# Group 1: Input Parsing & Cross-Reference Validation
+# Input parsing and cross-reference validation
 # ===========================================================================
 
 
@@ -92,7 +75,7 @@ class TestInputParsing:
         """YAML with inputs.from reference parses without error."""
         yaml_content = f"""
 version: "1.0"
-id: test_inputs_self
+id: inputs_cross_reference_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -106,9 +89,9 @@ blocks:
       context:
         from: step_a.result
 workflow:
-  id: test_inputs
+  id: inputs_cross_reference_workflow
   kind: workflow
-  name: test_inputs
+  name: inputs_cross_reference_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -136,7 +119,7 @@ workflow:
         """inputs.from referencing nonexistent block raises ValueError with clear message."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: invalid_input_reference_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -150,9 +133,9 @@ blocks:
       context:
         from: nonexistent_block.field
 workflow:
-  id: test_inputs_invalid
+  id: invalid_input_reference_workflow
   kind: workflow
-  name: test_inputs_invalid
+  name: invalid_input_reference_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -167,7 +150,7 @@ workflow:
         """inputs.from referencing self (same block) raises ValueError for circular dependency."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: self_reference_input_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -178,9 +161,9 @@ blocks:
       context:
         from: step_b.field
 workflow:
-  id: test_inputs_self
+  id: self_reference_input_workflow
   kind: workflow
-  name: test_inputs_self
+  name: self_reference_input_workflow
   entry: step_b
   transitions:
     - from: step_b
@@ -193,7 +176,7 @@ workflow:
         """A inputs from B, B inputs from A raises ValueError for circular dependency."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: two_node_input_cycle_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -210,9 +193,9 @@ blocks:
       context:
         from: step_a.result
 workflow:
-  id: test_inputs_circular
+  id: two_node_input_cycle_workflow
   kind: workflow
-  name: test_inputs_circular
+  name: two_node_input_cycle_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -227,7 +210,7 @@ workflow:
         """A->B->C->A circular input dependency chain raises ValueError."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: three_node_input_cycle_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -250,9 +233,9 @@ blocks:
       feedback:
         from: step_b.result
 workflow:
-  id: test_inputs_circular_three
+  id: three_node_input_cycle_workflow
   kind: workflow
-  name: test_inputs_circular_three
+  name: three_node_input_cycle_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -269,7 +252,7 @@ workflow:
         """Block with multiple input references parses all correctly."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: multiple_declared_inputs_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -290,9 +273,9 @@ blocks:
       review_score:
         from: step_b.score
 workflow:
-  id: test_multi_inputs
+  id: multiple_declared_inputs_workflow
   kind: workflow
-  name: test_multi_inputs
+  name: multiple_declared_inputs_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -306,10 +289,10 @@ workflow:
         assert isinstance(workflow, Workflow)
 
     def test_parse_inputs_no_inputs(self):
-        """Block without inputs field works fine (backward compatible)."""
+        """Block without inputs field uses the legacy default path."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: no_declared_inputs_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -317,9 +300,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_no_inputs
+  id: no_declared_inputs_workflow
   kind: workflow
-  name: test_no_inputs
+  name: no_declared_inputs_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -330,7 +313,7 @@ workflow:
 
 
 # ===========================================================================
-# Group 2: Output Declarations
+# Output declarations
 # ===========================================================================
 
 
@@ -341,7 +324,7 @@ class TestOutputDeclarations:
         """Block with outputs declaration (typed output schema) parses correctly."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: typed_outputs_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -352,9 +335,9 @@ blocks:
       result: string
       score: number
 workflow:
-  id: test_outputs
+  id: typed_outputs_workflow
   kind: workflow
-  name: test_outputs
+  name: typed_outputs_workflow
   entry: evaluator
   transitions:
     - from: evaluator
@@ -364,10 +347,10 @@ workflow:
         assert isinstance(workflow, Workflow)
 
     def test_parse_outputs_none(self):
-        """Block without outputs field works fine (backward compatible)."""
+        """Block without outputs field uses the legacy default path."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: no_outputs_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -375,9 +358,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_no_outputs
+  id: no_outputs_workflow
   kind: workflow
-  name: test_no_outputs
+  name: no_outputs_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -388,7 +371,7 @@ workflow:
 
 
 # ===========================================================================
-# Group 3: output_conditions Wired to Workflow
+# output_conditions wiring to Workflow
 # ===========================================================================
 
 
@@ -399,7 +382,7 @@ class TestOutputConditionsWiring:
         """output_conditions in YAML populates workflow._output_conditions for the block."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: output_conditions_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -417,9 +400,9 @@ blocks:
       - case_id: rejected
         default: true
 workflow:
-  id: test_output_conditions
+  id: output_conditions_workflow
   kind: workflow
-  name: test_output_conditions
+  name: output_conditions_workflow
   entry: evaluator
   transitions:
     - from: evaluator
@@ -435,7 +418,7 @@ workflow:
         """output_conditions on block + conditional_transition from that block both work together."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: output_conditions_conditional_transition_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -459,9 +442,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_oc_with_ct
+  id: output_conditions_conditional_transition_workflow
   kind: workflow
-  name: test_oc_with_ct
+  name: output_conditions_conditional_transition_workflow
   entry: evaluator
   conditional_transitions:
     - from: evaluator
@@ -484,7 +467,7 @@ workflow:
         """Block without output_conditions has no entry in workflow._output_conditions."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: no_output_conditions_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -492,9 +475,9 @@ blocks:
     type: linear
     soul_ref: researcher
 workflow:
-  id: test_no_oc
+  id: no_output_conditions_workflow
   kind: workflow
-  name: test_no_oc
+  name: no_output_conditions_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -507,7 +490,7 @@ workflow:
 
 
 # ===========================================================================
-# Group 4: Step Input Resolution
+# Step input resolution
 # ===========================================================================
 
 
@@ -516,7 +499,7 @@ class TestStepInputResolution:
 
     def test_step_declared_inputs_constructor(self):
         """Step accepts declared_inputs dict in constructor."""
-        block = MockBlock("test_block")
+        block = MockBlock("declared_input_block")
         step = Step(block, declared_inputs={"context": "step_a.result"})
         assert step.declared_inputs == {"context": "step_a.result"}
 
@@ -532,7 +515,7 @@ class TestStepInputResolution:
 
         await step.execute(state)
 
-        # Per RUN-892: resolved inputs go into ctx.inputs, not shared_memory.
+        # Resolved inputs go into ctx.inputs, not shared_memory.
         assert block.received_ctx is not None
         resolved = block.received_ctx.inputs
         assert resolved is not None
@@ -552,7 +535,7 @@ class TestStepInputResolution:
 
         await step.execute(state)
 
-        # Per RUN-892: resolved inputs go into ctx.inputs, not shared_memory.
+        # Resolved inputs go into ctx.inputs, not shared_memory.
         assert block.received_ctx is not None
         resolved = block.received_ctx.inputs
         assert resolved is not None
@@ -571,7 +554,7 @@ class TestStepInputResolution:
 
     @pytest.mark.asyncio
     async def test_step_no_declared_inputs_unchanged(self):
-        """Step without declared_inputs behaves exactly as before (backward compatible)."""
+        """Step without declared_inputs keeps the default execution path."""
         block = MockBlock("step_a")
         step = Step(block)  # no declared_inputs
 
@@ -586,7 +569,7 @@ class TestStepInputResolution:
 
     def test_step_backward_compatible(self):
         """Existing Step(block, pre_hook, post_hook) constructor still works."""
-        block = MockBlock("test_block")
+        block = MockBlock("hooked_step_block")
 
         def pre(s):
             return s
@@ -603,7 +586,7 @@ class TestStepInputResolution:
 
 
 # ===========================================================================
-# Group 5: Parser Wires Inputs to Step
+# Parser wires inputs to Step
 # ===========================================================================
 
 
@@ -614,7 +597,7 @@ class TestParserWiresInputsToStep:
         """When block has inputs, parser creates Step with declared_inputs populated."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: declared_input_step_wiring_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -628,9 +611,9 @@ blocks:
       context:
         from: step_a.result
 workflow:
-  id: test_step_wiring
+  id: declared_input_step_wiring_workflow
   kind: workflow
-  name: test_step_wiring
+  name: declared_input_step_wiring_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -663,7 +646,7 @@ workflow:
         """Complete YAML with inputs + output_conditions + transitions parses and validates."""
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: full_parser_roundtrip_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -701,9 +684,9 @@ blocks:
       eval_data:
         from: evaluate.result
 workflow:
-  id: full_round_trip
+  id: full_parser_roundtrip_workflow
   kind: workflow
-  name: full_round_trip
+  name: full_parser_roundtrip_workflow
   entry: research
   transitions:
     - from: research
@@ -720,7 +703,7 @@ workflow:
 """
         workflow = parse_workflow_yaml(yaml_content)
         assert isinstance(workflow, Workflow)
-        assert workflow.name == "full_round_trip"
+        assert workflow.name == "full_parser_roundtrip_workflow"
 
         # Verify output_conditions wired
         assert hasattr(workflow, "_output_conditions")
@@ -737,7 +720,7 @@ workflow:
 
 
 # ===========================================================================
-# Group 6: Builder Simplification
+# Builder simplification
 # ===========================================================================
 
 
@@ -747,18 +730,17 @@ class TestBuilderSimplification:
     def test_builder_no_redundant_validation(self):
         """Schema-level validation (e.g. InputRef structure) is not duplicated in builders.
 
-        After RUN-112, inputs values must be InputRef objects (with 'from' field).
+        Input values must be InputRef objects with a 'from' field.
         When inputs have an invalid structure, Pydantic ValidationError should
         be raised by the schema layer — not a builder ValueError.
         """
         from pydantic import ValidationError
 
-        # inputs with wrong structure — missing 'from' key inside InputRef.
-        # After RUN-112 changes BlockDef.inputs to Dict[str, InputRef],
-        # this should be caught by schema (InputRef validation), not builder.
+        # Inputs with the wrong structure are caught by schema validation,
+        # not duplicated in each block builder.
         yaml_content = f"""
 version: "1.0"
-id: inline_test_workflow
+id: builder_schema_validation_workflow
 kind: workflow
 {SOULS_YAML}
 blocks:
@@ -769,9 +751,9 @@ blocks:
       context:
         invalid_key: step_b.result
 workflow:
-  id: test_builder_validation
+  id: builder_schema_validation_workflow
   kind: workflow
-  name: test_builder_validation
+  name: builder_schema_validation_workflow
   entry: step_a
   transitions:
     - from: step_a
@@ -783,19 +765,19 @@ workflow:
 
 
 # ===========================================================================
-# Group 7: CodeBlock Resolved Inputs in Sandbox
+# CodeBlock resolved inputs in sandbox
 # ===========================================================================
 
 
 class TestCodeBlockResolvedInputs:
-    """Tests that CodeBlock receives resolved inputs via ctx.inputs (per RUN-892)."""
+    """CodeBlock receives resolved inputs via ctx.inputs."""
 
     @pytest.mark.asyncio
     async def test_codeblock_receives_resolved_inputs_via_step(self):
         """When a block has declared_inputs resolved by Step, they appear in ctx.inputs.
 
-        Per RUN-892, _resolved_inputs is NOT injected into shared_memory.
-        Resolved inputs go into ctx.inputs for new-style blocks.
+        _resolved_inputs is not injected into shared_memory. Resolved inputs
+        go into ctx.inputs for new-style blocks.
         """
         block = CapturingBlock("code_step")
         step = Step(
@@ -818,16 +800,14 @@ class TestCodeBlockResolvedInputs:
         # CapturingBlock records the BlockContext it received — verify ctx.inputs
         assert block.received_ctx is not None
         resolved = block.received_ctx.inputs
-        assert resolved is not None, (
-            "Resolved inputs must be in ctx.inputs (not shared_memory per RUN-892)"
-        )
+        assert resolved is not None, "Resolved inputs must be in ctx.inputs, not shared_memory"
         assert resolved["dataset"] == "fetched data payload"
         # "setup_step.params" should resolve the dotted path into the JSON
         assert resolved["config"] == "config_value"
 
 
 # ===========================================================================
-# Group 8: WorkflowBlockDef inputs/outputs Field Types
+# WorkflowBlockDef inputs/outputs field types
 # ===========================================================================
 
 
@@ -862,7 +842,7 @@ class TestWorkflowBlockDefFields:
 
         yaml_data = {
             "version": "1.0",
-            "id": "test_wf_block_fields",
+            "id": "workflow_block_binding_fields",
             "kind": "workflow",
             "blocks": {
                 "child_runner": {
@@ -873,7 +853,7 @@ class TestWorkflowBlockDefFields:
                 },
             },
             "workflow": {
-                "name": "test_wf_block_fields",
+                "name": "workflow_block_binding_fields",
                 "entry": "child_runner",
                 "transitions": [{"from": "child_runner", "to": None}],
             },
@@ -885,7 +865,7 @@ class TestWorkflowBlockDefFields:
 
     def test_non_workflow_block_inputs_are_inputref_type(self):
         """Non-workflow blocks should have inputs parsed as InputRef (dict with 'from' key),
-        not plain Dict[str, str]. After RUN-112, BaseBlockDef.inputs is Dict[str, InputRef].
+        not plain Dict[str, str].
 
         This verifies that the type distinction exists: workflow blocks get Dict[str, str],
         non-workflow blocks get Dict[str, InputRef].
@@ -907,12 +887,12 @@ class TestWorkflowBlockDefFields:
 
 
 # ===========================================================================
-# Group 9: Builder Simplification — No Conditional in Parser
+# Builder simplification with no conditional helper in parser
 # ===========================================================================
 
 
 class TestConditionalNotInParser:
-    """Tests that _build_conditional was removed from parser (RUN-91 cleanup)."""
+    """_build_conditional remains outside parser module ownership."""
 
     def test_conditional_not_in_block_type_registry(self):
         """'conditional' must not be a registered block type in BLOCK_TYPE_REGISTRY."""

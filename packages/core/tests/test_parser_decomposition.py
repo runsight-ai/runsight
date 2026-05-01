@@ -1,16 +1,4 @@
-"""
-RUN-850: Failing tests for parse_workflow_yaml decomposition.
-
-AC:
-1. Function decomposed into focused sub-functions (each ≤50 lines)
-2. Block-bridging consolidated into a single iteration pass
-3. All existing tests still pass
-4. Each sub-function is independently testable
-
-These tests are written BEFORE the refactor — they will fail (ImportError or
-assertion failures) against the current 388-line god function and pass only
-once the Green team completes the decomposition.
-"""
+"""Parser decomposition boundaries and bridge behavior contracts."""
 
 from __future__ import annotations
 
@@ -22,9 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 # ---------------------------------------------------------------------------
-# Test Group 1: Sub-function existence
-# Each test imports a named sub-function that does not yet exist.
-# Expected failure mode: ImportError.
+# Sub-function existence
 # ---------------------------------------------------------------------------
 
 
@@ -63,9 +49,7 @@ class TestSubFunctionExistence:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 2: Sub-function line counts
-# Uses inspect.getsource() to count non-empty, non-comment lines.
-# Expected failure mode: assertion error — current function is 388 lines.
+# Sub-function line counts
 # ---------------------------------------------------------------------------
 
 
@@ -120,8 +104,8 @@ class TestSubFunctionLineCounts:
     def test_validate_inputs_and_detect_cycles_under_50_lines(self):
         """_validate_inputs_and_detect_cycles must be ≤52 non-blank, non-comment lines.
 
-        Note: threshold raised from 50→52 post-RUN-866 to account for the
-        "workflow" reserved-source guard added by the input-seeding feature.
+        The threshold allows the reserved-source guard for workflow input
+        seeding to stay inside the validation boundary.
         """
         from runsight_core.yaml.parser import _validate_inputs_and_detect_cycles
 
@@ -141,9 +125,7 @@ class TestSubFunctionLineCounts:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 3: Block-bridging consolidation
-# Verifies that _bridge_block_attributes handles all attributes in one call.
-# Expected failure mode: ImportError until the function is extracted.
+# Block-bridging consolidation
 # ---------------------------------------------------------------------------
 
 
@@ -184,7 +166,7 @@ class TestBridgeBlockAttributesConsolidation:
         block = self._make_mock_block()
         block_def = self._make_mock_block_def(exits=fake_exits)
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block._declared_exits == fake_exits
 
@@ -196,7 +178,7 @@ class TestBridgeBlockAttributesConsolidation:
         block = self._make_mock_block()
         block_def = self._make_mock_block_def(retry_config=retry)
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block.retry_config == retry
 
@@ -207,7 +189,7 @@ class TestBridgeBlockAttributesConsolidation:
         block = self._make_mock_block()
         block_def = self._make_mock_block_def(stateful=True)
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block.stateful is True
 
@@ -228,7 +210,7 @@ class TestBridgeBlockAttributesConsolidation:
         # Simpler: just use dicts directly since the bridging function calls dict(assertion)
         block_def.assertions = raw_assertions
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block.assertions is not None
 
@@ -240,7 +222,7 @@ class TestBridgeBlockAttributesConsolidation:
         block = self._make_mock_block()
         block_def = self._make_mock_block_def(exit_conditions=conds)
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block.exit_conditions == conds
 
@@ -252,7 +234,7 @@ class TestBridgeBlockAttributesConsolidation:
         block = self._make_mock_block()
         block_def = self._make_mock_block_def(limits=limits)
 
-        _bridge_block_attributes("b1", block_def, block)
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block.limits == limits
 
@@ -274,8 +256,8 @@ class TestBridgeBlockAttributesConsolidation:
             limits=limits,
         )
 
-        # Single call — must cover exits, retry, stateful, and limits
-        _bridge_block_attributes("b1", block_def, block)
+        # Single call must cover exits, retry, stateful, and limits.
+        _bridge_block_attributes("bridge_target_block", block_def, block)
 
         assert block._declared_exits == fake_exits
         assert block.retry_config == retry
@@ -284,15 +266,12 @@ class TestBridgeBlockAttributesConsolidation:
 
 
 # ---------------------------------------------------------------------------
-# Test Group 4: Behavioral preservation (regression guard)
-# Verifies parse_workflow_yaml produces correct output after decomposition.
-# Expected failure: should PASS currently (regression guard).
-# These will catch regressions if the refactor breaks behaviour.
+# Behavioral preservation
 # ---------------------------------------------------------------------------
 
 _MINIMAL_WORKFLOW_YAML = dedent(
     """\
-    id: minimal-e2e
+    id: minimal_parser_workflow
     kind: workflow
     version: "1.0"
     souls:
@@ -307,7 +286,7 @@ _MINIMAL_WORKFLOW_YAML = dedent(
         type: linear
         soul_ref: writer
     workflow:
-      name: minimal_e2e
+      name: minimal_parser_workflow
       entry: draft
     """
 )
@@ -342,7 +321,7 @@ _TWO_BLOCK_YAML = dedent(
 
 _DISPATCH_YAML = dedent(
     """\
-    id: dispatch-e2e
+    id: dispatch_routing_workflow
     kind: workflow
     version: "1.0"
     souls:
@@ -366,7 +345,7 @@ _DISPATCH_YAML = dedent(
           - name: done
             soul_ref: worker
     workflow:
-      name: dispatch_e2e
+      name: dispatch_routing_workflow
       entry: dispatch_block
     """
 )
@@ -394,7 +373,7 @@ class TestBehavioralPreservation:
             mock_runner.return_value = Mock()
             result = parse_workflow_yaml(_MINIMAL_WORKFLOW_YAML)
 
-        assert result.name == "minimal_e2e"
+        assert result.name == "minimal_parser_workflow"
 
     def test_parse_workflow_yaml_registers_all_blocks(self):
         """All blocks defined in YAML must appear in the assembled Workflow."""
@@ -436,7 +415,7 @@ class TestBehavioralPreservation:
 
         bad_yaml = dedent(
             """\
-            id: bad-workflow
+            id: unknown_block_workflow
             kind: workflow
             version: "1.0"
             blocks:
@@ -460,7 +439,7 @@ class TestBehavioralPreservation:
 
         bad_yaml = dedent(
             """\
-            id: bad-workflow
+            id: missing_soul_ref_workflow
             kind: workflow
             version: "1.0"
             blocks:
@@ -484,7 +463,7 @@ class TestBehavioralPreservation:
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         raw_dict = {
-            "id": "dict-input-test",
+            "id": "dict_input_workflow",
             "kind": "workflow",
             "version": "1.0",
             "souls": {
@@ -503,7 +482,7 @@ class TestBehavioralPreservation:
                 }
             },
             "workflow": {
-                "name": "dict_input_test",
+                "name": "dict_input_workflow",
                 "entry": "draft",
             },
         }
@@ -513,7 +492,7 @@ class TestBehavioralPreservation:
             result = parse_workflow_yaml(raw_dict)
 
         assert isinstance(result, Workflow)
-        assert result.name == "dict_input_test"
+        assert result.name == "dict_input_workflow"
 
     def test_parse_workflow_yaml_circular_input_still_raises(self):
         """Circular input dependency detection must survive the decomposition."""
@@ -522,7 +501,7 @@ class TestBehavioralPreservation:
         # InputRef schema requires dict with 'from' key, not bare strings
         circular_yaml = dedent(
             """\
-            id: circular-test
+            id: circular_input_workflow
             kind: workflow
             version: "1.0"
             souls:

@@ -1,4 +1,4 @@
-"""Regression tests for accepted RUN-868 review findings."""
+"""Block IO and context governance behavior."""
 
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ from runsight_core.state import BlockResult, WorkflowState
 def _resolver() -> ContextResolver:
     return ContextResolver(
         policy=ContextGovernancePolicy(),
-        run_id="run_868_review",
-        workflow_name="review_regressions",
+        run_id="context_governance_behavior",
+        workflow_name="block_io_context_governance",
     )
 
 
 def _declaration(declared_inputs: dict[str, str]) -> ContextDeclaration:
     return ContextDeclaration(
-        block_id="review_block",
+        block_id="governed_block",
         block_type="linear",
         access="declared",
         declared_inputs=declared_inputs,
@@ -247,7 +247,7 @@ def test_context_audit_keeps_neutral_non_secret_preview() -> None:
 
 def test_malformed_context_ref_emits_audit_before_error() -> None:
     """Parser failures must still emit context-audit diagnostics."""
-    block = SimpleNamespace(block_id="review_block")
+    block = SimpleNamespace(block_id="governed_block")
     step = Step(block=block, declared_inputs={"bad": "metadata."})
     observer = _RecordingObserver()
 
@@ -304,7 +304,7 @@ def test_build_block_context_does_not_grant_governed_context_from_plain_inputs_f
     )
 
     block = SimpleNamespace(
-        block_id="review_block",
+        block_id="governed_block",
         inputs={"secret": "shared_memory.secret"},
         soul=None,
         runner=None,
@@ -365,7 +365,7 @@ def test_composite_observer_skips_children_without_context_resolution(caplog) ->
 def test_resolve_declared_inputs_raises_for_invalid_field_path() -> None:
     """The stale helper must not silently omit invalid declared inputs."""
     step = Step(
-        block=SimpleNamespace(block_id="review_block"),
+        block=SimpleNamespace(block_id="governed_block"),
         declared_inputs={"summary": "draft.missing"},
     )
     state = WorkflowState(results={"draft": BlockResult(output=json.dumps({"summary": "S"}))})
