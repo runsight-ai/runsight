@@ -325,35 +325,35 @@ class TestErrorRouteParserPlumbing:
         assert wf._error_routes == {"risky": "fetch"}
 
     def test_error_route_can_coexist_with_workflow_block_on_error_catch(self):
-        child_file = RunsightWorkflowFile.model_validate(
+        catchable_workflow_file = RunsightWorkflowFile.model_validate(
             {
-                "id": "child-workflow",
+                "id": "catchable-workflow",
                 "kind": "workflow",
                 "version": "1.0",
                 "blocks": {
-                    "child_step": {
+                    "catchable_code_step": {
                         "type": "code",
                         "code": "def main(data):\n    return {'status': 'ok'}",
                     }
                 },
                 "workflow": {
-                    "name": "child_workflow",
-                    "entry": "child_step",
-                    "transitions": [{"from": "child_step", "to": None}],
+                    "name": "catchable_workflow",
+                    "entry": "catchable_code_step",
+                    "transitions": [{"from": "catchable_code_step", "to": None}],
                 },
             }
         )
         registry = WorkflowRegistry()
-        registry.register("child_workflow", child_file)
+        registry.register("catchable_workflow", catchable_workflow_file)
 
-        parent_yaml = {
-            "id": "parent-workflow",
+        error_route_workflow_yaml = {
+            "id": "workflow-block-error-route",
             "kind": "workflow",
             "version": "1.0",
             "blocks": {
-                "invoke_child": {
+                "call_catchable_workflow": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "catchable_workflow",
                     "on_error": "catch",
                     "error_route": "handler",
                 },
@@ -363,20 +363,20 @@ class TestErrorRouteParserPlumbing:
                 },
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
+                "name": "workflow_block_error_route",
+                "entry": "call_catchable_workflow",
                 "transitions": [
-                    {"from": "invoke_child", "to": "handler"},
+                    {"from": "call_catchable_workflow", "to": "handler"},
                     {"from": "handler", "to": None},
                 ],
             },
         }
 
-        wf = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+        wf = parse_workflow_yaml(error_route_workflow_yaml, workflow_registry=registry)
 
-        workflow_block = wf._blocks["invoke_child"]
+        workflow_block = wf._blocks["call_catchable_workflow"]
         assert workflow_block.on_error == "catch"
-        assert wf._error_routes == {"invoke_child": "handler"}
+        assert wf._error_routes == {"call_catchable_workflow": "handler"}
 
     def test_no_depends_or_error_route_is_backward_compatible(self, tmp_path: Path):
         _write_soul_file(tmp_path)
