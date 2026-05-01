@@ -1,5 +1,5 @@
 """
-Tests for wire validated workflow inputs into runtime state.
+Tests for wiring validated workflow inputs into runtime state.
 
 These tests pin the contract at the core/runtime boundary:
 - named workflow inputs must come from WorkflowState.workflow_inputs
@@ -34,7 +34,7 @@ class CapturingWorkflow:
     """Child workflow spy that records the state passed by WorkflowBlock."""
 
     def __init__(self) -> None:
-        self.name = "child_workflow"
+        self.name = "workflow_input_child_workflow"
         self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, Any] | None = None
 
@@ -50,7 +50,7 @@ class CapturingWorkflow:
 
 class CapturingBlock(BaseBlock):
     def __init__(self) -> None:
-        super().__init__("capture")
+        super().__init__("workflow_input_capture_step")
         self.declared_inputs = {
             "query": "workflow.query",
             "mode": "workflow.mode",
@@ -66,7 +66,7 @@ class CapturingBlock(BaseBlock):
 def _workflow_with_input_schema() -> tuple[Workflow, CapturingBlock]:
     block = CapturingBlock()
     workflow = Workflow(
-        name="runtime_contract",
+        name="workflow_input_runtime_contract",
         input_schema={
             "query": WorkflowInputDef(type="string"),
             "mode": WorkflowInputDef(type="string", required=False, default="summary"),
@@ -74,8 +74,8 @@ def _workflow_with_input_schema() -> tuple[Workflow, CapturingBlock]:
         },
     )
     workflow.add_block(block)
-    workflow.set_entry("capture")
-    workflow.add_transition("capture", None)
+    workflow.set_entry("workflow_input_capture_step")
+    workflow.add_transition("workflow_input_capture_step", None)
     return workflow, block
 
 
@@ -189,7 +189,7 @@ def test_build_block_context_rejects_bare_workflow_declared_input_like_parser(
     from runsight_core import context_governance as cg
 
     class BareWorkflowBlock:
-        block_id = "invoke_child"
+        block_id = "bare_workflow_declared_input_block"
         context_access = "declared"
         declared_inputs = {"workflow": "workflow"}
         soul = None
@@ -246,7 +246,7 @@ async def test_workflow_block_passes_child_inputs_into_child_workflow_state() ->
     """Nested WorkflowBlock execution must seed child workflow_inputs from the mapped inputs."""
     child_workflow = CapturingWorkflow()
     block = WorkflowBlock(
-        block_id="invoke_child",
+        block_id="workflow_input_child_workflow_block",
         child_workflow=child_workflow,
         inputs={"query": "shared_memory.topic"},
         outputs={},
