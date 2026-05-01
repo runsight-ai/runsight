@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from workflow_fixture_helpers import workflow_fixture_text
+
 _SAFE_SUBPROCESS_ENV_KEYS = (
     "HOME",
     "LANG",
@@ -259,82 +261,6 @@ class TestGenerateSchemaCheck:
 # Parser round-trips for migrated block types
 # ═══════════════════════════════════════════════════════════════════════════════
 
-VALID_LINEAR_YAML = """\
-version: "1.0"
-id: linear_roundtrip_workflow
-kind: workflow
-souls:
-  writer:
-    id: writer
-    kind: soul
-    name: Writer
-    role: Writer
-    system_prompt: "You are a writer."
-blocks:
-  write_step:
-    type: linear
-    soul_ref: writer
-workflow:
-  id: linear_roundtrip_workflow
-  kind: workflow
-  name: linear_roundtrip_workflow
-  entry: write_step
-  transitions:
-    - from: write_step
-      to: null
-"""
-
-VALID_LOOP_YAML = """\
-version: "1.0"
-id: loop_roundtrip_workflow
-kind: workflow
-souls:
-  worker:
-    id: worker
-    kind: soul
-    name: Worker
-    role: Worker
-    system_prompt: "You are a worker."
-blocks:
-  task_step:
-    type: linear
-    soul_ref: worker
-  loop_step:
-    type: loop
-    inner_block_refs:
-      - task_step
-    max_rounds: 3
-workflow:
-  id: loop_roundtrip_workflow
-  kind: workflow
-  name: loop_roundtrip_workflow
-  entry: loop_step
-  transitions:
-    - from: loop_step
-      to: null
-"""
-
-VALID_CODE_YAML = """\
-version: "1.0"
-id: code_roundtrip_workflow
-kind: workflow
-blocks:
-  transform:
-    type: code
-    code: |
-      def main(input_data):
-          return {"result": input_data.get("value", 0) * 2}
-    timeout_seconds: 10
-workflow:
-  id: code_roundtrip_workflow
-  kind: workflow
-  name: code_roundtrip_workflow
-  entry: transform
-  transitions:
-    - from: transform
-      to: null
-"""
-
 
 class TestMigratedBlockRoundTripIntegration:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
@@ -346,7 +272,7 @@ class TestMigratedBlockRoundTripIntegration:
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
-        wf = parse_workflow_yaml(VALID_LINEAR_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("migrated-linear-block-roundtrip.yaml"))
         assert isinstance(wf, Workflow)
         assert wf.name == "linear_roundtrip_workflow"
         block = wf.blocks.get("write_step")
@@ -360,7 +286,7 @@ class TestMigratedBlockRoundTripIntegration:
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
-        wf = parse_workflow_yaml(VALID_LOOP_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("migrated-loop-block-roundtrip.yaml"))
         assert isinstance(wf, Workflow)
         assert wf.name == "loop_roundtrip_workflow"
         block = wf.blocks.get("loop_step")
@@ -373,7 +299,7 @@ class TestMigratedBlockRoundTripIntegration:
         from runsight_core.workflow import Workflow
         from runsight_core.yaml.parser import parse_workflow_yaml
 
-        wf = parse_workflow_yaml(VALID_CODE_YAML)
+        wf = parse_workflow_yaml(workflow_fixture_text("migrated-code-block-roundtrip.yaml"))
         assert isinstance(wf, Workflow)
         assert wf.name == "code_roundtrip_workflow"
         block = wf.blocks.get("transform")
