@@ -557,8 +557,8 @@ def test_logging_observer_redacts_json_escaped_registered_sensitive_value_in_err
     assert "leaky_block" in caplog.text
 
 
-class _CapturingChildWorkflow:
-    name = "child_redaction_workflow"
+class _CapturingRedactionWorkflow:
+    name = "redaction_context_workflow"
 
     def __init__(self) -> None:
         self.received_state: WorkflowState | None = None
@@ -574,13 +574,13 @@ class _CapturingChildWorkflow:
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_passes_parent_redaction_context_to_child_state() -> None:
-    child = _CapturingChildWorkflow()
+async def test_workflow_block_passes_parent_redaction_context_to_invoked_state() -> None:
+    invoked = _CapturingRedactionWorkflow()
     block = WorkflowBlock(
-        block_id="invoke_child",
-        child_workflow=child,
+        block_id="call_redaction_context_workflow",
+        child_workflow=invoked,
         inputs={"private_note": "shared_memory.private_note"},
-        outputs={"shared_memory.child_echo": "results.echo"},
+        outputs={"shared_memory.redaction_echo": "results.echo"},
     )
     parent_state = _state_with_redactor(
         redactor=_redactor(SENSITIVE_VALUE),
@@ -590,20 +590,20 @@ async def test_workflow_block_passes_parent_redaction_context_to_child_state() -
 
     output = await block.execute(ctx)
 
-    assert child.received_state is not None
-    assert child.received_state.input_redactor is parent_state.input_redactor
-    assert child.received_state.workflow_inputs == {"private_note": SENSITIVE_VALUE}
-    assert child.received_state.input_redactor.redact(
-        {"echo": child.received_state.workflow_inputs["private_note"]}
+    assert invoked.received_state is not None
+    assert invoked.received_state.input_redactor is parent_state.input_redactor
+    assert invoked.received_state.workflow_inputs == {"private_note": SENSITIVE_VALUE}
+    assert invoked.received_state.input_redactor.redact(
+        {"echo": invoked.received_state.workflow_inputs["private_note"]}
     ) == {"echo": REDACTED}
-    assert output.shared_memory_updates == {"child_echo": SENSITIVE_VALUE}
+    assert output.shared_memory_updates == {"redaction_echo": SENSITIVE_VALUE}
 
 
-def _sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
-    child = Workflow(
-        name="child_sensitive_workflow",
+def _sensitive_input_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
+    invoked = Workflow(
+        name="sensitive_input_workflow",
         input_schema={
-            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+            "invoked_secret": WorkflowInputDef(type="string", sensitive=True),
         },
     )
     captured: dict[str, WorkflowState] = {}
@@ -613,10 +613,10 @@ def _sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
         redactor = state.input_redactor
         assert redactor is not None
 
-        child_secret = state.workflow_inputs["child_secret"]
+        invoked_secret = state.workflow_inputs["invoked_secret"]
         redacted_payload = redactor.redact(
             {
-                "child_secret": child_secret,
+                "invoked_secret": invoked_secret,
                 "public_note": PUBLIC_VALUE,
             }
         )
@@ -624,61 +624,61 @@ def _sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
             input_redactor=redactor,
             workflow_inputs=dict(state.workflow_inputs),
             results={
-                "child_result": BlockResult(output=json.dumps(redacted_payload)),
+                "sensitive_result": BlockResult(output=json.dumps(redacted_payload)),
             },
             execution_log=[
                 {
                     "role": "system",
-                    "content": redactor.redact_text(f"child saw {child_secret}"),
+                    "content": redactor.redact_text(f"invoked workflow saw {invoked_secret}"),
                 }
             ],
         )
         captured["returned_state"] = returned_state
         return returned_state
 
-    child.run = AsyncMock(side_effect=_run)
-    return child, captured
+    invoked.run = AsyncMock(side_effect=_run)
+    return invoked, captured
 
 
-def _raw_sensitive_child_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
-    child = Workflow(
-        name="child_sensitive_workflow",
+def _raw_sensitive_input_workflow() -> tuple[Workflow, dict[str, WorkflowState]]:
+    invoked = Workflow(
+        name="raw_sensitive_input_workflow",
         input_schema={
-            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+            "invoked_secret": WorkflowInputDef(type="string", sensitive=True),
         },
     )
     captured: dict[str, WorkflowState] = {}
 
     async def _run(state: WorkflowState, **kwargs: Any) -> WorkflowState:
         captured["received_state"] = state
-        child_secret = state.workflow_inputs["child_secret"]
+        invoked_secret = state.workflow_inputs["invoked_secret"]
         returned_state = WorkflowState(
             input_redactor=state.input_redactor,
             workflow_inputs=dict(state.workflow_inputs),
             results={
-                "child_result": BlockResult(output=child_secret),
+                "sensitive_result": BlockResult(output=invoked_secret),
             },
             execution_log=[
                 {
                     "role": "system",
-                    "content": f"child saw {child_secret}",
+                    "content": f"invoked workflow saw {invoked_secret}",
                 }
             ],
         )
         captured["returned_state"] = returned_state
         return returned_state
 
-    child.run = AsyncMock(side_effect=_run)
-    return child, captured
+    invoked.run = AsyncMock(side_effect=_run)
+    return invoked, captured
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_registers_child_sensitive_inputs_at_child_boundary() -> None:
-    child, captured = _sensitive_child_workflow()
+async def test_workflow_block_registers_invoked_sensitive_inputs_at_boundary() -> None:
+    invoked, captured = _sensitive_input_workflow()
     block = WorkflowBlock(
-        block_id="invoke_sensitive_child",
-        child_workflow=child,
-        inputs={"child_secret": "shared_memory.topic"},
+        block_id="call_sensitive_input_workflow",
+        child_workflow=invoked,
+        inputs={"invoked_secret": "shared_memory.topic"},
         outputs={},
     )
     parent_state = _state_with_redactor(
@@ -692,30 +692,30 @@ async def test_workflow_block_registers_child_sensitive_inputs_at_child_boundary
     received_state = captured["received_state"]
     returned_state = captured["returned_state"]
 
-    assert received_state.workflow_inputs == {"child_secret": PUBLIC_VALUE}
+    assert received_state.workflow_inputs == {"invoked_secret": PUBLIC_VALUE}
     assert received_state.input_redactor is parent_state.input_redactor
-    assert received_state.input_redactor.redact({"child_secret": PUBLIC_VALUE}) == {
-        "child_secret": REDACTED
+    assert received_state.input_redactor.redact({"invoked_secret": PUBLIC_VALUE}) == {
+        "invoked_secret": REDACTED
     }
-    assert json.loads(returned_state.results["child_result"].output) == {
-        "child_secret": REDACTED,
+    assert json.loads(returned_state.results["sensitive_result"].output) == {
+        "invoked_secret": REDACTED,
         "public_note": PUBLIC_VALUE,
     }
-    assert returned_state.execution_log[0]["content"] == f"child saw {REDACTED}"
+    assert returned_state.execution_log[0]["content"] == f"invoked workflow saw {REDACTED}"
     assert PUBLIC_VALUE not in returned_state.model_dump_json()
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_merges_child_sensitive_input_back_into_parent_redaction_state() -> (
+async def test_workflow_block_merges_invoked_sensitive_input_back_into_caller_redaction_state() -> (
     None
 ):
-    """Parent state must inherit child-sensitive redaction after block application."""
-    child, captured = _raw_sensitive_child_workflow()
+    """Caller state must inherit invoked-sensitive redaction after block application."""
+    invoked, captured = _raw_sensitive_input_workflow()
     block = WorkflowBlock(
-        block_id="invoke_sensitive_child",
-        child_workflow=child,
-        inputs={"child_secret": "shared_memory.topic"},
-        outputs={"shared_memory.child_echo": "results.child_result"},
+        block_id="call_sensitive_input_workflow",
+        child_workflow=invoked,
+        inputs={"invoked_secret": "shared_memory.topic"},
+        outputs={"shared_memory.sensitive_echo": "results.sensitive_result"},
     )
     parent_state = _state_with_redactor(
         shared_memory={"topic": SENSITIVE_VALUE},
@@ -728,8 +728,8 @@ async def test_workflow_block_merges_child_sensitive_input_back_into_parent_reda
     assert parent_state.input_redactor is None
     assert captured["received_state"].input_redactor is not None
     assert merged_state.input_redactor is not None
-    assert merged_state.input_redactor.redact({"child_echo": SENSITIVE_VALUE}) == {
-        "child_echo": REDACTED
+    assert merged_state.input_redactor.redact({"sensitive_echo": SENSITIVE_VALUE}) == {
+        "sensitive_echo": REDACTED
     }
     assert SENSITIVE_VALUE not in merged_state.model_dump_json()
 
@@ -761,31 +761,31 @@ class _ParentErrorObserver:
         self.state = state
 
 
-def _raising_sensitive_child_workflow() -> Workflow:
-    child = Workflow(
-        name="child_sensitive_raise_workflow",
+def _raising_sensitive_input_workflow() -> Workflow:
+    invoked = Workflow(
+        name="raising_sensitive_input_workflow",
         input_schema={
-            "child_secret": WorkflowInputDef(type="string", sensitive=True),
+            "invoked_secret": WorkflowInputDef(type="string", sensitive=True),
         },
     )
 
     async def _run(state: WorkflowState, **kwargs: Any) -> WorkflowState:
-        child_secret = state.workflow_inputs["child_secret"]
-        raise RuntimeError(f"child failed with {child_secret}")
+        invoked_secret = state.workflow_inputs["invoked_secret"]
+        raise RuntimeError(f"invoked workflow failed with {invoked_secret}")
 
-    child.run = AsyncMock(side_effect=_run)
-    return child
+    invoked.run = AsyncMock(side_effect=_run)
+    return invoked
 
 
 @pytest.mark.asyncio
-async def test_workflow_block_promotes_child_sensitive_redactor_before_raise_observer_surface() -> (
+async def test_workflow_block_promotes_invoked_sensitive_redactor_before_raise_observer_surface() -> (
     None
 ):
-    child = _raising_sensitive_child_workflow()
+    invoked = _raising_sensitive_input_workflow()
     block = WorkflowBlock(
-        block_id="invoke_sensitive_child",
-        child_workflow=child,
-        inputs={"child_secret": "shared_memory.topic"},
+        block_id="call_sensitive_input_workflow",
+        child_workflow=invoked,
+        inputs={"invoked_secret": "shared_memory.topic"},
         outputs={},
         on_error="raise",
     )
@@ -794,19 +794,19 @@ async def test_workflow_block_promotes_child_sensitive_redactor_before_raise_obs
     )
     observer = _ParentErrorObserver()
     exec_ctx = BlockExecutionContext(
-        workflow_name="parent_workflow",
+        workflow_name="redaction_caller_workflow",
         blocks={block.block_id: block},
         call_stack=[],
         workflow_registry=None,
         observer=observer,
     )
 
-    with pytest.raises(RuntimeError, match="child failed"):
+    with pytest.raises(RuntimeError, match="invoked workflow failed"):
         await execute_block(block, parent_state, exec_ctx)
 
     assert observer.error is not None
     assert observer.state is not None
     assert observer.state.input_redactor is not None
     assert observer.state.input_redactor.redact_text(str(observer.error)) == (
-        f"child failed with {REDACTED}"
+        f"invoked workflow failed with {REDACTED}"
     )
