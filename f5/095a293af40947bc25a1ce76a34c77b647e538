@@ -1,0 +1,31 @@
+packages/core/tests/test_parser_decomposition.py
+  4adca821c1af8eb3 1,13,52,107-108,128,169,181,192,213,225,237,259-260,269,274,289,324,348,376,418,442,466,485,495,504
+packages/core/tests/test_migrate_blocks.py
+  4adca821c1af8eb3 1,53,97,141,146,200,224,229,234,237,259,264,278,280,289,308,310,319,329,331,343,351,358,365,371,378
+packages/core/tests/test_parser_inputs_outputs.py
+  4adca821c1af8eb3 1,67,78,92,94,122,136,138,153,164,166,179,196,198,213,236,238,255,276,278,292,295,303,305,316,327,338,340,350,353,361,363,374,385,403,405,421,445,447,470,478,480,493,502,518,538,557,572,589,600,614,616,649,687,689,706,723,733,739-740,743,754,756,768,773,779-780,803,810,845,856,868,890,895
+packages/core/tests/test_block_io_context_governance.py
+  4adca821c1af8eb3 1,33-34,40,250,307,368
+packages/core/tests/test_tool_pydantic_validation.py
+  4adca821c1af8eb3 1,20,24-25,35,40,64,102,159,185,223,250,276,343,360,364,368-369,404,408,412,445,449,453-454,459,480,491-492,502-503,516-517,521-522,526,534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f5095a293af40947bc25a1ce76a34c77b647e538",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 547,
+      "total_deletions": 243,
+      "accepted_lines": 61194,
+      "overriden_lines": 0
+    }
+  }
+}
