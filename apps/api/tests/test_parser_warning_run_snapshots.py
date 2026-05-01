@@ -10,7 +10,6 @@ These tests verify:
 from __future__ import annotations
 
 import asyncio
-import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -21,6 +20,8 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.services.execution_service import PreparedRunInputs
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "parser_warning_run_snapshots"
 
 
 def _write_warning_soul(base_dir: Path, soul_key: str) -> None:
@@ -146,36 +147,8 @@ def _warning_workflow_yaml(soul_key: str, *, declare_http: bool) -> str:
     )
 
 
-BIND_LOOP_WARNING_YAML = """\
-version: "1.0"
-id: bind-loop-warning-workflow
-kind: workflow
-config:
-  model_name: gpt-4o
-tools:
-  - lookup_profile
-souls:
-  analyst:
-    id: analyst
-    kind: soul
-    name: Analyst
-    role: Analyst
-    system_prompt: Use the lookup tool if needed.
-    provider: openai
-    model_name: gpt-4o
-    tools:
-      - lookup_profile
-blocks:
-  analyze:
-    type: linear
-    soul_ref: analyst
-workflow:
-  name: bind_loop_warning_workflow
-  entry: analyze
-  transitions:
-    - from: analyze
-      to: null
-"""
+def _fixture_text(name: str) -> str:
+    return (FIXTURE_DIR / name).read_text(encoding="utf-8")
 
 
 def _make_achat_response(content: str):
@@ -212,9 +185,10 @@ def db_engine():
 
 
 @pytest.fixture
-def base_dir():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+def base_dir(tmp_path):
+    workspace = tmp_path / "runtime-workspace"
+    workspace.mkdir()
+    yield workspace
 
 
 def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
@@ -413,7 +387,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
             "/api/workflows",
             json={
                 "name": "Bind-loop warning workflow",
-                "yaml": BIND_LOOP_WARNING_YAML,
+                "yaml": _fixture_text("bind-loop-warning-workflow.yaml"),
                 "commit": False,
             },
         )
