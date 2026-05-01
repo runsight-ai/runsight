@@ -1,0 +1,41 @@
+apps/api/tests/fixtures/sim_branches/research-review.yaml
+  4adca821c1af8eb3 1-4
+tools/tests/test_api_sim_branches_fixture_governance.py
+  4adca821c1af8eb3 1-135
+apps/api/tests/logic/test_sim_branches.py
+  28035aaa1c8175cf 23,51-52,54,71,88,106,122,149,155,165,188,205,230,246,263,287,303,312,339,367,372
+  4adca821c1af8eb3 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f56f758fda30b27eb4d8293715dab2091a72a4f4",
+  "prompts": {
+    "28035aaa1c8175cf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de4ee-af4b-74b2-b0f2-408e21d25fb7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 25,
+      "accepted_lines": 23,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 139,
+      "total_deletions": 0,
+      "accepted_lines": 53939,
+      "overriden_lines": 0
+    }
+  }
+}
