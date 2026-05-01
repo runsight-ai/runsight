@@ -7,6 +7,7 @@ Tests target ExecutionObserver at:
 import asyncio
 import json
 import time
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -161,6 +162,30 @@ class TestOnBlockStart:
             node = session.get(RunNode, f"{run_id}:block_a")
             assert node.started_at is not None
             assert node.started_at >= before
+
+
+# ---------------------------------------------------------------------------
+# 3b. on_block_heartbeat
+# ---------------------------------------------------------------------------
+
+
+class TestOnBlockHeartbeat:
+    def test_updates_node_last_phase(self, observer):
+        """on_block_heartbeat updates RunNode.last_phase for a started block."""
+        obs, engine, run_id = observer
+        obs.on_block_start("observer-persistence-workflow", "block_a", "LinearBlock")
+
+        obs.on_block_heartbeat(
+            workflow_name="observer-persistence-workflow",
+            block_id="block_a",
+            phase="executing",
+            detail="",
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        with Session(engine) as session:
+            node = session.get(RunNode, f"{run_id}:block_a")
+            assert node.last_phase == "executing"
 
 
 # ---------------------------------------------------------------------------

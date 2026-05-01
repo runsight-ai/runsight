@@ -511,11 +511,11 @@ class TestBlockSessionSwapInExecuteBlock:
 
 
 # ===========================================================================
-# Part 3b — End-to-end: full wiring through parse + run
+# Part 3b — Integration: full wiring through parse + run
 # ===========================================================================
 
 
-class TestEndToEndBudgetWiring:
+class TestBudgetWiringIntegration:
     """Full pipeline: YAML → parse → Workflow.run() with budget enforcement."""
 
     @pytest.mark.asyncio

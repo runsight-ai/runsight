@@ -373,7 +373,7 @@ class TestSoulResolvedTools:
 
 
 class TestFullYamlToolsParse:
-    """End-to-end test: tools section defined, soul referencing tool names."""
+    """Integration test: tools section defined, soul referencing tool names."""
 
     def test_full_workflow_with_tools_whitelist_and_soul_refs(self):
         """Parse a complete workflow with a tool ID whitelist and soul references."""

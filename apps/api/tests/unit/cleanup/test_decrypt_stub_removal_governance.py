@@ -1,4 +1,12 @@
-"""Legacy decrypt stubs and decrypt-patching tests are removed."""
+"""
+Decrypt-stub removal governance.
+
+Owner: apps/api provider and execution service owners.
+Boundary: legacy decrypt = None stubs and tests that patch decrypt directly
+must stay removed after provider secret handling moved away from those hooks.
+Exit criteria: delete this governance suite once provider and execution service
+behavior tests make direct decrypt patching impossible.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +29,7 @@ _LEGACY_TEST_FILES = [
 
 def _read_text(path: Path) -> str:
     assert path.exists(), f"Expected file to exist: {path}"
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 def _find_lines_matching(path: Path, pattern: re.Pattern[str]) -> list[str]:
@@ -33,6 +41,8 @@ def _find_lines_matching(path: Path, pattern: re.Pattern[str]) -> list[str]:
 
 
 class TestNoLegacyDecryptStubs:
+    """Owner: apps/api services. Exit: behavior tests own provider secret wiring."""
+
     def test_no_decrypt_none_assignments_remain(self):
         pattern = re.compile(r"\bdecrypt\s*=\s*None\b")
         hits = [
@@ -57,6 +67,8 @@ class TestNoLegacyDecryptStubs:
 
 
 class TestNoDecryptPatchingTestsRemain:
+    """Owner: apps/api tests. Exit: direct decrypt patching cannot be reintroduced."""
+
     def test_no_decrypt_patching_lines_remain(self):
         pattern = re.compile(r"\bpatch\b.*\bdecrypt\b|\bdecrypt\b.*\bpatch\b")
         hits: list[str] = []

@@ -1,10 +1,10 @@
-"""E2E coverage for StreamingObserver -> SSE queue -> HTTP chunk pipeline.
+"""Integration coverage for StreamingObserver -> SSE queue -> HTTP chunk pipeline.
 
 Gap being closed: SSE streaming path has structural coverage at both ends but
 the middle is untested:
 - StreamingObserver pushes events to an in-memory queue when a block completes
 - SSE endpoint reads from that queue and streams chunks to the client
-- No test verifies this queue-to-HTTP-chunk path end-to-end
+- No test verifies this queue-to-HTTP-chunk path as one integration path
 
 These tests exercise the FULL streaming pipeline:
     ExecutionService._run_workflow  ->  StreamingObserver enqueues events
@@ -319,7 +319,7 @@ def execution_service(db_engine, base_dir):
     git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-e2e")
+    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-sse-integration")
     execution_session = Session(db_engine)
 
     yield ExecutionService(

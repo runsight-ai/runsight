@@ -22,9 +22,25 @@ from runsight_api.core.secrets import SecretsEnvLoader
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.logic.services.provider_service import ProviderService
 
+_PROVIDER_SECRET_ENV_NAMES = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_provider_secret_env(monkeypatch):
+    """Keep SecretsEnvLoader tests on temp secrets.env, never shell credentials."""
+    for name in _PROVIDER_SECRET_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture
@@ -571,11 +587,11 @@ class TestSettingsRouterWiring:
 
 
 # ===========================================================================
-# 12. End-to-end provider CRUD with filesystem repos
+# 12. Provider CRUD integration with filesystem repos
 # ===========================================================================
 
 
-class TestEndToEndProviderCRUD:
+class TestProviderCrudFilesystemIntegration:
     """Full CRUD cycle using real FileSystemProviderRepo + SecretsEnvLoader."""
 
     def test_create_then_get_returns_provider(self, service):

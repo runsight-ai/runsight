@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from parser_yaml_helpers import RESEARCHER_REVIEWER_SOULS_YAML as SOULS_YAML
 from runsight_core.block_io import BlockContext, BlockOutput
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.blocks.base import BaseBlock
@@ -11,26 +12,6 @@ from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import Workflow
 from runsight_core.yaml import parser as parser_module
 from runsight_core.yaml.parser import parse_workflow_yaml
-
-# ---------------------------------------------------------------------------
-# Shared soul definitions for YAML fixtures
-# ---------------------------------------------------------------------------
-
-SOULS_YAML = """
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
-  reviewer:
-    id: reviewer
-    kind: soul
-    name: Peer Reviewer
-    role: Peer Reviewer
-    system_prompt: You review topics.
-"""
 
 # ---------------------------------------------------------------------------
 # Helpers

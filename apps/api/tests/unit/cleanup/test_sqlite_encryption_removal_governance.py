@@ -1,16 +1,13 @@
 """
-SQLite provider/settings tables and encryption module cleanup.
+SQLite encryption-removal boundary governance.
 
-These tests verify that all cleanup actions have been completed:
-- Deleted files no longer exist on disk
-- No stale imports reference deleted modules
-- api_key_encrypted references are fully removed
-- cryptography dependency is removed from pyproject.toml
-- SQLite tables for Run, RunNode, LogEntry remain functional
-- _migrate_schema function is removed from main.py
-- Legacy SQLModel settings table classes are removed
-- Pydantic models (AppSettingsConfig, FallbackTargetEntry) are preserved
-- repositories/__init__.py no longer exports deleted repos
+Owner: apps/api data, settings, provider, and startup wiring owners.
+Boundary: removed SQLite provider/settings repositories, encryption helpers,
+encrypted API-key columns, legacy SQLModel settings tables, and startup schema
+migration hooks must stay removed while filesystem settings/provider repos and
+RunRepository remain importable.
+Exit criteria: delete this governance suite once behavior tests cover the
+filesystem provider/settings path and repository exports without source guards.
 """
 
 from __future__ import annotations
@@ -32,8 +29,8 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 # =========================================================================
 
 
-class TestDeletedFiles:
-    """Files that must be removed from the repo."""
+class TestDeletedSqliteEncryptionFilesGovernance:
+    """Owner: apps/api data/core. Exit: deleted files stay absent for one release."""
 
     def test_encryption_module_deleted(self):
         path = _SRC / "core" / "encryption.py"
@@ -58,8 +55,8 @@ def _python_source_files() -> list[Path]:
     return sorted(_SRC.rglob("*.py"))
 
 
-class TestNoStaleImports:
-    """No source file should reference deleted modules."""
+class TestNoStaleSqliteEncryptionImportsGovernance:
+    """Owner: apps/api source owners. Exit: import behavior tests own this boundary."""
 
     def test_no_encryption_imports(self):
         """Source files must not import the removed encryption module."""
@@ -109,8 +106,8 @@ class TestNoStaleImports:
 # =========================================================================
 
 
-class TestNoApiKeyEncrypted:
-    """Source files must not reference removed api_key_encrypted columns."""
+class TestNoApiKeyEncryptedColumnGovernance:
+    """Owner: apps/api provider/settings. Exit: provider behavior tests own this."""
 
     def test_no_api_key_encrypted_in_source(self):
         hits: list[str] = []
@@ -127,8 +124,8 @@ class TestNoApiKeyEncrypted:
 # =========================================================================
 
 
-class TestCryptographyDependency:
-    """The cryptography package is no longer an API dependency."""
+class TestCryptographyDependencyGovernance:
+    """Owner: apps/api packaging. Exit: dependency scanner owns this."""
 
     def test_cryptography_not_in_pyproject(self):
         text = _PYPROJECT.read_text()
@@ -142,8 +139,8 @@ class TestCryptographyDependency:
 # =========================================================================
 
 
-class TestProviderEntityCleaned:
-    """Provider(SQLModel, table=True) must be removed."""
+class TestProviderEntitySqlmodelRemovalGovernance:
+    """Owner: apps/api domain. Exit: provider entity behavior tests own this."""
 
     def test_no_sqlmodel_provider_class(self):
         provider_file = _SRC / "domain" / "entities" / "provider.py"
@@ -168,8 +165,8 @@ class TestProviderEntityCleaned:
 # =========================================================================
 
 
-class TestSettingsEntityCleaned:
-    """SQLModel table classes removed; Pydantic models preserved."""
+class TestSettingsEntitySqlmodelRemovalGovernance:
+    """Owner: apps/api settings domain. Exit: settings behavior tests own this."""
 
     def test_no_sqlmodel_app_settings_class(self):
         settings_file = _SRC / "domain" / "entities" / "settings.py"
@@ -225,11 +222,11 @@ class TestSettingsEntityCleaned:
         """After removing SQLModel classes, sqlmodel import should be gone."""
         settings_file = _SRC / "domain" / "entities" / "settings.py"
         text = settings_file.read_text()
-        assert "from sqlmodel" not in text, "settings.py still imports sqlmodel after cleanup"
+        assert "from sqlmodel" not in text, "settings.py still imports sqlmodel after removal"
 
 
-class TestSettingsRepoCleaned:
-    """Legacy fallback migration helpers should not survive in the repo layer."""
+class TestSettingsRepoMigrationHelperGovernance:
+    """Owner: apps/api filesystem settings. Exit: repo behavior tests own this."""
 
     def test_no_legacy_fallback_migration_helper(self):
         repo_file = _SRC / "data" / "filesystem" / "settings_repo.py"
@@ -244,8 +241,8 @@ class TestSettingsRepoCleaned:
 # =========================================================================
 
 
-class TestMainCleaned:
-    """_migrate_schema function and related imports removed from main.py."""
+class TestStartupSchemaMigrationRemovalGovernance:
+    """Owner: apps/api startup. Exit: startup behavior tests own schema setup."""
 
     def test_no_migrate_schema_function(self):
         main_file = _SRC / "main.py"
@@ -268,8 +265,8 @@ class TestMainCleaned:
 # =========================================================================
 
 
-class TestRepositoriesInitCleaned:
-    """__init__.py should only export RunRepository."""
+class TestRepositoriesInitExportGovernance:
+    """Owner: apps/api data repositories. Exit: import contract tests own exports."""
 
     def test_no_provider_repository_export(self):
         init_file = _SRC / "data" / "repositories" / "__init__.py"
@@ -296,8 +293,8 @@ class TestRepositoriesInitCleaned:
 # =========================================================================
 
 
-class TestSqliteTablesPreserved:
-    """Run, RunNode, LogEntry SQLModel classes and RunRepository must still work."""
+class TestSqliteRuntimeTablesPreserved:
+    """Owner: apps/api data runtime. Exit: repository behavior tests own this."""
 
     def test_run_entity_importable(self):
         from runsight_api.domain.entities.run import Run, RunNode
@@ -327,7 +324,7 @@ class TestSqliteTablesPreserved:
 
 
 class TestFilesystemReposPreserved:
-    """Filesystem-backed repos must NOT be deleted."""
+    """Owner: apps/api filesystem data. Exit: provider/settings behavior tests own this."""
 
     def test_filesystem_provider_repo_exists(self):
         path = _SRC / "data" / "filesystem" / "provider_repo.py"

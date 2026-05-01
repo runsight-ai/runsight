@@ -259,7 +259,7 @@ async def test_execute_block_dispatches_gateblock_via_block_context(
 
 @pytest.mark.asyncio
 async def test_execute_block_mixed_workflow_linear_and_gate(mock_runner, analysis_soul):
-    """A workflow containing both LinearBlock and GateBlock should work end-to-end.
+    """A workflow containing both LinearBlock and GateBlock should work through execution.
 
     LinearBlock and GateBlock both use build_block_context and produce the
     expected WorkflowState.

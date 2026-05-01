@@ -490,13 +490,13 @@ class TestParserAcceptsWorkflowInputRef:
 
 
 # ===========================================================================
-# 7. End-to-end: YAML with inputs resolves via Workflow.run(inputs=...)
+# 7. Integration: YAML with inputs resolves via Workflow.run(inputs=...)
 # ===========================================================================
 
 
-class TestEndToEndYamlWorkflowInputSeeding:
+class TestYamlWorkflowInputSeedingIntegration:
     """
-    Full end-to-end: parse a YAML workflow with a block that declares
+    Full integration path: parse a YAML workflow with a block that declares
     inputs: { x: { from: "workflow.field" } }, run with inputs={"field": "hello"},
     and verify the runtime state carries workflow_inputs for engine consumption.
     """
@@ -518,7 +518,7 @@ class TestEndToEndYamlWorkflowInputSeeding:
             """\
             version: "1.0"
             workflow:
-              name: e2e_input_test
+              name: workflow_input_seeding
               entry: step_a
               transitions: []
 

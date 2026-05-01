@@ -21,6 +21,11 @@ export type ProviderFixture = {
 export type SettingsFixture = {
   onboarding_completed: boolean;
   fallback_enabled?: boolean;
+  fallback_map?: Array<{
+    provider_id: string;
+    fallback_provider_id: string;
+    fallback_model_id: string;
+  }>;
 };
 
 export type WorkspaceSnapshot = {

@@ -1,11 +1,12 @@
 """
-Verify the code indexer lifecycle removes stale symbols.
+Codebones index lifecycle governance.
 
-This suite stays intentionally narrow:
-- prove a local reindex drops symbols for deleted files
-- guard against stale rows surfacing in empty-query search results
-- require contributor-facing docs for a verified codebones install/upgrade flow
-- require explicit cache lifecycle guidance for rebuilding or invalidating local indexes
+Owner: repo developer-tooling owners.
+Boundary: local codebones indexes must drop deleted-file symbols after reindex,
+and contributor docs must explain install/upgrade verification plus cache reset
+for each checkout/worktree.
+Exit criteria: delete this governance suite once codebones lifecycle checks move
+to the codebones package itself or a repo tooling health-check command owns them.
 """
 
 from __future__ import annotations
@@ -86,7 +87,7 @@ def _combined_doc_text() -> str:
 
 
 class TestCodebonesDeletedFileLifecycle:
-    """Deleted files must disappear from local codebones results after reindex."""
+    """Owner: repo tooling. Exit: codebones package tests own deleted-file lifecycle."""
 
     def test_reindex_removes_deleted_symbol_from_named_search(self, tmp_path: Path):
         _, named_hits_after_delete, _ = _exercise_deleted_file_reindex(tmp_path)
@@ -109,7 +110,7 @@ class TestCodebonesDeletedFileLifecycle:
 
 
 class TestCodebonesContributorGuidance:
-    """Contributor docs must explain how to install, verify, and reset the local index."""
+    """Owner: repo docs/tooling. Exit: generated tool docs own lifecycle guidance."""
 
     def test_repo_docs_describe_verified_codebones_install_or_upgrade_flow(self):
         text = _combined_doc_text().lower()

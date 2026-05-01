@@ -1,5 +1,5 @@
 """
-End-to-end integration tests for Workflow.run() with call_stack and workflow_registry propagation.
+Integration tests for Workflow.run() with call_stack and workflow_registry propagation.
 
 Tests the full execution path from top-level run() through child workflow execution with
 WorkflowBlock, verifying call_stack and workflow_registry propagation.
@@ -45,7 +45,7 @@ class SimpleBlock(BaseBlock):
 @pytest.mark.asyncio
 async def test_parent_child_workflow_execution():
     """
-    End-to-end integration test with parent workflow containing WorkflowBlock.
+    Integration test with parent workflow containing WorkflowBlock.
 
     Verifies:
     1. Parent workflow runs with initial state

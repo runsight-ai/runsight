@@ -248,14 +248,14 @@ class TestExitHandleRoutesViaConditionalTransitions:
 # ==============================================================================
 
 
-class TestExitHandleEndToEnd:
+class TestExitHandleWorkflowIntegration:
     """Run a workflow where a block sets exit_handle and routing follows."""
 
     @pytest.mark.asyncio
     async def test_full_run_exit_handle_pass(self):
         """Full workflow run: gate block sets exit_handle='pass', routes to on_pass
         (not to on_default which is the 'default' key target)."""
-        wf = Workflow(name="exit_handle_end_to_end")
+        wf = Workflow(name="exit_handle_workflow_integration")
 
         gate = ExitHandleBlock("gate", exit_handle="pass", output="gate_output")
         on_pass = ExitHandleBlock("on_pass", exit_handle="done", output="pass_output")
@@ -431,10 +431,10 @@ class TestOutputConditionsPersistExitHandleOnBlockResult:
         assert state.results["step_a"].exit_handle == "fallback_decision"
 
     @pytest.mark.asyncio
-    async def test_output_conditions_e2e_exit_handle_persisted(self):
-        """End-to-end: output_conditions compute exit_handle, persisted on BlockResult,
+    async def test_output_conditions_integration_exit_handle_persisted(self):
+        """Integration: output_conditions compute exit_handle, persisted on BlockResult,
         routing follows."""
-        wf = Workflow(name="output_conditions_end_to_end")
+        wf = Workflow(name="output_conditions_integration")
 
         step_a = JsonOutputBlock("step_a", {"status": "approved"})
         step_approved = StubBlock("step_approved")

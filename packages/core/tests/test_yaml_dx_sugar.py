@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
+from parser_yaml_helpers import write_custom_soul_file, write_workflow_file
 from pydantic import ValidationError
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
 def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
-    workflow_file = base_dir / name
-    workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
-    return str(workflow_file)
+    return write_workflow_file(base_dir, yaml_content, name=name)
 
 
 def _write_soul_file(
@@ -27,25 +25,20 @@ def _write_soul_file(
     prompt: str,
     model_name: str | None = None,
 ) -> None:
-    souls_dir = base_dir / "custom" / "souls"
-    souls_dir.mkdir(parents=True, exist_ok=True)
-    model_line = f"\nmodel_name: {model_name}" if model_name else ""
     # Use `name` as the embedded id to match the filename stem (scanner requirement).
     # `soul_id` is kept as parameter for call-site compatibility but ignored for the file.
+    del soul_id
     soul_name = " ".join(
         word.capitalize() for word in name.replace("_", " ").replace("-", " ").split()
     )
-    (souls_dir / f"{name}.yaml").write_text(
-        dedent(
-            f"""\
-            id: {name}
-            kind: soul
-            name: {soul_name}
-            role: {role}
-            system_prompt: {prompt}{model_line}
-            """
-        ),
-        encoding="utf-8",
+    write_custom_soul_file(
+        base_dir,
+        name,
+        soul_id=name,
+        display_name=soul_name,
+        role=role,
+        prompt=prompt,
+        model_name=model_name,
     )
 
 

@@ -20,9 +20,9 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 @pytest.mark.asyncio
 class TestParserRoundTripOnErrorCatch:
-    """End-to-end: parse parent+child YAML, run, assert on_error=catch works."""
+    """Integration: parse parent+child YAML, run, assert on_error=catch works."""
 
-    async def test_parser_round_trip_on_error_catch_works_end_to_end(self) -> None:
+    async def test_parser_round_trip_on_error_catch_works_through_execution(self) -> None:
         """(l) Build a YAML with parent calling child with on_error: catch.
         Child raises. Parse through parse_workflow_yaml with real registry.
         Execute with Workflow.run(). Assert parent gets exit_handle='error'

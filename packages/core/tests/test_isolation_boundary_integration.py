@@ -1,4 +1,4 @@
-"""E2E coverage for the isolation boundary.
+"""Integration coverage for the isolation boundary.
 
 These tests intentionally use the real SubprocessHarness/worker/IPCServer path
 with engine-side fake handlers so they do not call external LLM providers.
@@ -39,10 +39,10 @@ from runsight_core.yaml.schema import BlockLimitsDef
 
 
 def _soul(
-    soul_id: str = "soul-e2e",
+    soul_id: str = "soul-integration",
     *,
     role: str = "Tester",
-    system_prompt: str = "You are an E2E test soul.",
+    system_prompt: str = "You are an integration test soul.",
     required_tool_calls: list[str] | None = None,
     max_tool_iterations: int = 3,
 ) -> Soul:
@@ -237,7 +237,7 @@ async def _stop_ipc_server(
     sock_path.unlink(missing_ok=True)
 
 
-class TestBlockTypeE2E:
+class TestBlockTypeIntegration:
     @pytest.mark.asyncio
     async def test_linear_wrapper_real_subprocess_routes_llm_and_reconciles_budget(
         self,
@@ -411,7 +411,7 @@ class TestBlockTypeE2E:
         assert next_state.results["isolated-dispatch-block.west"].exit_handle == "west"
 
 
-class TestSmartAssertionAndToolsE2E:
+class TestSmartAssertionAndToolsIntegration:
     @pytest.mark.asyncio
     async def test_llm_judge_assertion_runs_through_harness_and_tracks_assertion_cost(
         self,
@@ -574,7 +574,7 @@ class TestSmartAssertionAndToolsE2E:
         assert next_state.total_tokens == 14
 
 
-class TestBudgetAndAdversarialE2E:
+class TestBudgetAndAdversarialIntegration:
     @pytest.mark.asyncio
     async def test_tight_cap_returns_paid_response_then_kills_next_llm_before_handler(
         self,

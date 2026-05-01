@@ -11,6 +11,11 @@ This module tests:
 from unittest.mock import Mock, patch
 
 import pytest
+from parser_yaml_helpers import (
+    RESEARCHER_REVIEWER_SOULS_YAML,
+    RESEARCHER_SOUL_DICT,
+    RESEARCHER_SOUL_YAML,
+)
 from pydantic import ValidationError
 from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
 from runsight_core.primitives import Soul
@@ -183,17 +188,11 @@ workflow:
 
     def test_linear_block_with_defined_soul(self):
         """LinearBlock can use explicitly defined souls."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
 id: linear_block_workflow
 kind: workflow
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
+{RESEARCHER_SOUL_YAML}
 blocks:
   linear_block:
     type: linear
@@ -216,23 +215,11 @@ class TestDispatchBlock:
 
     def test_dispatch_block_valid_yaml(self):
         """Parse a valid dispatch block with exits."""
-        yaml_content = """
+        yaml_content = f"""
 version: "1.0"
 id: dispatch_block_workflow
 kind: workflow
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
-  reviewer:
-    id: reviewer
-    kind: soul
-    name: Peer Reviewer
-    role: Peer Reviewer
-    system_prompt: You review topics.
+{RESEARCHER_REVIEWER_SOULS_YAML}
 blocks:
   dispatch_block:
     type: dispatch
@@ -501,15 +488,7 @@ class TestParseFromDict:
             "version": "1.0",
             "id": "dict_input_workflow",
             "kind": "workflow",
-            "souls": {
-                "researcher": {
-                    "id": "researcher",
-                    "kind": "soul",
-                    "name": "Senior Researcher",
-                    "role": "Senior Researcher",
-                    "system_prompt": "You research topics.",
-                }
-            },
+            "souls": {"researcher": RESEARCHER_SOUL_DICT},
             "blocks": {
                 "linear_block": {
                     "type": "linear",
@@ -619,17 +598,11 @@ class TestVersionValidation:
     """Tests for YAML schema version validation."""
 
     # -- Minimal valid workflow YAML used as a base for version tests --------
-    _BASE_YAML_TEMPLATE = """
-version: "{version}"
+    _BASE_YAML_TEMPLATE = f"""
+version: "{{version}}"
 id: version_test
 kind: workflow
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
+{RESEARCHER_SOUL_YAML}
 blocks:
   version_entry_block:
     type: linear
@@ -647,15 +620,7 @@ workflow:
     _BASE_DICT_NO_VERSION = {
         "id": "version_test",
         "kind": "workflow",
-        "souls": {
-            "researcher": {
-                "id": "researcher",
-                "kind": "soul",
-                "name": "Senior Researcher",
-                "role": "Senior Researcher",
-                "system_prompt": "You research topics.",
-            }
-        },
+        "souls": {"researcher": RESEARCHER_SOUL_DICT},
         "blocks": {"version_entry_block": {"type": "linear", "soul_ref": "researcher"}},
         "workflow": {
             "id": "version_test",

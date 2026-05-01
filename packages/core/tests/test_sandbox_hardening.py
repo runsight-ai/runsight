@@ -392,7 +392,7 @@ class TestBlockedBuiltins:
 
 
 class TestCombinedBypassVectors:
-    """End-to-end sandbox bypass scenarios."""
+    """Integration sandbox bypass scenarios."""
 
     def test_introspection_chain(self):
         """Bypass vector 1: introspection chain via dunder attributes."""

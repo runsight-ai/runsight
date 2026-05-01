@@ -144,7 +144,7 @@ async function routeRunsWithParserWarning(page: Page) {
   });
 }
 
-test.describe("Parser warnings browser flows", () => {
+test.describe("Parser warnings browser contract", () => {
   test.beforeAll(async () => {
     const suffix = Date.now().toString(36);
     warningSoulId = `parser-warning-soul-${suffix}`;

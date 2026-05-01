@@ -1,4 +1,4 @@
-"""E2E coverage for parser warnings across workflow/run API flows.
+"""Integration coverage for parser warnings across workflow/run API flows.
 
 These tests verify:
 1) Workflow warnings are returned in canonical v1 shape (message/source/context)

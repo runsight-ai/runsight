@@ -356,7 +356,7 @@ class TestExtraForbid:
 
 
 class TestRunsightWorkflowFile:
-    """End-to-end validation of the root model."""
+    """Root model validation coverage."""
 
     def test_minimal_valid_file(self):
         wf = RunsightWorkflowFile.model_validate(

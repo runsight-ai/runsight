@@ -120,6 +120,21 @@ class TestExecutionServiceInit:
         ExecutionService = _import_execution_service()
         assert ExecutionService is not None
 
+    def test_exposes_fail_ghost_runs_cleanup_method(self):
+        """ExecutionService exposes startup cleanup through its run-store collaborator."""
+        ExecutionService = _import_execution_service()
+        run_repo = Mock()
+        run_repo.list_runs.return_value = []
+        svc = ExecutionService(
+            run_repo=run_repo,
+            workflow_repo=Mock(),
+            provider_repo=Mock(),
+        )
+
+        svc.fail_ghost_runs()
+
+        run_repo.list_runs.assert_called_once()
+
     def test_accepts_required_dependencies(self):
         """ExecutionService.__init__ accepts run_repo, workflow_repo, provider_repo."""
         ExecutionService = _import_execution_service()

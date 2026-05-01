@@ -8,6 +8,7 @@ Coverage:
 """
 
 import asyncio
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -90,6 +91,24 @@ def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
         normalized_inputs=dict(inputs),
         input_redactor=RedactionContext.from_values(inputs.values()).redactor,
     )
+
+
+def test_streaming_observer_enqueues_block_heartbeat_event():
+    observer = StreamingObserver(run_id="monitoring-run")
+
+    observer.on_block_heartbeat(
+        workflow_name="test-wf",
+        block_id="monitoring-linear-block",
+        phase="llm_call",
+        detail="calling gpt-4o",
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    event = observer.queue.get_nowait()
+    assert event["event"] == "node_heartbeat"
+    assert event["data"]["node_id"] == "monitoring-linear-block"
+    assert event["data"]["phase"] == "llm_call"
+    assert event["data"]["detail"] == "calling gpt-4o"
 
 
 # ---------------------------------------------------------------------------
@@ -484,11 +503,11 @@ class TestSubscribeStreamYieldsEvents:
 
 
 # ---------------------------------------------------------------------------
-# 6. End-to-end: events flow wf.run() -> observer -> queue -> subscribe_stream
+# 6. Integration: events flow wf.run() -> observer -> queue -> subscribe_stream
 # ---------------------------------------------------------------------------
 
 
-class TestEndToEndEventPipeline:
+class TestStreamingEventPipelineIntegration:
     """Integration test: verify the full event pipeline from workflow
     execution through to subscribe_stream consumption."""
 
@@ -500,7 +519,7 @@ class TestEndToEndEventPipeline:
         Tests the full pipeline for a successful run.
         """
         svc = _make_service()
-        run_id = "run_e2e_ok"
+        run_id = "run_streaming_pipeline_ok"
         collected = []
 
         async def fake_wf_run(state, observer=None, **kwargs):
@@ -553,7 +572,7 @@ class TestEndToEndEventPipeline:
         when the workflow fails.
         """
         svc = _make_service()
-        run_id = "run_e2e_fail"
+        run_id = "run_streaming_pipeline_fail"
         collected = []
         error = RuntimeError("LLM quota exceeded")
 
@@ -604,7 +623,7 @@ class TestEndToEndEventPipeline:
         already been queued before cleanup.
         """
         svc = _make_service()
-        run_id = "run_e2e_timing"
+        run_id = "run_streaming_pipeline_timing"
 
         events_before_cleanup = []
 
@@ -642,7 +661,7 @@ class TestEndToEndEventPipeline:
     async def test_unhandled_runtime_exception_still_closes_stream(self):
         """Unexpected wf.run() exceptions must still unblock stream subscribers."""
         svc = _make_service()
-        run_id = "run_e2e_unhandled_close"
+        run_id = "run_streaming_pipeline_unhandled_close"
         collected = []
 
         async def fake_wf_run(state, observer=None, **kwargs):

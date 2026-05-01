@@ -1,12 +1,12 @@
 """
-align CI workflows with the current workspace layout.
+CI workspace layout governance.
 
-These tests verify that CI:
-- no longer references removed workspace paths such as libs/core
-- installs or syncs the current Python workspaces (apps/api + packages/core)
-- runs schema verification from packages/core/scripts/generate_schema.py
-- runs pytest against both current Python test roots
-- invokes the repo-root lint coverage that fans out across the current JS workspaces
+Owner: repo maintenance and CI owners.
+Boundary: publish CI must target canonical workspaces, avoid removed libs/core
+paths, run schema verification from packages/core, cover current Python test
+roots, and invoke repo-root lint coverage for current JS/Python workspaces.
+Exit criteria: delete this governance suite once CI layout is generated from a
+single workspace manifest or an equivalent CI validation tool owns the policy.
 """
 
 from __future__ import annotations
@@ -159,7 +159,7 @@ def _has_repo_root_lint_invocation(command: str) -> bool:
 
 
 class TestWorkspaceMetadataPreconditions:
-    """Preconditions describing the current canonical layout."""
+    """Owner: repo maintenance. Exit: workspace manifest validation owns this."""
 
     def test_root_uv_workspace_members_are_api_and_core(self):
         text = ROOT_PYPROJECT.read_text(encoding="utf-8")
@@ -179,7 +179,7 @@ class TestWorkspaceMetadataPreconditions:
 
 
 class TestCiWorkflowLayout:
-    """CI should target current workspaces and avoid deleted trees."""
+    """Owner: CI owners. Exit: generated CI validation owns this boundary."""
 
     def test_ci_workflow_exists(self):
         assert CI_WORKFLOW.exists(), f"CI workflow not found at {CI_WORKFLOW}"

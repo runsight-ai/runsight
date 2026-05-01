@@ -1,12 +1,11 @@
 """
-normalize contributor-facing tooling docs around `tools`.
+Developer tooling canonical-home governance.
 
-These tests stay intentionally narrow:
-- `packages/shared` already documents supported repo tooling through `tools/`
-- CI intentionally supports the package-local `packages/core/scripts/generate_schema.py`
-- contributors should not be told that a repo-root `scripts/` directory is still the
-  current tooling home
-- the package-local schema generator should not print obsolete repo-root command examples
+Owner: repo tooling and packages/shared codegen owners.
+Boundary: contributor-facing docs and help text must point at tools/ for repo
+tooling while preserving the supported package-local core schema generator path.
+Exit criteria: delete this governance suite once tooling docs are generated from
+the same manifest as package scripts and CI.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
 class TestToolingPathPreconditions:
-    """Lock in the supported entry points the tooling migration must preserve."""
+    """Owner: packages/shared and CI owners. Exit: generated script manifest owns this."""
 
     def test_shared_package_uses_tools_for_supported_codegen_commands(self):
         package_json = json.loads(SHARED_PACKAGE_JSON.read_text(encoding="utf-8"))
@@ -38,7 +37,7 @@ class TestToolingPathPreconditions:
 
 
 class TestContributorFacingToolingDocs:
-    """Contributor-facing docs and help text should not point at repo-root scripts/."""
+    """Owner: repo tooling docs. Exit: docs generated from tooling manifest."""
 
     def test_tools_readme_does_not_claim_legacy_scripts_directory_is_still_current(self):
         text = TOOLS_README.read_text(encoding="utf-8")

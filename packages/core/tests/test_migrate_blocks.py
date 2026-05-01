@@ -336,7 +336,7 @@ workflow:
 """
 
 
-class TestEndToEndRoundTrip:
+class TestMigratedBlockRoundTripIntegration:
     """Integration: parse YAML with migrated block types, verify correct runtime blocks."""
 
     def test_parse_linear_block(self):

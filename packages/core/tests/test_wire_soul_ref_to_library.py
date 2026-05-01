@@ -14,6 +14,7 @@ from textwrap import dedent
 from unittest.mock import patch
 
 import pytest
+from parser_yaml_helpers import write_custom_soul_file, write_workflow_file
 from runsight_core.primitives import Soul
 from runsight_core.yaml.parser import parse_workflow_yaml
 
@@ -24,39 +25,17 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     """Write workflow YAML to a file so parse_workflow_yaml infers workflow_base_dir."""
-    workflow_file = base_dir / "workflow.yaml"
-    content = dedent(yaml_content)
-    lines = content.lstrip().splitlines()
-    top_level_keys = {
-        line.split(":", 1)[0].strip()
-        for line in lines
-        if line and not line.startswith((" ", "\t")) and ":" in line
-    }
-    prefix = ""
-    if "id" not in top_level_keys:
-        prefix += "id: library-soul-fixture-workflow\n"
-    if "kind" not in top_level_keys:
-        prefix += "kind: workflow\n"
-    content = prefix + content
-    workflow_file.write_text(content, encoding="utf-8")
-    return str(workflow_file)
+    return write_workflow_file(
+        base_dir,
+        yaml_content,
+        default_id="library-soul-fixture-workflow",
+        default_kind="workflow",
+    )
 
 
 def _write_soul_file(base_dir: Path, name: str, *, role: str, prompt: str) -> None:
     """Create an isolated custom/souls fixture file."""
-    souls_dir = base_dir / "custom" / "souls"
-    souls_dir.mkdir(parents=True, exist_ok=True)
-    # id must match the filename stem (name)
-    (souls_dir / f"{name}.yaml").write_text(
-        dedent(f"""\
-        id: {name}
-        kind: soul
-        name: {role}
-        role: {role}
-        system_prompt: {prompt}
-        """),
-        encoding="utf-8",
-    )
+    write_custom_soul_file(base_dir, name, soul_id=name, role=role, prompt=prompt)
 
 
 def _souls_map() -> dict[str, Soul]:

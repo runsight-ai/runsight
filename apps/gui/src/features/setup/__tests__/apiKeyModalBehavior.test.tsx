@@ -53,27 +53,42 @@ vi.mock("@runsight/ui/dialog", () => ({
   DialogTitle: ({ children }: { children?: React.ReactNode }) => React.createElement("h2", null, children),
 }));
 
-vi.mock("@runsight/ui/select", () => ({
-  Select: ({
-    value,
-    onValueChange,
-    children,
-  }: {
-    value: string;
-    onValueChange: (value: string) => void;
-    children?: React.ReactNode;
-  }) =>
-    React.createElement("select", {
-      "aria-label": "Provider",
+vi.mock("@runsight/ui/select", () => {
+  const optionText = (children: React.ReactNode): string =>
+    React.Children.toArray(children)
+      .map((child) => {
+        if (typeof child === "string" || typeof child === "number") {
+          return String(child);
+        }
+        if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
+          return optionText(child.props.children);
+        }
+        return "";
+      })
+      .join("");
+
+  return {
+    Select: ({
       value,
-      onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onValueChange(event.currentTarget.value),
-    }, children),
-  SelectContent: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
-  SelectItem: ({ children, value }: { children?: React.ReactNode; value: string }) =>
-    React.createElement("option", { value }, children),
-  SelectTrigger: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
-  SelectValue: () => null,
-}));
+      onValueChange,
+      children,
+    }: {
+      value: string;
+      onValueChange: (value: string) => void;
+      children?: React.ReactNode;
+    }) =>
+      React.createElement("select", {
+        "aria-label": "Provider",
+        value,
+        onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onValueChange(event.currentTarget.value),
+      }, children),
+    SelectContent: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
+    SelectItem: ({ children, value }: { children?: React.ReactNode; value: string }) =>
+      React.createElement("option", { value }, optionText(children)),
+    SelectTrigger: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
+    SelectValue: () => null,
+  };
+});
 
 vi.mock("@runsight/ui/input", () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => React.createElement("input", props),
@@ -102,6 +117,8 @@ vi.mock("lucide-react", () => ({
 
 import { ApiKeyModal } from "../ApiKeyModal";
 
+const RESERVED_PROVIDER_BASE_URL = "https://api.example.test/v1";
+
 beforeEach(() => {
   harness.autoTest = {
     testStatus: "idle",
@@ -125,11 +142,11 @@ describe("ApiKeyModal", () => {
     expect(screen.getByLabelText("Provider")).toBeTruthy();
     expect(screen.getByPlaceholderText("sk-...")).toHaveAttribute("type", "password");
     expect(screen.getByTestId("connection-feedback").textContent).toBe("idle::0");
-    expect(screen.getByText("Save & Run")).toBeDisabled();
+    expect((screen.getByText("Save & Run") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("toggles API key visibility and shows Base URL for custom providers", () => {
-    render(<ApiKeyModal open onOpenChange={vi.fn()} />);
+    const { container } = render(<ApiKeyModal open onOpenChange={vi.fn()} />);
 
     const apiKeyInput = screen.getByPlaceholderText("sk-...");
     fireEvent.click(screen.getByLabelText("Toggle key visibility"));
@@ -137,7 +154,10 @@ describe("ApiKeyModal", () => {
 
     fireEvent.change(screen.getByLabelText("Provider"), { target: { value: "custom" } });
 
-    expect(screen.getByPlaceholderText("https://api.provider.com/v1")).toBeTruthy();
+    const baseUrlInput = container.querySelector<HTMLInputElement>('input[type="url"]');
+    expect(baseUrlInput).toBeTruthy();
+    fireEvent.change(baseUrlInput!, { target: { value: RESERVED_PROVIDER_BASE_URL } });
+    expect(baseUrlInput!.value).toBe(RESERVED_PROVIDER_BASE_URL);
     expect(harness.reset).toHaveBeenCalledTimes(1);
   });
 

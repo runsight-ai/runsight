@@ -1,6 +1,9 @@
 from pathlib import Path
 from textwrap import dedent
+from types import SimpleNamespace
+from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from runsight_api.core.config import settings
@@ -152,6 +155,29 @@ def test_tools_list_merges_builtin_and_custom_executor_variants_without_legacy_t
         "executor": "request",
     }
     assert "delegate" not in indexed
+
+
+@pytest.mark.asyncio
+async def test_tools_list_uses_tool_scanner(monkeypatch, tmp_path):
+    from runsight_api.transport.routers import tools as tools_router
+
+    monkeypatch.setattr(tools_router.settings, "base_path", str(tmp_path))
+
+    with patch.object(tools_router, "ToolScanner") as mock_scanner:
+        mock_scanner.return_value.scan.return_value.ids.return_value = {
+            "lookup_profile": SimpleNamespace(
+                name="Lookup Profile",
+                description="Look up a profile.",
+                executor="python",
+            )
+        }
+
+        items = await tools_router.list_tools()
+
+    assert any(item.id == "lookup_profile" for item in items)
+    mock_scanner.assert_called_once_with(str(tmp_path))
+    mock_scanner.return_value.scan.assert_called_once()
+    mock_scanner.return_value.scan.return_value.ids.assert_called_once()
 
 
 def test_invalid_custom_tool_file_blocks_tools_api_with_explicit_file_specific_error(

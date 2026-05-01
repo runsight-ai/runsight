@@ -478,16 +478,16 @@ class TestOutputConditionsCombinatorsInWorkflow:
         assert next_id == "step_match"
 
 
-# ===== End-to-end workflow run =====
+# ===== Integration workflow run =====
 
 
 class TestFullWorkflowRunWithOutputConditions:
-    """End-to-end: build and run a workflow with output_conditions."""
+    """Integration: build and run a workflow with output_conditions."""
 
     @pytest.mark.asyncio
     async def test_full_workflow_run_with_output_conditions(self):
         """Build workflow with output_conditions, run it, verify correct routing."""
-        wf = Workflow(name="workflow-output-conditions-e2e")
+        wf = Workflow(name="workflow-output-conditions-integration")
 
         # step_a produces JSON with status field
         step_a = MockJsonBlock("step_a", {"status": "approved"})
@@ -732,7 +732,7 @@ class TestOutputConditionsOverwriteStaleMetadata:
 
 
 class TestAllOperatorsViaOutputConditions:
-    """Verify every one of the 15+ operators works end-to-end through
+    """Verify every one of the 15+ operators works through the workflow router via
     ``Workflow.set_output_conditions()`` + ``Workflow._resolve_next()``.
 
     This is a parameterized integration test — one sub-case per operator.

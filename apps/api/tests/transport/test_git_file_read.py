@@ -192,7 +192,7 @@ class TestGitFileReadSuccess:
         )
 
     def test_read_workflow_yaml(self, git_repo):
-        """Reading a workflow YAML file works end-to-end."""
+        """Reading a workflow YAML file works through the transport route."""
         wf_content = "name: my-workflow\nsteps: []\n"
         wf_path = git_repo / "custom" / "workflows" / "my-workflow.yaml"
         wf_path.write_text(wf_content)

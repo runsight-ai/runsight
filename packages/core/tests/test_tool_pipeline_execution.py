@@ -26,7 +26,7 @@ from tool_integration_helpers import (
 
 
 class TestFullPipeline:
-    """End-to-end: YAML dict with tools: section parsed, soul gets resolved_tools,
+    """Integration: YAML dict with tools: section parsed, soul gets resolved_tools,
     runner enters tool loop, final ExecutionResult contains correct output."""
 
     @pytest.mark.asyncio

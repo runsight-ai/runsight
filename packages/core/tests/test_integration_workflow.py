@@ -4,7 +4,7 @@ Core engine integration tests for complete workflow execution.
 Tests the full integration chain at the engine level: Task -> Soul -> Runner ->
 ExecutionResult -> LinearBlock -> WorkflowState, simulating real workflow scenarios.
 
-Note: These are engine-level integration tests, not HTTP/API end-to-end tests.
+Note: These are engine-level integration tests, not HTTP/API system tests.
 LLM calls are intercepted via ``@patch("runsight_core.runner.LiteLLMClient.achat")``;
 no network I/O occurs.
 """
@@ -33,9 +33,9 @@ async def _run_block(block, state: WorkflowState) -> WorkflowState:
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_single_block_workflow(mock_achat):
+async def test_single_block_workflow_integration(mock_achat):
     """
-    E2E: Complete workflow with one block execution.
+    Integration: Complete workflow with one block execution.
 
     Flow: Task -> WorkflowState -> LinearBlock -> Runner -> LLM -> ExecutionResult -> Updated State
     """
@@ -73,7 +73,7 @@ async def test_e2e_single_block_workflow(mock_achat):
     # Execute workflow
     final_state = await _run_block(block, initial_state)
 
-    # Verify end-to-end data flow
+    # Verify integrated data flow
     assert (
         final_state.results["research_block"].output
         == "Research complete: Found 5 relevant papers on quantum computing."
@@ -98,9 +98,9 @@ async def test_e2e_single_block_workflow(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_sequential_block_workflow(mock_achat):
+async def test_sequential_block_workflow_integration(mock_achat):
     """
-    E2E: Workflow with multiple sequential block executions.
+    Integration: Workflow with multiple sequential block executions.
 
     Simulates a multi-step workflow where each block's output feeds into the next.
     """
@@ -207,9 +207,9 @@ async def test_e2e_sequential_block_workflow(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_shared_memory_across_blocks(mock_achat):
+async def test_shared_memory_across_blocks_integration(mock_achat):
     """
-    E2E: Verify shared_memory persists across block executions in a workflow.
+    Integration: Verify shared_memory persists across block executions in a workflow.
 
     Tests that blocks can read/write to shared_memory for inter-block communication.
     """
@@ -254,7 +254,7 @@ async def test_e2e_shared_memory_across_blocks(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat", new_callable=AsyncMock)
-async def test_e2e_error_propagation_through_workflow(mock_achat):
+async def test_error_propagation_through_workflow_integration(mock_achat):
     """
     Integration: Verify errors propagate correctly through the workflow stack.
 
@@ -283,9 +283,9 @@ async def test_e2e_error_propagation_through_workflow(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_state_isolation_between_workflows(mock_achat):
+async def test_state_isolation_between_workflows_integration(mock_achat):
     """
-    E2E: Verify different workflow executions don't interfere with each other.
+    Integration: Verify different workflow executions don't interfere with each other.
 
     Tests that running two separate workflows maintains state isolation.
     """
@@ -327,9 +327,9 @@ async def test_e2e_state_isolation_between_workflows(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_long_running_workflow_state_size(mock_achat):
+async def test_long_running_workflow_state_size_integration(mock_achat):
     """
-    E2E: Verify message truncation prevents state size explosion in long workflows.
+    Integration: Verify message truncation prevents state size explosion in long workflows.
 
     Tests that even with many blocks producing long outputs, state remains manageable.
     """
@@ -374,9 +374,9 @@ async def test_e2e_long_running_workflow_state_size(mock_achat):
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
-async def test_e2e_workflow_with_task_context_utilization(mock_achat):
+async def test_workflow_with_task_context_utilization_integration(mock_achat):
     """
-    E2E: Verify Task.context flows through entire workflow and reaches LLM.
+    Integration: Verify Task.context flows through entire workflow and reaches LLM.
 
     Tests that context information is properly utilized throughout the execution chain.
     """
@@ -415,7 +415,7 @@ async def test_e2e_workflow_with_task_context_utilization(mock_achat):
 
 
 @pytest.mark.asyncio
-async def test_e2e_baseblock_empty_id_validation():
+async def test_baseblock_empty_id_validation_integration():
     """
     Integration: Verify BaseBlock contract enforcement for empty block_id.
 

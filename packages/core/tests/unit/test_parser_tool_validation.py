@@ -10,87 +10,26 @@ Tests cover:
 
 from __future__ import annotations
 
-from textwrap import dedent
-
 import pytest
 import runsight_core.yaml.parser as parser_module
 import yaml
+from parser_yaml_helpers import (
+    SnapshotGitService as _SnapshotGitService,
+)
+from parser_yaml_helpers import (
+    tool_validation_workflow_yaml as _make_yaml,
+)
+from parser_yaml_helpers import (
+    write_custom_tool_file as _write_custom_tool_file,
+)
+from parser_yaml_helpers import (
+    write_workflow_file as _write_workflow_file,
+)
 from pydantic import ValidationError
 from runsight_core.tools import ToolInstance
 from runsight_core.yaml.parser import _resolve_soul_tool_definition, parse_workflow_yaml
 from runsight_core.yaml.schema import RunsightWorkflowFile
 from runsight_core.yaml.validation import ValidationResult
-
-# ---------------------------------------------------------------------------
-# Helper: minimal YAML builder for tool-validation tests
-# ---------------------------------------------------------------------------
-
-
-def _make_yaml(
-    *,
-    tools: str = "",
-    souls: str = "",
-    blocks: str = "",
-    transitions: str = "",
-    entry: str = "tool_validation_block",
-) -> str:
-    """Build a complete workflow YAML string for tool-validation tests."""
-    return f"""\
-id: tool-validation-workflow
-kind: workflow
-version: "1.0"
-config:
-  model_name: gpt-4o
-{tools}
-{souls}
-blocks:
-{blocks}
-workflow:
-  name: tool_validation
-  entry: {entry}
-  transitions:
-{transitions}
-"""
-
-
-def _write_workflow_file(tmp_path, yaml_str: str) -> str:
-    """Persist a workflow YAML file so parse_workflow_yaml can infer checkout-local context."""
-    workflow_file = tmp_path / "workflow.yaml"
-    workflow_file.write_text(yaml_str, encoding="utf-8")
-    return str(workflow_file)
-
-
-def _write_custom_tool_file(tmp_path, slug: str, contents: str) -> None:
-    """Create a custom tool metadata file under custom/tools for parser tests."""
-    tools_dir = tmp_path / "custom" / "tools"
-    tools_dir.mkdir(parents=True, exist_ok=True)
-    content = dedent(contents)
-    lines = content.lstrip().splitlines()
-    first_key = lines[0].split(":")[0].strip() if lines else ""
-    if first_key != "id":
-        content = f"id: {slug}\nkind: tool\n" + content
-    (tools_dir / f"{slug}.yaml").write_text(content, encoding="utf-8")
-
-
-class _SnapshotGitService:
-    def __init__(self, base_dir):
-        self._base_dir = base_dir
-
-    def list_files(self, ref: str, path_prefix: str) -> list[str]:
-        del ref
-        root = self._base_dir / path_prefix.rstrip("/")
-        if not root.exists():
-            return []
-        return sorted(
-            path.relative_to(self._base_dir).as_posix()
-            for path in root.rglob("*")
-            if path.is_file() and path.suffix in {".yaml", ".yml"}
-        )
-
-    def read_file(self, path: str, ref: str) -> str:
-        del ref
-        return (self._base_dir / path).read_text(encoding="utf-8")
-
 
 # ===========================================================================
 # Declared tools populate soul.resolved_tools with ToolInstance objects

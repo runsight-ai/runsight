@@ -124,7 +124,7 @@ class TestWriteArtifactReturnsRef:
 
 
 class TestHTTPRoundTrip:
-    """End-to-end: client sends http action, server dispatches, client gets response."""
+    """Integration: client sends http action, server dispatches, client gets response."""
 
     @pytest.mark.asyncio
     async def test_http_get_round_trip(self, tmp_path: Path):
@@ -233,7 +233,7 @@ class TestHTTPRoundTrip:
 
 
 class TestWriteArtifactRoundTrip:
-    """End-to-end: client sends write_artifact, server stores it, client gets ref."""
+    """Integration: client sends write_artifact, server stores it, client gets ref."""
 
     @pytest.mark.asyncio
     async def test_write_artifact_full_round_trip(self, tmp_path: Path):

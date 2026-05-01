@@ -37,6 +37,14 @@ from runsight_api.transport.deps import (
 )
 from runsight_api.transport.routers import runs, sse_stream
 
+_PROVIDER_SECRET_ENV_NAMES = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+)
+
 SIMPLE_WORKFLOW_YAML = """\
 id: simple-workflow
 kind: workflow
@@ -60,7 +68,7 @@ blocks:
     type: linear
     soul_ref: analyst
 workflow:
-  name: simple_e2e_test
+  name: simple_execution_transport_integration
   entry: analyze
   transitions:
     - from: analyze
@@ -249,6 +257,13 @@ def _cancel_latest_run(engine, workflow_repo: WorkflowRepository) -> str:
     finally:
         session.close()
     return run_id
+
+
+@pytest.fixture(autouse=True)
+def _clear_provider_secret_env(monkeypatch):
+    """Keep SecretsEnvLoader on this test's temp secrets.env."""
+    for name in _PROVIDER_SECRET_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture

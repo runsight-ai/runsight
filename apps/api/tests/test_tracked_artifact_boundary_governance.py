@@ -1,10 +1,12 @@
 """
-remove tracked generated, backup, compiled, and local-data artifacts.
+Tracked artifact boundary governance.
 
-This spec stays intentionally narrow:
-- guardrails should exist in the root .gitignore for the audited artifact classes
-- tracked source workspaces should not carry the known invalid detritus classes
-- the three audited tracked artifacts should be removed from version control
+Owner: repo maintenance and workspace owners for apps/api, apps/gui, packages,
+and testing.
+Boundary: source workspaces must not track generated, backup, compiled, or
+local-data artifacts, and root .gitignore must keep guardrails for those classes.
+Exit criteria: delete this governance suite once a repo-wide tracked-artifact
+scanner owns the same policy in tools or CI.
 """
 
 from __future__ import annotations
@@ -69,7 +71,7 @@ def _tracked_invalid_artifacts() -> list[str]:
 
 
 class TestTrackedArtifactGuardrails:
-    """The repo should keep obvious ignore rules for audited artifact classes."""
+    """Owner: repo maintenance. Exit: CI scanner owns ignore-rule validation."""
 
     def test_root_gitignore_covers_audited_artifact_classes(self):
         text = ROOT_GITIGNORE.read_text(encoding="utf-8")
@@ -79,7 +81,7 @@ class TestTrackedArtifactGuardrails:
 
 
 class TestTrackedSourceWorkspaceArtifacts:
-    """Source workspaces should not carry tracked detritus from the audit."""
+    """Owner: source workspace owners. Exit: CI scanner owns tracked-artifact checks."""
 
     def test_source_workspaces_do_not_track_invalid_artifact_classes(self):
         invalid = _tracked_invalid_artifacts()

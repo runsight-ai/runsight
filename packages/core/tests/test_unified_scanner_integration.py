@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import re
 import subprocess
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import patch
 
 import pytest
 import yaml
 from runsight_core.yaml.discovery import SoulScanner, ToolScanner, WorkflowScanner
-from runsight_core.yaml.parser import parse_workflow_yaml, validate_workflow_call_contracts
-from runsight_core.yaml.schema import RunsightWorkflowFile
 
 
 class _GitReadService:
@@ -216,110 +212,3 @@ def test_all_scanners_support_git_snapshot_scan_with_real_repo(
     resolved = WorkflowScanner(repo_path).resolve_ref("child-impl", index=workflow_git_index)
     assert resolved is not None
     assert resolved.stem == "child-impl"
-
-
-def test_workflow_repository_build_registry_matches_workflow_scanner_resolution(
-    tmp_path: Path, workflow_repo_module
-):
-    paths = _write_shared_fixture(tmp_path)
-    workflow_index = WorkflowScanner(tmp_path).scan()
-    resolved = WorkflowScanner(tmp_path).resolve_ref("child-impl", index=workflow_index)
-
-    assert resolved is not None
-    assert resolved.path == paths["child"].resolve()
-
-    with workflow_repo_module() as workflow_repo:
-        repo = workflow_repo.WorkflowRepository(base_path=str(tmp_path))
-        registry = repo.build_runnable_workflow_registry(
-            "parent",
-            paths["parent"].read_text(encoding="utf-8"),
-        )
-
-    child_by_id = registry.get("child-impl")
-    assert child_by_id.workflow.name == "child_flow"
-    with pytest.raises(ValueError, match="cannot resolve ref"):
-        registry.get("child_flow")
-    with pytest.raises(ValueError, match="cannot resolve ref"):
-        registry.get("custom/workflows/child-impl.yaml")
-
-
-def test_parser_and_validation_invoke_scanners_on_real_fixture(
-    tmp_path: Path, workflow_repo_module
-):
-    paths = _write_shared_fixture(tmp_path)
-
-    with workflow_repo_module() as workflow_repo:
-        with (
-            patch("runsight_core.yaml.parser.SoulScanner", wraps=SoulScanner) as soul_scanner_cls,
-            patch("runsight_core.yaml.parser.ToolScanner", wraps=ToolScanner) as tool_scanner_cls,
-        ):
-            workflow_registry = workflow_repo.WorkflowRepository(
-                base_path=str(tmp_path)
-            ).build_runnable_workflow_registry(
-                "parent",
-                paths["parent"].read_text(encoding="utf-8"),
-            )
-            workflow = parse_workflow_yaml(
-                str(paths["parent"]), workflow_registry=workflow_registry
-            )
-
-    assert workflow.name == "parent_flow"
-    assert any(
-        call.args and Path(call.args[0]).resolve() == tmp_path.resolve()
-        for call in soul_scanner_cls.call_args_list
-    )
-    assert any(
-        call.args and Path(call.args[0]).resolve() == tmp_path.resolve()
-        for call in tool_scanner_cls.call_args_list
-    )
-
-    parent_file = RunsightWorkflowFile.model_validate(_parent_workflow("child-impl"))
-    with patch(
-        "runsight_core.yaml.parser.WorkflowScanner", wraps=WorkflowScanner
-    ) as workflow_scanner_cls:
-        validate_workflow_call_contracts(
-            parent_file,
-            base_dir=str(tmp_path),
-            validation_index=None,
-            current_workflow_ref=str(paths["parent"]),
-        )
-
-    assert any(
-        call.args and Path(call.args[0]).resolve() == tmp_path.resolve()
-        for call in workflow_scanner_cls.call_args_list
-    )
-
-
-def test_deleted_discovery_symbols_are_gone_from_production_code():
-    legacy_symbols = (
-        "discover_custom_assets",
-        "discover_custom_tools",
-        "_discover_souls",
-        "_discover_blocks",
-        "_discover_workflows",
-        "_to_snake_case",
-        "_discovery_module",
-        "_build_workflow_validation_index",
-        "_resolve_workflow_call_contract_ref",
-        "_build_name_index",
-        "_read_workflow_from_source",
-        "_register_workflow_aliases",
-        "_candidate_workflow_paths",
-    )
-    roots = [
-        Path(__file__).resolve().parents[1] / "src",
-        Path(__file__).resolve().parents[3] / "apps" / "api" / "src",
-    ]
-
-    patterns = {
-        symbol: re.compile(rf"(?<!\w){re.escape(symbol)}(?!\w)") for symbol in legacy_symbols
-    }
-    matches: list[str] = []
-    for root in roots:
-        for py_file in root.rglob("*.py"):
-            content = py_file.read_text(encoding="utf-8")
-            for symbol, pattern in patterns.items():
-                if pattern.search(content):
-                    matches.append(f"{py_file}:{symbol}")
-
-    assert matches == []

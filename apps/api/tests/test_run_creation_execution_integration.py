@@ -1,4 +1,4 @@
-"""E2E coverage for HTTP POST /api/runs -> execution service -> mocked LLM -> DB state.
+"""Integration coverage for HTTP POST /api/runs -> execution service -> mocked LLM -> DB state.
 
 Gap being closed: all API-layer tests mock the execution service, and all core-layer
 tests skip the API layer.  No existing test covers the full path:
@@ -23,6 +23,14 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from runsight_api.core.secrets import SecretsEnvLoader
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+
+_PROVIDER_SECRET_ENV_NAMES = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +57,7 @@ blocks:
     type: linear
     soul_ref: analyst
 workflow:
-  name: simple_e2e_test
+  name: simple_run_creation_execution_integration
   entry: analyze
   transitions:
     - from: analyze
@@ -77,7 +85,7 @@ blocks:
     type: linear
     soul_ref: analyst
 workflow:
-  name: failing_e2e_test
+  name: failing_run_creation_execution_integration
   entry: broken_step
   transitions:
     - from: broken_step
@@ -125,7 +133,7 @@ def _write_secrets_file(base_dir: Path) -> None:
     secrets_dir = base_dir / ".runsight"
     secrets_dir.mkdir(parents=True, exist_ok=True)
     (secrets_dir / "secrets.env").write_text(
-        "# Managed by Runsight\nOPENAI_API_KEY=dummy-fake-test-key-for-e2e\n",
+        "# Managed by Runsight\nOPENAI_API_KEY=dummy-fake-test-key-for-integration\n",
         encoding="utf-8",
     )
 
@@ -190,7 +198,14 @@ async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 10.0) -> 
     # Final attempt
     with Session(engine) as session:
         run = session.get(Run, run_id)
-        return run
+    return run
+
+
+@pytest.fixture(autouse=True)
+def _clear_provider_secret_env(monkeypatch):
+    """Keep SecretsEnvLoader on this test's temp secrets.env."""
+    for name in _PROVIDER_SECRET_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +310,7 @@ def app_with_real_services(db_engine, base_dir):
 # ---------------------------------------------------------------------------
 
 
-class TestSuccessfulRunE2E:
+class TestSuccessfulRunIntegration:
     """POST /api/runs with valid workflow YAML -> run created -> execution
     completes -> run.status = 'completed' in DB -> at least one node record
     exists for each block.
@@ -481,7 +496,7 @@ class TestSuccessfulRunE2E:
 # ---------------------------------------------------------------------------
 
 
-class TestFailingRunE2E:
+class TestFailingRunIntegration:
     """POST /api/runs with workflow containing a failing block -> run.status
     = 'failed' in DB.
     """

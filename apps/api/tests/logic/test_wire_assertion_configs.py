@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from pydantic import ValidationError
 from runsight_core.observer import compute_soul_version
+from runsight_core.primitives import Step
 from runsight_core.redaction import RunRedactor
 from runsight_core.yaml.parser import parse_workflow_yaml
 from sqlmodel import Session, SQLModel, create_engine
@@ -34,6 +35,38 @@ workflow:
   name: block_assertion_test
   entry: analyze
   transitions:
+    - from: analyze
+      to: null
+"""
+
+
+YAML_STEP_WITH_ASSERTIONS = """\
+id: step-assertion-test
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+blocks:
+  fetch:
+    type: linear
+    soul_ref: researcher
+  analyze:
+    type: linear
+    soul_ref: analyst
+    inputs:
+      data:
+        from: fetch.output
+    assertions:
+      - type: contains
+        value: analysis
+      - type: cost
+        threshold: 0.05
+workflow:
+  name: step_assertion_test
+  entry: fetch
+  transitions:
+    - from: fetch
+      to: analyze
     - from: analyze
       to: null
 """
@@ -110,6 +143,37 @@ def _parse_block_assertion_workflow() -> object:
         )
         workflow_file = base / "workflow.yaml"
         workflow_file.write_text(YAML_BLOCK_WITH_ASSERTIONS, encoding="utf-8")
+        return parse_workflow_yaml(str(workflow_file))
+
+
+def _parse_step_assertion_workflow() -> object:
+    """Parse a workflow where asserted blocks are Step-wrapped by declared inputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        _write_soul_file(
+            base,
+            "researcher",
+            """\
+            id: researcher
+            kind: soul
+            name: Researcher
+            role: Researcher
+            system_prompt: You research data.
+            """,
+        )
+        _write_soul_file(
+            base,
+            "analyst",
+            """\
+            id: analyst
+            kind: soul
+            name: Analyst
+            role: Analyst
+            system_prompt: You are a careful analyst.
+            """,
+        )
+        workflow_file = base / "workflow.yaml"
+        workflow_file.write_text(YAML_STEP_WITH_ASSERTIONS, encoding="utf-8")
         return parse_workflow_yaml(str(workflow_file))
 
 
@@ -226,6 +290,41 @@ class TestExecutionServiceBuildsAssertionConfigs:
 
         assert configs is not None
         assert configs["analyze"] == [{"type": "contains", "value": "analysis"}]
+
+    def test_build_assertion_configs_reads_assertions_through_step_wrapper(self):
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        inner_block = SimpleNamespace(assertions=[{"type": "contains", "value": "analysis"}])
+        step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
+        wf = SimpleNamespace(_blocks={"analyze": step})
+
+        configs = ExecutionService._build_assertion_configs(wf)
+
+        assert configs == {"analyze": [{"type": "contains", "value": "analysis"}]}
+
+    def test_build_assertion_configs_returns_none_for_step_without_assertions(self):
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        inner_block = SimpleNamespace(assertions=None)
+        step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
+        wf = SimpleNamespace(_blocks={"analyze": step})
+
+        configs = ExecutionService._build_assertion_configs(wf)
+
+        assert configs is None
+
+    def test_build_assertion_configs_reads_parsed_step_wrapped_assertions(self):
+        from runsight_api.logic.services.execution_service import ExecutionService
+
+        wf = _parse_step_assertion_workflow()
+
+        configs = ExecutionService._build_assertion_configs(wf)
+
+        assert configs is not None
+        assert configs["analyze"] == [
+            {"type": "contains", "value": "analysis"},
+            {"type": "cost", "threshold": 0.05},
+        ]
 
 
 class TestIntegrationEvalScoreViaService:

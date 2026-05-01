@@ -1,4 +1,4 @@
-"""End-to-end runtime tests for completed YAML DX sugar features."""
+"""Runtime integration tests for completed YAML DX sugar features."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 
 class _ScriptedRunner:
-    """Deterministic runner for exercising parsed LLM-backed blocks end-to-end."""
+    """Deterministic runner for exercising parsed LLM-backed blocks through integration."""
 
     def __init__(self, behaviors=None):
         self.behaviors = behaviors or {}
@@ -58,7 +58,7 @@ def _result_snapshot(state: WorkflowState) -> list[tuple[str, str, str | None]]:
 
 
 @pytest.mark.asyncio
-class TestYamlDxSugarE2E:
+class TestYamlDxSugarIntegration:
     """Completed YAML DX sugar should behave transparently at runtime."""
 
     async def test_inline_soul_workflow_executes_to_completion_and_produces_output(self):
@@ -66,7 +66,7 @@ class TestYamlDxSugarE2E:
             dedent(
                 """\
                 version: "1.0"
-                id: inline-soul-e2e
+                id: inline-soul-integration
                 kind: workflow
                 souls:
                   writer:
@@ -80,7 +80,7 @@ class TestYamlDxSugarE2E:
                     type: linear
                     soul_ref: writer
                 workflow:
-                  name: inline_soul_e2e
+                  name: inline_soul_integration
                   entry: draft
                   transitions:
                     - from: draft

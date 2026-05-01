@@ -584,7 +584,7 @@ class TestBudgetSessionFromBlockLimits:
 
 
 # ===========================================================================
-# 12. End-to-end: dispatch isolation pattern
+# 12. Integration: dispatch isolation pattern
 # ===========================================================================
 
 

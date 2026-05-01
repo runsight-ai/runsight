@@ -3,9 +3,7 @@
 import tempfile
 from pathlib import Path
 from textwrap import dedent
-from types import SimpleNamespace
 
-import pytest
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
@@ -214,61 +212,3 @@ class TestParserPreservesAssertionsWithInputs:
         # 'fetch' has no inputs, so it should be a raw block, not Step-wrapped
         fetch_block = wf._blocks["fetch"]
         assert not isinstance(fetch_block, Step)
-
-
-# ===========================================================================
-# _build_assertion_configs with Step-wrapped blocks
-# ===========================================================================
-
-
-class TestBuildAssertionConfigsWithStepWrappedBlocks:
-    """_build_assertion_configs must see assertions through Step wrappers."""
-
-    def test_build_assertion_configs_sees_assertions_through_step_wrapper(self):
-        """When _blocks contains a Step-wrapped block with assertions,
-        _build_assertion_configs must include them in the config dict."""
-        ExecutionService = pytest.importorskip(
-            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
-        ).ExecutionService
-
-        inner_block = SimpleNamespace(assertions=[{"type": "contains", "value": "analysis"}])
-        step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
-
-        wf = SimpleNamespace(_blocks={"analyze": step})
-
-        configs = ExecutionService._build_assertion_configs(wf)
-
-        assert configs is not None
-        assert "analyze" in configs
-        assert configs["analyze"] == [{"type": "contains", "value": "analysis"}]
-
-    def test_build_assertion_configs_returns_none_for_step_without_assertions(self):
-        """When all Step-wrapped blocks have no assertions, return None."""
-        ExecutionService = pytest.importorskip(
-            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
-        ).ExecutionService
-
-        inner_block = SimpleNamespace(assertions=None)
-        step = Step(block=inner_block, declared_inputs={"data": "fetch.output"})
-
-        wf = SimpleNamespace(_blocks={"analyze": step})
-
-        configs = ExecutionService._build_assertion_configs(wf)
-
-        assert configs is None
-
-    def test_build_assertion_configs_full_pipeline_parse_then_build(self):
-        """End-to-end: parse YAML with inputs+assertions, then build configs."""
-        ExecutionService = pytest.importorskip(
-            "runsight_api.logic.services.execution_service", reason="runsight_api not installed"
-        ).ExecutionService
-
-        wf = _parse_with_souls(YAML_INPUTS_AND_ASSERTIONS)
-
-        configs = ExecutionService._build_assertion_configs(wf)
-
-        assert configs is not None
-        assert "analyze" in configs
-        assert len(configs["analyze"]) == 2
-        assert configs["analyze"][0]["type"] == "contains"
-        assert configs["analyze"][1]["type"] == "cost"

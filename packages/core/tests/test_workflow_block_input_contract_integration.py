@@ -1,4 +1,4 @@
-"""End-to-end WorkflowBlock integration tests for the public input contract."""
+"""WorkflowBlock integration tests for the public input contract."""
 
 from __future__ import annotations
 

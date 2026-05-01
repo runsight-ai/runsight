@@ -149,11 +149,11 @@ class TestWorkflowFixtureStructure:
 
 
 # ==============================================================================
-# Standalone gate routing works end-to-end
+# Standalone gate routing works through workflow execution
 # ==============================================================================
 
 
-class TestGateStandaloneRoutingE2E:
+class TestGateStandaloneRoutingIntegration:
     """Gate block used standalone with conditional_transitions."""
 
     @pytest.mark.asyncio
@@ -255,11 +255,11 @@ class TestGateStandaloneRoutingE2E:
 
 
 # ==============================================================================
-# Gate-in-loop routing works end-to-end
+# Gate-in-loop routing works through workflow execution
 # ==============================================================================
 
 
-class TestGateInLoopRoutingE2E:
+class TestGateInLoopRoutingIntegration:
     """Gate inside a LoopBlock with break_on_exit / retry_on_exit."""
 
     @pytest.mark.asyncio
@@ -458,7 +458,7 @@ class TestGateInLoopRoutingE2E:
 # ==============================================================================
 
 
-class TestOutputConditionsExitHandleChainE2E:
+class TestOutputConditionsExitHandleChainIntegration:
     """Code/linear block output_conditions feed conditional routing."""
 
     @pytest.mark.asyncio
@@ -835,7 +835,7 @@ class TestFullWorkflowBranchingFromYAML:
 id: test-workflow
 kind: workflow
 workflow:
-  name: test_gate_e2e
+  name: test_gate_integration
   entry: content_block
   transitions:
     - from: content_block
@@ -940,7 +940,7 @@ blocks:
 id: test-workflow
 kind: workflow
 workflow:
-  name: test_gate_fail_e2e
+  name: test_gate_fail_integration
   entry: content_block
   transitions:
     - from: content_block

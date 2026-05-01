@@ -419,7 +419,7 @@ class TestWorkflowBlockOutputMappingOnSuccess:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """
-        End-to-end: child is a YAML-parsed CodeBlock that returns a dict.
+        Integration: child is a YAML-parsed CodeBlock that returns a dict.
         Parent maps the code block's result to parent state.
         """
         from runsight_core.blocks.code import CodeBlock

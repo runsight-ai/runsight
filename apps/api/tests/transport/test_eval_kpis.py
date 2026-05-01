@@ -1,5 +1,5 @@
 """
-Dashboard KPI eval pass rate and regressions end-to-end.
+Dashboard KPI eval pass rate and regressions transport integration.
 
 These tests verify the GET /api/dashboard endpoint computes real eval KPIs:
 

@@ -1,4 +1,4 @@
-"""E2E coverage for assertions fire during block execution and produce pass/fail signal.
+"""Integration coverage for assertions fire during block execution and produce pass/fail signal.
 
 Every existing assertion test is structural — parsing, config building, or isolated observer
 unit tests. These tests exercise the FULL execution pipeline via the HTTP layer:
@@ -209,7 +209,7 @@ def app_with_real_services(db_engine, base_dir):
     git_service = _git_service_for(base_dir)
 
     mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-e2e")
+    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-integration")
     execution_session = Session(db_engine)
 
     execution_service = ExecutionService(

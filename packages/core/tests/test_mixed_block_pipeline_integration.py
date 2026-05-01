@@ -36,7 +36,7 @@ def _fixture_text(name: str) -> str:
 
 
 class _ScriptedRunner:
-    """Deterministic runner for exercising parsed LLM-backed blocks end-to-end."""
+    """Deterministic runner for exercising parsed LLM-backed blocks through integration."""
 
     def __init__(self, behaviors=None):
         self.behaviors = behaviors or {}

@@ -158,7 +158,7 @@ class TestObserverReceivesRealState:
 
 
 class TestLaunchExecutionStateFlow:
-    """End-to-end test through launch_execution to verify the state flow."""
+    """Integration test through launch_execution to verify the state flow."""
 
     @pytest.mark.asyncio
     async def test_launch_execution_passes_workflow_state_and_inputs(self):

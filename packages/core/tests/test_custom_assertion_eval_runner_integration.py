@@ -1,4 +1,4 @@
-"""End-to-end custom assertion coverage for offline eval runner."""
+"""Integration coverage for offline eval runner custom assertions."""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ def _write_eval_workflow(
     return _write_yaml(base_dir / "workflow.yaml", workflow)
 
 
-class TestRunEvalCustomAssertionsE2E:
+class TestRunEvalCustomAssertionsIntegration:
     @pytest.mark.asyncio
     async def test_run_eval_path_discovers_promptfoo_custom_assertion_with_config_and_builtin(
         self, tmp_path: Path

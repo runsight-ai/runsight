@@ -501,12 +501,12 @@ class TestBaseBlockDefLimits:
 
 
 # ===========================================================================
-# 12. Acceptance scenarios: YAML round-trip
+# 12. Behavior scenarios: YAML round-trip
 # ===========================================================================
 
 
 class TestYamlRoundTrip:
-    """End-to-end acceptance scenarios parsing YAML strings into RunsightWorkflowFile."""
+    """Behavior scenarios parsing YAML strings into RunsightWorkflowFile."""
 
     _MINIMAL_YAML_TEMPLATE = """\
 id: test

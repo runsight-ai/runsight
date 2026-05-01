@@ -1,5 +1,11 @@
 /**
- * Source-level API client contract checks for Zod parsing and dashboard query wiring.
+ * Governance for source-level API client parsing and dashboard query wiring.
+ *
+ * Boundary: GUI API client adapters and dashboard query adapter.
+ * Owner: GUI API tests until the source-level guards are replaced by behavior
+ * tests around the generated shared contracts and fetch adapters.
+ * Exit criteria: delete this suite once adapter behavior tests prove response
+ * parsing and query delegation without implementation-source inspection.
  */
 
 import { readFileSync } from "node:fs";
@@ -13,7 +19,7 @@ const dashboardQuerySource = readFileSync(
 );
 const gitSource = readFileSync(new URL("../git.ts", import.meta.url), "utf8");
 
-describe("Zod validation gaps", () => {
+describe("API client parsing governance", () => {
   it("setWorkflowEnabled parses the workflow enable response with Zod", () => {
     // Extract the setWorkflowEnabled function body for a focused check
     const setWorkflowEnabledMatch = workflowsSource.match(

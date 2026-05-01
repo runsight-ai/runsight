@@ -1979,7 +1979,7 @@ class TestCleanup:
 
 
 class TestLinearBlockRoundTrip:
-    """End-to-end: build envelope, spawn subprocess, get result back."""
+    """Integration: build envelope, spawn subprocess, get result back."""
 
     @pytest.mark.asyncio
     async def test_run_returns_result_envelope(self, monkeypatch: pytest.MonkeyPatch):
