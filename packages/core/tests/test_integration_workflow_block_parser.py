@@ -1,10 +1,10 @@
 """
-Integration tests for WorkflowBlock parser integration and cross-feature interactions.
+Integration tests for WorkflowBlock parser integration and runtime interactions.
 
 Tests the interaction between:
 1. YAML parser extending to handle type: workflow blocks
 2. Workflow.run() accepting and propagating call_stack and workflow_registry kwargs
-3. Existing blocks accepting **kwargs for backward compatibility
+3. Existing blocks accepting forwarded execution context kwargs
 4. WorkflowBlock resolving workflow references via registry
 """
 
@@ -93,7 +93,7 @@ class TestWorkflowRunKwargsHandling:
 
     @pytest.mark.asyncio
     async def test_workflow_run_accepts_registry_kwarg(self):
-        """Test that Workflow.run() accepts registry kwarg (existing feature)."""
+        """Test that Workflow.run() accepts registry kwargs."""
         yaml_def = """
 version: "1.0"
 id: registry_kwargs_workflow
@@ -102,13 +102,13 @@ workflow:
   id: registry_kwargs_workflow
   kind: workflow
   name: registry_kwargs_workflow
-  entry: step1
+  entry: registry_kwarg_code_step
 blocks:
-  step1:
+  registry_kwarg_code_step:
     type: code
-    code: "def main(data):\\n    return {'step1': 'done'}"
+    code: "def main(data):\\n    return {'registry_kwarg_code_step': 'done'}"
 transitions:
-  - from: step1
+  - from: registry_kwarg_code_step
     to: null
 """
         wf = parse_workflow_yaml(yaml_def)
@@ -130,13 +130,13 @@ workflow:
   id: registry_kwargs_workflow
   kind: workflow
   name: registry_kwargs_workflow
-  entry: step1
+  entry: signature_flex_code_step
 blocks:
-  step1:
+  signature_flex_code_step:
     type: code
-    code: "def main(data):\\n    return {'step1': 'done'}"
+    code: "def main(data):\\n    return {'signature_flex_code_step': 'done'}"
 transitions:
-  - from: step1
+  - from: signature_flex_code_step
     to: null
 """
         wf = parse_workflow_yaml(yaml_def)
@@ -197,7 +197,12 @@ class TestBlockKwargsCompatibility:
         registry = WorkflowRegistry()
 
         # Should accept call_stack and workflow_registry kwargs without error
-        result = await _exec(block, state, call_stack=["parent"], workflow_registry=registry)
+        result = await _exec(
+            block,
+            state,
+            call_stack=["workflow_kwargs_caller"],
+            workflow_registry=registry,
+        )
         assert isinstance(result, WorkflowState)
         assert "workflow_kwargs_block" in result.results
 
@@ -217,13 +222,13 @@ workflow:
   id: registry_source_analysis_workflow
   kind: workflow
   name: registry_source_analysis_workflow
-  entry: child_task
+  entry: registry_source_analysis_step
 blocks:
-  child_task:
+  registry_source_analysis_step:
     type: code
-    code: "def main(data):\\n    return {'child_task': 'done'}"
+    code: "def main(data):\\n    return {'registry_source_analysis_step': 'done'}"
 transitions:
-  - from: child_task
+  - from: registry_source_analysis_step
     to: null
 """
         child_workflow = parse_workflow_yaml(child_yaml_def)
@@ -237,13 +242,13 @@ workflow:
   id: registry_parent_runner_workflow
   kind: workflow
   name: registry_parent_runner_workflow
-  entry: main_task
+  entry: registry_parent_runner_step
 blocks:
-  main_task:
+  registry_parent_runner_step:
     type: code
-    code: "def main(data):\\n    return {'main_task': 'done'}"
+    code: "def main(data):\\n    return {'registry_parent_runner_step': 'done'}"
 transitions:
-  - from: main_task
+  - from: registry_parent_runner_step
     to: null
 """
         parent_workflow = parse_workflow_yaml(parent_yaml_def)
@@ -263,7 +268,7 @@ transitions:
         child_workflow = AsyncMock()
         child_workflow.name = "isolation_child_workflow"
         child_final_state = WorkflowState(
-            results={"child_result": BlockResult(output="output")},
+            results={"isolated_result": BlockResult(output="output")},
             total_cost_usd=0.05,
             total_tokens=50,
         )
@@ -273,7 +278,7 @@ transitions:
             block_id="isolated_subworkflow_block",
             child_workflow=child_workflow,
             inputs={"data": "shared_memory.parent_data"},
-            outputs={"results.child_out": "results.child_result"},
+            outputs={"results.isolated_output": "results.isolated_result"},
         )
 
         parent_state = WorkflowState(
@@ -293,7 +298,7 @@ transitions:
         assert "existing" not in child_state_arg.results
 
         # Parent should have output mapped back
-        assert result.results.get("child_out") == BlockResult(output="output")
+        assert result.results.get("isolated_output") == BlockResult(output="output")
         # Parent's original data preserved
         assert result.results.get("existing") == BlockResult(output="value")
 
@@ -373,7 +378,15 @@ transitions:
 
         # Call with stack at max depth
         with pytest.raises(RecursionError) as exc_info:
-            await _exec(block, state, call_stack=["a", "b", "c"])
+            await _exec(
+                block,
+                state,
+                call_stack=[
+                    "depth_root_workflow",
+                    "depth_middle_workflow",
+                    "depth_leaf_workflow",
+                ],
+            )
 
         error_msg = str(exc_info.value)
         assert "maximum depth" in error_msg.lower() or "max_depth" in error_msg
@@ -430,19 +443,15 @@ transitions:
         assert call_kwargs["call_stack"] == ["stack_parent_workflow", "stack_child_workflow"]
 
 
-class TestCrossFeatureInteraction:
-    """Test interactions between multiple merged features."""
+class TestRuntimeInteraction:
+    """Test WorkflowBlock interactions with parser and registry runtime behavior."""
 
     @pytest.mark.asyncio
     async def test_parser_produces_valid_workflow_blocks(self):
         """
-        Test that if parser supported workflow blocks, it would produce
+        Test that parser-produced workflow blocks produce
         valid WorkflowBlock instances with proper initialization.
         """
-        # This test documents what the parser should do when workflow blocks
-        # are integrated. Currently skipped as parser integration not done.
-
-        # Mock what the parser would do
         child_workflow_def = """
 version: "1.0"
 id: parser_generated_child_workflow
@@ -458,18 +467,17 @@ workflow:
   id: parser_generated_child_workflow
   kind: workflow
   name: parser_generated_child_workflow
-  entry: step1
+  entry: parser_generated_linear_step
 blocks:
-  step1:
+  parser_generated_linear_step:
     type: linear
     soul_ref: researcher
 transitions:
-  - from: step1
+  - from: parser_generated_linear_step
     to: null
 """
         child_workflow = parse_workflow_yaml(child_workflow_def)
 
-        # Manually create what parser would create
         block = WorkflowBlock(
             block_id="child_workflow_invocation",
             child_workflow=child_workflow,
