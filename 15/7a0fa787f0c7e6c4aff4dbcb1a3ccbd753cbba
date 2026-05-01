@@ -1,0 +1,23 @@
+packages/core/tests/test_dispatch_budget_isolation.py
+  4adca821c1af8eb3 14-16,59,62-63,65,84,93,112,114,140,144,171,175,204,209,226,228,236,266,270,287,292,318,325,348,355,372,380,392,396-397,400,405,411,417,436,438,446,469,473-474,486,493,506,510-511,514-517,526,530-531,541-542,550,555-557,559,579,583,600,607,634,638,646-647
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "157a0fa787f0c7e6c4aff4dbcb1a3ccbd753cbba",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 75,
+      "total_deletions": 73,
+      "accepted_lines": 59382,
+      "overriden_lines": 0
+    }
+  }
+}
