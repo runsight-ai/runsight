@@ -1,4 +1,3 @@
-import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -108,8 +107,8 @@ def test_runs_list():
     app.dependency_overrides.clear()
 
 
-def test_runs_list_with_real_read_model_preserves_enriched_metrics_contract():
-    db_path = Path(tempfile.mkdtemp(prefix="runs-router-db-")) / "runsight.db"
+def test_runs_list_with_real_read_model_preserves_enriched_metrics_contract(tmp_path: Path):
+    db_path = tmp_path / "runsight.db"
     engine = create_engine(
         f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
