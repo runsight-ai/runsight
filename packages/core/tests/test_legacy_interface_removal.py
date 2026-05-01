@@ -1,4 +1,4 @@
-"""RUN-922 Red tests for removing the legacy workflow interface contract."""
+"""Legacy workflow interface removal and name-based WorkflowBlock contract."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 def _minimal_workflow(**overrides: Any) -> dict[str, Any]:
     workflow: dict[str, Any] = {
         "version": "1.0",
-        "id": "child-workflow",
+        "id": "interface-contract-child-workflow",
         "kind": "workflow",
         "blocks": {},
         "workflow": {
-            "name": "child_workflow",
+            "name": "interface_contract_child_workflow",
             "entry": "start",
             "transitions": [],
         },
@@ -36,7 +36,7 @@ def _minimal_workflow(**overrides: Any) -> dict[str, Any]:
 def _child_file_without_interface() -> RunsightWorkflowFile:
     return RunsightWorkflowFile.model_validate(
         _minimal_workflow(
-            id="child-workflow",
+            id="interface-contract-child-workflow",
             inputs={
                 "query": {
                     "type": "string",
@@ -49,7 +49,7 @@ def _child_file_without_interface() -> RunsightWorkflowFile:
                 }
             },
             workflow={
-                "name": "child_workflow",
+                "name": "interface_contract_child_workflow",
                 "entry": "echo",
                 "transitions": [{"from": "echo", "to": None}],
             },
@@ -60,7 +60,7 @@ def _child_file_without_interface() -> RunsightWorkflowFile:
 class CapturingWorkflow:
     """Child workflow spy that records how WorkflowBlock invokes it."""
 
-    def __init__(self, name: str = "child_workflow") -> None:
+    def __init__(self, name: str = "interface_contract_child_workflow") -> None:
         self.name = name
         self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, Any] | None = None
@@ -121,7 +121,7 @@ class TestLegacyInterfaceDeclarationsAreUnsupported:
         assert "interface" not in signature.parameters
 
         block = WorkflowBlock(
-            block_id="invoke_child",
+            block_id="interface_child_invocation_block",
             child_workflow=CapturingWorkflow(),
             inputs={},
             outputs={},
@@ -166,7 +166,7 @@ class TestWorkflowBlockNameBasedInvocation:
         block_def = adapter.validate_python(
             {
                 "type": "workflow",
-                "workflow_ref": "child_workflow",
+                "workflow_ref": "interface_contract_child_workflow",
                 "inputs": {"query": "shared_memory.topic"},
                 "outputs": {"results.parent_summary": "results.echo"},
             }
@@ -182,7 +182,7 @@ class TestWorkflowBlockNameBasedInvocation:
             adapter.validate_python(
                 {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "interface_contract_child_workflow",
                     "inputs": {"query": "shared_memory.topic"},
                     "outputs": {"results.parent_summary": "summary"},
                 }
@@ -190,39 +190,41 @@ class TestWorkflowBlockNameBasedInvocation:
 
     def test_parser_no_longer_requires_child_interface_for_workflowblock(self) -> None:
         registry = WorkflowRegistry()
-        registry.register("child_workflow", _child_file_without_interface())
+        registry.register("interface_contract_child_workflow", _child_file_without_interface())
 
         parent_yaml = {
             "version": "1.0",
-            "id": "parent-workflow",
+            "id": "interface-contract-parent-workflow",
             "kind": "workflow",
             "blocks": {
-                "invoke_child": {
+                "interface_child_invocation_block": {
                     "type": "workflow",
-                    "workflow_ref": "child_workflow",
+                    "workflow_ref": "interface_contract_child_workflow",
                     "inputs": {"query": "shared_memory.topic"},
                 }
             },
             "workflow": {
-                "name": "parent_workflow",
-                "entry": "invoke_child",
-                "transitions": [{"from": "invoke_child", "to": None}],
+                "name": "interface_contract_parent_workflow",
+                "entry": "interface_child_invocation_block",
+                "transitions": [{"from": "interface_child_invocation_block", "to": None}],
             },
         }
 
-        parent_workflow = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+        interface_contract_parent_workflow = parse_workflow_yaml(
+            parent_yaml, workflow_registry=registry
+        )
 
-        block = parent_workflow._blocks["invoke_child"]
+        block = interface_contract_parent_workflow._blocks["interface_child_invocation_block"]
         assert isinstance(block, WorkflowBlock)
         assert block.inputs == {"query": "shared_memory.topic"}
         assert not hasattr(block, "interface")
 
     @pytest.mark.asyncio
     async def test_workflowblock_passes_parent_mapping_as_child_invocation_inputs(self) -> None:
-        child_workflow = CapturingWorkflow()
+        interface_contract_child_workflow = CapturingWorkflow()
         block = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_workflow,
+            block_id="interface_child_invocation_block",
+            child_workflow=interface_contract_child_workflow,
             inputs={"query": "shared_memory.topic"},
             outputs={},
         )
@@ -230,19 +232,19 @@ class TestWorkflowBlockNameBasedInvocation:
 
         await block.execute(ctx)
 
-        assert child_workflow.received_state is not None
-        assert child_workflow.received_kwargs is not None
-        assert child_workflow.received_kwargs["inputs"] == {"query": "climate"}
-        assert child_workflow.received_state.results == {}
-        assert child_workflow.received_state.shared_memory == {}
-        assert child_workflow.received_state.metadata == {}
+        assert interface_contract_child_workflow.received_state is not None
+        assert interface_contract_child_workflow.received_kwargs is not None
+        assert interface_contract_child_workflow.received_kwargs["inputs"] == {"query": "climate"}
+        assert interface_contract_child_workflow.received_state.results == {}
+        assert interface_contract_child_workflow.received_state.shared_memory == {}
+        assert interface_contract_child_workflow.received_state.metadata == {}
 
     @pytest.mark.asyncio
     async def test_workflowblock_extracts_outputs_from_explicit_child_state_paths(self) -> None:
-        child_workflow = CapturingWorkflow()
+        interface_contract_child_workflow = CapturingWorkflow()
         block = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_workflow,
+            block_id="interface_child_invocation_block",
+            child_workflow=interface_contract_child_workflow,
             inputs={},
             outputs={"results.parent_summary": "results.echo"},
         )
@@ -262,36 +264,36 @@ class TestWorkflowBlockNameBasedInvocation:
         self,
         private_target: str,
     ) -> None:
-        child_workflow = CapturingWorkflow()
+        interface_contract_child_workflow = CapturingWorkflow()
 
         with pytest.raises(ValueError, match="private child state|child invocation input"):
             block = WorkflowBlock(
-                block_id="invoke_child",
-                child_workflow=child_workflow,
+                block_id="interface_child_invocation_block",
+                child_workflow=interface_contract_child_workflow,
                 inputs={private_target: "shared_memory.topic"},
                 outputs={},
             )
             ctx = build_block_context(block, _parent_state())
             await block.execute(ctx)
 
-        assert child_workflow.received_state is None
+        assert interface_contract_child_workflow.received_state is None
 
     @pytest.mark.asyncio
     async def test_nested_workflowblocks_forward_public_invocation_names_recursively(self) -> None:
-        grandchild = CapturingWorkflow(name="grandchild_workflow")
+        grandchild = CapturingWorkflow(name="interface_contract_grandchild_workflow")
         child_block = WorkflowBlock(
-            block_id="invoke_grandchild",
+            block_id="interface_grandchild_invocation_block",
             child_workflow=grandchild,
             inputs={"query": "workflow.query"},
             outputs={},
         )
-        child_workflow = Workflow(name="child_workflow")
-        child_workflow.add_block(child_block)
-        child_workflow.set_entry("invoke_grandchild")
+        interface_contract_child_workflow = Workflow(name="interface_contract_child_workflow")
+        interface_contract_child_workflow.add_block(child_block)
+        interface_contract_child_workflow.set_entry("interface_grandchild_invocation_block")
 
         parent_block = WorkflowBlock(
-            block_id="invoke_child",
-            child_workflow=child_workflow,
+            block_id="interface_child_invocation_block",
+            child_workflow=interface_contract_child_workflow,
             inputs={"query": "shared_memory.topic"},
             outputs={},
         )

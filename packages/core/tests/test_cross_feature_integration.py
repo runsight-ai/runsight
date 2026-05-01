@@ -1,13 +1,4 @@
-"""
-RUN-199: Cross-feature integration tests — stateful + artifacts + carry_context + windowing.
-
-All individual features are already implemented. These tests verify they work
-TOGETHER in a single workflow:
-
-1. Stateful LinearBlock inside LoopBlock writing artifacts each round
-2. carry_context with BlockResult compat + artifact_ref accessibility
-3. Stateful block with windowing and artifacts under a low token budget
-"""
+"""Cross-feature integration for stateful loops, artifacts, carry context, and windowing."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -48,7 +39,7 @@ def _make_mock_runner(prompt_fn=None):
     """Create a mock RunsightTeamRunner with controlled outputs."""
     runner = MagicMock()
     runner.execute = AsyncMock()
-    runner.model_name = "gpt-4o"
+    runner.model_name = None
     runner._build_prompt = MagicMock(
         side_effect=prompt_fn
         or (
@@ -217,14 +208,14 @@ class TestStatefulLoopWithArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        store = InMemoryArtifactStore(run_id="test-run-1")
+        store = InMemoryArtifactStore(run_id="stateful-artifact-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "analyst", f"Analysis round {call_count}")
+            return _make_result("analysis-round-task", "analyst", f"Analysis round {call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -275,14 +266,14 @@ class TestStatefulLoopWithArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        store = InMemoryArtifactStore(run_id="test-run-refs")
+        store = InMemoryArtifactStore(run_id="artifact-ref-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "analyst", f"Round {call_count}")
+            return _make_result("artifact-ref-task", "analyst", f"Round {call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -301,7 +292,7 @@ class TestStatefulLoopWithArtifacts:
         block_result = result_state.results["analyze"]
         assert isinstance(block_result, BlockResult)
         assert block_result.artifact_ref is not None
-        assert block_result.artifact_ref.startswith("mem://test-run-refs/")
+        assert block_result.artifact_ref.startswith("mem://artifact-ref-run/")
         assert block_result.output == "Round 3"
 
 
@@ -322,14 +313,14 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        store = InMemoryArtifactStore(run_id="test-carry")
+        store = InMemoryArtifactStore(run_id="carry-context-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "writer", f"draft_v{call_count}")
+            return _make_result("carry-context-task", "writer", f"draft_v{call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -368,14 +359,14 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        store = InMemoryArtifactStore(run_id="test-carry-all")
+        store = InMemoryArtifactStore(run_id="carry-context-history-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "writer", f"iteration_{call_count}")
+            return _make_result("carry-context-history-task", "writer", f"iteration_{call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -416,14 +407,14 @@ class TestCarryContextWithBlockResultAndArtifacts:
         soul = Soul(
             id="writer", kind="soul", name="Writer", role="Writer", system_prompt="You write."
         )
-        store = InMemoryArtifactStore(run_id="test-ref-access")
+        store = InMemoryArtifactStore(run_id="artifact-access-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "writer", f"output_{call_count}")
+            return _make_result("artifact-access-task", "writer", f"output_{call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -444,7 +435,7 @@ class TestCarryContextWithBlockResultAndArtifacts:
         block_result = result_state.results["write"]
         assert isinstance(block_result, BlockResult)
         assert block_result.artifact_ref is not None
-        assert "mem://test-ref-access/" in block_result.artifact_ref
+        assert "mem://artifact-access-run/" in block_result.artifact_ref
         assert block_result.artifact_type == "text"
         assert block_result.metadata["round"] == 2
 
@@ -471,14 +462,14 @@ class TestStatefulWithWindowingAndArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="You analyze."
         )
-        store = InMemoryArtifactStore(run_id="test-windowing")
+        store = InMemoryArtifactStore(run_id="windowing-artifact-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "analyst", f"Response {call_count}")
+            return _make_result("windowing-artifact-task", "analyst", f"Response {call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -522,7 +513,7 @@ class TestStatefulWithWindowingAndArtifacts:
 
         # Verify artifact content for each round
         for round_num in range(1, 6):
-            ref = f"mem://test-windowing/analyze_round_{round_num}"
+            ref = f"mem://windowing-artifact-run/analyze_round_{round_num}"
             content = await store.read(ref)
             assert f"round {round_num}" in content
 
@@ -534,14 +525,14 @@ class TestStatefulWithWindowingAndArtifacts:
         """Windowing + carry_context + artifacts all working together."""
         runner = _make_mock_runner()
         soul = Soul(id="writer", kind="soul", name="Writer", role="Writer", system_prompt="Write.")
-        store = InMemoryArtifactStore(run_id="test-all-features")
+        store = InMemoryArtifactStore(run_id="windowing-carry-artifact-run")
 
         call_count = 0
 
         async def _side_effect(instruction, context, soul, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_result("t1", "writer", f"Draft {call_count}")
+            return _make_result("windowing-carry-artifact-task", "writer", f"Draft {call_count}")
 
         runner.execute = AsyncMock(side_effect=_side_effect)
 
@@ -601,14 +592,18 @@ class TestStatefulWithWindowingAndArtifacts:
         soul = Soul(
             id="analyst", kind="soul", name="Analyst", role="Analyst", system_prompt="Analyze."
         )
-        store = InMemoryArtifactStore(run_id="test-llm-history")
+        store = InMemoryArtifactStore(run_id="pruned-history-run")
 
         messages_received_per_call = []
 
         async def _capture_side_effect(instruction, context, soul, **kwargs):
             msgs = kwargs.get("messages", [])
             messages_received_per_call.append(list(msgs))
-            return _make_result("t1", "analyst", f"Output {len(messages_received_per_call)}")
+            return _make_result(
+                "pruned-history-task",
+                "analyst",
+                f"Output {len(messages_received_per_call)}",
+            )
 
         runner.execute = AsyncMock(side_effect=_capture_side_effect)
 

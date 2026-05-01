@@ -1,19 +1,4 @@
-"""
-E2E tests for Exit handle coverage for all block types in loops.
-
-Verifies that every block type correctly propagates exit_handle through
-LoopBlock's break_on_exit mechanism. Covers:
-
-1. GateBlock exits loop (regression guard)
-2. WorkflowBlock exits loop on child completion
-3. CodeBlock exits loop on success
-4. CodeBlock exits loop on error (existing behavior)
-5. LinearBlock exits loop via exit_conditions
-6. LinearBlock with regex exit_conditions
-7. SynthesizeBlock has no exit_handle (regression guard — loop runs to max_rounds)
-8. DispatchBlock inside LoopBlock (regression guard — no break on combined result)
-9. exit_conditions do NOT override explicit exit_handle (GateBlock pattern)
-"""
+"""Loop exit-handle propagation across block types and explicit precedence rules."""
 
 from __future__ import annotations
 
@@ -85,24 +70,24 @@ def _make_ctx(
     )
 
 
-def _make_soul(soul_id: str = "test_soul") -> Soul:
+def _make_soul(soul_id: str = "exit_evaluator") -> Soul:
     return Soul(
         id=soul_id,
         kind="soul",
-        name="Tester",
-        role="Tester",
-        system_prompt="You are a test agent.",
+        name="Exit Evaluator",
+        role="Exit Evaluator",
+        system_prompt="Evaluate exit handle behavior.",
     )
 
 
 def _make_mock_runner(output: str = "mock output") -> AsyncMock:
     """Create a mock RunsightTeamRunner that returns a fixed ExecutionResult."""
     runner = AsyncMock()
-    runner.model_name = "gpt-4o-mini"
+    runner.model_name = None
     runner.execute = AsyncMock(
         return_value=ExecutionResult(
-            task_id="mock_task",
-            soul_id="test_soul",
+            task_id="exit-evaluation-task",
+            soul_id="exit_evaluator",
             output=output,
             cost_usd=0.0,
             total_tokens=0,
@@ -127,7 +112,7 @@ def _make_workflow_with_loop(
 
 
 # ---------------------------------------------------------------------------
-# Simple test block helpers
+# Simple block helpers
 # ---------------------------------------------------------------------------
 
 
@@ -179,7 +164,7 @@ class RoundAwareOutputBlock(BaseBlock):
 
 
 # ===========================================================================
-# Scenario 1: GateBlock exits loop (regression guard)
+# Scenario 1: GateBlock exits loop
 # ===========================================================================
 
 
@@ -213,7 +198,7 @@ class TestScenario1GateBlockExitsLoop:
             break_on_exit="pass",
         )
 
-        wf = _make_workflow_with_loop("gate_loop_wf", loop, writer, gate)
+        wf = _make_workflow_with_loop("gate_exit_loop_workflow", loop, writer, gate)
         state = _make_state()
         final = await wf.run(state)
 
@@ -250,7 +235,7 @@ class TestScenario1GateBlockExitsLoop:
             break_on_exit="pass",
         )
 
-        wf = _make_workflow_with_loop("gate_fail_wf", loop, writer, gate)
+        wf = _make_workflow_with_loop("gate_fail_loop_workflow", loop, writer, gate)
         state = _make_state()
         final = await wf.run(state)
 
@@ -273,30 +258,30 @@ class TestScenario2WorkflowBlockExitsLoop:
         """WorkflowBlock always returns exit_handle='completed' on success.
         LoopBlock with break_on_exit='completed' should break immediately."""
         child_step = OutputBlock("child_step", "child output")
-        child_wf = Workflow("child_wf")
-        child_wf.add_block(child_step)
-        child_wf.set_entry("child_step")
-        child_wf.add_transition("child_step", None)
+        child_workflow = Workflow("child_exit_workflow")
+        child_workflow.add_block(child_step)
+        child_workflow.set_entry("child_step")
+        child_workflow.add_transition("child_step", None)
 
         wf_block = WorkflowBlock(
             block_id="sub_workflow",
-            child_workflow=child_wf,
+            child_workflow=child_workflow,
             inputs={},
             outputs={},
         )
 
         loop = LoopBlock(
-            "wf_loop",
+            "workflow_exit_loop",
             inner_block_refs=["sub_workflow"],
             max_rounds=5,
             break_on_exit="completed",
         )
 
-        wf = _make_workflow_with_loop("wf_loop_test", loop, wf_block)
+        wf = _make_workflow_with_loop("workflow_block_exit_loop", loop, wf_block)
         state = _make_state()
         final = await wf.run(state)
 
-        loop_meta = final.shared_memory["__loop__wf_loop"]
+        loop_meta = final.shared_memory["__loop__workflow_exit_loop"]
         assert loop_meta["broke_early"] is True
         assert loop_meta["rounds_completed"] == 1
         assert "exit_handle" in loop_meta["break_reason"]
@@ -329,7 +314,7 @@ def main(data):
             break_on_exit="done",
         )
 
-        wf = _make_workflow_with_loop("code_loop_wf", loop, code_block)
+        wf = _make_workflow_with_loop("code_exit_loop_workflow", loop, code_block)
         state = _make_state()
         final = await wf.run(state)
 
@@ -357,7 +342,7 @@ def main(data):
             break_on_exit="done",
         )
 
-        wf = _make_workflow_with_loop("code_no_exit_wf", loop, code_block)
+        wf = _make_workflow_with_loop("code_no_exit_loop_workflow", loop, code_block)
         state = _make_state()
         final = await wf.run(state)
 
@@ -367,7 +352,7 @@ def main(data):
 
 
 # ===========================================================================
-# Scenario 4: CodeBlock exits loop on error (existing behavior)
+# Scenario 4: CodeBlock exits loop on error
 # ===========================================================================
 
 
@@ -389,7 +374,7 @@ def main(data):
             break_on_exit="error",
         )
 
-        wf = _make_workflow_with_loop("error_loop_wf", loop, code_block)
+        wf = _make_workflow_with_loop("error_exit_loop_workflow", loop, code_block)
         state = _make_state()
         final = await wf.run(state)
 
@@ -415,7 +400,7 @@ class TestScenario5ExitConditionsContains:
         that outputs "APPROVED" on round 2 should break the loop.
 
         Uses RoundAwareOutputBlock (lightweight substitute for a LinearBlock
-        requiring LLM) to test the exit_conditions mechanism via execute_block.
+        requiring LLM) to exercise the exit_conditions mechanism via execute_block.
         """
         critic = RoundAwareOutputBlock("critic", trigger_round=2, trigger_text="APPROVED")
         critic.exit_conditions = [
@@ -429,7 +414,7 @@ class TestScenario5ExitConditionsContains:
             break_on_exit="approved",
         )
 
-        wf = _make_workflow_with_loop("cond_loop_wf", loop, critic)
+        wf = _make_workflow_with_loop("contains_condition_loop_workflow", loop, critic)
         state = _make_state()
         final = await wf.run(state)
 
@@ -467,7 +452,7 @@ class TestScenario6ExitConditionsRegex:
             break_on_exit="high_grade",
         )
 
-        wf = _make_workflow_with_loop("regex_loop_wf", loop, critic)
+        wf = _make_workflow_with_loop("regex_condition_loop_workflow", loop, critic)
         state = _make_state()
         final = await wf.run(state)
 
@@ -494,7 +479,7 @@ class TestScenario6ExitConditionsRegex:
             break_on_exit="high_grade",
         )
 
-        wf = _make_workflow_with_loop("regex_no_match_wf", loop, block)
+        wf = _make_workflow_with_loop("regex_no_match_loop_workflow", loop, block)
         state = _make_state()
         final = await wf.run(state)
 
@@ -504,7 +489,7 @@ class TestScenario6ExitConditionsRegex:
 
 
 # ===========================================================================
-# Scenario 7: SynthesizeBlock has no exit_handle (regression guard)
+# Scenario 7: SynthesizeBlock has no exit_handle
 # ===========================================================================
 
 
@@ -538,7 +523,7 @@ class TestScenario7SynthesizeBlockNoExitHandle:
             break_on_exit="done",
         )
 
-        wf = _make_workflow_with_loop("synth_loop_wf", loop, writer, synth)
+        wf = _make_workflow_with_loop("synthesize_no_exit_loop_workflow", loop, writer, synth)
         state = _make_state()
         final = await wf.run(state)
 
@@ -553,7 +538,7 @@ class TestScenario7SynthesizeBlockNoExitHandle:
 
 
 # ===========================================================================
-# Scenario 8: DispatchBlock inside LoopBlock (regression guard)
+# Scenario 8: DispatchBlock inside LoopBlock
 # ===========================================================================
 
 
@@ -594,7 +579,7 @@ class TestScenario8DispatchBlockInLoop:
         state = _make_state()
         state = state.model_copy(update={"shared_memory": {"_resolved_inputs": {"context": "ctx"}}})
 
-        wf = _make_workflow_with_loop("dispatch_loop_wf", loop, dispatch)
+        wf = _make_workflow_with_loop("dispatch_combined_result_loop_workflow", loop, dispatch)
         final = await wf.run(state)
 
         loop_meta = final.shared_memory["__loop__dispatch_loop"]
@@ -677,7 +662,7 @@ class TestScenario9ExplicitExitHandlePrecedence:
             break_on_exit="explicit_gate",
         )
 
-        wf = _make_workflow_with_loop("precedence_wf", loop, block)
+        wf = _make_workflow_with_loop("explicit_exit_precedence_workflow", loop, block)
         state = _make_state()
         final = await wf.run(state)
 
@@ -704,7 +689,7 @@ class TestScenario9ExplicitExitHandlePrecedence:
             break_on_exit="condition_match",
         )
 
-        wf = _make_workflow_with_loop("no_break_wf", loop, block)
+        wf = _make_workflow_with_loop("condition_value_no_break_workflow", loop, block)
         state = _make_state()
         final = await wf.run(state)
 
