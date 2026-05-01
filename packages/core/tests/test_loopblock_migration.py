@@ -1,13 +1,11 @@
 """LoopBlock BlockContext/BlockOutput migration coverage.
 
-Tests verify:
-- LoopBlock.execute accepts BlockContext and returns BlockOutput.
-- LoopBlock uses state_snapshot internally without direct state mutation.
-- Inner blocks receive fresh BlockContext values each round via execute_block.
-- carry_context flows through shared_memory_updates across rounds.
-- Round tracking metadata in shared_memory_updates is correct.
-- Nested loop context does not leak to the outer loop.
-- execute_block dispatches LoopBlock through the BlockContext path.
+Boundary: LoopBlock execution and workflow dispatch must use the BlockContext
+to BlockOutput contract while preserving round tracking, carry_context flow,
+nested loop isolation, and execute_block WorkflowState mapping.
+Owner: packages/core runtime block execution. Exit criteria: remove this
+migration guard once equivalent behavior coverage lives in ordinary LoopBlock
+and workflow dispatch suites.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,6 +22,8 @@ from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.workflow import BlockExecutionContext, execute_block
 
+pytestmark = pytest.mark.migration
+
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
@@ -31,12 +31,12 @@ from runsight_core.workflow import BlockExecutionContext, execute_block
 
 def _make_mock_runner(output: str = "done", cost: float = 0.01, tokens: int = 100):
     runner = MagicMock()
-    runner.model_name = "gpt-4o-mini"
+    runner.model_name = None
     runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction or "")
     runner.execute = AsyncMock(
         return_value=ExecutionResult(
-            task_id="t1",
-            soul_id="soul1",
+            task_id="loop_runner_task",
+            soul_id="loop_agent_soul",
             output=output,
             cost_usd=cost,
             total_tokens=tokens,
@@ -47,7 +47,11 @@ def _make_mock_runner(output: str = "done", cost: float = 0.01, tokens: int = 10
 
 def _make_linear_block(block_id: str, runner=None, soul_id: str = "loop_soul") -> LinearBlock:
     soul = Soul(
-        id=soul_id, kind="soul", name="Test Agent", role="Agent", system_prompt="You are an agent."
+        id=soul_id,
+        kind="soul",
+        name="Loop Agent Soul",
+        role="Loop Worker",
+        system_prompt="Execute loop iterations.",
     )
     if runner is None:
         runner = _make_mock_runner()
@@ -103,9 +107,11 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     async def test_execute_with_block_context_returns_block_output(self):
         """When called with BlockContext, execute must return BlockOutput."""
         runner = _make_mock_runner(output="inner result", cost=0.01, tokens=50)
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -115,16 +121,18 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
 
         assert isinstance(result, BlockOutput), (
             f"Expected BlockOutput but got {type(result).__name__}. "
-            "LoopBlock.execute should return BlockOutput after BlockContext migration."
+            "LoopBlock.execute should return BlockOutput under the BlockContext contract."
         )
 
     @pytest.mark.asyncio
     async def test_execute_output_contains_completed_rounds_string(self):
         """BlockOutput.output must be 'completed_N_rounds'."""
         runner = _make_mock_runner(output="inner result")
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=3)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=3
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -141,9 +149,11 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     async def test_execute_accumulates_cost_from_inner_blocks(self):
         """BlockOutput.cost_usd must equal the sum of all inner block costs across all rounds."""
         runner = _make_mock_runner(output="out", cost=0.05, tokens=100)
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=3)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=3
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -160,9 +170,11 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
     async def test_execute_accumulates_total_tokens_from_inner_blocks(self):
         """BlockOutput.total_tokens must equal the sum of all inner block tokens across rounds."""
         runner = _make_mock_runner(output="out", cost=0.01, tokens=200)
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=2)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=2
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -175,8 +187,6 @@ class TestAcceptsBlockContextAndReturnsBlockOutput:
             f"Expected total_tokens=400 (2 rounds x 200), got {result.total_tokens}"
         )
 
-    # Legacy WorkflowState shim removed.
-
 
 # ---------------------------------------------------------------------------
 # Uses state_snapshot internally and returns BlockOutput
@@ -188,11 +198,13 @@ class TestLoopUsesStateSnapshot:
 
     @pytest.mark.asyncio
     async def test_returns_block_output_not_workflow_state(self):
-        """New path must return BlockOutput, proving no state mutation escapes."""
+        """BlockContext execution must return BlockOutput, proving no state mutation escapes."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -200,9 +212,9 @@ class TestLoopUsesStateSnapshot:
 
         result = await loop.execute(block_ctx)
 
-        # The new path must return BlockOutput, not WorkflowState
+        # The BlockContext path must return BlockOutput, not WorkflowState
         assert not isinstance(result, WorkflowState), (
-            "execute() must not return WorkflowState from new BlockContext path. "
+            "execute() must not return WorkflowState from BlockContext path. "
             "State changes must be communicated via BlockOutput."
         )
         assert isinstance(result, BlockOutput)
@@ -224,10 +236,18 @@ class TestLoopUsesStateSnapshot:
                 return await super().execute(ctx)
 
         runner = _make_mock_runner()
-        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
-        inner = CapturingBlock("inner1", soul, runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
+        soul = Soul(
+            id="loop_agent_soul",
+            kind="soul",
+            name="Loop Agent Soul",
+            role="Loop Worker",
+            system_prompt="Execute loop step.",
+        )
+        inner = CapturingBlock("loop_inner_step", soul, runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         block_ctx = _make_loop_block_context(loop, pre_seed_state, blocks, ctx)
@@ -250,10 +270,12 @@ class TestLoopUsesStateSnapshot:
     @pytest.mark.asyncio
     async def test_missing_state_snapshot_raises_value_error(self):
         """If BlockContext.state_snapshot is None, execute must raise ValueError."""
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
 
         ctx_no_snapshot = BlockContext(
-            block_id="loop1",
+            block_id="round_tracking_loop",
             instruction="loop",
             inputs={},
             conversation_history=[],
@@ -278,9 +300,11 @@ class TestLoopInnerBlocksGetFreshContext:
     async def test_execute_block_called_for_inner_blocks(self):
         """execute_block must be invoked for each inner block per round."""
         runner = _make_mock_runner(output="round output")
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=2)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=2
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -302,13 +326,19 @@ class TestLoopInnerBlocksGetFreshContext:
         round_numbers_seen = []
 
         runner = MagicMock()
-        runner.model_name = "gpt-4o-mini"
+        runner.model_name = None
         runner._build_prompt = MagicMock(side_effect=lambda task: task.instruction or "")
-        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
+        soul = Soul(
+            id="loop_agent_soul",
+            kind="soul",
+            name="Loop Agent Soul",
+            role="Loop Worker",
+            system_prompt="Execute loop step.",
+        )
 
         async def capturing_execute_block(block, state, ctx, extra_inputs=None):
-            if block.block_id == "inner1":
-                round_numbers_seen.append(state.shared_memory.get("loop1_round"))
+            if block.block_id == "loop_inner_step":
+                round_numbers_seen.append(state.shared_memory.get("round_tracking_loop_round"))
             result_state = state.model_copy(
                 update={"results": {**state.results, block.block_id: BlockResult(output="done")}}
             )
@@ -316,12 +346,18 @@ class TestLoopInnerBlocksGetFreshContext:
 
         runner.execute = AsyncMock(
             return_value=ExecutionResult(
-                task_id="t1", soul_id="soul1", output="done", cost_usd=0.01, total_tokens=10
+                task_id="loop_runner_task",
+                soul_id="loop_agent_soul",
+                output="done",
+                cost_usd=0.01,
+                total_tokens=10,
             )
         )
-        inner = LinearBlock("inner1", soul, runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=3)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = LinearBlock("loop_inner_step", soul, runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=3
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -340,9 +376,11 @@ class TestLoopInnerBlocksGetFreshContext:
     async def test_inner_block_extra_results_captured_in_block_output(self):
         """BlockOutput.extra_results must contain inner block results after all rounds."""
         runner = _make_mock_runner(output="final_output")
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=2)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=2
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -355,8 +393,8 @@ class TestLoopInnerBlocksGetFreshContext:
             "BlockOutput.extra_results must not be None after loop execution. "
             "Inner block results must be captured here."
         )
-        assert "inner1" in result.extra_results, (
-            f"inner1 result must appear in BlockOutput.extra_results. "
+        assert "loop_inner_step" in result.extra_results, (
+            f"loop_inner_step result must appear in BlockOutput.extra_results. "
             f"Keys found: {list(result.extra_results.keys()) if result.extra_results else []}"
         )
 
@@ -373,15 +411,15 @@ class TestLoopCarryContextFlows:
     async def test_carry_context_appears_in_shared_memory_updates(self):
         """With carry_context enabled, shared_memory_updates must contain inject_as key."""
         runner = _make_mock_runner(output="carry_data")
-        inner = _make_linear_block("inner1", runner)
+        inner = _make_linear_block("loop_inner_step", runner)
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="prev_ctx")
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=2,
             carry_context=carry,
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -402,15 +440,15 @@ class TestLoopCarryContextFlows:
     async def test_carry_context_mode_all_accumulates_across_rounds(self):
         """With mode='all', shared_memory_updates[inject_as] must be a list of round dicts."""
         runner = _make_mock_runner(output="round_output")
-        inner = _make_linear_block("inner1", runner)
+        inner = _make_linear_block("loop_inner_step", runner)
         carry = CarryContextConfig(enabled=True, mode="all", inject_as="full_history")
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=3,
             carry_context=carry,
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -432,15 +470,15 @@ class TestLoopCarryContextFlows:
     async def test_carry_context_values_are_strings_not_blockresult(self):
         """Values in shared_memory_updates[inject_as] must be strings, not BlockResult objects."""
         runner = _make_mock_runner(output="string_output")
-        inner = _make_linear_block("inner1", runner)
+        inner = _make_linear_block("loop_inner_step", runner)
         carry = CarryContextConfig(enabled=True, mode="last", inject_as="ctx_val")
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=2,
             carry_context=carry,
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -452,9 +490,9 @@ class TestLoopCarryContextFlows:
         assert result.shared_memory_updates is not None
         carried = result.shared_memory_updates.get("ctx_val")
         assert carried is not None
-        inner_val = carried.get("inner1")
+        inner_val = carried.get("loop_inner_step")
         assert isinstance(inner_val, str), (
-            f"Carried context value for 'inner1' must be str, not {type(inner_val).__name__}. "
+            f"Carried context value for 'loop_inner_step' must be str, not {type(inner_val).__name__}. "
             "carry_context must extract .output from BlockResult."
         )
 
@@ -462,14 +500,14 @@ class TestLoopCarryContextFlows:
     async def test_no_carry_context_shared_memory_updates_still_has_round_tracking(self):
         """Even without carry_context, shared_memory_updates must contain round tracking keys."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
+        inner = _make_linear_block("loop_inner_step", runner)
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=2,
             carry_context=None,
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -479,7 +517,7 @@ class TestLoopCarryContextFlows:
 
         assert isinstance(result, BlockOutput)
         assert result.shared_memory_updates is not None
-        assert "loop1_round" in result.shared_memory_updates, (
+        assert "round_tracking_loop_round" in result.shared_memory_updates, (
             "shared_memory_updates must contain '{block_id}_round' key for round tracking."
         )
 
@@ -496,9 +534,11 @@ class TestLoopRoundTrackingMetadata:
     async def test_round_tracker_key_has_last_round_number(self):
         """shared_memory_updates['{block_id}_round'] must be the last round number."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="myloop", inner_block_refs=["inner1"], max_rounds=4)
-        blocks = {"inner1": inner, "myloop": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="metadata_loop", inner_block_refs=["loop_inner_step"], max_rounds=4
+        )
+        blocks = {"loop_inner_step": inner, "metadata_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -508,16 +548,18 @@ class TestLoopRoundTrackingMetadata:
 
         assert isinstance(result, BlockOutput)
         assert result.shared_memory_updates is not None
-        round_val = result.shared_memory_updates.get("myloop_round")
-        assert round_val == 4, f"Expected 'myloop_round'=4 (last round), got {round_val}"
+        round_val = result.shared_memory_updates.get("metadata_loop_round")
+        assert round_val == 4, f"Expected 'metadata_loop_round'=4 (last round), got {round_val}"
 
     @pytest.mark.asyncio
     async def test_loop_metadata_key_has_rounds_completed(self):
         """shared_memory_updates['__loop__{block_id}'] must have rounds_completed."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=3)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=3
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -527,7 +569,7 @@ class TestLoopRoundTrackingMetadata:
 
         assert isinstance(result, BlockOutput)
         assert result.shared_memory_updates is not None
-        meta_key = "__loop__loop1"
+        meta_key = "__loop__round_tracking_loop"
         assert meta_key in result.shared_memory_updates, (
             f"'{meta_key}' must appear in shared_memory_updates. "
             f"Keys found: {list(result.shared_memory_updates.keys())}"
@@ -541,9 +583,11 @@ class TestLoopRoundTrackingMetadata:
     async def test_loop_metadata_broke_early_false_when_max_rounds_reached(self):
         """__loop__{block_id}.broke_early must be False when max_rounds is reached."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=2)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=2
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -552,7 +596,7 @@ class TestLoopRoundTrackingMetadata:
         result = await loop.execute(block_ctx)
 
         assert isinstance(result, BlockOutput)
-        meta = result.shared_memory_updates["__loop__loop1"]
+        meta = result.shared_memory_updates["__loop__round_tracking_loop"]
         assert meta["broke_early"] is False, (
             f"Expected broke_early=False (ran all rounds), got {meta.get('broke_early')}"
         )
@@ -573,8 +617,8 @@ class TestLoopRoundTrackingMetadata:
             # On round 2, fire the break exit handle
             exit_handle = "done" if call_count >= 2 else None
             return ExecutionResult(
-                task_id="t1",
-                soul_id="soul1",
+                task_id="loop_runner_task",
+                soul_id="loop_agent_soul",
                 output=f"round_{call_count}",
                 exit_handle=exit_handle,
                 cost_usd=0.01,
@@ -582,19 +626,25 @@ class TestLoopRoundTrackingMetadata:
             )
 
         runner = MagicMock()
-        runner.model_name = "gpt-4o-mini"
+        runner.model_name = None
         runner._build_prompt = MagicMock(side_effect=lambda t: t.instruction or "")
         runner.execute = AsyncMock(side_effect=_exit_side_effect)
 
-        soul = Soul(id="soul1", kind="soul", name="Test", role="Agent", system_prompt="test")
-        inner = LinearBlock("inner1", soul, runner)
+        soul = Soul(
+            id="loop_agent_soul",
+            kind="soul",
+            name="Loop Agent Soul",
+            role="Loop Worker",
+            system_prompt="Execute loop step.",
+        )
+        inner = LinearBlock("loop_inner_step", soul, runner)
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=5,
             break_on_exit="done",
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -604,7 +654,7 @@ class TestLoopRoundTrackingMetadata:
 
         assert isinstance(result, BlockOutput)
         assert result.shared_memory_updates is not None
-        meta = result.shared_memory_updates["__loop__loop1"]
+        meta = result.shared_memory_updates["__loop__round_tracking_loop"]
         assert meta["broke_early"] is True, (
             f"Expected broke_early=True (break_on_exit triggered), got {meta.get('broke_early')}"
         )
@@ -616,9 +666,11 @@ class TestLoopRoundTrackingMetadata:
     async def test_loop_log_entries_contain_completion_entry(self):
         """BlockOutput.log_entries must contain at least one loop completion log entry."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
         ctx = _make_block_execution_ctx(blocks)
 
         state = _make_base_state()
@@ -742,18 +794,20 @@ class TestNestedLoopsAvoidContextLeak:
 
 
 class TestLoopExecuteBlockIntegration:
-    """execute_block must dispatch LoopBlock through the new BlockContext path."""
+    """execute_block must dispatch LoopBlock through the BlockContext path."""
 
     @pytest.mark.asyncio
     async def test_execute_block_dispatches_loop_through_block_context_path(self):
         """execute_block(loop, state, ctx) must call loop._execute_with_context."""
-        runner = _make_mock_runner(output="e2e out")
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=1)
-        blocks = {"inner1": inner, "loop1": loop}
+        runner = _make_mock_runner(output="dispatch output")
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=1
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
 
         bec = BlockExecutionContext(
-            workflow_name="e2e_wf",
+            workflow_name="loop_execution_workflow",
             blocks=blocks,
             call_stack=[],
             workflow_registry=None,
@@ -762,19 +816,19 @@ class TestLoopExecuteBlockIntegration:
 
         state = _make_base_state()
 
-        # After execute_block, state.results should contain 'loop1' with BlockResult
+        # After execute_block, state.results should contain 'round_tracking_loop' with BlockResult
         result_state = await execute_block(loop, state, bec)
 
         assert isinstance(result_state, WorkflowState), (
             "execute_block must always return WorkflowState"
         )
-        assert "loop1" in result_state.results, (
-            f"'loop1' must appear in state.results after execute_block. "
+        assert "round_tracking_loop" in result_state.results, (
+            f"'round_tracking_loop' must appear in state.results after execute_block. "
             f"Keys: {list(result_state.results.keys())}"
         )
-        loop_result = result_state.results["loop1"]
+        loop_result = result_state.results["round_tracking_loop"]
         assert isinstance(loop_result, BlockResult), (
-            f"result['loop1'] must be a BlockResult, got {type(loop_result).__name__}"
+            f"result['round_tracking_loop'] must be a BlockResult, got {type(loop_result).__name__}"
         )
         assert loop_result.output == "completed_1_rounds", (
             f"Expected output='completed_1_rounds', got '{loop_result.output}'"
@@ -784,12 +838,14 @@ class TestLoopExecuteBlockIntegration:
     async def test_execute_block_applies_loop_shared_memory_updates_to_state(self):
         """After execute_block, state.shared_memory must contain round tracking from loop."""
         runner = _make_mock_runner()
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=2)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=2
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
 
         bec = BlockExecutionContext(
-            workflow_name="e2e_wf",
+            workflow_name="loop_execution_workflow",
             blocks=blocks,
             call_stack=[],
             workflow_registry=None,
@@ -799,24 +855,26 @@ class TestLoopExecuteBlockIntegration:
         state = _make_base_state()
         result_state = await execute_block(loop, state, bec)
 
-        assert "loop1_round" in result_state.shared_memory, (
-            "After execute_block, state.shared_memory must contain 'loop1_round'. "
+        assert "round_tracking_loop_round" in result_state.shared_memory, (
+            "After execute_block, state.shared_memory must contain 'round_tracking_loop_round'. "
             "apply_block_output must merge shared_memory_updates."
         )
-        assert result_state.shared_memory["loop1_round"] == 2, (
-            f"Expected loop1_round=2 (last round), got {result_state.shared_memory.get('loop1_round')}"
+        assert result_state.shared_memory["round_tracking_loop_round"] == 2, (
+            f"Expected round_tracking_loop_round=2 (last round), got {result_state.shared_memory.get('round_tracking_loop_round')}"
         )
 
     @pytest.mark.asyncio
     async def test_execute_block_accumulates_cost_into_state(self):
         """After execute_block, state.total_cost_usd must include loop's accumulated cost."""
         runner = _make_mock_runner(output="out", cost=0.05, tokens=50)
-        inner = _make_linear_block("inner1", runner)
-        loop = LoopBlock(block_id="loop1", inner_block_refs=["inner1"], max_rounds=3)
-        blocks = {"inner1": inner, "loop1": loop}
+        inner = _make_linear_block("loop_inner_step", runner)
+        loop = LoopBlock(
+            block_id="round_tracking_loop", inner_block_refs=["loop_inner_step"], max_rounds=3
+        )
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
 
         bec = BlockExecutionContext(
-            workflow_name="e2e_wf",
+            workflow_name="loop_execution_workflow",
             blocks=blocks,
             call_stack=[],
             workflow_registry=None,
@@ -835,18 +893,18 @@ class TestLoopExecuteBlockIntegration:
     async def test_execute_block_with_carry_context_populates_shared_memory(self):
         """execute_block on a loop with carry_context must populate state.shared_memory."""
         runner = _make_mock_runner(output="carry_out")
-        inner = _make_linear_block("inner1", runner)
-        carry = CarryContextConfig(enabled=True, mode="last", inject_as="e2e_ctx")
+        inner = _make_linear_block("loop_inner_step", runner)
+        carry = CarryContextConfig(enabled=True, mode="last", inject_as="dispatch_ctx")
         loop = LoopBlock(
-            block_id="loop1",
-            inner_block_refs=["inner1"],
+            block_id="round_tracking_loop",
+            inner_block_refs=["loop_inner_step"],
             max_rounds=2,
             carry_context=carry,
         )
-        blocks = {"inner1": inner, "loop1": loop}
+        blocks = {"loop_inner_step": inner, "round_tracking_loop": loop}
 
         bec = BlockExecutionContext(
-            workflow_name="e2e_wf",
+            workflow_name="loop_execution_workflow",
             blocks=blocks,
             call_stack=[],
             workflow_registry=None,
@@ -856,7 +914,7 @@ class TestLoopExecuteBlockIntegration:
         state = _make_base_state()
         result_state = await execute_block(loop, state, bec)
 
-        assert "e2e_ctx" in result_state.shared_memory, (
+        assert "dispatch_ctx" in result_state.shared_memory, (
             "state.shared_memory must contain carry_context inject_as key after execute_block. "
             f"Keys found: {list(result_state.shared_memory.keys())}"
         )
