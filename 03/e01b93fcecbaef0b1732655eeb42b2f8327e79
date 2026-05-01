@@ -1,0 +1,23 @@
+packages/core/tests/test_synthesizeblock_migration.py
+  4adca821c1af8eb3 55,65,117,122-123,395,424,435,466,497,529,537,540,562,600,603
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "03e01b93fcecbaef0b1732655eeb42b2f8327e79",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 16,
+      "accepted_lines": 59018,
+      "overriden_lines": 0
+    }
+  }
+}
