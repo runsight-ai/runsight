@@ -1,0 +1,12 @@
+workflow:
+  name: Branch Aware Workflow
+  entry: planning_block
+  transitions:
+    - from: planning_block
+      to: null
+blocks:
+  planning_block:
+    type: linear
+    soul_ref: branch_planner
+souls: {}
+config: {}

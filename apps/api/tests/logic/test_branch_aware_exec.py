@@ -10,6 +10,7 @@ ExecutionService.launch_execution must:
 
 import asyncio
 import subprocess
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -24,20 +25,12 @@ from runsight_core.redaction import RunRedactor
 # Helpers
 # ---------------------------------------------------------------------------
 
-VALID_YAML = """\
-workflow:
-  name: Branch Aware Workflow
-  entry: planning_block
-  transitions:
-    - from: planning_block
-      to: null
-blocks:
-  planning_block:
-    type: linear
-    soul_ref: branch_planner
-souls: {}
-config: {}
-"""
+VALID_YAML = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "branch_aware_execution"
+    / "branch-aware-workflow.yaml"
+).read_text(encoding="utf-8")
 
 
 def _prepared_inputs(inputs):
