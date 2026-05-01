@@ -1,0 +1,46 @@
+apps/api/tests/logic/test_workflow_service_delete.py
+  f999630d0d599f81 1-133
+apps/api/tests/logic/test_workflow_service_split_governance.py
+  4adca821c1af8eb3 1-154
+apps/api/tests/logic/test_workflow_service_create_update.py
+  f999630d0d599f81 1-155
+apps/api/tests/logic/workflow_service_helpers.py
+  4adca821c1af8eb3 1-211
+apps/api/tests/logic/test_workflow_service_list_get_detail.py
+  f999630d0d599f81 1,3,7-12,18,23,28,33,92,156
+apps/api/tests/logic/test_workflow_service_commit.py
+  f999630d0d599f81 1-250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "fd1f22ee87e4cd7e26508febb46b57ed319472bf",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 365,
+      "total_deletions": 902,
+      "accepted_lines": 53511,
+      "overriden_lines": 0
+    },
+    "f999630d0d599f81": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de5b8-7e67-7ac0-b7c7-73034ca3ebe7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 829,
+      "total_deletions": 4,
+      "accepted_lines": 825,
+      "overriden_lines": 0
+    }
+  }
+}
