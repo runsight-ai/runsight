@@ -1,24 +1,15 @@
-"""
-LoopBlock carry_context integration tests.
+"""LoopBlock carry_context budget migration coverage.
 
-After task-context migration, LinearBlock reads _resolved_inputs from shared_memory
-instead of state.current_task. runner.execute() is used instead of execute_task().
-
-The LoopBlock still injects carry_context into shared_memory and into
-state.current_task.context (when current_task is present). The inner
-LinearBlock uses fit_to_budget to manage its own context budget.
-
-These tests verify:
-1. LoopBlock with 22 rounds + carry_context completes successfully
-2. The LoopBlock injects carry_context into shared_memory each round
-3. fit_to_budget is called by LinearBlock in stateful mode
-4. BudgetReport shows pruning occurs with large histories
+Boundary: LoopBlock carry_context and stateful LinearBlock execution must keep
+round history budgeted while preserving shared_memory carry data and
+conversation-history pruning.
+Owner: packages/core runtime block execution. Exit criteria: remove this
+migration guard once equivalent behavior coverage lives in ordinary LoopBlock
+budget and carry_context suites.
 """
 
 from __future__ import annotations
 
-import importlib
-import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -35,48 +26,17 @@ from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import WorkflowState
 
-
-def _get_source(module_path: str) -> str:
-    """Import a module by dotted path and return its source code."""
-    mod = importlib.import_module(module_path)
-    return inspect.getsource(mod)
-
-
-def _get_class_method_source(module_path: str, class_name: str, method_name: str) -> str:
-    """Return source of a specific class method."""
-    mod = importlib.import_module(module_path)
-    cls = getattr(mod, class_name)
-    method = getattr(cls, method_name)
-    return inspect.getsource(method)
-
-
-# ===========================================================================
-# LoopBlock carry_context -> shared_memory integration
-# ===========================================================================
-
-LOOP_MODULE = "runsight_core.blocks.loop"
-
-
-class TestLoopBlockCarryContextFlowsThroughSharedMemory:
-    """When carry_context accumulates data, it flows into shared_memory
-    so downstream blocks (and _resolved_inputs) can access it."""
-
-
-# ===========================================================================
-# Integration test: 20+ loop rounds with carry_context mode="all"
-# + stateful inner block on a small token budget.
-# Must complete without ContextBudgetExceeded.
-# ===========================================================================
+pytestmark = pytest.mark.migration
 
 
 def _make_soul() -> Soul:
     return Soul(
-        id="test_soul",
+        id="loop_budget_soul",
         kind="soul",
-        name="Test Soul",
-        role="Test Agent",
-        system_prompt="You are a test agent.",
-        model_name="gpt-4o-mini",
+        name="Loop Budget Soul",
+        role="Budgeted Loop Agent",
+        system_prompt="Generate loop iteration output.",
+        model_name=None,
     )
 
 
@@ -102,14 +62,13 @@ def _make_mock_runner(round_counter: list[int]):
         )
 
     runner.execute = AsyncMock(side_effect=_execute)
-    runner.model_name = "gpt-4o-mini"
+    runner.model_name = None
     return runner
 
 
 class TestLoopCarryContextBudgetIntegration:
     """Run a LoopBlock with 22 rounds, carry_context mode='all', and a stateful
-    inner LinearBlock.  After task-context migration, the inner block uses runner.execute()
-    and reads _resolved_inputs, not current_task.
+    inner LinearBlock.
 
     With 22 rounds of ~200 tokens each (~4400 total) accumulated in
     conversation history via stateful mode, the context would overflow a
@@ -125,17 +84,17 @@ class TestLoopCarryContextBudgetIntegration:
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
 
-        inner_block = LinearBlock("inner_writer", soul, runner)
+        inner_block = LinearBlock("budgeted_loop_writer", soul, runner)
         inner_block.stateful = True
 
         loop_block = LoopBlock(
-            block_id="loop_main",
-            inner_block_refs=["inner_writer"],
+            block_id="budgeted_carry_loop",
+            inner_block_refs=["budgeted_loop_writer"],
             max_rounds=self.NUM_ROUNDS,
             carry_context=CarryContextConfig(
                 enabled=True,
                 mode="all",
-                inject_as="previous_round_context",
+                inject_as="carried_round_history",
             ),
         )
 
@@ -144,7 +103,7 @@ class TestLoopCarryContextBudgetIntegration:
         final_state = await execute_loop_for_test(
             loop_block,
             initial_state,
-            blocks={"inner_writer": inner_block},
+            blocks={"budgeted_loop_writer": inner_block},
         )
         return final_state
 
@@ -156,15 +115,15 @@ class TestLoopCarryContextBudgetIntegration:
         final_state = await self._run_loop()
 
         # Verify all 22 rounds completed
-        loop_meta = final_state.shared_memory.get("__loop__loop_main", {})
+        loop_meta = final_state.shared_memory.get("__loop__budgeted_carry_loop", {})
         assert loop_meta.get("rounds_completed") == self.NUM_ROUNDS, (
             f"Expected {self.NUM_ROUNDS} rounds completed, got {loop_meta.get('rounds_completed')}"
         )
 
         # Verify carry_context data was injected into shared_memory
-        carry_data = final_state.shared_memory.get("previous_round_context")
+        carry_data = final_state.shared_memory.get("carried_round_history")
         assert carry_data is not None, (
-            "LoopBlock must inject carry_context data into shared_memory['previous_round_context']"
+            "LoopBlock must inject carry_context data into shared_memory['carried_round_history']"
         )
 
     @pytest.mark.asyncio
@@ -175,17 +134,17 @@ class TestLoopCarryContextBudgetIntegration:
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
 
-        inner_block = LinearBlock("inner_writer", soul, runner)
+        inner_block = LinearBlock("budgeted_loop_writer", soul, runner)
         inner_block.stateful = True
 
         loop_block = LoopBlock(
-            block_id="loop_main",
-            inner_block_refs=["inner_writer"],
+            block_id="budgeted_carry_loop",
+            inner_block_refs=["budgeted_loop_writer"],
             max_rounds=self.NUM_ROUNDS,
             carry_context=CarryContextConfig(
                 enabled=True,
                 mode="all",
-                inject_as="previous_round_context",
+                inject_as="carried_round_history",
             ),
         )
 
@@ -194,16 +153,16 @@ class TestLoopCarryContextBudgetIntegration:
         final_state = await execute_loop_for_test(
             loop_block,
             initial_state,
-            blocks={"inner_writer": inner_block},
+            blocks={"budgeted_loop_writer": inner_block},
         )
 
         # After the loop, runner.execute should have been called NUM_ROUNDS times
         assert runner.execute.call_count == self.NUM_ROUNDS
 
         # Verify carry_context data is in shared_memory after the loop
-        carry_data = final_state.shared_memory.get("previous_round_context")
+        carry_data = final_state.shared_memory.get("carried_round_history")
         assert carry_data is not None, (
-            "LoopBlock must store carry_context in shared_memory['previous_round_context']"
+            "LoopBlock must store carry_context in shared_memory['carried_round_history']"
         )
         # mode='all' means it's a list of round outputs
         assert isinstance(carry_data, list), (
@@ -217,17 +176,17 @@ class TestLoopCarryContextBudgetIntegration:
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
 
-        inner_block = LinearBlock("inner_writer", soul, runner)
+        inner_block = LinearBlock("budgeted_loop_writer", soul, runner)
         inner_block.stateful = True
 
         loop_block = LoopBlock(
-            block_id="loop_main",
-            inner_block_refs=["inner_writer"],
+            block_id="budgeted_carry_loop",
+            inner_block_refs=["budgeted_loop_writer"],
             max_rounds=self.NUM_ROUNDS,
             carry_context=CarryContextConfig(
                 enabled=True,
                 mode="all",
-                inject_as="previous_round_context",
+                inject_as="carried_round_history",
             ),
         )
 
@@ -266,7 +225,7 @@ class TestLoopCarryContextBudgetIntegration:
             await execute_loop_for_test(
                 loop_block,
                 initial_state,
-                blocks={"inner_writer": inner_block},
+                blocks={"budgeted_loop_writer": inner_block},
             )
 
         # fit_to_budget must have been called at least once per round (stateful path).
@@ -290,17 +249,17 @@ class TestLoopCarryContextBudgetIntegration:
         round_counter = [0]
         runner = _make_mock_runner(round_counter)
 
-        inner_block = LinearBlock("inner_writer", soul, runner)
+        inner_block = LinearBlock("budgeted_loop_writer", soul, runner)
         inner_block.stateful = True
 
         loop_block = LoopBlock(
-            block_id="loop_main",
-            inner_block_refs=["inner_writer"],
+            block_id="budgeted_carry_loop",
+            inner_block_refs=["budgeted_loop_writer"],
             max_rounds=self.NUM_ROUNDS,
             carry_context=CarryContextConfig(
                 enabled=True,
                 mode="all",
-                inject_as="previous_round_context",
+                inject_as="carried_round_history",
             ),
         )
 
@@ -331,7 +290,7 @@ class TestLoopCarryContextBudgetIntegration:
             await execute_loop_for_test(
                 loop_block,
                 initial_state,
-                blocks={"inner_writer": inner_block},
+                blocks={"budgeted_loop_writer": inner_block},
             )
 
         # Among all reports, find any where p3 (conversation history) was pruned.
