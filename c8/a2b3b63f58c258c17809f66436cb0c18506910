@@ -1,0 +1,25 @@
+tools/test-audit/tier-7-preflight.md
+  4adca821c1af8eb3 1-325
+tools/test-audit/SUMMARY.md
+  4adca821c1af8eb3 35-37,128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c8a2b3b63f58c258c17809f66436cb0c18506910",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 329,
+      "total_deletions": 1,
+      "accepted_lines": 22375,
+      "overriden_lines": 0
+    }
+  }
+}
