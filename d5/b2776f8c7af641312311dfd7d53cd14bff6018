@@ -1,0 +1,23 @@
+packages/core/tests/test_exit_port_suite_ownership_governance.py
+  4adca821c1af8eb3 32-34,62-104,112,117-132,148-157,177-192,212-227,245-261,284-305,311-322,431-437,456-468,499-500,510-531,556-572,574-587,595-596,599-628,632-644,670-767,840,843,845,849-853,883-933,1008-1009,1014,1028-1040
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d5b2776f8c7af641312311dfd7d53cd14bff6018",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 450,
+      "total_deletions": 19,
+      "accepted_lines": 43419,
+      "overriden_lines": 0
+    }
+  }
+}
