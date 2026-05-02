@@ -1,0 +1,246 @@
+packages/core/tests/test_workflow.py
+  4adca821c1af8eb3 148-168
+apps/gui/src/features/souls/__tests__/soulFormWorkflowToolIds.test.ts
+  4adca821c1af8eb3 4,8-11,24-28,90,102,106-109,138-158,171,173-174,188-191,208-235
+apps/api/tests/domain/test_run_node_eval_fields.py
+  4adca821c1af8eb3 88-91
+apps/gui/src/routes/__tests__/setupGuardRouting.test.ts
+  4adca821c1af8eb3 55-69
+apps/api/tests/data/test_run_repo_delete_cascade.py
+  4adca821c1af8eb3 70-98
+apps/gui/src/features/surface/__tests__/genericBlockCompilerContract.test.ts
+  4adca821c1af8eb3 99-121
+testing/gui-e2e/tests/navigation.spec.ts
+  cb488ea22aec7c36 16-17,26-28,60-68
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 16,22,24,27,32,35,109,122,174,221-225,228,231,235,242-243,250,253,260,262,271,274,278-279,281-282,285-286,292,330,336,340,343,376,385,404,406,422,425,436,460,464-465,471,483,485,487,495,497,520,523,533-535,540,545,550-551,553-554,562,567,569,572-573,579,584,586
+apps/api/tests/data/test_workflow_interface_validation.py
+  4adca821c1af8eb3 180-183
+packages/ui/src/components/ui/__tests__/supportedSurface.test.ts
+  4adca821c1af8eb3 75-83
+apps/api/tests/data/test_workflow_repo_canvas_persistence.py
+  4adca821c1af8eb3 107-108
+  eeabc489eb7e4eb3 7,98-106
+apps/gui/src/utils/__tests__/formatting.test.ts
+  4adca821c1af8eb3 7-8,193-219
+tools/test-audit/SUMMARY.md
+  4adca821c1af8eb3 10-11,14-17,48-49,53,59-60,69-75,79,85,89,91-93,105-106,110,112,114-116
+apps/api/tests/test_cors_config.py
+  4adca821c1af8eb3 22
+apps/gui/src/queries/__tests__/soulDataHooks.test.ts
+  4adca821c1af8eb3 370-495
+apps/api/tests/domain/test_data_model.py
+  4adca821c1af8eb3 60-77
+packages/core/tests/test_schema_validation.py
+  4adca821c1af8eb3 32-34,115-147
+apps/gui/src/features/surface/__tests__/surfaceWorkspaceGovernance.test.ts
+  5fb15aa46131476a 62-64
+apps/gui/src/features/workflows/__tests__/regressionQuery.test.ts
+  4adca821c1af8eb3 4-5,7,135-150
+apps/api/tests/transport/test_workflow_simulation_input_schema_router.py
+  eeabc489eb7e4eb3 276-291,293-294
+  b4857e4197668d05 292
+packages/core/tests/test_context_audit_observer.py
+  8a5f11ba37778690 99-102,236-248
+tools/tests/test_api_fixture_isolation_governance.py
+  8a5f11ba37778690 1-6,19-20,26-47,50,56-63,71-73,78-149,151-211,217,228-233,237-256,267-269,289,299-328,333-355,392,397,409-412,419-421,429-480,483-498,500,502-504,513-521,523-528,530-534,536,540-595
+  4adca821c1af8eb3 150,330-332,393-396
+testing/gui-e2e/tests/souls-crud.spec.ts
+  b4857e4197668d05 118-138
+tools/tests/test_soul_yaml_identity_governance.py
+  8a5f11ba37778690 1-6,11,17,23-25,33,39,64,66,76-85,87-96,109,119-179,186,190,198-199,206-231,233,241,256,275,283,285,290-322
+  4adca821c1af8eb3 277-279
+  5fb15aa46131476a 114-118,267-268
+testing/gui-e2e/tests/canvas-yaml.spec.ts
+  4adca821c1af8eb3 8,25-28,38-46,68,72,83-99,106-110,112-116
+packages/core/tests/test_core_identity_messages.py
+  5fb15aa46131476a 109-136
+apps/api/tests/test_startup_wiring.py
+  4adca821c1af8eb3 108-151
+packages/core/tests/test_workflow_input_schema.py
+  5fb15aa46131476a 215-229
+packages/core/tests/unit/test_parser_declared_tool_whitelist.py
+  4adca821c1af8eb3 10,202-268
+packages/core/tests/test_gate_execute.py
+  eeabc489eb7e4eb3 9-10,378-490
+packages/core/tests/test_workflow_output_conditions.py
+  8a5f11ba37778690 17,198-222
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 16,22,24,27,32,35,109,122,174,228,231,235,242-243,250,253,260,262,271,274,278-279,281-282,285-286,292,330,336,340,343,376,385,404,406,422,425,436,460,464-465,471,483,485,487,495,497,520,523,533-535,540,545,550-551,553-554,562,567,569,572-573,579,584,586
+apps/api/tests/domain/test_soul_schema_alignment.py
+  4adca821c1af8eb3 32-33,37-45
+apps/gui/src/features/setup/__tests__/templateYaml.test.ts
+  4adca821c1af8eb3 19-25,38-44,152-158
+packages/core/tests/test_workflow_block_execute.py
+  4adca821c1af8eb3 165-212
+packages/core/tests/test_workflow_contract_names.py
+  4adca821c1af8eb3 7,39-42,143-153,198-229
+apps/gui/src/routes/__tests__/runsNavContract.test.ts
+  ea3523110e537cdb 10,18,28,31
+packages/shared/src/__tests__/runContracts.test.ts
+  4adca821c1af8eb3 58-89,145-187
+packages/shared/src/__tests__/workflowInputContracts.test.ts
+  eeabc489eb7e4eb3 109-155
+apps/api/tests/data/test_workflow_repo_identity.py
+  4adca821c1af8eb3 71-131
+apps/gui/src/features/surface/__tests__/yamlParser.test.ts
+  4adca821c1af8eb3 607-644
+packages/core/tests/unit/test_tool_catalog_builtin_registry.py
+  eeabc489eb7e4eb3 107-114
+packages/ui/src/components/ui/__tests__/renderedFormControls.test.tsx
+  4adca821c1af8eb3 182,184-187,200-207,217
+packages/core/tests/test_soul_scanner.py
+  4adca821c1af8eb3 3-5,96-197
+packages/ui/src/stories/__tests__/componentStorySurface.test.ts
+  4adca821c1af8eb3 1,318-324,364-375
+packages/ui/src/components/ui/__tests__/renderedDisplayContracts.test.tsx
+  4adca821c1af8eb3 19,96-98,100-105,113-160
+packages/core/tests/test_codeblock_access_governance.py
+  8a5f11ba37778690 113-136
+packages/ui/src/components/ui/__tests__/componentContractOwnerGovernance.test.ts
+  4adca821c1af8eb3 25-35,39
+testing/gui-e2e/tests/parser-warnings.spec.ts
+  4adca821c1af8eb3 193-219
+packages/shared/src/__tests__/settingsContracts.test.ts
+  4adca821c1af8eb3 7,83-204
+apps/gui/src/features/surface/__tests__/runButtonBehavior.test.tsx
+  4adca821c1af8eb3 12-38,54-64,68-70,72-73,78-83,147,152,160-192,197-208,219-224,228-234,237-238,285-440
+packages/core/tests/test_context_resolver.py
+  5fb15aa46131476a 71-74,230-262,293-329,635-651,669-820
+apps/gui/src/queries/contextAudit.test.tsx
+  4adca821c1af8eb3 12,18,35,146,164-178
+apps/gui/src/features/workflows/__tests__/regressionBadge.test.ts
+  4adca821c1af8eb3 8,106-110
+packages/ui/src/components/ui/__tests__/formControlContracts.test.ts
+  4adca821c1af8eb3 3,17,258-275
+packages/core/tests/test_multi_provider_keys.py
+  4adca821c1af8eb3 113-134
+apps/gui/src/features/surface/__tests__/yamlCompilerSerializationFiltering.test.ts
+  4adca821c1af8eb3 2,8,102-147
+packages/core/tests/test_isolation_ipc_frames.py
+  4adca821c1af8eb3 222-304
+packages/core/tests/test_loop_carry_context_runtime_edges.py
+  4adca821c1af8eb3 130-155
+packages/core/tests/test_loop_block.py
+  8a5f11ba37778690 5-6,251-284
+apps/gui/src/features/surface/__tests__/surfaceRunInputsHistory.test.tsx
+  ea3523110e537cdb 7,108-120
+  4adca821c1af8eb3 121-122
+packages/core/tests/test_interface_execution.py
+  4adca821c1af8eb3 146-174
+apps/gui/src/features/surface/__tests__/canvasTopbarRunControls.test.tsx
+  4adca821c1af8eb3 5,10,23,68,72-102
+packages/core/tests/test_runner_execute.py
+  4adca821c1af8eb3 208-219,338-350
+apps/gui/src/features/surface/__tests__/readonlySurfaceIntegration.test.tsx
+  4adca821c1af8eb3 399-417
+tools/tests/test_core_fixture_governance.py
+  8a5f11ba37778690 1-5,11,14,20-21,26-63,66,71-107,111-142,150,156-158,168-182,188,197-255,260-279,281-324,356,359,361,369-373,375-379,381-382,384-401,403-454,460-469,472-501,505-514,516-520,529-530,532-533,537-576,578-579
+  4adca821c1af8eb3 108-110,256-259,455-459,577
+packages/core/tests/test_isolation_ipc_lifecycle.py
+  4adca821c1af8eb3 24-34
+packages/core/tests/test_synthesize_execute.py
+  4adca821c1af8eb3 17,418-436
+apps/gui/src/features/surface/__tests__/genericBlockParserContract.test.ts
+  4adca821c1af8eb3 128-173
+testing/gui-e2e/tests/settings-providers.spec.ts
+  4adca821c1af8eb3 90-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d699977569521de33cc69920bde705513cee480d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2168,
+      "total_deletions": 26611,
+      "accepted_lines": 39920,
+      "overriden_lines": 3
+    },
+    "5fb15aa46131476a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-c866-7501-8a1b-bbac1bf0118e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 296,
+      "total_deletions": 21,
+      "accepted_lines": 296,
+      "overriden_lines": 0
+    },
+    "8a5f11ba37778690": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-8609-7431-8b18-df07dbae4e77",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2222,
+      "total_deletions": 9,
+      "accepted_lines": 2182,
+      "overriden_lines": 0
+    },
+    "b4857e4197668d05": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-2ad9-7202-941a-8f064ee1579e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 2,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    },
+    "cb488ea22aec7c36": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-a3b1-7723-a568-12d8b9d48952",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 38,
+      "total_deletions": 3,
+      "accepted_lines": 35,
+      "overriden_lines": 1
+    },
+    "ea3523110e537cdb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-48b3-7360-a2ce-020ce803bcb1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 2,
+      "accepted_lines": 20,
+      "overriden_lines": 0
+    },
+    "eeabc489eb7e4eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-660a-7af2-902c-ebf9fc8e870e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 201,
+      "total_deletions": 1,
+      "accepted_lines": 200,
+      "overriden_lines": 0
+    }
+  }
+}
