@@ -1,0 +1,59 @@
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 2-556,558-567
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 2-556,558-567
+tools/tests/test_core_repo_governance.py
+  a1aedab43500552d 1-9,16-17,19-20,24,28-45,48-66,72-91,95-112,114-115,119-199,201-211,213-223,226-235,238-241,243-244,248-255,257-276,278-301,305-391,409-427,429-430,432-744,746-778,781-783,787-864,867-868,872,874-878,881
+tools/tests/test_api_repo_governance.py
+  7834f70b4f5c4d13 1-9,14,18-22,25-31,35-38,40-54,56-103,106-116,118-147,149-159,161,164-174,177-182,184-187,189-191,193-228,231-232,259,280,304-306,308-314,317-321,324-331,334-340,343-356,358-531,533-621
+tools/tests/test_gui_repo_governance.py
+  a1aedab43500552d 1-10,15-17,24-28,34-54,61-62,65-66,68-72,75-239,242-243,245-249,252-254,257-258,260-264,267-271,273-278,280,283-286,289-386,389-422,424-503,505-556
+tools/test-audit/SUMMARY.md
+  4adca821c1af8eb3 10-11,18-21,52-53,62-63,65,72-73,75,77,82,88-89,95-97,114,116-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6735da6de6261f43da9b46b8c43083a529173fb7",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1162,
+      "total_deletions": 5392,
+      "accepted_lines": 35721,
+      "overriden_lines": 0
+    },
+    "7834f70b4f5c4d13": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de92a-0ebe-7c71-8157-67518ac68ec7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 621,
+      "total_deletions": 0,
+      "accepted_lines": 621,
+      "overriden_lines": 0
+    },
+    "a1aedab43500552d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de936-a98d-7690-948a-3d707ecc754d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1440,
+      "total_deletions": 0,
+      "accepted_lines": 1440,
+      "overriden_lines": 0
+    }
+  }
+}
