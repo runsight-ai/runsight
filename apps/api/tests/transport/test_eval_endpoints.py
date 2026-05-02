@@ -21,68 +21,18 @@ from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service
 from runsight_api.transport.schemas.eval import (
     EvalDelta,
-    NodeEvalResult,
-    RunEvalResponse,
     SoulEvalHistoryResponse,
-    SoulVersionEntry,
+)
+from apps.api.tests.transport.eval_endpoint_helpers import (
+    baseline_stats,
+    eval_node,
+    eval_service_with_baseline,
+    make_node_eval_result as _make_node_eval_result,
+    make_run_eval_response as _make_run_eval_response,
+    make_version_entry as _make_version_entry,
 )
 
 client = TestClient(app)
-
-
-# ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_node_eval_result(*, node_id="analyze", with_delta=True):
-    """Build a NodeEvalResult-shaped dict as the service would return."""
-    delta = None
-    if with_delta:
-        delta = EvalDelta(
-            cost_pct=-12.3,
-            tokens_pct=-8.1,
-            score_delta=0.02,
-            baseline_run_count=487,
-        )
-    return NodeEvalResult(
-        node_id=node_id,
-        block_id=node_id,
-        soul_id="researcher_v1",
-        prompt_hash="sha256:abc123",
-        soul_version="sha256:def456",
-        eval_score=0.95,
-        passed=True,
-        assertions=[
-            {"type": "contains", "passed": True, "score": 1.0, "reason": "ok"},
-        ],
-        delta=delta,
-    )
-
-
-def _make_run_eval_response(*, nodes=None):
-    """Build a full RunEvalResponse."""
-    if nodes is None:
-        nodes = [_make_node_eval_result()]
-    return RunEvalResponse(
-        run_id="run_abc123",
-        aggregate_score=0.92,
-        passed=True,
-        nodes=nodes,
-    )
-
-
-def _make_version_entry(**overrides):
-    defaults = dict(
-        soul_version="sha256:abc123",
-        avg_score=0.94,
-        avg_cost=0.003,
-        run_count=487,
-        first_seen="2026-03-20T00:00:00",
-        last_seen="2026-03-25T00:00:00",
-    )
-    defaults.update(overrides)
-    return SoulVersionEntry(**defaults)
 
 
 # ===========================================================================
@@ -160,28 +110,13 @@ class TestEvalServiceGetRunEval:
 
     @staticmethod
     def _service(repo: Mock, *, baseline=None) -> EvalService:
-        run_read_model = Mock()
-        run_read_model.get_baseline.return_value = baseline
-        return EvalService(repo, run_read_model=run_read_model)
+        return eval_service_with_baseline(repo, baseline=baseline)
 
     def test_returns_per_node_results_for_run_with_eval_data(self):
         """Returns per-node assertion results for a run."""
         repo = Mock()
         # Simulate RunNodes with eval data
-        node1 = Mock(
-            node_id="analyze",
-            block_type="llm",
-            soul_id="researcher_v1",
-            prompt_hash="sha256:abc",
-            soul_version="sha256:def",
-            eval_score=0.95,
-            eval_passed=True,
-            eval_results={
-                "assertions": [{"type": "contains", "passed": True, "score": 1.0, "reason": "ok"}]
-            },
-            cost_usd=0.005,
-            tokens={"prompt": 100, "completion": 50, "total": 150},
-        )
+        node1 = eval_node()
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
         service = self._service(repo, baseline=None)
@@ -195,20 +130,7 @@ class TestEvalServiceGetRunEval:
     def test_includes_eval_fields_per_node(self):
         """Each node contains eval_score, passed, and assertions."""
         repo = Mock()
-        node1 = Mock(
-            node_id="analyze",
-            block_type="llm",
-            soul_id="researcher_v1",
-            prompt_hash="sha256:abc",
-            soul_version="sha256:def",
-            eval_score=0.95,
-            eval_passed=True,
-            eval_results={
-                "assertions": [{"type": "contains", "passed": True, "score": 1.0, "reason": "ok"}]
-            },
-            cost_usd=0.005,
-            tokens={"prompt": 100, "completion": 50, "total": 150},
-        )
+        node1 = eval_node()
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
         service = self._service(repo, baseline=None)
@@ -222,7 +144,7 @@ class TestEvalServiceGetRunEval:
     def test_computes_aggregate_score_from_nodes(self):
         """Aggregate score is the mean of node eval_scores."""
         repo = Mock()
-        node1 = Mock(
+        node1 = eval_node(
             node_id="analyze",
             block_type="llm",
             soul_id="s1",
@@ -234,7 +156,7 @@ class TestEvalServiceGetRunEval:
             cost_usd=0.01,
             tokens={"total": 100},
         )
-        node2 = Mock(
+        node2 = eval_node(
             node_id="summarize",
             block_type="llm",
             soul_id="s1",
@@ -257,7 +179,7 @@ class TestEvalServiceGetRunEval:
     def test_includes_delta_when_baseline_exists(self):
         """delta populated with cost_pct, tokens_pct, score_delta, baseline_run_count."""
         repo = Mock()
-        node1 = Mock(
+        node1 = eval_node(
             node_id="analyze",
             block_type="llm",
             soul_id="researcher_v1",
@@ -272,16 +194,7 @@ class TestEvalServiceGetRunEval:
         repo.list_nodes_for_run.return_value = [node1]
         repo.get_run.return_value = Mock(id="run_abc123")
 
-        from runsight_api.domain.entities.run import BaselineStats
-
-        baseline = BaselineStats(
-            avg_cost=0.005,
-            avg_tokens=150.0,
-            avg_score=0.93,
-            run_count=487,
-        )
-
-        service = self._service(repo, baseline=baseline)
+        service = self._service(repo, baseline=baseline_stats())
         result = service.get_run_eval("run_abc123")
 
         delta = result.nodes[0].delta
@@ -294,7 +207,7 @@ class TestEvalServiceGetRunEval:
     def test_delta_is_none_when_no_baseline(self):
         """delta is null when this is the first run of a soul_version."""
         repo = Mock()
-        node1 = Mock(
+        node1 = eval_node(
             node_id="analyze",
             block_type="llm",
             soul_id="researcher_v1",
@@ -326,7 +239,7 @@ class TestEvalServiceGetRunEval:
     def test_skips_nodes_without_eval_data(self):
         """Nodes that lack eval_score are excluded from the response."""
         repo = Mock()
-        node_with_eval = Mock(
+        node_with_eval = eval_node(
             node_id="analyze",
             block_type="llm",
             soul_id="s1",
@@ -338,7 +251,7 @@ class TestEvalServiceGetRunEval:
             cost_usd=0.01,
             tokens={"total": 100},
         )
-        node_without_eval = Mock(
+        node_without_eval = eval_node(
             node_id="route",
             block_type="router",
             soul_id=None,
@@ -361,7 +274,7 @@ class TestEvalServiceGetRunEval:
     def test_passed_is_false_when_any_node_fails(self):
         """Run-level passed=False when at least one node eval_passed is False."""
         repo = Mock()
-        node_pass = Mock(
+        node_pass = eval_node(
             node_id="analyze",
             block_type="llm",
             soul_id="s1",
@@ -373,7 +286,7 @@ class TestEvalServiceGetRunEval:
             cost_usd=0.01,
             tokens={"total": 100},
         )
-        node_fail = Mock(
+        node_fail = eval_node(
             node_id="summarize",
             block_type="llm",
             soul_id="s1",

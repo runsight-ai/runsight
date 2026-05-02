@@ -1,23 +1,12 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-type WorkflowUsage = {
-  workflow_id: string;
-  workflow_name: string;
-};
-
-type SoulLike = {
-  id: string;
-  role: string;
-  provider: string;
-  model_name: string;
-  system_prompt: string;
-  tools: string[];
-  temperature: number;
-  max_tool_iterations: number;
-  avatar_color: string;
-};
+import {
+  buildWorkflowUsages,
+  findButton,
+  makeSoul,
+  markup,
+  type WorkflowUsage,
+} from "./soulDialogTestBuilders";
 
 const mocks = vi.hoisted(() => {
   const queryState = {
@@ -319,78 +308,6 @@ vi.mock("@/queries/souls", () => ({
   useDeleteSoul: mocks.useDeleteSoul,
 }));
 
-function makeSoul(overrides: Partial<SoulLike> = {}): SoulLike {
-  return {
-    id: "research_soul",
-    role: "Researcher",
-    provider: "openai",
-    model_name: "gpt-4o",
-    system_prompt: "You are a careful research assistant.",
-    tools: ["browser"],
-    temperature: 0.7,
-    max_tool_iterations: 5,
-    avatar_color: "accent",
-    ...overrides,
-  };
-}
-
-function textContent(node: React.ReactNode): string {
-  if (node == null || typeof node === "boolean") {
-    return "";
-  }
-
-  if (typeof node === "string" || typeof node === "number") {
-    return String(node);
-  }
-
-  if (!React.isValidElement(node)) {
-    return "";
-  }
-
-  return React.Children.toArray(node.props.children).map(textContent).join("");
-}
-
-function markup(node: React.ReactNode): string {
-  return renderToStaticMarkup(React.createElement(React.Fragment, null, node));
-}
-
-function findElement(
-  node: React.ReactNode,
-  predicate: (element: React.ReactElement) => boolean,
-): React.ReactElement | undefined {
-  if (!React.isValidElement(node)) {
-    return undefined;
-  }
-
-  if (predicate(node)) {
-    return node;
-  }
-
-  for (const child of React.Children.toArray(node.props.children)) {
-    const match = findElement(child, predicate);
-    if (match) {
-      return match;
-    }
-  }
-
-  return undefined;
-}
-
-function findButton(
-  node: React.ReactNode,
-  label: string | RegExp,
-): React.ReactElement | undefined {
-  const matcher =
-    typeof label === "string"
-      ? (value: string) => value === label
-      : (value: string) => label.test(value);
-
-  return findElement(
-    node,
-    (element) => element.type === "button" && matcher(textContent(element)),
-  );
-}
-
 async function renderDialog(overrides: Record<string, unknown> = {}) {
   mocks.stateCursor = 0;
   const { SoulDeleteDialog } = await import("../SoulDeleteDialog");
@@ -495,11 +412,7 @@ describe("SoulDeleteDialog behavior", () => {
 
   it("renders three workflow names and a Delete anyway action when the soul has three usages", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "research_flow", workflow_name: "Research Flow" },
-        { workflow_id: "review_flow", workflow_name: "Review Flow" },
-        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
 
     const tree = await renderDialog();
@@ -515,15 +428,7 @@ describe("SoulDeleteDialog behavior", () => {
 
   it("caps the usage list at five workflow names and shows a +2 more indicator", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "research_flow", workflow_name: "Research Flow" },
-        { workflow_id: "review_flow", workflow_name: "Review Flow" },
-        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
-        { workflow_id: "qa_flow", workflow_name: "QA Flow" },
-        { workflow_id: "publish_flow", workflow_name: "Publish Flow" },
-        { workflow_id: "archive_flow", workflow_name: "Archive Flow" },
-        { workflow_id: "audit_flow", workflow_name: "Audit Flow" },
-      ],
+      usages: buildWorkflowUsages(7),
     });
 
     const tree = await renderDialog();
@@ -578,11 +483,7 @@ describe("SoulDeleteDialog behavior", () => {
 
   it("uses force-delete plumbing and closes on a successful confirm", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "research_flow", workflow_name: "Research Flow" },
-        { workflow_id: "review_flow", workflow_name: "Review Flow" },
-        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
     setDeleteOutcome("success");
 
@@ -601,11 +502,7 @@ describe("SoulDeleteDialog behavior", () => {
 
   it("surfaces delete failures to the user after confirm", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "research_flow", workflow_name: "Research Flow" },
-        { workflow_id: "review_flow", workflow_name: "Review Flow" },
-        { workflow_id: "deploy_flow", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
     setDeleteOutcome("error", new Error("Delete failed"));
 

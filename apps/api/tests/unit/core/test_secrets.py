@@ -13,25 +13,12 @@ Tests the public API of SecretsEnvLoader:
 
 import os
 
-import pytest
-
-from runsight_api.core.secrets import SecretsEnvLoader
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def loader(tmp_path):
-    """Create a SecretsEnvLoader rooted at a temporary directory."""
-    return SecretsEnvLoader(base_path=str(tmp_path))
-
-
-@pytest.fixture
-def secrets_file(tmp_path):
-    """Return the expected secrets.env file path."""
-    return tmp_path / ".runsight" / "secrets.env"
+from tests.unit.core.secrets_helpers import (  # noqa: F401
+    clear_secret_env_fixture as _clear_secret_env_fixture,
+    loader_fixture as _loader_fixture,
+    secrets_file_fixture as _secrets_file_fixture,
+    write_secrets_file,
+)
 
 
 # ===========================================================================
@@ -47,8 +34,7 @@ class TestResolveOrder:
 
     def test_resolve_returns_value_from_secrets_env(self, loader, secrets_file):
         """resolve must return the value from secrets.env when not in os.environ."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
+        write_secrets_file(secrets_file, "# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
 
         result = loader.resolve("${MY_API_KEY}")
         assert result == "dummy-from-file"
@@ -62,8 +48,7 @@ class TestResolveOrder:
 
     def test_env_var_takes_precedence_over_secrets_env(self, loader, secrets_file, monkeypatch):
         """Real env var must take precedence over secrets.env value."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
+        write_secrets_file(secrets_file, "# Managed by Runsight\nMY_API_KEY=dummy-from-file\n")
         monkeypatch.setenv("MY_API_KEY", "dummy-from-env")
 
         result = loader.resolve("${MY_API_KEY}")
@@ -266,8 +251,7 @@ class TestValuesWithEquals:
 
     def test_value_with_multiple_equals_in_file(self, loader, secrets_file):
         """A value with multiple = must be stored correctly (split on first = only)."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("# Managed by Runsight\nMY_KEY=abc=def=ghi\n")
+        write_secrets_file(secrets_file, "# Managed by Runsight\nMY_KEY=abc=def=ghi\n")
 
         result = loader.resolve("${MY_KEY}")
         assert result == "abc=def=ghi"
@@ -307,15 +291,13 @@ class TestMissingFile:
 class TestEmptyFile:
     def test_resolve_returns_none_for_empty_file(self, loader, secrets_file):
         """resolve must return None when secrets.env is empty."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("")
+        write_secrets_file(secrets_file, "")
 
         assert loader.resolve("${OPENAI_API_KEY}") is None
 
     def test_is_configured_returns_false_for_empty_file(self, loader, secrets_file):
         """is_configured must return False when secrets.env is empty."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text("")
+        write_secrets_file(secrets_file, "")
 
         assert loader.is_configured("${OPENAI_API_KEY}") is False
 
@@ -328,9 +310,9 @@ class TestEmptyFile:
 class TestDotenvFormat:
     def test_comments_are_ignored_during_resolve(self, loader, secrets_file):
         """Lines starting with # must be ignored during resolve."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text(
-            "# Managed by Runsight\n# OPENAI_API_KEY=dummy-commented-out\nANTHROPIC_API_KEY=dummy-present\n"
+        write_secrets_file(
+            secrets_file,
+            "# Managed by Runsight\n# OPENAI_API_KEY=dummy-commented-out\nANTHROPIC_API_KEY=dummy-present\n",
         )
 
         assert loader.resolve("${OPENAI_API_KEY}") is None
@@ -338,9 +320,9 @@ class TestDotenvFormat:
 
     def test_blank_lines_are_ignored(self, loader, secrets_file):
         """Blank lines must not cause errors."""
-        secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        secrets_file.write_text(
-            "# Managed by Runsight\n\nOPENAI_API_KEY=dummy-abc\n\nANTHROPIC_API_KEY=dummy-def\n\n"
+        write_secrets_file(
+            secrets_file,
+            "# Managed by Runsight\n\nOPENAI_API_KEY=dummy-abc\n\nANTHROPIC_API_KEY=dummy-def\n\n",
         )
 
         assert loader.resolve("${OPENAI_API_KEY}") == "dummy-abc"

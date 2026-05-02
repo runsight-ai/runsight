@@ -9,186 +9,25 @@ These tests verify:
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from runsight_core.redaction import RunRedactor
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import Session, select
 
 from runsight_api.domain.entities.run import Run, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
-from runsight_api.logic.services.execution_service import PreparedRunInputs
+from tests.fixtures.parser_warning_run_snapshots.helpers import fixture_text
+from tests.fixtures.parser_warning_run_snapshots.helpers import git_service_for
+from tests.fixtures.parser_warning_run_snapshots.helpers import make_achat_response
+from tests.fixtures.parser_warning_run_snapshots.helpers import prepared_inputs
+from tests.fixtures.parser_warning_run_snapshots.helpers import wait_for_run_terminal
+from tests.fixtures.parser_warning_run_snapshots.helpers import warning_workflow_yaml
+from tests.fixtures.parser_warning_run_snapshots.helpers import write_corrupt_custom_tool
+from tests.fixtures.parser_warning_run_snapshots.helpers import write_openai_provider
+from tests.fixtures.parser_warning_run_snapshots.helpers import write_warning_soul
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "parser_warning_run_snapshots"
-
-
-def _write_warning_soul(base_dir: Path, soul_key: str) -> None:
-    souls_dir = base_dir / "custom" / "souls"
-    souls_dir.mkdir(parents=True, exist_ok=True)
-    (souls_dir / f"{soul_key}.yaml").write_text(
-        "\n".join(
-            [
-                f"id: {soul_key}",
-                "kind: soul",
-                "name: Warning Soul",
-                "role: Warning Soul",
-                "system_prompt: You are a warning-only soul.",
-                "provider: openai",
-                "model_name: gpt-4o",
-                "tools: [http]",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-
-def _prepared_inputs(inputs: dict[str, object]) -> PreparedRunInputs:
-    return PreparedRunInputs(
-        normalized_inputs=dict(inputs),
-        input_redactor=RunRedactor(),
-    )
-
-
-def _write_openai_provider(base_dir: Path) -> None:
-    provider_dir = base_dir / "custom" / "providers"
-    provider_dir.mkdir(parents=True, exist_ok=True)
-    (provider_dir / "openai.yaml").write_text(
-        "\n".join(
-            [
-                "id: openai",
-                "kind: provider",
-                "name: openai",
-                "type: openai",
-                "api_key: ${OPENAI_API_KEY}",
-                "is_active: true",
-                "models:",
-                "  - gpt-4o",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-
-def _git_service_for(base_dir: Path) -> Mock:
-    git_service = Mock()
-
-    def _list_files(branch: str, path_prefix: str) -> list[str]:
-        del branch
-        root = base_dir / path_prefix.rstrip("/")
-        if not root.exists():
-            return []
-        return sorted(
-            path.relative_to(base_dir).as_posix()
-            for path in root.rglob("*")
-            if path.is_file() and path.suffix in {".yaml", ".yml"}
-        )
-
-    def _read_file(workflow_path: str, branch: str) -> str:
-        del branch
-        path = Path(workflow_path)
-        if not path.is_absolute():
-            path = base_dir / workflow_path
-        return path.read_text(encoding="utf-8")
-
-    git_service.read_file.side_effect = _read_file
-    git_service.get_sha.side_effect = lambda branch, workflow_path: "8" * 40
-    git_service.list_files.side_effect = _list_files
-    return git_service
-
-
-def _write_corrupt_custom_tool(base_dir: Path, tool_id: str) -> None:
-    tools_dir = base_dir / "custom" / "tools"
-    tools_dir.mkdir(parents=True, exist_ok=True)
-    (tools_dir / f"{tool_id}.yaml").write_text(
-        "\n".join(
-            [
-                'version: "1.0"',
-                f"id: {tool_id}",
-                "kind: tool",
-                "type: custom",
-                "executor: python",
-                "name: Broken lookup",
-                "description: Intentionally broken metadata",
-                "parameters:",
-                "  type: object",
-                "code: |",
-                "  def main(args):",
-                "      return {'broken':",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-
-def _warning_workflow_yaml(soul_key: str, *, declare_http: bool) -> str:
-    tools_section = "tools:\n  - http\n" if declare_http else ""
-    return (
-        'version: "1.0"\n'
-        "id: parser-warning-workflow\n"
-        "kind: workflow\n"
-        "config:\n"
-        "  model_name: gpt-4o\n"
-        f"{tools_section}"
-        "blocks:\n"
-        "  analyze:\n"
-        "    type: linear\n"
-        f"    soul_ref: {soul_key}\n"
-        "workflow:\n"
-        "  name: parser_warning_workflow\n"
-        "  entry: analyze\n"
-        "  transitions:\n"
-        "    - from: analyze\n"
-        "      to: null\n"
-    )
-
-
-def _fixture_text(name: str) -> str:
-    return (FIXTURE_DIR / name).read_text(encoding="utf-8")
-
-
-def _make_achat_response(content: str):
-    return {
-        "content": content,
-        "cost_usd": 0.001,
-        "prompt_tokens": 50,
-        "completion_tokens": 50,
-        "total_tokens": 100,
-        "tool_calls": None,
-        "finish_reason": "stop",
-        "raw_message": {"role": "assistant", "content": content},
-    }
-
-
-async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 10.0):
-    deadline = asyncio.get_running_loop().time() + timeout
-    terminal = {RunStatus.completed, RunStatus.failed, RunStatus.cancelled}
-    while asyncio.get_running_loop().time() < deadline:
-        with Session(engine) as session:
-            run = session.get(Run, run_id)
-            if run is not None and run.status in terminal:
-                return run
-        await asyncio.sleep(0.1)
-    with Session(engine) as session:
-        return session.get(Run, run_id)
-
-
-@pytest.fixture
-def db_engine():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def base_dir(tmp_path):
-    workspace = tmp_path / "runtime-workspace"
-    workspace.mkdir()
-    yield workspace
+pytest_plugins = ["tests.fixtures.parser_warning_run_snapshots.helpers"]
 
 
 def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
@@ -239,7 +78,7 @@ def _build_app(db_engine, base_dir: Path, *, include_execution: bool):
         provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
         mock_secrets = Mock()
         mock_secrets.resolve = Mock(return_value="dummy-fake-parser-warning")
-        git_service = _git_service_for(base_dir)
+        git_service = git_service_for(base_dir)
         execution_session = Session(db_engine)
         execution_service = ExecutionService(
             run_repo=RunRepository(execution_session),
@@ -276,7 +115,7 @@ def app_without_execution(db_engine, base_dir):
 
 @pytest.fixture
 def app_with_execution(db_engine, base_dir):
-    _write_openai_provider(base_dir)
+    write_openai_provider(base_dir)
     app = _build_app(db_engine, base_dir, include_execution=True)
     yield app
     app.dependency_overrides.clear()
@@ -293,12 +132,12 @@ async def test_workflow_warning_shape_run_snapshot_and_immutability(
     from runsight_api.transport.deps import get_execution_service
 
     soul_key = "parser_warning_soul"
-    _write_warning_soul(base_dir, soul_key)
+    write_warning_soul(base_dir, soul_key)
 
-    warning_yaml = _warning_workflow_yaml(soul_key, declare_http=False)
-    fixed_yaml = _warning_workflow_yaml(soul_key, declare_http=True)
+    warning_yaml = warning_workflow_yaml(soul_key, declare_http=False)
+    fixed_yaml = warning_workflow_yaml(soul_key, declare_http=True)
     fake_execution = Mock()
-    prepared = _prepared_inputs({})
+    prepared = prepared_inputs({})
     fake_execution.prepare_run_inputs.return_value = prepared
     fake_execution.launch_execution = AsyncMock()
     app_without_execution.dependency_overrides[get_execution_service] = lambda request=None: (
@@ -377,7 +216,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
 ):
     from httpx import ASGITransport, AsyncClient
 
-    _write_corrupt_custom_tool(base_dir, "lookup_profile")
+    write_corrupt_custom_tool(base_dir, "lookup_profile")
 
     async with AsyncClient(
         transport=ASGITransport(app=app_with_execution),
@@ -387,7 +226,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
             "/api/workflows",
             json={
                 "name": "Bind-loop warning workflow",
-                "yaml": _fixture_text("bind-loop-warning-workflow.yaml"),
+                "yaml": fixture_text("bind-loop-warning-workflow.yaml"),
                 "commit": False,
             },
         )
@@ -406,7 +245,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
         with patch(
             "runsight_core.llm.client.LiteLLMClient.achat",
             new_callable=AsyncMock,
-            return_value=_make_achat_response("Execution continued despite warning."),
+            return_value=make_achat_response("Execution continued despite warning."),
         ):
             create_run = await client.post(
                 "/api/runs",
@@ -422,7 +261,7 @@ async def test_bind_loop_warning_from_corrupt_metadata_does_not_block_execution(
             run_id = run_payload["id"]
             assert run_payload["warnings"] == workflow_data["warnings"]
 
-            terminal_run = await _wait_for_run_terminal(db_engine, run_id, timeout=10.0)
+            terminal_run = await wait_for_run_terminal(db_engine, run_id, timeout=10.0)
             assert terminal_run is not None
             assert terminal_run.status == RunStatus.completed
 

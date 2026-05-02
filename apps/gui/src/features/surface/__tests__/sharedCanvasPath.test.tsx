@@ -6,6 +6,12 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type * as SurfaceCanvasModule from "../SurfaceCanvas";
+import {
+  buildSurfaceRun,
+  buildSurfaceWorkflow,
+  type SurfaceRunRecord,
+  type SurfaceWorkflowRecord,
+} from "./helpers/surfaceStreamTestHelpers";
 
 type MockNode = {
   id: string;
@@ -164,8 +170,8 @@ function resetHarness() {
   emitStoreChange();
 }
 
-function buildWorkflow(overrides: Record<string, unknown> = {}) {
-  return {
+function buildWorkflow(overrides: Partial<SurfaceWorkflowRecord> = {}) {
+  return buildSurfaceWorkflow({
     id: "wf_shared_canvas",
     name: "Shared Canvas Flow",
     yaml: "workflow:\n  name: Shared Canvas Flow\n",
@@ -192,11 +198,11 @@ function buildWorkflow(overrides: Record<string, unknown> = {}) {
     },
     commit_sha: "workflow_sha_readonly",
     ...overrides,
-  };
+  });
 }
 
-function buildRun(overrides: Record<string, unknown> = {}) {
-  return {
+function buildRun(overrides: Partial<SurfaceRunRecord> = {}) {
+  return buildSurfaceRun({
     id: "run_readonly_shared",
     workflow_id: "wf_shared_canvas",
     workflow_name: "Shared Canvas Flow",
@@ -208,7 +214,7 @@ function buildRun(overrides: Record<string, unknown> = {}) {
     source: "manual",
     error: null,
     ...overrides,
-  };
+  });
 }
 
 function installMocks() {

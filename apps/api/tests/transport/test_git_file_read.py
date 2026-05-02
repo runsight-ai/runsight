@@ -13,8 +13,6 @@ Tests verify:
 """
 
 import inspect
-import subprocess
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,54 +21,18 @@ from runsight_api.core.config import settings
 from runsight_api.logic.services.git_service import GitService
 from runsight_api.main import app
 
-# ---------------------------------------------------------------------------
-# Helpers / Fixtures
-# ---------------------------------------------------------------------------
-
-
-def _init_git_repo(tmp: Path) -> Path:
-    """Initialise a throwaway git repo with custom/workflows/ directory."""
-    (tmp / "custom" / "workflows").mkdir(parents=True)
-    subprocess.run(["git", "init", "-b", "main"], cwd=tmp, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@runsight.dev"],
-        cwd=tmp,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=tmp,
-        check=True,
-        capture_output=True,
-    )
-    (tmp / "README.md").write_text("init")
-    subprocess.run(["git", "add", "."], cwd=tmp, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "initial"],
-        cwd=tmp,
-        check=True,
-        capture_output=True,
-    )
-    return tmp
-
-
-def _get_head_sha(repo: Path) -> str:
-    """Return the HEAD commit SHA of a repo."""
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout.strip()
+from tests.transport.git_router_helpers import (
+    commit_binary_file,
+    commit_text_file,
+    get_head_sha,
+    init_git_repo,
+)
 
 
 @pytest.fixture()
 def git_repo(tmp_path):
     """Yield a temporary git repo path and override settings.base_path."""
-    repo = _init_git_repo(tmp_path)
+    repo = init_git_repo(tmp_path)
     original = settings.base_path
     settings.base_path = str(repo)
     yield repo
@@ -144,7 +106,7 @@ class TestGitFileReadSuccess:
 
     def test_read_file_by_commit_sha(self, git_repo):
         """Reading a file by commit SHA returns its content."""
-        sha = _get_head_sha(git_repo)
+        sha = get_head_sha(git_repo)
         resp = client.get(
             "/api/git/file",
             params={"ref": sha, "path": "README.md"},
@@ -156,7 +118,7 @@ class TestGitFileReadSuccess:
 
     def test_response_includes_ref_field(self, git_repo):
         """Response must echo back the ref that was used."""
-        sha = _get_head_sha(git_repo)
+        sha = get_head_sha(git_repo)
         resp = client.get(
             "/api/git/file",
             params={"ref": sha, "path": "README.md"},
@@ -168,17 +130,10 @@ class TestGitFileReadSuccess:
 
     def test_read_file_from_historical_commit(self, git_repo):
         """Reading a file from a historical (non-HEAD) commit works."""
-        first_sha = _get_head_sha(git_repo)
+        first_sha = get_head_sha(git_repo)
 
         # Modify the file and create a new commit
-        (git_repo / "README.md").write_text("updated")
-        subprocess.run(["git", "add", "."], cwd=git_repo, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "update readme"],
-            cwd=git_repo,
-            check=True,
-            capture_output=True,
-        )
+        commit_text_file(git_repo, "README.md", "updated", message="update readme")
 
         # Reading the first commit should return the original content
         resp = client.get(
@@ -194,14 +149,11 @@ class TestGitFileReadSuccess:
     def test_read_workflow_yaml(self, git_repo):
         """Reading a workflow YAML file works through the transport route."""
         wf_content = "name: my-workflow\nsteps: []\n"
-        wf_path = git_repo / "custom" / "workflows" / "my-workflow.yaml"
-        wf_path.write_text(wf_content)
-        subprocess.run(["git", "add", "."], cwd=git_repo, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "add workflow"],
-            cwd=git_repo,
-            check=True,
-            capture_output=True,
+        commit_text_file(
+            git_repo,
+            "custom/workflows/my-workflow.yaml",
+            wf_content,
+            message="add workflow",
         )
 
         resp = client.get(
@@ -333,15 +285,7 @@ class TestGitFileBinaryContent:
 
     def test_binary_file_returns_content(self, git_repo):
         """A binary file at the path should still return content."""
-        bin_path = git_repo / "data.bin"
-        bin_path.write_bytes(b"\x00\x01\x02\x03")
-        subprocess.run(["git", "add", "."], cwd=git_repo, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "add binary"],
-            cwd=git_repo,
-            check=True,
-            capture_output=True,
-        )
+        commit_binary_file(git_repo, "data.bin", b"\x00\x01\x02\x03", message="add binary")
 
         resp = client.get(
             "/api/git/file",

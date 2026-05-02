@@ -8,113 +8,16 @@ import pytest
 from runsight_api.domain.errors import InputValidationError
 from runsight_api.domain.errors import ServiceUnavailable
 from runsight_api.domain.errors import WorkflowNotFound
-from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.execution_service import ExecutionService
-
-
-def _workflow_yaml_with_inputs() -> str:
-    return """
-id: workflow_input_contract
-kind: workflow
-version: "1.0"
-inputs:
-  query:
-    type: string
-  max_results:
-    type: number
-    required: false
-    default: 10
-  include_archived:
-    type: boolean
-    required: false
-    default: false
-  payload:
-    type: json
-    required: false
-    default:
-      region: us
-  tags:
-    type: array
-    required: false
-    default:
-      - support
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: workflow_input_validation
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _workflow_yaml_without_inputs() -> str:
-    return """
-id: workflow_without_inputs
-kind: workflow
-version: "1.0"
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: workflow_without_inputs
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _workflow_yaml_with_invalid_workflow_input_ref() -> str:
-    return """
-id: workflow_input_contract
-kind: workflow
-version: "1.0"
-inputs:
-  query:
-    type: string
-blocks:
-  start:
-    type: code
-    inputs:
-      prompt:
-        from: workflow.missing
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: workflow_input_contract
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _service(yaml: str, *, workflow_id: str = "workflow_input_validation") -> ExecutionService:
-    workflow_repo = Mock()
-    workflow_repo.get_by_id.return_value = WorkflowEntity(
-        kind="workflow",
-        id=workflow_id,
-        name=workflow_id,
-        yaml=yaml,
-        valid=True,
-        validation_error=None,
-    )
-    workflow_repo._get_path.return_value = f"/custom/workflows/{workflow_id}.yaml"
-    return ExecutionService(
-        run_repo=Mock(),
-        workflow_repo=workflow_repo,
-        provider_repo=Mock(),
-    )
+from tests.logic.workflow_input_validation_fixtures import WORKFLOW_INPUT_CONTRACT_PATH
+from tests.logic.workflow_input_validation_fixtures import branch_workflow_service
+from tests.logic.workflow_input_validation_fixtures import service_with_yaml
+from tests.logic.workflow_input_validation_fixtures import workflow_entity
+from tests.logic.workflow_input_validation_fixtures import workflow_yaml_with_inputs
+from tests.logic.workflow_input_validation_fixtures import (
+    workflow_yaml_with_invalid_workflow_input_ref,
+)
+from tests.logic.workflow_input_validation_fixtures import workflow_yaml_without_inputs
 
 
 def _error_payload(exc: InputValidationError) -> dict:
@@ -145,7 +48,7 @@ class TestWorkflowInputValidationPreparation:
         assert "workflow_input_contract" in str(exc_info.value)
 
     def test_missing_required_input_raises_canonical_field_error_without_values(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs("workflow_input_contract", {})
@@ -164,7 +67,7 @@ class TestWorkflowInputValidationPreparation:
         ]
 
     def test_number_type_mismatch_rejects_strings_and_does_not_echo_submitted_value(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs(
@@ -186,7 +89,7 @@ class TestWorkflowInputValidationPreparation:
         assert "ten" not in str(payload)
 
     def test_number_type_mismatch_rejects_bool_even_though_bool_is_int_subclass(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs(
@@ -200,7 +103,7 @@ class TestWorkflowInputValidationPreparation:
         assert payload["details"]["fields"][0]["actual_type"] == "boolean"
 
     def test_unknown_input_key_raises_unknown_field_error(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs(
@@ -221,7 +124,7 @@ class TestWorkflowInputValidationPreparation:
         ]
 
     def test_invalid_workflow_input_reference_raises_canonical_422_error(self):
-        service = _service(_workflow_yaml_with_invalid_workflow_input_ref())
+        service = service_with_yaml(workflow_yaml_with_invalid_workflow_input_ref())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs(
@@ -236,7 +139,7 @@ class TestWorkflowInputValidationPreparation:
         assert field["code"] == "invalid"
 
     def test_optional_defaults_are_applied_to_normalized_inputs(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         normalized = service.prepare_run_inputs(
             "workflow_input_contract",
@@ -252,7 +155,7 @@ class TestWorkflowInputValidationPreparation:
         }
 
     def test_structured_json_and_array_inputs_are_preserved_in_normalized_inputs(self):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         submitted_inputs = {
             "query": "search",
@@ -285,7 +188,7 @@ class TestWorkflowInputValidationPreparation:
         actual_type,
         submitted_value_text,
     ):
-        service = _service(_workflow_yaml_with_inputs())
+        service = service_with_yaml(workflow_yaml_with_inputs())
 
         with pytest.raises(InputValidationError) as exc_info:
             service.prepare_run_inputs(
@@ -308,24 +211,9 @@ class TestWorkflowInputValidationPreparation:
 
     @pytest.mark.parametrize("branch", ["feature-x", "main"])
     def test_branch_specific_yaml_snapshot_is_used_for_input_validation(self, branch):
-        workflow_repo = Mock()
-        workflow_repo.get_by_id.return_value = WorkflowEntity(
-            kind="workflow",
-            id="workflow_input_contract",
-            name="workflow_input_contract",
-            yaml=_workflow_yaml_without_inputs(),
-            valid=True,
-            validation_error=None,
-        )
-        workflow_repo._get_path.return_value = "/custom/workflows/workflow_input_contract.yaml"
-        git_service = Mock()
-        git_service.read_file.return_value = _workflow_yaml_with_inputs()
-
-        service = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=workflow_repo,
-            provider_repo=Mock(),
-            git_service=git_service,
+        service, _, git_service = branch_workflow_service(
+            repository_yaml=workflow_yaml_without_inputs(),
+            git_yaml=workflow_yaml_with_inputs(),
         )
 
         normalized = service.prepare_run_inputs(
@@ -341,21 +229,15 @@ class TestWorkflowInputValidationPreparation:
             "payload": {"region": "us"},
             "tags": ["support"],
         }
-        git_service.read_file.assert_called_once_with(
-            "/custom/workflows/workflow_input_contract.yaml", branch
-        )
+        git_service.read_file.assert_called_once_with(WORKFLOW_INPUT_CONTRACT_PATH, branch)
 
     def test_explicit_main_snapshot_requires_git_service_for_input_preparation(self):
         workflow_repo = Mock()
-        workflow_repo.get_by_id.return_value = WorkflowEntity(
-            kind="workflow",
-            id="workflow_input_contract",
-            name="workflow_input_contract",
-            yaml=_workflow_yaml_with_inputs(),
-            valid=True,
-            validation_error=None,
+        workflow_repo.get_by_id.return_value = workflow_entity(
+            "workflow_input_contract",
+            workflow_yaml_with_inputs(),
         )
-        workflow_repo._get_path.return_value = "/custom/workflows/workflow_input_contract.yaml"
+        workflow_repo._get_path.return_value = WORKFLOW_INPUT_CONTRACT_PATH
 
         service = ExecutionService(
             run_repo=Mock(),
@@ -392,24 +274,10 @@ class TestWorkflowInputValidationPreparation:
     def test_branch_specific_input_preparation_fails_closed_when_git_snapshot_read_fails(
         self, branch, error
     ):
-        workflow_repo = Mock()
-        workflow_repo.get_by_id.return_value = WorkflowEntity(
-            kind="workflow",
-            id="workflow_input_contract",
-            name="workflow_input_contract",
-            yaml=_workflow_yaml_with_inputs(),
-            valid=True,
-            validation_error=None,
-        )
-        workflow_repo._get_path.return_value = "/custom/workflows/workflow_input_contract.yaml"
-        git_service = Mock()
-        git_service.read_file.side_effect = error
-
-        service = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=workflow_repo,
-            provider_repo=Mock(),
-            git_service=git_service,
+        service, _, _ = branch_workflow_service(
+            repository_yaml=workflow_yaml_with_inputs(),
+            git_yaml=workflow_yaml_with_inputs(),
+            git_error=error,
         )
 
         with pytest.raises(type(error)):
@@ -420,6 +288,9 @@ class TestWorkflowInputValidationPreparation:
             )
 
     def test_no_schema_no_inputs_keeps_no_input_path_empty(self):
-        service = _service(_workflow_yaml_without_inputs(), workflow_id="workflow_without_inputs")
+        service = service_with_yaml(
+            workflow_yaml_without_inputs(),
+            workflow_id="workflow_without_inputs",
+        )
 
         assert service.prepare_run_inputs("workflow_without_inputs", {}) == {}

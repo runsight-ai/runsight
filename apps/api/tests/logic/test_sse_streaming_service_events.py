@@ -12,7 +12,7 @@ from runsight_api.domain.events import (
     SSE_NODE_STARTED,
     SSE_TERMINAL_EVENTS,
 )
-from tests import sse_streaming_helpers as sse_helpers
+from tests.logic import sse_event_helpers as sse_helpers
 
 base_dir = sse_helpers.base_dir
 db_engine = sse_helpers.db_engine

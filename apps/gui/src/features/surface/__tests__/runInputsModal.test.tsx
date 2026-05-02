@@ -5,6 +5,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/client";
+import {
+  createDeferred,
+  DEFAULT_INPUTS_WORKFLOW as defaultWorkflow,
+  DEFAULTED_OPTIONAL_INPUTS_WORKFLOW as defaultedOptionalWorkflow,
+  OPTIONAL_BLANK_INPUTS_WORKFLOW as optionalBlankWorkflow,
+  REQUIRED_INPUTS_WORKFLOW as requiredWorkflow,
+  RERUN_INITIAL_VALUES as initialValues,
+  RERUN_INPUTS_WORKFLOW as rerunWorkflow,
+} from "./helpers/runInputsFixtures";
 
 const dialogHarness = vi.hoisted(() => ({
   onOpenChange: undefined as undefined | ((open: boolean) => void),
@@ -66,136 +75,6 @@ vi.mock("@runsight/ui/dialog", () => ({
 
 const { RunInputsModal } = await import("../RunInputsModal");
 
-type WorkflowInputSchemaItem = {
-  type: "string" | "number" | "boolean" | "json" | "array";
-  required?: boolean | null;
-  default?: unknown;
-  description?: string | null;
-  sensitive?: boolean | null;
-};
-
-const defaultWorkflow = {
-  id: "wf-inputs-defaults",
-  name: "Nightly Search",
-  input_schema: {
-    query: {
-      type: "string",
-      required: true,
-      default: "alpha",
-      description: "Search term for the run.",
-      sensitive: false,
-    },
-    config: {
-      type: "json",
-      required: false,
-      default: { mode: "fast", retries: 2 },
-      description: "Structured settings.",
-      sensitive: false,
-    },
-    tags: {
-      type: "array",
-      required: false,
-      default: ["one", "two"],
-      description: "Ordered tags.",
-      sensitive: false,
-    },
-  } satisfies Record<string, WorkflowInputSchemaItem>,
-} as const;
-
-const defaultedOptionalWorkflow = {
-  ...defaultWorkflow,
-  id: "wf-inputs-defaulted-optionals",
-  input_schema: {
-    query: defaultWorkflow.input_schema.query,
-    limit: {
-      type: "number",
-      required: false,
-      default: 25,
-      description: "Optional result limit with a backend default.",
-      sensitive: false,
-    },
-    config: {
-      type: "json",
-      required: false,
-      default: { mode: "balanced", retries: 3 },
-      description: "Optional structured settings with a backend default.",
-      sensitive: false,
-    },
-    tags: {
-      type: "array",
-      required: false,
-      default: ["alpha", "beta"],
-      description: "Optional tags with a backend default.",
-      sensitive: false,
-    },
-  } satisfies Record<string, WorkflowInputSchemaItem>,
-} as const;
-
-const requiredWorkflow = {
-  ...defaultWorkflow,
-  id: "wf-inputs-required",
-  input_schema: {
-    ...defaultWorkflow.input_schema,
-    query: {
-      ...defaultWorkflow.input_schema.query,
-      default: null,
-    },
-  },
-};
-
-const optionalBlankWorkflow = {
-  ...defaultWorkflow,
-  id: "wf-inputs-optional-blanks",
-  input_schema: {
-    query: {
-      type: "string",
-      required: true,
-      default: "alpha",
-      description: "Search term for the run.",
-      sensitive: false,
-    },
-    limit: {
-      type: "number",
-      required: false,
-      default: null,
-      description: "Optional result limit.",
-      sensitive: false,
-    },
-    note: {
-      type: "string",
-      required: false,
-      default: null,
-      description: "Optional plain text note.",
-      sensitive: false,
-    },
-    config: {
-      type: "json",
-      required: false,
-      default: null,
-      description: "Optional structured settings.",
-      sensitive: false,
-    },
-    tags: {
-      type: "array",
-      required: false,
-      default: null,
-      description: "Optional tags.",
-      sensitive: false,
-    },
-  } satisfies Record<string, WorkflowInputSchemaItem>,
-} as const;
-
-const rerunWorkflow = {
-  ...defaultWorkflow,
-  id: "wf-inputs-rerun",
-};
-
-const initialValues = {
-  query: "prefilled rerun query",
-  config: { mode: "slow", nested: { size: 2 } },
-  tags: ["rerun", "ready"],
-};
-
 function renderModal({
   workflow = defaultWorkflow,
   initialValues: currentInitialValues,
@@ -242,18 +121,6 @@ function getPrimaryAction() {
 
 function getCancelAction() {
   return screen.getByRole("button", { name: /cancel/i });
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return { promise, resolve, reject };
 }
 
 beforeEach(() => {

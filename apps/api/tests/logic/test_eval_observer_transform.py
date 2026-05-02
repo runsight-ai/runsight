@@ -10,135 +10,22 @@ verifies that:
 
 """
 
-import asyncio
-
 import pytest
-from runsight_core.primitives import Soul
-from runsight_core.state import BlockResult, WorkflowState
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
-from runsight_api.domain.entities.run import Run, RunNode, RunStatus
+from runsight_api.domain.entities.run import RunNode
 from runsight_api.logic.observers.eval_observer import EvalObserver
-
-EVAL_TRANSFORM_RUN_ID = "eval-transform-run"
-EVAL_TRANSFORM_WORKFLOW_ID = "eval-transform-workflow"
-EVAL_TRANSFORM_WORKFLOW_NAME = "Eval Transform Workflow"
-
-
-# ---------------------------------------------------------------------------
-# Shared fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def db_engine():
-    """In-memory SQLite engine with all needed tables."""
-    engine = create_engine("sqlite:///:memory:")
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def seed_run(db_engine):
-    """Insert a pending Run record and return (engine, run_id)."""
-    run_id = EVAL_TRANSFORM_RUN_ID
-    with Session(db_engine) as session:
-        run = Run(
-            id=run_id,
-            workflow_id=EVAL_TRANSFORM_WORKFLOW_ID,
-            workflow_name=EVAL_TRANSFORM_WORKFLOW_NAME,
-            status=RunStatus.pending,
-            task_json="{}",
-            branch="main",
-        )
-        session.add(run)
-        session.commit()
-    return db_engine, run_id
-
-
-@pytest.fixture
-def seed_run_with_node(seed_run):
-    """Insert a Run + completed RunNode for block 'analyze'."""
-    engine, run_id = seed_run
-    with Session(engine) as session:
-        node = RunNode(
-            id=f"{run_id}:analyze",
-            run_id=run_id,
-            node_id="analyze",
-            block_type="LinearBlock",
-            status="completed",
-            cost_usd=0.03,
-            tokens={"total": 800},
-            output='{"result": "success", "extra": "data"}',
-        )
-        session.add(node)
-        session.commit()
-    return engine, run_id
-
-
-@pytest.fixture
-def sse_queue():
-    """An asyncio.Queue that simulates the StreamingObserver queue."""
-    return asyncio.Queue()
-
-
-@pytest.fixture
-def sample_soul():
-    """A minimal Soul for testing."""
-    return Soul(
-        id="analyst_v1",
-        kind="soul",
-        name="Data Analyst",
-        role="Data Analyst",
-        system_prompt="You are a data analyst.",
-        model_name="fixture-eval-model",
-    )
-
-
-@pytest.fixture
-def sample_state():
-    """A WorkflowState with a JSON-output block result for 'analyze'."""
-    return WorkflowState(
-        total_cost_usd=0.03,
-        total_tokens=800,
-        results={
-            "analyze": BlockResult(output='{"result": "success", "extra": "data"}'),
-        },
-    )
-
-
-@pytest.fixture
-def transform_contains_success_configs():
-    """Assertion config: contains 'success' after json_path:$.result transform."""
-    return {
-        "analyze": [
-            {
-                "type": "contains",
-                "value": "success",
-                "weight": 1.0,
-                "transform": "json_path:$.result",
-            },
-        ],
-    }
-
-
-@pytest.fixture
-def transform_contains_extra_configs():
-    """Assertion config: contains 'extra' after json_path:$.result transform.
-
-    The assertion does not pass because json_path:$.result extracts
-    'success', which does not contain 'extra'.
-    """
-    return {
-        "analyze": [
-            {
-                "type": "contains",
-                "value": "extra",
-                "weight": 1.0,
-                "transform": "json_path:$.result",
-            },
-        ],
-    }
+from apps.api.tests.logic.eval_observer_helpers import (
+    EVAL_TRANSFORM_WORKFLOW_ID,
+    transform_contains_extra_configs as _transform_contains_extra_configs_fixture,  # noqa: F401
+    transform_contains_success_configs as _transform_contains_success_configs_fixture,  # noqa: F401
+    transform_db_engine as _transform_db_engine_fixture,  # noqa: F401
+    transform_sample_soul as _sample_soul_fixture,  # noqa: F401
+    transform_sample_state as _sample_state_fixture,  # noqa: F401
+    transform_seed_run as _transform_seed_run_fixture,  # noqa: F401
+    transform_seed_run_with_node as _seed_run_with_node_fixture,  # noqa: F401
+    transform_sse_queue as _sse_queue_fixture,  # noqa: F401
+)
 
 
 # ---------------------------------------------------------------------------

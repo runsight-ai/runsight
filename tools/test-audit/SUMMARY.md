@@ -27,6 +27,11 @@ before we continue refactoring.
 - Tier 5 RGB gate: Blue approved, Yellow approved
 - Tier 6 pre-flight completed: fixture-externalization candidates classified
   into API, GUI, and Core batches in `tier-6-preflight.md`
+- Tier 6 fixture externalization completed: 44 suites moved repeated fixture
+  bulk into owning-workspace helpers/builders while keeping assertions in the
+  behavior suites
+- Tier 6 RGB gate: Blue approved, Yellow approved after the
+  snapshot-resolution fixture follow-up
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
@@ -57,16 +62,15 @@ Each test file was reviewed for:
 
 | Action | Count |
 |---|---:|
-| KEEP | 684 |
-| EXTERNALIZE_FIXTURES | 44 |
+| KEEP | 728 |
 | REVIEW_DEEP | 11 |
 
 ### By Alignment Status
 
 | Status | Count |
 |---|---:|
-| aligned | 684 |
-| cleanup_needed | 53 |
+| aligned | 728 |
+| cleanup_needed | 9 |
 | move_candidate | 1 |
 | red_unfinished | 1 |
 
@@ -74,23 +78,21 @@ Each test file was reviewed for:
 
 | Workspace | KEEP | DELETE | MERGE_THEN_DELETE | SHRINK_TO_SMOKE | SPLIT | EXTERNALIZE_FIXTURES | MOVE_TO_TOOLING | REVIEW_DEEP | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| api | 180 | 0 | 0 | 0 | 0 | 30 | 0 | 3 | 213 |
-| core | 346 | 0 | 0 | 0 | 0 | 2 | 0 | 2 | 350 |
+| api | 210 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 213 |
+| core | 348 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 350 |
 | e2e | 20 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 21 |
-| gui | 93 | 0 | 0 | 0 | 0 | 12 | 0 | 5 | 110 |
+| gui | 105 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | 110 |
 | shared | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |
 | tools | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
 | ui | 23 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 23 |
 
 ## Interpretation
 
-The epic is not done. The audit says 55 of 739 current test files still need a
+The epic is not done. The audit says 11 of 739 current test files still need a
 cleanup action before the test surface matches the target convention.
 
-The biggest cleanup opportunities are:
-
-- Externalize large inline fixtures, mostly API and GUI: 44 suites.
-- Deep-review blockers and escalations: 11 suites.
+The remaining cleanup work is the deep-review blocker/escalation queue: 11
+suites.
 
 Tier 1 removed the original 51 direct delete candidates. Tier 2 removed the
 merge/delete queue. It left five GUI settings source-scan files intentionally
@@ -100,7 +102,10 @@ repo/source governance under `tools/tests`. Tier 4 removed the shrink queue by
 reducing broad browser/integration/source-contract suites to representative
 smoke coverage. Tier 5 removed the split queue by replacing broad mixed suites
 with behavior-named owner suites, deleting duplicated low-signal assertions, and
-moving shared setup into owning-workspace helpers where useful.
+moving shared setup into owning-workspace helpers where useful. Tier 6 removed
+the fixture-externalization queue by moving repeated YAML, JSON, static render
+harnesses, mock services, provider payloads, and temp repo builders into
+package-local helpers while preserving behavior assertions in test files.
 
 ## High-Risk Items
 
@@ -117,9 +122,8 @@ moving shared setup into owning-workspace helpers where useful.
 
 ## Next Execution Order
 
-1. Externalize fixture bulk into package-local builders/fixtures.
-2. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
-3. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
+1. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
+2. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
 
 Use `tools/test-audit/full-test-cleanup-map.tsv` as the source of truth for the
 ticket breakdown and review checklist.

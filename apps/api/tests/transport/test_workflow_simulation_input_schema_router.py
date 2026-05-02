@@ -5,9 +5,21 @@ from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
-from runsight_api.logic.services.workflow_service import WorkflowService
 from runsight_api.transport.deps import get_workflow_service
 
+from tests.transport.workflow_simulation_schema_helpers import (
+    SIM_BRANCH,
+    SIM_SHA,
+    WORKFLOW_SLUG,
+    WORKFLOW_YAML_PATH,
+    dirty_workflow_yaml,
+    dirty_workflow_yaml_with_invalid_workflow_input_ref,
+    dirty_workflow_yaml_with_legacy_interface,
+    dirty_workflow_yaml_with_sensitive_default,
+    dirty_workflow_yaml_without_inputs,
+    make_git_service_with_sim_branch,
+    make_workflow_service,
+)
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -16,126 +28,21 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
-def _service(*, git_service: Mock | None = None) -> WorkflowService:
-    workflow_repo = Mock()
-    run_repo = Mock()
-    return WorkflowService(workflow_repo, run_repo, git_service=git_service or Mock())
-
-
-def _dirty_workflow_yaml(*, input_type: str = "string") -> str:
-    return f"""version: "1.0"
-id: wf_dirty_simulation
-kind: workflow
-inputs:
-  query:
-    type: {input_type}
-    description: Search query
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {{\"ok\": True}}
-workflow:
-  name: Dirty workflow
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _dirty_workflow_yaml_with_invalid_workflow_input_ref() -> str:
-    return """version: "1.0"
-id: wf_dirty_simulation
-kind: workflow
-inputs:
-  query:
-    type: string
-blocks:
-  start:
-    type: code
-    inputs:
-      prompt:
-        from: workflow.missing
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: Dirty workflow
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _dirty_workflow_yaml_with_sensitive_default() -> str:
-    return """version: "1.0"
-id: wf_dirty_simulation
-kind: workflow
-inputs:
-  api_key:
-    type: string
-    sensitive: true
-    default: SECRET_LEAKED=True
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: Dirty workflow
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
-def _dirty_workflow_yaml_with_legacy_interface() -> str:
-    return """version: "1.0"
-id: wf_dirty_simulation
-kind: workflow
-interface:
-  inputs:
-    - name: query
-      target: shared_memory.query
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {"ok": True}
-workflow:
-  name: Dirty workflow
-  entry: start
-  transitions:
-    - from: start
-      to: null
-"""
-
-
 class TestWorkflowSimulationRouterInputSchema:
     def test_post_workflow_simulation_returns_prepared_input_schema_and_snapshot_identity(self):
-        git_service = Mock()
-        git_service.create_sim_branch.return_value = Mock(
-            branch="sim/wf_dirty_simulation/20260419/abc12",
-            sha="1234567890abcdef1234567890abcdef12345678",
-        )
-        service = _service(git_service=git_service)
+        git_service = make_git_service_with_sim_branch()
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={"yaml": _dirty_workflow_yaml()},
+            json={"yaml": dirty_workflow_yaml()},
         )
 
         assert response.status_code == 200
         payload = response.json()
-        assert payload["branch"] == "sim/wf_dirty_simulation/20260419/abc12"
-        assert payload["commit_sha"] == "1234567890abcdef1234567890abcdef12345678"
+        assert payload["branch"] == SIM_BRANCH
+        assert payload["commit_sha"] == SIM_SHA
         assert payload["input_schema"] == {
             "query": {
                 "type": "string",
@@ -146,58 +53,37 @@ class TestWorkflowSimulationRouterInputSchema:
             }
         }
         git_service.create_sim_branch.assert_called_once_with(
-            workflow_slug="wf_dirty_simulation",
-            yaml_content=_dirty_workflow_yaml(),
-            yaml_path="custom/workflows/wf_dirty_simulation.yaml",
+            workflow_slug=WORKFLOW_SLUG,
+            yaml_content=dirty_workflow_yaml(),
+            yaml_path=WORKFLOW_YAML_PATH,
         )
 
     def test_post_workflow_simulation_returns_empty_input_schema_when_no_inputs_are_declared(self):
-        git_service = Mock()
-        git_service.create_sim_branch.return_value = Mock(
-            branch="sim/wf_dirty_simulation/20260419/abc12",
-            sha="1234567890abcdef1234567890abcdef12345678",
-        )
-        service = _service(git_service=git_service)
+        git_service = make_git_service_with_sim_branch()
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={
-                "yaml": """version: "1.0"
-id: wf_dirty_simulation
-kind: workflow
-blocks:
-  start:
-    type: code
-    code: |
-      def main(data):
-          return {\"ok\": True}
-workflow:
-  name: Dirty workflow
-  entry: start
-  transitions:
-    - from: start
-      to: null
-""",
-            },
+            json={"yaml": dirty_workflow_yaml_without_inputs()},
         )
 
         assert response.status_code == 200
         payload = response.json()
-        assert payload["branch"] == "sim/wf_dirty_simulation/20260419/abc12"
-        assert payload["commit_sha"] == "1234567890abcdef1234567890abcdef12345678"
+        assert payload["branch"] == SIM_BRANCH
+        assert payload["commit_sha"] == SIM_SHA
         assert payload["input_schema"] == {}
 
     def test_post_workflow_simulation_rejects_invalid_input_types_with_structured_backend_validation_errors(
         self,
     ):
         git_service = Mock()
-        service = _service(git_service=git_service)
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={"yaml": _dirty_workflow_yaml(input_type="integer")},
+            json={"yaml": dirty_workflow_yaml(input_type="integer")},
         )
 
         assert response.status_code == 422
@@ -217,12 +103,12 @@ workflow:
         self,
     ):
         git_service = Mock()
-        service = _service(git_service=git_service)
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={"yaml": _dirty_workflow_yaml_with_sensitive_default()},
+            json={"yaml": dirty_workflow_yaml_with_sensitive_default()},
         )
 
         assert response.status_code == 422
@@ -238,12 +124,12 @@ workflow:
         self,
     ):
         git_service = Mock()
-        service = _service(git_service=git_service)
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={"yaml": _dirty_workflow_yaml_with_invalid_workflow_input_ref()},
+            json={"yaml": dirty_workflow_yaml_with_invalid_workflow_input_ref()},
         )
 
         assert response.status_code == 422
@@ -258,12 +144,12 @@ workflow:
         self,
     ):
         git_service = Mock()
-        service = _service(git_service=git_service)
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
-            json={"yaml": _dirty_workflow_yaml_with_legacy_interface()},
+            json={"yaml": dirty_workflow_yaml_with_legacy_interface()},
         )
 
         assert response.status_code == 422
@@ -276,13 +162,13 @@ workflow:
 
     def test_post_workflow_simulation_rejects_embedded_workflow_id_mismatch(self):
         git_service = Mock()
-        service = _service(git_service=git_service)
+        service = make_workflow_service(git_service=git_service)
         app.dependency_overrides[get_workflow_service] = lambda: service
 
         response = client.post(
             "/api/workflows/wf_dirty_simulation/simulations",
             json={
-                "yaml": _dirty_workflow_yaml().replace(
+                "yaml": dirty_workflow_yaml().replace(
                     "id: wf_dirty_simulation",
                     "id: other_workflow",
                 )

@@ -2,49 +2,44 @@
 
 from __future__ import annotations
 
-import importlib
 from unittest.mock import Mock
 
 import pytest
 import yaml
 
-from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
 from runsight_api.domain.entities.settings import AppSettingsConfig
-
-
-def _settings_module():
-    return importlib.import_module("runsight_api.domain.entities.settings")
-
-
-def _entities_module():
-    return importlib.import_module("runsight_api.domain.entities")
-
-
-@pytest.fixture
-def repo(tmp_path):
-    return FileSystemSettingsRepo(base_path=str(tmp_path))
-
-
-@pytest.fixture
-def settings_file(tmp_path):
-    return tmp_path / ".runsight" / "settings.yaml"
+from tests.unit.data.filesystem.settings_repo_helpers import (  # noqa: F401
+    AUXILIARY_MODEL_ID,
+    AUXILIARY_PROVIDER_ID,
+    BACKUP_MODEL_ID,
+    BACKUP_PROVIDER_ID,
+    PRIMARY_MODEL_ID,
+    PRIMARY_PROVIDER_ID,
+    entities_module,
+    fallback_map_entry,
+    fallback_target_entry,
+    repo_fixture as _repo_fixture,
+    settings_file_fixture as _settings_file_fixture,
+    settings_module,
+    write_settings_yaml,
+)
 
 
 class TestDomainFoundation:
     def test_legacy_fallback_entry_removed_from_settings_module(self):
-        assert not hasattr(_settings_module(), "FallbackChainEntry")
+        assert not hasattr(settings_module(), "FallbackChainEntry")
 
     def test_legacy_fallback_entry_removed_from_entities_module(self):
-        assert not hasattr(_entities_module(), "FallbackChainEntry")
+        assert not hasattr(entities_module(), "FallbackChainEntry")
 
     def test_fallback_target_entry_exported_from_domain_modules(self):
-        settings_module = _settings_module()
-        entities_module = _entities_module()
+        settings_module_obj = settings_module()
+        entities_module_obj = entities_module()
 
-        assert hasattr(settings_module, "FallbackTargetEntry")
-        assert hasattr(entities_module, "FallbackTargetEntry")
-        assert not hasattr(settings_module, "ModelDefaultEntry")
-        assert not hasattr(entities_module, "ModelDefaultEntry")
+        assert hasattr(settings_module_obj, "FallbackTargetEntry")
+        assert hasattr(entities_module_obj, "FallbackTargetEntry")
+        assert not hasattr(settings_module_obj, "ModelDefaultEntry")
+        assert not hasattr(entities_module_obj, "ModelDefaultEntry")
 
     def test_app_settings_config_defaults_fallback_enabled_false(self):
         settings = AppSettingsConfig()
@@ -66,15 +61,12 @@ class TestFreshInstallDefaults:
         assert settings.fallback_enabled is False
 
     def test_present_settings_file_without_fallback_map_is_valid(self, repo, settings_file):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "onboarding_completed": True,
-                    "fallback_enabled": True,
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "onboarding_completed": True,
+                "fallback_enabled": True,
+            },
         )
 
         settings = repo.get_settings()
@@ -96,44 +88,28 @@ class TestFreshInstallDefaults:
 
 class TestFallbackMapPersistence:
     def test_set_fallback_target_upserts_by_provider_id(self, repo):
-        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
-
-        repo.set_fallback_target(
-            entry_cls(
-                provider_id="primary-provider",
-                fallback_provider_id="backup-provider",
-                fallback_model_id="backup-fixture-model",
-            )
-        )
+        repo.set_fallback_target(fallback_target_entry())
         updated = repo.set_fallback_target(
-            entry_cls(
-                provider_id="primary-provider",
-                fallback_provider_id="auxiliary-provider",
-                fallback_model_id="auxiliary-fixture-model",
+            fallback_target_entry(
+                fallback_provider_id=AUXILIARY_PROVIDER_ID,
+                fallback_model_id=AUXILIARY_MODEL_ID,
             )
         )
 
-        assert updated.provider_id == "primary-provider"
-        assert updated.fallback_provider_id == "auxiliary-provider"
-        assert updated.fallback_model_id == "auxiliary-fixture-model"
+        assert updated.provider_id == PRIMARY_PROVIDER_ID
+        assert updated.fallback_provider_id == AUXILIARY_PROVIDER_ID
+        assert updated.fallback_model_id == AUXILIARY_MODEL_ID
 
         fallback_map = repo.get_fallback_map()
         assert len(fallback_map) == 1
-        assert fallback_map[0].provider_id == "primary-provider"
-        assert fallback_map[0].fallback_provider_id == "auxiliary-provider"
-        assert fallback_map[0].fallback_model_id == "auxiliary-fixture-model"
+        assert fallback_map[0].provider_id == PRIMARY_PROVIDER_ID
+        assert fallback_map[0].fallback_provider_id == AUXILIARY_PROVIDER_ID
+        assert fallback_map[0].fallback_model_id == AUXILIARY_MODEL_ID
 
     def test_remove_fallback_target_returns_true_when_removed(self, repo):
-        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
-        repo.set_fallback_target(
-            entry_cls(
-                provider_id="primary-provider",
-                fallback_provider_id="backup-provider",
-                fallback_model_id="backup-fixture-model",
-            )
-        )
+        repo.set_fallback_target(fallback_target_entry())
 
-        removed = repo.remove_fallback_target("primary-provider")
+        removed = repo.remove_fallback_target(PRIMARY_PROVIDER_ID)
 
         assert removed is True
         assert repo.get_fallback_map() == []
@@ -141,14 +117,7 @@ class TestFallbackMapPersistence:
     def test_remove_fallback_target_is_side_effect_free_for_missing_provider(
         self, repo, settings_file, monkeypatch
     ):
-        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
-        repo.set_fallback_target(
-            entry_cls(
-                provider_id="primary-provider",
-                fallback_provider_id="backup-provider",
-                fallback_model_id="backup-fixture-model",
-            )
-        )
+        repo.set_fallback_target(fallback_target_entry())
         before = settings_file.read_text()
         write_mock = Mock()
         monkeypatch.setattr(repo, "_write_yaml", write_mock)
@@ -158,46 +127,34 @@ class TestFallbackMapPersistence:
         write_mock.assert_not_called()
 
     def test_set_fallback_target_preserves_app_settings_buckets(self, repo, settings_file):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "onboarding_completed": True,
-                    "fallback_enabled": True,
-                    "fallback_map": [
-                        {
-                            "provider_id": "primary-provider",
-                            "fallback_provider_id": "backup-provider",
-                            "fallback_model_id": "backup-fixture-model",
-                        }
-                    ],
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "onboarding_completed": True,
+                "fallback_enabled": True,
+                "fallback_map": [fallback_map_entry()],
+            },
         )
-        entry_cls = getattr(_settings_module(), "FallbackTargetEntry")
 
         updated = repo.set_fallback_target(
-            entry_cls(
-                provider_id="primary-provider",
-                fallback_provider_id="auxiliary-provider",
-                fallback_model_id="auxiliary-fixture-model",
+            fallback_target_entry(
+                fallback_provider_id=AUXILIARY_PROVIDER_ID,
+                fallback_model_id=AUXILIARY_MODEL_ID,
             )
         )
 
-        assert updated.provider_id == "primary-provider"
-        assert updated.fallback_provider_id == "auxiliary-provider"
-        assert updated.fallback_model_id == "auxiliary-fixture-model"
+        assert updated.provider_id == PRIMARY_PROVIDER_ID
+        assert updated.fallback_provider_id == AUXILIARY_PROVIDER_ID
+        assert updated.fallback_model_id == AUXILIARY_MODEL_ID
 
         on_disk = yaml.safe_load(settings_file.read_text())
         assert on_disk["onboarding_completed"] is True
         assert on_disk["fallback_enabled"] is True
         assert on_disk["fallback_map"] == [
-            {
-                "provider_id": "primary-provider",
-                "fallback_provider_id": "auxiliary-provider",
-                "fallback_model_id": "auxiliary-fixture-model",
-            }
+            fallback_map_entry(
+                fallback_provider_id=AUXILIARY_PROVIDER_ID,
+                fallback_model_id=AUXILIARY_MODEL_ID,
+            )
         ]
 
 
@@ -210,14 +167,14 @@ class TestStrictSchemaValidation:
             ("fallback_chain_enabled", True),
             (
                 "fallback_chain",
-                [{"provider_id": "primary-provider", "model_id": "primary-fixture-model"}],
+                [{"provider_id": PRIMARY_PROVIDER_ID, "model_id": PRIMARY_MODEL_ID}],
             ),
             (
                 "model_defaults",
                 [
                     {
-                        "provider_id": "primary-provider",
-                        "model_id": "primary-fixture-model",
+                        "provider_id": PRIMARY_PROVIDER_ID,
+                        "model_id": PRIMARY_MODEL_ID,
                         "is_default": True,
                     }
                 ],
@@ -225,8 +182,7 @@ class TestStrictSchemaValidation:
         ],
     )
     def test_get_settings_rejects_dead_top_level_keys(self, repo, settings_file, key, value):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(yaml.safe_dump({key: value}, sort_keys=False))
+        write_settings_yaml(settings_file, {key: value})
 
         with pytest.raises(Exception, match=key):
             repo.get_settings()
@@ -248,34 +204,22 @@ class TestStrictSchemaValidation:
     def test_get_settings_rejects_wrong_type_for_supported_bool_fields(
         self, repo, settings_file, field, value
     ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "onboarding_completed": False,
-                    "fallback_enabled": False,
-                    field: value,
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "onboarding_completed": False,
+                "fallback_enabled": False,
+                field: value,
+            },
         )
 
         with pytest.raises(Exception, match=field):
             repo.get_settings()
 
     def test_get_fallback_map_rejects_non_list_fallback_map(self, repo, settings_file):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "fallback_map": {
-                        "provider_id": "primary-provider",
-                        "fallback_provider_id": "backup-provider",
-                        "fallback_model_id": "backup-fixture-model",
-                    }
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {"fallback_map": fallback_map_entry()},
         )
 
         with pytest.raises(Exception, match="fallback_map"):
@@ -287,22 +231,22 @@ class TestStrictSchemaValidation:
             (
                 "provider_id",
                 {
-                    "fallback_provider_id": "backup-provider",
-                    "fallback_model_id": "backup-fixture-model",
+                    "fallback_provider_id": BACKUP_PROVIDER_ID,
+                    "fallback_model_id": BACKUP_MODEL_ID,
                 },
             ),
             (
                 "fallback_provider_id",
                 {
-                    "provider_id": "primary-provider",
-                    "fallback_model_id": "backup-fixture-model",
+                    "provider_id": PRIMARY_PROVIDER_ID,
+                    "fallback_model_id": BACKUP_MODEL_ID,
                 },
             ),
             (
                 "fallback_model_id",
                 {
-                    "provider_id": "primary-provider",
-                    "fallback_provider_id": "backup-provider",
+                    "provider_id": PRIMARY_PROVIDER_ID,
+                    "fallback_provider_id": BACKUP_PROVIDER_ID,
                 },
             ),
         ],
@@ -310,8 +254,7 @@ class TestStrictSchemaValidation:
     def test_get_settings_rejects_fallback_map_entries_missing_required_fields(
         self, repo, settings_file, missing_key, entry
     ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(yaml.safe_dump({"fallback_map": [entry]}, sort_keys=False))
+        write_settings_yaml(settings_file, {"fallback_map": [entry]})
 
         with pytest.raises(Exception, match=missing_key):
             repo.get_settings()
@@ -321,22 +264,13 @@ class TestStrictSettingsWrites:
     def test_update_settings_preserves_valid_fallback_data_when_mutating_app_settings(
         self, repo, settings_file
     ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "onboarding_completed": False,
-                    "fallback_enabled": True,
-                    "fallback_map": [
-                        {
-                            "provider_id": "primary-provider",
-                            "fallback_provider_id": "backup-provider",
-                            "fallback_model_id": "backup-fixture-model",
-                        }
-                    ],
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "onboarding_completed": False,
+                "fallback_enabled": True,
+                "fallback_map": [fallback_map_entry()],
+            },
         )
         before = settings_file.read_text()
 
@@ -349,27 +283,18 @@ class TestStrictSettingsWrites:
         assert settings_file.read_text() != before
         assert on_disk["onboarding_completed"] is True
         assert on_disk["fallback_enabled"] is True
-        assert on_disk["fallback_map"] == [
-            {
-                "provider_id": "primary-provider",
-                "fallback_provider_id": "backup-provider",
-                "fallback_model_id": "backup-fixture-model",
-            }
-        ]
+        assert on_disk["fallback_map"] == [fallback_map_entry()]
 
     def test_update_settings_rejects_auto_save_before_rewriting(
         self, repo, settings_file, monkeypatch
     ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "auto_save": True,
-                    "onboarding_completed": False,
-                    "fallback_enabled": True,
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "auto_save": True,
+                "onboarding_completed": False,
+                "fallback_enabled": True,
+            },
         )
         write_mock = Mock(wraps=repo._write_yaml)
         monkeypatch.setattr(repo, "_write_yaml", write_mock)
@@ -399,15 +324,12 @@ class TestStrictSettingsWrites:
     def test_update_settings_rejects_wrong_type_without_rewriting_existing_file(
         self, repo, settings_file, monkeypatch
     ):
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(
-            yaml.safe_dump(
-                {
-                    "onboarding_completed": False,
-                    "fallback_enabled": True,
-                },
-                sort_keys=False,
-            )
+        write_settings_yaml(
+            settings_file,
+            {
+                "onboarding_completed": False,
+                "fallback_enabled": True,
+            },
         )
         before = settings_file.read_text()
         write_mock = Mock(wraps=repo._write_yaml)

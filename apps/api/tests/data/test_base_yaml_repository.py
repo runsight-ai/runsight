@@ -1,48 +1,16 @@
 """Tests for BaseYamlRepository generic base class."""
 
-from typing import Optional
-
 import pytest
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
-from runsight_api.data.filesystem._base_yaml_repo import BaseYamlRepository
-from runsight_api.domain.errors import RunsightError
-
-# -- Fixtures: a minimal entity and concrete repo for testing ----------------
-
-
-class DummyEntity(BaseModel):
-    id: str
-    name: Optional[str] = None
-    model_config = {"extra": "allow"}
-
-
-class DummyNotFound(RunsightError):
-    pass
-
-
-class DummyRepository(BaseYamlRepository[DummyEntity]):
-    entity_type = DummyEntity
-    subdir = "dummies"
-    not_found_error = DummyNotFound
-    entity_label = "Dummy"
-
-
-class StrictDummyEntity(BaseModel):
-    id: str
-    name: Optional[str] = None
-    model_config = {"extra": "forbid"}
-
-
-class StrictDummyRepository(BaseYamlRepository[StrictDummyEntity]):
-    entity_type = StrictDummyEntity
-    subdir = "strict-dummies"
-    not_found_error = DummyNotFound
-    entity_label = "StrictDummy"
-
-
-# -- Tests -------------------------------------------------------------------
+from base_yaml_helpers import (
+    MALFORMED_YAML,
+    DummyNotFound,
+    DummyRepository,
+    StrictDummyRepository,
+    write_yaml_payload,
+)
 
 
 class TestBaseYamlRepositoryInstantiation:
@@ -80,15 +48,13 @@ class TestListAll:
 
     def test_list_all_skips_files_without_embedded_id(self, tmp_path):
         """YAML files without an 'id' field are skipped in list_all."""
-        import yaml
-
         tmpdir = str(tmp_path)
         repo = DummyRepository(base_path=tmpdir)
-        # Write a YAML file without an 'id' key
         file_path = repo.entity_dir / "auto-id.yaml"
-        with open(file_path, "w") as f:
-            yaml.safe_dump({"name": "No ID"}, f)
+        write_yaml_payload(file_path, {"name": "No ID"})
+
         results = repo.list_all()
+
         assert len(results) == 0
 
 
@@ -112,14 +78,13 @@ class TestGetById:
 
     def test_get_by_id_returns_none_for_file_without_embedded_id(self, tmp_path):
         """If YAML lacks 'id', get_by_id returns None."""
-        import yaml
-
         tmpdir = str(tmp_path)
         repo = DummyRepository(base_path=tmpdir)
         file_path = repo.entity_dir / "auto-id.yaml"
-        with open(file_path, "w") as f:
-            yaml.safe_dump({"name": "No ID"}, f)
+        write_yaml_payload(file_path, {"name": "No ID"})
+
         entity = repo.get_by_id("auto-id")
+
         assert entity is None
 
 
@@ -248,22 +213,21 @@ class TestMalformedYaml:
     def test_malformed_yaml_skipped(self, tmp_path):
         tmpdir = str(tmp_path)
         repo = DummyRepository(base_path=tmpdir)
-        # Create a valid entity
         repo.create({"id": "good", "name": "Good"})
-        # Write a malformed YAML file
         bad_file = repo.entity_dir / "bad.yaml"
-        bad_file.write_text(":\n  - :\n    invalid: [unclosed")
+        bad_file.write_text(MALFORMED_YAML)
+
         results = repo.list_all()
-        # Only the good entity should be returned
+
         assert len(results) == 1
         assert results[0].id == "good"
 
     def test_empty_yaml_file_skipped(self, tmp_path):
         tmpdir = str(tmp_path)
         repo = DummyRepository(base_path=tmpdir)
-        # Write an empty file (yaml.safe_load returns None)
         empty_file = repo.entity_dir / "empty.yaml"
         empty_file.write_text("")
-        # Empty YAML -> not a mapping -> skipped
+
         results = repo.list_all()
+
         assert len(results) == 0

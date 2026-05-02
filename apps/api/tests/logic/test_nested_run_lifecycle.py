@@ -12,65 +12,16 @@ Tests verify:
 
 from __future__ import annotations
 
-import pytest
 from runsight_core.observer import CompositeObserver, build_child_observer
 from runsight_core.state import BlockResult, WorkflowState
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 from runsight_api.logic.observers.execution_observer import ExecutionObserver
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
+from tests.logic.nested_run_helpers import create_run
 
-
-# ---------------------------------------------------------------------------
-# Shared DB fixture — in-memory SQLite with Run/RunNode/LogEntry tables
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def db_engine():
-    """Create an in-memory SQLite engine with all needed tables."""
-    engine = create_engine("sqlite:///:memory:")
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-def _create_run(
-    session: Session,
-    *,
-    run_id: str,
-    workflow_id: str = "nested_parent_workflow",
-    workflow_name: str = "Nested parent workflow",
-    status: RunStatus = RunStatus.running,
-    parent_run_id: str | None = None,
-    parent_node_id: str | None = None,
-    root_run_id: str | None = None,
-    depth: int = 0,
-    warnings_json: list[dict[str, str | None]] | None = None,
-    branch: str = "main",
-    source: str = "manual",
-    commit_sha: str | None = None,
-) -> Run:
-    """Insert a Run record with optional parent-child fields."""
-    run = Run(
-        id=run_id,
-        workflow_id=workflow_id,
-        workflow_name=workflow_name,
-        status=status,
-        task_json="{}",
-        parent_run_id=parent_run_id,
-        parent_node_id=parent_node_id,
-        root_run_id=root_run_id,
-        depth=depth,
-        warnings_json=warnings_json,
-        branch=branch,
-        source=source,
-        commit_sha=commit_sha,
-    )
-    session.add(run)
-    session.commit()
-    session.refresh(run)
-    return run
+pytest_plugins = ["tests.logic.nested_run_helpers"]
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +102,7 @@ class TestRunModelHasParentLinkageFields:
     def test_run_parent_linkage_fields_persist_round_trip(self, db_engine):
         """Parent linkage fields survive a DB round-trip with non-null values."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="child_rt",
                 workflow_id="nested_child_workflow",
@@ -227,7 +178,7 @@ class TestChildRunCreatedAsSeparateRecord:
         created with parent_run_id pointing to the parent Run. The child should
         have depth=1 and be a distinct record from the parent."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_run",
                 workflow_id="nested_parent_workflow",
@@ -256,7 +207,7 @@ class TestChildRunCreatedAsSeparateRecord:
     def test_child_run_copies_parent_branch_source_and_commit_identity(self, db_engine):
         """Child runs must preserve the invocation identity of branch/simulation parents."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_sim_run",
                 workflow_id="nested_parent_workflow",
@@ -279,7 +230,7 @@ class TestChildRunCreatedAsSeparateRecord:
     def test_child_run_is_failed_when_workflow_block_validation_fails_after_start(self, db_engine):
         """A child run allocated for a workflow block must not stay running after block failure."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_validation_run",
                 workflow_id="nested_parent_workflow",
@@ -309,7 +260,7 @@ class TestChildRunCreatedAsSeparateRecord:
     def test_child_run_does_not_inherit_parent_warnings(self, db_engine):
         """Child workflow runs must not inherit the parent's warning snapshot."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_warn_run",
                 workflow_id="nested_parent_workflow",
@@ -350,7 +301,7 @@ class TestChildCompletionDoesNotFinalizeRootRun:
         this test fails.
         """
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="root_run",
                 workflow_id="nested_parent_workflow",
@@ -358,7 +309,7 @@ class TestChildCompletionDoesNotFinalizeRootRun:
                 status=RunStatus.running,
                 depth=0,
             )
-            _create_run(
+            create_run(
                 session,
                 run_id="child_run",
                 workflow_id="nested_child_workflow",
@@ -412,7 +363,7 @@ class TestParentNodeStoresChildRunId:
         """When the observer starts a workflow-type block, the resulting RunNode
         should have child_run_id set to the child Run's ID."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_run_node",
                 workflow_id="nested_parent_workflow",
@@ -438,7 +389,7 @@ class TestParentNodeStoresChildRunId:
     def test_parent_node_started_event_includes_allocated_child_run_id(self, db_engine):
         """The live parent node_started event should expose the child run created downstream."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_live_stream",
                 workflow_id="nested_parent_workflow",
@@ -477,7 +428,7 @@ class TestParentNodeStoresChildRunId:
     def test_child_observer_persists_child_nodes_on_child_run(self, db_engine):
         """Child workflow events must be persisted on the child run, not the parent run."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_run_nested",
                 workflow_id="nested_parent_workflow",
@@ -547,7 +498,7 @@ class TestRootRunIdSetOnChild:
         """A child Run created for a workflow block must have root_run_id
         pointing to the root run (the run that started the chain)."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="root_for_nested_child",
                 workflow_id="nested_parent_workflow",
@@ -600,7 +551,7 @@ class TestNestedChildOfChildDepth:
         and root_run_id = root Run ID."""
         with Session(db_engine) as session:
             # Root run
-            _create_run(
+            create_run(
                 session,
                 run_id="gc_root",
                 workflow_id="nested_parent_workflow",
@@ -608,7 +559,7 @@ class TestNestedChildOfChildDepth:
                 depth=0,
             )
             # Child run (created by parent's observer for a workflow block)
-            _create_run(
+            create_run(
                 session,
                 run_id="gc_child",
                 workflow_id="nested_child_workflow",
@@ -641,14 +592,14 @@ class TestNestedChildOfChildDepth:
         """Edge case: same child workflow used by two different parent runs
         should produce two separate child Run records."""
         with Session(db_engine) as session:
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_A",
                 workflow_id="nested_parent_workflow_a",
                 workflow_name="Nested parent workflow A",
                 depth=0,
             )
-            _create_run(
+            create_run(
                 session,
                 run_id="parent_B",
                 workflow_id="nested_parent_workflow_b",

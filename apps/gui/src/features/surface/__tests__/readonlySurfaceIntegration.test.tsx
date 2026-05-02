@@ -15,23 +15,16 @@ import { useCanvasStore } from "@/store/canvas";
 import { useContextAuditStore } from "@/store/contextAudit";
 import {
   buildContextAuditEvent,
+  buildSurfaceRunNode,
   buildSurfaceRun,
   buildSurfaceWorkflow,
   eventSourceInstances,
   MockEventSource,
+  type SurfaceRunNodeRecord as RunNodeRecord,
   type SurfaceRunRecord as RunRecord,
   type SurfaceRunStatus as RunStatus,
   type SurfaceWorkflowRecord as WorkflowRecord,
 } from "./helpers/surfaceStreamTestHelpers";
-
-type RunNodeRecord = {
-  node_id: string;
-  status: string;
-  cost_usd?: number;
-  duration_seconds?: number;
-  tokens?: { input?: number; output?: number; total?: number };
-  error?: string | null;
-};
 
 const harness = vi.hoisted(() => ({
   run: null as RunRecord | null,
@@ -266,22 +259,10 @@ function RouteLocationProbe({ testId }: { testId: string }) {
   return <div data-testid={testId}>{location.pathname}</div>;
 }
 
-function buildRunNode(overrides: Partial<RunNodeRecord> = {}): RunNodeRecord {
-  return {
-    node_id: "node_brain",
-    status: "completed",
-    cost_usd: 1.25,
-    duration_seconds: 42,
-    tokens: { input: 12, output: 32, total: 44 },
-    error: null,
-    ...overrides,
-  };
-}
-
 function setReadonlyFixtures({
   runStatus = "completed",
   regressionCount = 0,
-  runNodes = [buildRunNode()],
+  runNodes = [buildSurfaceRunNode()],
   canvasState = buildSurfaceWorkflow().canvas_state,
 }: {
   runStatus?: RunStatus;

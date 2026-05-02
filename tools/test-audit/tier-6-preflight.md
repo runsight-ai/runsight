@@ -2,6 +2,9 @@
 
 Date: 2026-05-02
 
+Status: completed. This file preserves the pre-flight scope snapshot; the
+current audit counts live in `SUMMARY.md` and `full-test-cleanup-map.tsv`.
+
 ## Scope
 
 Tier 6 is the fixture-externalization tier. It should not split suites, rename

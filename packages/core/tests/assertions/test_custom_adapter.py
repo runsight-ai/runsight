@@ -2,71 +2,27 @@
 
 from __future__ import annotations
 
-import asyncio
-import importlib
 import json
-from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from runsight_core.assertions.base import AssertionContext, GradingResult
+from runsight_core.assertions.base import GradingResult
 
-
-def _load_symbols():
-    module = importlib.import_module("runsight_core.assertions.custom")
-    return module, module._build_adapter_class
-
-
-def _make_context(**overrides: Any) -> AssertionContext:
-    defaults = dict(
-        output="needle in haystack",
-        prompt="Find the launch blocker.",
-        prompt_hash="prompt-hash-fixture",
-        soul_id="custom-adapter-soul",
-        soul_version="v7",
-        block_id="custom-adapter-block",
-        block_type="LinearBlock",
-        cost_usd=0.031,
-        total_tokens=321,
-        latency_ms=245.5,
-        variables={"topic": "launch", "severity": "high"},
-        run_id="custom-adapter-run",
-        workflow_id="custom-adapter-workflow",
-    )
-    defaults.update(overrides)
-    return AssertionContext(**defaults)
-
-
-@dataclass
-class _FakeProc:
-    stdout_payload: bytes
-    stderr_payload: bytes = b""
-    returncode: int = 0
-
-    async def communicate(self, input: bytes | None = None):
-        return self.stdout_payload, self.stderr_payload
-
-
-@dataclass
-class _HangingProc:
-    kill_called: bool = False
-    wait_called: bool = False
-    returncode: int | None = None
-
-    async def communicate(self, input: bytes | None = None):
-        raise asyncio.TimeoutError("timed out after 30s")
-
-    def kill(self):
-        self.kill_called = True
-
-    async def wait(self):
-        self.wait_called = True
-        self.returncode = -9
+from assertions.custom_adapter_helpers import (
+    FIXTURE_OUTPUT,
+    FakeProc,
+    HangingProc,
+    bool_plugin_source,
+    budget_params_schema,
+    load_symbols,
+    make_context,
+    nested_params_schema,
+)
 
 
 class TestBuildAdapterClass:
     def test_build_adapter_class_creates_custom_assertion_type_and_bool_result(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "budget_guard",
             """
@@ -75,7 +31,7 @@ def get_assert(output, context):
 """,
             "bool",
         )
-        ctx = _make_context()
+        ctx = make_context()
 
         assert adapter_cls.type == "custom:budget_guard"
 
@@ -84,7 +40,7 @@ def get_assert(output, context):
         assert adapter.threshold == 0.8
         assert adapter.config == {"budget": 0.05}
 
-        result = adapter.evaluate("needle in haystack", ctx)
+        result = adapter.evaluate(FIXTURE_OUTPUT, ctx)
 
         assert isinstance(result, GradingResult)
         assert result.passed is True
@@ -92,7 +48,7 @@ def get_assert(output, context):
         assert result.assertion_type == "custom:budget_guard"
 
     def test_adapter_passes_promptfoo_context_aliases_vars_and_config(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "promptfoo_contract",
             """
@@ -118,13 +74,13 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config={"budget": 0.05})
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert result.assertion_type == "custom:promptfoo_contract"
 
     def test_adapter_validates_grading_result_dict_return(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "rich_result",
             """
@@ -139,7 +95,7 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config={"budget": 0.05})
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert isinstance(result, GradingResult)
         assert result.passed is True
@@ -148,7 +104,7 @@ def get_assert(output, context):
         assert result.assertion_type == "custom:rich_result"
 
     def test_adapter_routes_raw_plugin_result_through_return_validators_table(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         validator_calls: list[tuple[object, str]] = []
 
         def fake_validator(raw: object, plugin_name: str) -> GradingResult:
@@ -171,7 +127,7 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config={"budget": 0.05})
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert result.score == 0.75
@@ -183,7 +139,7 @@ def get_assert(output, context):
         ]
 
     def test_adapter_wraps_plugin_exception_in_failing_grading_result(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "boom_guard",
             """
@@ -194,7 +150,7 @@ def get_assert(output, context):
         )
         adapter = adapter_cls()
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert isinstance(result, GradingResult)
         assert result.passed is False
@@ -204,7 +160,7 @@ def get_assert(output, context):
         assert result.assertion_type == "custom:boom_guard"
 
     def test_build_adapter_class_rejects_blocked_imports_before_execution(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
 
         with pytest.raises(ValueError) as exc_info:
             build_adapter_class(
@@ -239,7 +195,7 @@ def get_assert(output, context):
         code: str,
         expected_fragment: str,
     ):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
 
         with pytest.raises(ValueError) as exc_info:
             build_adapter_class("bad_contract", code, "bool")
@@ -248,7 +204,7 @@ def get_assert(output, context):
         assert expected_fragment in message
 
     def test_adapter_does_not_expose_variables_key_in_context_dict(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "vars_only",
             """
@@ -259,12 +215,12 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config={"budget": 0.05})
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
 
     def test_adapter_passes_non_dict_config_through_to_plugin_context(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "raw_config_passthrough",
             """
@@ -275,18 +231,15 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config="raw-config-token")
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
 
     def test_adapter_subprocess_env_is_minimal_and_does_not_forward_api_keys(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "isolated_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls()
@@ -298,11 +251,11 @@ def get_assert(output, context):
         async def fake_create_subprocess_exec(*args, **kwargs):
             nonlocal captured_env
             captured_env = kwargs.get("env")
-            return _FakeProc(stdout_payload=json.dumps(True).encode())
+            return FakeProc(stdout_payload=json.dumps(True).encode())
 
         monkeypatch.setattr(module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert captured_env is not None
@@ -312,7 +265,7 @@ def get_assert(output, context):
 
     @pytest.mark.asyncio
     async def test_adapter_evaluate_succeeds_inside_running_event_loop(self):
-        _, build_adapter_class = _load_symbols()
+        _, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "loop_safe_guard",
             """
@@ -323,30 +276,27 @@ def get_assert(output, context):
         )
         adapter = adapter_cls(config={"budget": 0.05})
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert result.assertion_type == "custom:loop_safe_guard"
 
     def test_adapter_timeout_kills_process_waits_and_returns_failing_result(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         adapter_cls = build_adapter_class(
             "timeout_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls()
-        proc = _HangingProc()
+        proc = HangingProc()
 
         async def fake_create_subprocess_exec(*args, **kwargs):
             return proc
 
         monkeypatch.setattr(module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert isinstance(result, GradingResult)
         assert result.passed is False
@@ -359,26 +309,17 @@ def get_assert(output, context):
 
 class TestAdapterParamSchemaValidation:
     def test_valid_config_against_declared_params_schema_runs_plugin_and_passes(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(
             module,
             "_PARAM_SCHEMAS",
-            {
-                "budget_guard": {
-                    "type": "object",
-                    "properties": {"budget": {"type": "number"}},
-                    "required": ["budget"],
-                }
-            },
+            {"budget_guard": budget_params_schema()},
             raising=False,
         )
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "budget_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config={"budget": 0.05})
@@ -389,7 +330,7 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert plugin_calls == [
@@ -413,26 +354,17 @@ def get_assert(output, context):
     def test_missing_required_field_returns_failing_grading_result_and_skips_plugin(
         self, monkeypatch
     ):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(
             module,
             "_PARAM_SCHEMAS",
-            {
-                "budget_guard": {
-                    "type": "object",
-                    "properties": {"budget": {"type": "number"}},
-                    "required": ["budget"],
-                }
-            },
+            {"budget_guard": budget_params_schema()},
             raising=False,
         )
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "budget_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config={})
@@ -443,33 +375,24 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is False
         assert result.reason.startswith("Config validation failed:")
         assert plugin_calls == []
 
     def test_wrong_type_returns_failing_grading_result_and_skips_plugin(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(
             module,
             "_PARAM_SCHEMAS",
-            {
-                "budget_guard": {
-                    "type": "object",
-                    "properties": {"budget": {"type": "number"}},
-                    "required": ["budget"],
-                }
-            },
+            {"budget_guard": budget_params_schema()},
             raising=False,
         )
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "budget_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config={"budget": "expensive"})
@@ -480,22 +403,19 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is False
         assert result.reason.startswith("Config validation failed:")
         assert plugin_calls == []
 
     def test_no_params_schema_skips_validation_and_runs_plugin(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(module, "_PARAM_SCHEMAS", {}, raising=False)
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "no_schema_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config=None)
@@ -506,32 +426,23 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is True
         assert len(plugin_calls) == 1
 
     def test_config_none_with_required_params_returns_failing_grading_result(self, monkeypatch):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(
             module,
             "_PARAM_SCHEMAS",
-            {
-                "budget_guard": {
-                    "type": "object",
-                    "properties": {"budget": {"type": "number"}},
-                    "required": ["budget"],
-                }
-            },
+            {"budget_guard": budget_params_schema()},
             raising=False,
         )
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "budget_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config=None)
@@ -542,7 +453,7 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is False
         assert result.reason.startswith("Config validation failed:")
@@ -551,32 +462,17 @@ def get_assert(output, context):
     def test_nested_schema_validation_returns_failing_grading_result_and_skips_plugin(
         self, monkeypatch
     ):
-        module, build_adapter_class = _load_symbols()
+        module, build_adapter_class = load_symbols()
         monkeypatch.setattr(
             module,
             "_PARAM_SCHEMAS",
-            {
-                "nested_guard": {
-                    "type": "object",
-                    "properties": {
-                        "limits": {
-                            "type": "object",
-                            "properties": {"budget": {"type": "number"}},
-                            "required": ["budget"],
-                        }
-                    },
-                    "required": ["limits"],
-                }
-            },
+            {"nested_guard": nested_params_schema()},
             raising=False,
         )
         plugin_calls: list[dict[str, Any]] = []
         adapter_cls = build_adapter_class(
             "nested_guard",
-            """
-def get_assert(output, context):
-    return True
-""",
+            bool_plugin_source(),
             "bool",
         )
         adapter = adapter_cls(config={"limits": {"budget": "too-high"}})
@@ -587,7 +483,7 @@ def get_assert(output, context):
 
         monkeypatch.setattr(module, "_run_plugin_sync", fake_run_plugin_sync)
 
-        result = adapter.evaluate("needle in haystack", _make_context())
+        result = adapter.evaluate(FIXTURE_OUTPUT, make_context())
 
         assert result.passed is False
         assert result.reason.startswith("Config validation failed:")

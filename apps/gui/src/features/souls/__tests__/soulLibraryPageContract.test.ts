@@ -1,67 +1,24 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  buildAvailableTools,
+  buildSoulsQuery,
+  renderColumnMarkup,
+  renderSoulLibraryPage,
+  type SoulLibraryQuery,
+} from "./soulLibraryTestBuilders";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   pageHeaderProps: [] as Array<Record<string, unknown>>,
   dataTableProps: [] as Array<Record<string, unknown>>,
   buttonProps: [] as Array<Record<string, unknown>>,
-  availableTools: [
-    {
-      id: "http",
-      name: "HTTP Requests",
-      description: "Fetch external APIs.",
-      origin: "builtin",
-      executor: "native",
-    },
-    {
-      id: "request_lookup",
-      name: "Request Lookup",
-      description: "Fetch live report data.",
-      origin: "custom",
-      executor: "request",
-    },
-    {
-      id: "python_helper",
-      name: "Python Helper",
-      description: "Run a local analysis helper.",
-      origin: "custom",
-      executor: "python",
-    },
-  ],
+  availableTools: [] as Array<Record<string, unknown>>,
   soulsQuery: {
-    data: [
-      {
-        id: "soul_alpha",
-        role: "Researcher",
-        system_prompt: "You are a senior researcher.",
-        model_name: "gpt-4o",
-        provider: "openai",
-        avatar_color: "info",
-        tools: ["http", "request_lookup", "python_helper"],
-        workflow_count: 10,
-        modified_at: 1_775_000_000,
-      },
-      {
-        id: "soul_beta",
-        role: "Analyst",
-        system_prompt: "",
-        model_name: "claude-3-5-sonnet",
-        provider: "anthropic",
-        avatar_color: "success",
-        tools: ["orphaned_tool"],
-        workflow_count: 2,
-        modified_at: 1_774_000_000,
-      },
-    ],
+    data: [],
     isLoading: false,
     isError: false,
-  } as {
-    data: Array<Record<string, unknown>>;
-    isLoading: boolean;
-    isError: boolean;
-  },
+  } as SoulLibraryQuery,
 }));
 
 vi.mock("react-router", () => ({
@@ -114,6 +71,8 @@ function resetMocks() {
   mocks.pageHeaderProps.length = 0;
   mocks.dataTableProps.length = 0;
   mocks.buttonProps.length = 0;
+  mocks.availableTools = buildAvailableTools();
+  mocks.soulsQuery = buildSoulsQuery();
 }
 
 beforeEach(() => {
@@ -124,9 +83,7 @@ describe("SoulLibraryPage behavior", () => {
   it("builds the page from PageHeader and DataTable directly, with canonical tool identity surfaced in the tools column", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    renderToStaticMarkup(
-      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
-    );
+    renderSoulLibraryPage(SoulLibraryPage);
 
     expect(mocks.pageHeaderProps).toHaveLength(1);
     expect(mocks.dataTableProps).toHaveLength(1);
@@ -159,9 +116,7 @@ describe("SoulLibraryPage behavior", () => {
   it("shows a warning in the provider column when a soul points at a disabled provider", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    renderToStaticMarkup(
-      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
-    );
+    renderSoulLibraryPage(SoulLibraryPage);
 
     const tableProps = mocks.dataTableProps[0] as {
       columns: Array<{
@@ -174,9 +129,7 @@ describe("SoulLibraryPage behavior", () => {
     const providerColumn = tableProps.columns.find((column) => column.header === "Provider");
     expect(providerColumn?.render).toBeTypeOf("function");
 
-    const markup = renderToStaticMarkup(
-      React.createElement(React.Fragment, null, providerColumn?.render?.(tableProps.data[1])),
-    );
+    const markup = renderColumnMarkup(providerColumn?.render?.(tableProps.data[1]));
 
     expect(markup).toContain("Anthropic");
     expect(markup).toContain("Provider disabled");
@@ -185,9 +138,7 @@ describe("SoulLibraryPage behavior", () => {
   it("renders builtin and custom request/python tool badges from canonical ids without a hardcoded legacy tool map", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    renderToStaticMarkup(
-      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
-    );
+    renderSoulLibraryPage(SoulLibraryPage);
 
     const tableProps = mocks.dataTableProps[0] as {
       columns: Array<{
@@ -200,9 +151,7 @@ describe("SoulLibraryPage behavior", () => {
     const toolsColumn = tableProps.columns.find((column) => column.header === "Tools");
     expect(toolsColumn?.render).toBeTypeOf("function");
 
-    const markup = renderToStaticMarkup(
-      React.createElement(React.Fragment, null, toolsColumn?.render?.(tableProps.data[0])),
-    );
+    const markup = renderColumnMarkup(toolsColumn?.render?.(tableProps.data[0]));
 
     expect(markup).toContain("HTTP Requests");
     expect(markup).toContain("Request Lookup");
@@ -213,9 +162,7 @@ describe("SoulLibraryPage behavior", () => {
   it("keeps rendering a soul's canonical tool id when the API no longer returns metadata for it", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    renderToStaticMarkup(
-      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
-    );
+    renderSoulLibraryPage(SoulLibraryPage);
 
     const tableProps = mocks.dataTableProps[0] as {
       columns: Array<{
@@ -228,9 +175,7 @@ describe("SoulLibraryPage behavior", () => {
     const toolsColumn = tableProps.columns.find((column) => column.header === "Tools");
     expect(toolsColumn?.render).toBeTypeOf("function");
 
-    const markup = renderToStaticMarkup(
-      React.createElement(React.Fragment, null, toolsColumn?.render?.(tableProps.data[1])),
-    );
+    const markup = renderColumnMarkup(toolsColumn?.render?.(tableProps.data[1]));
 
     expect(markup).toContain("orphaned_tool");
   });
@@ -238,9 +183,7 @@ describe("SoulLibraryPage behavior", () => {
   it("navigates to /souls/new from the create action and /souls/:id/edit from row selection", async () => {
     const { Component: SoulLibraryPage } = await import("../SoulLibraryPage");
 
-    renderToStaticMarkup(
-      React.createElement(SoulLibraryPage as React.ComponentType<Record<string, unknown>>),
-    );
+    renderSoulLibraryPage(SoulLibraryPage);
 
     const createButton = mocks.buttonProps.find(
       (props) => typeof props.onClick === "function",

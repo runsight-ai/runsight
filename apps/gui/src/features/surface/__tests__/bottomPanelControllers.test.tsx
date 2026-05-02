@@ -8,17 +8,13 @@ import { MemoryRouter } from "react-router";
 import {
   buildBottomPanelContextResolutionEvent,
   buildBottomPanelRun,
+  buildSurfaceLogEntry,
+  buildSurfaceReplayEvent,
   eventSourceInstances,
   MockEventSource,
+  type SurfaceLogEntry as LogEntry,
   type SurfaceRunRecord as RunRecord,
 } from "./helpers/surfaceStreamTestHelpers";
-
-type LogEntry = {
-  id?: number;
-  timestamp: string | number;
-  level: string;
-  message: string;
-};
 
 const harness = vi.hoisted(() => ({
   runs: [] as RunRecord[],
@@ -396,11 +392,10 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("log_entry", {
+      liveSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T12:00:00.000Z",
-        level: "info",
         message: "live only from run_live",
-      });
+      }));
       liveSource.emit(
         "context_resolution",
         buildBottomPanelContextResolutionEvent("run_live", "draft", 1),
@@ -416,11 +411,11 @@ describe("bottom panel controller boundaries", () => {
     expect(screen.queryByText("live only from run_live")).toBeNull();
 
     act(() => {
-      liveSource.emit("log_entry", {
+      liveSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T12:01:00.000Z",
         level: "error",
         message: "stale event after switch",
-      });
+      }));
       liveSource.emit(
         "context_resolution",
         buildBottomPanelContextResolutionEvent("run_live", "stale", 2),
@@ -435,11 +430,10 @@ describe("bottom panel controller boundaries", () => {
         "context_resolution",
         buildBottomPanelContextResolutionEvent("run_other", "review", 1),
       );
-      otherSource.emit("log_entry", {
+      otherSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T12:02:00.000Z",
-        level: "info",
         message: "live only from run_other",
-      });
+      }));
     });
 
     expect(harness.contextAuditStore.eventsByRun.run_other).toEqual([
@@ -453,46 +447,28 @@ describe("bottom panel controller boundaries", () => {
   });
 
   it("normalizes replayed history and live log entries into one visible row", () => {
-    harness.runLogsById.run_live = [
-      {
-        timestamp: "2026-04-22T13:00:00.000Z",
-        level: "info",
-        message: "Node draft started",
-      },
-    ];
+    harness.runLogsById.run_live = [buildSurfaceLogEntry()];
 
     renderPanel();
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("log_entry", {
-        timestamp: "2026-04-22T13:00:00.000Z",
-        level: "info",
-        message: "Node draft started",
-      });
+      liveSource.emit("log_entry", buildSurfaceLogEntry());
     });
 
     expect(screen.getAllByText("Node draft started")).toHaveLength(1);
   });
 
   it("normalizes numeric epoch-second log timestamps before deduping live entries", () => {
-    harness.runLogsById.run_live = [
-      {
-        timestamp: 1713790800,
-        level: "info",
-        message: "Node draft started",
-      },
-    ];
+    harness.runLogsById.run_live = [buildSurfaceLogEntry({ timestamp: 1713790800 })];
 
     renderPanel();
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("log_entry", {
+      liveSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2024-04-22T13:00:00.000Z",
-        level: "info",
-        message: "Node draft started",
-      });
+      }));
     });
 
     expect(screen.getAllByText("Node draft started")).toHaveLength(1);
@@ -503,10 +479,7 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("replay", {
-        event: "block_start",
-        block_id: "draft",
-      });
+      liveSource.emit("replay", buildSurfaceReplayEvent());
     });
 
     expect(screen.getByText("Node draft started")).toBeTruthy();
@@ -517,12 +490,10 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("replay", {
+      liveSource.emit("replay", buildSurfaceReplayEvent({
         id: 1,
         timestamp: "2026-04-22T13:01:00.000Z",
-        event: "block_start",
-        block_id: "draft",
-      });
+      }));
     });
 
     expect(screen.getByText("Node draft started")).toBeTruthy();
@@ -555,18 +526,16 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("replay", {
+      liveSource.emit("replay", buildSurfaceReplayEvent({
         id: 1,
         timestamp: "2026-04-22T13:01:00.000Z",
-        event: "block_start",
-        block_id: "draft",
-      });
-      liveSource.emit("replay", {
+      }));
+      liveSource.emit("replay", buildSurfaceReplayEvent({
         id: 2,
         timestamp: "2026-04-22T13:02:00.000Z",
         event: "block_complete",
         block_id: "review",
-      });
+      }));
     });
 
     harness.runLogsById.run_live = [
@@ -598,18 +567,14 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("replay", {
+      liveSource.emit("replay", buildSurfaceReplayEvent({
         id: 11,
         timestamp: "2026-04-22T13:01:00.000Z",
-        event: "block_start",
-        block_id: "draft",
-      });
-      liveSource.emit("replay", {
+      }));
+      liveSource.emit("replay", buildSurfaceReplayEvent({
         id: 12,
         timestamp: "2026-04-22T13:02:00.000Z",
-        event: "block_start",
-        block_id: "draft",
-      });
+      }));
     });
 
     expect(screen.getAllByText("Node draft started")).toHaveLength(2);
@@ -648,11 +613,10 @@ describe("bottom panel controller boundaries", () => {
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("log_entry", {
+      liveSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T13:05:00.000Z",
-        level: "info",
         message: "stale streamed entry",
-      });
+      }));
     });
 
     expect(screen.getByText("stale streamed entry")).toBeTruthy();
@@ -665,22 +629,20 @@ describe("bottom panel controller boundaries", () => {
 
   it("keeps historical logs scoped to the selected run after stale live streams are torn down", async () => {
     harness.runLogsById.run_other = [
-      {
+      buildSurfaceLogEntry({
         timestamp: "2026-04-22T13:10:00.000Z",
-        level: "info",
         message: "historical entry from run_other",
-      },
+      }),
     ];
 
     renderPanel();
     const liveSource = expectSingleStreamForRun("run_live");
 
     act(() => {
-      liveSource.emit("log_entry", {
+      liveSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T13:09:00.000Z",
-        level: "info",
         message: "live only from run_live",
-      });
+      }));
     });
 
     expect(screen.getByText("live only from run_live")).toBeTruthy();
@@ -694,21 +656,20 @@ describe("bottom panel controller boundaries", () => {
     expect(screen.queryByText("live only from run_live")).toBeNull();
 
     act(() => {
-      staleSource.emit("log_entry", {
+      staleSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T13:11:00.000Z",
         level: "error",
         message: "stale event after switch",
-      });
+      }));
     });
 
     expect(screen.queryByText("stale event after switch")).toBeNull();
 
     act(() => {
-      otherSource.emit("log_entry", {
+      otherSource.emit("log_entry", buildSurfaceLogEntry({
         timestamp: "2026-04-22T13:12:00.000Z",
-        level: "info",
         message: "live only from run_other",
-      });
+      }));
     });
 
     expect(screen.getByText("historical entry from run_other")).toBeTruthy();

@@ -1,23 +1,17 @@
-import json
-
 import pytest
 
 from runsight_api.data.filesystem.soul_repo import SoulRepository
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.domain.errors import InputValidationError
 
-
-def _workflow_yaml(wf_id: str, name: str) -> str:
-    return (
-        f"id: {wf_id}\n"
-        "kind: workflow\n"
-        "version: '1.0'\n"
-        "blocks: {}\n"
-        "workflow:\n"
-        f"  name: {name}\n"
-        "  entry: start\n"
-        "  transitions: []\n"
-    )
+from filesystem_fixtures import (
+    ORPHAN_STATE_MACHINE_CANVAS_STATE,
+    soul_payload,
+    workflow_yaml,
+    workflow_yaml_without_kind,
+    write_hand_authored_workflow,
+    write_orphan_canvas_sidecar,
+)
 
 
 def test_workflow_repository(tmp_path):
@@ -28,7 +22,7 @@ def test_workflow_repository(tmp_path):
     wf_id = "repository-round-trip"
     workflow_data = {
         "name": "Repository Round Trip",
-        "yaml": _workflow_yaml(wf_id, "Repository Round Trip"),
+        "yaml": workflow_yaml(wf_id, "Repository Round Trip"),
     }
     entity = repo.create(workflow_data)
     assert entity.id == wf_id
@@ -43,7 +37,7 @@ def test_workflow_repository(tmp_path):
     # Update persists a new workflow name.
     updated_data = {
         "name": "Updated Workflow",
-        "yaml": _workflow_yaml(wf_id, "Updated Workflow"),
+        "yaml": workflow_yaml(wf_id, "Updated Workflow"),
     }
     repo.update(wf_id, updated_data)
     fetched_updated = repo.get_by_id(wf_id)
@@ -55,7 +49,7 @@ def test_workflow_repository(tmp_path):
         wf_id,
         {
             "description": "Keeps existing name",
-            "yaml": _workflow_yaml(wf_id, "Updated Workflow"),
+            "yaml": workflow_yaml(wf_id, "Updated Workflow"),
         },
     )
     fetched_partial = repo.get_by_id(wf_id)
@@ -87,15 +81,7 @@ def test_workflow_repository_rejects_create_without_kind(tmp_path):
         repo.create(
             {
                 "name": "Missing Kind",
-                "yaml": (
-                    "id: missing-kind\n"
-                    "version: '1.0'\n"
-                    "blocks: {}\n"
-                    "workflow:\n"
-                    "  name: Missing Kind\n"
-                    "  entry: start\n"
-                    "  transitions: []\n"
-                ),
+                "yaml": workflow_yaml_without_kind("missing-kind", "Missing Kind"),
             }
         )
 
@@ -108,7 +94,7 @@ def test_workflow_repository_rejects_update_without_yaml(tmp_path):
     entity = repo.create(
         {
             "name": "Validation Workflow",
-            "yaml": _workflow_yaml("validation-workflow", "Validation Workflow"),
+            "yaml": workflow_yaml("validation-workflow", "Validation Workflow"),
         }
     )
 
@@ -122,7 +108,7 @@ def test_workflow_repository_rejects_update_without_kind(tmp_path):
     entity = repo.create(
         {
             "name": "Kind Validation Workflow",
-            "yaml": _workflow_yaml("kind-validation-workflow", "Kind Validation Workflow"),
+            "yaml": workflow_yaml("kind-validation-workflow", "Kind Validation Workflow"),
         }
     )
     original_yaml = repo._get_path(entity.id).read_text()
@@ -130,17 +116,7 @@ def test_workflow_repository_rejects_update_without_kind(tmp_path):
     with pytest.raises(InputValidationError, match="kind"):
         repo.update(
             entity.id,
-            {
-                "yaml": (
-                    "id: kind-validation-workflow\n"
-                    "version: '1.0'\n"
-                    "blocks: {}\n"
-                    "workflow:\n"
-                    "  name: Missing Kind\n"
-                    "  entry: start\n"
-                    "  transitions: []\n"
-                )
-            },
+            {"yaml": workflow_yaml_without_kind("kind-validation-workflow", "Missing Kind")},
         )
 
     assert repo._get_path(entity.id).read_text() == original_yaml
@@ -149,11 +125,11 @@ def test_workflow_repository_rejects_update_without_kind(tmp_path):
 def test_workflow_repository_persists_name_updates_into_valid_yaml(tmp_path):
     tmpdir = str(tmp_path)
     repo = WorkflowRepository(base_path=tmpdir)
-    entity = repo.create({"yaml": _workflow_yaml("rename-me", "Original")})
+    entity = repo.create({"yaml": workflow_yaml("rename-me", "Original")})
 
     updated = repo.update(
         entity.id,
-        {"name": "Renamed Workflow", "yaml": _workflow_yaml("rename-me", "Original")},
+        {"name": "Renamed Workflow", "yaml": workflow_yaml("rename-me", "Original")},
     )
 
     assert updated.name == "Renamed Workflow"
@@ -170,7 +146,7 @@ def test_workflow_create_does_not_mutate_input(tmp_path):
 
     data = {
         "name": "Immutable",
-        "yaml": _workflow_yaml("immutable-wf", "Immutable"),
+        "yaml": workflow_yaml("immutable-wf", "Immutable"),
         "canvas_state": {"nodes": []},
     }
     original_keys = set(data.keys())
@@ -187,7 +163,7 @@ def test_workflow_id_stored_in_yaml_file(tmp_path):
     entity = repo.create(
         {
             "name": "With ID Inside",
-            "yaml": _workflow_yaml("with-id-inside", "With ID Inside"),
+            "yaml": workflow_yaml("with-id-inside", "With ID Inside"),
         }
     )
 
@@ -201,28 +177,11 @@ def test_workflow_id_stored_in_yaml_file(tmp_path):
 
 def test_workflow_list_includes_hand_authored_files(tmp_path):
     """Files with a matching embedded id are listed."""
-    import yaml
-
     tmpdir = str(tmp_path)
     repo = WorkflowRepository(base_path=tmpdir)
 
-    # Write a hand-authored YAML file with embedded id matching the filename stem
     hand_file = repo.workflows_dir / "my-hand-authored.yaml"
-    hand_file.write_text(
-        yaml.dump(
-            {
-                "id": "my-hand-authored",
-                "kind": "workflow",
-                "version": "1.0",
-                "blocks": {},
-                "workflow": {
-                    "name": "Hand Authored",
-                    "entry": "start",
-                    "transitions": [],
-                },
-            }
-        )
-    )
+    write_hand_authored_workflow(hand_file)
 
     all_wfs = repo.list_all()
     assert len(all_wfs) == 1
@@ -257,17 +216,7 @@ def test_workflow_list_does_not_materialize_orphan_canvas_sidecar(tmp_path):
     workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
     canvas_dir = workflows_dir / ".canvas"
     canvas_path = canvas_dir / "legacy-orphan.canvas.json"
-    canvas_path.write_text(
-        json.dumps(
-            {
-                "nodes": [],
-                "edges": [],
-                "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
-                "selected_node_id": None,
-                "canvas_mode": "dag",
-            }
-        )
-    )
+    write_orphan_canvas_sidecar(canvas_path)
     repo = WorkflowRepository(base_path=tmpdir)
 
     workflows = repo.list_all()
@@ -282,16 +231,9 @@ def test_workflow_get_does_not_materialize_orphan_canvas_sidecar(tmp_path):
     workflows_dir = WorkflowRepository(base_path=tmpdir).workflows_dir
     canvas_dir = workflows_dir / ".canvas"
     canvas_path = canvas_dir / "legacy-get.canvas.json"
-    canvas_path.write_text(
-        json.dumps(
-            {
-                "nodes": [],
-                "edges": [],
-                "viewport": {"x": 0.0, "y": 0.0, "zoom": 1.0},
-                "selected_node_id": "orphan-canvas-selected-node",
-                "canvas_mode": "state-machine",
-            }
-        )
+    write_orphan_canvas_sidecar(
+        canvas_path,
+        state=ORPHAN_STATE_MACHINE_CANVAS_STATE,
     )
     repo = WorkflowRepository(base_path=tmpdir)
 
@@ -305,7 +247,7 @@ def test_soul_repository(tmp_path):
     tmpdir = str(tmp_path)
     repo = SoulRepository(base_path=tmpdir)
 
-    soul_data = {"id": "sl-one", "kind": "soul", "name": "Review Soul", "role": "Review Soul"}
+    soul_data = soul_payload(name="Review Soul")
     entity = repo.create(soul_data)
     assert entity.id == "sl-one"
     assert entity.role == "Review Soul"
@@ -314,12 +256,7 @@ def test_soul_repository(tmp_path):
     assert fetched is not None
     assert fetched.role == "Review Soul"
 
-    updated_data = {
-        "id": "sl-one",
-        "kind": "soul",
-        "name": "Updated Soul",
-        "role": "Updated Soul",
-    }
+    updated_data = soul_payload(name="Updated Soul")
     repo.update("sl-one", updated_data)
     assert repo.get_by_id("sl-one").role == "Updated Soul"
 

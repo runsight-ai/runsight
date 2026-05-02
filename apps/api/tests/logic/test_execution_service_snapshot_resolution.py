@@ -1,107 +1,28 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
 from pathlib import Path
-from textwrap import dedent
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 
-from runsight_api.logic.services.execution_service import PreparedRunInputs
-from runsight_core.redaction import RunRedactor
-
-
-def _with_workflow_identity(workflow_id: str, yaml_text: str) -> str:
-    """Prepend id and kind identity fields to a workflow YAML string."""
-    return f"id: {workflow_id}\nkind: workflow\n" + dedent(yaml_text).strip() + "\n"
-
-
-def _init_git_repo_with_workflow_files(tmp_path: Path, *, workflow_files: dict[str, str]) -> Path:
-    repo = tmp_path / "repo"
-    workflows_dir = repo / "custom" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    for filename, yaml_text in workflow_files.items():
-        stem = Path(filename).stem
-        (workflows_dir / filename).write_text(
-            _with_workflow_identity(stem, yaml_text), encoding="utf-8"
-        )
-
-    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@runsight.dev"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Runsight Tests"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "initial workflow snapshot"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    return repo
-
-
-def _init_git_repo_with_nested_workflows(
-    tmp_path: Path,
-    *,
-    parent_yaml: str,
-    child_yaml: str,
-) -> Path:
-    return _init_git_repo_with_workflow_files(
-        tmp_path,
-        workflow_files={"parent.yaml": parent_yaml, "child.yaml": child_yaml},
-    )
-
-
-def _prepared_inputs(inputs):
-    return PreparedRunInputs(
-        normalized_inputs=inputs,
-        input_redactor=RunRedactor(),
-    )
-
-
-def _run_record():
-    return SimpleNamespace(
-        status="pending",
-        error=None,
-        branch=None,
-        commit_sha=None,
-        updated_at=None,
-    )
-
-
-class _SnapshotGitService:
-    def __init__(self, *, snapshot_root: Path, snapshot_files: dict[str, str]) -> None:
-        self.snapshot_root = snapshot_root
-        self._snapshot_files = dict(snapshot_files)
-        self.read_calls: list[tuple[str, str]] = []
-
-    def list_files(self, ref: str, path_prefix: str) -> list[str]:
-        del ref
-        return sorted(
-            path for path in self._snapshot_files if path.startswith(path_prefix.rstrip("/") + "/")
-        )
-
-    def read_file(self, path: str, ref: str) -> str:
-        self.read_calls.append((path, ref))
-        candidate = Path(path)
-        if candidate.is_absolute():
-            candidate = candidate.relative_to(self.snapshot_root)
-        return self._snapshot_files[candidate.as_posix()]
-
-    def get_sha(self, branch: str, path: str) -> str:
-        return "8" * 40
+from tests.logic.snapshot_resolution_fixtures import SnapshotGitService
+from tests.logic.snapshot_resolution_fixtures import (
+    init_git_repo_with_embedded_id_child_on_feature_branch,
+)
+from tests.logic.snapshot_resolution_fixtures import (
+    init_git_repo_with_invalid_child_contract_snapshot,
+)
+from tests.logic.snapshot_resolution_fixtures import init_git_repo_with_missing_child_ref
+from tests.logic.snapshot_resolution_fixtures import (
+    init_git_repo_with_reserved_child_contract_snapshot,
+)
+from tests.logic.snapshot_resolution_fixtures import prepared_inputs
+from tests.logic.snapshot_resolution_fixtures import provider_repo_with_openai
+from tests.logic.snapshot_resolution_fixtures import resolvable_child_snapshot_files
+from tests.logic.snapshot_resolution_fixtures import run_repo_with_pending_record
+from tests.logic.snapshot_resolution_fixtures import stub_runtime_execution
 
 
 @pytest.mark.asyncio
@@ -111,69 +32,17 @@ async def test_launch_execution_resolves_child_workflow_from_snapshot_files_with
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
     from runsight_api.logic.services.execution_service import ExecutionService
 
-    parent_yaml = """
-    version: "1.0"
-    inputs:
-      instruction:
-        type: string
-        required: true
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: child
-        inputs:
-          topic: workflow.instruction
-    workflow:
-      name: Parent Workflow
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    config: {}
-    """
-    child_yaml = """
-    version: "1.0"
-    inputs:
-      topic:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          topic:
-            from: workflow.topic
-        code: |
-          def main(data):
-              return {"summary": data["topic"]}
-    workflow:
-      name: Child Workflow
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
-
-    snapshot_files = {
-        "custom/workflows/parent.yaml": _with_workflow_identity("parent", parent_yaml),
-        "custom/workflows/child.yaml": _with_workflow_identity("child", child_yaml),
-    }
-    git_service = _SnapshotGitService(
+    git_service = SnapshotGitService(
         snapshot_root=tmp_path,
-        snapshot_files=snapshot_files,
+        snapshot_files=resolvable_child_snapshot_files(),
     )
     assert git_service.list_files("main", "custom/workflows/") == [
         "custom/workflows/child.yaml",
         "custom/workflows/parent.yaml",
     ]
 
-    run_repo = Mock()
-    run_repo.get_run.return_value = _run_record()
-    run_repo.get_run.return_value = _run_record()
-    provider_repo = Mock()
-    provider_repo.list_all.return_value = [
-        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
-    ]
+    run_repo = run_repo_with_pending_record()
+    provider_repo = provider_repo_with_openai()
     workflow_repo = WorkflowRepository(base_path=str(tmp_path))
     svc = ExecutionService(
         run_repo=run_repo,
@@ -181,7 +50,7 @@ async def test_launch_execution_resolves_child_workflow_from_snapshot_files_with
         provider_repo=provider_repo,
         git_service=git_service,
     )
-    svc._run_workflow = AsyncMock()
+    stub_runtime_execution(svc)
 
     def _assert_snapshot_registry(yaml_content, **kwargs):
         workflow_definition = yaml.safe_load(yaml_content)
@@ -208,7 +77,7 @@ async def test_launch_execution_resolves_child_workflow_from_snapshot_files_with
         await svc.launch_execution(
             "run_snapshot_child",
             "parent",
-            _prepared_inputs({"instruction": "execute nested workflow"}),
+            prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -229,88 +98,10 @@ async def test_launch_execution_rejects_invalid_child_public_input_contract_from
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    parent_yaml = """
-    version: "1.0"
-    inputs:
-      instruction:
-        type: string
-        required: true
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: child
-        inputs:
-          topic: workflow.instruction
-    workflow:
-      name: Parent Workflow
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    config: {}
-    """
-    committed_child_yaml = """
-    version: "1.0"
-    inputs:
-      UserId:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          topic:
-            from: workflow.topic
-        code: |
-          def main(data):
-              return {"summary": data["topic"]}
-    workflow:
-      name: Child Workflow
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
-    dirty_child_yaml = """
-    version: "1.0"
-    inputs:
-      topic:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          topic:
-            from: workflow.topic
-        code: |
-          def main(data):
-              return {"summary": data["topic"]}
-    workflow:
-      name: Dirty Child Workflow
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
+    repo = init_git_repo_with_invalid_child_contract_snapshot(tmp_path)
 
-    repo = _init_git_repo_with_nested_workflows(
-        tmp_path,
-        parent_yaml=parent_yaml,
-        child_yaml=committed_child_yaml,
-    )
-    (repo / "custom" / "workflows" / "child.yaml").write_text(
-        _with_workflow_identity("child", dirty_child_yaml),
-        encoding="utf-8",
-    )
-
-    run_record = _run_record()
-    run_repo = Mock()
-    run_repo.get_run.return_value = run_record
-    provider_repo = Mock()
-    provider_repo.list_all.return_value = [
-        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
-    ]
+    run_repo = run_repo_with_pending_record()
+    provider_repo = provider_repo_with_openai()
     workflow_repo = WorkflowRepository(base_path=str(repo))
     git_service = GitService(repo_path=repo)
     svc = ExecutionService(
@@ -319,7 +110,7 @@ async def test_launch_execution_rejects_invalid_child_public_input_contract_from
         provider_repo=provider_repo,
         git_service=git_service,
     )
-    svc._run_workflow = AsyncMock()
+    stub_runtime_execution(svc)
 
     with patch.object(
         svc,
@@ -329,7 +120,7 @@ async def test_launch_execution_rejects_invalid_child_public_input_contract_from
         await svc.launch_execution(
             "run_invalid_child_contract",
             "parent",
-            _prepared_inputs({"instruction": "execute nested workflow"}),
+            prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -350,47 +141,18 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    parent_yaml = """
-    version: "1.0"
-    inputs:
-      instruction:
-        type: string
-        required: true
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: renamed-child
-        inputs:
-          topic: workflow.instruction
-    workflow:
-      name: Parent Workflow
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    config: {}
-    """
-
-    repo = _init_git_repo_with_workflow_files(
-        tmp_path,
-        workflow_files={"parent.yaml": parent_yaml},
-    )
+    repo, parent_yaml = init_git_repo_with_missing_child_ref(tmp_path)
     workflow_repo = WorkflowRepository(base_path=str(repo))
 
-    saved = workflow_repo.update("parent", {"yaml": _with_workflow_identity("parent", parent_yaml)})
+    saved = workflow_repo.update("parent", {"yaml": parent_yaml})
 
     assert saved.valid is False
     assert saved.validation_error is not None
     assert "renamed-child" in saved.validation_error
     assert "resolve ref" in saved.validation_error.lower()
 
-    run_record = _run_record()
-    run_repo = Mock()
-    run_repo.get_run.return_value = run_record
-    provider_repo = Mock()
-    provider_repo.list_all.return_value = [
-        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
-    ]
+    run_repo = run_repo_with_pending_record()
+    provider_repo = provider_repo_with_openai()
     git_service = GitService(repo_path=repo)
     svc = ExecutionService(
         run_repo=run_repo,
@@ -398,7 +160,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
         provider_repo=provider_repo,
         git_service=git_service,
     )
-    svc._run_workflow = AsyncMock()
+    stub_runtime_execution(svc)
 
     with patch.object(
         svc,
@@ -408,7 +170,7 @@ async def test_missing_child_ref_fails_at_save_and_launch_with_same_resolution_e
         await svc.launch_execution(
             "run_missing_child",
             "parent",
-            _prepared_inputs({"instruction": "execute nested workflow"}),
+            prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -429,62 +191,10 @@ async def test_launch_execution_rejects_reserved_child_public_input_contract_fro
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    parent_yaml = """
-    version: "1.0"
-    inputs:
-      instruction:
-        type: string
-        required: true
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: child
-        inputs:
-          topic: workflow.instruction
-    workflow:
-      name: Parent Workflow
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    config: {}
-    """
-    child_yaml = """
-    version: "1.0"
-    inputs:
-      workflow:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          topic:
-            from: workflow.topic
-        code: |
-          def main(data):
-              return {"summary": data["topic"]}
-    workflow:
-      name: Child Workflow
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
+    repo = init_git_repo_with_reserved_child_contract_snapshot(tmp_path)
 
-    repo = _init_git_repo_with_nested_workflows(
-        tmp_path,
-        parent_yaml=parent_yaml,
-        child_yaml=child_yaml,
-    )
-
-    run_record = _run_record()
-    run_repo = Mock()
-    run_repo.get_run.return_value = run_record
-    provider_repo = Mock()
-    provider_repo.list_all.return_value = [
-        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
-    ]
+    run_repo = run_repo_with_pending_record()
+    provider_repo = provider_repo_with_openai()
     workflow_repo = WorkflowRepository(base_path=str(repo))
     git_service = GitService(repo_path=repo)
     svc = ExecutionService(
@@ -493,7 +203,7 @@ async def test_launch_execution_rejects_reserved_child_public_input_contract_fro
         provider_repo=provider_repo,
         git_service=git_service,
     )
-    svc._run_workflow = AsyncMock()
+    stub_runtime_execution(svc)
 
     with patch.object(
         svc,
@@ -503,7 +213,7 @@ async def test_launch_execution_rejects_reserved_child_public_input_contract_fro
         await svc.launch_execution(
             "run_reserved_child_contract",
             "parent",
-            _prepared_inputs({"instruction": "execute nested workflow"}),
+            prepared_inputs({"instruction": "execute nested workflow"}),
             branch="main",
         )
         await asyncio.sleep(0.05)
@@ -531,121 +241,10 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    parent_yaml = """
-    version: "1.0"
-    inputs:
-      instruction:
-        type: string
-        required: true
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: child-impl
-        inputs:
-          topic: workflow.instruction
-    workflow:
-      name: Parent Workflow
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    config: {}
-    """
+    repo = init_git_repo_with_embedded_id_child_on_feature_branch(tmp_path)
 
-    child_yaml = """
-    version: "1.0"
-    inputs:
-      topic:
-        type: string
-        required: true
-    blocks:
-      finish:
-        type: code
-        inputs:
-          topic:
-            from: workflow.topic
-        code: |
-          def main(data):
-              return {"summary": data["topic"]}
-    workflow:
-      name: My Special Child
-      entry: finish
-      transitions:
-        - from: finish
-          to: null
-    """
-
-    # Set up git repo with both parent and child on feature-a.
-    repo = tmp_path / "repo"
-    workflows_dir = repo / "custom" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-
-    (workflows_dir / "parent.yaml").write_text(
-        _with_workflow_identity("parent", parent_yaml), encoding="utf-8"
-    )
-    (workflows_dir / "child-impl.yaml").write_text(
-        _with_workflow_identity("child-impl", child_yaml), encoding="utf-8"
-    )
-
-    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@runsight.dev"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Runsight Tests"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    # Commit parent only on main
-    subprocess.run(
-        ["git", "add", "custom/workflows/parent.yaml"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "parent only on main"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-
-    # Create feature-a with both parent and child
-    subprocess.run(
-        ["git", "checkout", "-b", "feature-a"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "add child-impl on feature-a"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "checkout", "main"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-    )
-    # After checkout main, child-impl.yaml should not exist in working tree
-    # (it was only committed on feature-a). Remove it if it lingers.
-    child_impl_path = workflows_dir / "child-impl.yaml"
-    if child_impl_path.exists():
-        child_impl_path.unlink()
-
-    run_repo = Mock()
-    run_repo.get_run.return_value = _run_record()
-    provider_repo = Mock()
-    provider_repo.list_all.return_value = [
-        Mock(id="openai", type="openai", is_active=True, models=["gpt-4o"], api_key=None)
-    ]
+    run_repo = run_repo_with_pending_record()
+    provider_repo = provider_repo_with_openai()
     workflow_repo = WorkflowRepository(base_path=str(repo))
     git_service = GitService(repo_path=repo)
 
@@ -655,7 +254,7 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
         provider_repo=provider_repo,
         git_service=git_service,
     )
-    svc._run_workflow = AsyncMock()
+    stub_runtime_execution(svc)
 
     with (
         patch.object(
@@ -670,7 +269,7 @@ async def test_launch_execution_resolves_embedded_id_child_from_branch_snapshot(
         await svc.launch_execution(
             "run_embedded_id_branch",
             "parent",
-            _prepared_inputs({"instruction": "execute with embedded-id child"}),
+            prepared_inputs({"instruction": "execute with embedded-id child"}),
             branch="feature-a",
         )
         await asyncio.sleep(0.05)

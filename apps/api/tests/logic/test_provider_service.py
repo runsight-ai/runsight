@@ -10,6 +10,11 @@ from runsight_api.logic.services.provider_service import (
     ProviderService,
     _infer_provider_type,
 )
+from apps.api.tests.logic.provider_service_helpers import (
+    provider_create_side_effect,
+    provider_entity,
+    provider_identity_side_effect,
+)
 
 # --- _infer_provider_type ---
 
@@ -60,8 +65,8 @@ def test_list_providers_multiple():
     repo = Mock()
     secrets = Mock()
     providers = [
-        ProviderEntity(id="provider-one", kind="provider", name="Provider One", type="openai"),
-        ProviderEntity(id="provider-two", kind="provider", name="Provider Two", type="anthropic"),
+        provider_entity(provider_id="provider-one", name="Provider One", provider_type="openai"),
+        provider_entity(provider_id="provider-two", name="Provider Two", provider_type="anthropic"),
     ]
     repo.list_all.return_value = providers
     service = ProviderService(repo, secrets)
@@ -76,7 +81,7 @@ def test_list_providers_multiple():
 def test_get_provider_exists():
     repo = Mock()
     secrets = Mock()
-    prov = ProviderEntity(id="openai-provider", kind="provider", name="OpenAI", type="openai")
+    prov = provider_entity(provider_id="openai-provider", name="OpenAI", provider_type="openai")
     repo.get_by_id.return_value = prov
     service = ProviderService(repo, secrets)
     result = service.get_provider("openai-provider")
@@ -105,14 +110,7 @@ def test_create_provider_returns_created_entity():
     def capture_create(data):
         nonlocal created
         created = data
-        return ProviderEntity(
-            id=data["id"],
-            kind=data["kind"],
-            name=data["name"],
-            type=data["type"],
-            api_key=data.get("api_key"),
-            base_url=data.get("base_url"),
-        )
+        return provider_create_side_effect(data)
 
     repo.create.side_effect = capture_create
     service = ProviderService(repo, secrets)
@@ -142,15 +140,7 @@ def test_create_provider_type_inferred_from_name_openai():
     secrets = Mock()
     secrets.store_key.return_value = "${TEST_OPENAI_PROVIDER_KEY}"
 
-    def capture_create(data):
-        return ProviderEntity(
-            id=data["id"],
-            kind=data["kind"],
-            name=data["name"],
-            type=data["type"],
-        )
-
-    repo.create.side_effect = capture_create
+    repo.create.side_effect = provider_identity_side_effect
     service = ProviderService(repo, secrets)
     result = service.create_provider(
         id="openai", kind="provider", name="OpenAI", api_key="dummy-provider-key"
@@ -163,9 +153,7 @@ def test_create_provider_type_inferred_from_name_claude():
     repo = Mock()
     secrets = Mock()
     secrets.store_key.return_value = "${TEST_ANTHROPIC_PROVIDER_KEY}"
-    repo.create.side_effect = lambda data: ProviderEntity(
-        id=data["id"], kind=data["kind"], name=data["name"], type=data["type"]
-    )
+    repo.create.side_effect = provider_identity_side_effect
     service = ProviderService(repo, secrets)
     result = service.create_provider(
         id="claude-api", kind="provider", name="Claude API", api_key="dummy-provider-key"
@@ -178,9 +166,7 @@ def test_create_provider_type_inferred_unknown_to_custom():
     repo = Mock()
     secrets = Mock()
     secrets.store_key.return_value = "${TEST_CUSTOM_PROVIDER_KEY}"
-    repo.create.side_effect = lambda data: ProviderEntity(
-        id=data["id"], kind=data["kind"], name=data["name"], type=data["type"]
-    )
+    repo.create.side_effect = provider_identity_side_effect
     service = ProviderService(repo, secrets)
     result = service.create_provider(
         id="unknown-provider", kind="provider", name="Unknown Provider", api_key="key"

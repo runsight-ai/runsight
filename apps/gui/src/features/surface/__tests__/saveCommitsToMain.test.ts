@@ -9,45 +9,35 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CanvasStoreFixture } from "./helpers/saveCommitsToMainFixtures";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks (must be before any imports that touch the module graph)
 // ---------------------------------------------------------------------------
 
-const mocks = vi.hoisted(() => {
-  const stateValues: unknown[] = [];
+const mocks = await vi.hoisted(async () => {
+  const fixtures = await import("./helpers/saveCommitsToMainFixtures");
+  const makeMock = (implementation?: (...args: unknown[]) => unknown) => vi.fn(implementation);
+  const stateHarness = fixtures.createStateHarness();
+  const capturedProps = fixtures.createCapturedSurfaceProps();
+  const canvasStoreData = fixtures.createCanvasStoreFixture(makeMock);
+  const queryClient = fixtures.createQueryClientFixture(makeMock);
 
-  const canvasStoreData = {
-    nodes: [],
-    edges: [],
-    blockCount: 2,
-    edgeCount: 1,
-    yamlContent: "workflow:\n  name: Review Flow\n",
-    toPersistedState: vi.fn(() => ({ nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } })),
-    markSaved: vi.fn(),
-    setYamlContent: vi.fn(),
-    hydrateFromPersisted: vi.fn(),
-    setNodes: vi.fn(),
-    setActiveRunId: vi.fn(),
-  };
-
-  const useCanvasStore = ((selector: (store: typeof canvasStoreData) => unknown) =>
+  const useCanvasStore = ((selector: (store: CanvasStoreFixture) => unknown) =>
     selector(canvasStoreData)) as {
-    (selector: (store: typeof canvasStoreData) => unknown): unknown;
-    getState: () => typeof canvasStoreData;
+    (selector: (store: CanvasStoreFixture) => unknown): unknown;
+    getState: () => CanvasStoreFixture;
   };
   useCanvasStore.getState = () => canvasStoreData;
 
   return {
-    stateValues,
-    stateCursor: 0,
-    topbarProps: [] as Array<Record<string, unknown>>,
-    yamlEditorProps: [] as Array<Record<string, unknown>>,
-    commitDialogProps: [] as Array<Record<string, unknown>>,
+    fixtures,
+    ...stateHarness,
+    ...capturedProps,
     canvasStoreData,
     useCanvasStore,
     updateWorkflowMutateAsync: vi.fn(),
-    queryClient: { invalidateQueries: vi.fn() },
+    queryClient,
   };
 });
 
@@ -79,7 +69,7 @@ vi.mock("react", async () => {
 });
 
 vi.mock("react-router", () => ({
-  useParams: () => ({ id: "review_flow" }),
+  useParams: () => ({ id: mocks.fixtures.REVIEW_WORKFLOW_ID }),
   useBlocker: () => ({ state: "unblocked", proceed: vi.fn(), reset: vi.fn() }),
   Link: ({ children }: { children: React.ReactNode }) => React.createElement("a", null, children),
   useInRouterContext: () => true,
@@ -91,7 +81,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/queries/workflows", () => ({
   useWorkflow: () => ({
-    data: { name: "Review Flow", commit_sha: null, yaml: "workflow:\n  name: Review Flow\n" },
+    data: mocks.fixtures.REVIEW_WORKFLOW_QUERY_DATA,
   }),
   useUpdateWorkflow: () => ({
     mutateAsync: mocks.updateWorkflowMutateAsync,
@@ -100,7 +90,7 @@ vi.mock("@/queries/workflows", () => ({
 }));
 
 vi.mock("@/queries/git", () => ({
-  useGitStatus: () => ({ data: { is_clean: true, uncommitted_files: [] } }),
+  useGitStatus: () => ({ data: mocks.fixtures.CLEAN_GIT_STATUS_QUERY_DATA }),
   useCommitWorkflow: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -184,32 +174,13 @@ const { WorkflowSurface } = await import("../WorkflowSurface");
 // ---------------------------------------------------------------------------
 
 function renderSurface() {
-  mocks.stateCursor = 0;
-  mocks.topbarProps.length = 0;
-  mocks.yamlEditorProps.length = 0;
-  mocks.commitDialogProps.length = 0;
+  mocks.fixtures.prepareSurfaceRenderHarness(mocks);
 
   renderToStaticMarkup(
-    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "review_flow" }),
+    React.createElement(WorkflowSurface, mocks.fixtures.WORKFLOW_SURFACE_EDIT_PROPS),
   );
 
-  return {
-    topbar: mocks.topbarProps.at(-1) as {
-      isDirty?: boolean;
-      onSave?: () => void;
-    },
-    yamlEditor: mocks.yamlEditorProps.at(-1) as {
-      onDirtyChange?: (dirty: boolean) => void;
-    },
-    commitDialog: mocks.commitDialogProps.at(-1) as {
-      open?: boolean;
-      onOpenChange?: (open: boolean) => void;
-      files?: unknown[];
-      workflowId?: string;
-      draft?: unknown;
-      onCommitSuccess?: () => void;
-    },
-  };
+  return mocks.fixtures.latestSurfaceRenderResult(mocks);
 }
 
 // ---------------------------------------------------------------------------
@@ -217,19 +188,7 @@ function renderSurface() {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mocks.stateValues.length = 0;
-  mocks.stateCursor = 0;
-  mocks.topbarProps.length = 0;
-  mocks.yamlEditorProps.length = 0;
-  mocks.commitDialogProps.length = 0;
-  mocks.updateWorkflowMutateAsync.mockReset();
-  mocks.queryClient.invalidateQueries.mockReset();
-  mocks.canvasStoreData.markSaved.mockReset();
-  mocks.canvasStoreData.toPersistedState.mockReset().mockReturnValue({
-    nodes: [],
-    edges: [],
-    viewport: { x: 0, y: 0, zoom: 1 },
-  });
+  mocks.fixtures.resetSaveCommitsHarness(mocks);
 });
 
 // ---------------------------------------------------------------------------
@@ -362,32 +321,14 @@ describe("Save opens CommitDialog instead of calling updateWorkflow", () => {
 // ---------------------------------------------------------------------------
 
 function renderSurfaceYamlTab() {
-  mocks.stateCursor = 0;
-  mocks.topbarProps.length = 0;
-  mocks.yamlEditorProps.length = 0;
-  mocks.commitDialogProps.length = 0;
-
-  // Seed activeTab = "yaml" so YamlEditor is rendered
-  mocks.stateValues[4] = "yaml";
+  mocks.fixtures.prepareSurfaceRenderHarness(mocks);
+  mocks.fixtures.seedYamlTabState(mocks);
 
   renderToStaticMarkup(
-    React.createElement(WorkflowSurface, { mode: "edit", workflowId: "review_flow" }),
+    React.createElement(WorkflowSurface, mocks.fixtures.WORKFLOW_SURFACE_EDIT_PROPS),
   );
 
-  return {
-    topbar: mocks.topbarProps.at(-1) as {
-      isDirty?: boolean;
-      onSave?: () => void;
-    },
-    yamlEditor: mocks.yamlEditorProps.at(-1) as {
-      onDirtyChange?: (dirty: boolean) => void;
-    },
-    commitDialog: mocks.commitDialogProps.at(-1) as {
-      open?: boolean;
-      onOpenChange?: (open: boolean) => void;
-      onCommitSuccess?: () => void;
-    },
-  };
+  return mocks.fixtures.latestSurfaceRenderResult(mocks);
 }
 
 describe("onCommitSuccess clears isDirty state", () => {

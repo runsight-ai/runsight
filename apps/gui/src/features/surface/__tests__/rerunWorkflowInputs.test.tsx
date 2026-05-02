@@ -6,28 +6,14 @@ import userEvent from "@testing-library/user-event";
 import type { RunResponse } from "@runsight/shared/zod";
 import { ApiError } from "@/api/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-type WorkflowInputSchemaItem = {
-  type: "string" | "number" | "boolean" | "json" | "array";
-  required?: boolean | null;
-  default?: unknown;
-  description?: string | null;
-  sensitive?: boolean | null;
-};
-
-type WorkflowSnapshotEntry = {
-  type: string;
-  sensitive: boolean;
-  source: string;
-  value?: unknown;
-};
-
-type WorkflowRecord = {
-  id: string;
-  name: string;
-  input_schema: Record<string, WorkflowInputSchemaItem> | null;
-  commit_sha?: string | null;
-};
+import {
+  buildRerunRun,
+  CURRENT_RERUN_WORKFLOW as CURRENT_WORKFLOW,
+  CURRENT_RERUN_WORKFLOW_ID as CURRENT_WORKFLOW_ID,
+  EMPTY_RERUN_WORKFLOW as EMPTY_WORKFLOW,
+  SIMPLE_RERUN_WORKFLOW as SIMPLE_WORKFLOW,
+  type SurfaceWorkflowRecordWithInputs as WorkflowRecord,
+} from "./helpers/runInputsFixtures";
 
 const harness = vi.hoisted(() => {
   const canvasState = {
@@ -218,81 +204,6 @@ vi.mock("sonner", () => ({
 
 const { SurfaceBottomPanel } = await import("../SurfaceBottomPanel");
 
-const CURRENT_WORKFLOW_ID = "wf_rerun_current";
-const CURRENT_WORKFLOW: WorkflowRecord = {
-  id: CURRENT_WORKFLOW_ID,
-  name: "Rerun Input Workflow",
-  commit_sha: "abcdef1234567890",
-  input_schema: {
-    query: {
-      type: "string",
-      required: true,
-      default: null,
-      description: "Search term",
-      sensitive: false,
-    },
-    api_token: {
-      type: "string",
-      required: true,
-      default: null,
-      description: "Secret token",
-      sensitive: true,
-    },
-  },
-};
-
-const SIMPLE_WORKFLOW: WorkflowRecord = {
-  id: CURRENT_WORKFLOW_ID,
-  name: "Rerun Input Workflow",
-  commit_sha: "abcdef1234567890",
-  input_schema: {
-    query: {
-      type: "string",
-      required: true,
-      default: null,
-      description: "Search term",
-      sensitive: false,
-    },
-  },
-};
-
-const EMPTY_WORKFLOW: WorkflowRecord = {
-  id: CURRENT_WORKFLOW_ID,
-  name: "Rerun Input Workflow",
-  commit_sha: "abcdef1234567890",
-  input_schema: null,
-};
-
-function makeRun(
-  overrides: Partial<RunResponse> & {
-    workflow_inputs?: Record<string, WorkflowSnapshotEntry> | null;
-  } = {},
-): RunResponse {
-  return {
-    id: "run_rerun_source",
-    workflow_id: CURRENT_WORKFLOW_ID,
-    workflow_name: "Rerun Input Workflow",
-    status: "completed",
-    started_at: 1_776_120_000,
-    completed_at: 1_776_120_030,
-    duration_seconds: 30,
-    total_cost_usd: 0.01,
-    total_tokens: 42,
-    created_at: 1_776_119_999,
-    branch: "main",
-    source: "manual",
-    commit_sha: "abcdef1234567890",
-    run_number: 12,
-    eval_pass_pct: 95,
-    eval_score_avg: 0.95,
-    regression_count: 0,
-    warnings: [],
-    workflow_inputs: null,
-    workflow_input_schema: null,
-    ...overrides,
-  } as RunResponse;
-}
-
 function renderSurfaceBottomPanel() {
   render(
     <SurfaceBottomPanel
@@ -365,7 +276,7 @@ describe("rerun workflow inputs from footer history", () => {
     const user = userEvent.setup();
     harness.workflows[CURRENT_WORKFLOW_ID] = CURRENT_WORKFLOW;
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -410,7 +321,7 @@ describe("rerun workflow inputs from footer history", () => {
     const user = userEvent.setup();
     harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -435,7 +346,7 @@ describe("rerun workflow inputs from footer history", () => {
     const user = userEvent.setup();
     harness.workflows[CURRENT_WORKFLOW_ID] = SIMPLE_WORKFLOW;
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -498,7 +409,7 @@ describe("rerun workflow inputs from footer history", () => {
       }),
     );
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -525,7 +436,7 @@ describe("rerun workflow inputs from footer history", () => {
     const user = userEvent.setup();
     harness.workflows[CURRENT_WORKFLOW_ID] = EMPTY_WORKFLOW;
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: null,
       }),
     ];
@@ -552,7 +463,7 @@ describe("rerun workflow inputs from footer history", () => {
     harness.canvasState.isDirty = true;
     harness.canvasState.yamlContent = "id: wf_rerun_current\nkind: workflow\nversion: '1.0'\n# dirty draft";
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -590,7 +501,7 @@ describe("rerun workflow inputs from footer history", () => {
     harness.canvasState.isDirty = true;
     harness.prepareSimulation.mockRejectedValueOnce(new Error("git exploded"));
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",
@@ -624,7 +535,7 @@ describe("rerun workflow inputs from footer history", () => {
       input_schema: null,
     });
     harness.runs = [
-      makeRun({
+      buildRerunRun({
         workflow_inputs: {
           query: {
             type: "string",

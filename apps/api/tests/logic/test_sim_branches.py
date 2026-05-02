@@ -15,41 +15,10 @@ import re
 import subprocess
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-BRANCH_PATTERN = re.compile(r"^sim/[a-z0-9-]+/\d{8}/[a-z0-9]{5}$")
-SIM_BRANCH_FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "sim_branches"
-
-
-def _git(repo: Path, *args: str) -> str:
-    """Run a git command inside *repo* and return stdout."""
-    result = subprocess.run(
-        ["git", *args],
-        cwd=str(repo),
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"git {' '.join(args)} failed: {result.stderr}"
-    return result.stdout.strip()
-
-
-def _init_repo(tmp_path: Path) -> Path:
-    """Create a bare-bones git repo with one commit on main."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-b", "main")
-    _git(repo, "config", "user.email", "test@test.com")
-    _git(repo, "config", "user.name", "Test")
-    (repo / "README.md").write_text("# hello")
-    _git(repo, "add", ".")
-    _git(repo, "commit", "-m", "initial commit")
-    return repo
-
-
-def _sample_yaml() -> str:
-    return (SIM_BRANCH_FIXTURE_ROOT / "research-review.yaml").read_text(encoding="utf-8")
+from tests.logic.sim_branch_helpers import BRANCH_PATTERN
+from tests.logic.sim_branch_helpers import git
+from tests.logic.sim_branch_helpers import init_repo
+from tests.logic.sim_branch_helpers import sample_yaml
 
 
 # ---------------------------------------------------------------------------
@@ -63,12 +32,12 @@ class TestSimBranchNaming:
     def test_branch_name_matches_convention(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -80,12 +49,12 @@ class TestSimBranchNaming:
     def test_branch_name_contains_workflow_slug(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="my-cool-workflow",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/my-cool-workflow.yaml",
         )
 
@@ -98,12 +67,12 @@ class TestSimBranchNaming:
 
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -114,12 +83,12 @@ class TestSimBranchNaming:
     def test_short_uuid_is_5_lowercase_alphanumeric(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -141,28 +110,28 @@ class TestSimBranchCommit:
     def test_yaml_file_exists_on_sim_branch(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
         # Verify the file exists on the sim branch via git show
-        content = _git(repo, "show", f"{result.branch}:workflows/research-review.yaml")
-        assert content == _sample_yaml().strip()
+        content = git(repo, "show", f"{result.branch}:workflows/research-review.yaml")
+        assert content == sample_yaml().strip()
 
     def test_yaml_not_committed_to_main(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -178,18 +147,18 @@ class TestSimBranchCommit:
     def test_main_branch_unchanged_after_sim_creation(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
-        main_sha_before = _git(repo, "rev-parse", "main")
+        main_sha_before = git(repo, "rev-parse", "main")
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
-        main_sha_after = _git(repo, "rev-parse", "main")
+        main_sha_after = git(repo, "rev-parse", "main")
         assert main_sha_before == main_sha_after, (
             "Main branch SHA must not change after sim branch creation"
         )
@@ -197,12 +166,12 @@ class TestSimBranchCommit:
     def test_current_branch_stays_on_main(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -222,12 +191,12 @@ class TestSimBranchReturnValue:
     def test_returns_object_with_branch_attr(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -238,12 +207,12 @@ class TestSimBranchReturnValue:
     def test_returns_object_with_sha_attr(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -255,16 +224,16 @@ class TestSimBranchReturnValue:
     def test_sha_matches_actual_commit(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
-        actual_sha = _git(repo, "rev-parse", result.branch)
+        actual_sha = git(repo, "rev-parse", result.branch)
         assert result.sha == actual_sha
 
 
@@ -279,12 +248,12 @@ class TestReadFileFromSimBranch:
     def test_read_yaml_from_sim_branch(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -295,12 +264,12 @@ class TestReadFileFromSimBranch:
     def test_read_file_without_checking_out_branch(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         result = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -309,7 +278,7 @@ class TestReadFileFromSimBranch:
 
         # read_file should work via git show, not checkout
         content = svc.read_file("workflows/research-review.yaml", result.branch)
-        assert content.strip() == _sample_yaml().strip()
+        assert content.strip() == sample_yaml().strip()
 
         # Still on main after read
         assert svc.current_branch() == "main"
@@ -326,7 +295,7 @@ class TestSimBranchWorktreeSnapshot:
     def test_untracked_worktree_files_are_available_on_sim_branch(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         (repo / "custom" / "workflows").mkdir(parents=True, exist_ok=True)
         (repo / "custom" / "workflows" / "child-subflow.yaml").write_text(
             'version: "1.0"\nworkflow:\n  name: child-subflow\n  entry: done\n',
@@ -336,11 +305,11 @@ class TestSimBranchWorktreeSnapshot:
         svc = GitService(repo_path=str(repo))
         result = svc.create_sim_branch(
             workflow_slug="parent-flow",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="custom/workflows/parent-flow.yaml",
         )
 
-        child_content = _git(
+        child_content = git(
             repo,
             "show",
             f"{result.branch}:custom/workflows/child-subflow.yaml",
@@ -359,17 +328,17 @@ class TestMultipleSimBranches:
     def test_two_sim_branches_have_different_names(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         r1 = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
         r2 = svc.create_sim_branch(
             workflow_slug="research-review",
-            yaml_content=_sample_yaml(),
+            yaml_content=sample_yaml(),
             yaml_path="workflows/research-review.yaml",
         )
 
@@ -378,7 +347,7 @@ class TestMultipleSimBranches:
     def test_two_sim_branches_have_different_shas(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         yaml_v1 = "name: v1\nsteps: []\n"
@@ -400,7 +369,7 @@ class TestMultipleSimBranches:
     def test_each_sim_branch_has_its_own_yaml(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         yaml_v1 = "name: version-one\n"
@@ -426,7 +395,7 @@ class TestMultipleSimBranches:
     def test_three_sim_branches_all_listed(self, tmp_path: Path):
         from runsight_api.logic.services.git_service import GitService
 
-        repo = _init_repo(tmp_path)
+        repo = init_repo(tmp_path)
         svc = GitService(repo_path=str(repo))
 
         branches = []
@@ -439,6 +408,6 @@ class TestMultipleSimBranches:
             branches.append(r.branch)
 
         # All three branches must exist in git
-        all_branches = _git(repo, "branch", "--list", "sim/*")
+        all_branches = git(repo, "branch", "--list", "sim/*")
         for b in branches:
             assert b in all_branches, f"Branch '{b}' not found in git branch list"

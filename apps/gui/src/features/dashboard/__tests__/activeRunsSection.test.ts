@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, screen, waitFor } from "@testing-library/react";
 import type { RunListResponse, RunResponse } from "@runsight/shared/zod";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/testUtils";
+import {
+  MockEventSource,
+  buildRunList,
+  childRun,
+  eventSources,
+  findStream,
+  getRunCostCell,
+  rootRun,
+  secondRootRun,
+} from "./dashboardTestBuilders";
 
 const harness = vi.hoisted(() => ({
   listRuns: vi.fn<(params?: unknown) => Promise<RunListResponse>>(),
@@ -148,104 +158,6 @@ vi.mock("lucide-react", () => ({
 
 import { Component as DashboardOrOnboarding } from "../DashboardOrOnboarding";
 
-type EventSourceListener = (event: MessageEvent) => void;
-
-const eventSources: MockEventSource[] = [];
-
-class MockEventSource {
-  readonly url: string;
-  readonly close = vi.fn();
-  private readonly listeners = new Map<string, EventSourceListener[]>();
-
-  constructor(url: string) {
-    this.url = url;
-    eventSources.push(this);
-  }
-
-  addEventListener(type: string, listener: EventSourceListener) {
-    const existing = this.listeners.get(type) ?? [];
-    this.listeners.set(type, [...existing, listener]);
-  }
-
-  emit(type: string, payload: unknown) {
-    for (const listener of this.listeners.get(type) ?? []) {
-      listener(new MessageEvent(type, { data: JSON.stringify(payload) }));
-    }
-  }
-}
-
-function makeRun(overrides: Partial<RunResponse>): RunResponse {
-  return {
-    id: "run_root",
-    workflow_id: "wf_root",
-    workflow_name: "Root Flow",
-    status: "running",
-    error: null,
-    started_at: 1_710_000_000,
-    completed_at: null,
-    duration_seconds: null,
-    total_cost_usd: 1.25,
-    total_tokens: 123,
-    created_at: 1_710_000_100,
-    branch: "main",
-    source: "manual",
-    commit_sha: "sha-root",
-    run_number: 42,
-    eval_pass_pct: null,
-    eval_score_avg: null,
-    regression_count: 0,
-    regression_types: [],
-    warnings: [],
-    node_summary: null,
-    parent_run_id: null,
-    root_run_id: null,
-    depth: 0,
-    workflow_inputs: null,
-    workflow_input_schema: null,
-    ...overrides,
-  };
-}
-
-function buildRunList(items: RunResponse[]): RunListResponse {
-  return {
-    items,
-    total: items.length,
-    offset: 0,
-    limit: 50,
-  };
-}
-
-function rootRun(overrides: Partial<RunResponse> = {}): RunResponse {
-  return makeRun(overrides);
-}
-
-function secondRootRun(overrides: Partial<RunResponse> = {}): RunResponse {
-  return makeRun({
-    id: "run_root_2",
-    workflow_id: "wf_root_2",
-    workflow_name: "Second Root Flow",
-    run_number: 43,
-    total_cost_usd: 2.5,
-    created_at: 1_710_000_150,
-    ...overrides,
-  });
-}
-
-function childRun(overrides: Partial<RunResponse> = {}): RunResponse {
-  return makeRun({
-    id: "run_child",
-    workflow_id: "wf_child",
-    workflow_name: "Child Flow",
-    run_number: 99,
-    total_cost_usd: 0.4,
-    created_at: 1_710_000_200,
-    parent_run_id: "run_root",
-    root_run_id: "run_root",
-    depth: 1,
-    ...overrides,
-  });
-}
-
 function renderDashboard() {
   return renderWithProviders(React.createElement(DashboardOrOnboarding));
 }
@@ -259,20 +171,8 @@ async function waitForInitialActiveRunsLoad(expectedWorkflowNames: string[]) {
   });
 }
 
-function getRunRow(workflowName: string): HTMLTableRowElement {
-  const row = screen.getByText(workflowName).closest("tr");
-  expect(row).not.toBeNull();
-  return row as HTMLTableRowElement;
-}
-
 function expectRunCost(workflowName: string, formattedCost: string) {
-  expect(within(getRunRow(workflowName)).getByText(formattedCost)).toBeTruthy();
-}
-
-function findStream(runId: string): MockEventSource {
-  const source = eventSources.find((candidate) => candidate.url === `/api/runs/${runId}/stream`);
-  expect(source).toBeTruthy();
-  return source as MockEventSource;
+  expect(getRunCostCell(workflowName, formattedCost)).toBeTruthy();
 }
 
 describe("active runs dashboard behavior", () => {

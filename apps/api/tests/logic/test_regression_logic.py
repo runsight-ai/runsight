@@ -11,61 +11,17 @@ Tests cover:
 
 from unittest.mock import Mock
 
-import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
-from runsight_api.domain.entities.run import Run, RunNode
 from runsight_api.data.repositories.run_read_model import RunReadModel
 from runsight_api.logic.services.eval_service import EvalService
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_mock_run(
-    run_id: str,
-    *,
-    workflow_id: str = "regression-workflow",
-    workflow_name: str = "Research Flow",
-    source: str = "manual",
-    branch: str = "main",
-    created_at: float = 100.0,
-):
-    run = Mock()
-    run.id = run_id
-    run.workflow_id = workflow_id
-    run.workflow_name = workflow_name
-    run.source = source
-    run.branch = branch
-    run.created_at = created_at
-    return run
-
-
-def _make_mock_node(
-    *,
-    node_id: str = "analyze",
-    run_id: str = "baseline-regression-run",
-    soul_id: str | None = "researcher_v1",
-    soul_version: str | None = "sha256:abc",
-    eval_score: float | None = 0.95,
-    eval_passed: bool | None = True,
-    cost_usd: float = 0.005,
-    tokens: dict | None = None,
-    created_at: float = 100.0,
-):
-    m = Mock()
-    m.node_id = node_id
-    m.run_id = run_id
-    m.soul_id = soul_id
-    m.soul_version = soul_version
-    m.eval_score = eval_score
-    m.eval_passed = eval_passed
-    m.cost_usd = cost_usd
-    m.tokens = tokens or {"prompt": 100, "completion": 50, "total": 150}
-    m.created_at = created_at
-    return m
+from apps.api.tests.logic.regression_fixtures import (
+    db_session as _db_session_fixture,  # noqa: F401
+    make_mock_node as _make_mock_node,
+    make_mock_run as _make_mock_run,
+    seed_node as _seed_node,
+    seed_run as _seed_run,
+)
 
 
 # ===========================================================================
@@ -452,59 +408,6 @@ class TestDeletedSoulEdge:
 # ===========================================================================
 # get_workflow_health_metrics() regression_count uses comparison logic
 # ===========================================================================
-
-
-@pytest.fixture
-def db_session():
-    engine = create_engine("sqlite:///:memory:")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-def _seed_run(
-    session: Session,
-    run_id: str,
-    *,
-    workflow_id: str,
-    branch: str,
-    source: str = "manual",
-    total_cost_usd: float = 0.0,
-) -> None:
-    run = Run(
-        id=run_id,
-        workflow_id=workflow_id,
-        workflow_name=f"Workflow {workflow_id}",
-        task_json="{}",
-        branch=branch,
-        source=source,
-        total_cost_usd=total_cost_usd,
-    )
-    session.add(run)
-
-
-def _seed_node(
-    session: Session,
-    run_id: str,
-    node_id: str,
-    *,
-    eval_passed: bool | None,
-    soul_version: str | None = None,
-    eval_score: float | None = None,
-    cost_usd: float = 0.0,
-) -> None:
-    node = RunNode(
-        id=f"{run_id}:{node_id}",
-        run_id=run_id,
-        node_id=node_id,
-        block_type="llm",
-        status="completed",
-        eval_passed=eval_passed,
-        soul_version=soul_version,
-        eval_score=eval_score,
-        cost_usd=cost_usd,
-    )
-    session.add(node)
 
 
 class TestHealthMetricsProperRegressionLogic:

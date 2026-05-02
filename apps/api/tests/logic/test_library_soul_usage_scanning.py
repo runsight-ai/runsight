@@ -4,23 +4,27 @@ Verify that _extract_workflow_soul_ids() and its consumers work correctly
 under the library-only model (no inline souls: section in workflows).
 """
 
-from unittest.mock import Mock
-
 import pytest
 
+from tests.logic.soul_service_helpers import (
+    make_git_service,
+    make_library_usage_service as make_service,
+    make_soul_repo,
+    make_workflow_repo,
+    soul_entity,
+    workflow_entity,
+)
+from tests.logic.soul_usage_fixtures import (
+    MALFORMED_BLOCKS_YAML,
+    dispatch_exit_yaml,
+    legacy_soul_section_yaml,
+    linear_and_dispatch_exit_yaml,
+    linear_block_without_soul_ref_yaml,
+    linear_blocks_yaml,
+    no_blocks_yaml,
+)
 from runsight_api.domain.errors import SoulInUse
-from runsight_api.domain.value_objects import SoulEntity, WorkflowEntity
 from runsight_api.logic.services.soul_service import SoulService
-
-
-def workflow_entity(id: str, name: str, yaml: str | None) -> WorkflowEntity:
-    return WorkflowEntity(kind="workflow", id=id, name=name, yaml=yaml)
-
-
-def make_service(workflow_repo=None) -> tuple[Mock, SoulService]:
-    soul_repo = Mock()
-    service = SoulService(soul_repo, workflow_repo=workflow_repo)
-    return soul_repo, service
 
 
 # ---------------------------------------------------------------------------
@@ -36,15 +40,11 @@ class TestInlineSoulsIgnoredForUsageScanning:
         wf = workflow_entity(
             "wf_library_primary",
             "Library Only",
-            """
-blocks:
-  analyze:
-    type: linear
-    soul_ref: web_researcher
-  summarize:
-    type: linear
-    soul_ref: summarizer
-""",
+            linear_blocks_yaml(
+                "web_researcher",
+                "summarizer",
+                block_names=("analyze", "summarize"),
+            ),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         assert result == ["web_researcher", "summarizer"]
@@ -58,16 +58,7 @@ blocks:
         wf = workflow_entity(
             "wf_legacy",
             "Legacy With Souls Section",
-            """
-souls:
-  legacy_soul:
-    role: Legacy
-    system_prompt: I am legacy
-blocks:
-  draft:
-    type: linear
-    soul_ref: web_researcher
-""",
+            legacy_soul_section_yaml("legacy_soul", "web_researcher"),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         # Must contain ONLY the block-level soul_ref, never the souls: key
@@ -80,15 +71,13 @@ blocks:
         wf = workflow_entity(
             "wf_overlap",
             "Overlap",
-            """
-souls:
-  web_researcher:
-    role: Researcher
-blocks:
-  research:
-    type: linear
-    soul_ref: web_researcher
-""",
+            legacy_soul_section_yaml(
+                "web_researcher",
+                "web_researcher",
+                declared_role="Researcher",
+                system_prompt=None,
+                block_name="research",
+            ),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         assert result == ["web_researcher"]
@@ -107,25 +96,20 @@ class TestSoulRefSlugUsageMatching:
     def test_soul_ref_matches_library_slug_in_workflow_count(self):
         """soul_ref: web_researcher must map to the soul with id='web_researcher',
         which corresponds to custom/souls/web_researcher.yaml."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
         souls = [
-            SoulEntity(id="web_researcher", kind="soul", name="Researcher", role="Researcher"),
-            SoulEntity(id="editor", kind="soul", name="Editor", role="Editor"),
+            soul_entity("web_researcher", name="Researcher", role="Researcher"),
+            soul_entity("editor", name="Editor", role="Editor"),
         ]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Research Pipeline",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-        ]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Research Pipeline",
+                    linear_blocks_yaml("web_researcher"),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -136,27 +120,20 @@ blocks:
 
     def test_soul_ref_slug_exact_match_not_substring(self):
         """soul_ref: 'researcher' must NOT count for soul id 'web_researcher'."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
         souls = [
-            SoulEntity(
-                id="web_researcher", kind="soul", name="Web Researcher", role="Web Researcher"
-            ),
-            SoulEntity(id="researcher", kind="soul", name="Researcher", role="Researcher"),
+            soul_entity("web_researcher", name="Web Researcher", role="Web Researcher"),
+            soul_entity("researcher", name="Researcher", role="Researcher"),
         ]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Research",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: researcher
-""",
-            ),
-        ]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Research",
+                    linear_blocks_yaml("researcher"),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -167,26 +144,17 @@ blocks:
 
     def test_soul_ref_in_exit_counts_as_library_slug(self):
         """soul_ref inside exits[] also maps to library soul slugs."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
-        souls = [SoulEntity(id="web_researcher", kind="soul", name="Researcher", role="Researcher")]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_dispatch",
-                "Dispatch",
-                """
-blocks:
-  route:
-    type: dispatch
-    exits:
-      - id: research_exit
-        label: Research
-        soul_ref: web_researcher
-        task: Do research
-""",
-            ),
-        ]
+        souls = [soul_entity("web_researcher", name="Researcher", role="Researcher")]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_dispatch",
+                    "Dispatch",
+                    dispatch_exit_yaml("web_researcher"),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -195,22 +163,17 @@ blocks:
 
     def test_soul_ref_does_not_match_filename_stem_when_yaml_id_differs(self):
         """Workflow soul_ref values match embedded soul ids only."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
-        souls = [SoulEntity(id="researcher_1", kind="soul", name="Researcher", role="Researcher")]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Research",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: researcher
-""",
-            ),
-        ]
+        souls = [soul_entity("researcher_1", name="Researcher", role="Researcher")]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Research",
+                    linear_blocks_yaml("researcher"),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -228,47 +191,28 @@ class TestSoulDeletePreCheck:
     def test_get_soul_usages_lists_referencing_workflows(self):
         """Delete pre-check correctly identifies all workflows using a soul."""
         soul_repo, service = make_service()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="web_researcher", kind="soul", name="Researcher", role="Researcher"
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Pipeline A",
+                    linear_blocks_yaml("web_researcher"),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "Pipeline B",
+                    linear_blocks_yaml("editor"),
+                ),
+                workflow_entity(
+                    "wf_library_tertiary",
+                    "Pipeline C",
+                    linear_and_dispatch_exit_yaml("web_researcher", "web_researcher"),
+                ),
+            ]
         )
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Pipeline A",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "Pipeline B",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: editor
-""",
-            ),
-            workflow_entity(
-                "wf_library_tertiary",
-                "Pipeline C",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: web_researcher
-  step2:
-    type: dispatch
-    exits:
-      - id: e1
-        soul_ref: web_researcher
-""",
-            ),
-        ]
+        soul_repo.get_by_id.return_value = soul_entity(
+            "web_researcher", name="Researcher", role="Researcher"
+        )
 
         usages = service.get_soul_usages("web_researcher", workflow_repo)
 
@@ -281,22 +225,18 @@ blocks:
     def test_get_soul_usages_does_not_match_filename_stem_when_yaml_id_differs(self):
         """Usage scanning uses embedded soul ids only."""
         soul_repo, service = make_service()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="researcher_1", kind="soul", name="Researcher", role="Researcher"
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Research Pipeline",
+                    linear_blocks_yaml("researcher"),
+                ),
+            ]
         )
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Research Pipeline",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: researcher
-""",
-            ),
-        ]
+        soul_repo.get_by_id.return_value = soul_entity(
+            "researcher_1", name="Researcher", role="Researcher"
+        )
 
         usages = service.get_soul_usages("researcher_1", workflow_repo)
 
@@ -304,24 +244,19 @@ blocks:
 
     def test_delete_blocked_when_soul_in_use_library_only(self):
         """Delete is blocked with SoulInUse when library soul is referenced."""
-        soul_repo = Mock()
-        git_service = Mock()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="web_researcher", kind="soul", name="Researcher", role="Researcher"
+        soul_repo = make_soul_repo(
+            get_by_id=soul_entity("web_researcher", name="Researcher", role="Researcher")
         )
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Research Pipeline",
-                """
-blocks:
-  research:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-        ]
+        git_service = make_git_service()
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Research Pipeline",
+                    linear_blocks_yaml("web_researcher", block_names=("research",)),
+                ),
+            ]
+        )
         service = SoulService(soul_repo, git_service=git_service)
 
         with pytest.raises(SoulInUse) as exc_info:
@@ -334,27 +269,18 @@ blocks:
 
     def test_delete_allowed_when_soul_not_referenced(self):
         """Delete succeeds when no workflow references the soul."""
-        soul_repo = Mock()
-        git_service = Mock()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="orphan", kind="soul", name="Orphan", role="Orphan"
-        )
+        soul_repo = make_soul_repo(get_by_id=soul_entity("orphan", name="Orphan", role="Orphan"))
+        git_service = make_git_service()
         soul_repo.delete.return_value = True
-        git_service.is_clean.return_value = False
-        git_service.current_branch.return_value = "main"
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Other",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: editor
-""",
-            ),
-        ]
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Other",
+                    linear_blocks_yaml("editor", block_names=("step",)),
+                ),
+            ]
+        )
         service = SoulService(soul_repo, git_service=git_service)
 
         result = service.delete_soul("orphan", workflow_repo=workflow_repo)
@@ -373,12 +299,7 @@ blocks:
         wf = workflow_entity(
             "wf_stale",
             "Stale Ref",
-            """
-blocks:
-  step:
-    type: linear
-    soul_ref: deleted_soul
-""",
+            linear_blocks_yaml("deleted_soul", block_names=("step",)),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         assert "deleted_soul" in result
@@ -394,31 +315,22 @@ class TestSoulUsageCountVariants:
 
     def test_zero_usages(self):
         """Soul with zero references across all workflows has count 0."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
-        souls = [SoulEntity(id="unused_soul", kind="soul", name="Unused", role="Unused")]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Workflow A",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: other_soul
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "Workflow B",
-                """
-blocks:
-  step:
-    type: linear
-""",
-            ),
-        ]
+        souls = [soul_entity("unused_soul", name="Unused", role="Unused")]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Workflow A",
+                    linear_blocks_yaml("other_soul", block_names=("step",)),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "Workflow B",
+                    linear_block_without_soul_ref_yaml(),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -426,32 +338,22 @@ blocks:
 
     def test_one_usage_single_workflow(self):
         """Soul referenced in exactly one workflow has count 1."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
-        souls = [SoulEntity(id="web_researcher", kind="soul", name="Researcher", role="Researcher")]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Single Use",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "No Use",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: other
-""",
-            ),
-        ]
+        souls = [soul_entity("web_researcher", name="Researcher", role="Researcher")]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Single Use",
+                    linear_blocks_yaml("web_researcher", block_names=("step",)),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "No Use",
+                    linear_blocks_yaml("other", block_names=("step",)),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -459,47 +361,27 @@ blocks:
 
     def test_n_usages_across_multiple_workflows(self):
         """Soul referenced across N workflows has count N (workflow-level, not block-level)."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
-        souls = [SoulEntity(id="web_researcher", kind="soul", name="Researcher", role="Researcher")]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Pipeline A",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: web_researcher
-  step2:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "Pipeline B",
-                """
-blocks:
-  step1:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_tertiary",
-                "Pipeline C",
-                """
-blocks:
-  route:
-    type: dispatch
-    exits:
-      - id: e1
-        soul_ref: web_researcher
-""",
-            ),
-        ]
+        souls = [soul_entity("web_researcher", name="Researcher", role="Researcher")]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Pipeline A",
+                    linear_blocks_yaml("web_researcher", "web_researcher"),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "Pipeline B",
+                    linear_blocks_yaml("web_researcher"),
+                ),
+                workflow_entity(
+                    "wf_library_tertiary",
+                    "Pipeline C",
+                    dispatch_exit_yaml("web_researcher", exit_id="e1", label=None, task=None),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -508,53 +390,37 @@ blocks:
 
     def test_multiple_souls_mixed_usage_counts(self):
         """Multiple souls with varying usage counts across multiple workflows."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
         souls = [
-            SoulEntity(id="researcher", kind="soul", name="Researcher", role="Researcher"),
-            SoulEntity(id="editor", kind="soul", name="Editor", role="Editor"),
-            SoulEntity(id="reviewer", kind="soul", name="Reviewer", role="Reviewer"),
-            SoulEntity(id="orphan", kind="soul", name="Orphan", role="Orphan"),
+            soul_entity("researcher", name="Researcher", role="Researcher"),
+            soul_entity("editor", name="Editor", role="Editor"),
+            soul_entity("reviewer", name="Reviewer", role="Reviewer"),
+            soul_entity("orphan", name="Orphan", role="Orphan"),
         ]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Full Pipeline",
-                """
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-  edit:
-    type: linear
-    soul_ref: editor
-  review:
-    type: linear
-    soul_ref: reviewer
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "Review Only",
-                """
-blocks:
-  review:
-    type: linear
-    soul_ref: reviewer
-""",
-            ),
-            workflow_entity(
-                "wf_library_tertiary",
-                "Research Only",
-                """
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-""",
-            ),
-        ]
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Full Pipeline",
+                    linear_blocks_yaml(
+                        "researcher",
+                        "editor",
+                        "reviewer",
+                        block_names=("research", "edit", "review"),
+                    ),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "Review Only",
+                    linear_blocks_yaml("reviewer", block_names=("review",)),
+                ),
+                workflow_entity(
+                    "wf_library_tertiary",
+                    "Research Only",
+                    linear_blocks_yaml("researcher", block_names=("research",)),
+                ),
+            ]
+        )
         service = SoulService(soul_repo)
         result = service.list_souls(workflow_repo=workflow_repo)
 
@@ -566,14 +432,12 @@ blocks:
 
     def test_zero_usages_empty_workflow_list(self):
         """When there are no workflows at all, all souls have count 0."""
-        soul_repo = Mock()
-        workflow_repo = Mock()
         souls = [
-            SoulEntity(id="researcher", kind="soul", name="Researcher", role="Researcher"),
-            SoulEntity(id="editor", kind="soul", name="Editor", role="Editor"),
+            soul_entity("researcher", name="Researcher", role="Researcher"),
+            soul_entity("editor", name="Editor", role="Editor"),
         ]
-        soul_repo.list_all.return_value = souls
-        workflow_repo.list_all.return_value = []
+        soul_repo = make_soul_repo(souls=souls)
+        workflow_repo = make_workflow_repo([])
         service = SoulService(soul_repo)
 
         result = service.list_souls(workflow_repo=workflow_repo)
@@ -585,11 +449,7 @@ blocks:
         wf = workflow_entity(
             "wf_empty",
             "Empty",
-            """
-workflow:
-  name: Empty Workflow
-  description: No blocks here
-""",
+            no_blocks_yaml(name="Empty Workflow", description="No blocks here"),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         assert result == []
@@ -602,7 +462,7 @@ workflow:
 
     def test_workflow_with_malformed_yaml_skipped(self):
         """Malformed YAML is skipped gracefully, returning empty list."""
-        wf = workflow_entity("wf_bad", "Broken", "blocks: [broken yaml {{{")
+        wf = workflow_entity("wf_bad", "Broken", MALFORMED_BLOCKS_YAML)
         result = SoulService._extract_workflow_soul_ids(wf)
         assert result == []
 
@@ -612,20 +472,7 @@ workflow:
         wf = workflow_entity(
             "wf_dup",
             "Duplicated Refs",
-            """
-blocks:
-  step1:
-    type: linear
-    soul_ref: researcher
-  step2:
-    type: linear
-    soul_ref: researcher
-  step3:
-    type: dispatch
-    exits:
-      - id: e1
-        soul_ref: researcher
-""",
+            linear_and_dispatch_exit_yaml("researcher", "researcher", dispatch_block_name="step3"),
         )
         result = SoulService._extract_workflow_soul_ids(wf)
         # Deduplicated: only one entry for 'researcher'
@@ -634,22 +481,16 @@ blocks:
     def test_get_soul_usages_zero_for_unreferenced_soul(self):
         """get_soul_usages returns empty list when soul exists but is unreferenced."""
         soul_repo, service = make_service()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="orphan", kind="soul", name="Orphan", role="Orphan"
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Other",
+                    linear_blocks_yaml("editor", block_names=("step",)),
+                ),
+            ]
         )
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Other",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: editor
-""",
-            ),
-        ]
+        soul_repo.get_by_id.return_value = soul_entity("orphan", name="Orphan", role="Orphan")
 
         usages = service.get_soul_usages("orphan", workflow_repo)
         assert usages == []
@@ -657,42 +498,28 @@ blocks:
     def test_get_soul_usages_n_workflows(self):
         """get_soul_usages returns all N workflows referencing the soul."""
         soul_repo, service = make_service()
-        workflow_repo = Mock()
-        soul_repo.get_by_id.return_value = SoulEntity(
-            id="web_researcher", kind="soul", name="Researcher", role="Researcher"
+        workflow_repo = make_workflow_repo(
+            [
+                workflow_entity(
+                    "wf_library_primary",
+                    "Pipeline A",
+                    linear_blocks_yaml("web_researcher", block_names=("step",)),
+                ),
+                workflow_entity(
+                    "wf_library_secondary",
+                    "Pipeline B",
+                    linear_blocks_yaml("web_researcher", block_names=("step",)),
+                ),
+                workflow_entity(
+                    "wf_library_tertiary",
+                    "Pipeline C",
+                    linear_blocks_yaml("editor", block_names=("step",)),
+                ),
+            ]
         )
-        workflow_repo.list_all.return_value = [
-            workflow_entity(
-                "wf_library_primary",
-                "Pipeline A",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_secondary",
-                "Pipeline B",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: web_researcher
-""",
-            ),
-            workflow_entity(
-                "wf_library_tertiary",
-                "Pipeline C",
-                """
-blocks:
-  step:
-    type: linear
-    soul_ref: editor
-""",
-            ),
-        ]
+        soul_repo.get_by_id.return_value = soul_entity(
+            "web_researcher", name="Researcher", role="Researcher"
+        )
 
         usages = service.get_soul_usages("web_researcher", workflow_repo)
 

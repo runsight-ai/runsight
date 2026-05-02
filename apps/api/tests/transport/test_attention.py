@@ -13,48 +13,19 @@ RunNodes with eval deltas and generates typed attention items:
   8. Response conforms to AttentionItemsResponse Pydantic model
 """
 
-import time
-from unittest.mock import Mock
-
 from fastapi.testclient import TestClient
 
 from runsight_api.main import app
 from runsight_api.transport.deps import get_eval_service
 
+from tests.transport.attention_helpers import (
+    make_assertion_regression_items,
+    make_attention_item,
+    make_attention_service,
+    make_cost_spike_items,
+)
+
 client = TestClient(app)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_mock_node(
-    *,
-    node_id: str = "analyze",
-    run_id: str = "attention-empty-run",
-    soul_id: str = "researcher_v1",
-    soul_version: str = "sha256:abc",
-    eval_score: float | None = 0.95,
-    eval_passed: bool | None = True,
-    cost_usd: float = 0.005,
-    tokens: dict | None = None,
-    eval_results: dict | None = None,
-) -> Mock:
-    """Create a mock RunNode with eval fields populated."""
-    m = Mock()
-    m.node_id = node_id
-    m.run_id = run_id
-    m.soul_id = soul_id
-    m.soul_version = soul_version
-    m.eval_score = eval_score
-    m.eval_passed = eval_passed
-    m.cost_usd = cost_usd
-    m.tokens = tokens or {"prompt": 100, "completion": 50, "total": 150}
-    m.eval_results = eval_results
-    m.created_at = time.time()
-    return m
-
 
 # ===========================================================================
 # 1. Endpoint registration and basic shape
@@ -70,8 +41,7 @@ class TestAttentionEndpointExists:
 
     def test_returns_200(self):
         """Endpoint returns 200 even when no items exist."""
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = []
+        mock_service = make_attention_service()
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -81,8 +51,7 @@ class TestAttentionEndpointExists:
 
     def test_response_has_items_list(self):
         """Response body must contain an 'items' list."""
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = []
+        mock_service = make_attention_service()
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -102,8 +71,7 @@ class TestAttentionEmptyList:
     """Returns empty items when no attention-worthy conditions exist."""
 
     def setup_method(self):
-        self.mock_service = Mock()
-        self.mock_service.get_attention_items.return_value = []
+        self.mock_service = make_attention_service()
         app.dependency_overrides[get_eval_service] = lambda: self.mock_service
 
     def teardown_method(self):
@@ -133,19 +101,18 @@ class TestAssertionRegressionItems:
 
     def test_returns_assertion_regression_type(self):
         """A node that previously passed but now fails generates an assertion_regression item."""
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="assertion_regression",
-                title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run attention-regression-run",
-                run_id="attention-regression-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="assertion_regression",
+                    title="Assertion 'contains Sources' failed",
+                    description="Workflow 'Research Agent' — run attention-regression-run",
+                    run_id="attention-regression-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -155,19 +122,18 @@ class TestAssertionRegressionItems:
         assert item["type"] == "assertion_regression"
 
     def test_assertion_regression_has_title(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="assertion_regression",
-                title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run attention-regression-run",
-                run_id="attention-regression-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="assertion_regression",
+                    title="Assertion 'contains Sources' failed",
+                    description="Workflow 'Research Agent' — run attention-regression-run",
+                    run_id="attention-regression-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -176,19 +142,18 @@ class TestAssertionRegressionItems:
         assert len(item["title"]) > 0
 
     def test_assertion_regression_has_run_id_and_workflow_id(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="assertion_regression",
-                title="Assertion 'contains Sources' failed",
-                description="Workflow 'Research Agent' — run attention-regression-run",
-                run_id="attention-regression-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="assertion_regression",
+                    title="Assertion 'contains Sources' failed",
+                    description="Workflow 'Research Agent' — run attention-regression-run",
+                    run_id="attention-regression-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -209,19 +174,18 @@ class TestCostSpikeItems:
         app.dependency_overrides.clear()
 
     def test_returns_cost_spike_type(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="cost_spike",
-                title="Cost +34% after prompt change",
-                description="Soul 'researcher_v1' — workflow 'Research Agent'",
-                run_id="attention-cost-spike-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="cost_spike",
+                    title="Cost +34% after prompt change",
+                    description="Soul 'researcher_v1' — workflow 'Research Agent'",
+                    run_id="attention-cost-spike-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -229,19 +193,18 @@ class TestCostSpikeItems:
         assert any(item["type"] == "cost_spike" for item in data["items"])
 
     def test_cost_spike_title_contains_percentage(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="cost_spike",
-                title="Cost +34% after prompt change",
-                description="Soul 'researcher_v1'",
-                run_id="attention-cost-spike-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="cost_spike",
+                    title="Cost +34% after prompt change",
+                    description="Soul 'researcher_v1'",
+                    run_id="attention-cost-spike-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -261,19 +224,18 @@ class TestQualityDropItems:
         app.dependency_overrides.clear()
 
     def test_returns_quality_drop_type(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="quality_drop",
-                title="Quality score dropped 0.15",
-                description="Soul 'researcher_v1' — workflow 'Research Agent'",
-                run_id="attention-quality-drop-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="quality_drop",
+                    title="Quality score dropped 0.15",
+                    description="Soul 'researcher_v1' — workflow 'Research Agent'",
+                    run_id="attention-quality-drop-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -281,19 +243,18 @@ class TestQualityDropItems:
         assert any(item["type"] == "quality_drop" for item in data["items"])
 
     def test_quality_drop_severity_is_warning(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="quality_drop",
-                title="Quality score dropped 0.15",
-                description="Soul 'researcher_v1'",
-                run_id="attention-quality-drop-run",
-                workflow_id="research-workflow",
-                severity="warning",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="quality_drop",
+                    title="Quality score dropped 0.15",
+                    description="Soul 'researcher_v1'",
+                    run_id="attention-quality-drop-run",
+                    workflow_id="research-workflow",
+                    severity="warning",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -313,19 +274,18 @@ class TestNewBaselineItems:
         app.dependency_overrides.clear()
 
     def test_returns_new_baseline_type(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="new_baseline",
-                title="New prompt version detected",
-                description="Soul 'researcher_v1' — first run of version sha256:xyz",
-                run_id="attention-new-baseline-run",
-                workflow_id="research-workflow",
-                severity="info",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="new_baseline",
+                    title="New prompt version detected",
+                    description="Soul 'researcher_v1' — first run of version sha256:xyz",
+                    run_id="attention-new-baseline-run",
+                    workflow_id="research-workflow",
+                    severity="info",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -334,19 +294,18 @@ class TestNewBaselineItems:
 
     def test_new_baseline_severity_is_info_not_warning(self):
         """new_baseline items must have severity 'info', not 'warning'."""
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        mock_service.get_attention_items.return_value = [
-            AttentionItem(
-                type="new_baseline",
-                title="New prompt version detected",
-                description="Soul 'researcher_v1'",
-                run_id="attention-new-baseline-run",
-                workflow_id="research-workflow",
-                severity="info",
-            )
-        ]
+        mock_service = make_attention_service(
+            [
+                make_attention_item(
+                    type="new_baseline",
+                    title="New prompt version detected",
+                    description="Soul 'researcher_v1'",
+                    run_id="attention-new-baseline-run",
+                    workflow_id="research-workflow",
+                    severity="info",
+                )
+            ]
+        )
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -368,21 +327,7 @@ class TestAttentionLimitParam:
 
     def test_limit_defaults_to_5(self):
         """When no limit param, at most 5 items are returned."""
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        items = [
-            AttentionItem(
-                type="cost_spike",
-                title=f"Cost spike #{i}",
-                description=f"Attention item {i}",
-                run_id=f"attention-run-{i:03d}",
-                workflow_id="attention-workflow",
-                severity="warning",
-            )
-            for i in range(10)
-        ]
-        mock_service.get_attention_items.return_value = items
+        mock_service = make_attention_service(make_cost_spike_items(10))
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention")
@@ -391,21 +336,7 @@ class TestAttentionLimitParam:
 
     def test_limit_param_respected(self):
         """?limit=3 returns at most 3 items."""
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        items = [
-            AttentionItem(
-                type="cost_spike",
-                title=f"Cost spike #{i}",
-                description=f"Attention item {i}",
-                run_id=f"attention-run-{i:03d}",
-                workflow_id="attention-workflow",
-                severity="warning",
-            )
-            for i in range(10)
-        ]
-        mock_service.get_attention_items.return_value = items
+        mock_service = make_attention_service(make_cost_spike_items(10))
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention?limit=3")
@@ -413,21 +344,7 @@ class TestAttentionLimitParam:
         assert len(data["items"]) <= 3
 
     def test_limit_param_of_1_returns_single_item(self):
-        from runsight_api.transport.schemas.dashboard import AttentionItem
-
-        mock_service = Mock()
-        items = [
-            AttentionItem(
-                type="assertion_regression",
-                title="Assertion regression",
-                description="Attention item description",
-                run_id=f"attention-run-{i:03d}",
-                workflow_id="attention-workflow",
-                severity="warning",
-            )
-            for i in range(5)
-        ]
-        mock_service.get_attention_items.return_value = items
+        mock_service = make_attention_service(make_assertion_regression_items(5))
         app.dependency_overrides[get_eval_service] = lambda: mock_service
 
         response = client.get("/api/dashboard/attention?limit=1")

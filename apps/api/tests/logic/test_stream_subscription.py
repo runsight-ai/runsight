@@ -10,15 +10,10 @@ from httpx import ASGITransport, AsyncClient
 from runsight_core.context_governance import ContextAuditEventV1, ContextAuditRecordV1
 
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
-from runsight_api.logic.services.execution_service import ExecutionService
-
-
-def _make_service() -> ExecutionService:
-    return ExecutionService(
-        run_repo=Mock(),
-        workflow_repo=Mock(),
-        provider_repo=Mock(),
-    )
+from tests.logic.stream_subscription_helpers import collect_stream
+from tests.logic.stream_subscription_helpers import make_service
+from tests.logic.stream_subscription_helpers import publish_registered_terminal_event
+from tests.logic.stream_subscription_helpers import registered_parent_and_child
 
 
 class TestLateStreamSubscribers:
@@ -34,12 +29,7 @@ class TestLateStreamSubscribers:
 
         from runsight_api.domain.events import SSE_TERMINAL_EVENTS
 
-        service = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=Mock(),
-            max_concurrent_runs=1,
-        )
+        service = make_service(max_concurrent_runs=1)
         run_id = "run_stream_queued"
         events = []
 
@@ -53,14 +43,10 @@ class TestLateStreamSubscribers:
         wf = Mock()
         wf.run = fake_run
 
-        async def consume() -> None:
-            async for event in service.subscribe_stream(run_id):
-                events.append(event)
-
         queued_run = asyncio.create_task(service._run_workflow(run_id, wf, {"instruction": "wait"}))
         await asyncio.sleep(0)
 
-        consumer = asyncio.create_task(consume())
+        consumer = asyncio.create_task(collect_stream(service, run_id, events))
 
         await asyncio.sleep(service._OBSERVER_REGISTRATION_TIMEOUT_S + 0.1)
 
@@ -84,12 +70,7 @@ class TestLateStreamSubscribers:
     async def test_subscribe_stream_terminates_when_queued_run_is_cancelled_before_start(self):
         """Cancelling a queued run must not leave an attached stream hanging forever."""
 
-        service = ExecutionService(
-            run_repo=Mock(),
-            workflow_repo=Mock(),
-            provider_repo=Mock(),
-            max_concurrent_runs=1,
-        )
+        service = make_service(max_concurrent_runs=1)
         run_id = "run_stream_cancelled_queued"
 
         await service._runtime.semaphore.acquire()
@@ -104,14 +85,10 @@ class TestLateStreamSubscribers:
 
         events = []
 
-        async def consume() -> None:
-            async for event in service.subscribe_stream(run_id):
-                events.append(event)
-
         queued_run = asyncio.create_task(service._run_workflow(run_id, wf, {"instruction": "wait"}))
         await asyncio.sleep(0)
 
-        consumer = asyncio.create_task(consume())
+        consumer = asyncio.create_task(collect_stream(service, run_id, events))
 
         await asyncio.sleep(0.05)
         assert not consumer.done(), "Stream should still be attached while the run is queued"
@@ -143,15 +120,11 @@ class TestLateStreamSubscribers:
     async def test_subscribe_stream_waits_for_late_observer_registration(self):
         """Subscribers that connect before launch completes should not be dropped."""
 
-        service = _make_service()
+        service = make_service()
         run_id = "run_stream_wait"
         events = []
 
-        async def consume() -> None:
-            async for event in service.subscribe_stream(run_id):
-                events.append(event)
-
-        consumer = asyncio.create_task(consume())
+        consumer = asyncio.create_task(collect_stream(service, run_id, events))
         await asyncio.sleep(0.05)
 
         assert not consumer.done(), (
@@ -175,7 +148,7 @@ class TestLateStreamSubscribers:
         from runsight_api.transport.routers import sse_stream
 
         run_id = "run_stream_http"
-        service = _make_service()
+        service = make_service()
         run_service = Mock()
         run_service.get_run.return_value = Mock(id=run_id)
         run_service.get_run_logs.return_value = []
@@ -185,13 +158,7 @@ class TestLateStreamSubscribers:
         app.dependency_overrides[get_execution_service] = lambda: service
         app.dependency_overrides[get_run_service] = lambda: run_service
 
-        async def publish_terminal_event() -> None:
-            await asyncio.sleep(0.05)
-            observer = StreamingObserver(run_id=run_id)
-            service._streams.register(run_id, observer)
-            observer.queue.put_nowait({"event": "run_completed", "data": {"run_id": run_id}})
-
-        publisher = asyncio.create_task(publish_terminal_event())
+        publisher = asyncio.create_task(publish_registered_terminal_event(service, run_id))
 
         async with AsyncClient(
             transport=ASGITransport(app=app),
@@ -220,11 +187,8 @@ class TestLateStreamSubscribers:
 class TestChildRunStreamOwnership:
     @pytest.mark.asyncio
     async def test_child_stream_gets_child_owned_terminal_event(self):
-        service = _make_service()
-        parent = StreamingObserver(run_id="run_stream_parent")
-        child = parent.clone_for_child_run(child_run_id="run_stream_child")
-        service._streams.register(parent.run_id, parent)
-        service._streams.register(child.run_id, child)
+        service = make_service()
+        _, child = registered_parent_and_child(service)
 
         child_state = Mock(total_cost_usd=0.01, total_tokens=42)
 
@@ -241,7 +205,7 @@ class TestChildRunStreamOwnership:
 
     @pytest.mark.asyncio
     async def test_late_child_subscriber_still_receives_completed_terminal_event(self):
-        service = _make_service()
+        service = make_service()
         parent = StreamingObserver(
             run_id="run_stream_parent",
             register_stream=service._streams.register,
@@ -268,7 +232,7 @@ class TestChildRunStreamOwnership:
 
     @pytest.mark.asyncio
     async def test_late_child_subscriber_still_receives_failed_terminal_event(self):
-        service = _make_service()
+        service = make_service()
         parent = StreamingObserver(
             run_id="run_stream_parent",
             register_stream=service._streams.register,
@@ -291,21 +255,14 @@ class TestChildRunStreamOwnership:
 
     @pytest.mark.asyncio
     async def test_parent_stream_stays_open_and_filters_child_raw_events(self):
-        service = _make_service()
-        parent = StreamingObserver(run_id="run_stream_parent")
-        child = parent.clone_for_child_run(child_run_id="run_stream_child")
-        service._streams.register(parent.run_id, parent)
-        service._streams.register(child.run_id, child)
+        service = make_service()
+        parent, child = registered_parent_and_child(service)
 
         parent_state = Mock(total_cost_usd=0.02, total_tokens=84)
         child_state = Mock(total_cost_usd=0.01, total_tokens=42)
         events: list[dict] = []
 
-        async def consume_parent() -> None:
-            async for event in service.subscribe_stream(parent.run_id):
-                events.append(event)
-
-        consumer = asyncio.create_task(consume_parent())
+        consumer = asyncio.create_task(collect_stream(service, parent.run_id, events))
         await asyncio.sleep(0)
 
         child.on_block_start("child_workflow", "child_step", "workflow")
@@ -336,19 +293,12 @@ class TestChildRunStreamOwnership:
 
     @pytest.mark.asyncio
     async def test_child_failure_terminates_only_child_stream(self):
-        service = _make_service()
-        parent = StreamingObserver(run_id="run_stream_parent")
-        child = parent.clone_for_child_run(child_run_id="run_stream_child")
-        service._streams.register(parent.run_id, parent)
-        service._streams.register(child.run_id, child)
+        service = make_service()
+        parent, child = registered_parent_and_child(service)
 
         events: list[dict] = []
 
-        async def consume_parent() -> None:
-            async for event in service.subscribe_stream(parent.run_id):
-                events.append(event)
-
-        consumer = asyncio.create_task(consume_parent())
+        consumer = asyncio.create_task(collect_stream(service, parent.run_id, events))
         await asyncio.sleep(0)
 
         child.on_workflow_error("child_workflow", RuntimeError("child boom"), 0.25)
@@ -378,19 +328,12 @@ class TestChildRunStreamOwnership:
 
     @pytest.mark.asyncio
     async def test_parent_stream_filters_child_context_resolution_events(self):
-        service = _make_service()
-        parent = StreamingObserver(run_id="run_stream_parent")
-        child = parent.clone_for_child_run(child_run_id="run_stream_child")
-        service._streams.register(parent.run_id, parent)
-        service._streams.register(child.run_id, child)
+        service = make_service()
+        parent, child = registered_parent_and_child(service)
 
         events: list[dict] = []
 
-        async def consume_parent() -> None:
-            async for event in service.subscribe_stream(parent.run_id):
-                events.append(event)
-
-        consumer = asyncio.create_task(consume_parent())
+        consumer = asyncio.create_task(collect_stream(service, parent.run_id, events))
         await asyncio.sleep(0)
 
         child.on_context_resolution(
@@ -443,7 +386,7 @@ class TestChildRunStreamOwnership:
     ],
 )
 def test_execution_service_no_longer_exposes_observer_facade_methods(attr):
-    service = _make_service()
+    service = make_service()
 
     assert not hasattr(service, attr), f"ExecutionService should not expose compat seam {attr}"
 
@@ -457,6 +400,6 @@ def test_execution_service_no_longer_exposes_observer_facade_methods(attr):
     ],
 )
 def test_execution_service_no_longer_exposes_runtime_compat_aliases(attr):
-    service = _make_service()
+    service = make_service()
 
     assert not hasattr(service, attr), f"ExecutionService should not expose compat seam {attr}"

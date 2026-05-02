@@ -2,57 +2,27 @@
 
 from __future__ import annotations
 
-import importlib
 import inspect
-from typing import Any
 from unittest.mock import Mock, call
 
 import pytest
 
 from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
 from runsight_api.data.filesystem.settings_repo import FileSystemSettingsRepo
-from runsight_api.domain.entities.settings import FallbackTargetEntry
 from runsight_api.domain.errors import InputValidationError, ProviderNotFound
-from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.transport import deps as deps_module
-
-
-def _load_settings_service_module():
-    return importlib.import_module("runsight_api.logic.services.settings_service")
-
-
-def _load_settings_service():
-    return _load_settings_service_module().SettingsService
-
-
-def _provider(
-    *,
-    provider_id: str,
-    provider_type: str,
-    name: str,
-    is_active: bool,
-    models: list[str] | None = None,
-    status: str = "connected",
-) -> ProviderEntity:
-    return ProviderEntity(
-        id=provider_id,
-        kind="provider",
-        type=provider_type,
-        name=name,
-        status=status,
-        is_active=is_active,
-        models=models or [],
-    )
-
-
-def _service(*, settings_repo: Any, provider_repo: Any):
-    SettingsService = _load_settings_service()
-    return SettingsService(settings_repo=settings_repo, provider_repo=provider_repo)
+from tests.unit.logic.settings_service_helpers import (
+    fallback_entry,
+    load_settings_service,
+    load_settings_service_module,
+    provider,
+    service as make_service,
+)
 
 
 class TestSettingsServiceConstructor:
     def test_constructor_accepts_settings_repo_and_provider_repo(self):
-        signature = inspect.signature(_load_settings_service().__init__)
+        signature = inspect.signature(load_settings_service().__init__)
         assert list(signature.parameters) == ["self", "settings_repo", "provider_repo"]
 
     def test_get_settings_service_returns_settings_service(self):
@@ -64,12 +34,12 @@ class TestSettingsServiceConstructor:
             provider_repo=provider_repo,
         )
 
-        assert isinstance(service, _load_settings_service())
+        assert isinstance(service, load_settings_service())
 
 
 class TestFallbackFoundation:
     def test_settings_service_only_uses_fallback_types_and_repo_methods(self):
-        source = inspect.getsource(_load_settings_service_module())
+        source = inspect.getsource(load_settings_service_module())
 
         assert "FallbackTargetEntry" in source
         assert "get_fallback_map" in source
@@ -81,7 +51,7 @@ class TestFallbackFoundation:
         assert "fallback_chain" not in source
 
     def test_update_fallback_target_signature_is_pair_only(self):
-        signature = inspect.signature(_load_settings_service().update_fallback_target)
+        signature = inspect.signature(load_settings_service().update_fallback_target)
         assert list(signature.parameters) == [
             "self",
             "provider_id",
@@ -95,7 +65,7 @@ class TestSettingsServiceReadFallbackTargets:
         settings_repo = Mock()
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
-            _provider(
+            provider(
                 provider_id="primary-provider",
                 provider_type="primary-provider",
                 name="Primary Provider",
@@ -103,14 +73,14 @@ class TestSettingsServiceReadFallbackTargets:
                 models=["primary-fixture-model"],
                 status="connection_failed",
             ),
-            _provider(
+            provider(
                 provider_id="fallback-provider",
                 provider_type="fallback-provider",
                 name="Fallback Provider",
                 is_active=True,
                 models=["fallback-fixture-model"],
             ),
-            _provider(
+            provider(
                 provider_id="disabled-provider",
                 provider_type="disabled-provider",
                 name="Disabled Provider",
@@ -119,24 +89,24 @@ class TestSettingsServiceReadFallbackTargets:
             ),
         ]
         settings_repo.get_fallback_map.return_value = [
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id="fallback-fixture-model",
             ),
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="fallback-provider",
                 fallback_provider_id="primary-provider",
                 fallback_model_id="primary-fixture-model",
             ),
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="disabled-provider",
                 fallback_provider_id="primary-provider",
                 fallback_model_id="primary-fixture-model",
             ),
         ]
 
-        result = _service(
+        result = make_service(
             settings_repo=settings_repo, provider_repo=provider_repo
         ).get_fallback_targets()
 
@@ -163,14 +133,14 @@ class TestSettingsServiceReadFallbackTargets:
         settings_repo = Mock()
         provider_repo = Mock()
         provider_repo.list_all.return_value = [
-            _provider(
+            provider(
                 provider_id="primary-provider",
                 provider_type="primary-provider",
                 name="Primary Provider",
                 is_active=True,
                 models=["primary-fixture-model"],
             ),
-            _provider(
+            provider(
                 provider_id="disabled-provider",
                 provider_type="disabled-provider",
                 name="Disabled Provider",
@@ -179,12 +149,12 @@ class TestSettingsServiceReadFallbackTargets:
             ),
         ]
         stored_fallback_map = [
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="primary-provider",
                 fallback_provider_id="disabled-provider",
                 fallback_model_id="disabled-fixture-model",
             ),
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="missing-provider",
                 fallback_provider_id="primary-provider",
                 fallback_model_id="primary-fixture-model",
@@ -192,7 +162,7 @@ class TestSettingsServiceReadFallbackTargets:
         ]
         settings_repo.get_fallback_map.return_value = stored_fallback_map
 
-        result = _service(
+        result = make_service(
             settings_repo=settings_repo, provider_repo=provider_repo
         ).get_fallback_targets()
 
@@ -213,14 +183,14 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_persists_valid_target(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        source_provider = _provider(
+        source_provider = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
             is_active=True,
             models=["primary-fixture-model"],
         )
-        target_provider = _provider(
+        target_provider = provider(
             provider_id="fallback-provider",
             provider_type="fallback-provider",
             name="Fallback Provider",
@@ -235,7 +205,7 @@ class TestSettingsServiceUpdateFallbackTargets:
         settings_repo.get_fallback_map.return_value = []
         settings_repo.set_fallback_target.side_effect = lambda entry: entry
 
-        result = _service(
+        result = make_service(
             settings_repo=settings_repo, provider_repo=provider_repo
         ).update_fallback_target(
             provider_id="primary-provider",
@@ -244,7 +214,7 @@ class TestSettingsServiceUpdateFallbackTargets:
         )
 
         settings_repo.set_fallback_target.assert_called_once_with(
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id="fallback-fixture-model",
@@ -256,14 +226,14 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_allows_circular_reads(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        primary_provider = _provider(
+        primary_provider = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
             is_active=True,
             models=["primary-fixture-model"],
         )
-        fallback_provider = _provider(
+        fallback_provider = provider(
             provider_id="fallback-provider",
             provider_type="fallback-provider",
             name="Fallback Provider",
@@ -277,13 +247,13 @@ class TestSettingsServiceUpdateFallbackTargets:
         settings_repo.get_fallback_map.return_value = []
         settings_repo.set_fallback_target.side_effect = lambda entry: entry
 
-        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
-        first = service.update_fallback_target(
+        settings_service = make_service(settings_repo=settings_repo, provider_repo=provider_repo)
+        first = settings_service.update_fallback_target(
             provider_id="primary-provider",
             fallback_provider_id="fallback-provider",
             fallback_model_id="fallback-fixture-model",
         )
-        second = service.update_fallback_target(
+        second = settings_service.update_fallback_target(
             provider_id="fallback-provider",
             fallback_provider_id="primary-provider",
             fallback_model_id="primary-fixture-model",
@@ -291,14 +261,14 @@ class TestSettingsServiceUpdateFallbackTargets:
 
         assert settings_repo.set_fallback_target.call_args_list == [
             call(
-                FallbackTargetEntry(
+                fallback_entry(
                     provider_id="primary-provider",
                     fallback_provider_id="fallback-provider",
                     fallback_model_id="fallback-fixture-model",
                 )
             ),
             call(
-                FallbackTargetEntry(
+                fallback_entry(
                     provider_id="fallback-provider",
                     fallback_provider_id="primary-provider",
                     fallback_model_id="primary-fixture-model",
@@ -311,7 +281,7 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_rejects_partial_updates(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        provider_repo.get_by_id.return_value = _provider(
+        provider_repo.get_by_id.return_value = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
@@ -319,10 +289,10 @@ class TestSettingsServiceUpdateFallbackTargets:
             models=["primary-fixture-model"],
         )
 
-        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
+        settings_service = make_service(settings_repo=settings_repo, provider_repo=provider_repo)
 
         with pytest.raises(InputValidationError, match="both be provided or both omitted"):
-            service.update_fallback_target(
+            settings_service.update_fallback_target(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id=None,
@@ -331,7 +301,7 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_rejects_self_reference(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        provider_repo.get_by_id.return_value = _provider(
+        provider_repo.get_by_id.return_value = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
@@ -340,7 +310,7 @@ class TestSettingsServiceUpdateFallbackTargets:
         )
 
         with pytest.raises(InputValidationError, match="self"):
-            _service(
+            make_service(
                 settings_repo=settings_repo, provider_repo=provider_repo
             ).update_fallback_target(
                 provider_id="primary-provider",
@@ -351,14 +321,14 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_rejects_missing_or_disabled_target(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        source_provider = _provider(
+        source_provider = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
             is_active=True,
             models=["primary-fixture-model"],
         )
-        disabled_target = _provider(
+        disabled_target = provider(
             provider_id="fallback-provider",
             provider_type="fallback-provider",
             name="Fallback Provider",
@@ -370,10 +340,10 @@ class TestSettingsServiceUpdateFallbackTargets:
             "fallback-provider": disabled_target,
         }.get(provider_id)
 
-        service = _service(settings_repo=settings_repo, provider_repo=provider_repo)
+        settings_service = make_service(settings_repo=settings_repo, provider_repo=provider_repo)
 
         with pytest.raises(InputValidationError, match=r"provider:fallback-provider"):
-            service.update_fallback_target(
+            settings_service.update_fallback_target(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id="fallback-fixture-model",
@@ -383,7 +353,7 @@ class TestSettingsServiceUpdateFallbackTargets:
             "primary-provider": source_provider
         }.get(provider_id)
         with pytest.raises(ProviderNotFound, match=r"provider:fallback-provider"):
-            service.update_fallback_target(
+            settings_service.update_fallback_target(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id="fallback-fixture-model",
@@ -392,14 +362,14 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_rejects_model_not_owned_by_target(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        source_provider = _provider(
+        source_provider = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
             is_active=True,
             models=["primary-fixture-model"],
         )
-        target_provider = _provider(
+        target_provider = provider(
             provider_id="fallback-provider",
             provider_type="fallback-provider",
             name="Fallback Provider",
@@ -412,7 +382,7 @@ class TestSettingsServiceUpdateFallbackTargets:
         }.get(provider_id)
 
         with pytest.raises(InputValidationError, match=r"provider:fallback-provider"):
-            _service(
+            make_service(
                 settings_repo=settings_repo, provider_repo=provider_repo
             ).update_fallback_target(
                 provider_id="primary-provider",
@@ -423,7 +393,7 @@ class TestSettingsServiceUpdateFallbackTargets:
     def test_update_fallback_target_clears_mapping_when_both_fields_are_empty(self):
         settings_repo = Mock()
         provider_repo = Mock()
-        source_provider = _provider(
+        source_provider = provider(
             provider_id="primary-provider",
             provider_type="primary-provider",
             name="Primary Provider",
@@ -432,14 +402,14 @@ class TestSettingsServiceUpdateFallbackTargets:
         )
         provider_repo.get_by_id.return_value = source_provider
         settings_repo.get_fallback_map.return_value = [
-            FallbackTargetEntry(
+            fallback_entry(
                 provider_id="primary-provider",
                 fallback_provider_id="fallback-provider",
                 fallback_model_id="fallback-fixture-model",
             )
         ]
 
-        result = _service(
+        result = make_service(
             settings_repo=settings_repo, provider_repo=provider_repo
         ).update_fallback_target(
             provider_id="primary-provider",

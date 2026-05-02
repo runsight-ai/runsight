@@ -39,6 +39,22 @@ export type SurfaceWorkflowRecord = {
   commit_sha: string;
 };
 
+export type SurfaceRunNodeRecord = {
+  node_id: string;
+  status: string;
+  cost_usd?: number;
+  duration_seconds?: number;
+  tokens?: { input?: number; output?: number; total?: number };
+  error?: string | null;
+};
+
+export type SurfaceLogEntry = {
+  id?: number;
+  timestamp: string | number;
+  level: string;
+  message: string;
+};
+
 export const eventSourceInstances: MockEventSource[] = [];
 
 export class MockEventSource {
@@ -154,6 +170,41 @@ export function buildSurfaceWorkflow(
       canvas_mode: "dag",
     },
     commit_sha: "workflow_commit_readonly",
+    ...overrides,
+  };
+}
+
+export function buildSurfaceRunNode(
+  overrides: Partial<SurfaceRunNodeRecord> = {},
+): SurfaceRunNodeRecord {
+  return {
+    node_id: "node_brain",
+    status: "completed",
+    cost_usd: 1.25,
+    duration_seconds: 42,
+    tokens: { input: 12, output: 32, total: 44 },
+    error: null,
+    ...overrides,
+  };
+}
+
+export function buildSurfaceLogEntry(
+  overrides: Partial<SurfaceLogEntry> = {},
+): SurfaceLogEntry {
+  return {
+    timestamp: "2026-04-22T13:00:00.000Z",
+    level: "info",
+    message: "Node draft started",
+    ...overrides,
+  };
+}
+
+export function buildSurfaceReplayEvent(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    event: "block_start",
+    block_id: "draft",
     ...overrides,
   };
 }

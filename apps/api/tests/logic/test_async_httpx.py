@@ -14,62 +14,19 @@ and behavior-only tests can prove the same async contract.
 import pytest
 
 import ast
-import importlib
 import inspect
 from unittest.mock import AsyncMock, Mock, patch
 
-from runsight_api.domain.value_objects import ProviderEntity
 from runsight_api.logic.services.provider_service import ProviderService
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_provider(
-    *,
-    provider_id: str = "prov_async_health",
-    name: str = "Test Provider",
-    provider_type: str = "openai",
-    api_key: str | None = "configured_key",
-    base_url: str | None = None,
-) -> ProviderEntity:
-    return ProviderEntity(
-        id=provider_id,
-        kind="provider",
-        name=name,
-        type=provider_type,
-        api_key=api_key,
-        base_url=base_url,
-    )
-
-
-def _make_service(provider: ProviderEntity) -> ProviderService:
-    repo = Mock()
-    repo.get_by_id.return_value = provider
-    repo.update.return_value = provider
-    secrets = Mock()
-    secrets.is_configured.return_value = bool(provider.api_key)
-    secrets.resolve.return_value = "dummy-xxx"
-    return ProviderService(repo, secrets)
-
-
-def _get_provider_service_source() -> str:
-    """Read the source code of provider_service.py."""
-    spec = importlib.util.find_spec("runsight_api.logic.services.provider_service")
-    assert spec and spec.origin, "Cannot locate provider_service.py"
-    with open(spec.origin) as f:
-        return f.read()
-
-
-@pytest.fixture(autouse=True)
-def _mock_ssrf_validation():
-    """Keep async HTTP client tests isolated from live DNS resolution."""
-    with patch(
-        "runsight_api.logic.services.provider_service.validate_ssrf",
-        new_callable=AsyncMock,
-    ) as mock_validate:
-        yield mock_validate
+from apps.api.tests.logic.provider_http_fixtures import (
+    async_http_client,
+    async_response,
+    make_provider as _make_provider,
+    make_service as _make_service,
+    mock_ssrf_validation as _mock_ssrf_validation_fixture,  # noqa: F401
+    patched_provider_httpx,
+    provider_service_source as _get_provider_service_source,
+)
 
 
 # ===========================================================================
@@ -182,22 +139,10 @@ class TestTestConnectionUsesAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}]}
+        mock_resp = async_response(json_data={"data": [{"id": "gpt-4o"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            # Ensure sync httpx.get is not called
-            mock_httpx.get.side_effect = AssertionError(
-                "Sync httpx.get() was called — must use httpx.AsyncClient"
-            )
-
+        with patched_provider_httpx(mock_client) as mock_httpx:
             result = await service.test_connection("prov_async_health")
 
         # The async client must have been used
@@ -213,21 +158,10 @@ class TestTestConnectionUsesAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "claude-3"}]}
+        mock_resp = async_response(json_data={"data": [{"id": "claude-3"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError(
-                "Sync httpx.get() was called — must use httpx.AsyncClient"
-            )
-
+        with patched_provider_httpx(mock_client) as mock_httpx:
             result = await service.test_connection("prov_async_health")
 
         mock_httpx.AsyncClient.assert_called()
@@ -242,21 +176,10 @@ class TestTestConnectionUsesAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"models": [{"name": "models/gemini-pro"}]}
+        mock_resp = async_response(json_data={"models": [{"name": "models/gemini-pro"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError(
-                "Sync httpx.get() was called — must use httpx.AsyncClient"
-            )
-
+        with patched_provider_httpx(mock_client) as mock_httpx:
             result = await service.test_connection("prov_async_health")
 
         mock_httpx.AsyncClient.assert_called()
@@ -273,21 +196,10 @@ class TestTestConnectionUsesAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
+        mock_resp = async_response(json_data={"models": [{"name": "llama3"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError(
-                "Sync httpx.get() was called — must use httpx.AsyncClient"
-            )
-
+        with patched_provider_httpx(mock_client) as mock_httpx:
             result = await service.test_connection("prov_async_health")
 
         mock_httpx.AsyncClient.assert_called()
@@ -303,21 +215,10 @@ class TestTestConnectionUsesAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "mistral-large"}]}
+        mock_resp = async_response(json_data={"data": [{"id": "mistral-large"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError(
-                "Sync httpx.get() was called — must use httpx.AsyncClient"
-            )
-
+        with patched_provider_httpx(mock_client) as mock_httpx:
             result = await service.test_connection("prov_async_health")
 
         mock_httpx.AsyncClient.assert_called()
@@ -363,22 +264,6 @@ class TestTestConnectionUsesAsyncClient:
 # ===========================================================================
 
 
-class _NoOpAsyncClient:
-    """Minimal async context manager stand-in for httpx.AsyncClient."""
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        pass
-
-    async def get(self, url, **kwargs):
-        resp = Mock()
-        resp.status_code = 200
-        resp.json.return_value = {"data": []}
-        return resp
-
-
 class TestHealthCheckBehaviorWithAsyncClient:
     """Health check behavior must be preserved when using httpx.AsyncClient."""
 
@@ -391,19 +276,10 @@ class TestHealthCheckBehaviorWithAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]}
+        mock_resp = async_response(json_data={"data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError("sync httpx.get blocked")
-
+        with patched_provider_httpx(mock_client):
             result = await service.test_connection("prov_async_health")
 
         assert result["success"] is True
@@ -419,19 +295,10 @@ class TestHealthCheckBehaviorWithAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"data": [{"id": "claude-3-opus"}]}
+        mock_resp = async_response(json_data={"data": [{"id": "claude-3-opus"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError("sync httpx.get blocked")
-
+        with patched_provider_httpx(mock_client):
             await service.test_connection("prov_async_health")
 
         # Verify the async client.get was called with correct headers
@@ -452,19 +319,10 @@ class TestHealthCheckBehaviorWithAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"models": [{"name": "llama3"}]}
+        mock_resp = async_response(json_data={"models": [{"name": "llama3"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError("sync httpx.get blocked")
-
+        with patched_provider_httpx(mock_client):
             result = await service.test_connection("prov_async_health")
 
         assert result["success"] is True
@@ -484,19 +342,10 @@ class TestHealthCheckBehaviorWithAsyncClient:
         )
         service = _make_service(provider)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"models": [{"name": "models/gemini-pro"}]}
+        mock_resp = async_response(json_data={"models": [{"name": "models/gemini-pro"}]})
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError("sync httpx.get blocked")
-
+        with patched_provider_httpx(mock_client):
             await service.test_connection("prov_async_health")
 
         mock_client.get.assert_called_once()
@@ -519,18 +368,10 @@ class TestHealthCheckBehaviorWithAsyncClient:
         secrets.resolve.return_value = "dummy-bad-key"
         service = ProviderService(repo, secrets)
 
-        mock_resp = Mock()
-        mock_resp.status_code = 401
+        mock_resp = async_response(status_code=401)
+        mock_client = async_http_client(mock_resp)
 
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("runsight_api.logic.services.provider_service.httpx") as mock_httpx:
-            mock_httpx.AsyncClient.return_value = mock_client
-            mock_httpx.get.side_effect = AssertionError("sync httpx.get blocked")
-
+        with patched_provider_httpx(mock_client):
             result = await service.test_connection("prov_async_health")
 
         assert result["success"] is False
