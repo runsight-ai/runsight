@@ -8,12 +8,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const TESTS_DIR = resolve(__dirname, "..");
 const HELPERS_DIR = resolve(TESTS_DIR, "helpers");
-const LEGACY_SUBFLOWS_SPEC = resolve(TESTS_DIR, "subflows.spec.ts");
 
 interface SpecSource {
   name: string;
@@ -116,29 +115,31 @@ describe("Subflow E2E ownership governance", () => {
     ).toEqual([]);
   });
 
-  it("keeps the legacy subflows.spec.ts free of inline fixture and API helper definitions", () => {
-    if (!existsSync(LEGACY_SUBFLOWS_SPEC)) {
-      expect(true).toBe(true);
-      return;
-    }
+  it("keeps every subflow spec free of inline fixture and API helper definitions", () => {
+    const inlineDefinitions = readSubflowSpecs().flatMap((spec) => {
+      const helperDefinitions = [
+        "apiGet",
+        "apiPost",
+        "apiPut",
+        "apiDelete",
+        "buildHappyChildYaml",
+        "buildHappyParentYaml",
+        "buildFailingChildYaml",
+        "buildFailingParentYaml",
+      ].filter((functionName) =>
+        new RegExp(`(?:async\\s+)?function\\s+${functionName}\\b`).test(
+          spec.source,
+        ),
+      );
 
-    const source = readFile(LEGACY_SUBFLOWS_SPEC);
-    const inlineDefinitions = [
-      "apiGet",
-      "apiPost",
-      "apiPut",
-      "apiDelete",
-      "buildHappyChildYaml",
-      "buildHappyParentYaml",
-      "buildFailingChildYaml",
-      "buildFailingParentYaml",
-    ].filter((functionName) =>
-      new RegExp(`(?:async\\s+)?function\\s+${functionName}\\b`).test(source),
-    );
+      return helperDefinitions.map(
+        (functionName) => `${spec.name}: ${functionName}`,
+      );
+    });
 
     expect(
       inlineDefinitions,
-      "Legacy subflows.spec.ts must delegate API helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
+      "Subflow specs must delegate API helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
     ).toEqual([]);
   });
 });
