@@ -1,0 +1,23 @@
+testing/gui-e2e/tests/context-audit-flow.spec.ts
+  4adca821c1af8eb3 1-8,35,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4d894165ed287243d7c6627bc265a6430482d45b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 428,
+      "accepted_lines": 42979,
+      "overriden_lines": 0
+    }
+  }
+}
