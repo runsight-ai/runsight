@@ -1,0 +1,38 @@
+packages/ui/src/components/ui/__tests__/componentTokenSweep.test.ts
+  4adca821c1af8eb3 4-9,33,44,48-78,80-269,271-291,293-294,297-303,307,310-359,362,366-367,381,383
+packages/ui/src/components/ui/__tests__/componentTokenSweepGovernance.test.ts
+  4adca821c1af8eb3 1-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "95965b88e9283ac6789632dfa3a984919f40d01d",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 703,
+      "total_deletions": 1418,
+      "accepted_lines": 49780,
+      "overriden_lines": 0
+    },
+    "c74487dd834af296": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de61e-0928-7871-a7bb-03ade4878834",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 79,
+      "total_deletions": 0,
+      "accepted_lines": 75,
+      "overriden_lines": 0
+    }
+  }
+}
