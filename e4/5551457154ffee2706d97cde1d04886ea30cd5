@@ -1,0 +1,23 @@
+apps/gui/src/features/surface/__tests__/readonlySurfaceOwnershipGovernance.test.ts
+  7261e03eac7f1c3a 1-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e45551457154ffee2706d97cde1d04886ea30cd5",
+  "prompts": {
+    "7261e03eac7f1c3a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de75d-0368-7430-bbec-1021f0003c1f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 174,
+      "total_deletions": 0,
+      "accepted_lines": 172,
+      "overriden_lines": 0
+    }
+  }
+}
