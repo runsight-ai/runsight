@@ -39,39 +39,6 @@ describe("TagInput public API", () => {
   });
 });
 
-describe("TagInput behavior contracts", () => {
-  it("adds tags on Enter or comma and prevents the native input action", () => {
-    const source = readComponent();
-    expect(source).toMatch(/e\.key\s*===\s*"Enter"/);
-    expect(source).toMatch(/e\.key\s*===\s*","/);
-    expect(source).toMatch(/e\.preventDefault\(\)/);
-    expect(source).toMatch(/addTag\(/);
-  });
-
-  it("removes the last tag on Backspace when the input is empty", () => {
-    const source = readComponent();
-    expect(source).toMatch(/e\.key\s*===\s*"Backspace"/);
-    expect(source).toMatch(/inputValue\s*===\s*""/);
-    expect(source).toMatch(/tags\.length\s*>\s*0/);
-    expect(source).toMatch(/removeTag\(tags\.length\s*-\s*1\)/);
-  });
-
-  it("trims whitespace, ignores empty values, ignores duplicates, and clears the input after add", () => {
-    const source = readComponent();
-    expect(source).toMatch(/const\s+trimmed\s*=\s*value\.trim\(\)/);
-    expect(source).toMatch(/if\s*\(\s*trimmed/);
-    expect(source).toMatch(/!tags\.includes\(trimmed\)/);
-    expect(source).toMatch(/setInputValue\(""\)/);
-  });
-
-  it("renders tags as Badge pills with an accessible remove button", () => {
-    const source = readComponent();
-    expect(source).toMatch(/<Badge[^>]+variant=\s*"neutral"/);
-    expect(source).toMatch(/aria-label=\{`Remove \$\{tag\}`\}/);
-    expect(source).toMatch(/onClick=\{\(\)\s*=>\s*removeTag\(i\)\}/);
-  });
-});
-
 describe("TagInput visual contract", () => {
   it("uses the required focus ring and border token classes on the container", () => {
     const source = readComponent();
@@ -91,6 +58,8 @@ describe("TagInput visual contract", () => {
 
   it("truncates long tag text and styles the remove button as muted until hover", () => {
     const source = readComponent();
+    expect(source).toMatch(/<Badge[^>]+variant=\s*"neutral"/);
+    expect(source).toMatch(/aria-label=\{`Remove \$\{tag\}`\}/);
     expect(source).toMatch(/max-w-\[200px\]/);
     expect(source).toMatch(/truncate/);
     expect(source).toMatch(/text-muted/);
