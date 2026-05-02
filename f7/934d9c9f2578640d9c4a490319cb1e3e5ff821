@@ -1,0 +1,40 @@
+apps/gui/src/features/surface/__tests__/readonlySurfaceIntegration.test.tsx
+  5a1e393182611486 16-25,122,156,285,292-296,329,554,642,663
+apps/gui/src/features/surface/__tests__/surfaceStreamOwnershipGovernance.test.ts
+  4adca821c1af8eb3 1-122
+apps/gui/src/features/surface/__tests__/bottomPanelControllers.test.tsx
+  5a1e393182611486 8-14,203,242-243,260,283,317-331,372,385,406,426,436,726
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f7934d9c9f2578640d9c4a490319cb1e3e5ff821",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 224,
+      "total_deletions": 0,
+      "accepted_lines": 51932,
+      "overriden_lines": 10
+    },
+    "5a1e393182611486": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de5fd-f52b-7cb2-9465-de3507574d69",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 79,
+      "total_deletions": 476,
+      "accepted_lines": 153,
+      "overriden_lines": 3
+    }
+  }
+}
