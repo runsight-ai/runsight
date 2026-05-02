@@ -25,6 +25,8 @@ before we continue refactoring.
   behavior-owner suites added, and duplicated YAML/schema/source/string checks
   collapsed into existing owners where possible
 - Tier 5 RGB gate: Blue approved, Yellow approved
+- Tier 6 pre-flight completed: fixture-externalization candidates classified
+  into API, GUI, and Core batches in `tier-6-preflight.md`
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
