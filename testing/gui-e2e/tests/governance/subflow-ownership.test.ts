@@ -23,6 +23,14 @@ const SUBFLOW_HELPER_EXPORTS = [
   "apiPost",
   "apiPut",
   "apiDelete",
+  "assertProviderGateOpensFromEditor",
+  "cleanupWorkflow",
+  "createWorkflowViaUi",
+  "ensureActiveProvider",
+  "expectRunDeleted",
+  "hasActiveProvider",
+  "primeSubflowAppSettings",
+  "runWorkflowFromEditor",
   "waitForWorkflowRun",
   "waitForChildRun",
   "waitForRunNode",
@@ -89,7 +97,7 @@ function definesHelperInline(source: string, helperName: string): boolean {
 }
 
 describe("Subflow E2E ownership governance", () => {
-  it("keeps subflow YAML builders and API/run helpers in behavior-named helper files", () => {
+  it("keeps subflow YAML builders and API/workflow helpers in behavior-named helper files", () => {
     const helperFiles = getSubflowHelperFiles();
 
     expect(
@@ -154,7 +162,7 @@ describe("Subflow E2E ownership governance", () => {
 
     expect(
       inlineDefinitions,
-      "Subflow specs must delegate API/run helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
+      "Subflow specs must delegate API/workflow helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
     ).toEqual([]);
   });
 });
