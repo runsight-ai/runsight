@@ -1,0 +1,225 @@
+packages/core/pyproject.toml
+  4adca821c1af8eb3 39
+packages/core/tests/assertions/test_assertion_isolation.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_isolation_wrapper_block_wrapping.py
+  4adca821c1af8eb3 5,13
+apps/api/tests/logic/test_streaming_observer.py
+  4adca821c1af8eb3 10-17,47-48,50-51,57-68,113
+packages/core/tests/test_isolation_wrapper_loop_subprocess_blocks.py
+  4adca821c1af8eb3 7,15
+packages/core/tests/test_isolation_ipc_grant_token_auth.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_harness_observer_interceptor_wiring.py
+  4adca821c1af8eb3 19
+packages/core/tests/test_isolation_wrapper_conversation_history.py
+  4adca821c1af8eb3 7,14
+packages/core/tests/test_isolation_dispatch_delegate_artifacts.py
+  4adca821c1af8eb3 6,20
+  7c0714e509fe4bad 7,21
+packages/core/tests/test_isolation_worker_grant_token_env.py
+  4adca821c1af8eb3 7,15
+packages/core/tests/test_isolation_harness_subprocess_contract.py
+  4adca821c1af8eb3 13
+packages/core/tests/test_isolation_wrapper_harness_delegation.py
+  4adca821c1af8eb3 18
+packages/core/tests/test_isolation_harness_stall_monitoring.py
+  4adca821c1af8eb3 22
+  7c0714e509fe4bad 23
+apps/gui/src/features/setup/__tests__/connectionFeedbackAccessibility.test.tsx
+  4adca821c1af8eb3 1-4,6,8-10,12-13,15-16,18,20-21,24-25,27,29-30,33-36,38,40-43,45-46
+packages/core/tests/test_isolation_http_transport_contract.py
+  4adca821c1af8eb3 9-10
+apps/gui/src/features/surface/__tests__/contextAuditSurfaces.test.ts
+  4adca821c1af8eb3 21-23,108-135,200-222,233-243,264-281
+packages/core/tests/test_isolation_interceptor_registry_contract.py
+  4adca821c1af8eb3 9-10
+apps/gui/src/features/settings/__tests__/settingsFallbackBehavior.test.tsx
+  4adca821c1af8eb3 1,3-168,171-175,177-179,181,183-193,196,198-205,208-213,216-229,231-235,237-238,240-254,256-269,271-272,274,276-283,285-295,298-302,304-311,314-355,357-400
+packages/core/tests/test_isolation_worker_proxied_llm_client.py
+  4adca821c1af8eb3 10-11
+packages/core/tests/test_isolation_harness_llm_ipc_contract.py
+  4adca821c1af8eb3 12
+packages/core/tests/test_isolation_file_io_sandbox.py
+  4adca821c1af8eb3 9-10
+packages/core/tests/test_isolation_harness_http_wiring.py
+  4adca821c1af8eb3 9-10
+packages/core/tests/test_isolation_context_scope.py
+  4adca821c1af8eb3 26
+packages/core/tests/test_isolation_harness_subprocess_runtime.py
+  4adca821c1af8eb3 17
+apps/api/tests/unit/data/filesystem/test_workflow_yaml_validation.py
+  4adca821c1af8eb3 1-104
+apps/api/tests/logic/test_execution_stream_registry_cleanup.py
+  4adca821c1af8eb3 3-5,49-50,56,63
+apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py
+  4adca821c1af8eb3 57-61,82-86,104,117-120
+packages/core/tests/conftest.py
+  4adca821c1af8eb3 115-120,133-134,136
+packages/core/tests/test_isolation_worker_shared_ipc_client.py
+  4adca821c1af8eb3 13
+packages/core/tests/test_isolation_block_schema_parser_wiring.py
+  4adca821c1af8eb3 8
+packages/core/tests/test_tool_ipc_tool_calls.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_worker_state_context.py
+  4adca821c1af8eb3 15
+tools/test-audit/SUMMARY.md
+  4adca821c1af8eb3 9-10,38-42,73,79,85-88,95-96,98-99,112-117,121-125,129-132
+packages/core/tests/test_isolation_ipc_http_round_trip.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_worker_import_boundary.py
+  4adca821c1af8eb3 7-9
+packages/core/tests/test_isolation_envelope_models.py
+  4adca821c1af8eb3 8-10
+packages/core/tests/test_isolation_ipc_budget_interceptor.py
+  4adca821c1af8eb3 17
+packages/core/tests/test_isolation_wrapper_tool_output_propagation.py
+  4adca821c1af8eb3 7,14
+packages/core/tests/test_isolation_dispatch_subprocess_envelope.py
+  4adca821c1af8eb3 3-4,16
+packages/core/tests/test_isolation_ipc_write_artifact_round_trip.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_isolation_ipc_process_boundary.py
+  4adca821c1af8eb3 14
+apps/gui/src/features/settings/__tests__/settingsPageBehavior.test.tsx
+  4adca821c1af8eb3 1,3-6,8-25,27-33,35,37-39,41-46,49-50,52,54-59,61-66,69-89
+packages/core/tests/test_isolation_worker_assertion_block_contract.py
+  4adca821c1af8eb3 18
+  7c0714e509fe4bad 19
+packages/core/tests/test_isolation_http_url_allowlist.py
+  4adca821c1af8eb3 9-10
+packages/core/tests/test_isolation_wrapper_budget_fitting.py
+  4adca821c1af8eb3 7,14
+packages/core/tests/test_isolation_harness_budget_interceptor_wiring.py
+  4adca821c1af8eb3 20
+packages/core/tests/test_isolation_ipc_frames.py
+  4adca821c1af8eb3 18
+apps/api/tests/transport/test_read_model_dependency_factories.py
+  4adca821c1af8eb3 1-57
+packages/core/tests/test_isolation_subprocess_pool_semaphore.py
+  4adca821c1af8eb3 5-6,12
+packages/core/tests/test_isolation_ipc_capability_negotiation.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_harness_result_contracts.py
+  4adca821c1af8eb3 21
+packages/core/tests/test_isolation_credentials_ipc_tool_handler.py
+  4adca821c1af8eb3 9
+packages/core/tests/test_isolation_envelope_block_contracts.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_isolation_harness_ipc_handler_registration.py
+  4adca821c1af8eb3 10
+packages/core/tests/test_tool_isolated_execution_envelope.py
+  4adca821c1af8eb3 19
+packages/core/tests/test_tool_pipeline_execution.py
+  4adca821c1af8eb3 20
+apps/api/tests/logic/test_run_repository_read_model_split.py
+  1c76292efedbcea4 144,204,261
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 43,78,91,107,168,209-210,251-253,255,267,337,376,428,443,474,479
+packages/core/tests/test_isolation_ipc_dispatch.py
+  4adca821c1af8eb3 17
+packages/core/tests/test_isolation_ipc_server_interceptor_integration.py
+  4adca821c1af8eb3 18-19
+packages/core/tests/test_isolation_worker_ipc_tool_stubs.py
+  4adca821c1af8eb3 10
+packages/core/tests/test_isolation_worker_subprocess_startup.py
+  4adca821c1af8eb3 16
+apps/api/tests/domain/test_sse_event_constants.py
+  4adca821c1af8eb3 1,3,6-15,24-43
+packages/core/tests/test_conftest_isolation_mock.py
+  4adca821c1af8eb3 14-16,404,408-409,411-412,420,422-443,446-450,452,454-473
+packages/core/tests/test_isolation_http_credential_injection.py
+  4adca821c1af8eb3 10-11
+packages/core/tests/test_isolation_ipc_client_connect_handshake.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_ipc_observer_interceptor.py
+  4adca821c1af8eb3 12
+packages/core/tests/test_isolation_wrapper_soul_contract.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_isolation_boundary_integration.py
+  4adca821c1af8eb3 18
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 43,78,91,107,168,209-210,251-253,255,267,337,376,428,443,474,479
+packages/core/tests/test_isolation_harness_process_lifecycle.py
+  4adca821c1af8eb3 17
+pyproject.toml
+  4adca821c1af8eb3 39
+packages/core/tests/test_isolation_http_ssrf_protection.py
+  4adca821c1af8eb3 9-10
+apps/gui/src/features/settings/__tests__/settingsProviderManagement.test.tsx
+  4adca821c1af8eb3 1-285
+packages/core/tests/test_isolation_ipc_lifecycle.py
+  4adca821c1af8eb3 16
+packages/core/tests/test_isolation_wrapper_cost_token_propagation.py
+  4adca821c1af8eb3 14
+packages/core/tests/test_isolation_wrapper_retry_runtime.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_isolation_worker_capability_negotiation_startup.py
+  4adca821c1af8eb3 11
+packages/core/tests/test_isolation_heartbeat_observer_protocol.py
+  4adca821c1af8eb3 8-9,20
+packages/core/tests/test_isolation_env_resolution_budget.py
+  4adca821c1af8eb3 7-8
+tools/test-audit/tier-7-preflight.md
+  4adca821c1af8eb3 11,53-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "477aeaf412e5efd1c98908755118d730a34c8942",
+  "prompts": {
+    "08923f9be761abdf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea55-27f0-7b71-bec4-8ccba90f43b5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "1c76292efedbcea4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea55-28e0-78e3-8abf-404d28aa4add",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 55,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1600,
+      "total_deletions": 2653,
+      "accepted_lines": 23466,
+      "overriden_lines": 0
+    },
+    "7c0714e509fe4bad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ef-04e3-7b90-9a08-b1c4bde1768e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1373,
+      "overriden_lines": 0
+    }
+  }
+}
