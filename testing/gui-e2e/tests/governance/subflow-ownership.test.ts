@@ -14,6 +14,20 @@ import { resolve } from "node:path";
 const TESTS_DIR = resolve(__dirname, "..");
 const HELPERS_DIR = resolve(TESTS_DIR, "helpers");
 
+const SUBFLOW_HELPER_EXPORTS = [
+  "buildHappyChildYaml",
+  "buildHappyParentYaml",
+  "buildFailingChildYaml",
+  "buildFailingParentYaml",
+  "apiGet",
+  "apiPost",
+  "apiPut",
+  "apiDelete",
+  "waitForWorkflowRun",
+  "waitForChildRun",
+  "waitForRunNode",
+] as const;
+
 interface SpecSource {
   name: string;
   source: string;
@@ -21,6 +35,12 @@ interface SpecSource {
 
 function readFile(filePath: string): string {
   return readFileSync(filePath, "utf-8");
+}
+
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
 function readSubflowSpecs(): SpecSource[] {
@@ -50,8 +70,26 @@ function containsFailurePathOwnership(source: string): boolean {
   return /\bfail(?:ed|ing|ure)?\b|buildFailing|call_failing_child/.test(source);
 }
 
+function exportsHelper(source: string, helperName: string): boolean {
+  const code = stripComments(source);
+  return [
+    `export\\s+(?:async\\s+)?function\\s+${helperName}\\b`,
+    `export\\s+const\\s+${helperName}\\b`,
+    `export\\s*\\{[^}]*\\b${helperName}\\b[^}]*\\}`,
+  ].some((pattern) => new RegExp(pattern).test(code));
+}
+
+function definesHelperInline(source: string, helperName: string): boolean {
+  const code = stripComments(source);
+  return [
+    `(?:async\\s+)?function\\s+${helperName}\\b`,
+    `(?:const|let|var)\\s+${helperName}\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[\\w$]+)\\s*=>`,
+    `(?:const|let|var)\\s+${helperName}\\s*=\\s*(?:async\\s+)?function\\b`,
+  ].some((pattern) => new RegExp(pattern).test(code));
+}
+
 describe("Subflow E2E ownership governance", () => {
-  it("keeps subflow YAML builders and API helpers in behavior-named helper files", () => {
+  it("keeps subflow YAML builders and API/run helpers in behavior-named helper files", () => {
     const helperFiles = getSubflowHelperFiles();
 
     expect(
@@ -63,23 +101,11 @@ describe("Subflow E2E ownership governance", () => {
       .map((fileName) => readFile(resolve(HELPERS_DIR, fileName)))
       .join("\n");
 
-    for (const expectedHelper of [
-      "buildHappyChildYaml",
-      "buildHappyParentYaml",
-      "buildFailingChildYaml",
-      "buildFailingParentYaml",
-      "apiGet",
-      "apiPost",
-      "apiPut",
-      "apiDelete",
-      "waitForWorkflowRun",
-      "waitForChildRun",
-      "waitForRunNode",
-    ]) {
+    for (const expectedHelper of SUBFLOW_HELPER_EXPORTS) {
       expect(
-        helperSources,
+        exportsHelper(helperSources, expectedHelper),
         `${expectedHelper} should be owned by tests/helpers/subflowFixtures.ts or a behavior-named subflow helper.`,
-      ).toContain(expectedHelper);
+      ).toBe(true);
     }
   });
 
@@ -115,21 +141,10 @@ describe("Subflow E2E ownership governance", () => {
     ).toEqual([]);
   });
 
-  it("keeps every subflow spec free of inline fixture and API helper definitions", () => {
+  it("keeps every subflow spec free of inline fixture and API/run helper definitions", () => {
     const inlineDefinitions = readSubflowSpecs().flatMap((spec) => {
-      const helperDefinitions = [
-        "apiGet",
-        "apiPost",
-        "apiPut",
-        "apiDelete",
-        "buildHappyChildYaml",
-        "buildHappyParentYaml",
-        "buildFailingChildYaml",
-        "buildFailingParentYaml",
-      ].filter((functionName) =>
-        new RegExp(`(?:async\\s+)?function\\s+${functionName}\\b`).test(
-          spec.source,
-        ),
+      const helperDefinitions = SUBFLOW_HELPER_EXPORTS.filter((functionName) =>
+        definesHelperInline(spec.source, functionName),
       );
 
       return helperDefinitions.map(
@@ -139,7 +154,7 @@ describe("Subflow E2E ownership governance", () => {
 
     expect(
       inlineDefinitions,
-      "Subflow specs must delegate API helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
+      "Subflow specs must delegate API/run helpers and YAML builders to tests/helpers/subflowFixtures.ts or behavior-named subflow helpers.",
     ).toEqual([]);
   });
 });
