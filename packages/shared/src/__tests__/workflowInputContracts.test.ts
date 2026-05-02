@@ -106,6 +106,53 @@ describe("shared workflow input contracts", () => {
     });
   });
 
+  it("WorkflowResponseSchema exposes identity and canonical list metadata fields", () => {
+    const schema = getSchema("WorkflowResponseSchema");
+
+    expect(schema.shape).toHaveProperty("id");
+    expect(schema.shape).toHaveProperty("kind");
+    expect(schema.shape).toHaveProperty("block_count");
+    expect(schema.shape).toHaveProperty("modified_at");
+    expect(schema.shape).toHaveProperty("enabled");
+    expect(schema.shape).toHaveProperty("commit_sha");
+    expect(schema.shape).toHaveProperty("health");
+
+    const parsed = schema.parse({
+      id: "research-review",
+      kind: "workflow",
+      name: "Research Review",
+      yaml: "blocks: {}",
+      valid: true,
+      block_count: 3,
+      modified_at: 1711900000,
+      enabled: true,
+      commit_sha: "1234567890abcdef1234567890abcdef12345678",
+      health: {
+        run_count: 2,
+        eval_pass_pct: 95,
+        eval_health: "success",
+        total_cost_usd: 0.3,
+        regression_count: 0,
+      },
+    }) as {
+      id: string;
+      kind: string;
+      block_count?: number;
+      modified_at?: number;
+      enabled?: boolean;
+      commit_sha?: string | null;
+      health?: { regression_count?: number };
+    };
+
+    expect(parsed.id).toBe("research-review");
+    expect(parsed.kind).toBe("workflow");
+    expect(parsed.block_count).toBe(3);
+    expect(parsed.modified_at).toBe(1711900000);
+    expect(parsed.enabled).toBe(true);
+    expect(parsed.commit_sha).toBe("1234567890abcdef1234567890abcdef12345678");
+    expect(parsed.health?.regression_count).toBe(0);
+  });
+
   it("RunResponseSchema preserves workflow input snapshots and sensitive redaction boundaries", () => {
     const schema = getSchema("RunResponseSchema");
 

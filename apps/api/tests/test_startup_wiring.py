@@ -105,3 +105,47 @@ class TestStartupGhostRunCleanupOwnership:
                 assert recovered.status == RunStatus.failed
                 assert recovered.error == "API server restarted during execution"
                 assert recovered.completed_at is not None
+
+    def test_recover_stale_runs_fails_active_runs_and_preserves_terminal_runs(
+        self,
+        db_engine,
+        seed_runs,
+    ):
+        from runsight_api.main import _recover_stale_runs
+
+        original_completed_at = time.time() - 3600
+        pending = _make_run(status=RunStatus.pending)
+        running = _make_run(status=RunStatus.running)
+        completed = _make_run(status=RunStatus.completed, completed_at=original_completed_at)
+        failed = _make_run(
+            status=RunStatus.failed,
+            error="original failure",
+            completed_at=original_completed_at,
+        )
+        seed_runs([pending, running, completed, failed])
+
+        _recover_stale_runs(db_engine)
+
+        with Session(db_engine) as session:
+            recovered_pending = session.get(Run, pending.id)
+            recovered_running = session.get(Run, running.id)
+            untouched_completed = session.get(Run, completed.id)
+            untouched_failed = session.get(Run, failed.id)
+
+            assert recovered_pending.status == RunStatus.failed
+            assert recovered_pending.error == "API server restarted during execution"
+            assert recovered_pending.completed_at is not None
+            assert abs(recovered_pending.completed_at - time.time()) < 10
+
+            assert recovered_running.status == RunStatus.failed
+            assert recovered_running.error == "API server restarted during execution"
+            assert recovered_running.completed_at is not None
+            assert abs(recovered_running.completed_at - time.time()) < 10
+
+            assert untouched_completed.status == RunStatus.completed
+            assert untouched_completed.error is None
+            assert untouched_completed.completed_at == original_completed_at
+
+            assert untouched_failed.status == RunStatus.failed
+            assert untouched_failed.error == "original failure"
+            assert untouched_failed.completed_at == original_completed_at

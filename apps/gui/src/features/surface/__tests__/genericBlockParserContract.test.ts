@@ -125,3 +125,49 @@ describe("Parser: unknown fields mapped snake_case -> camelCase", () => {
     expect((data as Record<string, unknown>).alreadyCamel).toBe("preserved");
   });
 });
+
+describe("Parser: known nested fields still use canonical key conversion", () => {
+  it("maps loop carry_context to carryContext", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "loop",
+        inner_block_refs: ["step_a"],
+        carry_context: {
+          enabled: true,
+          mode: "last",
+          source_blocks: ["step_a"],
+          inject_as: "previous_output",
+        },
+      },
+    });
+    const data = parseFirst(yaml);
+
+    expect(data.carryContext).toEqual({
+      enabled: true,
+      mode: "last",
+      sourceBlocks: ["step_a"],
+      injectAs: "previous_output",
+    });
+  });
+
+  it("maps retry_config to retryConfig", () => {
+    const yaml = makeYaml({
+      step1: {
+        type: "linear",
+        soul_ref: "analyst",
+        retry_config: {
+          max_attempts: 3,
+          backoff: "exponential",
+          backoff_base_seconds: 2,
+        },
+      },
+    });
+    const data = parseFirst(yaml);
+
+    expect(data.retryConfig).toEqual({
+      maxAttempts: 3,
+      backoff: "exponential",
+      backoffBaseSeconds: 2,
+    });
+  });
+});

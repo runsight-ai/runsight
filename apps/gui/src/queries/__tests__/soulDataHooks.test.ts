@@ -367,3 +367,129 @@ describe("soul data query hooks", () => {
     expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=fixture-primary");
   });
 });
+
+type MutationOptions = {
+  onSuccess?: (data?: unknown, variables?: unknown, context?: unknown) => void;
+  onError?: (error: Error, variables?: unknown, context?: unknown) => void;
+};
+
+type MutationToastCase = {
+  modulePath: "../souls" | "../workflows" | "../runs" | "../settings" | "../git";
+  hookName: string;
+  successMessage: string;
+  variables?: unknown;
+};
+
+const mutationToastCases: MutationToastCase[] = [
+  {
+    modulePath: "../souls",
+    hookName: "useCreateSoul",
+    successMessage: "Soul created",
+  },
+  {
+    modulePath: "../souls",
+    hookName: "useUpdateSoul",
+    successMessage: "Soul updated",
+    variables: { id: "researcher" },
+  },
+  {
+    modulePath: "../souls",
+    hookName: "useDeleteSoul",
+    successMessage: "Soul deleted",
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useCreateWorkflow",
+    successMessage: "Workflow created",
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useUpdateWorkflow",
+    successMessage: "Workflow updated",
+    variables: { id: "workflow-toast" },
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useDeleteWorkflow",
+    successMessage: "Workflow deleted",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useCreateRun",
+    successMessage: "Run started",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useCancelRun",
+    successMessage: "Run cancelled",
+    variables: "run-toast",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useDeleteRun",
+    successMessage: "Run deleted",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useCreateProvider",
+    successMessage: "Provider added",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateProvider",
+    successMessage: "Provider updated",
+    variables: { id: "provider-toast" },
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useDeleteProvider",
+    successMessage: "Provider deleted",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useTestProviderConnection",
+    successMessage: "Connection successful",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateFallbackTarget",
+    successMessage: "Fallback target updated",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateAppSettings",
+    successMessage: "Settings saved",
+  },
+  {
+    modulePath: "../git",
+    hookName: "useCommit",
+    successMessage: "Changes committed",
+  },
+];
+
+async function loadQueryModule(modulePath: MutationToastCase["modulePath"]) {
+  return import(/* @vite-ignore */ modulePath) as Promise<Record<string, unknown>>;
+}
+
+describe("query mutation toast behavior", () => {
+  it.each(mutationToastCases)(
+    "$hookName announces success and failure through toast callbacks",
+    async ({ modulePath, hookName, successMessage, variables }) => {
+      const mod = await loadQueryModule(modulePath);
+      const hook = mod[hookName] as () => MutationOptions;
+
+      expect(hook).toBeTypeOf("function");
+
+      const mutation = hook();
+      const failure = new Error(`${hookName} failed`);
+
+      mutation.onSuccess?.({}, variables, undefined);
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(successMessage);
+
+      mutation.onError?.(failure, variables, undefined);
+      expect(mocks.toastError).toHaveBeenCalledWith(expect.any(String), {
+        description: failure.message,
+      });
+    },
+  );
+});

@@ -604,6 +604,44 @@ describe("Existing behavior preserved", () => {
     expect(result.nodes[2].position).toEqual({ x: 560, y: 0 });
   });
 
+  it("merges persisted node positions and viewport", () => {
+    const yaml = dump({
+      version: "1.0",
+      blocks: {
+        step_a: { type: "linear" },
+        step_b: { type: "linear" },
+      },
+      workflow: {
+        name: "Demo",
+        entry: "step_a",
+        transitions: [{ from: "step_a", to: "step_b" }],
+      },
+    });
+
+    const result = parseWorkflowYamlToGraph(yaml, {
+      nodes: [
+        { id: "step_a", position: { x: 120, y: 240 } },
+        { id: "step_b", position: { x: 400, y: 240 } },
+      ],
+      edges: [],
+      viewport: { x: 10, y: 20, zoom: 0.8 },
+      selected_node_id: "step_a",
+      canvas_mode: "dag",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.nodes.find((node) => node.id === "step_a")?.position).toEqual({
+      x: 120,
+      y: 240,
+    });
+    expect(result.nodes.find((node) => node.id === "step_b")?.position).toEqual({
+      x: 400,
+      y: 240,
+    });
+    expect(result.viewport).toEqual({ x: 10, y: 20, zoom: 0.8 });
+    expect(result.edges).toHaveLength(1);
+  });
+
   it("YAML parse errors return error in result", () => {
     const result = parseWorkflowYamlToGraph("{{invalid yaml");
     expect(result.error).toBeDefined();

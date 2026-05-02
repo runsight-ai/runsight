@@ -396,6 +396,25 @@ afterEach(() => {
 });
 
 describe("WorkflowSurface readonly integration", () => {
+  it("shows readonly topbar metadata for a completed historical run", async () => {
+    setReadonlyFixtures();
+
+    render(
+      <MemoryRouter>
+        <WorkflowSurface mode="readonly" runId="run_readonly_surface" workflowId="wf_readonly_surface" />
+      </MemoryRouter>,
+    );
+
+    const workflowLink = await screen.findByRole("link", { name: "Readonly Surface Flow" });
+    expect(workflowLink.getAttribute("href")).toBe("/workflows/wf_readonly_surface/edit");
+    expect(screen.getAllByText(/completed/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Read-only review")).toBeTruthy();
+    expect(screen.getByText("1m 28s")).toBeTruthy();
+    expect(screen.getByText("2.1k tok")).toBeTruthy();
+    expect(screen.getByText("$3.140")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Fork" })).toBeTruthy();
+  });
+
   it("hydrates readonly nodes from persisted canvas state and overlays run execution data", async () => {
     const user = userEvent.setup();
     setReadonlyFixtures();

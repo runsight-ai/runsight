@@ -179,7 +179,12 @@ describe("rendered form control contracts", () => {
     render(<TagInputHarness label="Tags" placeholder="Add a tag" />);
 
     const input = screen.getByRole("textbox") as HTMLInputElement;
+    const inputContainer = input.parentElement;
     expect(input.placeholder).toBe("Add a tag");
+    expect(inputContainer?.className).toContain("flex flex-wrap");
+    expect(inputContainer?.className).toContain("border-border-default");
+    expect(inputContainer?.className).toContain("rounded-md");
+    expect(inputContainer?.className).toContain("focus-within:ring-border-focus");
 
     await user.click(input);
     await user.keyboard("{Enter}");
@@ -192,7 +197,14 @@ describe("rendered form control contracts", () => {
     await user.type(input, " alpha ");
     await user.keyboard("{Enter}");
 
-    expect(screen.getByText("alpha")).toBeTruthy();
+    const alphaTag = screen.getByText("alpha");
+    const removeAlphaButton = screen.getByRole("button", { name: "Remove alpha" });
+
+    expect(alphaTag).toBeTruthy();
+    expect(alphaTag.className).toContain("max-w-[200px]");
+    expect(alphaTag.className).toContain("truncate");
+    expect(removeAlphaButton.className).toContain("text-muted");
+    expect(removeAlphaButton.className).toContain("hover:text-primary");
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("");
 
@@ -202,7 +214,7 @@ describe("rendered form control contracts", () => {
     await user.type(input, "beta,");
     expect(screen.getByText("beta")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Remove alpha" }));
+    await user.click(removeAlphaButton);
     expect(screen.queryByText("alpha")).toBeNull();
 
     await user.click(input);

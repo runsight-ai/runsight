@@ -5,6 +5,7 @@ import {
   apiGet,
   apiPost,
   apiPut,
+  buildBlankWorkflowYaml,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import {
@@ -21,43 +22,11 @@ setupShellReadyWorkspace(test);
 type WorkflowResponse = {
   id: string;
   yaml: string | null;
+  canvas_state?: {
+    nodes?: unknown[];
+    viewport?: Record<string, unknown>;
+  } | null;
 };
-
-function buildInitialYaml(id: string) {
-  return [
-    'version: "1.0"',
-    `id: ${id}`,
-    "kind: workflow",
-    "blocks:",
-    "  step_a:",
-    "    type: linear",
-    "workflow:",
-    "  name: Demo",
-    "  entry: step_a",
-    "  transitions: []",
-    "",
-  ].join("\n");
-}
-
-function buildUpdatedYaml(id: string) {
-  return [
-    'version: "1.0"',
-    `id: ${id}`,
-    "kind: workflow",
-    "blocks:",
-    "  step_a:",
-    "    type: linear",
-    "  step_b:",
-    "    type: dispatch",
-    "workflow:",
-    "  name: Demo",
-    "  entry: step_a",
-    "  transitions:",
-    "    - from: step_a",
-    "      to: step_b",
-    "",
-  ].join("\n");
-}
 
 test.describe("Workflow YAML editor", () => {
   let workflowId: string | null = null;
@@ -66,7 +35,15 @@ test.describe("Workflow YAML editor", () => {
     const id = `e2e-yaml-${Date.now()}`;
     const workflow = await apiPost<WorkflowResponse>("/workflows", {
       name: "Demo",
-      yaml: buildInitialYaml(id),
+      yaml: buildBlankWorkflowYaml(id, "Demo"),
+      canvas_state: {
+        nodes: [],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+      commit: false,
     });
     workflowId = workflow.id;
   });
@@ -88,11 +65,11 @@ test.describe("Workflow YAML editor", () => {
   test("loads the current workflow YAML and persists edits through the commit dialog", async ({
     page,
   }) => {
-    const updatedYaml = buildUpdatedYaml(workflowId!);
+    const updatedYaml = buildBlankWorkflowYaml(workflowId!, "Demo Updated");
 
     await gotoWorkflowEditor(page, workflowId!);
 
-    expect(await readWorkflowYaml(page)).toContain("step_a:");
+    expect(await readWorkflowYaml(page)).toContain("kind: workflow");
 
     await setWorkflowYaml(page, updatedYaml);
     await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
@@ -103,15 +80,39 @@ test.describe("Workflow YAML editor", () => {
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).not.toBeVisible();
 
-    await apiPut<WorkflowResponse>(`/workflows/${workflowId}`, { yaml: updatedYaml });
+    await apiPut<WorkflowResponse>(`/workflows/${workflowId}`, {
+      yaml: updatedYaml,
+      canvas_state: {
+        nodes: [
+          {
+            id: "step_a",
+            position: { x: 0, y: 0 },
+            data: { label: "step_a" },
+            type: "task",
+          },
+        ],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      },
+    });
     await page.reload();
     await gotoWorkflowEditor(page, workflowId!);
 
     await expect
       .poll(async () => {
         const workflow = await apiGet<WorkflowResponse>(`/workflows/${workflowId}`);
-        return (workflow.yaml ?? "").trim();
+        return {
+          yaml: (workflow.yaml ?? "").trim(),
+          hasCanvasState: Boolean(workflow.canvas_state?.nodes),
+          hasViewport: Boolean(workflow.canvas_state?.viewport),
+        };
       })
-      .toBe(updatedYaml.trim());
+      .toEqual({
+        yaml: updatedYaml.trim(),
+        hasCanvasState: true,
+        hasViewport: true,
+      });
   });
 });

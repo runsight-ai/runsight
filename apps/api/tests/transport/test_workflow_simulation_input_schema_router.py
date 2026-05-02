@@ -273,3 +273,22 @@ workflow:
         assert payload["details"]["workflow_id"] == "wf_dirty_simulation"
         assert payload["details"]["fields"][0]["field"] == "__schema__"
         git_service.create_sim_branch.assert_not_called()
+
+    def test_post_workflow_simulation_rejects_embedded_workflow_id_mismatch(self):
+        git_service = Mock()
+        service = _service(git_service=git_service)
+        app.dependency_overrides[get_workflow_service] = lambda: service
+
+        response = client.post(
+            "/api/workflows/wf_dirty_simulation/simulations",
+            json={
+                "yaml": _dirty_workflow_yaml().replace(
+                    "id: wf_dirty_simulation",
+                    "id: other_workflow",
+                )
+            },
+        )
+
+        assert response.status_code == 400
+        assert "embedded workflow id" in response.text
+        git_service.create_sim_branch.assert_not_called()

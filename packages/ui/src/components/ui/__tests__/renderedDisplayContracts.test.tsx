@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "../card";
 import { KeyValue, KeyValueList } from "../key-value";
+import { NodeCard } from "../node-card";
 import { Skeleton } from "../skeleton";
 import { StatCard } from "../stat-card";
 import { StatusDot } from "../status-dot";
@@ -92,12 +93,71 @@ describe("rendered display contracts", () => {
 
     const iconContainer = container.querySelector("[data-slot='empty-state-icon']");
     const icon = iconContainer?.querySelector("svg");
+    const title = screen.getByText("No runs yet");
+    const description = screen.getByText("Create a workflow to start collecting data.");
+
     expect(icon?.getAttribute("aria-hidden")).toBe("true");
+    expect(iconContainer?.className).toContain("text-(--text-muted)");
+    expect(iconContainer?.className).toContain("w-12");
+    expect(title.className).toContain("text-[length:var(--font-size-lg)]");
+    expect(title.className).toContain("text-(--text-primary)");
+    expect(description.className).toContain("text-[length:var(--font-size-sm)]");
+    expect(description.className).toContain("text-(--text-secondary)");
 
     rerender(<EmptyState icon={CircleAlertIcon} title="No runs yet" />);
 
     expect(screen.queryByRole("button", { name: "Create workflow" })).toBeNull();
     expect(container.querySelector("[data-slot='empty-state-description']")).toBeNull();
+  });
+
+  it("renders node cards with category, execution, selected, port, and cost contracts", () => {
+    const { container, rerender } = render(
+      <NodeCard
+        title="Research Agent"
+        category="block-agent"
+        executionState="running"
+        selected
+        cost="$0.0024"
+        icon={<CircleAlertIcon />}
+        inputPort
+        outputPort
+        meta={["Linear", "2 ports"]}
+        ports={[
+          { name: "pass", type: "pass" },
+          { name: "fail", type: "fail" },
+        ]}
+      />,
+    );
+
+    let card = container.querySelector("[data-slot='node-card']");
+    const title = container.querySelector("[data-slot='node-card-title']");
+    const cost = container.querySelector("[data-slot='node-card-cost']");
+    const ports = container.querySelectorAll("[data-slot='node-card-port']");
+
+    expect(card?.getAttribute("data-category")).toBe("block-agent");
+    expect(card?.getAttribute("data-state")).toBe("running");
+    expect(card?.getAttribute("aria-selected")).toBe("true");
+    expect(card?.className).toContain("bg-(--surface-tertiary)");
+    expect(card?.className).toContain("border-t-[var(--accent-9)]");
+    expect(card?.className).toContain("border-l-accent-9/50");
+    expect(title?.className).toContain("text-(--text-heading)");
+    expect(cost?.textContent).toBe("$0.0024");
+    expect(cost?.className).toContain("font-mono");
+    expect(ports).toHaveLength(2);
+    expect(screen.getByText("pass").className).toContain("font-mono");
+
+    rerender(
+      <NodeCard
+        title="Route Decision"
+        category="block-logic"
+        executionState="success"
+        icon={<CircleAlertIcon />}
+      />,
+    );
+
+    card = container.querySelector("[data-slot='node-card']");
+    expect(card?.getAttribute("data-category")).toBe("block-logic");
+    expect(card?.className).toContain("border-t-[var(--success-9)]");
   });
 
   it("renders card composition slots and raised interactive styling", () => {

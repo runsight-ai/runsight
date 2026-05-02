@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
+  shape: Record<string, unknown>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -77,6 +78,130 @@ describe("canonical settings transport contracts", () => {
         total: 1,
       }),
     );
+  });
+
+  it("exports embedded identity request contracts for provider and soul YAML", () => {
+    const providerCreateSchema = getCanonicalSchema("ProviderCreateSchema");
+    const soulCreateSchema = getCanonicalSchema("SoulCreateSchema");
+
+    expect(providerCreateSchema.shape).toHaveProperty("id");
+    expect(providerCreateSchema.shape).toHaveProperty("kind");
+    expect(providerCreateSchema.shape).toHaveProperty("name");
+    expect(providerCreateSchema.shape).not.toHaveProperty("type");
+
+    expect(
+      providerCreateSchema.parse({
+        id: "fixture-provider",
+        kind: "provider",
+        name: "Fixture Provider",
+        api_key_env: "DUMMY_PROVIDER_KEY",
+        base_url: "http://localhost/fixture-provider/v1",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        id: "fixture-provider",
+        kind: "provider",
+        name: "Fixture Provider",
+      }),
+    );
+
+    expect(soulCreateSchema.shape).toHaveProperty("id");
+    expect(soulCreateSchema.shape).toHaveProperty("kind");
+    expect(soulCreateSchema.shape).toHaveProperty("name");
+    expect(soulCreateSchema.shape).toHaveProperty("role");
+    expect(soulCreateSchema.shape).toHaveProperty("system_prompt");
+
+    expect(
+      soulCreateSchema.parse({
+        id: "researcher",
+        kind: "soul",
+        name: "Researcher",
+        role: "Research File Writer",
+        system_prompt: "Write a research brief.",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        id: "researcher",
+        kind: "soul",
+        name: "Researcher",
+        role: "Research File Writer",
+        system_prompt: "Write a research brief.",
+      }),
+    );
+  });
+
+  it("custom YAML request contracts reject unknown fields", () => {
+    const providerCreateSchema = getCanonicalSchema("ProviderCreateSchema");
+    const providerUpdateSchema = getCanonicalSchema("ProviderUpdateSchema");
+    const soulCreateSchema = getCanonicalSchema("SoulCreateSchema");
+    const soulUpdateSchema = getCanonicalSchema("SoulUpdateSchema");
+
+    expect(() =>
+      providerCreateSchema.parse({
+        id: "fixture-provider",
+        kind: "provider",
+        name: "Fixture Provider",
+        custom_notes: "unsupported",
+      }),
+    ).toThrow();
+    expect(() =>
+      providerUpdateSchema.parse({
+        id: "fixture-provider",
+        kind: "provider",
+        custom_notes: "unsupported",
+      }),
+    ).toThrow();
+    expect(() =>
+      soulCreateSchema.parse({
+        id: "researcher",
+        kind: "soul",
+        name: "Researcher",
+        role: "Researcher",
+        system_prompt: "Research carefully.",
+        assertions: [{ type: "contains", value: "hello" }],
+      }),
+    ).toThrow();
+    expect(() =>
+      soulUpdateSchema.parse({
+        custom_notes: "unsupported",
+      }),
+    ).toThrow();
+  });
+
+  it("exports canonical tool list item identity fields", () => {
+    const toolListItemSchema = getCanonicalSchema("ToolListItemResponseSchema");
+
+    expect(toolListItemSchema.shape).toHaveProperty("id");
+    expect(toolListItemSchema.shape).toHaveProperty("name");
+    expect(toolListItemSchema.shape).toHaveProperty("description");
+    expect(toolListItemSchema.shape).toHaveProperty("origin");
+    expect(toolListItemSchema.shape).toHaveProperty("executor");
+    expect(toolListItemSchema.shape).not.toHaveProperty("slug");
+    expect(toolListItemSchema.shape).not.toHaveProperty("type");
+
+    expect(
+      toolListItemSchema.parse({
+        id: "report_lookup",
+        name: "Report Lookup",
+        description: "Look up saved reports.",
+        origin: "custom",
+        executor: "python",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        id: "report_lookup",
+        origin: "custom",
+        executor: "python",
+      }),
+    );
+    expect(() =>
+      toolListItemSchema.parse({
+        slug: "http",
+        name: "HTTP Requests",
+        description: "Fetch external APIs.",
+        type: "builtin",
+      }),
+    ).toThrow();
   });
 
   it("exports canonical fallback item and list schemas on @runsight/shared/zod", () => {

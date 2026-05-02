@@ -14,6 +14,7 @@ The key architectural change:
 """
 
 import json
+from unittest.mock import patch
 
 import pytest
 from conftest import block_output_from_state
@@ -193,6 +194,32 @@ class TestResolveNextWithOutputConditions:
         # set decision in metadata, then conditional_transitions picks it up
         next_id = wf._resolve_next("step_a", state)
         assert next_id == "step_good"
+
+    def test_output_conditions_evaluate_block_result_output_not_str(self):
+        """Output conditions read BlockResult.output instead of implicit __str__."""
+        wf = Workflow(name="workflow-block-execute-workflow")
+        wf.add_block(MockBlock("step_a"))
+        wf.add_block(MockBlock("matched"))
+        wf.add_block(MockBlock("fallback"))
+        wf.set_entry("step_a")
+
+        cases = [
+            _make_case(
+                "matched",
+                [{"eval_key": "result", "operator": "contains", "value": "REAL_OUTPUT"}],
+            ),
+        ]
+        wf.set_output_conditions("step_a", cases, default="fallback")
+        wf.add_conditional_transition(
+            "step_a",
+            {"matched": "matched", "fallback": "fallback"},
+        )
+        state = WorkflowState(results={"step_a": BlockResult(output="REAL_OUTPUT")})
+
+        with patch.object(BlockResult, "__str__", return_value="PATCHED_STR"):
+            next_id = wf._resolve_next("step_a", state)
+
+        assert next_id == "matched"
 
     def test_output_conditions_before_conditional_transitions(self):
         """output_conditions are evaluated FIRST, setting metadata that conditional_transitions reads."""

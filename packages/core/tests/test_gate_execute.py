@@ -6,7 +6,8 @@ PASS/FAIL result behavior.
 """
 
 import inspect
-from unittest.mock import AsyncMock, MagicMock
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from conftest import execute_block_for_test
@@ -374,3 +375,116 @@ class TestGateResultsCorrect:
 
         with pytest.raises(ValueError, match="missing_key"):
             await execute_block_for_test(block, state)
+
+
+class TestGateDecisionAndExtractionEdges:
+    """GateBlock decision parsing and extract_field behavior."""
+
+    @pytest.mark.asyncio
+    async def test_context_uses_block_result_output_not_str(self):
+        """GateBlock prompt uses BlockResult.output, not implicit __str__."""
+        runner = _mock_runner("PASS")
+        block = _make_gate(block_id="gate_real_output", runner=runner)
+        state = WorkflowState(results={"content": BlockResult(output="REAL_OUTPUT")})
+
+        with patch.object(BlockResult, "__str__", return_value="PATCHED_STR"):
+            await execute_block_for_test(block, state)
+
+        args, _kwargs = runner.execute.call_args
+        context_arg = args[1] if len(args) >= 2 else _kwargs.get("context", "")
+        assert "REAL_OUTPUT" in (context_arg or "")
+        assert "PATCHED_STR" not in (context_arg or "")
+
+    @pytest.mark.asyncio
+    async def test_multiline_pass_uses_first_line_for_decision(self):
+        """Only the first response line controls PASS routing."""
+        runner = _mock_runner("PASS\nextra explanation")
+        block = _make_gate(block_id="multiline_pass_gate", runner=runner)
+        state = WorkflowState(results={"content": BlockResult(output="Content")})
+
+        result_state = await execute_block_for_test(block, state)
+
+        result = result_state.results["multiline_pass_gate"]
+        assert result.exit_handle == "pass"
+        assert "extra explanation" not in result.output
+
+    @pytest.mark.asyncio
+    async def test_lowercase_pass_is_recognized(self):
+        """Lowercase pass is accepted as a PASS decision."""
+        runner = _mock_runner("pass")
+        block = _make_gate(block_id="lowercase_pass_gate", runner=runner)
+        state = WorkflowState(results={"content": BlockResult(output="Content")})
+
+        result_state = await execute_block_for_test(block, state)
+
+        assert result_state.results["lowercase_pass_gate"].exit_handle == "pass"
+
+    @pytest.mark.asyncio
+    async def test_extract_field_on_pass_returns_json_field(self):
+        """PASS with extract_field returns the selected source JSON field."""
+        runner = _mock_runner("PASS")
+        block = _make_gate(
+            block_id="extract_pass_gate",
+            runner=runner,
+            extract_field="score",
+        )
+        state = WorkflowState(results={"content": BlockResult(output=json.dumps([{"score": 85}]))})
+
+        result_state = await execute_block_for_test(block, state)
+
+        result = result_state.results["extract_pass_gate"]
+        assert result.exit_handle == "pass"
+        assert result.output == 85 or result.output == "85"
+
+    @pytest.mark.asyncio
+    async def test_extract_field_invalid_json_falls_back_to_decision_line(self):
+        """Invalid source JSON falls back to the PASS decision line."""
+        runner = _mock_runner("PASS")
+        block = _make_gate(
+            block_id="extract_invalid_json_gate",
+            runner=runner,
+            extract_field="score",
+        )
+        state = WorkflowState(results={"content": BlockResult(output="not valid json")})
+
+        result_state = await execute_block_for_test(block, state)
+
+        result = result_state.results["extract_invalid_json_gate"]
+        assert result.exit_handle == "pass"
+        assert result.output == "PASS"
+
+    @pytest.mark.asyncio
+    async def test_extract_field_missing_field_falls_back_to_decision_line(self):
+        """Missing source JSON field falls back to the PASS decision line."""
+        runner = _mock_runner("PASS")
+        block = _make_gate(
+            block_id="extract_missing_field_gate",
+            runner=runner,
+            extract_field="score",
+        )
+        state = WorkflowState(
+            results={"content": BlockResult(output=json.dumps([{"other": "value"}]))}
+        )
+
+        result_state = await execute_block_for_test(block, state)
+
+        result = result_state.results["extract_missing_field_gate"]
+        assert result.exit_handle == "pass"
+        assert result.output == "PASS"
+
+    @pytest.mark.asyncio
+    async def test_extract_field_not_applied_on_fail(self):
+        """FAIL feedback is returned instead of extracting from source JSON."""
+        runner = _mock_runner("FAIL: insufficient quality")
+        block = _make_gate(
+            block_id="extract_fail_gate",
+            runner=runner,
+            extract_field="score",
+        )
+        state = WorkflowState(results={"content": BlockResult(output=json.dumps([{"score": 42}]))})
+
+        result_state = await execute_block_for_test(block, state)
+
+        result = result_state.results["extract_fail_gate"]
+        assert result.exit_handle == "fail"
+        assert "insufficient quality" in result.output

@@ -68,6 +68,10 @@ def _state(
     return state
 
 
+def _state_with_raw_results(results: dict[str, Any]) -> WorkflowState:
+    return WorkflowState().model_copy(update={"results": results})
+
+
 @pytest.fixture
 def cheap_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep build_block_context tests focused on context resolution."""
@@ -223,6 +227,39 @@ def test_context_resolver_full_block_ref_preserves_raw_non_json_output() -> None
     assert scoped.audit_event.records[0].value_type == "str"
 
 
+def test_context_resolver_resolves_dotted_path_from_plain_mapping_result() -> None:
+    """Plain structured result values resolve as data, not via string coercion."""
+    scoped = _resolver().resolve(
+        declaration=_declaration(
+            {
+                "summary": "draft.summary",
+                "count": "draft.nested.count",
+            }
+        ),
+        state=_state_with_raw_results(
+            {"draft": {"summary": "S", "title": "T", "nested": {"count": 2}}}
+        ),
+    )
+
+    assert scoped.inputs == {"summary": "S", "count": 2}
+    assert json.loads(scoped.scoped_results["draft"].output) == {
+        "summary": "S",
+        "nested": {"count": 2},
+    }
+
+
+def test_context_resolver_does_not_treat_plain_mapping_output_key_as_alias() -> None:
+    """A raw mapping result with an output key is still structured data."""
+    scoped = _resolver().resolve(
+        declaration=_declaration({"value": "draft.output"}),
+        state=_state_with_raw_results({"draft": {"output": "explicit output field"}}),
+    )
+
+    assert scoped.inputs == {"value": "explicit output field"}
+    assert scoped.audit_event.records[0].status == "resolved"
+    assert scoped.audit_event.records[0].reason is None
+
+
 def test_context_resolver_field_path_into_non_json_output_fails_clearly() -> None:
     """Field refs into non-JSON block output fail with a resolver error."""
     cg = _cg()
@@ -251,6 +288,43 @@ def test_context_resolver_audit_preview_is_bounded_but_value_remains_full() -> N
     assert preview is not None
     assert len(preview) <= 200
     assert "x" * 500 not in preview
+
+
+def test_context_resolver_audit_redacts_secret_value_under_neutral_ref() -> None:
+    """Audit previews redact credential-like values even through neutral paths."""
+    secret = "sk-secret-value"
+    scoped = _resolver().resolve(
+        declaration=_declaration({"value": "metadata.config.value"}),
+        state=_state(metadata={"config": {"value": secret}}),
+    )
+
+    assert scoped.inputs == {"value": secret}
+    assert scoped.audit_event.records[0].preview == "[redacted]"
+    assert secret not in scoped.audit_event.model_dump_json()
+
+
+def test_context_resolver_audit_redacts_secret_key_under_neutral_ref() -> None:
+    """Audit previews redact objects that contain secret-looking keys."""
+    secret = "plain-secret-value"
+    scoped = _resolver().resolve(
+        declaration=_declaration({"config": "metadata.config"}),
+        state=_state(metadata={"config": {"api_key": secret}}),
+    )
+
+    assert scoped.inputs == {"config": {"api_key": secret}}
+    assert scoped.audit_event.records[0].preview == "[redacted]"
+    assert secret not in scoped.audit_event.model_dump_json()
+
+
+def test_context_resolver_audit_keeps_neutral_non_secret_preview() -> None:
+    """Value-based redaction does not suppress every neutral preview."""
+    scoped = _resolver().resolve(
+        declaration=_declaration({"value": "metadata.config.value"}),
+        state=_state(metadata={"config": {"value": "ordinary-status"}}),
+    )
+
+    assert scoped.inputs == {"value": "ordinary-status"}
+    assert scoped.audit_event.records[0].preview == "ordinary-status"
 
 
 def test_scoped_context_data_is_least_privilege_for_declared_result_ref() -> None:
@@ -558,6 +632,23 @@ def test_build_block_context_declared_no_step_does_not_expose_legacy_instruction
     assert "legacy context leak" not in (ctx.context or "")
 
 
+def test_build_block_context_plain_inputs_do_not_grant_governed_context(
+    cheap_budget: None,
+) -> None:
+    """Ad hoc runtime objects with an inputs attr do not bypass declarations."""
+    block = SimpleNamespace(
+        block_id="governed_block",
+        inputs={"secret": "shared_memory.secret"},
+        soul=None,
+        runner=None,
+    )
+    state = _state(shared_memory={"secret": "shared-value"})
+
+    ctx = build_block_context(block, state)
+
+    assert ctx.inputs == {}
+
+
 def test_build_block_context_dev_policy_warns_without_legacy_fallback(
     cheap_budget: None,
 ) -> None:
@@ -575,3 +666,155 @@ def test_build_block_context_dev_policy_warns_without_legacy_fallback(
     )
 
     assert ctx.inputs == {}
+
+
+def test_dev_mode_synthesize_missing_input_warns_without_keyerror() -> None:
+    """DEV-mode missing SynthesizeBlock input produces an empty context."""
+    cg = _cg()
+    ctx = build_block_context(
+        SimpleNamespace(block_id="synth", input_block_ids=["missing"]),
+        WorkflowState(),
+        policy=cg.ContextGovernancePolicy(mode="dev"),
+    )
+
+    assert ctx.inputs == {}
+    assert ctx.context == ""
+
+
+def test_dev_mode_gate_missing_eval_key_warns_without_keyerror() -> None:
+    """DEV-mode missing GateBlock eval_key produces an empty context."""
+    cg = _cg()
+    ctx = build_block_context(
+        SimpleNamespace(block_id="gate", eval_key="missing"),
+        WorkflowState(),
+        policy=cg.ContextGovernancePolicy(mode="dev"),
+    )
+
+    assert ctx.inputs == {}
+    assert ctx.context == ""
+
+
+def test_gate_internal_context_declaration_resolves_content_without_fallback(
+    cheap_budget: None,
+) -> None:
+    """GateBlock eval_key is governed as an internal content input."""
+    from runsight_core.blocks.gate import GateBlock
+    from runsight_core.context_governance import collect_context_declaration
+
+    soul = Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Analyze carefully.",
+    )
+    block = GateBlock(
+        block_id="quality_gate",
+        gate_soul=soul,
+        eval_key="draft",
+        runner=SimpleNamespace(model_name=None),
+    )
+    state = _state(
+        results={"draft": BlockResult(output="draft text")},
+        shared_memory={"_resolved_inputs": {"content": "legacy content leak"}},
+    )
+
+    declaration = collect_context_declaration(block)
+    scoped = _resolver().resolve(declaration=declaration, state=state)
+    ctx = build_block_context(block, state)
+
+    assert declaration.internal_inputs == {"content": "draft"}
+    assert scoped.inputs == {"content": "draft text"}
+    assert scoped.audit_event.records[0].internal is True
+    assert ctx.inputs == {"content": "draft text"}
+    assert ctx.context == "draft text"
+    assert "legacy content leak" not in json.dumps(ctx.inputs)
+
+
+def test_synthesize_internal_inputs_scope_only_declared_input_blocks(
+    cheap_budget: None,
+) -> None:
+    """SynthesizeBlock context includes its input_block_ids and no unrelated state."""
+    from runsight_core.blocks.synthesize import SynthesizeBlock
+
+    soul = Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Synthesize.",
+    )
+    block = SynthesizeBlock("combine", ["a", "b"], soul, SimpleNamespace(model_name=None))
+    state = _state(
+        results={
+            "a": BlockResult(output="alpha"),
+            "b": BlockResult(output="beta"),
+            "c": BlockResult(output="charlie leak"),
+        },
+        shared_memory={"_resolved_inputs": {"context": "legacy leak"}},
+    )
+
+    ctx = build_block_context(block, state)
+
+    assert ctx.inputs == {"a": "alpha", "b": "beta"}
+    assert "alpha" in (ctx.context or "")
+    assert "beta" in (ctx.context or "")
+    assert "charlie leak" not in json.dumps(ctx.inputs)
+    assert "charlie leak" not in (ctx.context or "")
+    assert "legacy leak" not in (ctx.context or "")
+
+
+def test_dispatch_without_declared_inputs_ignores_legacy_resolved_inputs(
+    cheap_budget: None,
+) -> None:
+    """DispatchBlock no-input path must not read broad _resolved_inputs fallback."""
+    from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
+
+    soul = Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Review.",
+    )
+    branch = DispatchBranch("review", "Review", soul, "Review declared context only.")
+    block = DispatchBlock("fanout", [branch], SimpleNamespace(model_name=None))
+    state = _state(
+        shared_memory={
+            "_resolved_inputs": {
+                "context": "legacy context leak",
+                "instruction": "legacy instruction leak",
+            }
+        }
+    )
+
+    ctx = build_block_context(block, state)
+
+    assert ctx.inputs == {}
+    assert ctx.context is None
+    assert "legacy context leak" not in (ctx.context or "")
+    assert "legacy instruction leak" not in ctx.instruction
+
+
+def test_user_declared_input_name_collision_with_internal_input_raises() -> None:
+    """User inputs cannot collide with internal special-block inputs."""
+    from runsight_core.blocks.gate import GateBlock
+    from runsight_core.context_governance import collect_context_declaration
+
+    soul = Soul(
+        id="analyst",
+        kind="soul",
+        name="Analyst",
+        role="Analyst",
+        system_prompt="Analyze.",
+    )
+    block = GateBlock(
+        block_id="quality_gate",
+        gate_soul=soul,
+        eval_key="draft",
+        runner=SimpleNamespace(model_name=None),
+    )
+    step = Step(block=block, declared_inputs={"content": "workflow.content"})
+
+    with pytest.raises(ValueError, match=r"quality_gate.*content.*internal"):
+        collect_context_declaration(block, step=step)

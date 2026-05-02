@@ -106,6 +106,34 @@ def test_resolve_soul_missing_ref_mentions_kind_qualified_soul_ref() -> None:
         resolve_soul("researcher", {})
 
 
+def test_resolve_soul_returns_matching_soul_and_lists_available_refs() -> None:
+    alpha = Soul(
+        id="alpha",
+        kind="soul",
+        name="Alpha",
+        role="Alpha",
+        system_prompt="Analyze.",
+    )
+    beta = Soul(
+        id="beta",
+        kind="soul",
+        name="Beta",
+        role="Beta",
+        system_prompt="Review.",
+    )
+    souls_map = {"alpha": alpha, "beta": beta}
+
+    assert resolve_soul("alpha", souls_map) is alpha
+
+    with pytest.raises(ValueError) as exc_info:
+        resolve_soul("missing", souls_map)
+
+    message = str(exc_info.value)
+    assert "soul:missing" in message
+    assert "alpha" in message
+    assert "beta" in message
+
+
 def test_validate_tool_governance_mentions_kind_qualified_soul_and_tool_refs() -> None:
     file_def, souls_map = _workflow_with_declared_soul_tool_violation()
 

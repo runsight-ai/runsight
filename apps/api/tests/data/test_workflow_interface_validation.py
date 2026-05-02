@@ -177,10 +177,10 @@ def test_create_rejects_raw_dotted_path_input_key_through_api_save(tmp_path) -> 
     binding like ``topic``) must be rejected when saving through the full
     repo.create() / _validate_yaml_content() path.
 
-    This is already tested at the TypeAdapter / schema level in
-    test_workflow_interface_schema.py, but that only validates the
-    Pydantic model in isolation.  This test confirms the rejection also
-    fires through the complete API save flow (create → _validate_yaml_content).
+    This is already tested at the TypeAdapter / schema level in the core
+    workflow input schema owner, but that only validates the Pydantic model in
+    isolation. This test confirms the rejection also fires through the complete
+    API save flow (create -> _validate_yaml_content).
     """
     _write_child_workflow(
         tmp_path,

@@ -4,7 +4,7 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { RunResponse } from "@runsight/shared/zod";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   onRowClick: vi.fn(),
@@ -103,6 +103,21 @@ beforeEach(() => {
     isLoading: false,
     isError: false,
   }));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("surface run input cell import safety", () => {
+  it("imports the cell renderer when navigator is missing", async () => {
+    vi.resetModules();
+    vi.stubGlobal("navigator", undefined);
+
+    await expect(import("../SurfaceRunInputsCell")).resolves.toHaveProperty(
+      "SurfaceRunInputsCell",
+    );
+  });
 });
 
 describe("surface run input history", () => {

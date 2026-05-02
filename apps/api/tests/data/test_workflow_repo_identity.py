@@ -68,6 +68,67 @@ def test_update_rejects_workflow_id_stem_mismatch(tmp_path) -> None:
         )
 
 
+def test_create_requires_embedded_workflow_id(tmp_path: Path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    with pytest.raises(InputValidationError, match="Workflow must have an id"):
+        repo.create(
+            {
+                "yaml": dedent(
+                    """\
+                    version: "1.0"
+                    kind: workflow
+                    workflow:
+                      name: Research Review
+                      entry: start
+                      transitions: []
+                    """
+                )
+            }
+        )
+
+
+def test_validate_yaml_rejects_missing_id_and_wrong_kind(tmp_path: Path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    valid, validation_error, warnings = repo._validate_yaml_content(
+        "research-review",
+        dedent(
+            """\
+            version: "1.0"
+            kind: workflow
+            workflow:
+              name: Research Review
+              entry: start
+              transitions: []
+            """
+        ),
+    )
+    assert valid is False
+    assert validation_error is not None
+    assert "id" in validation_error.lower()
+    assert warnings == []
+
+    valid, validation_error, warnings = repo._validate_yaml_content(
+        "research-review",
+        dedent(
+            """\
+            version: "1.0"
+            id: research-review
+            kind: pipeline
+            workflow:
+              name: Research Review
+              entry: start
+              transitions: []
+            """
+        ),
+    )
+    assert valid is False
+    assert validation_error is not None
+    assert "kind" in validation_error.lower()
+    assert warnings == []
+
+
 def test_update_keeps_yaml_and_canvas_persistence_in_separate_workflow_contract_files(
     tmp_path,
 ) -> None:

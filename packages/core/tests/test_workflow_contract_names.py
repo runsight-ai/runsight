@@ -4,6 +4,7 @@ import importlib
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
+from runsight_core.blocks.workflow_block import WorkflowBlock
 from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
@@ -35,6 +36,10 @@ def _workflow_file_without_interface() -> RunsightWorkflowFile:
             "version": "1.0",
             "id": "contract_source_workflow",
             "kind": "workflow",
+            "inputs": {
+                "query": {"type": "string"},
+                "topic": {"type": "string", "required": False},
+            },
             "blocks": {
                 "contract_source_code_step": {
                     "type": "code",
@@ -135,6 +140,17 @@ class TestWorkflowBlockBindingValidation:
         with pytest.raises(ValidationError, match="child source path|output contract|dotted"):
             adapter.validate_python(_workflow_block(outputs={"results.child": "summary"}))
 
+    def test_workflow_block_rejects_private_child_state_input_paths(self) -> None:
+        adapter = TypeAdapter(BlockDef)
+
+        with pytest.raises(
+            ValidationError,
+            match="private child state|child invocation input|workflow contract name|dotted child paths",
+        ):
+            adapter.validate_python(
+                _workflow_block(inputs={"shared_memory.topic": "shared_memory.parent_topic"})
+            )
+
     def test_workflow_block_output_binding_accepts_explicit_child_source_path(self) -> None:
         adapter = TypeAdapter(BlockDef)
 
@@ -178,6 +194,39 @@ class TestWorkflowBlockBindingValidation:
 
         with pytest.raises((ValidationError, ValueError), match="workflow contract name"):
             parse_workflow_yaml(invalid_binding_workflow_yaml, workflow_registry=registry)
+
+    def test_parse_workflow_yaml_builds_workflow_block_without_child_interface(self) -> None:
+        child_file = _workflow_file_without_interface()
+        registry = WorkflowRegistry()
+        registry.register("contract_source_workflow", child_file)
+
+        parent_yaml = {
+            "version": "1.0",
+            "id": "contract_binding_workflow",
+            "kind": "workflow",
+            "blocks": {
+                "call_contract_source": {
+                    "type": "workflow",
+                    "workflow_ref": "contract_source_workflow",
+                    "inputs": {"query": "shared_memory.parent_query"},
+                    "outputs": {"results.parent_summary": "results.contract_source_code_step"},
+                }
+            },
+            "workflow": {
+                "id": "contract_binding_workflow",
+                "kind": "workflow",
+                "name": "contract_binding_workflow",
+                "entry": "call_contract_source",
+                "transitions": [{"from": "call_contract_source", "to": None}],
+            },
+        }
+
+        workflow = parse_workflow_yaml(parent_yaml, workflow_registry=registry)
+
+        block = workflow.blocks["call_contract_source"]
+        assert isinstance(block, WorkflowBlock)
+        assert block.inputs == {"query": "shared_memory.parent_query"}
+        assert block.outputs == {"results.parent_summary": "results.contract_source_code_step"}
 
     def test_parse_workflow_yaml_rejects_duplicate_workflow_block_binding_names(self) -> None:
         child_file = _workflow_file_without_interface()

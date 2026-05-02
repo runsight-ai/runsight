@@ -205,6 +205,20 @@ class TestExecuteMethodExists:
 
     @pytest.mark.asyncio
     @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_execute_result_has_canonical_task_id_and_empty_metadata(self, mock_achat, soul):
+        """Single-shot execute() maps the LLM response into the stable ExecutionResult shape."""
+        mock_achat.return_value = _achat_text_response(content="Mapped response.")
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        result = await runner.execute(INSTRUCTION, CONTEXT, soul)
+
+        assert result.task_id == "execute"
+        assert result.soul_id == "soul-one"
+        assert result.output == "Mapped response."
+        assert result.metadata == {}
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
     async def test_execute_accepts_none_context(self, mock_achat, soul):
         """execute() must accept context=None (no context)."""
         mock_achat.return_value = _achat_text_response(content="No context.")
@@ -320,6 +334,20 @@ class TestExecutePromptBuilding:
         assert sent[1] == HISTORY_MESSAGES[1]
         assert sent[2]["role"] == "user"
         assert INSTRUCTION in sent[2]["content"]
+
+    @pytest.mark.asyncio
+    @patch("runsight_core.runner.LiteLLMClient.achat")
+    async def test_execute_with_empty_history_behaves_like_no_history(self, mock_achat, soul):
+        """An empty history list should not add extra messages before the current user prompt."""
+        mock_achat.return_value = _achat_text_response()
+
+        runner = RunsightTeamRunner(model_name="gpt-4o")
+        await runner.execute(INSTRUCTION, None, soul, messages=[])
+
+        sent = mock_achat.call_args.kwargs["messages"]
+        assert len(sent) == 1
+        assert sent[0]["role"] == "user"
+        assert INSTRUCTION in sent[0]["content"]
 
 
 # ---------------------------------------------------------------------------

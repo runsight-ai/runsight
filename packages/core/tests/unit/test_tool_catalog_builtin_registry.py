@@ -104,6 +104,14 @@ class TestBuiltinRegistry:
 
         assert isinstance(BUILTIN_TOOL_CATALOG, dict)
 
+    def test_parser_import_registers_builtin_tool_catalog_entries(self) -> None:
+        import runsight_core.yaml.parser  # noqa: F401
+        from runsight_core.tools import BUILTIN_TOOL_CATALOG
+
+        for source in ("http", "file_io", "delegate"):
+            assert source in BUILTIN_TOOL_CATALOG
+            assert callable(BUILTIN_TOOL_CATALOG[source])
+
 
 class TestResolveToolCanonicalIdContract:
     """resolve_tool exposes a canonical-ID-only runtime contract."""

@@ -55,6 +55,38 @@ describe("shared run contracts", () => {
     }
   });
 
+  it("RunResponseSchema preserves regression_count values and defaults omitted counts", () => {
+    const baseRun = {
+      id: "run_regression_primary",
+      workflow_id: "workflow_regression_count",
+      workflow_name: "Research Flow",
+      status: "completed",
+      started_at: 100,
+      completed_at: 130,
+      duration_seconds: 30,
+      total_cost_usd: 0.05,
+      total_tokens: 500,
+      created_at: 100,
+      branch: "main",
+      source: "manual",
+    };
+
+    expect(RunResponseSchema.shape).toHaveProperty("regression_count");
+    expect(RunResponseSchema.parse({ ...baseRun, regression_count: 3 })).toHaveProperty(
+      "regression_count",
+      3,
+    );
+    expect(RunResponseSchema.parse({ ...baseRun, regression_count: 0 })).toHaveProperty(
+      "regression_count",
+      0,
+    );
+    expect(RunResponseSchema.parse({ ...baseRun, regression_count: null })).toHaveProperty(
+      "regression_count",
+      null,
+    );
+    expect(RunResponseSchema.parse(baseRun).regression_count).toBe(0);
+  });
+
   it("RunResponseSchema rejects missing branch", () => {
     const result = RunResponseSchema.safeParse({
       id: "run_contract_primary",
@@ -107,6 +139,52 @@ describe("shared run contracts", () => {
       expect(result.data.items[0]?.commit_sha).toBe(
         "1234567890abcdef1234567890abcdef12345678",
       );
+    }
+  });
+
+  it("RunListResponseSchema preserves regression_count on list items", () => {
+    const result = RunListResponseSchema.safeParse({
+      items: [
+        {
+          id: "run_regression_primary",
+          workflow_id: "workflow_regression_count",
+          workflow_name: "Research Flow",
+          status: "completed",
+          started_at: 100,
+          completed_at: 130,
+          duration_seconds: 30,
+          total_cost_usd: 0.05,
+          total_tokens: 500,
+          created_at: 100,
+          branch: "main",
+          source: "manual",
+          regression_count: 2,
+        },
+        {
+          id: "run_regression_secondary",
+          workflow_id: "workflow_regression_count",
+          workflow_name: "Research Flow",
+          status: "failed",
+          started_at: 200,
+          completed_at: 230,
+          duration_seconds: 30,
+          total_cost_usd: 0.08,
+          total_tokens: 800,
+          created_at: 200,
+          branch: "main",
+          source: "manual",
+          regression_count: 0,
+        },
+      ],
+      total: 2,
+      offset: 0,
+      limit: 20,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0]).toHaveProperty("regression_count", 2);
+      expect(result.data.items[1]).toHaveProperty("regression_count", 0);
     }
   });
 

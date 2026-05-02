@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { label: "Settings", url: "/settings", heading: "Settings" },
 ];
 
+const RETIRED_NAV_ITEMS = ["Tasks", "Steps", "Health"] as const;
+
 test.describe("Shell navigation", () => {
   test("shows the current shell labels and omits retired nav items", async ({ page }) => {
     await gotoShellRoute(page, "/");
@@ -21,8 +23,9 @@ test.describe("Shell navigation", () => {
       await expect(page.locator("aside").getByRole("link", { name: label })).toBeVisible();
     }
 
-    await expect(page.locator("aside").getByRole("link", { name: "Tasks" })).toHaveCount(0);
-    await expect(page.locator("aside").getByRole("link", { name: "Steps" })).toHaveCount(0);
+    for (const label of RETIRED_NAV_ITEMS) {
+      await expect(page.locator("aside").getByRole("link", { name: label })).toHaveCount(0);
+    }
   });
 
   test("marks the active nav item with aria-current", async ({ page }) => {
@@ -53,5 +56,15 @@ test.describe("Shell navigation", () => {
       await gotoShellRoute(page, url);
       await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible();
     }
+  });
+
+  test("redirects retired /health bookmarks into the supported shell", async ({ page }) => {
+    await gotoShellRoute(page, "/health");
+
+    await expect(page).not.toHaveURL(/\/health$/);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+    await expect(page.getByText(/Health.*TODO|TODO.*Health/i)).toHaveCount(0);
+    await expect(page.getByText(/^Health$/i)).toHaveCount(0);
   });
 });

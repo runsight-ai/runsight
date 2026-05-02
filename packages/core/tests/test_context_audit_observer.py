@@ -96,6 +96,10 @@ class BrokenContextObserver(RecordingObserver):
         raise RuntimeError("context observer failed")
 
 
+class MissingContextObserver:
+    pass
+
+
 class EchoBlock:
     block_id = "summarize"
     context_access = "declared"
@@ -227,6 +231,21 @@ def test_composite_observer_broadcasts_context_resolution_and_isolates_failures(
     assert len(good.context_events) == 1
     assert good.context_events[0].node_id == "summarize"
     assert "BrokenContextObserver" in caplog.text
+
+
+def test_composite_observer_skips_children_without_context_resolution(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Observers without the context hook are ignored without noisy warnings."""
+    good = RecordingObserver()
+    composite = CompositeObserver(MissingContextObserver(), good)
+
+    with caplog.at_level(logging.WARNING):
+        ctx = build_block_context(EchoBlock(), _state(), observer=composite)
+
+    assert ctx.inputs == {"summary": "short version", "owner": "Ada"}
+    assert len(good.context_events) == 1
+    assert "on_context_resolution failed" not in caplog.text
 
 
 @pytest.mark.asyncio

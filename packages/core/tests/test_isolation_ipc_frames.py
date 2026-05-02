@@ -219,6 +219,90 @@ class TestIPCClientFrameConsumption:
         assert all(param.kind is not inspect.Parameter.VAR_KEYWORD for param in params)
 
     @pytest.mark.asyncio
+    async def test_request_writes_capability_and_request_as_single_ndjson_lines(
+        self, tmp_path: Path
+    ):
+        from runsight_core.isolation import IPCClient
+
+        sock_path = tmp_path / "client-ndjson-lines.sock"
+        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server_sock.bind(str(sock_path))
+        server_sock.listen(1)
+        server_sock.setblocking(False)
+        received_lines: list[bytes] = []
+
+        async def fake_server() -> None:
+            loop = asyncio.get_running_loop()
+            conn, _ = await loop.sock_accept(server_sock)
+            reader, writer = await asyncio.open_connection(sock=conn)
+            try:
+                raw_capability = await reader.readline()
+                received_lines.append(raw_capability)
+                capability_request = json.loads(raw_capability)
+                writer.write(
+                    (
+                        json.dumps(
+                            _capability_response_for(
+                                capability_request,
+                                active_actions=["file_io"],
+                            )
+                        )
+                        + "\n"
+                    ).encode()
+                )
+                await writer.drain()
+
+                raw_request = await reader.readline()
+                received_lines.append(raw_request)
+                request = json.loads(raw_request)
+                writer.write(
+                    (
+                        json.dumps(
+                            {
+                                "id": request["id"],
+                                "done": True,
+                                "payload": {"ok": True},
+                                "engine_context": None,
+                                "error": None,
+                            }
+                        )
+                        + "\n"
+                    ).encode()
+                )
+                await writer.drain()
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        server_task = asyncio.create_task(fake_server())
+        client = IPCClient(socket_path=str(sock_path))
+        try:
+            result = await client.request(
+                "file_io",
+                {
+                    "action_type": "write",
+                    "path": "/tmp/test.txt",
+                    "content": "line1\nline2\nline3",
+                },
+            )
+            assert result == {"ok": True}
+        finally:
+            await client.close()
+            server_task.cancel()
+            server_sock.close()
+            sock_path.unlink(missing_ok=True)
+
+        assert len(received_lines) == 2
+        assert all(line.endswith(b"\n") for line in received_lines)
+        assert all(b"\n" not in line[:-1] for line in received_lines)
+        handshake = json.loads(received_lines[0])
+        request = json.loads(received_lines[1])
+        assert handshake["action"] == "capability_negotiation"
+        assert set(request) == {"id", "action", "payload"}
+        assert request["action"] == "file_io"
+        assert request["payload"]["content"] == "line1\nline2\nline3"
+
+    @pytest.mark.asyncio
     async def test_request_returns_payload_from_final_done_frame(self, tmp_path: Path):
         from runsight_core.isolation import IPCClient
 

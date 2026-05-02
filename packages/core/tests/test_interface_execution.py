@@ -143,3 +143,32 @@ class TestNameBasedWorkflowInvocation:
             await _exec(wb, _parent_state())
 
         assert analysis_child_workflow.received_state is None
+
+    async def test_nested_workflow_blocks_forward_public_invocation_names_recursively(
+        self,
+    ) -> None:
+        grandchild = _CapturingWorkflow(name="nested_grandchild_workflow")
+        child_block = WorkflowBlock(
+            block_id="nested_grandchild_invocation",
+            child_workflow=grandchild,
+            inputs={"query": "workflow.query"},
+            outputs={},
+        )
+        child_workflow = Workflow(name="nested_child_workflow")
+        child_workflow.add_block(child_block)
+        child_workflow.set_entry("nested_grandchild_invocation")
+
+        parent_block = WorkflowBlock(
+            block_id="nested_child_invocation",
+            child_workflow=child_workflow,
+            inputs={"query": "shared_memory.parent_topic"},
+            outputs={},
+        )
+
+        await _exec(parent_block, _parent_state())
+
+        assert grandchild.received_kwargs is not None
+        assert grandchild.received_kwargs["inputs"] == {"query": "climate change"}
+        assert grandchild.received_state is not None
+        assert grandchild.received_state.results == {}
+        assert grandchild.received_state.shared_memory == {}

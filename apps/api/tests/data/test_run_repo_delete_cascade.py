@@ -67,6 +67,35 @@ def _seed_log(session: Session, run_id: str, node_id: str | None, message: str) 
     )
 
 
+class TestRunRepositoryCreateRead:
+    def test_create_run_and_node_can_be_read_back(self, db_session: Session):
+        RunRepository = _import_run_repository()
+        repo = RunRepository(db_session)
+        run = Run(
+            id="run-primary",
+            workflow_id="wf-primary",
+            workflow_name="WF",
+            task_json="{}",
+            branch="main",
+        )
+        repo.create_run(run)
+
+        fetched_run = repo.get_run("run-primary")
+        assert fetched_run is not None
+        assert fetched_run.id == "run-primary"
+
+        node = RunNode(
+            id="run-primary:node-primary",
+            run_id="run-primary",
+            node_id="node-primary",
+            block_type="llm",
+        )
+        repo.create_node(node)
+
+        nodes = repo.list_nodes_for_run("run-primary")
+        assert [node.id for node in nodes] == ["run-primary:node-primary"]
+
+
 class TestRunRepositoryDeleteRunsForWorkflow:
     def test_delete_runs_for_workflow_cascades_logs_nodes_and_runs_in_a_single_commit(
         self,

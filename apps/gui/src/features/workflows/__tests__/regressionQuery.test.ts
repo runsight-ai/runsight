@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  WorkflowRegressionSchema,
+  RunRegressionsResponseSchema,
+  WorkflowRegressionIssueSchema as WorkflowRegressionSchema,
   WorkflowRegressionsResponseSchema,
-} from "../../../types/schemas/regressions";
+} from "@runsight/shared/zod";
 
 // ---------------------------------------------------------------------------
 // Schema validation — ensures the regression type contract is correct
@@ -128,6 +129,25 @@ describe("WorkflowRegressionsResponseSchema", () => {
       ],
     };
     expect(() => WorkflowRegressionsResponseSchema.parse(input)).toThrow();
+  });
+});
+
+describe("RunRegressionsResponseSchema", () => {
+  it("parses run regression responses with the shared transport schema", () => {
+    const result = RunRegressionsResponseSchema.parse({
+      issues: [
+        {
+          node_id: "quality-review-node",
+          node_name: "Quality Review",
+          type: "assertion_regression",
+          delta: { eval_passed: false },
+        },
+      ],
+      count: 1,
+    });
+
+    expect(result.count).toBe(1);
+    expect(result.issues?.[0]?.node_id).toBe("quality-review-node");
   });
 });
 

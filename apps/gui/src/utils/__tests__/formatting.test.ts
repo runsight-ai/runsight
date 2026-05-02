@@ -4,6 +4,8 @@ import {
   truncateText,
   formatTimestamp,
   formatCost,
+  formatCommit,
+  getSourceVariant,
   getTimeAgo,
 } from "../formatting";
 
@@ -185,6 +187,36 @@ describe("formatCost", () => {
 
   it("formats sub-milli-cent cost values with more precision", () => {
     expect(formatCost(0.0001132)).toBe("$0.000113");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCommit
+// ---------------------------------------------------------------------------
+describe("formatCommit", () => {
+  it("returns uncommitted for empty values", () => {
+    expect(formatCommit(null)).toBe("uncommitted");
+    expect(formatCommit(undefined)).toBe("uncommitted");
+  });
+
+  it("slices full commit SHAs to 7 characters", () => {
+    expect(formatCommit("abc1234def5678")).toBe("abc1234");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSourceVariant
+// ---------------------------------------------------------------------------
+describe("getSourceVariant", () => {
+  it.each([
+    ["manual", "neutral"],
+    ["webhook", "info"],
+    ["schedule", "accent"],
+    ["simulation", "warning"],
+    ["unknown", "neutral"],
+    [null, "neutral"],
+  ] as const)("maps %s to %s", (source, variant) => {
+    expect(getSourceVariant(source)).toBe(variant);
   });
 });
 

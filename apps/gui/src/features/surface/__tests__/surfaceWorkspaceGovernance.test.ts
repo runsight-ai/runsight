@@ -59,7 +59,9 @@ function listSourceFiles(relativeDir: string): string[] {
 describe("Governance: surface workspace rename and consolidation boundary", () => {
   it("moves the live surface entrypoint into features/surface", () => {
     expect(existsSync(resolve(SRC_DIR, "features/surface/__tests__"))).toBe(true);
-    expect(existsSync(resolve(SRC_DIR, "features/surface/yamlSync.test.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/yamlSync.test.ts"))).toBe(false);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/__tests__/yamlParser.test.ts"))).toBe(true);
+    expect(existsSync(resolve(SRC_DIR, "features/surface/__tests__/yamlCompilerSerializationFiltering.test.ts"))).toBe(true);
     expect(existsSync(resolve(SRC_DIR, "features/canvas/yamlSync.test.ts"))).toBe(false);
     expect(existsSync(resolve(SRC_DIR, "features/surface/WorkflowSurface.tsx"))).toBe(true);
     expect(existsSync(resolve(SRC_DIR, "features/surface/SurfaceShell.tsx"))).toBe(true);

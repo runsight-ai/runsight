@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 from runsight_core.blocks.base import BaseBlock
@@ -245,6 +247,41 @@ class TestLoopBlockSingleRef:
 
         calls = result_state.shared_memory.get("inner_block_calls", [])
         assert len(calls) == 5
+
+    @pytest.mark.asyncio
+    async def test_break_condition_reads_block_result_output_not_str(self):
+        """LoopBlock break conditions evaluate the inner BlockResult.output."""
+        from runsight_core import LoopBlock
+        from runsight_core.block_io import BlockOutput
+        from runsight_core.conditions.engine import Condition
+        from runsight_core.state import BlockResult
+
+        class OutputBlock(BaseBlock):
+            async def execute(self, ctx):
+                return BlockOutput(output="REAL_OUTPUT")
+
+        inner = OutputBlock("inner_block")
+        loop = LoopBlock(
+            block_id="loop_block",
+            inner_block_refs=["inner_block"],
+            max_rounds=5,
+            break_condition=Condition(
+                eval_key="result",
+                operator="contains",
+                value="REAL_OUTPUT",
+            ),
+        )
+
+        with patch.object(BlockResult, "__str__", return_value="PATCHED_STR"):
+            state = await _run_loop(
+                loop,
+                WorkflowState(),
+                {"inner_block": inner, "loop_block": loop},
+            )
+
+        loop_meta = state.shared_memory.get("__loop__loop_block", {})
+        assert loop_meta.get("broke_early") is True
+        assert loop_meta.get("rounds_completed") == 1
 
 
 class TestLoopBlockMultiRef:

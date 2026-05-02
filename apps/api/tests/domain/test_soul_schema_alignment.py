@@ -29,8 +29,20 @@ def test_soul_entity_accepts_core_fields_and_avatar_color():
 def test_soul_entity_rejects_unknown_top_level_fields():
     from runsight_api.domain.value_objects import SoulEntity
 
+    assert "assertions" not in SoulEntity.model_fields
+
     with pytest.raises(ValidationError):
         SoulEntity(id="legacy", kind="soul", name="Legacy Soul", custom_notes="test value")
+
+    with pytest.raises(ValidationError):
+        SoulEntity(
+            id="soul-tester",
+            kind="soul",
+            name="Tester",
+            role="Tester",
+            system_prompt="Test prompt",
+            assertions=[{"type": "contains", "value": "hello"}],
+        )
 
 
 def test_soul_entity_rejects_legacy_name_and_models_fields():

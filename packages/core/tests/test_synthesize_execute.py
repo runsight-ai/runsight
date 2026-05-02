@@ -14,7 +14,7 @@ Tests cover:
 """
 
 import inspect
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from conftest import execute_block_for_test
@@ -415,3 +415,22 @@ class TestSynthesizeResultsCorrect:
         assert "Beta output text" in (context_arg or ""), (
             "Context passed to runner.execute() must include output from 'beta' block"
         )
+
+    @pytest.mark.asyncio
+    async def test_context_uses_block_result_output_not_str(self):
+        """SynthesizeBlock prompt uses BlockResult.output, not implicit __str__."""
+        runner = _mock_runner("Synthesis")
+        block = _make_synthesize(
+            block_id="synth_real_output",
+            input_block_ids=["alpha"],
+            runner=runner,
+        )
+        state = WorkflowState(results={"alpha": BlockResult(output="REAL_OUTPUT")})
+
+        with patch.object(BlockResult, "__str__", return_value="PATCHED_STR"):
+            await execute_block_for_test(block, state)
+
+        args, _kwargs = runner.execute.call_args
+        context_arg = args[1] if len(args) >= 2 else _kwargs.get("context", "")
+        assert "REAL_OUTPUT" in (context_arg or "")
+        assert "PATCHED_STR" not in (context_arg or "")

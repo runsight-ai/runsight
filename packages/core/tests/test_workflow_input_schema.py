@@ -212,3 +212,18 @@ class TestLegacyInterfaceIsNotWorkflowInputSchema:
                     }
                 )
             )
+
+    def test_legacy_interface_outputs_source_is_rejected(self) -> None:
+        with pytest.raises((ValidationError, ValueError), match="legacy.*interface|unsupported"):
+            RunsightWorkflowFile.model_validate(
+                _workflow_file(
+                    interface={
+                        "outputs": [
+                            {
+                                "name": "summary",
+                                "source": "results.writer",
+                            }
+                        ],
+                    }
+                )
+            )

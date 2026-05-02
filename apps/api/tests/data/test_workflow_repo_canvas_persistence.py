@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from runsight_api.data.filesystem.workflow_canvas_sidecar import read_canvas_sidecar
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
 from runsight_api.domain.errors import InputValidationError
 
@@ -92,6 +93,17 @@ def test_update_without_canvas_state_keeps_existing_sidecar_and_succeeds(tmp_pat
     assert updated.id == workflow_id
     assert repo._get_path(workflow_id).read_text() == updated_yaml
     assert _read_json(repo._canvas_path(workflow_id)) == original_canvas
+
+
+def test_read_canvas_sidecar_rejects_non_object_json(tmp_path: Path, caplog) -> None:
+    path = tmp_path / "wf.canvas.json"
+    path.write_text('["not", "an", "object"]', encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        result = read_canvas_sidecar(path)
+
+    assert result is None
+    assert any("JSON root must be an object" in record.message for record in caplog.records)
 
 
 def test_create_persists_yaml_and_canvas_sidecar_when_canvas_state_in_scope(tmp_path) -> None:

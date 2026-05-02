@@ -5,6 +5,7 @@ import {
   shouldShowRegressionBadge,
   buildRunsFilterUrl,
 } from "../regressionBadge.utils";
+import { REGRESSION_BADGE_CLASSES } from "../regressionBadge.styles";
 import type { WorkflowRegression } from "../../../types/schemas/regressions";
 
 // ---------------------------------------------------------------------------
@@ -100,5 +101,12 @@ describe("buildRunsFilterUrl", () => {
     expect(url).toContain("/runs?workflow=");
     // The id should be URI-encoded
     expect(url).not.toContain("&id");
+  });
+});
+
+describe("REGRESSION_BADGE_CLASSES", () => {
+  it("uses warning token text styling for regression badges", () => {
+    expect(REGRESSION_BADGE_CLASSES).toContain("--warning-11");
+    expect(REGRESSION_BADGE_CLASSES.length).toBeGreaterThan(0);
   });
 });

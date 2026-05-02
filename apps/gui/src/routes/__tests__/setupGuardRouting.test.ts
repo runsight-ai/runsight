@@ -52,6 +52,21 @@ afterEach(() => {
 });
 
 describe("routed setup guard fallback", () => {
+  it("fetches app settings with fresh guard query options", async () => {
+    const fetchQuery = vi.fn(async () => ({ onboarding_completed: true }));
+    const queryClient = { fetchQuery } as unknown as QueryClient;
+    const loader = createSetupGuardLoader(queryClient);
+
+    await loader({ request: new Request("http://runsight.test/") });
+
+    expect(fetchQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryFn: expect.any(Function),
+        staleTime: 0,
+      }),
+    );
+  });
+
   it("allows protected-route navigation when onboarding_completed is explicitly true", async () => {
     const { router } = renderGuardRouter("/", async () => ({
       onboarding_completed: true,

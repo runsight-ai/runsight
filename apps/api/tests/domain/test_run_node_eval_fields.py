@@ -85,6 +85,10 @@ class TestRunNodeFieldDefaults:
         node = RunNode(id="run1:b1", run_id="run1", node_id="b1", block_type="LinearBlock")
         assert node.eval_results is None
 
+    def test_tokens_default_to_zero_counts(self):
+        node = RunNode(id="run1:b1", run_id="run1", node_id="b1", block_type="LinearBlock")
+        assert node.tokens == {"prompt": 0, "completion": 0, "total": 0}
+
 
 # ---------------------------------------------------------------------------
 # 3. Can be created with explicit values

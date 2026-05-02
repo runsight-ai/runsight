@@ -162,6 +162,55 @@ async def test_output_mapping_success(base_parent_state, mock_child_workflow):
 
 
 @pytest.mark.asyncio
+async def test_output_mapping_does_not_leak_unmapped_child_results(
+    base_parent_state,
+    mock_child_workflow,
+):
+    """Only explicitly mapped child outputs are written into the parent result set."""
+    child_final_state = WorkflowState(
+        results={
+            "final": BlockResult(output="mapped_value"),
+            "internal_temp": BlockResult(output="scratch"),
+            "another_child_key": BlockResult(output="should_not_leak"),
+        }
+    )
+    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
+    block = WorkflowBlock(
+        block_id="isolated_output_mapping_workflow_block",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={"results.parent_out": "results.final"},
+        max_depth=10,
+    )
+
+    result = await _run_block(block, base_parent_state)
+
+    assert result.results["parent_out"] == BlockResult(output="mapped_value")
+    assert result.results["existing_result"] == BlockResult(output="previous output")
+    assert "isolated_output_mapping_workflow_block" in result.results
+    assert "final" not in result.results
+    assert "internal_temp" not in result.results
+    assert "another_child_key" not in result.results
+
+
+@pytest.mark.asyncio
+async def test_missing_output_source_path_raises(base_parent_state, mock_child_workflow):
+    """Output mappings must point at an existing child state path."""
+    child_final_state = WorkflowState(results={"available": BlockResult(output="value")})
+    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
+    block = WorkflowBlock(
+        block_id="missing_output_source_workflow_block",
+        child_workflow=mock_child_workflow,
+        inputs={},
+        outputs={"results.parent_out": "results.nonexistent"},
+        max_depth=10,
+    )
+
+    with pytest.raises((KeyError, ValueError), match="nonexistent"):
+        await _run_block(block, base_parent_state)
+
+
+@pytest.mark.asyncio
 async def test_child_state_isolation(base_parent_state, mock_child_workflow):
     """Child receives clean isolated state (only mapped inputs)."""
     # Arrange

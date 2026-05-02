@@ -29,6 +29,9 @@ from runsight_core.blocks.workflow_block import WorkflowBlockDef
 from runsight_core.yaml.schema import (
     BlockDef,
     RunsightWorkflowFile,
+    SoulDef,
+    TransitionDef,
+    WorkflowDef,
 )
 
 # Shared TypeAdapter for the discriminated union
@@ -107,6 +110,41 @@ class TestTypeDiscrimination:
     def test_workflow_block_valid(self):
         block = _validate_block({"type": "workflow", "workflow_ref": "sub_workflow"})
         assert isinstance(block, WorkflowBlockDef)
+
+
+class TestCoreSchemaModelConstructors:
+    """Basic schema model constructors preserve aliases and defaults."""
+
+    def test_soul_def_constructor_preserves_required_identity_fields(self):
+        soul = SoulDef(
+            id="soul1",
+            kind="soul",
+            name="Researcher",
+            role="Researcher",
+            system_prompt="You are a researcher.",
+        )
+
+        assert soul.id == "soul1"
+        assert soul.kind == "soul"
+        assert soul.name == "Researcher"
+        assert soul.role == "Researcher"
+
+    def test_transition_def_accepts_from_alias(self):
+        transition = TransitionDef(**{"from": "block1", "to": "block2"})
+
+        assert transition.from_ == "block1"
+        assert transition.to == "block2"
+
+    def test_runsight_workflow_file_applies_version_default(self):
+        workflow = WorkflowDef(name="schema_constructor_workflow", entry="block1")
+        file_def = RunsightWorkflowFile(
+            id="schema_constructor_workflow",
+            kind="workflow",
+            workflow=workflow,
+        )
+
+        assert file_def.workflow.name == "schema_constructor_workflow"
+        assert file_def.version == "1.0"
 
 
 # ===========================================================================

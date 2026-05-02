@@ -57,6 +57,24 @@ def _prepared(inputs: dict[str, object] | None = None):
     )
 
 
+class TestRunStatusAndDefaults:
+    def test_run_status_values_match_wire_contract(self):
+        from runsight_api.domain.entities.run import RunStatus
+
+        assert RunStatus.pending == "pending"
+        assert RunStatus.running == "running"
+        assert RunStatus.completed == "completed"
+        assert RunStatus.failed == "failed"
+        assert RunStatus.cancelled == "cancelled"
+
+    def test_run_defaults_to_pending_status(self):
+        from runsight_api.domain.entities.run import RunStatus
+
+        run = _make_run(branch=EXPLICIT_BRANCH, id="run-default-status")
+
+        assert run.status == RunStatus.pending
+
+
 # ---------------------------------------------------------------------------
 # 1. Run entity — branch field
 # ---------------------------------------------------------------------------

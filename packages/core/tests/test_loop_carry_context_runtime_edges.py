@@ -127,6 +127,32 @@ class TestCarryContextDisabledOrMissing:
         assert all(snapshot is None for snapshot in snapshots)
 
 
+class TestCarryContextCompletionMetadata:
+    """Loop completion metadata stays stable when carry_context is enabled."""
+
+    @pytest.mark.asyncio
+    async def test_carry_context_loop_completes_max_rounds_and_records_break_reason(self):
+        from runsight_core import LoopBlock
+        from runsight_core.blocks.loop import CarryContextConfig
+
+        inner = TrackingBlock("inner")
+        blocks = {"inner": inner}
+        loop = LoopBlock(
+            block_id="loop_block",
+            inner_block_refs=["inner"],
+            max_rounds=5,
+            carry_context=CarryContextConfig(mode="last", inject_as="ctx"),
+        )
+        blocks["loop_block"] = loop
+
+        result_state = await run_loop(loop, seeded_state(), blocks)
+
+        loop_meta = result_state.shared_memory.get("__loop__loop_block", {})
+        assert loop_meta.get("rounds_completed") == 5
+        assert loop_meta.get("break_reason") == "max_rounds reached"
+        assert "ctx" in result_state.shared_memory
+
+
 class TestCarryContextSourceBlockValidation:
     """source_blocks must reference inner_block_refs."""
 

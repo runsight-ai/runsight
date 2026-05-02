@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { compileGraphToWorkflowYaml } from "../yamlCompiler";
 import {
   compileOne,
   mockNode,
   sampleOutputConditions,
 } from "./helpers/yamlCompilerFixtures";
+import type { Edge } from "@xyflow/react";
 
 describe("Undefined and null field omission", () => {
   it("undefined optional fields are omitted from compiled output", () => {
@@ -96,6 +98,53 @@ describe("Runtime fields excluded from compiled output", () => {
     expect(yaml).not.toContain("step_id:");
     // name is used in workflow.name, but should not appear inside a block
     expect(yaml).toContain("soul_ref: soul1");
+  });
+
+  it("returns minimal canvas state while keeping visual metadata out of YAML", () => {
+    const nodes = [
+      {
+        ...mockNode("step_a", "linear", {
+          soulRef: "soul1",
+          cost: 1.23,
+        }),
+        position: { x: 10, y: 20 },
+        selected: true,
+      },
+      {
+        ...mockNode("step_b", "dispatch"),
+        position: { x: 250, y: 20 },
+        width: 300,
+      },
+    ];
+    const edges: Edge[] = [
+      {
+        id: "e-step_a-step_b",
+        source: "step_a",
+        target: "step_b",
+        sourceHandle: "out-0",
+        targetHandle: "in-0",
+        selected: true,
+      },
+    ];
+
+    const compiled = compileGraphToWorkflowYaml({
+      nodes,
+      edges,
+      viewport: { x: 11, y: 12, zoom: 0.9 },
+      selectedNodeId: "step_a",
+      canvasMode: "dag",
+      workflowName: "Demo",
+    });
+
+    expect(compiled.yaml).not.toContain("position:");
+    expect(compiled.yaml).not.toContain("selected:");
+    expect(compiled.yaml).not.toContain("width:");
+    expect(compiled.canvasState.nodes).toEqual([
+      { id: "step_a", position: { x: 10, y: 20 } },
+      { id: "step_b", position: { x: 250, y: 20 } },
+    ]);
+    expect(compiled.canvasState.viewport.zoom).toBe(0.9);
+    expect(compiled.canvasState.selected_node_id).toBe("step_a");
   });
 });
 

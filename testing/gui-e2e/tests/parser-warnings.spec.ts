@@ -190,6 +190,33 @@ test.describe("Parser warnings browser contract", () => {
     }
   });
 
+  test("runs list exposes search and filter toggles without the retired tab bar", async ({
+    page,
+  }) => {
+    await routeRunsWithParserWarning(page);
+    await gotoShellRoute(page, "/runs");
+
+    const activeButton = page.getByRole("button", { name: "Active" });
+    const attentionButton = page.getByRole("button", { name: "Needs attention" });
+
+    await expect(page.getByRole("main").getByRole("heading", { name: "Runs", level: 1 })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole("searchbox", { name: "Search runs" })).toBeVisible();
+    await expect(activeButton).toBeVisible();
+    await expect(attentionButton).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Active/i })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: /History/i })).toHaveCount(0);
+
+    await activeButton.click();
+    await expect(activeButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/status=active/);
+
+    await attentionButton.click();
+    await expect(attentionButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/attention=only/);
+  });
+
   test("runs page shows warning badge/tooltip, warnings column, and warning-only runs in Needs attention", async ({
     page,
   }) => {

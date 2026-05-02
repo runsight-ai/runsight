@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -315,6 +315,13 @@ function readStory(filename: string): string {
   return readFileSync(storyPath(filename), "utf-8");
 }
 
+function readStoryTestComments(filename: string): string[] {
+  const source = readFileSync(resolve(TEST_DIR, filename), "utf-8");
+  return [...source.matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g)].map(
+    (match) => match[0],
+  );
+}
+
 describe("component story surface", () => {
   it("keeps representative component story files in the package story surface", () => {
     const missingStories = COMPONENT_STORY_SURFACE.filter((filename) => {
@@ -354,4 +361,16 @@ describe("component story surface", () => {
       expect(presentForbiddenExpectations).toEqual([]);
     },
   );
+
+  it("keeps package UI story test comments scoped to packages/ui", () => {
+    const stalePathComments = readdirSync(TEST_DIR)
+      .filter((filename) => /\.test\.tsx?$/.test(filename))
+      .flatMap((filename) =>
+        readStoryTestComments(filename)
+          .filter((comment) => /apps\/gui/i.test(comment))
+          .map((comment) => `${filename}: ${comment.trim()}`),
+      );
+
+    expect(stalePathComments).toEqual([]);
+  });
 });

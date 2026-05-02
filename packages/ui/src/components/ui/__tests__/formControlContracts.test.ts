@@ -1,6 +1,6 @@
 /**
  * Governance: packages/ui form control contracts stay with this owner suite.
- * Owner: packages/ui Select, Switch, Checkbox, Radio, and Slider contracts.
+ * Owner: packages/ui Select, Switch, Checkbox, Radio, Slider, and TagInput contracts.
  * Boundary: source-text checks for component files, exports, tokens, states,
  * layout, and accessibility hooks under src/components/ui only.
  * Exit criteria: keep one table per contract row and promote new shared form
@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 const UI_DIR = resolve(__dirname, "..");
 
 type ContractRow = {
-  component: "Select" | "Switch" | "Checkbox" | "Radio" | "Slider";
+  component: "Select" | "Switch" | "Checkbox" | "Radio" | "Slider" | "TagInput";
   filename: string;
   behavior: string;
   pattern: RegExp;
@@ -254,6 +254,25 @@ export const FORM_CONTROL_CONTRACTS: ContractRow[] = [
     filename: "slider.tsx",
     behavior: "uses a native range input or slider role",
     pattern: /type\s*=\s*["']range["']|role\s*=\s*["']slider["']/,
+  },
+  {
+    component: "TagInput",
+    filename: "tag-input.tsx",
+    behavior: "component file exists",
+    pattern: /./,
+    requiresFile: true,
+  },
+  {
+    component: "TagInput",
+    filename: "tag-input.tsx",
+    behavior: "exports TagInput",
+    pattern: /export\s+(?:function|const)\s+TagInput\b/,
+  },
+  {
+    component: "TagInput",
+    filename: "tag-input.tsx",
+    behavior: "declares label, placeholder, tags, and onChange props",
+    pattern: /interface\s+TagInputProps[\s\S]*label:\s*string[\s\S]*placeholder:\s*string[\s\S]*tags:\s*string\[\][\s\S]*onChange:\s*\(tags:\s*string\[\]\)\s*=>\s*void/,
   },
 ];
 

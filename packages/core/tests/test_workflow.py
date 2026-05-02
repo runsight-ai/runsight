@@ -145,6 +145,27 @@ def test_workflow_duplicate_transition():
         wf.add_transition("router", "second_target")
 
 
+def test_workflow_fluent_chain_supports_terminal_block_validation():
+    """Fluent Workflow setup returns self and accepts a final block without an outgoing edge."""
+    wf = Workflow(name="fluent_terminal_workflow")
+    first = MockBlock("first")
+    second = MockBlock("second")
+    terminal = MockBlock("terminal")
+
+    result = (
+        wf.add_block(first)
+        .add_block(second)
+        .add_block(terminal)
+        .set_entry("first")
+        .add_transition("first", "second")
+        .add_transition("second", "terminal")
+    )
+
+    assert result is wf
+    assert wf.validate() == []
+    assert "terminal" not in wf._transitions
+
+
 # ============================================================================
 # Conditional transition behavior
 # ============================================================================

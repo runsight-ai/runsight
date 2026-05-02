@@ -87,6 +87,40 @@ test.describe("Settings: Providers CRUD", () => {
     await applyFixture([], READY_SETTINGS);
   });
 
+  test("settings shell keeps Providers and Fallback tabs with provider actions scoped to Providers", async ({
+    page,
+  }) => {
+    await gotoShellRoute(page, "/settings");
+
+    const visibleAddProviderButton = page.locator("button:visible", {
+      hasText: "Add Provider",
+    });
+    const providersTab = page.getByRole("tab", { name: "Providers" });
+    const fallbackTab = page.getByRole("tab", { name: "Fallback" });
+
+    await expect(page.getByRole("tablist")).toBeVisible();
+    await expect(providersTab).toHaveAttribute("aria-selected", "true");
+    await expect(fallbackTab).toHaveAttribute("aria-selected", "false");
+    await expect(visibleAddProviderButton.first()).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Models" })).toHaveCount(0);
+    await expect(page.getByText("Budgets", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Profile", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Advanced", { exact: true })).toHaveCount(0);
+
+    await fallbackTab.click();
+
+    await expect(fallbackTab).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(visibleAddProviderButton).toHaveCount(0);
+
+    await providersTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(fallbackTab).toBeFocused();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(providersTab).toBeFocused();
+  });
+
   test("providers page lists providers from the local API", async ({ page }) => {
     const seededProvider: ProviderFixture = {
       id: "qa-fixture-seed",

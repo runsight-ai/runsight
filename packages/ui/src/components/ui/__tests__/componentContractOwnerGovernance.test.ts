@@ -22,9 +22,21 @@ const REQUIRED_METADATA = [
 
 const OWNER_SUITES = [
   {
+    filename: "corePrimitiveContracts.test.ts",
+    contractDataName: "CORE_PRIMITIVE_CONTRACTS",
+    components: ["Button", "Badge", "Input", "Textarea", "Label", "Tooltip"],
+    activeNameKeywords: ["coreprimitive", "coreprimitivecontracts"],
+  },
+  {
+    filename: "feedbackPrimitiveContracts.test.ts",
+    contractDataName: "FEEDBACK_PRIMITIVE_CONTRACTS",
+    components: ["Spinner", "Skeleton", "Progress", "StatusDot", "Toast"],
+    activeNameKeywords: ["feedbackprimitive", "feedbackprimitivecontracts"],
+  },
+  {
     filename: "formControlContracts.test.ts",
     contractDataName: "FORM_CONTROL_CONTRACTS",
-    components: ["Select", "Switch", "Checkbox", "Radio", "Slider"],
+    components: ["Select", "Switch", "Checkbox", "Radio", "Slider", "TagInput"],
     activeNameKeywords: ["formcontrols", "formcontrolcontracts"],
   },
   {
@@ -47,29 +59,9 @@ const OWNER_SUITES = [
   },
 ] as const;
 
-const TAG_INPUT_STATIC_CONTRACT_FILE = "tagInput.test.ts";
 const RENDERED_FORM_CONTROLS_FILE = "renderedFormControls.test.tsx";
 const TAG_INPUT_RENDERED_BEHAVIOR_TEST_NAME =
   "adds, deduplicates, and removes tags through the rendered tag-input surface";
-
-const TAG_INPUT_SOURCE_BEHAVIOR_MARKERS = [
-  {
-    name: "TagInput behavior contracts suite",
-    pattern: /\bdescribe\s*\(\s*["'`]TagInput behavior contracts["'`]/,
-  },
-  {
-    name: "keyboard event source assertions",
-    pattern: /e\\?\.key|Backspace/,
-  },
-  {
-    name: "source implementation helper assertions",
-    pattern: /\b(?:addTag|removeTag)\b/,
-  },
-  {
-    name: "placeholder behavior source assertions",
-    pattern: /placeholder\s*=|tag count|tags\.length/,
-  },
-] as const;
 
 const APPROVED_COMPONENT_CONTRACT_TEST_FILES = new Set([
   "componentContractOwnerGovernance.test.ts",
@@ -180,13 +172,9 @@ describe("component contract owner governance boundary", () => {
   });
 
   it("keeps rendered TagInput behavior owned by the rendered form-control suite", () => {
-    const tagInputSource = readTestSource(TAG_INPUT_STATIC_CONTRACT_FILE);
     const renderedFormControlSource = readTestSource(
       RENDERED_FORM_CONTROLS_FILE,
     );
-    const mirroredBehaviorMarkers = TAG_INPUT_SOURCE_BEHAVIOR_MARKERS.filter(
-      (marker) => marker.pattern.test(tagInputSource),
-    ).map((marker) => marker.name);
 
     expect(
       renderedFormControlSource,
@@ -196,9 +184,5 @@ describe("component contract owner governance boundary", () => {
       renderedFormControlSource,
       `${RENDERED_FORM_CONTROLS_FILE} must cover the rendered TagInput add, dedupe, remove, keyboard, and placeholder behavior`,
     ).toContain(TAG_INPUT_RENDERED_BEHAVIOR_TEST_NAME);
-    expect(
-      mirroredBehaviorMarkers,
-      `${TAG_INPUT_STATIC_CONTRACT_FILE} may own file/export/API/static visual contracts, but rendered user behavior belongs in ${RENDERED_FORM_CONTROLS_FILE}`,
-    ).toEqual([]);
   });
 });

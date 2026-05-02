@@ -110,6 +110,28 @@ class TestGetClientResolvesProviderKey:
         assert anthropic_client.api_key == "sk-ant-key"
         assert openai_client is not anthropic_client
 
+    def test_cached_override_client_keeps_resolved_provider_key(self):
+        """Per-soul override clients are cached with the provider key they were built with."""
+        runner = RunsightTeamRunner(
+            model_name="gpt-4o",
+            api_keys={"openai": "sk-openai-key", "anthropic": "sk-ant-key"},
+        )
+        soul = Soul(
+            id="soul-s1",
+            kind="soul",
+            name="test",
+            role="test",
+            system_prompt="test",
+            provider="anthropic",
+            model_name="claude-3-opus-20240229",
+        )
+
+        first_client = runner._get_client(soul)
+        second_client = runner._get_client(soul)
+
+        assert first_client is second_client
+        assert second_client.api_key == "sk-ant-key"
+
 
 # ---------------------------------------------------------------------------
 # 3. Missing provider key -> descriptive error (not crash)

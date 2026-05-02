@@ -7,10 +7,14 @@ refactoring.
 
 ## Coverage
 
-- Current test files inventoried: 714
-- Reviewed rows in `full-test-cleanup-map.tsv`: 714
+- Current test files inventoried: 586
+- Reviewed rows in `full-test-cleanup-map.tsv`: 586
 - Tier 1 Bronze delete completed: 51 files removed
 - Tier 1 RGB gate: Red matrix approved, Blue approved, Yellow approved
+- Tier 2 Silver merge/delete completed: 130 assigned duplicate files removed,
+  3 consolidated tools governance owners added, and 5 GUI settings files
+  escalated because no safe rendered settings owner exists yet
+- Tier 2 RGB gate: Red matrix approved, Blue approved, Yellow approved
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
@@ -41,22 +45,19 @@ Each test file was reviewed for:
 
 | Action | Count |
 |---|---:|
-| KEEP | 360 |
-| MERGE_THEN_DELETE | 135 |
-| SHRINK_TO_SMOKE | 72 |
+| KEEP | 363 |
+| SHRINK_TO_SMOKE | 71 |
 | SPLIT | 75 |
 | EXTERNALIZE_FIXTURES | 44 |
 | MOVE_TO_TOOLING | 22 |
-| REVIEW_DEEP | 6 |
+| REVIEW_DEEP | 11 |
 
 ### By Alignment Status
 
 | Status | Count |
 |---|---:|
-| aligned | 360 |
-| cleanup_needed | 160 |
-| delete_candidate | 3 |
-| merge_candidate | 119 |
+| aligned | 363 |
+| cleanup_needed | 151 |
 | shrink_candidate | 50 |
 | move_candidate | 21 |
 | red_unfinished | 1 |
@@ -65,32 +66,31 @@ Each test file was reviewed for:
 
 | Workspace | KEEP | DELETE | MERGE_THEN_DELETE | SHRINK_TO_SMOKE | SPLIT | EXTERNALIZE_FIXTURES | MOVE_TO_TOOLING | REVIEW_DEEP | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| api | 117 | 0 | 11 | 12 | 16 | 30 | 6 | 3 | 195 |
-| core | 150 | 0 | 48 | 24 | 49 | 2 | 7 | 2 | 282 |
-| e2e | 11 | 0 | 9 | 5 | 1 | 0 | 0 | 1 | 27 |
-| gui | 66 | 0 | 26 | 8 | 8 | 12 | 9 | 0 | 129 |
-| shared | 5 | 0 | 4 | 5 | 0 | 0 | 0 | 0 | 14 |
-| tools | 2 | 0 | 29 | 6 | 0 | 0 | 0 | 0 | 37 |
-| ui | 9 | 0 | 8 | 12 | 1 | 0 | 0 | 0 | 30 |
+| api | 117 | 0 | 0 | 12 | 16 | 30 | 6 | 3 | 184 |
+| core | 150 | 0 | 0 | 24 | 49 | 2 | 7 | 2 | 234 |
+| e2e | 11 | 0 | 0 | 5 | 1 | 0 | 0 | 1 | 18 |
+| gui | 66 | 0 | 0 | 8 | 8 | 12 | 9 | 5 | 108 |
+| shared | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 10 |
+| tools | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 10 |
+| ui | 9 | 0 | 0 | 12 | 1 | 0 | 0 | 0 | 22 |
 
 ## Interpretation
 
-The epic is not done. The audit says 354 of 714 current test files still need a
+The epic is not done. The audit says 223 of 586 current test files still need a
 cleanup action before the test surface matches the target convention.
 
 The biggest cleanup opportunities are:
 
-- Merge duplicated small suites into stronger behavior owners: 135 merge/delete
-  candidates.
 - Shrink browser-heavy, route-mocked, or matrix-heavy suites to smoke coverage:
-  72 suites.
+  71 suites.
 - Split god-object suites with mixed concerns: 75 suites.
 - Externalize large inline fixtures, mostly API and GUI: 44 suites.
 - Move repo/source governance out of app/package tests into tooling: 22 suites.
+- Deep-review blockers and escalations: 11 suites.
 
-Tier 1 removed the original 51 direct delete candidates. The remaining
-`delete_candidate` statuses are not direct deletes; their current
-`primary_action` is merge or deep review.
+Tier 1 removed the original 51 direct delete candidates. Tier 2 removed the
+merge/delete queue. It left five GUI settings source-scan files intentionally
+escalated until a proper rendered settings owner exists.
 
 ## High-Risk Items
 
@@ -102,20 +102,18 @@ Tier 1 removed the original 51 direct delete candidates. The remaining
   changing.
 - Route-mocked browser contracts such as context audit and parser warnings need
   owner decisions: GUI browser-contract tests versus true E2E smoke.
-- Tooling/governance suites are the largest low-signal cluster. Many are
-  temporary one-off guards created during this cleanup and should collapse into
-  a small number of durable policy checks or be deleted.
+- The five escalated GUI settings suites need a rendered settings owner before
+  they can be safely merged and deleted.
 
 ## Next Execution Order
 
-1. Collapse `MERGE_THEN_DELETE` suites into the named owner suites and delete
-   the redundant files.
-2. Move `MOVE_TO_TOOLING` governance out of app/package test workspaces or
+1. Move `MOVE_TO_TOOLING` governance out of app/package test workspaces or
    delete it if it is temporary migration residue.
-3. Shrink `SHRINK_TO_SMOKE` suites so browser/integration tests only cover the
+2. Shrink `SHRINK_TO_SMOKE` suites so browser/integration tests only cover the
    user-visible wiring that lower-level tests cannot cover.
-4. Split `SPLIT` god suites by behavior owner.
-5. Externalize fixture bulk into package-local builders/fixtures.
+3. Split `SPLIT` god suites by behavior owner.
+4. Externalize fixture bulk into package-local builders/fixtures.
+5. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
 6. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
 
 Use `tools/test-audit/full-test-cleanup-map.tsv` as the source of truth for the

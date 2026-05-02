@@ -110,3 +110,27 @@ async def test_codeblock_execute_passes_custom_ctx_inputs_unchanged_to_subproces
     await block.execute(ctx)
 
     assert block.captured_inputs == {"x": "safe", "nested": {"value": 1}}
+
+
+@pytest.mark.asyncio
+async def test_codeblock_filters_runtime_infra_inputs_before_subprocess() -> None:
+    """Serializable workflow internals must not be exposed to user code."""
+    block = CapturingCodeBlock("infra_filter")
+    ctx = BlockContext(
+        block_id="infra_filter",
+        instruction="",
+        context=None,
+        inputs={
+            "safe": "ok",
+            "nested": {"value": 1},
+            "blocks": {"serializable": "infra"},
+            "call_stack": ["parent"],
+            "ctx": "serializable-infra",
+            "observer": "serializable-infra",
+            "workflow_registry": {"serializable": "infra"},
+        },
+    )
+
+    await block.execute(ctx)
+
+    assert block.captured_inputs == {"safe": "ok", "nested": {"value": 1}}

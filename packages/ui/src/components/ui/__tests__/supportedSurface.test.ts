@@ -72,4 +72,13 @@ describe("retained vs unsupported public exports", () => {
       "Expected key-value to be either explicitly retained under the supported surface rule or removed from the public surface altogether",
     ).toBe(false);
   });
+
+  it("retains tag-input through an explicit package export", () => {
+    const explicitExports = getExplicitExportMap();
+
+    expect(explicitExports.get("./tag-input")).toBe(
+      "./src/components/ui/tag-input.tsx",
+    );
+    expect(readPackageJson().exports?.["./*"]).toBeUndefined();
+  });
 });

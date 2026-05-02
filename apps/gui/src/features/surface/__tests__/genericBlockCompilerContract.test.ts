@@ -96,3 +96,26 @@ describe("Compiler: unknown block type emits all fields", () => {
     expect((block.retry_config as Record<string, unknown>).max_attempts).toBe(3);
   });
 });
+
+describe("Compiler: known nested fields keep canonical YAML keys", () => {
+  it("emits carry_context with snake_case child keys", () => {
+    const node = mockNode("step1", "loop", {
+      innerBlockRefs: ["step_a"],
+      carryContext: {
+        enabled: true,
+        mode: "last",
+        sourceBlocks: ["step_a"],
+        injectAs: "previous_output",
+      },
+    });
+
+    const { block } = compileOne(node);
+
+    expect(block.carry_context).toEqual({
+      enabled: true,
+      mode: "last",
+      source_blocks: ["step_a"],
+      inject_as: "previous_output",
+    });
+  });
+});

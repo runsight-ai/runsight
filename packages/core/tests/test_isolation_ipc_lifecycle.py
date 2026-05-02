@@ -21,6 +21,17 @@ from isolation_ipc_helpers import (
 class TestSocketCleanup:
     """Socket resources must be cleaned up properly."""
 
+    def test_server_requires_prebound_socket_object(self, tmp_path: Path):
+        """IPCServer owns serving, while the caller owns creating/binding the socket."""
+        from runsight_core.isolation import IPCServer
+
+        with pytest.raises(TypeError, match="socket.socket"):
+            IPCServer(
+                sock=str(tmp_path / "not-bound.sock"),
+                handlers={},
+                grant_token=_make_grant_token(),
+            )
+
     @pytest.mark.asyncio
     async def test_server_shutdown_releases_socket(self, tmp_path: Path):
         """After IPCServer.shutdown(), the socket is no longer accepting connections."""

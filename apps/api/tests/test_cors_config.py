@@ -19,6 +19,7 @@ class TestCorsOriginsSettingsField:
 
         s = Settings()
         assert s.cors_origins == ["http://localhost:3000"]
+        assert not any("5173" in origin for origin in s.cors_origins)
 
     def test_default_is_a_list(self):
         """cors_origins must be a list, not a string."""

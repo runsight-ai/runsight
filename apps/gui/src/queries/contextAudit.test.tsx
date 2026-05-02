@@ -9,11 +9,13 @@ import { runsApi } from "../api/runs";
 import { queryKeys } from "./keys";
 
 const harness = vi.hoisted(() => ({
+  getChildRuns: vi.fn(),
   getRunContextAudit: vi.fn(),
 }));
 
 vi.mock("../api/runs", () => ({
   runsApi: {
+    getChildRuns: harness.getChildRuns,
     getRunContextAudit: harness.getRunContextAudit,
   },
 }));
@@ -30,6 +32,7 @@ type ContextAuditStoreModule = {
 };
 
 type RunsQueryModule = {
+  useChildRuns: (runId: string) => unknown;
   useRunContextAudit: (runId: string, params?: { page_size?: number }) => {
     fetchNextPage: () => Promise<unknown>;
     hasNextPage?: boolean;
@@ -140,6 +143,7 @@ async function loadStoreModule(): Promise<ContextAuditStoreModule> {
 
 describe("context audit query layer", () => {
   beforeEach(async () => {
+    harness.getChildRuns.mockReset();
     harness.getRunContextAudit.mockReset();
     eventSources.length = 0;
     vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
@@ -154,6 +158,24 @@ describe("context audit query layer", () => {
       "runs",
       "run_context_audit",
       "contextAudit",
+    ]);
+  });
+
+  it("wires child-run drilldown through the runs query layer", async () => {
+    const { useChildRuns } = await loadRunsModule();
+    harness.getChildRuns.mockResolvedValue([{ id: "run_child" }]);
+
+    renderHook(() => useChildRuns("run_parent_drilldown"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(runsApi.getChildRuns).toHaveBeenCalledWith("run_parent_drilldown");
+    });
+    expect(queryKeys.runs.children("run_parent_drilldown")).toEqual([
+      "runs",
+      "run_parent_drilldown",
+      "children",
     ]);
   });
 
