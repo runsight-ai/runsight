@@ -1,0 +1,31 @@
+packages/core/tests/test_soul_scanner.py
+  77cf569945f19a29 1-124
+packages/core/tests/test_discovery_repo_policy_governance.py
+  77cf569945f19a29 1-27
+packages/core/tests/test_discovery_public_api.py
+  77cf569945f19a29 1-59
+packages/core/tests/discovery_fixtures.py
+  77cf569945f19a29 1,6,36,40,50,57-60
+packages/core/tests/test_tool_scanner.py
+  77cf569945f19a29 1-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d6b5eac931a1c34b4f641ee96ba5d2f4c005437f",
+  "prompts": {
+    "77cf569945f19a29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de7c4-c4cf-7003-b51a-355744c18b85",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 653,
+      "total_deletions": 684,
+      "accepted_lines": 653,
+      "overriden_lines": 0
+    }
+  }
+}
