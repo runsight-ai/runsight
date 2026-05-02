@@ -22,7 +22,6 @@ import { resolve } from "node:path";
 
 const UI_DIR = resolve(__dirname, "..");
 const SHARED_DIR = resolve(__dirname, "..", "..", "shared");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
 
 function componentExists(filename: string): boolean {
   return existsSync(resolve(UI_DIR, filename));
@@ -34,21 +33,6 @@ function readComponent(filename: string): string {
 
 function readShared(filename: string): string {
   return readFileSync(resolve(SHARED_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
-}
-
-function readStory(filename: string): string {
-  const storiesPath = resolve(STORIES_DIR, filename);
-  if (existsSync(storiesPath)) {
-    return readFileSync(storiesPath, "utf-8");
-  }
-  return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
 // ===========================================================================
@@ -303,87 +287,5 @@ describe("EmptyState — no BEM class names", () => {
     const source = readShared("EmptyState.tsx");
     // Must use CVA+Tailwind, not BEM
     expect(source).not.toMatch(/empty-state__|__icon|__title/);
-  });
-});
-
-// ===========================================================================
-// 12. STORYBOOK STORIES — all 3 story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("NodeCard.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("NodeCard.stories.tsx")).toBe(true);
-  });
-
-  it("EmptyState.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("EmptyState.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 13. STORYBOOK STORIES — NodeCard.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — NodeCard.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers block category variants (agent, logic, control, utility, custom)", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/agent|logic|control|utility|custom/i);
-  });
-
-  it("covers execution states (running, success, error/danger, skipped)", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/running|success|error|danger|skipped/i);
-  });
-
-  it("covers selected state", () => {
-    const content = readStory("NodeCard.stories.tsx");
-    expect(content).toMatch(/selected/i);
-  });
-});
-
-// ===========================================================================
-// 14. STORYBOOK STORIES — EmptyState.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — EmptyState.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("EmptyState.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("EmptyState.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("EmptyState.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers story with action button", () => {
-    const content = readStory("EmptyState.stories.tsx");
-    expect(content).toMatch(/action/i);
-  });
-
-  it("covers story without description (title-only)", () => {
-    const content = readStory("EmptyState.stories.tsx");
-    // Should have a story variant showing the no-description case
-    expect(content).toMatch(/WithoutDescription|NoDescription|TitleOnly|without.*description|no.*description/i);
   });
 });

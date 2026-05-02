@@ -38,6 +38,8 @@ const COMPONENT_STORY_SURFACE = [
   "Card.stories.tsx",
   "StatCard.stories.tsx",
   "CodeBlock.stories.tsx",
+  "NodeCard.stories.tsx",
+  "EmptyState.stories.tsx",
   "Dialog.stories.tsx",
   "DropdownMenu.stories.tsx",
   "Command.stories.tsx",
@@ -56,6 +58,7 @@ type StoryContentExpectation = {
 type ComponentStoryScenario = {
   filename: (typeof COMPONENT_STORY_SURFACE)[number];
   expectations: StoryContentExpectation[];
+  absentExpectations?: StoryContentExpectation[];
 };
 
 const BASIC_USAGE_PATTERN = /Default|Basic|Primary/i;
@@ -192,6 +195,31 @@ const COMPONENT_STORY_SCENARIOS: ComponentStoryScenario[] = [
     ],
   },
   {
+    filename: "NodeCard.stories.tsx",
+    expectations: [
+      {
+        label: "block category variants",
+        pattern: /agent|logic|control|utility|custom/i,
+      },
+      {
+        label: "execution state variants",
+        pattern: /running|success|error|danger|skipped/i,
+      },
+      { label: "selected state", pattern: /selected/i },
+    ],
+  },
+  {
+    filename: "EmptyState.stories.tsx",
+    expectations: [
+      { label: "action story", pattern: /action/i },
+      {
+        label: "title-only or no-description story",
+        pattern:
+          /WithoutDescription|NoDescription|TitleOnly|without.*description|no.*description/i,
+      },
+    ],
+  },
+  {
     filename: "Dialog.stories.tsx",
     expectations: [
       { label: "basic/default dialog usage", pattern: BASIC_USAGE_PATTERN },
@@ -199,6 +227,9 @@ const COMPONENT_STORY_SCENARIOS: ComponentStoryScenario[] = [
         label: "footer or actions",
         pattern: /Footer|footer|Action|action|Button|button/,
       },
+    ],
+    absentExpectations: [
+      { label: 'outline button variant usage', pattern: /variant="outline"/ },
     ],
   },
   {
@@ -306,13 +337,21 @@ describe("component story surface", () => {
 
   it.each(COMPONENT_STORY_SCENARIOS)(
     "$filename preserves required scenario story coverage",
-    ({ filename, expectations }) => {
+    ({ filename, expectations, absentExpectations = [] }) => {
       const source = readStory(filename);
       const missingExpectations = expectations.flatMap(({ label, pattern }) => {
         return pattern.test(source) ? [] : [label];
       });
 
       expect(missingExpectations).toEqual([]);
+
+      const presentForbiddenExpectations = absentExpectations.flatMap(
+        ({ label, pattern }) => {
+          return pattern.test(source) ? [label] : [];
+        },
+      );
+
+      expect(presentForbiddenExpectations).toEqual([]);
     },
   );
 });
