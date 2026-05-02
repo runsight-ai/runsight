@@ -1,0 +1,23 @@
+packages/core/tests/test_source_scan_ownership_governance.py
+  14582136d80546a3 1-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4811e36c145d5bf9aa3542d365b1ce5e88d0f7a2",
+  "prompts": {
+    "14582136d80546a3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de767-9df1-7a60-a4bb-92bdaf21665f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 205,
+      "total_deletions": 516,
+      "accepted_lines": 254,
+      "overriden_lines": 0
+    }
+  }
+}
