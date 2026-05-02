@@ -1,0 +1,25 @@
+packages/ui/src/components/ui/__tests__/renderedCoverage.test.ts
+  11c23e760e012382 5-13
+packages/ui/src/components/ui/__tests__/fixtures/renderedCoverageManifest.ts
+  11c23e760e012382 1-432
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "aafea10c31f2d770e81b890c584bb44ce057e5f4",
+  "prompts": {
+    "11c23e760e012382": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de73d-d4ed-7a22-8ac5-62cb23e50c80",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 892,
+      "total_deletions": 870,
+      "accepted_lines": 880,
+      "overriden_lines": 2
+    }
+  }
+}
