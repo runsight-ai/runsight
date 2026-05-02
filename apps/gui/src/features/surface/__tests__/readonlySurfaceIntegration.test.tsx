@@ -10,41 +10,19 @@ import {
   RouterProvider,
   useLocation,
 } from "react-router";
-import type { ContextAuditEventV1 } from "@runsight/shared/zod";
 
 import { useCanvasStore } from "@/store/canvas";
 import { useContextAuditStore } from "@/store/contextAudit";
-
-type RunStatus = "completed" | "failed" | "running" | "pending";
-
-type RunRecord = {
-  id: string;
-  workflow_id: string;
-  workflow_name: string;
-  status: RunStatus;
-  commit_sha: string;
-  duration_seconds: number;
-  total_tokens: number;
-  total_cost_usd: number;
-  source: string;
-  error: string | null;
-  created_at?: number;
-  started_at?: number;
-};
-
-type WorkflowRecord = {
-  id: string;
-  name: string;
-  yaml: string;
-  canvas_state?: {
-    nodes?: Array<Record<string, unknown>>;
-    edges?: Array<Record<string, unknown>>;
-    viewport?: { x: number; y: number; zoom: number };
-    selected_node_id?: string | null;
-    canvas_mode?: "dag" | "state-machine";
-  } | null;
-  commit_sha: string;
-};
+import {
+  buildContextAuditEvent,
+  buildSurfaceRun,
+  buildSurfaceWorkflow,
+  eventSourceInstances,
+  MockEventSource,
+  type SurfaceRunRecord as RunRecord,
+  type SurfaceRunStatus as RunStatus,
+  type SurfaceWorkflowRecord as WorkflowRecord,
+} from "./helpers/surfaceStreamTestHelpers";
 
 type RunNodeRecord = {
   node_id: string;
@@ -54,8 +32,6 @@ type RunNodeRecord = {
   tokens?: { input?: number; output?: number; total?: number };
   error?: string | null;
 };
-
-type EventSourceListener = (event: MessageEvent) => void;
 
 const harness = vi.hoisted(() => ({
   run: null as RunRecord | null,
@@ -80,33 +56,7 @@ const harness = vi.hoisted(() => ({
   updateWorkflow: { mutate: vi.fn() },
 }));
 
-const eventSources: MockEventSource[] = [];
 const localStorageState = new Map<string, string>();
-
-class MockEventSource {
-  static instances = eventSources;
-
-  public readonly url: string;
-  public readonly close = vi.fn();
-  private readonly listeners = new Map<string, EventSourceListener[]>();
-
-  constructor(url: string) {
-    this.url = url;
-    eventSources.push(this);
-  }
-
-  addEventListener(type: string, listener: EventSourceListener) {
-    const current = this.listeners.get(type) ?? [];
-    current.push(listener);
-    this.listeners.set(type, current);
-  }
-
-  emit(type: string, payload: Record<string, unknown>) {
-    for (const listener of this.listeners.get(type) ?? []) {
-      listener({ data: JSON.stringify(payload) } as MessageEvent);
-    }
-  }
-}
 
 vi.mock("@xyflow/react", async () => {
   const ReactModule = await import("react");
@@ -169,9 +119,7 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => harness.queryClient,
 }));
 
-vi.mock("@/queries/runs", async () => {
-  const { useEffect } = await import("react");
-
+vi.mock("@/queries/runs", () => {
   return {
     useCreateRun: () => ({
       mutate: vi.fn(),
@@ -205,19 +153,7 @@ vi.mock("@/queries/runs", async () => {
       };
     },
     useRunContextAudit: () => ({ fetchNextPage: vi.fn(), hasNextPage: false }),
-    useRunContextAuditStream: (runId: string | null | undefined) => {
-      useEffect(() => {
-        if (!runId) {
-          return;
-        }
-
-        const source = new EventSource(`/api/runs/${runId}/stream`);
-        source.addEventListener("run_completed", () => source.close());
-        source.addEventListener("run_failed", () => source.close());
-
-        return () => source.close();
-      }, [runId]);
-    },
+    useRunContextAuditStream: () => undefined,
     useRuns: (filters?: Record<string, unknown>) => {
       harness.useRunsFilters.push(filters);
       return {
@@ -330,55 +266,6 @@ function RouteLocationProbe({ testId }: { testId: string }) {
   return <div data-testid={testId}>{location.pathname}</div>;
 }
 
-function buildWorkflow(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord {
-  return {
-    id: "wf_readonly_surface",
-    name: "Readonly Surface Flow",
-    yaml: "workflow:\n  name: Live Workflow\n  enabled: true\n",
-    canvas_state: {
-      nodes: [
-        {
-          id: "node_brain",
-          type: "soul",
-          position: { x: 120, y: 80 },
-          data: {
-            name: "Research Soul",
-            soulRef: "souls/researcher",
-            model: "gpt-5",
-            status: "idle",
-            executionCost: 0,
-            duration: 0,
-          },
-        },
-      ],
-      edges: [],
-      viewport: { x: 0, y: 0, zoom: 1 },
-      selected_node_id: null,
-      canvas_mode: "dag",
-    },
-    commit_sha: "workflow_commit_readonly",
-    ...overrides,
-  };
-}
-
-function buildRun(overrides: Partial<RunRecord> = {}): RunRecord {
-  return {
-    id: "run_readonly_surface",
-    workflow_id: "wf_readonly_surface",
-    workflow_name: "Readonly Surface Flow",
-    status: "completed",
-    commit_sha: "run_commit_readonly",
-    duration_seconds: 88,
-    total_tokens: 2112,
-    total_cost_usd: 3.14,
-    source: "manual",
-    error: null,
-    created_at: 100,
-    started_at: 200,
-    ...overrides,
-  };
-}
-
 function buildRunNode(overrides: Partial<RunNodeRecord> = {}): RunNodeRecord {
   return {
     node_id: "node_brain",
@@ -391,53 +278,22 @@ function buildRunNode(overrides: Partial<RunNodeRecord> = {}): RunNodeRecord {
   };
 }
 
-function buildContextAuditEvent(overrides: Partial<ContextAuditEventV1> = {}): ContextAuditEventV1 {
-  return {
-    schema_version: "context_audit.v1",
-    event: "context_resolution",
-    run_id: "run_readonly_surface",
-    workflow_name: "Readonly Surface Flow",
-    node_id: "node_brain",
-    block_type: "linear",
-    access: "declared",
-    mode: "strict",
-    sequence: 1,
-    records: [
-      {
-        input_name: "brief",
-        from_ref: "research.summary",
-        namespace: "results",
-        source: "research",
-        field_path: "summary",
-        status: "resolved",
-        severity: "allow",
-        value_type: "str",
-        preview: "context from the selected audit run",
-        reason: null,
-        internal: false,
-      },
-    ],
-    resolved_count: 1,
-    denied_count: 0,
-    warning_count: 0,
-    emitted_at: "2026-04-17T10:00:00.000Z",
-    ...overrides,
-  };
-}
-
 function setReadonlyFixtures({
   runStatus = "completed",
   regressionCount = 0,
   runNodes = [buildRunNode()],
-  canvasState = buildWorkflow().canvas_state,
+  canvasState = buildSurfaceWorkflow().canvas_state,
 }: {
   runStatus?: RunStatus;
   regressionCount?: number;
   runNodes?: RunNodeRecord[];
   canvasState?: WorkflowRecord["canvas_state"];
 } = {}) {
-  harness.run = buildRun({ status: runStatus });
-  harness.workflow = buildWorkflow({ canvas_state: canvasState });
+  harness.run = buildSurfaceRun({
+    status: runStatus,
+    commit_sha: "run_commit_readonly",
+  });
+  harness.workflow = buildSurfaceWorkflow({ canvas_state: canvasState });
   harness.runNodes = runNodes;
   harness.runs = [harness.run];
   harness.runRegressions = { count: regressionCount, issues: [] };
@@ -470,7 +326,7 @@ function resetHarness() {
   harness.cancelRun.mutate.mockReset();
   harness.cancelRun.isPending = false;
   harness.updateWorkflow.mutate.mockReset();
-  eventSources.splice(0, eventSources.length);
+  eventSourceInstances.splice(0, eventSourceInstances.length);
   localStorageState.clear();
   window.history.replaceState(null, "", "/runs/run_readonly_surface");
   useCanvasStore.getState().reset();
@@ -566,45 +422,6 @@ describe("WorkflowSurface readonly integration", () => {
     expect(canvas.getAttribute("data-connectable")).toBe("false");
     expect(canvas.getAttribute("data-delete-key")).toBe("");
     expect(screen.getByTestId("react-flow-node-node_brain").textContent).toContain("completed");
-  });
-
-  it("updates node status from one shared stream owner through the bottom panel path", async () => {
-    setReadonlyFixtures({
-      runStatus: "running",
-      runNodes: [buildRunNode({ status: "running" })],
-    });
-
-    render(
-      <MemoryRouter>
-        <WorkflowSurface mode="readonly" runId="run_readonly_surface" workflowId="wf_readonly_surface" />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(eventSources).toHaveLength(1);
-      expect(eventSources[0]?.url).toBe("/api/runs/run_readonly_surface/stream");
-    });
-
-    await waitFor(() => {
-      expect(useCanvasStore.getState().nodes[0]?.data.status).toBe("running");
-      expect(useCanvasStore.getState().activeRunId).toBe("run_readonly_surface");
-    });
-
-    eventSources[0]?.emit("node_completed", {
-      node_id: "node_brain",
-      cost_usd: 2.5,
-    });
-    eventSources[0]?.emit("run_completed", {
-      run_id: "run_readonly_surface",
-      total_cost_usd: 7.5,
-    });
-
-    await waitFor(() => {
-      expect(useCanvasStore.getState().nodes[0]?.data.status).toBe("completed");
-      expect(useCanvasStore.getState().runCost).toBe(7.5);
-      expect(useCanvasStore.getState().activeRunId).toBeNull();
-      expect(eventSources[0]?.close).toHaveBeenCalledTimes(1);
-    });
   });
 
   it("shows historical YAML from the run commit and keeps it read-only", async () => {
@@ -734,7 +551,7 @@ workflow:
     setReadonlyFixtures({
       canvasState: null,
     });
-    harness.workflow = buildWorkflow({
+    harness.workflow = buildSurfaceWorkflow({
       canvas_state: null,
       yaml: layoutYaml,
     });
@@ -822,7 +639,7 @@ workflow:
   });
 
   it("keeps edit mode off the readonly data path and hides readonly-only UI state", async () => {
-    harness.workflow = buildWorkflow();
+    harness.workflow = buildSurfaceWorkflow();
 
     render(
       <MemoryRouter>
@@ -843,7 +660,7 @@ workflow:
   });
 
   it("lays out edit mode from YAML when canvas_state is missing", async () => {
-    harness.workflow = buildWorkflow({
+    harness.workflow = buildSurfaceWorkflow({
       canvas_state: null,
       yaml: `
 version: "1.0"

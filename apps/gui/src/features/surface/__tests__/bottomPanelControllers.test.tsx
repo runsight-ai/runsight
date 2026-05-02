@@ -5,26 +5,13 @@ import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
-
-type RunRecord = {
-  id: string;
-  workflow_id: string;
-  workflow_name: string;
-  status: "completed" | "failed" | "running" | "pending";
-  commit_sha: string;
-  duration_seconds: number;
-  total_tokens: number;
-  total_cost_usd: number;
-  source: string;
-  branch: string;
-  error: string | null;
-  created_at: number;
-  started_at: number;
-  run_number: number | null;
-  eval_pass_pct: number | null;
-  regression_count: number | null;
-  warnings?: Array<Record<string, unknown>>;
-};
+import {
+  buildBottomPanelContextResolutionEvent,
+  buildBottomPanelRun,
+  eventSourceInstances,
+  MockEventSource,
+  type SurfaceRunRecord as RunRecord,
+} from "./helpers/surfaceStreamTestHelpers";
 
 type LogEntry = {
   id?: number;
@@ -32,8 +19,6 @@ type LogEntry = {
   level: string;
   message: string;
 };
-
-type EventSourceListener = (event: MessageEvent) => void;
 
 const harness = vi.hoisted(() => ({
   runs: [] as RunRecord[],
@@ -65,38 +50,6 @@ const harness = vi.hoisted(() => ({
     clearRun: vi.fn(),
   },
 }));
-
-const eventSources: MockEventSource[] = [];
-
-class MockEventSource {
-  public readonly url: string;
-  public closed = false;
-  private readonly listeners = new Map<string, EventSourceListener[]>();
-
-  constructor(url: string) {
-    this.url = url;
-    eventSources.push(this);
-  }
-
-  addEventListener(type: string, listener: EventSourceListener) {
-    const current = this.listeners.get(type) ?? [];
-    current.push(listener);
-    this.listeners.set(type, current);
-  }
-
-  close = vi.fn(() => {
-    this.closed = true;
-  });
-
-  emit(type: string, payload: Record<string, unknown>) {
-    if (this.closed) {
-      return;
-    }
-    for (const listener of this.listeners.get(type) ?? []) {
-      listener(new MessageEvent(type, { data: JSON.stringify(payload) }));
-    }
-  }
-}
 
 vi.mock("@/queries/runs", async () => {
   const { useEffect } = await import("react");
@@ -246,74 +199,8 @@ vi.mock("@/store/contextAudit", () => ({
     ),
 }));
 
-function makeRun(
-  id: string,
-  {
-    createdAt,
-    runNumber,
-    workflowId = "wf_bottom_panel",
-  }: {
-    createdAt: number;
-    runNumber: number;
-    workflowId?: string;
-  },
-): RunRecord {
-  return {
-    id,
-    workflow_id: workflowId,
-    workflow_name: "Bottom Panel Workflow",
-    status: "completed",
-    commit_sha: `${id}_sha`,
-    duration_seconds: 30,
-    total_tokens: 100,
-    total_cost_usd: 0.42,
-    source: "manual",
-    branch: "main",
-    error: null,
-    created_at: createdAt,
-    started_at: createdAt,
-    run_number: runNumber,
-    eval_pass_pct: null,
-    regression_count: 0,
-    warnings: [],
-  };
-}
-
-function makeContextResolutionEvent(runId: string, nodeId: string, sequence: number) {
-  return {
-    schema_version: "context_audit.v1",
-    event: "context_resolution",
-    run_id: runId,
-    workflow_name: "Bottom Panel Workflow",
-    node_id: nodeId,
-    block_type: "linear",
-    access: "declared",
-    mode: "strict",
-    sequence,
-    records: [
-      {
-        input_name: "context",
-        from_ref: "draft.summary",
-        namespace: "results",
-        source: "draft",
-        field_path: "summary",
-        status: "resolved",
-        severity: "allow",
-        value_type: "str",
-        preview: "summary",
-        reason: null,
-        internal: false,
-      },
-    ],
-    resolved_count: 0,
-    denied_count: 0,
-    warning_count: 0,
-    emitted_at: `2026-04-22T13:0${sequence}:00.000Z`,
-  };
-}
-
 function expectSingleStreamForRun(runId: string) {
-  const matching = eventSources.filter(
+  const matching = eventSourceInstances.filter(
     (source) => source.url === `/api/runs/${runId}/stream`,
   );
 
@@ -352,8 +239,8 @@ async function selectRunFromRunsTab(runNumberLabel: string) {
 beforeEach(() => {
   cleanup();
   harness.runs = [
-    makeRun("run_live", { createdAt: 200, runNumber: 1 }),
-    makeRun("run_other", { createdAt: 100, runNumber: 2 }),
+    buildBottomPanelRun("run_live", { createdAt: 200, runNumber: 1 }),
+    buildBottomPanelRun("run_other", { createdAt: 100, runNumber: 2 }),
   ];
   harness.runLogsById = {};
   harness.runLogTotalsById = {};
@@ -370,7 +257,7 @@ beforeEach(() => {
   harness.contextAuditStore.replaceRunEvents.mockClear();
   harness.contextAuditStore.appendEvents.mockClear();
   harness.contextAuditStore.clearRun.mockClear();
-  eventSources.length = 0;
+  eventSourceInstances.length = 0;
   vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
 });
 
@@ -393,7 +280,7 @@ describe("bottom panel controller boundaries", () => {
     act(() => {
       liveSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_live", "draft", 1),
+        buildBottomPanelContextResolutionEvent("run_live", "draft", 1),
       );
     });
 
@@ -427,9 +314,21 @@ describe("bottom panel controller boundaries", () => {
 
   it("resets selection when the workflow context switches to a different run set", async () => {
     harness.runs = [
-      makeRun("run_live", { createdAt: 200, runNumber: 1, workflowId: "wf_bottom_panel" }),
-      makeRun("run_other", { createdAt: 100, runNumber: 2, workflowId: "wf_bottom_panel" }),
-      makeRun("run_fresh", { createdAt: 300, runNumber: 1, workflowId: "wf_other_panel" }),
+      buildBottomPanelRun("run_live", {
+        createdAt: 200,
+        runNumber: 1,
+        workflowId: "wf_bottom_panel",
+      }),
+      buildBottomPanelRun("run_other", {
+        createdAt: 100,
+        runNumber: 2,
+        workflowId: "wf_bottom_panel",
+      }),
+      buildBottomPanelRun("run_fresh", {
+        createdAt: 300,
+        runNumber: 1,
+        workflowId: "wf_other_panel",
+      }),
     ];
 
     const view = renderPanel({ runId: "run_live", workflowId: "wf_bottom_panel" });
@@ -470,7 +369,7 @@ describe("bottom panel controller boundaries", () => {
     act(() => {
       liveSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_live", "draft", 1),
+        buildBottomPanelContextResolutionEvent("run_live", "draft", 1),
       );
     });
 
@@ -483,7 +382,7 @@ describe("bottom panel controller boundaries", () => {
     act(() => {
       otherSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_other", "review", 2),
+        buildBottomPanelContextResolutionEvent("run_other", "review", 2),
       );
     });
 
@@ -504,7 +403,7 @@ describe("bottom panel controller boundaries", () => {
       });
       liveSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_live", "draft", 1),
+        buildBottomPanelContextResolutionEvent("run_live", "draft", 1),
       );
     });
 
@@ -524,7 +423,7 @@ describe("bottom panel controller boundaries", () => {
       });
       liveSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_live", "stale", 2),
+        buildBottomPanelContextResolutionEvent("run_live", "stale", 2),
       );
     });
 
@@ -534,7 +433,7 @@ describe("bottom panel controller boundaries", () => {
     act(() => {
       otherSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_other", "review", 1),
+        buildBottomPanelContextResolutionEvent("run_other", "review", 1),
       );
       otherSource.emit("log_entry", {
         timestamp: "2026-04-22T12:02:00.000Z",
@@ -824,7 +723,7 @@ describe("bottom panel controller boundaries", () => {
     act(() => {
       liveSource.emit(
         "context_resolution",
-        makeContextResolutionEvent("run_live", "draft", 1),
+        buildBottomPanelContextResolutionEvent("run_live", "draft", 1),
       );
       liveSource.emit("node_completed", {
         node_id: "draft",
