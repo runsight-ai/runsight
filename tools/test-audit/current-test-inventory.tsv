@@ -57,7 +57,6 @@ apps/api/tests/logic/test_eval_observer_child_ownership.py	api	275	.py
 apps/api/tests/logic/test_eval_observer_custom_assertion.py	api	456	.py
 apps/api/tests/logic/test_eval_observer_redaction.py	api	64	.py
 apps/api/tests/logic/test_eval_observer_stream_emission.py	api	101	.py
-apps/api/tests/logic/test_eval_observer_suite_split_governance.py	api	199	.py
 apps/api/tests/logic/test_eval_observer_transform.py	api	391	.py
 apps/api/tests/logic/test_execution_input_redaction.py	api	239	.py
 apps/api/tests/logic/test_execution_observer.py	api	757	.py
@@ -83,8 +82,6 @@ apps/api/tests/logic/test_regression_logic.py	api	620	.py
 apps/api/tests/logic/test_run_repository_read_model_split.py	api	337	.py
 apps/api/tests/logic/test_run_service.py	api	366	.py
 apps/api/tests/logic/test_save_commit.py	api	545	.py
-apps/api/tests/logic/test_sensitive_redaction.py	api	23	.py
-apps/api/tests/logic/test_sensitive_redaction_suite_split_governance.py	api	176	.py
 apps/api/tests/logic/test_sim_branches.py	api	445	.py
 apps/api/tests/logic/test_single_writer_and_session.py	api	164	.py
 apps/api/tests/logic/test_soul_service.py	api	676	.py
@@ -109,7 +106,6 @@ apps/api/tests/logic/test_workflow_service_commit.py	api	251	.py
 apps/api/tests/logic/test_workflow_service_create_update.py	api	156	.py
 apps/api/tests/logic/test_workflow_service_delete.py	api	134	.py
 apps/api/tests/logic/test_workflow_service_list_get_detail.py	api	288	.py
-apps/api/tests/logic/test_workflow_service_split_governance.py	api	155	.py
 apps/api/tests/test_api_dead_code_boundary_governance.py	api	58	.py
 apps/api/tests/test_api_pytest_runtime_isolation.py	api	64	.py
 apps/api/tests/test_blank_canvas_yaml_writes.py	api	120	.py
@@ -125,12 +121,8 @@ apps/api/tests/test_identity_messages.py	api	158	.py
 apps/api/tests/test_identity_verification.py	api	333	.py
 apps/api/tests/test_openapi_codegen.py	api	110	.py
 apps/api/tests/test_parser_warning_run_snapshots.py	api	484	.py
-apps/api/tests/test_placeholder_block_removal_governance.py	api	259	.py
 apps/api/tests/test_request_id_access_log.py	api	233	.py
 apps/api/tests/test_run_creation_execution_integration.py	api	549	.py
-apps/api/tests/test_run_inputs_source_governance.py	api	148	.py
-apps/api/tests/test_scan_index_usage_governance.py	api	39	.py
-apps/api/tests/test_soul_assertion_field_removal_governance.py	api	72	.py
 apps/api/tests/test_source_branch_filtering.py	api	714	.py
 apps/api/tests/test_spa_catch_all.py	api	104	.py
 apps/api/tests/test_sql_pagination.py	api	146	.py
@@ -142,7 +134,6 @@ apps/api/tests/test_tools_canonical_home_governance.py	api	65	.py
 apps/api/tests/test_tracked_artifact_boundary_governance.py	api	101	.py
 apps/api/tests/test_workflow_input_redaction_integration.py	api	682	.py
 apps/api/tests/transport/test_attention.py	api	555	.py
-apps/api/tests/transport/test_budget_removal.py	api	21	.py
 apps/api/tests/transport/test_canonical_runs_route.py	api	133	.py
 apps/api/tests/transport/test_child_run_queries.py	api	420	.py
 apps/api/tests/transport/test_context_audit_contract_integration.py	api	145	.py
@@ -165,7 +156,6 @@ apps/api/tests/transport/test_git_router_missing_binary.py	api	58	.py
 apps/api/tests/transport/test_git_security.py	api	544	.py
 apps/api/tests/transport/test_model_catalog_api.py	api	666	.py
 apps/api/tests/transport/test_node_response_enrichment.py	api	406	.py
-apps/api/tests/transport/test_orphan_removal.py	api	77	.py
 apps/api/tests/transport/test_patch_workflow_enabled.py	api	366	.py
 apps/api/tests/transport/test_polling_and_node_summary.py	api	385	.py
 apps/api/tests/transport/test_regression_endpoints.py	api	455	.py
@@ -193,8 +183,6 @@ apps/api/tests/transport/test_workflow_input_inference_router.py	api	71	.py
 apps/api/tests/transport/test_workflow_input_schema_router.py	api	117	.py
 apps/api/tests/transport/test_workflow_simulation_input_schema_router.py	api	276	.py
 apps/api/tests/transport/test_workflows_router.py	api	388	.py
-apps/api/tests/unit/cleanup/test_decrypt_stub_removal_governance.py	api	78	.py
-apps/api/tests/unit/cleanup/test_sqlite_encryption_removal_governance.py	api	336	.py
 apps/api/tests/unit/core/test_secrets.py	api	423	.py
 apps/api/tests/unit/data/filesystem/test_provider_repo.py	api	646	.py
 apps/api/tests/unit/data/filesystem/test_provider_repo_identity.py	api	124	.py
@@ -202,16 +190,13 @@ apps/api/tests/unit/data/filesystem/test_settings_repo.py	api	421	.py
 apps/api/tests/unit/data/filesystem/test_workflow_canvas_sidecar.py	api	19	.py
 apps/api/tests/unit/data/filesystem/test_workflow_registry_ids.py	api	124	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_collaborator_boundaries.py	api	396	.py
-apps/api/tests/unit/data/filesystem/test_workflow_repo_discovery_symbol_governance.py	api	58	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_scanner_collaboration.py	api	283	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py	api	275	.py
 apps/api/tests/unit/logic/test_provider_service_wiring.py	api	677	.py
 apps/api/tests/unit/logic/test_settings_service.py	api	454	.py
 apps/gui/src/api/__tests__/apiClientParsingGovernance.test.ts	gui	57	.ts
 apps/gui/src/api/__tests__/apiErrorWorkflowInputs.test.ts	gui	70	.ts
-apps/gui/src/api/__tests__/budgetRemoval.test.ts	gui	35	.ts
 apps/gui/src/api/__tests__/contextAuditApiClient.test.ts	gui	73	.ts
-apps/gui/src/api/__tests__/gitCleanup.test.ts	gui	23	.ts
 apps/gui/src/api/__tests__/regressionSharedContracts.test.ts	gui	61	.ts
 apps/gui/src/api/__tests__/settingsSharedContracts.test.ts	gui	583	.ts
 apps/gui/src/api/__tests__/simulationSchemaClient.test.ts	gui	81	.ts
@@ -222,12 +207,7 @@ apps/gui/src/components/shared/__tests__/dataTableWorkflowCountSort.test.ts	gui	
 apps/gui/src/components/shared/__tests__/priorityBanner.test.tsx	gui	84	.tsx
 apps/gui/src/components/shared/__tests__/workflowTopbarLayout.test.tsx	gui	40	.tsx
 apps/gui/src/features/__tests__/buildContracts.test.ts	gui	103	.ts
-apps/gui/src/features/__tests__/deadCodeCleanup.test.ts	gui	24	.ts
-apps/gui/src/features/__tests__/deadLeafCleanup.test.ts	gui	191	.ts
 apps/gui/src/features/__tests__/screenTokenSweep.test.ts	gui	265	.ts
-apps/gui/src/features/__tests__/screenTokenSweepGovernance.test.ts	gui	103	.ts
-apps/gui/src/features/__tests__/sidebarCrudCleanup.test.ts	gui	63	.ts
-apps/gui/src/features/__tests__/workflowCreateIdentityOwnershipGovernance.test.ts	gui	173	.ts
 apps/gui/src/features/dashboard/__tests__/activeRunsSection.test.ts	gui	396	.ts
 apps/gui/src/features/dashboard/__tests__/attentionItems.test.tsx	gui	165	.tsx
 apps/gui/src/features/dashboard/__tests__/dashboardDecompositionGovernance.test.ts	gui	247	.ts
@@ -262,7 +242,6 @@ apps/gui/src/features/setup/__tests__/templateAlignment.test.ts	gui	41	.ts
 apps/gui/src/features/setup/__tests__/templateIdentity.test.ts	gui	36	.ts
 apps/gui/src/features/setup/__tests__/templateYaml.test.ts	gui	155	.ts
 apps/gui/src/features/setup/__tests__/workflowCreateIdentity.test.tsx	gui	73	.tsx
-apps/gui/src/features/sidebar/__tests__/soulContractCutover.test.ts	gui	48	.ts
 apps/gui/src/features/souls/__tests__/soulDeleteDialogContract.test.ts	gui	623	.ts
 apps/gui/src/features/souls/__tests__/soulFormContract.test.ts	gui	110	.ts
 apps/gui/src/features/souls/__tests__/soulFormPageContract.test.ts	gui	120	.ts
@@ -282,7 +261,6 @@ apps/gui/src/features/surface/__tests__/genericBlockCompilerContract.test.ts	gui
 apps/gui/src/features/surface/__tests__/genericBlockKnownTypeRegression.test.ts	gui	145	.ts
 apps/gui/src/features/surface/__tests__/genericBlockParserContract.test.ts	gui	128	.ts
 apps/gui/src/features/surface/__tests__/genericBlockRoundTripContract.test.ts	gui	227	.ts
-apps/gui/src/features/surface/__tests__/genericBlockRoundTripSplitGovernance.test.ts	gui	191	.ts
 apps/gui/src/features/surface/__tests__/genericBlockWorkflowSpecialCase.test.ts	gui	64	.ts
 apps/gui/src/features/surface/__tests__/genericYamlCompilerGovernance.test.ts	gui	437	.ts
 apps/gui/src/features/surface/__tests__/inlineNameSaveContract.test.ts	gui	218	.ts
@@ -293,8 +271,6 @@ apps/gui/src/features/surface/__tests__/readonlySurfaceIntegration.test.tsx	gui	
 apps/gui/src/features/surface/__tests__/readonlySurfaceOwnershipGovernance.test.ts	gui	189	.ts
 apps/gui/src/features/surface/__tests__/readonlyTopbar.test.tsx	gui	302	.tsx
 apps/gui/src/features/surface/__tests__/rerunWorkflowInputs.test.tsx	gui	657	.tsx
-apps/gui/src/features/surface/__tests__/retiredDebateMessagebusGovernance.test.ts	gui	70	.ts
-apps/gui/src/features/surface/__tests__/retiredRunDetailGovernance.test.ts	gui	115	.ts
 apps/gui/src/features/surface/__tests__/runButtonBehavior.test.tsx	gui	225	.tsx
 apps/gui/src/features/surface/__tests__/runButtonInputsModal.test.tsx	gui	460	.tsx
 apps/gui/src/features/surface/__tests__/runCommitGate.test.ts	gui	215	.ts
@@ -307,8 +283,6 @@ apps/gui/src/features/surface/__tests__/simBranchOnRun.test.ts	gui	232	.ts
 apps/gui/src/features/surface/__tests__/simulationOverlayOpenWorkflow.test.ts	gui	144	.ts
 apps/gui/src/features/surface/__tests__/surfaceRunInputsCellImport.test.tsx	gui	20	.tsx
 apps/gui/src/features/surface/__tests__/surfaceRunInputsHistory.test.tsx	gui	237	.tsx
-apps/gui/src/features/surface/__tests__/surfaceStreamOwnershipGovernance.test.ts	gui	123	.ts
-apps/gui/src/features/surface/__tests__/surfaceTaskRemovalGovernance.test.ts	gui	50	.ts
 apps/gui/src/features/surface/__tests__/surfaceWarningBadges.test.tsx	gui	198	.tsx
 apps/gui/src/features/surface/__tests__/surfaceWorkspaceGovernance.test.ts	gui	128	.ts
 apps/gui/src/features/surface/__tests__/surfaceYamlEditorLoading.test.tsx	gui	126	.tsx
@@ -335,7 +309,6 @@ apps/gui/src/queries/__tests__/soulDataHooks.test.ts	gui	370	.ts
 apps/gui/src/queries/__tests__/toastNotifications.test.ts	gui	298	.ts
 apps/gui/src/queries/contextAudit.test.tsx	gui	246	.tsx
 apps/gui/src/routes/__tests__/canonicalWorkflowEditorRoute.test.ts	gui	157	.ts
-apps/gui/src/routes/__tests__/deletedRoutes.test.ts	gui	155	.ts
 apps/gui/src/routes/__tests__/flowsRouteContract.test.ts	gui	35	.ts
 apps/gui/src/routes/__tests__/legacyRouteCleanup.test.ts	gui	163	.ts
 apps/gui/src/routes/__tests__/onboardingGuardStaleTime.test.ts	gui	99	.ts
@@ -404,7 +377,6 @@ packages/core/tests/test_context_governance_integration.py	core	348	.py
 packages/core/tests/test_context_resolver.py	core	578	.py
 packages/core/tests/test_context_truncation.py	core	360	.py
 packages/core/tests/test_conversation_histories.py	core	168	.py
-packages/core/tests/test_core_decomposition.py	core	190	.py
 packages/core/tests/test_core_identity_messages.py	core	210	.py
 packages/core/tests/test_core_identity_verification.py	core	294	.py
 packages/core/tests/test_core_soul_identity_schema.py	core	227	.py
@@ -419,8 +391,6 @@ packages/core/tests/test_discover_soul_fields.py	core	158	.py
 packages/core/tests/test_discovery_foundation.py	core	261	.py
 packages/core/tests/test_discovery_public_api.py	core	60	.py
 packages/core/tests/test_discovery_repo_policy_governance.py	core	28	.py
-packages/core/tests/test_discovery_suite_ownership_governance.py	core	557	.py
-packages/core/tests/test_discovery_symbol_governance.py	core	50	.py
 packages/core/tests/test_dispatch_block_stateful.py	core	929	.py
 packages/core/tests/test_dispatch_budget_isolation.py	core	651	.py
 packages/core/tests/test_dispatch_budget_workflow_integration.py	core	320	.py
@@ -435,7 +405,6 @@ packages/core/tests/test_dispatch_schema_canonicalization.py	core	82	.py
 packages/core/tests/test_dispatch_synthesize_workflow_integration.py	core	258	.py
 packages/core/tests/test_dispatch_v2.py	core	1245	.py
 packages/core/tests/test_dispatchblock_migration.py	core	158	.py
-packages/core/tests/test_dispatchblock_migration_split_governance.py	core	195	.py
 packages/core/tests/test_docker_hardening.py	core	501	.py
 packages/core/tests/test_entity_identity_manifests.py	core	393	.py
 packages/core/tests/test_error_route_runtime.py	core	270	.py
@@ -469,14 +438,11 @@ packages/core/tests/test_ipc_models_extract.py	core	203	.py
 packages/core/tests/test_isolation_block_schema_parser_wiring.py	core	285	.py
 packages/core/tests/test_isolation_boundary_integration.py	core	798	.py
 packages/core/tests/test_isolation_context_scope.py	core	274	.py
-packages/core/tests/test_isolation_credentials.py	core	26	.py
 packages/core/tests/test_isolation_credentials_ipc_tool_handler.py	core	117	.py
-packages/core/tests/test_isolation_credentials_split_governance.py	core	144	.py
 packages/core/tests/test_isolation_dispatch_delegate.py	core	558	.py
 packages/core/tests/test_isolation_env_resolution_budget.py	core	193	.py
 packages/core/tests/test_isolation_envelope_models.py	core	562	.py
 packages/core/tests/test_isolation_file_io_sandbox.py	core	248	.py
-packages/core/tests/test_isolation_harness.py	core	25	.py
 packages/core/tests/test_isolation_harness_ipc_wiring.py	core	813	.py
 packages/core/tests/test_isolation_harness_process_lifecycle.py	core	315	.py
 packages/core/tests/test_isolation_harness_result_contracts.py	core	287	.py
@@ -513,7 +479,6 @@ packages/core/tests/test_loop_carry_context_budget.py	core	311	.py
 packages/core/tests/test_loop_carry_context_propagation.py	core	269	.py
 packages/core/tests/test_loop_carry_context_runtime_edges.py	core	202	.py
 packages/core/tests/test_loop_carry_context_schema_config.py	core	254	.py
-packages/core/tests/test_loop_carry_context_split_governance.py	core	154	.py
 packages/core/tests/test_loop_carry_context_writer_critic.py	core	208	.py
 packages/core/tests/test_loop_execute_block_wiring.py	core	256	.py
 packages/core/tests/test_loop_exports_schema.py	core	489	.py
@@ -557,11 +522,8 @@ packages/core/tests/test_runner_messages.py	core	110	.py
 packages/core/tests/test_runtime_depth_parity.py	core	410	.py
 packages/core/tests/test_sandbox_hardening.py	core	539	.py
 packages/core/tests/test_scan_index_entity_ids.py	core	306	.py
-packages/core/tests/test_scan_index_ids_cleanup.py	core	56	.py
 packages/core/tests/test_schema.py	core	55	.py
 packages/core/tests/test_schema_validation.py	core	474	.py
-packages/core/tests/test_soul_assertion_field_removal_governance.py	core	69	.py
-packages/core/tests/test_soul_assertions_cleanup.py	core	79	.py
 packages/core/tests/test_soul_scanner.py	core	125	.py
 packages/core/tests/test_source_scan_ownership_governance.py	core	195	.py
 packages/core/tests/test_special_context_governance.py	core	325	.py
@@ -572,7 +534,6 @@ packages/core/tests/test_step_wrapper_assertions.py	core	162	.py
 packages/core/tests/test_strict_block_result.py	core	154	.py
 packages/core/tests/test_synthesize_execute.py	core	418	.py
 packages/core/tests/test_synthesizeblock_migration.py	core	650	.py
-packages/core/tests/test_task_removal_governance.py	core	256	.py
 packages/core/tests/test_test_safety_governance.py	core	590	.py
 packages/core/tests/test_tool_builtin_http_pipeline.py	core	303	.py
 packages/core/tests/test_tool_custom_executor_pipeline.py	core	114	.py
@@ -588,13 +549,10 @@ packages/core/tests/test_tool_request_executor_pipeline.py	core	154	.py
 packages/core/tests/test_tool_runner_behaviors.py	core	241	.py
 packages/core/tests/test_tool_scanner.py	core	356	.py
 packages/core/tests/test_tool_scanner_callers.py	core	345	.py
-packages/core/tests/test_tool_workflow_fixtures.py	core	43	.py
 packages/core/tests/test_unified_scanner_integration.py	core	215	.py
 packages/core/tests/test_validation_result.py	core	137	.py
 packages/core/tests/test_windowing.py	core	237	.py
 packages/core/tests/test_wire_soul_ref_to_library.py	core	703	.py
-packages/core/tests/test_worker_proxies_extract.py	core	157	.py
-packages/core/tests/test_worker_support_extract.py	core	162	.py
 packages/core/tests/test_workflow.py	core	576	.py
 packages/core/tests/test_workflow_block_builder_path.py	core	195	.py
 packages/core/tests/test_workflow_block_child_error_integration.py	core	82	.py
@@ -631,13 +589,10 @@ packages/core/tests/test_yaml_enabled.py	core	104	.py
 packages/core/tests/test_yaml_parser.py	core	670	.py
 packages/core/tests/unit/test_agentic_tool_loop.py	core	666	.py
 packages/core/tests/unit/test_builtin_tools.py	core	876	.py
-packages/core/tests/unit/test_delete_http_filewriter.py	core	261	.py
 packages/core/tests/unit/test_exit_handle_models.py	core	383	.py
 packages/core/tests/unit/test_exit_ports_integration.py	core	1262	.py
 packages/core/tests/unit/test_exit_validation.py	core	289	.py
 packages/core/tests/unit/test_gate_exit_handle.py	core	439	.py
-packages/core/tests/unit/test_isolation_harness_split_governance.py	core	160	.py
-packages/core/tests/unit/test_isolation_worker_split_governance.py	core	221	.py
 packages/core/tests/unit/test_litellm_tool_calling.py	core	589	.py
 packages/core/tests/unit/test_loop_exit_handle.py	core	1027	.py
 packages/core/tests/unit/test_parser_custom_tool_discovery_contract.py	core	141	.py
@@ -645,11 +600,9 @@ packages/core/tests/unit/test_parser_declared_tool_whitelist.py	core	201	.py
 packages/core/tests/unit/test_parser_delegate_exit_schema.py	core	97	.py
 packages/core/tests/unit/test_parser_tool_validation.py	core	86	.py
 packages/core/tests/unit/test_resolve_next_exit_handle.py	core	924	.py
-packages/core/tests/unit/test_tool_catalog.py	core	26	.py
 packages/core/tests/unit/test_tool_catalog_builtin_registry.py	core	201	.py
 packages/core/tests/unit/test_tool_catalog_custom_python.py	core	71	.py
 packages/core/tests/unit/test_tool_catalog_request_tools.py	core	273	.py
-packages/core/tests/unit/test_tool_catalog_split_governance.py	core	150	.py
 packages/core/tests/unit/test_tool_governance_validation_result.py	core	310	.py
 packages/core/tests/unit/test_tooldef_schema.py	core	446	.py
 packages/shared/src/__tests__/codegen.test.ts	shared	570	.ts
@@ -662,7 +615,6 @@ packages/shared/src/__tests__/regressionCountContract.test.ts	shared	114	.ts
 packages/shared/src/__tests__/regressionSharedContract.test.ts	shared	139	.ts
 packages/shared/src/__tests__/runContracts.test.ts	shared	195	.ts
 packages/shared/src/__tests__/settingsContracts.test.ts	shared	239	.ts
-packages/shared/src/__tests__/taskRemovalContracts.test.ts	shared	44	.ts
 packages/shared/src/__tests__/workflowInputContracts.test.ts	shared	283	.ts
 packages/shared/src/__tests__/workflowResponseContract.test.ts	shared	29	.ts
 packages/shared/src/__tests__/workflowSimulationContract.test.ts	shared	71	.ts
@@ -672,7 +624,6 @@ packages/ui/src/components/ui/__tests__/buttonDialogContracts.test.ts	ui	24	.ts
 packages/ui/src/components/ui/__tests__/codeBlockCopy.test.tsx	ui	130	.tsx
 packages/ui/src/components/ui/__tests__/componentContractOwnerGovernance.test.ts	ui	205	.ts
 packages/ui/src/components/ui/__tests__/componentTokenSweep.test.ts	ui	393	.ts
-packages/ui/src/components/ui/__tests__/componentTokenSweepGovernance.test.ts	ui	83	.ts
 packages/ui/src/components/ui/__tests__/composites.test.ts	ui	292	.ts
 packages/ui/src/components/ui/__tests__/corePrimitiveContracts.test.ts	ui	124	.ts
 packages/ui/src/components/ui/__tests__/dataDisplayContracts.test.ts	ui	238	.ts
@@ -708,8 +659,6 @@ testing/gui-e2e/tests/dashboard.spec.ts	e2e	101	.ts
 testing/gui-e2e/tests/error-states.spec.ts	e2e	105	.ts
 testing/gui-e2e/tests/governance/context-audit-ownership.test.ts	e2e	195	.ts
 testing/gui-e2e/tests/governance/harness-surface.test.ts	e2e	170	.ts
-testing/gui-e2e/tests/governance/onboarding-markers.test.ts	e2e	42	.ts
-testing/gui-e2e/tests/governance/skip-reduction.test.ts	e2e	260	.ts
 testing/gui-e2e/tests/governance/subflow-ownership.test.ts	e2e	169	.ts
 testing/gui-e2e/tests/governance/typed-workflow-inputs-ownership.test.ts	e2e	216	.ts
 testing/gui-e2e/tests/health-page.spec.ts	e2e	35	.ts

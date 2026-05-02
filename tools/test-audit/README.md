@@ -8,16 +8,17 @@ deleted, merged, shrunk, moved, split, or have fixtures externalized.
 
 ## Files
 
-- `current-test-inventory.tsv`: generated inventory of every current test/spec file.
-- `shards/*.tsv`: per-workspace review maps written by audit agents.
-- `full-test-cleanup-map.tsv`: final merged map, one row per current test/spec file.
+- `current-test-inventory.tsv`: inventory of every current test/spec file.
+- `full-test-cleanup-map.tsv`: current cleanup map, one row per current
+  test/spec file.
+- `SUMMARY.md`: current cleanup counts, completed tier notes, and next steps.
 
 ## Review Columns
 
-Each shard uses this TSV schema:
+The cleanup map uses this TSV schema:
 
 ```text
-path	loc	current_behavior	alignment_status	primary_action	reason	mirror_or_duplicate_of	fixture_plan	verification_target	confidence
+path	workspace	loc	extension	current_behavior	alignment_status	primary_action	reason	mirror_or_duplicate_of	fixture_plan	verification_target	confidence
 ```
 
 Allowed `alignment_status` values:
@@ -48,3 +49,5 @@ Allowed `primary_action` values:
 - Fixture data belongs to the owning workspace, not repo-root runtime state.
 - Governance tests need a durable owner and exit criteria; temporary guards should be deleted after behavior owners exist.
 - A split is only useful when the old owner is deleted or meaningfully reduced.
+- After each cleanup tier, refresh this map so it represents the current test
+  surface rather than the original audit.
