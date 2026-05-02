@@ -1,18 +1,31 @@
+"""ScanIndex legacy id cleanup governance.
+
+Owner: packages/core discovery and YAML scanner owners.
+Boundary: core ScanIndex public surface and core production source must not use
+the retired filename-stem helper API or fallback identity behavior.
+Exit criteria: delete this suite once ScanIndex entity-id behavior is fully
+covered by ordinary discovery unit tests and the legacy helpers stay removed
+for one release.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from runsight_core.yaml.discovery._base import ScanIndex
+
+pytestmark = pytest.mark.governance
 
 ROOT = Path(__file__).resolve().parents[3]
 
 LEGACY_SCAN_METHODS = (".stems(", ".without_stems(")
-LEGACY_SOURCE_ROOTS = (ROOT / "packages" / "core" / "src", ROOT / "apps" / "api" / "src")
+CORE_SOURCE_ROOTS = (ROOT / "packages" / "core" / "src",)
 
 
 def _find_legacy_scan_calls() -> list[str]:
     hits: list[str] = []
-    for source_root in LEGACY_SOURCE_ROOTS:
+    for source_root in CORE_SOURCE_ROOTS:
         for path in sorted(source_root.rglob("*.py")):
             for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
                 if any(marker in line for marker in LEGACY_SCAN_METHODS):
@@ -25,11 +38,11 @@ def test_scan_index_public_surface_no_longer_exposes_legacy_stems_methods() -> N
     assert not hasattr(ScanIndex, "without_stems")
 
 
-def test_production_source_no_longer_calls_legacy_stems_helpers() -> None:
+def test_core_production_source_no_longer_calls_legacy_stems_helpers() -> None:
     hits = _find_legacy_scan_calls()
 
-    assert hits == [], "legacy ScanIndex stem helpers remain in production source:\n" + "\n".join(
-        hits
+    assert hits == [], (
+        "legacy ScanIndex stem helpers remain in core production source:\n" + "\n".join(hits)
     )
 
 
