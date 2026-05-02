@@ -1,0 +1,40 @@
+apps/gui/src/features/surface/__tests__/readonlySurfaceIntegration.test.tsx
+  e0c3f4af4a064417 578-611
+testing/gui-e2e/tests/helpers/readonly-surface-fixture.ts
+  e0c3f4af4a064417 1-352
+testing/gui-e2e/tests/readonly-surface.spec.ts
+  14582136d80546a3 1,3-8,13,38,42,45-49,56-57,62-64,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2d609f3186c4f8aac5d3d8ad86906e626cf6456a",
+  "prompts": {
+    "14582136d80546a3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de767-9df1-7a60-a4bb-92bdaf21665f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 754,
+      "total_deletions": 515,
+      "accepted_lines": 754,
+      "overriden_lines": 0
+    },
+    "e0c3f4af4a064417": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de766-a341-7a71-998c-fa8dee3b2089",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 386,
+      "total_deletions": 40,
+      "accepted_lines": 386,
+      "overriden_lines": 0
+    }
+  }
+}
