@@ -154,7 +154,7 @@ describe("storybook setup ownership governance boundary", () => {
         ].map((match) => match[0]);
 
         return comments
-          .filter((comment) => /relative to apps\/gui/i.test(comment))
+          .filter((comment) => /apps\/gui/i.test(comment))
           .map((comment) => `${filename}: ${comment.trim()}`);
       });
 
