@@ -81,6 +81,7 @@ function escapeRegExp(value: string): string {
 
 describe("Governance: readonly surface test ownership boundary", () => {
   it("delegates E2E readonly run and canvas fixture seeding to named helper or fixture files", () => {
+    const e2eSource = read(E2E_READONLY_SPEC);
     const readonlyFixtureOwners = [
       ...readFilesRecursive(resolve(E2E_TEST_DIR, "fixtures")),
       ...readFilesRecursive(resolve(E2E_TEST_DIR, "helpers")),
@@ -96,8 +97,28 @@ describe("Governance: readonly surface test ownership boundary", () => {
 
       return namesReadonlySurfaceBehavior || ownsReadonlyFixtureBehavior;
     });
+    const usedFixtureOwners = readonlyFixtureOwners.filter(({ relativePath }) => {
+      const importPath = relativePath
+        .replace(/\.[cm]?tsx?$/, "")
+        .replace(/^helpers\//, "./helpers/")
+        .replace(/^fixtures\//, "./fixtures/");
+
+      return e2eSource.includes(importPath);
+    });
 
     expect(readonlyFixtureOwners.map(({ relativePath }) => relativePath).sort()).not.toEqual([]);
+    expect(usedFixtureOwners.map(({ relativePath }) => relativePath).sort()).not.toEqual([]);
+  });
+
+  it("keeps the readonly E2E spec as live route and fork smoke coverage", () => {
+    const e2eSource = read(E2E_READONLY_SPEC);
+
+    expect(e2eSource).toContain("page.goto(\"/runs\")");
+    expect(e2eSource).toContain("toHaveURL");
+    expect(e2eSource).toContain("Fork");
+    expect(e2eSource).toContain("/workflows/");
+    expect(e2eSource).toContain("Run not found");
+    expect(e2eSource).toContain("Back to runs");
   });
 
   it("keeps direct DB, canvas sidecar, and YAML fixture seeding out of the E2E spec", () => {
