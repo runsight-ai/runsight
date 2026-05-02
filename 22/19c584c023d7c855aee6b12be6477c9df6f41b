@@ -1,0 +1,23 @@
+testing/gui-e2e/tests/governance/subflow-ownership.test.ts
+  4adca821c1af8eb3 11,118-138,142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2219c584c023d7c855aee6b12be6477c9df6f41b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 22,
+      "accepted_lines": 44360,
+      "overriden_lines": 0
+    }
+  }
+}
