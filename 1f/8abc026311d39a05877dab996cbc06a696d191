@@ -1,0 +1,25 @@
+apps/gui/src/features/__tests__/screenTokenSweep.test.ts
+  4adca821c1af8eb3 2,4-11,17,21-41,43-84,86,88,91,94-101,104-206,209-211,213-223,225-229,231-233,236-239,243-247,249-253,256-260,262
+apps/gui/src/features/__tests__/screenTokenSweepGovernance.test.ts
+  4adca821c1af8eb3 1-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1f8abc026311d39a05877dab996cbc06a696d191",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 560,
+      "total_deletions": 1556,
+      "accepted_lines": 50115,
+      "overriden_lines": 0
+    }
+  }
+}
