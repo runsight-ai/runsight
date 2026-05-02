@@ -45,12 +45,38 @@ class CleanupSourceScanCase:
 
 KNOWN_CLEANUP_SOURCE_SCAN_TESTS = (
     CleanupSourceScanCase(
-        test_file=API_TEST_ROOT / "test_stale_soul_assertion_refs.py",
+        test_file=API_TEST_ROOT / "test_soul_assertion_field_removal_governance.py",
         owner="apps/api",
         forbidden_references=(
             ForbiddenWorkspaceReference(
                 label="packages/core tests",
                 regex=re.compile(r'["\']packages["\']\s*/\s*["\']core["\']|packages[/\\]core'),
+            ),
+        ),
+    ),
+    CleanupSourceScanCase(
+        test_file=CORE_TEST_ROOT / "test_soul_assertion_field_removal_governance.py",
+        owner="packages/core",
+        forbidden_references=(
+            ForbiddenWorkspaceReference(
+                label="apps/api tests",
+                regex=re.compile(
+                    r'["\']apps["\']\s*/\s*["\']api["\']\s*/\s*["\']tests["\']|'
+                    r"apps[/\\]api[/\\]tests"
+                ),
+            ),
+        ),
+    ),
+    CleanupSourceScanCase(
+        test_file=API_TEST_ROOT / "test_scan_index_usage_governance.py",
+        owner="apps/api",
+        forbidden_references=(
+            ForbiddenWorkspaceReference(
+                label="packages/core source",
+                regex=re.compile(
+                    r'["\']packages["\']\s*/\s*["\']core["\']\s*/\s*["\']src["\']|'
+                    r"packages[/\\]core[/\\]src"
+                ),
             ),
         ),
     ),
@@ -68,6 +94,8 @@ KNOWN_CLEANUP_SOURCE_SCAN_TESTS = (
         ),
     ),
 )
+
+RETIRED_CROSS_OWNER_SCAN_TESTS = (API_TEST_ROOT / "test_stale_soul_assertion_refs.py",)
 
 
 def _source_if_present(path: Path) -> str | None:
@@ -100,6 +128,9 @@ def test_cleanup_source_scan_tests_stay_with_their_workspace_owner() -> None:
     for case in KNOWN_CLEANUP_SOURCE_SCAN_TESTS:
         source = _source_if_present(case.test_file)
         if source is None:
+            violations.append(
+                f"{case.test_file.relative_to(REPO_ROOT)}: expected split owner suite"
+            )
             continue
 
         for line_number, line in enumerate(source.splitlines(), 1):
@@ -118,11 +149,25 @@ def test_cleanup_source_scan_tests_stay_with_their_workspace_owner() -> None:
     )
 
 
+def test_retired_cross_owner_source_scan_tests_stay_removed() -> None:
+    violations = [
+        str(path.relative_to(REPO_ROOT)) for path in RETIRED_CROSS_OWNER_SCAN_TESTS if path.exists()
+    ]
+
+    assert violations == [], (
+        "Retired cross-workspace source-scan tests should stay removed after owner "
+        "specific suites replace them.\n" + "\n".join(violations)
+    )
+
+
 def test_cleanup_source_scan_tests_document_owner_boundary_and_exit() -> None:
     violations: list[str] = []
     for case in KNOWN_CLEANUP_SOURCE_SCAN_TESTS:
         source = _source_if_present(case.test_file)
         if source is None:
+            violations.append(
+                f"{case.test_file.relative_to(REPO_ROOT)}: expected split owner suite"
+            )
             continue
 
         tree = ast.parse(source, filename=str(case.test_file))
