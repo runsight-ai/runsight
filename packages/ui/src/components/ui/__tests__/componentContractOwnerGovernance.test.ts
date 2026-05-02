@@ -65,6 +65,10 @@ const TAG_INPUT_SOURCE_BEHAVIOR_MARKERS = [
     name: "source implementation helper assertions",
     pattern: /\b(?:addTag|removeTag)\b/,
   },
+  {
+    name: "placeholder behavior source assertions",
+    pattern: /placeholder\s*=|tag count|tags\.length/,
+  },
 ] as const;
 
 const APPROVED_COMPONENT_CONTRACT_TEST_FILES = new Set([

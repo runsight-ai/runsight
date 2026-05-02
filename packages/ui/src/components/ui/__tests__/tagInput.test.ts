@@ -50,10 +50,9 @@ describe("TagInput visual contract", () => {
     expect(source).toMatch(/focus-within:ring-border-focus/);
   });
 
-  it("uses a borderless growing input with placeholder behavior tied to tag count", () => {
+  it("uses a borderless growing input", () => {
     const source = readComponent();
     expect(source).toMatch(/className=.*flex-1.*min-w-\[120px\].*border-0/s);
-    expect(source).toMatch(/placeholder=\{tags\.length\s*===\s*0\s*\?\s*placeholder\s*:\s*""\}/);
   });
 
   it("truncates long tag text and styles the remove button as muted until hover", () => {
