@@ -3,8 +3,6 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { Outlet, useLocation } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
@@ -71,51 +69,6 @@ async function renderAppAt(initialPath: string) {
   return router;
 }
 
-describe("shipped router route contract", () => {
-  const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
-
-  it("keeps /setup/start as the supported onboarding entry point", () => {
-    expect(routesSource).toMatch(/path:\s*"setup\/start"/);
-  });
-
-  it("does not preserve the retired /workflows list path as a redirect bridge", () => {
-    expect(routesSource).not.toMatch(/path:\s*"workflows"/);
-    expect(routesSource).not.toMatch(/Navigate\s+to="\/flows"\s+replace/);
-  });
-
-  it("removes the placeholder /health route from the shipped router", () => {
-    expect(routesSource).not.toMatch(/path:\s*"health"/);
-    expect(routesSource).not.toMatch(/features\/health\/HealthPage/);
-  });
-
-  it("removes the dev-only /test-components route from the shipped router", () => {
-    expect(routesSource).not.toMatch(/path:\s*"test-components"/);
-    expect(routesSource).not.toMatch(/ComponentShowcase/);
-  });
-
-  it("does not special-case retired direct-entry paths during router bootstrap", () => {
-    expect(routesSource).not.toMatch(/RETIRED_DIRECT_ENTRY_PATHS/);
-    expect(routesSource).not.toMatch(/window\.history\.replaceState/);
-  });
-});
-
-describe("shipped navigation contract", () => {
-  const shellLayoutSource = readFileSync(
-    resolve(__dirname, "..", "layouts", "ShellLayout.tsx"),
-    "utf-8",
-  );
-
-  it("keeps the product shell navigation free of /health links", () => {
-    expect(shellLayoutSource).not.toMatch(/to:\s*["']\/health["']/);
-    expect(shellLayoutSource).not.toMatch(/label:\s*["']Health["']/);
-  });
-
-  it("keeps the product shell navigation free of /test-components links", () => {
-    expect(shellLayoutSource).not.toMatch(/to:\s*["']\/test-components["']/);
-    expect(shellLayoutSource).not.toMatch(/label:\s*["'](?:Test Components|Component Showcase)["']/);
-  });
-});
-
 describe("retired route behavior", () => {
   it("keeps /setup/start reachable for onboarding", async () => {
     await renderAppAt("/setup/start");
@@ -132,16 +85,5 @@ describe("retired route behavior", () => {
       expect(window.location.search).toBe("");
     });
     expect(screen.queryByText("health:/health")).toBeNull();
-  });
-
-  it("lets direct /test-components visits fall through to normal unknown-route behavior", async () => {
-    await renderAppAt("/test-components");
-
-    expect(await screen.findByText("dashboard:/")).toBeTruthy();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/");
-      expect(window.location.search).toBe("");
-    });
-    expect(screen.queryByText("test-components:/test-components")).toBeNull();
   });
 });

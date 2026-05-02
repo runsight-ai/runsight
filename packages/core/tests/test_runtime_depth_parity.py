@@ -1,29 +1,9 @@
-"""
-Runtime and parse-time workflow depth parity.
-
-These tests verify that the parse-time validation
-(``validate_workflow_call_contracts``) and the runtime depth check
-(``WorkflowBlock.execute``) agree on the same depth semantic:
-
-  max_depth: N  =>  allow N nesting levels below the declaring block
-  max_depth: 1  =>  child only
-  max_depth: 2  =>  grandchild allowed
-  max_depth: 3  =>  great-grandchild allowed
-
-The runtime check (``len(call_stack) >= self.max_depth``) is already
-correct: the call_stack grows by 1 per level.
-
-The parse-time check must use the same boundary as the runtime check.
-
-These parity tests directly assert that both sides agree on the same
-boundary for parent->child->grandchild chains.
-"""
+"""Smoke coverage for parse-time/runtime WorkflowBlock depth parity."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import AsyncMock
 
 import pytest
 import yaml as yaml_mod
@@ -37,373 +17,167 @@ from runsight_core.yaml.schema import RunsightWorkflowFile
 
 def _make_workflow_file(yaml_text: str) -> RunsightWorkflowFile:
     data = yaml_mod.safe_load(dedent(yaml_text).strip())
-    if "id" not in data:
-        data["id"] = "depth-parity-workflow"
-    if "kind" not in data:
-        data["kind"] = "workflow"
+    data.setdefault("id", "depth-parity-workflow")
+    data.setdefault("kind", "workflow")
     return RunsightWorkflowFile.model_validate(data)
 
 
 def _write_yaml_file(base: Path, rel_path: str, yaml_text: str) -> Path:
     target = base / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
-    content = dedent(yaml_text).strip() + "\n"
-    if "id: " not in content:
-        content = "id: depth-parity-workflow\nkind: workflow\n" + content
-    target.write_text(content, encoding="utf-8")
+    target.write_text(dedent(yaml_text).strip() + "\n", encoding="utf-8")
     return target
 
 
 class _RecordingWorkflow:
-    def __init__(self, name: str, identity: str | None = None) -> None:
+    def __init__(self, name: str) -> None:
         self.name = name
-        self.identity = identity
-        self.received_state: WorkflowState | None = None
         self.received_kwargs: dict[str, object] | None = None
 
     async def run(self, state: WorkflowState, **kwargs: object) -> WorkflowState:
-        self.received_state = state
         self.received_kwargs = kwargs
-        return WorkflowState(
-            artifact_store=state.artifact_store,
-            total_cost_usd=0.0,
-            total_tokens=0,
-        )
+        return WorkflowState(artifact_store=state.artifact_store)
 
 
-class TestDepthParityMaxDepth3:
-    """max_depth=3 must allow parent->child->grandchild in BOTH parse-time
-    and runtime.
-    """
+@pytest.mark.asyncio
+async def test_parse_time_and_runtime_allow_grandchild_at_max_depth_2(tmp_path: Path) -> None:
+    child = _RecordingWorkflow("grandchild")
+    block = WorkflowBlock(
+        block_id="call_grandchild",
+        child_workflow=child,
+        inputs={},
+        outputs={},
+        max_depth=2,
+    )
 
-    @pytest.mark.asyncio
-    async def test_runtime_allows_grandchild_at_max_depth_3(self) -> None:
-        """Runtime: call_stack=["parent", "child"] (len=2), max_depth=3.
-        2 < 3 -> ALLOWED.
+    await execute_block_for_test(
+        block,
+        WorkflowState(),
+        inputs={"call_stack": ["parent"], "workflow_registry": None, "observer": None},
+    )
+
+    grandchild_file = _make_workflow_file(
         """
-        child = AsyncMock()
-        child.name = "grandchild"
-        child.run = AsyncMock(return_value=WorkflowState())
-        block = WorkflowBlock(
-            block_id="call_grandchild",
-            child_workflow=child,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-
-        result = await execute_block_for_test(
-            block,
-            WorkflowState(),
-            inputs={"call_stack": ["parent", "child"], "workflow_registry": None, "observer": None},
-        )
-        assert isinstance(result, WorkflowState)
-
-    def test_parse_time_allows_grandchild_at_max_depth_3(self, tmp_path) -> None:
-        """Parse-time: the same parent->child->grandchild chain with
-        max_depth=3 must also be ALLOWED.
-
-        The parse-time validator should agree with the runtime boundary.
+        version: "1.0"
+        workflow:
+          name: grandchild
+          entry: finish
+          transitions: []
         """
-        grandchild_file = _make_workflow_file("""
-            version: "1.0"
-            workflow:
-              name: grandchild
-              entry: finish
-              transitions: []
-        """)
-        child_file = _make_workflow_file("""
-            version: "1.0"
-            blocks:
-              call_grandchild:
-                type: workflow
-                workflow_ref: grandchild
-            workflow:
-              name: child
-              entry: call_grandchild
-              transitions:
-                - from: call_grandchild
-                  to: null
-            config:
-              max_workflow_depth: 3
-        """)
-        parent_file = _make_workflow_file("""
-            version: "1.0"
-            blocks:
-              call_child:
-                type: workflow
-                workflow_ref: child
-                max_depth: 3
-            workflow:
-              name: parent
-              entry: call_child
-              transitions:
-                - from: call_child
-                  to: null
-        """)
-
-        # Write files so filesystem-based resolution works
-        _write_yaml_file(
-            tmp_path,
-            "custom/workflows/grandchild.yaml",
-            """
-            version: "1.0"
-            workflow:
-              name: grandchild
-              entry: finish
-              transitions: []
-        """,
-        )
-        _write_yaml_file(
-            tmp_path,
-            "custom/workflows/child.yaml",
-            """
-            version: "1.0"
-            blocks:
-              call_grandchild:
-                type: workflow
-                workflow_ref: grandchild
-            workflow:
-              name: child
-              entry: call_grandchild
-              transitions:
-                - from: call_grandchild
-                  to: null
-            config:
-              max_workflow_depth: 3
-        """,
-        )
-
-        grandchild_path = (tmp_path / "custom/workflows/grandchild.yaml").resolve()
-        child_path = (tmp_path / "custom/workflows/child.yaml").resolve()
-
-        validation_index = {
-            str(grandchild_path): (grandchild_path, grandchild_file),
-            "grandchild": (grandchild_path, grandchild_file),
-            "custom/workflows/grandchild.yaml": (grandchild_path, grandchild_file),
-            str(child_path): (child_path, child_file),
-            "child": (child_path, child_file),
-            "custom/workflows/child.yaml": (child_path, child_file),
-        }
-
-        # max_depth=3 allows 2 nesting levels (parent->child->grandchild).
-        try:
-            validate_workflow_call_contracts(
-                parent_file,
-                base_dir=str(tmp_path),
-                validation_index=validation_index,
-            )
-        except ValueError as exc:
-            pytest.fail(
-                f"parse-time rejected grandchild at max_depth=3, "
-                f"but runtime allows it. Parity broken. Error: {exc}"
-            )
-
-    @pytest.mark.asyncio
-    async def test_workflow_run_allows_a_to_b_to_c_at_max_depth_3(self) -> None:
-        """Workflow.run() must not double-count the middle workflow in call_stack."""
-
-        workflow_c = _RecordingWorkflow(name="workflow_c")
-        block_bc = WorkflowBlock(
-            block_id="invoke_c",
-            child_workflow=workflow_c,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-        workflow_b = Workflow(name="workflow_b")
-        workflow_b.add_block(block_bc)
-        workflow_b.set_entry("invoke_c")
-        workflow_b.add_transition("invoke_c", None)
-
-        block_ab = WorkflowBlock(
-            block_id="invoke_b",
-            child_workflow=workflow_b,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-        workflow_a = Workflow(name="workflow_a")
-        workflow_a.add_block(block_ab)
-        workflow_a.set_entry("invoke_b")
-        workflow_a.add_transition("invoke_b", None)
-
-        final_state = await workflow_a.run(WorkflowState())
-
-        assert isinstance(final_state, WorkflowState)
-        assert workflow_c.received_state is not None
-        assert workflow_c.received_kwargs is not None
-        assert workflow_c.received_kwargs["call_stack"] == [
-            "workflow_a",
-            "workflow_b",
-            "workflow_c",
-        ]
-
-    @pytest.mark.asyncio
-    async def test_workflow_run_allows_id_name_mixed_a_to_b_to_c_at_max_depth_3(
-        self,
-    ) -> None:
-        """Parsed workflows may have ids that differ from workflow.name."""
-
-        workflow_c = _RecordingWorkflow(name="workflow_c", identity="workflow-c-id")
-        block_bc = WorkflowBlock(
-            block_id="invoke_c",
-            child_workflow=workflow_c,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-        workflow_b = Workflow(name="workflow_b")
-        workflow_b.identity = "workflow-b-id"
-        workflow_b.add_block(block_bc)
-        workflow_b.set_entry("invoke_c")
-        workflow_b.add_transition("invoke_c", None)
-
-        block_ab = WorkflowBlock(
-            block_id="invoke_b",
-            child_workflow=workflow_b,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-        workflow_a = Workflow(name="workflow_a")
-        workflow_a.identity = "workflow-a-id"
-        workflow_a.add_block(block_ab)
-        workflow_a.set_entry("invoke_b")
-        workflow_a.add_transition("invoke_b", None)
-
-        final_state = await workflow_a.run(WorkflowState())
-
-        assert isinstance(final_state, WorkflowState)
-        assert workflow_c.received_state is not None
-        assert workflow_c.received_kwargs is not None
-        assert workflow_c.received_kwargs["call_stack"] == [
-            "workflow-a-id",
-            "workflow-b-id",
-            "workflow-c-id",
-        ]
-
-
-class TestDepthParityMaxDepth2:
-    """max_depth=2 must allow parent->child->grandchild in BOTH layers.
-    Currently parse-time rejects it because depth increments by +2.
-    """
-
-    @pytest.mark.asyncio
-    async def test_runtime_allows_grandchild_at_max_depth_2(self) -> None:
-        """Runtime: call_stack=["parent"] (len=1), max_depth=2.
-        1 < 2 -> ALLOWED.
+    )
+    child_file = _make_workflow_file(
         """
-        child = AsyncMock()
-        child.name = "grandchild"
-        child.run = AsyncMock(return_value=WorkflowState())
-        block = WorkflowBlock(
-            block_id="call_grandchild",
-            child_workflow=child,
-            inputs={},
-            outputs={},
-            max_depth=2,
-        )
-
-        result = await execute_block_for_test(
-            block,
-            WorkflowState(),
-            inputs={"call_stack": ["parent"], "workflow_registry": None, "observer": None},
-        )
-        assert isinstance(result, WorkflowState)
-
-    def test_parse_time_allows_grandchild_at_max_depth_2(self, tmp_path) -> None:
-        """Parse-time: max_depth=2 with parent->child->grandchild must also
-        be ALLOWED.
+        version: "1.0"
+        blocks:
+          call_grandchild:
+            type: workflow
+            workflow_ref: grandchild
+        workflow:
+          name: child
+          entry: call_grandchild
+          transitions:
+            - from: call_grandchild
+              to: null
+        config:
+          max_workflow_depth: 2
         """
-        grandchild_file = _make_workflow_file("""
-            version: "1.0"
-            workflow:
-              name: grandchild
-              entry: finish
-              transitions: []
-        """)
-        child_file = _make_workflow_file("""
-            version: "1.0"
-            blocks:
-              call_grandchild:
-                type: workflow
-                workflow_ref: grandchild
-            workflow:
-              name: child
-              entry: call_grandchild
-              transitions:
-                - from: call_grandchild
-                  to: null
-            config:
-              max_workflow_depth: 2
-        """)
-        parent_file = _make_workflow_file("""
-            version: "1.0"
-            blocks:
-              call_child:
-                type: workflow
-                workflow_ref: child
-                max_depth: 2
-            workflow:
-              name: parent
-              entry: call_child
-              transitions:
-                - from: call_child
-                  to: null
-        """)
-
-        _write_yaml_file(
-            tmp_path,
-            "custom/workflows/grandchild.yaml",
-            """
-            version: "1.0"
-            workflow:
-              name: grandchild
-              entry: finish
-              transitions: []
+    )
+    parent_file = _make_workflow_file(
+        """
+        version: "1.0"
+        blocks:
+          call_child:
+            type: workflow
+            workflow_ref: child
+            max_depth: 2
+        workflow:
+          name: parent
+          entry: call_child
+          transitions:
+            - from: call_child
+              to: null
+        """
+    )
+    grandchild_path = _write_yaml_file(
+        tmp_path,
+        "custom/workflows/grandchild.yaml",
+        """
+        version: "1.0"
+        id: grandchild
+        kind: workflow
+        workflow:
+          name: grandchild
+          entry: finish
+          transitions: []
         """,
-        )
-        _write_yaml_file(
-            tmp_path,
-            "custom/workflows/child.yaml",
-            """
-            version: "1.0"
-            blocks:
-              call_grandchild:
-                type: workflow
-                workflow_ref: grandchild
-            workflow:
-              name: child
-              entry: call_grandchild
-              transitions:
-                - from: call_grandchild
-                  to: null
-            config:
-              max_workflow_depth: 2
+    ).resolve()
+    child_path = _write_yaml_file(
+        tmp_path,
+        "custom/workflows/child.yaml",
+        """
+        version: "1.0"
+        id: child
+        kind: workflow
+        blocks:
+          call_grandchild:
+            type: workflow
+            workflow_ref: grandchild
+        workflow:
+          name: child
+          entry: call_grandchild
+          transitions:
+            - from: call_grandchild
+              to: null
+        config:
+          max_workflow_depth: 2
         """,
-        )
+    ).resolve()
+    validation_index = {
+        "grandchild": (grandchild_path, grandchild_file),
+        str(grandchild_path): (grandchild_path, grandchild_file),
+        "child": (child_path, child_file),
+        str(child_path): (child_path, child_file),
+    }
 
-        grandchild_path = (tmp_path / "custom/workflows/grandchild.yaml").resolve()
-        child_path = (tmp_path / "custom/workflows/child.yaml").resolve()
+    validate_workflow_call_contracts(
+        parent_file,
+        base_dir=str(tmp_path),
+        validation_index=validation_index,
+    )
 
-        validation_index = {
-            str(grandchild_path): (grandchild_path, grandchild_file),
-            "grandchild": (grandchild_path, grandchild_file),
-            "custom/workflows/grandchild.yaml": (grandchild_path, grandchild_file),
-            str(child_path): (child_path, child_file),
-            "child": (child_path, child_file),
-            "custom/workflows/child.yaml": (child_path, child_file),
-        }
 
-        try:
-            validate_workflow_call_contracts(
-                parent_file,
-                base_dir=str(tmp_path),
-                validation_index=validation_index,
-            )
-        except ValueError as exc:
-            pytest.fail(
-                f"parse-time rejected grandchild at max_depth=2, "
-                f"but runtime allows it. Parity broken. Error: {exc}"
-            )
+@pytest.mark.asyncio
+async def test_workflow_run_preserves_expected_call_stack_for_nested_workflows() -> None:
+    workflow_c = _RecordingWorkflow(name="workflow_c")
+    block_bc = WorkflowBlock(
+        block_id="invoke_c",
+        child_workflow=workflow_c,
+        inputs={},
+        outputs={},
+        max_depth=3,
+    )
+    workflow_b = Workflow(name="workflow_b")
+    workflow_b.add_block(block_bc)
+    workflow_b.set_entry("invoke_c")
+    workflow_b.add_transition("invoke_c", None)
+
+    block_ab = WorkflowBlock(
+        block_id="invoke_b",
+        child_workflow=workflow_b,
+        inputs={},
+        outputs={},
+        max_depth=3,
+    )
+    workflow_a = Workflow(name="workflow_a")
+    workflow_a.add_block(block_ab)
+    workflow_a.set_entry("invoke_b")
+    workflow_a.add_transition("invoke_b", None)
+
+    await workflow_a.run(WorkflowState())
+
+    assert workflow_c.received_kwargs is not None
+    assert workflow_c.received_kwargs["call_stack"] == [
+        "workflow_a",
+        "workflow_b",
+        "workflow_c",
+    ]

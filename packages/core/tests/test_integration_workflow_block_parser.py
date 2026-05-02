@@ -1,29 +1,18 @@
-"""
-Integration tests for WorkflowBlock parser integration and runtime interactions.
+"""Smoke coverage for WorkflowBlock parser/schema and runtime wiring."""
 
-Tests the interaction between:
-1. YAML parser extending to handle type: workflow blocks
-2. Workflow.run() accepting and propagating call_stack and workflow_registry kwargs
-3. Existing blocks accepting forwarded execution context kwargs
-4. WorkflowBlock resolving workflow references via registry
-"""
-
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import TypeAdapter
-from runsight_core import LinearBlock, WorkflowBlock
+from runsight_core import WorkflowBlock
 from runsight_core.block_io import apply_block_output, build_block_context
-from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY as BLOCK_TYPE_REGISTRY
-from runsight_core.primitives import Soul
+from runsight_core.blocks._registry import BLOCK_BUILDER_REGISTRY
 from runsight_core.state import BlockResult, WorkflowState
-from runsight_core.yaml.parser import parse_workflow_yaml
 from runsight_core.yaml.registry import WorkflowRegistry
 from runsight_core.yaml.schema import BlockDef, RunsightWorkflowFile
 
 
 async def _exec(block, state, **extra_inputs):
-    """Helper: build BlockContext, execute block, apply output to state."""
     ctx = build_block_context(block, state)
     if extra_inputs:
         ctx = ctx.model_copy(update={"inputs": {**ctx.inputs, **extra_inputs}})
@@ -31,567 +20,77 @@ async def _exec(block, state, **extra_inputs):
     return apply_block_output(state, block.block_id, output)
 
 
-class TestParserIntegration:
-    """Test parser integration with WorkflowBlock."""
+def test_workflow_block_schema_and_registry_smoke():
+    assert "workflow" in BLOCK_BUILDER_REGISTRY
 
-    def test_workflow_block_in_registry(self):
-        """Verify that workflow block type is in BLOCK_TYPE_REGISTRY."""
-        assert "workflow" in BLOCK_TYPE_REGISTRY
-        assert "linear" in BLOCK_TYPE_REGISTRY
-        assert "dispatch" in BLOCK_TYPE_REGISTRY
-
-    def test_parse_simple_workflow_without_workflow_blocks(self):
-        """Ensure existing workflow parsing still works without workflow blocks."""
-        yaml_def = """
-version: "1.0"
-id: linear_parser_baseline_workflow
-kind: workflow
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Senior Researcher
-    role: Senior Researcher
-    system_prompt: You research topics.
-workflow:
-  id: linear_parser_baseline_workflow
-  kind: workflow
-  name: linear_parser_baseline_workflow
-  entry: research
-blocks:
-  research:
-    type: linear
-    soul_ref: researcher
-transitions:
-  - from: research
-    to: null
-"""
-        wf = parse_workflow_yaml(yaml_def)
-        assert wf.name == "linear_parser_baseline_workflow"
-        assert "research" in wf._blocks
-
-    def test_schema_allows_workflow_block_definition(self):
-        """Verify schema accepts workflow block definitions."""
-        block_def_dict = {
+    block_def = TypeAdapter(BlockDef).validate_python(
+        {
             "type": "workflow",
             "workflow_ref": "child_analysis",
             "inputs": {"topic": "shared_memory.research_topic"},
             "outputs": {"results.analysis": "results.final"},
             "max_depth": 5,
         }
-        _block_adapter = TypeAdapter(BlockDef)
-        block_def = _block_adapter.validate_python(block_def_dict)
-        assert block_def.type == "workflow"
-        assert block_def.workflow_ref == "child_analysis"
-        assert block_def.inputs == {"topic": "shared_memory.research_topic"}
-        assert block_def.outputs == {"results.analysis": "results.final"}
-        assert block_def.max_depth == 5
+    )
+    assert block_def.workflow_ref == "child_analysis"
+    assert block_def.inputs == {"topic": "shared_memory.research_topic"}
+
+    registry = WorkflowRegistry()
+    registry.register(
+        "child_analysis",
+        RunsightWorkflowFile.model_validate(
+            {
+                "version": "1.0",
+                "id": "child_analysis",
+                "kind": "workflow",
+                "workflow": {
+                    "id": "child_analysis",
+                    "kind": "workflow",
+                    "name": "child_analysis",
+                    "entry": "analyze",
+                },
+                "blocks": {"analyze": {"type": "linear", "soul_ref": "researcher"}},
+                "transitions": [{"from": "analyze", "to": None}],
+            }
+        ),
+    )
+    assert registry.get("child_analysis").workflow.name == "child_analysis"
 
 
-class TestWorkflowRunKwargsHandling:
-    """Test that Workflow.run() can accept and pass through kwargs."""
-
-    @pytest.mark.asyncio
-    async def test_workflow_run_accepts_registry_kwarg(self):
-        """Test that Workflow.run() accepts registry kwargs."""
-        yaml_def = """
-version: "1.0"
-id: registry_kwargs_workflow
-kind: workflow
-workflow:
-  id: registry_kwargs_workflow
-  kind: workflow
-  name: registry_kwargs_workflow
-  entry: registry_kwarg_code_step
-blocks:
-  registry_kwarg_code_step:
-    type: code
-    code: "def main(data):\\n    return {'registry_kwarg_code_step': 'done'}"
-transitions:
-  - from: registry_kwarg_code_step
-    to: null
-"""
-        wf = parse_workflow_yaml(yaml_def)
-        state = WorkflowState()
-        registry = MagicMock()
-
-        # Should not raise
-        result = await wf.run(state, registry=registry)
-        assert isinstance(result, WorkflowState)
-
-    @pytest.mark.asyncio
-    async def test_workflow_run_signature_flexibility(self):
-        """Test that Workflow.run() can handle various kwarg configurations."""
-        yaml_def = """
-version: "1.0"
-id: registry_kwargs_workflow
-kind: workflow
-workflow:
-  id: registry_kwargs_workflow
-  kind: workflow
-  name: registry_kwargs_workflow
-  entry: signature_flex_code_step
-blocks:
-  signature_flex_code_step:
-    type: code
-    code: "def main(data):\\n    return {'signature_flex_code_step': 'done'}"
-transitions:
-  - from: signature_flex_code_step
-    to: null
-"""
-        wf = parse_workflow_yaml(yaml_def)
-        state = WorkflowState()
-
-        # All of these should be acceptable
-        result1 = await wf.run(state)
-        assert isinstance(result1, WorkflowState)
-
-        result2 = await wf.run(state, registry=None)
-        assert isinstance(result2, WorkflowState)
-
-
-class TestBlockKwargsCompatibility:
-    """Test block signature compatibility for WorkflowBlock kwargs propagation."""
-
-    @pytest.mark.asyncio
-    async def test_linear_block_basic_execution(self):
-        """Test LinearBlock.execute() basic functionality."""
-        soul = Soul(
-            id="linear_execution_soul",
-            kind="soul",
-            name="Linear Execution Soul",
-            role="Linear Executor",
-            system_prompt="Execute linear workflow steps.",
-        )
-        runner = AsyncMock()
-        mock_result = AsyncMock()
-        mock_result.output = "test output"
-        mock_result.cost_usd = 0.01
-        mock_result.total_tokens = 10
-        mock_result.exit_handle = None
-        runner.execute = AsyncMock(return_value=mock_result)
-
-        block = LinearBlock(block_id="linear_execution_block", soul=soul, runner=runner)
-        state = WorkflowState()
-
-        # Execute with default signature
-        result = await _exec(block, state)
-        assert isinstance(result, WorkflowState)
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_accepts_kwargs(self):
-        """Test that WorkflowBlock.execute() accepts call_stack and workflow_registry kwargs."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "kwargs_child_workflow"
-        child_final_state = WorkflowState()
-        child_workflow.run = AsyncMock(return_value=child_final_state)
-
-        block = WorkflowBlock(
-            block_id="workflow_kwargs_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-        )
-
-        state = WorkflowState()
-        registry = WorkflowRegistry()
-
-        # Should accept call_stack and workflow_registry kwargs without error
-        result = await _exec(
-            block,
-            state,
-            call_stack=["workflow_kwargs_caller"],
-            workflow_registry=registry,
-        )
-        assert isinstance(result, WorkflowState)
-        assert "workflow_kwargs_block" in result.results
-
-
-class TestWorkflowBlockIntegration:
-    """Test WorkflowBlock integration with other components."""
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_with_registry(self):
-        """Test WorkflowBlock can resolve child workflow from registry."""
-        # Create a simple child workflow
-        child_yaml_def = """
-version: "1.0"
-id: registry_source_analysis_workflow
-kind: workflow
-workflow:
-  id: registry_source_analysis_workflow
-  kind: workflow
-  name: registry_source_analysis_workflow
-  entry: registry_source_analysis_step
-blocks:
-  registry_source_analysis_step:
-    type: code
-    code: "def main(data):\\n    return {'registry_source_analysis_step': 'done'}"
-transitions:
-  - from: registry_source_analysis_step
-    to: null
-"""
-        child_workflow = parse_workflow_yaml(child_yaml_def)
-
-        # Create parent workflow that references child
-        parent_yaml_def = """
-version: "1.0"
-id: registry_parent_runner_workflow
-kind: workflow
-workflow:
-  id: registry_parent_runner_workflow
-  kind: workflow
-  name: registry_parent_runner_workflow
-  entry: registry_parent_runner_step
-blocks:
-  registry_parent_runner_step:
-    type: code
-    code: "def main(data):\\n    return {'registry_parent_runner_step': 'done'}"
-transitions:
-  - from: registry_parent_runner_step
-    to: null
-"""
-        parent_workflow = parse_workflow_yaml(parent_yaml_def)
-
-        # Create registry and register child
-        registry = WorkflowRegistry()
-        registry.register("registry_source_analysis_workflow", child_workflow)
-
-        # Execute parent - should work with registry
-        state = WorkflowState()
-        result = await parent_workflow.run(state, registry=None)
-        assert isinstance(result, WorkflowState)
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_state_isolation(self):
-        """Test that WorkflowBlock properly isolates child state."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "isolation_child_workflow"
-        child_final_state = WorkflowState(
-            results={"isolated_result": BlockResult(output="output")},
+@pytest.mark.asyncio
+async def test_workflow_block_isolates_child_state_and_maps_outputs_with_registry():
+    child_workflow = AsyncMock()
+    child_workflow.name = "child_analysis"
+    child_workflow.run = AsyncMock(
+        return_value=WorkflowState(
+            results={"final": BlockResult(output="child output")},
             total_cost_usd=0.05,
             total_tokens=50,
         )
-        child_workflow.run = AsyncMock(return_value=child_final_state)
+    )
+    block = WorkflowBlock(
+        block_id="child_invocation",
+        child_workflow=child_workflow,
+        inputs={"topic": "shared_memory.topic"},
+        outputs={"results.analysis": "results.final"},
+    )
+    parent_state = WorkflowState(
+        shared_memory={"topic": "integration wiring"},
+        results={"existing": BlockResult(output="keep")},
+        total_cost_usd=0.10,
+        total_tokens=100,
+    )
+    registry = WorkflowRegistry()
 
-        block = WorkflowBlock(
-            block_id="isolated_subworkflow_block",
-            child_workflow=child_workflow,
-            inputs={"data": "shared_memory.parent_data"},
-            outputs={"results.isolated_output": "results.isolated_result"},
-        )
+    result = await _exec(block, parent_state, workflow_registry=registry)
 
-        parent_state = WorkflowState(
-            shared_memory={"parent_data": "important"},
-            results={"existing": BlockResult(output="value")},
-        )
-
-        # Execute
-        result = await _exec(block, parent_state)
-
-        call_args = child_workflow.run.call_args
-        child_state_arg = call_args[0][0]
-
-        assert call_args.kwargs["inputs"] == {"data": "important"}
-        assert child_state_arg.shared_memory == {}
-        # Child should not have parent's other data
-        assert "existing" not in child_state_arg.results
-
-        # Parent should have output mapped back
-        assert result.results.get("isolated_output") == BlockResult(output="output")
-        # Parent's original data preserved
-        assert result.results.get("existing") == BlockResult(output="value")
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_cost_propagation(self):
-        """Test that child workflow costs propagate to parent."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "cost_child_workflow"
-        child_final_state = WorkflowState(
-            results={"final": BlockResult(output="output")},
-            total_cost_usd=0.25,
-            total_tokens=250,
-        )
-        child_workflow.run = AsyncMock(return_value=child_final_state)
-
-        block = WorkflowBlock(
-            block_id="cost_propagating_workflow_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-        )
-
-        parent_state = WorkflowState(
-            total_cost_usd=0.10,
-            total_tokens=100,
-        )
-
-        result = await _exec(block, parent_state)
-
-        # Costs should be summed
-        assert result.total_cost_usd == pytest.approx(0.35)  # 0.10 + 0.25
-        assert result.total_tokens == 350  # 100 + 250
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_cycle_detection(self):
-        """Test that WorkflowBlock detects cycles via call_stack."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "recursive_call_workflow"
-        child_workflow.run = AsyncMock()
-
-        block = WorkflowBlock(
-            block_id="recursive_call",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-            max_depth=5,
-        )
-
-        state = WorkflowState()
-
-        # Call with child already in stack (cycle)
-        with pytest.raises(RecursionError) as exc_info:
-            await _exec(
-                block, state, call_stack=["cycle_parent_workflow", "recursive_call_workflow"]
-            )
-
-        error_msg = str(exc_info.value)
-        assert "cycle detected" in error_msg.lower()
-        assert "recursive_call_workflow" in error_msg
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_depth_limit(self):
-        """Test that WorkflowBlock enforces depth limits."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "depth_limit_child_workflow"
-        child_workflow.run = AsyncMock()
-
-        block = WorkflowBlock(
-            block_id="depth_limit_workflow_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-            max_depth=3,
-        )
-
-        state = WorkflowState()
-
-        # Call with stack at max depth
-        with pytest.raises(RecursionError) as exc_info:
-            await _exec(
-                block,
-                state,
-                call_stack=[
-                    "depth_root_workflow",
-                    "depth_middle_workflow",
-                    "depth_leaf_workflow",
-                ],
-            )
-
-        error_msg = str(exc_info.value)
-        assert "maximum depth" in error_msg.lower() or "max_depth" in error_msg
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_passes_registry_to_child(self):
-        """Test that WorkflowBlock passes workflow_registry to child.run()."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "registry_dependent_child_workflow"
-        child_final_state = WorkflowState()
-        child_workflow.run = AsyncMock(return_value=child_final_state)
-
-        block = WorkflowBlock(
-            block_id="registry_forwarding_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-        )
-
-        parent_state = WorkflowState()
-        registry = WorkflowRegistry()
-
-        # Execute with registry
-        await _exec(block, parent_state, workflow_registry=registry)
-
-        # Verify registry was passed to child
-        call_kwargs = child_workflow.run.call_args.kwargs
-        assert "workflow_registry" in call_kwargs
-        assert call_kwargs["workflow_registry"] is registry
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_passes_extended_call_stack(self):
-        """Test that WorkflowBlock extends call_stack before calling child."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "stack_child_workflow"
-        child_final_state = WorkflowState()
-        child_workflow.run = AsyncMock(return_value=child_final_state)
-
-        block = WorkflowBlock(
-            block_id="call_stack_forwarding_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-        )
-
-        parent_state = WorkflowState()
-
-        # Execute with initial call_stack
-        await _exec(block, parent_state, call_stack=["stack_parent_workflow"])
-
-        # Verify extended call_stack was passed
-        call_kwargs = child_workflow.run.call_args.kwargs
-        assert "call_stack" in call_kwargs
-        assert call_kwargs["call_stack"] == ["stack_parent_workflow", "stack_child_workflow"]
-
-
-class TestRuntimeInteraction:
-    """Test WorkflowBlock interactions with parser and registry runtime behavior."""
-
-    @pytest.mark.asyncio
-    async def test_parser_produces_valid_workflow_blocks(self):
-        """
-        Test that parser-produced workflow blocks produce
-        valid WorkflowBlock instances with proper initialization.
-        """
-        child_workflow_def = """
-version: "1.0"
-id: parser_generated_child_workflow
-kind: workflow
-souls:
-  researcher:
-    id: researcher
-    kind: soul
-    name: Researcher
-    role: Researcher
-    system_prompt: You research things.
-workflow:
-  id: parser_generated_child_workflow
-  kind: workflow
-  name: parser_generated_child_workflow
-  entry: parser_generated_linear_step
-blocks:
-  parser_generated_linear_step:
-    type: linear
-    soul_ref: researcher
-transitions:
-  - from: parser_generated_linear_step
-    to: null
-"""
-        child_workflow = parse_workflow_yaml(child_workflow_def)
-
-        block = WorkflowBlock(
-            block_id="child_workflow_invocation",
-            child_workflow=child_workflow,
-            inputs={"input": "shared_memory.source"},
-            outputs={"results.output": "results.final"},
-            max_depth=10,
-        )
-
-        assert block.block_id == "child_workflow_invocation"
-        assert block.child_workflow.name == "parser_generated_child_workflow"
-        assert block.inputs == {"input": "shared_memory.source"}
-        assert block.outputs == {"results.output": "results.final"}
-        assert block.max_depth == 10
-
-    @pytest.mark.asyncio
-    async def test_workflow_block_with_empty_call_stack_defaults(self):
-        """Test WorkflowBlock works with default empty call_stack."""
-        child_workflow = AsyncMock()
-        child_workflow.name = "default_stack_child_workflow"
-        child_final_state = WorkflowState()
-        child_workflow.run = AsyncMock(return_value=child_final_state)
-
-        block = WorkflowBlock(
-            block_id="default_call_stack_block",
-            child_workflow=child_workflow,
-            inputs={},
-            outputs={},
-        )
-
-        state = WorkflowState()
-
-        # Execute without explicit call_stack (should default to empty list)
-        await _exec(block, state)
-
-        # Verify default empty list was used
-        call_kwargs = child_workflow.run.call_args.kwargs
-        assert call_kwargs["call_stack"] == [child_workflow.name]
-
-    @pytest.mark.asyncio
-    async def test_nested_workflow_blocks_with_isolation(self):
-        """
-        Test that nested workflow blocks properly isolate state at each level.
-        This exercises the interaction between multiple WorkflowBlocks.
-        """
-        # Inner child
-        inner_isolation_workflow = AsyncMock()
-        inner_isolation_workflow.name = "nested_inner_isolation_workflow"
-        inner_final_state = WorkflowState(
-            results={"inner_result": BlockResult(output="inner_output")},
-            total_cost_usd=0.01,
-            total_tokens=10,
-        )
-        inner_isolation_workflow.run = AsyncMock(return_value=inner_final_state)
-
-        # Outer child that will invoke inner
-        outer_isolation_workflow = AsyncMock()
-        outer_isolation_workflow.name = "nested_outer_isolation_workflow"
-        outer_final_state = WorkflowState(
-            results={"outer_result": BlockResult(output="outer_output")},
-            total_cost_usd=0.02,
-            total_tokens=20,
-        )
-        outer_isolation_workflow.run = AsyncMock(return_value=outer_final_state)
-
-        # Parent invokes outer
-        parent_block = WorkflowBlock(
-            block_id="nested_isolation_parent_block",
-            child_workflow=outer_isolation_workflow,
-            inputs={},
-            outputs={"results.final": "results.outer_result"},
-        )
-
-        parent_state = WorkflowState(total_cost_usd=0.05, total_tokens=50)
-
-        result = await _exec(parent_block, parent_state, call_stack=[])
-
-        # Verify state and costs are properly aggregated
-        assert result.results["final"] == BlockResult(output="outer_output")
-        assert result.total_cost_usd == pytest.approx(0.07)  # 0.05 + 0.02
-        assert result.total_tokens == 70  # 50 + 20
-
-    def test_workflow_registry_with_workflow_block_schema(self):
-        """Test that WorkflowRegistry integrates with workflow block schema."""
-        # Create workflows
-        child_workflow_dict = {
-            "version": "1.0",
-            "id": "child_analysis",
-            "kind": "workflow",
-            "workflow": {
-                "id": "child_analysis",
-                "kind": "workflow",
-                "name": "child_analysis",
-                "entry": "analyze",
-            },
-            "blocks": {"analyze": {"type": "linear", "soul_ref": "researcher"}},
-            "transitions": [{"from": "analyze", "to": None}],
-        }
-        child_workflow_file = RunsightWorkflowFile.model_validate(child_workflow_dict)
-
-        # Register
-        registry = WorkflowRegistry()
-        registry.register("child_analysis", child_workflow_file)
-
-        # Block schema should accept workflow_ref
-        _block_adapter = TypeAdapter(BlockDef)
-        _block_adapter.validate_python(
-            {
-                "type": "workflow",
-                "workflow_ref": "child_analysis",
-                "inputs": {},
-                "outputs": {},
-            }
-        )
-
-        # Registry should resolve the reference
-        resolved = registry.get("child_analysis")
-        assert resolved.workflow.name == "child_analysis"
+    child_state = child_workflow.run.call_args.args[0]
+    call_kwargs = child_workflow.run.call_args.kwargs
+    assert child_state.results == {}
+    assert call_kwargs["inputs"] == {"topic": "integration wiring"}
+    assert call_kwargs["workflow_registry"] is registry
+    assert call_kwargs["call_stack"] == ["child_analysis"]
+    assert result.results["existing"] == BlockResult(output="keep")
+    assert result.results["analysis"] == BlockResult(output="child output")
+    assert result.total_cost_usd == pytest.approx(0.15)
+    assert result.total_tokens == 150

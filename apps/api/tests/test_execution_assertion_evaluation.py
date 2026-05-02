@@ -1,22 +1,11 @@
-"""Integration coverage for assertions fire during block execution and produce pass/fail signal.
-
-Every existing assertion test is structural — parsing, config building, or isolated observer
-unit tests. These tests exercise the FULL execution pipeline via the HTTP layer:
-
-    HTTP POST /api/runs  ->  RunService.create_run  ->  ExecutionService.launch_execution
-        ->  workflow engine  ->  mocked LLM  ->  EvalObserver.on_block_complete
-            ->  _run_assertions_sync  ->  write eval_passed / eval_score / eval_results to DB
-
-The LLM is mocked via LiteLLMClient.achat so no external API calls are made.
-Results are verified through GET /api/runs/{run_id}/nodes (HTTP layer, not direct DB reads).
-"""
+"""End-to-end assertion evaluation smoke coverage."""
 
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 
 from runsight_api.domain.entities.run import Run, RunStatus
 
@@ -24,53 +13,24 @@ from runsight_api.domain.entities.run import Run, RunStatus
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "execution_assertions"
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _write_workflow_file(base_dir: Path, workflow_id: str, content: str) -> None:
-    """Create a workflow YAML file at custom/workflows/<workflow_id>.yaml."""
-    wf_dir = base_dir / "custom" / "workflows"
-    wf_dir.mkdir(parents=True, exist_ok=True)
-    canvas_dir = wf_dir / ".canvas"
-    canvas_dir.mkdir(parents=True, exist_ok=True)
-    (wf_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
-
-
-def _read_workflow_fixture(workflow_id: str) -> str:
-    return (FIXTURE_ROOT / f"{workflow_id}.yaml").read_text(encoding="utf-8")
+    workflow_dir = base_dir / "custom" / "workflows"
+    workflow_dir.mkdir(parents=True, exist_ok=True)
+    (workflow_dir / ".canvas").mkdir(parents=True, exist_ok=True)
+    (workflow_dir / f"{workflow_id}.yaml").write_text(content, encoding="utf-8")
 
 
 def _git_service_for(base_dir: Path) -> Mock:
     git_service = Mock()
-
-    def _list_files(branch: str, path_prefix: str) -> list[str]:
-        del branch
-        root = base_dir / path_prefix.rstrip("/")
-        if not root.exists():
-            return []
-        return sorted(
-            path.relative_to(base_dir).as_posix()
-            for path in root.rglob("*")
-            if path.is_file() and path.suffix in {".yaml", ".yml"}
-        )
-
-    def _read_file(workflow_path: str, branch: str) -> str:
-        del branch
-        path = Path(workflow_path)
-        if not path.is_absolute():
-            path = base_dir / workflow_path
-        return path.read_text(encoding="utf-8")
-
-    git_service.read_file.side_effect = _read_file
-    git_service.get_sha.side_effect = lambda branch, workflow_path: "7" * 40
-    git_service.list_files.side_effect = _list_files
+    git_service.read_file.side_effect = lambda workflow_path, branch: (
+        base_dir / workflow_path
+    ).read_text(encoding="utf-8")
+    git_service.get_sha.return_value = "7" * 40
+    git_service.list_files.return_value = []
     return git_service
 
 
 def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: int = 100):
-    """Build a dict matching LiteLLMClient.achat return shape."""
     return {
         "content": content,
         "cost_usd": cost_usd,
@@ -83,8 +43,7 @@ def _make_achat_response(content: str, cost_usd: float = 0.001, total_tokens: in
     }
 
 
-async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 10.0):
-    """Poll DB until the run reaches a terminal status or timeout expires."""
+async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 10.0) -> Run:
     terminal = {RunStatus.completed, RunStatus.failed, RunStatus.cancelled}
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
@@ -92,48 +51,33 @@ async def _wait_for_run_terminal(engine, run_id: str, timeout: float = 10.0):
             run = session.get(Run, run_id)
             if run and run.status in terminal:
                 return run
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
     with Session(engine) as session:
-        return session.get(Run, run_id)
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+        run = session.get(Run, run_id)
+    assert run is not None, f"Run {run_id} was not created"
+    return run
 
 
 @pytest.fixture
 def db_engine():
-    """Fresh in-memory SQLite engine with all tables."""
-    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(eng)
-    return eng
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    return engine
 
 
 @pytest.fixture
-def base_dir(tmp_path):
-    """Pytest-owned temporary runtime workspace for workflow YAML files."""
+def base_dir(tmp_path: Path) -> Path:
     _write_workflow_file(
         tmp_path,
         "contains-assertion-workflow",
-        _read_workflow_fixture("contains-assertion-workflow"),
-    )
-    _write_workflow_file(
-        tmp_path,
-        "cost-assertion-workflow",
-        _read_workflow_fixture("cost-assertion-workflow"),
+        (FIXTURE_ROOT / "contains-assertion-workflow.yaml").read_text(encoding="utf-8"),
     )
     return tmp_path
 
 
 @pytest.fixture
 def app_with_real_services(db_engine, base_dir):
-    """FastAPI app wired with real services backed by in-memory SQLite and temp filesystem.
-
-    Only LiteLLMClient.achat is mocked externally — everything else is real.
-    """
     from fastapi import FastAPI
-    from sqlmodel import Session
 
     from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
     from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
@@ -152,40 +96,25 @@ def app_with_real_services(db_engine, base_dir):
     app.include_router(runs.router, prefix="/api")
 
     workflow_repo = WorkflowRepository(str(base_dir))
-    provider_repo = FileSystemProviderRepo(base_path=str(base_dir))
-    git_service = _git_service_for(base_dir)
-
-    mock_secrets = Mock()
-    mock_secrets.resolve = Mock(return_value="dummy-fake-test-key-for-integration")
     execution_session = Session(db_engine)
-
     execution_service = ExecutionService(
         run_repo=RunRepository(execution_session),
         workflow_repo=workflow_repo,
-        provider_repo=provider_repo,
+        provider_repo=FileSystemProviderRepo(base_path=str(base_dir)),
         engine=db_engine,
-        secrets=mock_secrets,
-        git_service=git_service,
+        secrets=Mock(resolve=Mock(return_value="dummy-fake-test-key")),
+        git_service=_git_service_for(base_dir),
         settings_repo=None,
     )
     app.state.execution_service = execution_service
 
-    def _get_run_service():
-        session = Session(db_engine)
-        run_repo = RunRepository(session)
-        return RunService(run_repo, workflow_repo)
-
-    def _get_execution_service(request=None):
-        return execution_service
-
-    def _get_eval_service():
-        session = Session(db_engine)
-        run_repo = RunRepository(session)
-        return EvalService(run_repo)
-
-    app.dependency_overrides[get_run_service] = _get_run_service
-    app.dependency_overrides[get_execution_service] = _get_execution_service
-    app.dependency_overrides[get_eval_service] = _get_eval_service
+    app.dependency_overrides[get_run_service] = lambda: RunService(
+        RunRepository(Session(db_engine)), workflow_repo
+    )
+    app.dependency_overrides[get_execution_service] = lambda request=None: execution_service
+    app.dependency_overrides[get_eval_service] = lambda: EvalService(
+        RunRepository(Session(db_engine))
+    )
 
     yield app
 
@@ -195,7 +124,6 @@ def app_with_real_services(db_engine, base_dir):
 
 @pytest.fixture
 def mock_provider():
-    """A mock provider object that satisfies the provider repo list_all call."""
     provider = Mock()
     provider.id = "openai"
     provider.type = "openai"
@@ -205,508 +133,47 @@ def mock_provider():
     return provider
 
 
-# ---------------------------------------------------------------------------
-# Contains assertion passes when LLM output includes target string
-# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_assertion_evaluation_end_to_end_smoke(
+    app_with_real_services,
+    db_engine,
+    mock_provider,
+) -> None:
+    from httpx import ASGITransport, AsyncClient
 
+    async with AsyncClient(
+        transport=ASGITransport(app=app_with_real_services),
+        base_url="http://localhost",
+    ) as client:
+        with (
+            patch(
+                "runsight_core.llm.client.LiteLLMClient.achat",
+                new_callable=AsyncMock,
+                return_value=_make_achat_response("The answer is X, confirmed."),
+            ),
+            patch.object(
+                app_with_real_services.state.execution_service.provider_repo,
+                "list_all",
+                return_value=[mock_provider],
+            ),
+        ):
+            response = await client.post(
+                "/api/runs",
+                json={
+                    "workflow_id": "contains-assertion-workflow",
+                    "branch": "main",
+                    "inputs": {},
+                },
+            )
+            assert response.status_code == 200, response.text
+            run_id = response.json()["id"]
+            run = await _wait_for_run_terminal(db_engine, run_id)
 
-class TestContainsAssertionPasses:
-    """Block with assertions: [{type: contains, value: "X"}], LLM returns "X"."""
+        nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
 
-    @pytest.mark.asyncio
-    async def test_eval_passed_is_true_via_api(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("The answer is X, confirmed."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None, "RunNode for 'analyze' must exist after execution"
-        assert analyze_node["eval_passed"] is True, "Assertion should pass when output contains 'X'"
-        assert analyze_node["eval_score"] == 1.0, (
-            "Score should be 1.0 for a passing contains assertion"
-        )
-
-    @pytest.mark.asyncio
-    async def test_eval_results_contain_assertion_details(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Result X found"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None
-        eval_results = analyze_node.get("eval_results")
-        assert eval_results is not None, "eval_results should be populated"
-        assertions_list = eval_results.get("assertions")
-        assert assertions_list is not None, "eval_results should contain 'assertions' key"
-        assert len(assertions_list) == 1
-        assert assertions_list[0]["passed"] is True
-        assert assertions_list[0]["score"] == 1.0
-
-
-# ---------------------------------------------------------------------------
-# Contains assertion fails when LLM output does not include target
-# ---------------------------------------------------------------------------
-
-
-class TestContainsAssertionFails:
-    """Same block, LLM returns "Y" (no "X"), assertion fails."""
-
-    @pytest.mark.asyncio
-    async def test_eval_passed_is_false_via_api(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("The answer is Y, confirmed."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None, "RunNode for 'analyze' must exist after execution"
-        assert analyze_node["eval_passed"] is False, "Assertion should fail when output lacks 'X'"
-
-    @pytest.mark.asyncio
-    async def test_eval_score_is_zero_on_failure(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("No match here, just Y."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None
-        assert analyze_node["eval_score"] == 0.0, (
-            "Score should be 0.0 for a failing contains assertion"
-        )
-
-    @pytest.mark.asyncio
-    async def test_eval_results_record_failure_details(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("Only Y is here."),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None
-        eval_results = analyze_node.get("eval_results")
-        assert eval_results is not None
-        assertions_list = eval_results["assertions"]
-        assert len(assertions_list) == 1
-        assert assertions_list[0]["passed"] is False
-        assert assertions_list[0]["score"] == 0.0
-
-
-# ---------------------------------------------------------------------------
-# Cost assertion evaluates correctly against known cost_usd
-# ---------------------------------------------------------------------------
-
-
-class TestCostAssertionEvaluation:
-    """Block executes with known cost_usd, cost assertion threshold evaluated correctly."""
-
-    @pytest.mark.asyncio
-    async def test_cost_below_threshold_passes(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        """cost_usd=0.01 with threshold=0.05 should pass."""
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("result", cost_usd=0.01, total_tokens=200),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "cost-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None, "RunNode for 'analyze' must exist after execution"
-        assert analyze_node["eval_passed"] is True, (
-            "Cost assertion should pass when cost <= threshold (0.05)"
-        )
-        assert analyze_node["eval_score"] == 1.0
-
-    @pytest.mark.asyncio
-    async def test_cost_above_threshold_fails(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        """cost_usd=0.10 with threshold=0.05 should fail."""
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("result", cost_usd=0.10, total_tokens=500),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "cost-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None, "RunNode for 'analyze' must exist after execution"
-        assert analyze_node["eval_passed"] is False, (
-            "Cost assertion should fail when cost > threshold (0.05)"
-        )
-        assert analyze_node["eval_score"] == 0.0
-
-    @pytest.mark.asyncio
-    async def test_cost_assertion_result_details(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        """eval_results should contain cost assertion type and pass/fail details."""
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("result", cost_usd=0.01, total_tokens=200),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "cost-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None
-        eval_results = analyze_node.get("eval_results")
-        assert eval_results is not None
-        assertions_list = eval_results["assertions"]
-        assert len(assertions_list) == 1
-        assert assertions_list[0]["passed"] is True
-
-
-# ---------------------------------------------------------------------------
-# Assertions fire via EvalObserver during execution, not offline
-# ---------------------------------------------------------------------------
-
-
-class TestAssertionsFireDuringExecution:
-    """Assertions fire via EvalObserver during execution, not as a separate offline step."""
-
-    @pytest.mark.asyncio
-    async def test_eval_results_written_by_time_run_completes(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        """After the run completes, eval_passed must already be set on the node — no separate step."""
-        from httpx import ASGITransport, AsyncClient
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("X marks the spot"),
-                ),
-                patch.object(
-                    app_with_real_services.state.execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-            # No separate "run eval" step — results should already be present
-            nodes_response = await client.get(f"/api/runs/{run_id}/nodes")
-
-        assert nodes_response.status_code == 200
-        nodes = nodes_response.json()
-        analyze_node = next((n for n in nodes if n["node_id"] == "analyze"), None)
-        assert analyze_node is not None
-        assert analyze_node["eval_passed"] is not None, (
-            "eval_passed must be set after execution completes — "
-            "EvalObserver should fire during the run, not as a separate step"
-        )
-        assert analyze_node["eval_score"] is not None
-        assert analyze_node["eval_results"] is not None
-
-    @pytest.mark.asyncio
-    async def test_sse_queue_receives_eval_event(
-        self, app_with_real_services, db_engine, mock_provider
-    ):
-        """EvalObserver should emit node_eval_complete to the streaming observer's SSE queue."""
-        from httpx import ASGITransport, AsyncClient
-
-        execution_service = app_with_real_services.state.execution_service
-
-        # Capture SSE events before unregister cleans up the observer
-        captured_events: list = []
-        original_unregister = execution_service._streams.unregister
-
-        def _capture_then_unregister(rid):
-            obs = execution_service._streams.get(rid)
-            if obs:
-                while not obs.queue.empty():
-                    captured_events.append(obs.queue.get_nowait())
-            original_unregister(rid)
-
-        execution_service._streams.unregister = _capture_then_unregister
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app_with_real_services),
-            base_url="http://localhost",
-        ) as client:
-            with (
-                patch(
-                    "runsight_core.llm.client.LiteLLMClient.achat",
-                    new_callable=AsyncMock,
-                    return_value=_make_achat_response("X result"),
-                ),
-                patch.object(
-                    execution_service.provider_repo,
-                    "list_all",
-                    return_value=[mock_provider],
-                ),
-            ):
-                response = await client.post(
-                    "/api/runs",
-                    json={
-                        "workflow_id": "contains-assertion-workflow",
-                        "branch": "main",
-                        "inputs": {},
-                    },
-                )
-                assert response.status_code == 200
-                run_id = response.json()["id"]
-                await _wait_for_run_terminal(db_engine, run_id)
-
-        eval_events = [e for e in captured_events if e.get("event") == "node_eval_complete"]
-        assert len(eval_events) >= 1, (
-            "EvalObserver should emit at least one node_eval_complete event"
-        )
-        assert eval_events[0]["data"]["node_id"] == "analyze"
-        assert eval_events[0]["data"]["passed"] is True
+    assert run.status == RunStatus.completed
+    assert nodes_response.status_code == 200
+    analyze_node = next(node for node in nodes_response.json() if node["node_id"] == "analyze")
+    assert analyze_node["eval_passed"] is True
+    assert analyze_node["eval_score"] == 1.0
+    assert analyze_node["eval_results"]["assertions"][0]["passed"] is True

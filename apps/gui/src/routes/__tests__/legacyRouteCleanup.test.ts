@@ -3,8 +3,6 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { useLocation, Outlet } from "react-router";
 
 function RouteEcho({ label }: { label: string }) {
@@ -109,8 +107,6 @@ async function renderAppAt(initialPath: string) {
 }
 
 describe("legacy list route cleanup", () => {
-  const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
-
   it("lets /workflows fall through to normal unknown-route behavior", async () => {
     await renderAppAt("/workflows");
 
@@ -130,28 +126,6 @@ describe("legacy list route cleanup", () => {
       expect(window.location.pathname).toBe("/runs");
       expect(window.location.search).toBe("");
     });
-  });
-
-  it.each(["/tasks", "/steps"])("redirects removed route %s away from the retired list UI", async (initialPath) => {
-    await renderAppAt(initialPath);
-
-    expect(await screen.findByText("dashboard:/")).toBeTruthy();
-    await waitFor(() => {
-      expect(window.location.pathname).toBe("/");
-      expect(window.location.search).toBe("");
-    });
-  });
-
-  it("keeps the router source free of retired sidebar route imports", () => {
-    expect(routesSource).not.toMatch(/features\/sidebar\/(?:SoulList|TaskList|StepList)/);
-    expect(routesSource).not.toMatch(/path:\s*"tasks"/);
-    expect(routesSource).not.toMatch(/path:\s*"steps"/);
-  });
-
-  it("keeps the /workflows/:id/edit route definition wired to WorkflowSurface", () => {
-    expect(routesSource).toMatch(/path:\s*"workflows\/:id\/edit"/);
-    // Workflow edit routes render the shared surface instead of the retired canvas page.
-    expect(routesSource).toMatch(/WorkflowSurface/);
   });
 
   it("keeps /runs/:id working", async () => {

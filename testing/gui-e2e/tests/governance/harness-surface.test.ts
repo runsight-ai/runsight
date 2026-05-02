@@ -1,25 +1,16 @@
 /**
- * Governance coverage for the Playwright harness surface.
+ * Compact governance coverage for the Playwright harness workspace surface.
  *
- * These are pure filesystem/config checks, not browser flows. They protect the
- * testing/gui-e2e workspace boundary and should stay here until equivalent
- * lint rules own the same constraints.
+ * Boundary: testing/gui-e2e owns its active harness entrypoints and docs.
+ * Exit criteria: replace with repo-level tooling once harness entrypoints are
+ * declared in a typed manifest.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
-// ---------------------------------------------------------------------------
-// Path helpers
-// ---------------------------------------------------------------------------
-
-// __dirname = testing/gui-e2e/tests/governance
 const workspaceDir = path.resolve(__dirname, "../..");
-
-// repoRoot = two levels above workspaceDir (testing/gui-e2e -> testing -> repo root)
-const repoRoot = path.resolve(workspaceDir, "../..");
-const SOURCE_OWNED_ROOTS = ["apps", "packages", "testing", "tools"];
 
 function workspacePath(...segments: string[]): string {
   return path.join(workspaceDir, ...segments);
@@ -31,45 +22,6 @@ function workspaceFileExists(...segments: string[]): boolean {
 
 function readWorkspaceFile(...segments: string[]): string {
   return fs.readFileSync(workspacePath(...segments), "utf8");
-}
-
-function findFilesNamed(
-  rootDir: string,
-  fileName: string,
-  matches: string[] = [],
-): string[] {
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    if (
-      entry.name === "node_modules" ||
-      entry.name === ".git" ||
-      entry.name === "playwright-report" ||
-      entry.name === "test-results"
-    ) {
-      continue;
-    }
-
-    const fullPath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      findFilesNamed(fullPath, fileName, matches);
-      continue;
-    }
-
-    if (entry.isFile() && entry.name === fileName) {
-      matches.push(path.relative(repoRoot, fullPath));
-    }
-  }
-
-  return matches;
-}
-
-function findSourceOwnedFilesNamed(fileName: string): string[] {
-  return SOURCE_OWNED_ROOTS.flatMap((rootName) => {
-    const rootDir = path.join(repoRoot, rootName);
-    if (!fs.existsSync(rootDir)) {
-      return [];
-    }
-    return findFilesNamed(rootDir, fileName);
-  });
 }
 
 function hasConfiguredPath(
@@ -84,13 +36,13 @@ function hasConfiguredPath(
   return configPattern.test(config);
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe("Playwright harness surface", () => {
-  it("global setup and teardown helpers are either wired in Playwright config or removed", () => {
+describe("Playwright harness surface smoke", () => {
+  it("keeps retained workspace entrypoints wired or absent", () => {
     const config = readWorkspaceFile("playwright.config.ts");
+    const readme = readWorkspaceFile("README.md");
+    const scriptFiles = workspaceFileExists("scripts")
+      ? fs.readdirSync(workspacePath("scripts")).map((file) => `scripts/${file}`)
+      : [];
 
     const dormantGlobals = [
       ["global-setup.ts", "globalSetup"],
@@ -106,30 +58,12 @@ describe("Playwright harness surface", () => {
           `${file} exists without ${configKey} in playwright.config.ts`,
       );
 
-    expect(dormantGlobals).toEqual([]);
-  });
-
-  it("review screenshot helpers do not remain without an active entrypoint", () => {
-    const dormantScreenshotHelpers = [
+    const orphanedReviewHelpers = [
       "scripts/screenshot.cjs",
       "scripts/screenshot-impl.cjs",
-    ]
-      .filter((file) => workspaceFileExists(file))
-      .map((file) => `${file} should be deleted`);
+    ].filter((file) => workspaceFileExists(file));
 
-    expect(dormantScreenshotHelpers).toEqual([]);
-  });
-
-  it("README only documents retained harness entrypoints", () => {
-    const readme = readWorkspaceFile("README.md");
-    const config = readWorkspaceFile("playwright.config.ts");
-    const scriptFiles = workspaceFileExists("scripts")
-      ? fs
-          .readdirSync(workspacePath("scripts"))
-          .map((file) => `scripts/${file}`)
-      : [];
-
-    const misleadingClaims = [
+    const misleadingReadmeClaims = [
       [
         "`global-setup.ts`",
         readme.includes("`global-setup.ts`") &&
@@ -147,23 +81,14 @@ describe("Playwright harness surface", () => {
       .filter(([, isMisleading]) => isMisleading)
       .map(([label]) => label);
 
-    expect(misleadingClaims).toEqual([]);
-  });
-
-  it("Playwright harness entrypoints do not reappear outside testing/gui-e2e", () => {
-    const harnessEntrypoints = [
-      "global-setup.ts",
-      "global-teardown.ts",
-      "screenshot.cjs",
-      "screenshot-impl.cjs",
-    ];
-
-    const misplacedEntrypoints = harnessEntrypoints.flatMap((fileName) =>
-      findSourceOwnedFilesNamed(fileName).filter(
-        (relativePath) => !relativePath.startsWith("testing/gui-e2e/"),
-      ),
-    );
-
-    expect(misplacedEntrypoints).toEqual([]);
+    expect({
+      dormantGlobals,
+      orphanedReviewHelpers,
+      misleadingReadmeClaims,
+    }).toEqual({
+      dormantGlobals: [],
+      orphanedReviewHelpers: [],
+      misleadingReadmeClaims: [],
+    });
   });
 });

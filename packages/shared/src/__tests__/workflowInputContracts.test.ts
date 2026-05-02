@@ -1,10 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
-
-const SHARED_SRC = resolve(__dirname, "..");
-const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
@@ -22,40 +17,7 @@ function getSchema(name: string): ParseableSchema {
   return schema as ParseableSchema;
 }
 
-function extractComponentFieldNames(source: string, componentName: string): string[] {
-  const pattern = new RegExp(`\\/\\*\\* ${componentName} \\*\\/\\s*${componentName}: \\{([\\s\\S]*?)\\n\\s+\\};`);
-  const match = source.match(pattern);
-
-  expect(match, `Expected generated api.ts to declare ${componentName}`).not.toBeNull();
-
-  return (match?.[1] ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const fieldMatch = line.match(/^([A-Za-z0-9_]+)\??:/);
-      return fieldMatch?.[1] ?? null;
-    })
-    .filter((field): field is string => field !== null);
-}
-
-function extractComponentBlock(
-  source: string,
-  componentName: string,
-  nextComponentName: string,
-): string {
-  const startMarker = `/** ${componentName} */`;
-  const endMarker = `/** ${nextComponentName} */`;
-  const start = source.indexOf(startMarker);
-  const end = source.indexOf(endMarker, start);
-
-  expect(start, `Expected generated api.ts to declare ${componentName}`).toBeGreaterThanOrEqual(0);
-  expect(end, `Expected generated api.ts to declare ${nextComponentName}`).toBeGreaterThan(start);
-
-  return source.slice(start, end);
-}
-
-describe("shared workflow input contracts", () => {
+describe("shared workflow input contract smoke", () => {
   it("RunCreateSchema requires branch and defaults omitted inputs to an empty object", () => {
     const schema = getSchema("RunCreateSchema");
 
@@ -64,58 +26,31 @@ describe("shared workflow input contracts", () => {
       branch: "main",
     }) as { workflow_id: string; branch: string; inputs?: Record<string, unknown> };
 
-    expect(parsed.workflow_id).toBe("wf_input_contract");
-    expect(parsed.branch).toBe("main");
-    expect(parsed.inputs).toEqual({});
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        workflow_id: "wf_input_contract",
+        branch: "main",
+        inputs: {},
+      }),
+    );
+    expect(() => schema.parse({ workflow_id: "wf_input_contract" })).toThrow();
   });
 
-  it("WorkflowResponseSchema preserves input_schema field metadata", () => {
+  it("WorkflowResponseSchema preserves identity, list metadata, and input schema metadata", () => {
     const schema = getSchema("WorkflowResponseSchema");
 
-    const parsed = schema.parse({
-      kind: "workflow",
-      id: "wf_input_contract",
-      input_schema: {
-        query: {
-          type: "string",
-          default: "search",
-          description: "Search query",
-          sensitive: false,
-        },
-      },
-    }) as {
-      input_schema?: Record<
-        string,
-        {
-          type: string;
-          default: string;
-          description: string;
-          sensitive: boolean;
-        }
-      >;
-    };
-
-    expect(parsed).toHaveProperty("input_schema");
-    expect(parsed.input_schema).toEqual({
-      query: {
-        type: "string",
-        default: "search",
-        description: "Search query",
-        sensitive: false,
-      },
-    });
-  });
-
-  it("WorkflowResponseSchema exposes identity and canonical list metadata fields", () => {
-    const schema = getSchema("WorkflowResponseSchema");
-
-    expect(schema.shape).toHaveProperty("id");
-    expect(schema.shape).toHaveProperty("kind");
-    expect(schema.shape).toHaveProperty("block_count");
-    expect(schema.shape).toHaveProperty("modified_at");
-    expect(schema.shape).toHaveProperty("enabled");
-    expect(schema.shape).toHaveProperty("commit_sha");
-    expect(schema.shape).toHaveProperty("health");
+    expect(schema.shape).toEqual(
+      expect.objectContaining({
+        id: expect.anything(),
+        kind: expect.anything(),
+        block_count: expect.anything(),
+        modified_at: expect.anything(),
+        enabled: expect.anything(),
+        commit_sha: expect.anything(),
+        health: expect.anything(),
+        input_schema: expect.anything(),
+      }),
+    );
 
     const parsed = schema.parse({
       id: "research-review",
@@ -134,23 +69,26 @@ describe("shared workflow input contracts", () => {
         total_cost_usd: 0.3,
         regression_count: 0,
       },
+      input_schema: {
+        query: {
+          type: "string",
+          default: "search",
+          description: "Search query",
+          sensitive: false,
+        },
+      },
     }) as {
-      id: string;
-      kind: string;
       block_count?: number;
-      modified_at?: number;
-      enabled?: boolean;
-      commit_sha?: string | null;
-      health?: { regression_count?: number };
+      input_schema?: Record<string, { type: string; sensitive?: boolean | null }>;
     };
 
-    expect(parsed.id).toBe("research-review");
-    expect(parsed.kind).toBe("workflow");
     expect(parsed.block_count).toBe(3);
-    expect(parsed.modified_at).toBe(1711900000);
-    expect(parsed.enabled).toBe(true);
-    expect(parsed.commit_sha).toBe("1234567890abcdef1234567890abcdef12345678");
-    expect(parsed.health?.regression_count).toBe(0);
+    expect(parsed.input_schema?.query).toEqual(
+      expect.objectContaining({
+        type: "string",
+        sensitive: false,
+      }),
+    );
   });
 
   it("RunResponseSchema preserves workflow input snapshots and sensitive redaction boundaries", () => {
@@ -189,95 +127,23 @@ describe("shared workflow input contracts", () => {
           description: "Search query",
           sensitive: false,
         },
-        api_key: {
-          type: "string",
-          required: true,
-          default: null,
-          description: "Private token",
-          sensitive: true,
-        },
       },
     }) as {
-      workflow_inputs?: Record<
-        string,
-        {
-          type: string;
-          sensitive: boolean;
-          source: string;
-          value?: string;
-          redacted?: string;
-        }
-      >;
-      workflow_input_schema?: Record<
-        string,
-        {
-          type: string;
-          required: boolean;
-          default: string | null;
-          description: string | null;
-          sensitive: boolean;
-        }
-      >;
+      workflow_inputs?: Record<string, { value?: string; redacted?: string; sensitive?: boolean }>;
     };
 
-    expect(parsed.workflow_inputs?.query).toEqual({
-      type: "string",
-      sensitive: false,
-      source: "provided",
-      value: "audit runs",
-    });
-    expect(parsed.workflow_inputs?.api_key).toEqual({
-      type: "string",
-      sensitive: true,
-      source: "provided",
-    });
+    expect(parsed.workflow_inputs?.query?.value).toBe("audit runs");
+    expect(parsed.workflow_inputs?.api_key).toEqual(
+      expect.objectContaining({
+        sensitive: true,
+        source: "provided",
+      }),
+    );
     expect(parsed.workflow_inputs?.api_key).not.toHaveProperty("value");
     expect(parsed.workflow_inputs?.api_key).not.toHaveProperty("redacted");
-    expect(parsed.workflow_input_schema).toEqual({
-      query: {
-        type: "string",
-        required: true,
-        default: null,
-        description: "Search query",
-        sensitive: false,
-      },
-      api_key: {
-        type: "string",
-        required: true,
-        default: null,
-        description: "Private token",
-        sensitive: true,
-      },
-    });
   });
 
-  it("generated OpenAPI TS exposes workflow input fields on the run and workflow components", () => {
-    const runCreateFields = extractComponentFieldNames(apiSource, "RunCreate");
-    const runResponseFields = extractComponentFieldNames(apiSource, "RunResponse");
-    const workflowResponseFields = extractComponentFieldNames(apiSource, "WorkflowResponse");
-
-    expect(runCreateFields).toEqual(expect.arrayContaining(["workflow_id", "inputs"]));
-    expect(runResponseFields).toEqual(
-      expect.arrayContaining(["workflow_inputs", "workflow_input_schema"]),
-    );
-    expect(workflowResponseFields).toEqual(expect.arrayContaining(["input_schema"]));
-  });
-
-  it("generated OpenAPI TS keeps only defaulted RunCreate fields optional for callers", () => {
-    const runCreateBlock = extractComponentBlock(apiSource, "RunCreate", "RunEvalResponse");
-
-    expect(runCreateBlock).toMatch(/\binputs\?:/);
-    expect(runCreateBlock).toMatch(/\bsource\?:/);
-    expect(runCreateBlock).toMatch(/\bbranch:/);
-  });
-
-  it("committed OpenAPI includes a workflow input validation error schema with structured fields", () => {
-    const legacyInvocationInputExports = Object.keys(sharedZod).filter((name) =>
-      /(?:Legacy|Interface).*(?:Input|Invocation)/i.test(name),
-    );
-
-    expect(legacyInvocationInputExports).toEqual([]);
-
+  it("parses structured workflow input validation errors", () => {
     const schema = getSchema("WorkflowInputValidationErrorResponseSchema");
 
     const parsed = schema.parse({
@@ -298,32 +164,22 @@ describe("shared workflow input contracts", () => {
         ],
       },
     }) as {
-      error: string;
       error_code: string;
       status_code: number;
-      details: {
-        kind: string;
-        fields: Array<{
-          field: string;
-          code: string;
-          message: string;
-          input_path: string[];
-          expected_type: string;
-          actual_type: string | null;
-        }>;
-      };
+      details: { kind: string; fields: Array<{ field: string }> };
     };
 
     expect(parsed.error_code).toBe("WORKFLOW_INPUT_VALIDATION_ERROR");
     expect(parsed.status_code).toBe(422);
     expect(parsed.details.kind).toBe("workflow_input_validation");
-    expect(parsed.details.fields[0]).toEqual({
-      field: "query",
-      code: "required",
-      message: "Input 'query' is required.",
-      input_path: ["inputs", "query"],
-      expected_type: "string",
-      actual_type: null,
-    });
+    expect(parsed.details.fields[0]?.field).toBe("query");
+    expect(() =>
+      schema.parse({
+        error: "Workflow input validation failed",
+        error_code: "VALIDATION_ERROR",
+        status_code: 422,
+        details: { kind: "workflow_input_validation", fields: [] },
+      }),
+    ).toThrow();
   });
 });

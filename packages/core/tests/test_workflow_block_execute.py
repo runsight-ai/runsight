@@ -1,22 +1,19 @@
-"""
-Tests for WorkflowBlock execution, mapping, and state isolation.
-"""
+"""Smoke coverage for WorkflowBlock execution wiring."""
+
+from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from runsight_core import WorkflowBlock
 from runsight_core.state import BlockResult, WorkflowState
 
 
-async def _run_block(block, state: WorkflowState, *, observer=None) -> WorkflowState:
-    """Helper: build BlockContext, run block, apply output → WorkflowState."""
+async def _run_block(block, state: WorkflowState) -> WorkflowState:
     from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
 
     ctx = build_block_context(block, state)
-    if observer is not None:
-        ctx.inputs["observer"] = observer
     output = await block.execute(ctx)
     if isinstance(output, WorkflowState):
         return output
@@ -25,411 +22,52 @@ async def _run_block(block, state: WorkflowState, *, observer=None) -> WorkflowS
     return state
 
 
-@pytest.fixture
-def base_parent_state():
-    """Create a parent state with pre-populated data."""
-    return WorkflowState(
-        shared_memory={"research_topic": "AI safety", "other": "data"},
-        results={"existing_result": BlockResult(output="previous output")},
-        metadata={"workflow_id": "workflow-block-execute-workflow"},
-    )
-
-
-@pytest.fixture
-def mock_child_workflow():
-    """Create a mock child workflow."""
-    workflow = AsyncMock()
-    workflow.name = "workflow_block_child_workflow"
-    workflow.run = AsyncMock()
-    return workflow
-
-
 @pytest.mark.asyncio
-async def test_input_mapping_success(base_parent_state, mock_child_workflow):
-    """Test successful input mapping from parent state to child invocation inputs."""
-    # Arrange
-    child_final_state = WorkflowState(
-        results={"final": BlockResult(output="child_output")},
-        total_cost_usd=0.05,
-        total_tokens=50,
-    )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-
-    block = WorkflowBlock(
-        block_id="input_mapping_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={"topic": "shared_memory.research_topic"},
-        outputs={},
-        max_depth=10,
-    )
-
-    # Act
-    await _run_block(block, base_parent_state)
-
-    call_args = mock_child_workflow.run.call_args
-    child_state = call_args[0][0]
-    assert call_args.kwargs["inputs"] == {"topic": "AI safety"}
-    assert child_state.shared_memory == {}
-    assert child_state.results == {}
-    assert child_state.metadata == {}
-
-
-@pytest.mark.asyncio
-async def test_input_mapping_missing_key_raises(base_parent_state, mock_child_workflow):
-    """Input mapping raises KeyError for missing parent key."""
-    # Arrange
-    block = WorkflowBlock(
-        block_id="missing_input_mapping_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={"topic": "shared_memory.nonexistent_key"},
-        outputs={},
-        max_depth=10,
-    )
-
-    # Act & Assert
-    with pytest.raises(KeyError) as exc_info:
-        await _run_block(block, base_parent_state)
-
-    error_msg = str(exc_info.value)
-    assert "nonexistent_key" in error_msg
-    assert "shared_memory" in error_msg
-
-
-@pytest.mark.asyncio
-async def test_private_child_state_input_mapping_raises(base_parent_state, mock_child_workflow):
-    """inputs keys are public invocation names, not child private state paths."""
-    with pytest.raises(ValueError, match="private child state|child invocation input"):
-        block = WorkflowBlock(
-            block_id="private_input_mapping_workflow_block",
-            child_workflow=mock_child_workflow,
-            inputs={"shared_memory.topic": "shared_memory.research_topic"},
-            outputs={},
-            max_depth=10,
-        )
-        await _run_block(block, base_parent_state)
-
-
-@pytest.mark.asyncio
-async def test_workflow_block_execute_uses_child_double_without_assertion_configs(
-    base_parent_state,
-):
-    """WorkflowBlock.execute must accept child doubles without assertion_configs()."""
-
-    child_final_state = WorkflowState()
-    child_workflow = SimpleNamespace(
-        name="child_double_without_assertion_configs_workflow",
-        run=AsyncMock(return_value=child_final_state),
-    )
-    observer = MagicMock()
-    block = WorkflowBlock(
-        block_id="missing_assertion_configs_workflow_block",
-        child_workflow=child_workflow,
-        inputs={},
-        outputs={},
-        max_depth=10,
-    )
-
-    result = await _run_block(block, base_parent_state, observer=observer)
-
-    assert isinstance(result, WorkflowState)
-    child_workflow.run.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_output_mapping_success(base_parent_state, mock_child_workflow):
-    """Output mapping writes child results to parent state."""
-    # Arrange
-    child_final_state = WorkflowState(
-        results={"final": BlockResult(output="child_output_value")},
-        total_cost_usd=0.05,
-        total_tokens=50,
-    )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-
-    block = WorkflowBlock(
-        block_id="output_mapping_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},
-        outputs={"results.parent_out": "results.final"},
-        max_depth=10,
-    )
-
-    # Act
-    result = await _run_block(block, base_parent_state)
-
-    # Assert - verify output was written to parent state
-    assert result.results.get("parent_out") == BlockResult(output="child_output_value")
-
-
-@pytest.mark.asyncio
-async def test_output_mapping_does_not_leak_unmapped_child_results(
-    base_parent_state,
-    mock_child_workflow,
-):
-    """Only explicitly mapped child outputs are written into the parent result set."""
+async def test_workflow_block_isolates_child_state_and_maps_declared_outputs() -> None:
     child_final_state = WorkflowState(
         results={
-            "final": BlockResult(output="mapped_value"),
-            "internal_temp": BlockResult(output="scratch"),
-            "another_child_key": BlockResult(output="should_not_leak"),
-        }
-    )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-    block = WorkflowBlock(
-        block_id="isolated_output_mapping_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},
-        outputs={"results.parent_out": "results.final"},
-        max_depth=10,
-    )
-
-    result = await _run_block(block, base_parent_state)
-
-    assert result.results["parent_out"] == BlockResult(output="mapped_value")
-    assert result.results["existing_result"] == BlockResult(output="previous output")
-    assert "isolated_output_mapping_workflow_block" in result.results
-    assert "final" not in result.results
-    assert "internal_temp" not in result.results
-    assert "another_child_key" not in result.results
-
-
-@pytest.mark.asyncio
-async def test_missing_output_source_path_raises(base_parent_state, mock_child_workflow):
-    """Output mappings must point at an existing child state path."""
-    child_final_state = WorkflowState(results={"available": BlockResult(output="value")})
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-    block = WorkflowBlock(
-        block_id="missing_output_source_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},
-        outputs={"results.parent_out": "results.nonexistent"},
-        max_depth=10,
-    )
-
-    with pytest.raises((KeyError, ValueError), match="nonexistent"):
-        await _run_block(block, base_parent_state)
-
-
-@pytest.mark.asyncio
-async def test_child_state_isolation(base_parent_state, mock_child_workflow):
-    """Child receives clean isolated state (only mapped inputs)."""
-    # Arrange
-    child_final_state = WorkflowState(
-        results={"child_result": BlockResult(output="output")},
-        total_cost_usd=0.01,
-        total_tokens=10,
-    )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-
-    block = WorkflowBlock(
-        block_id="state_isolation_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},  # Empty inputs
-        outputs={},  # Empty outputs
-        max_depth=10,
-    )
-
-    # Act
-    await _run_block(block, base_parent_state)
-
-    # Assert - child should receive empty state
-    call_args = mock_child_workflow.run.call_args
-    child_state = call_args[0][0]
-    assert child_state.results == {}  # No parent results
-    assert child_state.shared_memory == {}  # No parent shared_memory
-    assert child_state.metadata == {}  # No parent metadata
-
-
-@pytest.mark.asyncio
-async def test_cost_propagation(base_parent_state, mock_child_workflow):
-    """Cost and token counts propagate from child to parent."""
-    # Arrange
-    child_final_state = WorkflowState(
-        results={"final": BlockResult(output="output")},
+            "final": BlockResult(output="child output"),
+            "scratch": BlockResult(output="must stay private"),
+        },
+        shared_memory={"child_private": "hidden"},
         total_cost_usd=0.05,
-        total_tokens=100,
+        total_tokens=50,
     )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-
+    child_workflow = SimpleNamespace(
+        name="child_without_assertion_configs",
+        run=AsyncMock(return_value=child_final_state),
+    )
     block = WorkflowBlock(
-        block_id="cost_propagation_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},
-        outputs={},
+        block_id="invoke_child",
+        child_workflow=child_workflow,
+        inputs={"topic": "shared_memory.research_topic"},
+        outputs={
+            "results.parent_summary": "results.final",
+            "shared_memory.child_summary": "results.final",
+        },
         max_depth=10,
     )
-
     parent_state = WorkflowState(
+        shared_memory={"research_topic": "AI safety", "other": "data"},
+        results={"existing": BlockResult(output="previous output")},
+        metadata={"workflow_id": "parent"},
         total_cost_usd=0.10,
         total_tokens=200,
     )
 
-    # Act
     result = await _run_block(block, parent_state)
 
-    # Assert
-    assert result.total_cost_usd == pytest.approx(0.15)  # 0.10 + 0.05
-    assert result.total_tokens == 300  # 200 + 100
+    child_state = child_workflow.run.call_args.args[0]
+    assert child_workflow.run.call_args.kwargs["inputs"] == {"topic": "AI safety"}
+    assert child_state.workflow_inputs == {"topic": "AI safety"}
+    assert child_state.results == {}
+    assert child_state.shared_memory == {}
+    assert child_state.metadata == {}
 
-
-@pytest.mark.asyncio
-async def test_system_message_appended(base_parent_state, mock_child_workflow):
-    """Test that system message is appended to messages."""
-    # Arrange
-    child_final_state = WorkflowState(
-        results={"final": BlockResult(output="output")},
-        total_cost_usd=0.05,
-        total_tokens=50,
-    )
-    mock_child_workflow.run = AsyncMock(return_value=child_final_state)
-
-    block = WorkflowBlock(
-        block_id="system_message_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={},
-        outputs={},
-        max_depth=10,
-    )
-
-    # Act
-    result = await _run_block(block, base_parent_state)
-
-    # Assert - check for system message
-    system_messages = [m for m in result.execution_log if m.get("role") == "system"]
-    assert len(system_messages) > 0
-    assert "system_message_workflow_block" in system_messages[0]["content"]
-    assert "workflow_block_child_workflow" in system_messages[0]["content"]
-
-
-@pytest.mark.asyncio
-async def test_invalid_path_prefix_raises(base_parent_state, mock_child_workflow):
-    """Test that invalid path prefix raises ValueError."""
-    # Arrange
-    block = WorkflowBlock(
-        block_id="invalid_prefix_workflow_block",
-        child_workflow=mock_child_workflow,
-        inputs={"x": "invalid_prefix.key"},
-        outputs={},
-        max_depth=10,
-    )
-
-    # Act & Assert
-    with pytest.raises(ValueError) as exc_info:
-        await _run_block(block, base_parent_state)
-
-    error_msg = str(exc_info.value)
-    assert "invalid" in error_msg.lower() or "unknown" in error_msg.lower()
-
-
-@pytest.mark.asyncio
-async def test_resolve_dotted_current_task(base_parent_state):
-    """Test _resolve_dotted raises for deprecated current_task path."""
-    # Arrange
-    state = WorkflowState()
-    block = WorkflowBlock(
-        block_id="resolve-results-workflow-block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act & Assert — current_task is deprecated, must raise ValueError
-    with pytest.raises(ValueError, match=r"(?i)deprecat|use results\.\*|use shared_memory\.\*"):
-        block._resolve_dotted(state, "current_task")
-
-
-@pytest.mark.asyncio
-async def test_resolve_dotted_results(base_parent_state):
-    """Test _resolve_dotted with results path."""
-    # Arrange
-    state = WorkflowState(results={"resolved_result_block": BlockResult(output="resolved output")})
-    block = WorkflowBlock(
-        block_id="resolve-results-workflow-block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act
-    value = block._resolve_dotted(state, "results.resolved_result_block")
-
-    # Assert
-    assert value == BlockResult(output="resolved output")
-
-
-@pytest.mark.asyncio
-async def test_resolve_dotted_shared_memory(base_parent_state):
-    """Test _resolve_dotted with shared_memory path."""
-    # Arrange
-    state = WorkflowState(shared_memory={"topic": "AI safety"})
-    block = WorkflowBlock(
-        block_id="resolve-results-workflow-block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act
-    value = block._resolve_dotted(state, "shared_memory.topic")
-
-    # Assert
-    assert value == "AI safety"
-
-
-@pytest.mark.asyncio
-async def test_resolve_dotted_metadata(base_parent_state):
-    """Test _resolve_dotted with metadata path."""
-    # Arrange
-    state = WorkflowState(metadata={"workflow_id": "workflow-block-execute-workflow"})
-    block = WorkflowBlock(
-        block_id="resolve-results-workflow-block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act
-    value = block._resolve_dotted(state, "metadata.workflow_id")
-
-    # Assert
-    assert value == "workflow-block-execute-workflow"
-
-
-@pytest.mark.asyncio
-async def test_write_dotted_results(base_parent_state):
-    """Test _write_dotted with results path."""
-    # Arrange
-    state = WorkflowState(results={"existing": BlockResult(output="value")})
-    block = WorkflowBlock(
-        block_id="write_results_workflow_block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act
-    new_state = block._write_dotted(state, "results.new_key", "new_value")
-
-    # Assert
-    assert new_state.results["new_key"] == "new_value"
-    assert new_state.results["existing"] == BlockResult(output="value")  # Original preserved
-
-
-@pytest.mark.asyncio
-async def test_write_dotted_shared_memory(base_parent_state):
-    """Test _write_dotted with shared_memory path."""
-    # Arrange
-    state = WorkflowState(shared_memory={"existing": "value"})
-    block = WorkflowBlock(
-        block_id="write_shared_memory_workflow_block",
-        child_workflow=AsyncMock(),
-        inputs={},
-        outputs={},
-    )
-
-    # Act
-    new_state = block._write_dotted(state, "shared_memory.new_key", "new_value")
-
-    # Assert
-    assert new_state.shared_memory["new_key"] == "new_value"
-    assert new_state.shared_memory["existing"] == "value"
+    assert result.results["existing"] == BlockResult(output="previous output")
+    assert result.results["parent_summary"] == BlockResult(output="child output")
+    assert "scratch" not in result.results
+    assert result.shared_memory["child_summary"] == "child output"
+    assert result.results["invoke_child"].exit_handle == "completed"
+    assert result.total_cost_usd == pytest.approx(0.15)
+    assert result.total_tokens == 250

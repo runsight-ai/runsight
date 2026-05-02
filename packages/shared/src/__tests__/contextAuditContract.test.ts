@@ -1,12 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
-
-const SHARED_SRC = resolve(__dirname, "..");
-const REPO_ROOT = resolve(__dirname, "..", "..", "..", "..");
-const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
-const openapi = JSON.parse(readFileSync(resolve(REPO_ROOT, "openapi.json"), "utf8"));
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
@@ -24,28 +17,18 @@ function getSchema(name: string): ParseableSchema {
   return schema as ParseableSchema;
 }
 
-describe("context audit shared/client contract", () => {
-  it("generated OpenAPI types include the historical context audit path", () => {
-    expect(apiSource).toContain("/api/runs/{run_id}/context-audit");
-    expect(apiSource).toContain("ContextAuditListResponse");
-  });
-
-  it("generated API contracts exclude frontend static and SPA fallback routes", () => {
-    expect(openapi.paths).not.toHaveProperty("/runsight.svg");
-    expect(openapi.paths).not.toHaveProperty("/{full_path}");
-    expect(apiSource).not.toContain('"/runsight.svg"');
-    expect(apiSource).not.toContain('"/{full_path}"');
-  });
-
-  it("generated Zod exports ContextAuditListResponseSchema", () => {
+describe("context audit shared/client contract smoke", () => {
+  it("exports and parses the context audit list response schema", () => {
     const schema = getSchema("ContextAuditListResponseSchema");
 
-    expect(Object.keys(schema.shape).sort()).toEqual([
-      "end_cursor",
-      "has_next_page",
-      "items",
-      "page_size",
-    ]);
+    expect(schema.shape).toEqual(
+      expect.objectContaining({
+        items: expect.anything(),
+        page_size: expect.anything(),
+        has_next_page: expect.anything(),
+        end_cursor: expect.anything(),
+      }),
+    );
 
     const parsed = schema.parse({
       items: [
@@ -69,16 +52,14 @@ describe("context audit shared/client contract", () => {
       page_size: 100,
       has_next_page: false,
       end_cursor: null,
-    });
+    }) as { items: unknown[]; page_size: number; has_next_page: boolean };
 
-    expect(parsed).toMatchObject({
-      page_size: 100,
-      has_next_page: false,
-      end_cursor: null,
-    });
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.page_size).toBe(100);
+    expect(parsed.has_next_page).toBe(false);
   });
 
-  it("generated contracts do not expose all-access governance", () => {
+  it("keeps context access and status values on the declared governance contract", () => {
     const contextAccessSchema = getSchema("ContextAccessSchema");
     const contextAuditStatusSchema = getSchema("ContextAuditStatusSchema");
 
@@ -86,7 +67,5 @@ describe("context audit shared/client contract", () => {
     expect(() => contextAccessSchema.parse("all")).toThrow();
     expect(contextAuditStatusSchema.parse("resolved")).toBe("resolved");
     expect(() => contextAuditStatusSchema.parse("all_access")).toThrow();
-    expect(apiSource).not.toContain("all_access");
-    expect(apiSource).not.toContain('access: all');
   });
 });

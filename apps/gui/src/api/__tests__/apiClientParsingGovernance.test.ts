@@ -1,56 +1,58 @@
-/**
- * Governance for source-level API client parsing and dashboard query wiring.
- *
- * Boundary: GUI API client adapters and dashboard query adapter.
- * Owner: GUI API tests until the source-level guards are replaced by behavior
- * tests around the generated shared contracts and fetch adapters.
- * Exit criteria: delete this suite once adapter behavior tests prove response
- * parsing and query delegation without implementation-source inspection.
- */
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+const apiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+}));
 
-const workflowsSource = readFileSync(new URL("../workflows.ts", import.meta.url), "utf8");
-const runsSource = readFileSync(new URL("../runs.ts", import.meta.url), "utf8");
-const dashboardQuerySource = readFileSync(
-  new URL("../../queries/dashboard.ts", import.meta.url),
-  "utf8",
-);
-const gitSource = readFileSync(new URL("../git.ts", import.meta.url), "utf8");
+vi.mock("../client", () => ({
+  api: {
+    get: apiMock.get,
+    post: apiMock.post,
+  },
+}));
 
-describe("API client parsing governance", () => {
-  it("setWorkflowEnabled parses the workflow enable response with Zod", () => {
-    // Extract the setWorkflowEnabled function body for a focused check
-    const setWorkflowEnabledMatch = workflowsSource.match(
-      /setWorkflowEnabled[\s\S]*?(?=\n {2}\w|\n\};)/,
+beforeEach(() => {
+  vi.resetModules();
+  apiMock.get.mockReset();
+  apiMock.post.mockReset();
+});
+
+describe("API client parsing smoke", () => {
+  it("cancelRun returns the typed cancel payload and rejects malformed responses", async () => {
+    const { runsApi } = await import("../runs");
+
+    apiMock.post.mockResolvedValueOnce({ id: "run_cancel", status: "cancelled" });
+
+    await expect(runsApi.cancelRun("run_cancel")).resolves.toEqual({
+      id: "run_cancel",
+      status: "cancelled",
+    });
+    expect(apiMock.post).toHaveBeenCalledWith("/runs/run_cancel/cancel");
+
+    apiMock.post.mockResolvedValueOnce({ id: "run_cancel" });
+
+    await expect(runsApi.cancelRun("run_cancel")).rejects.toThrow();
+  });
+
+  it("getGitFile parses the shared file-read response shape", async () => {
+    const { gitApi } = await import("../git");
+
+    apiMock.get.mockResolvedValueOnce({
+      content: "name: Smoke workflow\n",
+      ref: "main",
+    });
+
+    await expect(gitApi.getGitFile("main", "workflows/smoke.yaml")).resolves.toEqual({
+      content: "name: Smoke workflow\n",
+      ref: "main",
+    });
+    expect(apiMock.get).toHaveBeenCalledWith(
+      "/git/file?ref=main&path=workflows%2Fsmoke.yaml",
     );
-    expect(setWorkflowEnabledMatch).not.toBeNull();
-    const fnBody = setWorkflowEnabledMatch![0];
-    expect(fnBody).toMatch(/\.parse\(/);
-  });
 
-  it("cancelRun parses the cancel response with Zod", () => {
-    const cancelRunMatch = runsSource.match(/cancelRun[\s\S]*?(?=\n {2}\w|\n\};)/);
-    expect(cancelRunMatch).not.toBeNull();
-    const fnBody = cancelRunMatch![0];
-    expect(fnBody).toMatch(/\.parse\(/);
-  });
+    apiMock.get.mockResolvedValueOnce({ content: "missing ref" });
 
-  it("cancelRun exposes a typed response instead of Promise<unknown>", () => {
-    // The cancelRun signature must not use Promise<unknown>
-    expect(runsSource).not.toMatch(/cancelRun[^}]*Promise<unknown>/);
-  });
-
-  it("dashboard hooks delegate fetching to the API client layer", () => {
-    expect(dashboardQuerySource).not.toMatch(/\bapi\.get\(/);
-  });
-
-  it("git file reads use the shared FileReadResponseSchema", () => {
-    // Must import from shared
-    expect(gitSource).toMatch(/FileReadResponseSchema/);
-    expect(gitSource).toMatch(/@runsight\/shared\/zod/);
-    // Must NOT define a local GitFileResponseSchema
-    expect(gitSource).not.toMatch(/GitFileResponseSchema/);
+    await expect(gitApi.getGitFile("main", "workflows/smoke.yaml")).rejects.toThrow();
   });
 });

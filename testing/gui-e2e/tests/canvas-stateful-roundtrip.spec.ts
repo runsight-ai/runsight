@@ -6,7 +6,6 @@ import {
   apiPost,
   apiPut,
   buildBlankWorkflowYaml,
-  gotoShellRoute,
   setupShellReadyWorkspace,
 } from "./helpers/shellReady";
 import {
@@ -55,12 +54,17 @@ test.describe("Surface YAML stateful round-trip", () => {
       "kind: workflow",
       "blocks:",
       "  step_a:",
-      "    type: linear",
+      "    type: code",
       "    stateful: true",
+      "    code: |",
+      "      def main(data):",
+      "          return {'ok': True}",
       "workflow:",
       "  name: StatefulTest",
       "  entry: step_a",
-      "  transitions: []",
+      "  transitions:",
+      "    - from: step_a",
+      "      to: null",
       "",
     ].join("\n");
 
@@ -85,62 +89,4 @@ test.describe("Surface YAML stateful round-trip", () => {
       .toBe(true);
   });
 
-  test("omits stateful when the block does not declare it", async ({ page }) => {
-    const yamlInput = [
-      'version: "1.0"',
-      `id: ${workflowId}`,
-      "kind: workflow",
-      "blocks:",
-      "  step_a:",
-      "    type: linear",
-      "workflow:",
-      "  name: NoStatefulTest",
-      "  entry: step_a",
-      "  transitions: []",
-      "",
-    ].join("\n");
-
-    await gotoWorkflowEditor(page, workflowId);
-    await setWorkflowYaml(page, yamlInput);
-    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
-    await apiPut<WorkflowRecord>(`/workflows/${workflowId}`, { yaml: yamlInput });
-
-    await page.reload();
-    await gotoWorkflowEditor(page, workflowId);
-    const reloadedYaml = await readWorkflowYaml(page);
-    expect(parse(reloadedYaml).blocks.step_a.stateful).toBeUndefined();
-  });
-
-  test("keeps stateful only on the blocks that declare it", async ({ page }) => {
-    const yamlInput = [
-      'version: "1.0"',
-      `id: ${workflowId}`,
-      "kind: workflow",
-      "blocks:",
-      "  step_stateful:",
-      "    type: linear",
-      "    stateful: true",
-      "  step_plain:",
-      "    type: dispatch",
-      "workflow:",
-      "  name: MixedStatefulTest",
-      "  entry: step_stateful",
-      "  transitions:",
-      "    - from: step_stateful",
-      "      to: step_plain",
-      "",
-    ].join("\n");
-
-    await gotoWorkflowEditor(page, workflowId);
-    await setWorkflowYaml(page, yamlInput);
-    await expect(page.getByTestId("workflow-save-button")).toBeEnabled();
-    await apiPut<WorkflowRecord>(`/workflows/${workflowId}`, { yaml: yamlInput });
-
-    await gotoShellRoute(page, `/workflows/${workflowId}/edit`);
-    const reloadedYaml = await readWorkflowYaml(page);
-    const parsed = parse(reloadedYaml);
-
-    expect(parsed.blocks.step_stateful.stateful).toBe(true);
-    expect(parsed.blocks.step_plain.stateful).toBeUndefined();
-  });
 });

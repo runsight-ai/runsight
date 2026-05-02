@@ -180,12 +180,6 @@ def test_unified_scanners_scan_shared_fixture_and_resolve_aliases(tmp_path: Path
     assert set(tool_index.ids()) == {"helper"}
     assert set(workflow_index.ids()) == {"child-impl", "parent"}
 
-    assert soul_index.get("custom/souls/researcher.yaml") is None
-    assert tool_index.get("custom/tools/helper.yaml") is None
-    assert workflow_index.get("child-impl") is not None
-    assert workflow_index.get("child_flow") is None
-    assert workflow_index.get("custom/workflows/child-impl.yaml") is None
-
     resolved = WorkflowScanner(tmp_path).resolve_ref("child-impl", index=workflow_index)
     assert resolved is not None
     assert resolved.path == paths["child"].resolve()

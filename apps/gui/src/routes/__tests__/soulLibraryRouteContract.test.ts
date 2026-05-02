@@ -63,17 +63,13 @@ beforeEach(() => {
 });
 
 describe("route wiring", () => {
-  it("routes /souls to SoulLibraryPage without importing the legacy sidebar SoulList", async () => {
+  it("routes /souls to SoulLibraryPage", async () => {
     const { router } = await import("../index");
-    const { readFileSync } = await import("node:fs");
-    const { resolve } = await import("node:path");
 
     const soulsRoute = findRoute(router, "souls");
     const resolved = await soulsRoute.lazy?.();
-    const routesSource = readFileSync(resolve(__dirname, "..", "index.tsx"), "utf-8");
 
     expect(resolved?.Component).toBe(mocks.soulLibraryPageComponent);
-    expect(routesSource).not.toMatch(/features\/sidebar\/SoulList/);
   });
 
   it("keeps /souls/new and /souls/:id/edit wired to SoulFormPage", async () => {
