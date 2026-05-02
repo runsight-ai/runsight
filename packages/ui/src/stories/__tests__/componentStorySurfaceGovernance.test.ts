@@ -8,13 +8,8 @@ const UI_SRC_DIR = resolve(TEST_DIR, "..", "..");
 const COMPONENT_TEST_DIR = resolve(UI_SRC_DIR, "components", "ui", "__tests__");
 const CENTRAL_OWNER_PATH = resolve(TEST_DIR, "componentStorySurface.test.ts");
 
-const TIER_COMPONENT_SUITES = [
-  "tier1Primitives.test.ts",
-  "tier1NewPrimitives.test.ts",
-  "tier2FormControls.test.ts",
-  "tier3DataDisplay.test.ts",
-  "tier4Navigation.test.ts",
-  "tier5Overlays.test.ts",
+const COMPONENT_CONTRACT_SUITES = [
+  "composites.test.ts",
 ] as const;
 
 const STORYBOOK_OWNERSHIP_PATTERNS = [
@@ -101,8 +96,8 @@ describe("component story surface governance boundary", () => {
     }
   });
 
-  it("keeps Storybook ownership out of component tier contract suites", () => {
-    const violations = TIER_COMPONENT_SUITES.flatMap((filename) => {
+  it("keeps Storybook ownership out of component contract suites", () => {
+    const violations = COMPONENT_CONTRACT_SUITES.flatMap((filename) => {
       const source = readSource(resolve(COMPONENT_TEST_DIR, filename));
 
       return STORYBOOK_OWNERSHIP_PATTERNS.flatMap(({ label, pattern }) => {
@@ -112,7 +107,7 @@ describe("component story surface governance boundary", () => {
 
     expect(
       violations,
-      "tier component suites should not duplicate Storybook story ownership",
+      "component contract suites should not duplicate Storybook story ownership",
     ).toEqual([]);
   });
 
