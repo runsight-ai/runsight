@@ -1,0 +1,69 @@
+tools/test-audit/shard-inputs/core-3.tsv
+  4adca821c1af8eb3 1-102
+tools/test-audit/shard-inputs/core-2.tsv
+  4adca821c1af8eb3 1-102
+tools/test-audit/merge_audit.py
+  ea3523110e537cdb 1-150
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 1-766
+tools/test-audit/shard-inputs/shared-ui.tsv
+  4adca821c1af8eb3 1-47
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 1-766
+tools/test-audit/shard-inputs/e2e-tools.tsv
+  4adca821c1af8eb3 1-67
+tools/test-audit/shard-inputs/gui.tsv
+  4adca821c1af8eb3 1-144
+tools/test-audit/shards/api.tsv
+  8a5f11ba37778690 1-209
+tools/test-audit/shard-inputs/api.tsv
+  4adca821c1af8eb3 1-209
+tools/test-audit/shard-inputs/core-1.tsv
+  4adca821c1af8eb3 1-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "814a8b6f56c29658553e2bd4e57db58c7e328c69",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 2304,
+      "total_deletions": 1,
+      "accepted_lines": 45273,
+      "overriden_lines": 0
+    },
+    "8a5f11ba37778690": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-8609-7431-8b18-df07dbae4e77",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 209,
+      "total_deletions": 0,
+      "accepted_lines": 209,
+      "overriden_lines": 0
+    },
+    "ea3523110e537cdb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de869-48b3-7360-a2ce-020ce803bcb1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 151,
+      "total_deletions": 0,
+      "accepted_lines": 150,
+      "overriden_lines": 0
+    }
+  }
+}
