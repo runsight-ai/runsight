@@ -1,8 +1,7 @@
 # packages/ui component test structure
 
-RUN-977 establishes the rendered component baseline for the retained `@runsight/ui`
-surface. New component behavior tests should use the local helpers from
-`packages/ui/src/test/testUtils.tsx` instead of app-level test utilities.
+Component behavior tests for the retained `@runsight/ui` surface use package-local
+helpers from `packages/ui/src/test/testUtils.tsx`, not app-level test utilities.
 
 ## Rendered Baseline Suites
 
@@ -14,6 +13,14 @@ surface. New component behavior tests should use the local helpers from
 
 ## Static Guardrail Suites
 
-The older `tier*`, `componentTokenSweep`, `supportedSurface`, and similar tests remain
-as static policy checks for source ownership, token migration, package exports, and
-Storybook presence. They should not be the only proof for rendered component behavior.
+- `corePrimitiveContracts.test.ts`, `feedbackPrimitiveContracts.test.ts`,
+  `formControlContracts.test.ts`, `dataDisplayContracts.test.ts`,
+  `navigationContracts.test.ts`, and `overlayContracts.test.ts` own static
+  component source contracts.
+- `componentTokenSweep.test.ts` owns package component token-source policy.
+- `supportedSurface.test.ts` owns package export-surface policy only.
+- `publicExportSurfaceOwnership.test.ts` prevents package export tests from
+  reabsorbing GUI import scanning or Storybook story ownership.
+- Storybook presence and scenarios live under `packages/ui/src/stories/__tests__`.
+
+Static policy checks should not be the only proof for rendered component behavior.
