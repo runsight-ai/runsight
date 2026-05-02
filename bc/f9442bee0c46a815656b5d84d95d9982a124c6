@@ -1,0 +1,29 @@
+apps/api/tests/test_scan_index_usage_governance.py
+  254c9c579302a770 1-38
+packages/core/tests/test_soul_assertion_field_removal_governance.py
+  254c9c579302a770 1-68
+apps/api/tests/test_soul_assertion_field_removal_governance.py
+  254c9c579302a770 1,3-7,10-12,15,17-21,23,26,28,31-39,42,44,46-47,51-71
+packages/core/tests/test_scan_index_ids_cleanup.py
+  254c9c579302a770 1-10,15,18-19,23,28,41,44-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bcf9442bee0c46a815656b5d84d95d9982a124c6",
+  "prompts": {
+    "254c9c579302a770": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de799-4e7d-7480-8469-82278b92f71c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 202,
+      "total_deletions": 124,
+      "accepted_lines": 195,
+      "overriden_lines": 0
+    }
+  }
+}
