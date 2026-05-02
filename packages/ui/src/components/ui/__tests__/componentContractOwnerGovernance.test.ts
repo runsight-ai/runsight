@@ -58,7 +58,8 @@ const OWNER_SUITES = [
 const RENDERED_OWNER_SUITES = [
   "renderedDisplayContracts.test.tsx",
   "renderedFormControls.test.tsx",
-  "renderedNavigationAndOverlays.test.tsx",
+  "renderedOverlayPrimitives.test.tsx",
+  "renderedTabsAndTables.test.tsx",
 ] as const;
 
 function testPath(filename: string): string {

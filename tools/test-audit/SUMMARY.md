@@ -1,14 +1,13 @@
 # Full Test Cleanup Audit
 
-This is the current cleanup map for the test surface on branch
-`codex/run-984-985-test-isolation`. It answers which test files are aligned,
-which need cleanup, and what kind of cleanup each file needs before we continue
-refactoring.
+This is the current cleanup map for the test surface. It answers which test
+files are aligned, which need cleanup, and what kind of cleanup each file needs
+before we continue refactoring.
 
 ## Coverage
 
-- Current test files inventoried: 566
-- Reviewed rows in `full-test-cleanup-map.tsv`: 566
+- Current test files inventoried: 739
+- Reviewed rows in `full-test-cleanup-map.tsv`: 739
 - Tier 1 Bronze delete completed: 51 files removed
 - Tier 1 RGB gate: Red matrix approved, Blue approved, Yellow approved
 - Tier 2 Silver merge/delete completed: 130 assigned duplicate files removed,
@@ -22,6 +21,10 @@ refactoring.
 - Tier 4 Gold shrink-to-smoke completed: 70 broad browser/integration/source
   contract suites shrunk to representative smoke coverage
 - Tier 4 RGB gate: Blue approved, Yellow approved
+- Tier 5 Gold split completed: 75 broad SPLIT candidates removed, 248 focused
+  behavior-owner suites added, and duplicated YAML/schema/source/string checks
+  collapsed into existing owners where possible
+- Tier 5 RGB gate: Blue approved, Yellow approved
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
@@ -52,8 +55,7 @@ Each test file was reviewed for:
 
 | Action | Count |
 |---|---:|
-| KEEP | 436 |
-| SPLIT | 75 |
+| KEEP | 684 |
 | EXTERNALIZE_FIXTURES | 44 |
 | REVIEW_DEEP | 11 |
 
@@ -61,9 +63,8 @@ Each test file was reviewed for:
 
 | Status | Count |
 |---|---:|
-| aligned | 436 |
-| cleanup_needed | 122 |
-| shrink_candidate | 6 |
+| aligned | 684 |
+| cleanup_needed | 53 |
 | move_candidate | 1 |
 | red_unfinished | 1 |
 
@@ -71,22 +72,21 @@ Each test file was reviewed for:
 
 | Workspace | KEEP | DELETE | MERGE_THEN_DELETE | SHRINK_TO_SMOKE | SPLIT | EXTERNALIZE_FIXTURES | MOVE_TO_TOOLING | REVIEW_DEEP | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| api | 129 | 0 | 0 | 0 | 16 | 30 | 0 | 3 | 178 |
-| core | 174 | 0 | 0 | 0 | 49 | 2 | 0 | 2 | 227 |
-| e2e | 16 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 18 |
-| gui | 74 | 0 | 0 | 0 | 8 | 12 | 0 | 5 | 99 |
+| api | 180 | 0 | 0 | 0 | 0 | 30 | 0 | 3 | 213 |
+| core | 346 | 0 | 0 | 0 | 0 | 2 | 0 | 2 | 350 |
+| e2e | 20 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 21 |
+| gui | 93 | 0 | 0 | 0 | 0 | 12 | 0 | 5 | 110 |
 | shared | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |
 | tools | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
-| ui | 21 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 22 |
+| ui | 23 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 23 |
 
 ## Interpretation
 
-The epic is not done. The audit says 130 of 566 current test files still need a
+The epic is not done. The audit says 55 of 739 current test files still need a
 cleanup action before the test surface matches the target convention.
 
 The biggest cleanup opportunities are:
 
-- Split god-object suites with mixed concerns: 75 suites.
 - Externalize large inline fixtures, mostly API and GUI: 44 suites.
 - Deep-review blockers and escalations: 11 suites.
 
@@ -96,7 +96,9 @@ escalated until a proper rendered settings owner exists. Tier 3 removed the
 move-to-tooling queue from app/package workspaces and consolidated durable
 repo/source governance under `tools/tests`. Tier 4 removed the shrink queue by
 reducing broad browser/integration/source-contract suites to representative
-smoke coverage.
+smoke coverage. Tier 5 removed the split queue by replacing broad mixed suites
+with behavior-named owner suites, deleting duplicated low-signal assertions, and
+moving shared setup into owning-workspace helpers where useful.
 
 ## High-Risk Items
 
@@ -113,10 +115,9 @@ smoke coverage.
 
 ## Next Execution Order
 
-1. Split `SPLIT` god suites by behavior owner.
-2. Externalize fixture bulk into package-local builders/fixtures.
-3. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
-4. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
+1. Externalize fixture bulk into package-local builders/fixtures.
+2. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
+3. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
 
 Use `tools/test-audit/full-test-cleanup-map.tsv` as the source of truth for the
 ticket breakdown and review checklist.

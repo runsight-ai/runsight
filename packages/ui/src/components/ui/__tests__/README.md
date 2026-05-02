@@ -7,7 +7,8 @@ helpers from `packages/ui/src/test/testUtils.tsx`, not app-level test utilities.
 
 - `renderedDisplayContracts.test.tsx` covers display and data-display components: `Badge`, `StatusDot`, `RunStatusDot`, `EmptyState`, `Card`, `Skeleton`, `StatCard`, and `KeyValue`.
 - `renderedFormControls.test.tsx` covers form and control components: `Button`, `Input`, `Label`, `Textarea`, `SegmentedControl`, `Switch`, `Slider`, and `TagInput`.
-- `renderedNavigationAndOverlays.test.tsx` covers navigation, table, and overlay components: `Tabs`, `Table`, `Dialog`, `Select`, `DropdownMenu`, and `Tooltip`.
+- `renderedTabsAndTables.test.tsx` covers `Tabs` and `Table` rendered behavior.
+- `renderedOverlayPrimitives.test.tsx` covers overlay components: `Dialog`, `Select`, `DropdownMenu`, and `Tooltip`.
 - `codeBlockCopy.test.tsx` is a focused rendered regression suite for `CodeBlock` copy behavior.
 - `renderedCoverage.test.ts` enforces that every retained component export module, and every public named component export within those modules, is assigned to the rendered baseline.
 

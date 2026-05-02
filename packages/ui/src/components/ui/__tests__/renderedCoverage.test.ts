@@ -19,7 +19,8 @@ const nonComponentExports = new Set(["./styles.css", "./runTable.styles", "./uti
 const canonicalSuitePaths: Record<CanonicalSuite, string> = {
   "renderedDisplayContracts.test.tsx": resolve(__dirname, "renderedDisplayContracts.test.tsx"),
   "renderedFormControls.test.tsx": resolve(__dirname, "renderedFormControls.test.tsx"),
-  "renderedNavigationAndOverlays.test.tsx": resolve(__dirname, "renderedNavigationAndOverlays.test.tsx"),
+  "renderedOverlayPrimitives.test.tsx": resolve(__dirname, "renderedOverlayPrimitives.test.tsx"),
+  "renderedTabsAndTables.test.tsx": resolve(__dirname, "renderedTabsAndTables.test.tsx"),
 };
 
 function readRetainedComponentExports() {

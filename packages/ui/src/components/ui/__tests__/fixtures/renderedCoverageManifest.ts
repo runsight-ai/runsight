@@ -24,7 +24,8 @@ import * as TooltipModule from "../../tooltip";
 export const canonicalSuites = [
   "renderedDisplayContracts.test.tsx",
   "renderedFormControls.test.tsx",
-  "renderedNavigationAndOverlays.test.tsx",
+  "renderedOverlayPrimitives.test.tsx",
+  "renderedTabsAndTables.test.tsx",
 ] as const;
 
 export type CanonicalSuite = (typeof canonicalSuites)[number];
@@ -55,7 +56,7 @@ export const renderedBaselineCoverage = {
     ],
   },
   "./dialog": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedOverlayPrimitives.test.tsx",
     components: [
       "Dialog",
       "DialogBody",
@@ -71,7 +72,7 @@ export const renderedBaselineCoverage = {
     ],
   },
   "./dropdown-menu": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedOverlayPrimitives.test.tsx",
     components: [
       "DropdownMenu",
       "DropdownMenuCheckboxItem",
@@ -107,7 +108,7 @@ export const renderedBaselineCoverage = {
     components: ["Label"],
   },
   "./select": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedOverlayPrimitives.test.tsx",
     components: [
       "Select",
       "SelectContent",
@@ -146,7 +147,7 @@ export const renderedBaselineCoverage = {
     components: ["Switch"],
   },
   "./table": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedTabsAndTables.test.tsx",
     components: [
       "Table",
       "TableBody",
@@ -164,7 +165,7 @@ export const renderedBaselineCoverage = {
     components: ["TagInput"],
   },
   "./tabs": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedTabsAndTables.test.tsx",
     components: ["TabBadge", "Tabs", "TabsContent", "TabsList", "TabsTrigger"],
   },
   "./textarea": {
@@ -172,7 +173,7 @@ export const renderedBaselineCoverage = {
     components: ["Textarea"],
   },
   "./tooltip": {
-    suite: "renderedNavigationAndOverlays.test.tsx",
+    suite: "renderedOverlayPrimitives.test.tsx",
     components: ["SoulTip", "Tooltip", "TooltipContent", "TooltipProvider", "TooltipTrigger"],
   },
 } satisfies Record<
