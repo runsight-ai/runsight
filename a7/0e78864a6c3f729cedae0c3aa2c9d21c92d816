@@ -1,0 +1,164 @@
+packages/core/tests/test_block_timeout_integration.py
+  4adca821c1af8eb3 60
+  9d93fe8b45a100da 2,4-6,32-40,42-43,45,47-48,50-54,57-59,61,63-67,69,71-72,74-75,77-80
+tools/tests/test_api_filesystem_repository_tmp_path_governance.py
+  38d9ccce55b9f268 1,3,5,7,18,40-44,46-52,54-58,64-73,75,79-84,86-87,89-90
+packages/core/tests/test_dispatch_delegate_routing_integration.py
+  9d93fe8b45a100da 1,10,30,33,36,43,45,47-50,54,57,64-72,75-92,99-103,115-118,120-121,125,129,131,146-156,158,160-165,167-168
+packages/shared/src/__tests__/regressionSharedContract.test.ts
+  f71a10386a7fc172 20-33,35-39,42-43,52,54,66-75,78
+apps/api/tests/test_execution_assertion_evaluation.py
+  4adca821c1af8eb3 176
+  f71a10386a7fc172 1,8,17-20,25-29,46,54,56-58,63-65,69,73,103,105-106,111-117,136-175,177-179
+apps/api/tests/test_identity_messages.py
+  293320d790a40f1b 1,16,27,29
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 3,8,15,58,64,90,107,111,115,122,155,169,180,185,193-194,255,271,274-275,302,307,331,341-342,351,355,362-363,365-366,369,374,389,441,450,453,455,457,460,463,483,485,494,506,509-510,512-513,518-526,532,535-536,539,544,547,549,554,556,560-561,565
+packages/core/tests/test_yaml_dx_runtime_integration.py
+  f71a10386a7fc172 1,26,37-41,45-82,84-123,126-131,133-139,142-195,199-201,203-205
+  7ed265960ee8baff 83
+apps/api/tests/transport/test_runs_router.py
+  f71a10386a7fc172 1-2,6,14,19-25,33-34,46-49,52-82,89-92,95,98-109,113-124,130-132,137-140,142-143,145,151-152,159-182,184,187-188
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 3,8,15,58,64,90,107,111,115,122,155,169,180,185,193-194,255,271,274-275,302,307,331,341-342,351,355,362-363,365-366,369,374,389,441,450,453,455,457,460,463,470,475,483,485-486,492,494,496,500,506,509-510,512-513,518-526,532,535-536,539,544,547,549,554,556,560-561,565
+apps/api/tests/transport/test_workflows_router.py
+  f71a10386a7fc172 1,5,12,23-26,30-39,42-45,47,50-54,57-59,64,72,74-77,80-82,86,90-94,98-109,112,114,119-120
+packages/core/tests/test_cross_feature_integration.py
+  4adca821c1af8eb3 1,9,12,15,32,34,59,62-66,87-120,122-123,125-128,130-132,134-135,137-144
+packages/core/tests/test_write_sites_block_result.py
+  1bf363a46dc10d91 1,3,5,9,15,22,24,26-28,32-33,36,42,46-53,56-58,60-65,67-69,71-79,81-89
+apps/api/tests/data/test_run_read_model_query_bounds.py
+  1bf363a46dc10d91 1,3,9-10,13-14,27-40,49-61,65-66,68-70,72-73,76-77,80-89,91,93-97,99-100,103-107,111-112,114-116,118-127
+apps/gui/src/api/__tests__/apiClientParsingGovernance.test.ts
+  4adca821c1af8eb3 55
+  1bf363a46dc10d91 1,3-6,8-25,27-35,38-54,56
+testing/gui-e2e/tests/governance/harness-surface.test.ts
+  1bf363a46dc10d91 2,4-6,9,39-40,42-45,61,64,66,84-92
+apps/gui/src/features/dashboard/__tests__/dashboardPollingGovernance.test.ts
+  9d93fe8b45a100da 1,3-5,7-9,11-15,17-19,21,23-27
+packages/core/tests/test_isolation_boundary_integration.py
+  1bf363a46dc10d91 1,12-13,19,23-25,34,49,55,59-73,75-79,81-87,93-105
+tools/tests/test_api_sse_streaming_suite_governance.py
+  38d9ccce55b9f268 1,7-9,24,29,44,49,52,54-62,64,67-68,73,75,77,79,82-83,87,89-90,95,101-102,105,108-109,113,118
+apps/gui/src/features/dashboard/__tests__/dashboardShellGovernance.test.ts
+  e34561f0fe91a5c8 1-123,126-127,130-132,134-136,138,140
+packages/core/tests/test_eval_runner.py
+  4adca821c1af8eb3 1,12,39,42-45,48,55,59,62-69,71,73-80,83-85,87,89-93
+tools/tests/test_gui_yaml_compiler_suite_governance.py
+  38d9ccce55b9f268 1,5-9,24,31,37,39-40,42-44,46-49,58-59,63,65,74-75,79,81-83,86,89,96,100-101,103-105,108
+apps/api/tests/test_run_creation_execution_integration.py
+  f71a10386a7fc172 1,13,25-28,34,42-43,51,58-62,87,90,102-104,108,110-114,145,147-148,153-159,167-196
+apps/api/tests/test_workflow_input_redaction_integration.py
+  293320d790a40f1b 1,9,30,34,36,52-56,72,74-75,87,96,112,117-123,148-149,169,219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a70e78864a6c3f729cedae0c3aa2c9d21c92d816",
+  "prompts": {
+    "1bf363a46dc10d91": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d2c4-7b92-a890-04c97a0f5ced",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 263,
+      "total_deletions": 1837,
+      "accepted_lines": 263,
+      "overriden_lines": 0
+    },
+    "293320d790a40f1b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d3e0-7131-ba85-37c910b1637c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 493,
+      "accepted_lines": 31,
+      "overriden_lines": 0
+    },
+    "38d9ccce55b9f268": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d45e-74e1-a49c-bb2533ed7158",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 123,
+      "total_deletions": 414,
+      "accepted_lines": 123,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 254,
+      "total_deletions": 1230,
+      "accepted_lines": 31409,
+      "overriden_lines": 107
+    },
+    "7ed265960ee8baff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de3b8-bf56-7c03-91cc-2945ca9e5e6d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 753,
+      "overriden_lines": 0
+    },
+    "9d93fe8b45a100da": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d280-70a3-a7be-56dea8db3bbb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 153,
+      "total_deletions": 846,
+      "accepted_lines": 150,
+      "overriden_lines": 0
+    },
+    "e34561f0fe91a5c8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d33e-7462-acdf-635375749140",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 133,
+      "total_deletions": 364,
+      "accepted_lines": 133,
+      "overriden_lines": 0
+    },
+    "f71a10386a7fc172": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de9ce-d389-7982-b5b1-d7472e915d08",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1455,
+      "total_deletions": 3310,
+      "accepted_lines": 1447,
+      "overriden_lines": 4
+    }
+  }
+}
