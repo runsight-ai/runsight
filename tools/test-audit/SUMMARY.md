@@ -32,6 +32,9 @@ before we continue refactoring.
   behavior suites
 - Tier 6 RGB gate: Blue approved, Yellow approved after the
   snapshot-resolution fixture follow-up
+- Tier 7 pre-flight completed: the 11 remaining deep-review files are grouped
+  into GUI settings, E2E context-audit, API governance, core subprocess
+  isolation, and core exit-port batches in `tier-7-preflight.md`
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
@@ -122,7 +125,7 @@ package-local helpers while preserving behavior assertions in test files.
 
 ## Next Execution Order
 
-1. Resolve `REVIEW_DEEP` blockers, including the GUI settings escalation.
+1. Run Tier 7 deep-review cleanup from `tier-7-preflight.md`.
 2. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
 
 Use `tools/test-audit/full-test-cleanup-map.tsv` as the source of truth for the
