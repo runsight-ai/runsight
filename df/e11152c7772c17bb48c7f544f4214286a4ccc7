@@ -1,0 +1,39 @@
+tools/test-audit/olympic-tiers/tier-3-silver-move-to-tooling.tsv
+  4adca821c1af8eb3 1-23
+tools/test-audit/olympic-tiers/tier-4-gold-shrink-to-smoke.tsv
+  4adca821c1af8eb3 1-73
+tools/test-audit/build_olympic_tiers.py
+  4adca821c1af8eb3 1-49
+tools/test-audit/olympic-tiers/tier-5-gold-split-god-suites.tsv
+  4adca821c1af8eb3 1-76
+tools/test-audit/olympic-tiers/tier-1-bronze-delete.tsv
+  4adca821c1af8eb3 1-52
+tools/test-audit/collect_inventory.py
+  4adca821c1af8eb3 1-42
+tools/test-audit/olympic-tiers/tier-2-silver-merge-then-delete.tsv
+  4adca821c1af8eb3 1-136
+tools/test-audit/olympic-tiers/tier-7-diamond-deep-review.tsv
+  4adca821c1af8eb3 1-7
+tools/test-audit/olympic-tiers/tier-6-platinum-externalize-fixtures.tsv
+  4adca821c1af8eb3 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "dfe11152c7772c17bb48c7f544f4214286a4ccc7",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 503,
+      "total_deletions": 0,
+      "accepted_lines": 43472,
+      "overriden_lines": 0
+    }
+  }
+}
