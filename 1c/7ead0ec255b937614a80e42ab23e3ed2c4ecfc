@@ -1,0 +1,23 @@
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 15,17,24,48-49,59,62,73,75,81,83,88-89,97,100,103,106,109,117,128,132,142,156-157,159,186,195,197,203,214,226,240,245,258,260,262,274,282-283,286,290-291,328,388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1c7ead0ec255b937614a80e42ab23e3ed2c4ecfc",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 44,
+      "total_deletions": 44,
+      "accepted_lines": 26534,
+      "overriden_lines": 0
+    }
+  }
+}
