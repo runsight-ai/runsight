@@ -30,6 +30,7 @@ const INLINE_FIXTURE_HELPERS = [
   "auditEvent",
   "historicalAuditEvents",
   "installRoutes",
+  "installContextAuditRoutes",
   "json",
   "sse",
 ] as const;
