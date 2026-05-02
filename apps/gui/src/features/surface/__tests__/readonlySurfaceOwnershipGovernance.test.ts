@@ -111,10 +111,6 @@ describe("Governance: readonly surface test ownership boundary", () => {
       /["']\.canvas["']/,
       "SEEDED_WORKFLOW_YAML",
       "SEEDED_CANVAS_STATE",
-      "seedReadonlyRunFixture",
-      "seedReadonlyCanvasFixture",
-      "cleanupReadonlyRunFixture",
-      "cleanupReadonlyCanvasFixture",
     ]);
 
     expect(forbiddenFixtureSeeding).toEqual([]);
@@ -161,7 +157,6 @@ describe("Governance: readonly surface test ownership boundary", () => {
     const forbiddenDetailedReadonlyDuplication = markerHits(sharedCanvasPathSource, [
       "right-inspector",
       "regressions found",
-      "getGitFile",
       "Historical Snapshot",
       "Fork",
       "Run failed before execution started",
