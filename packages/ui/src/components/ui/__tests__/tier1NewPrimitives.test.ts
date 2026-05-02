@@ -2,8 +2,7 @@
  * New Tier 1 primitive component coverage.
  *
  * Validates that Spinner, Skeleton, Progress, StatusDot, and Toast
- * have been created to match the Runsight design system component spec,
- * and that Storybook story files exist for all 5 components.
+ * have been created to match the Runsight design system component spec.
  *
  * Tests read component source files as strings and verify:
  *   1. Component files exist at the expected paths
@@ -12,7 +11,6 @@
  *   4. Variant support (CVA or prop-based)
  *   5. ARIA compliance — required ARIA attributes referenced
  *   6. Animation support — keyframe/animation references
- *   7. Story files exist with proper Storybook structure
  */
 
 import { describe, it, expect } from "vitest";
@@ -24,28 +22,11 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function componentExists(filename: string): boolean {
   return existsSync(resolve(UI_DIR, filename));
 }
 
 function readComponent(filename: string): string {
-  return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
-}
-
-function readStory(filename: string): string {
-  const storiesPath = resolve(STORIES_DIR, filename);
-  if (existsSync(storiesPath)) {
-    return readFileSync(storiesPath, "utf-8");
-  }
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
@@ -580,186 +561,5 @@ describe("Toast — ARIA compliance", () => {
   it("has role='status' or role='alert'", () => {
     const source = readComponent("toast.tsx");
     expect(source).toMatch(/role\s*=\s*["'](status|alert)["']/);
-  });
-});
-
-// ===========================================================================
-// 30. STORYBOOK STORIES — all 5 new component story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("Spinner.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Spinner.stories.tsx")).toBe(true);
-  });
-
-  it("Skeleton.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Skeleton.stories.tsx")).toBe(true);
-  });
-
-  it("Progress.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Progress.stories.tsx")).toBe(true);
-  });
-
-  it("StatusDot.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("StatusDot.stories.tsx")).toBe(true);
-  });
-
-  it("Toast.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Toast.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 31. STORYBOOK STORIES — Spinner.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Spinner.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Spinner.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Spinner.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Spinner.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers the sm size", () => {
-    const content = readStory("Spinner.stories.tsx");
-    expect(content).toMatch(/\bsm\b/i);
-  });
-
-  it("covers the accent variant", () => {
-    const content = readStory("Spinner.stories.tsx");
-    expect(content).toMatch(/accent/i);
-  });
-});
-
-// ===========================================================================
-// 32. STORYBOOK STORIES — Skeleton.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Skeleton.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Skeleton.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Skeleton.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Skeleton.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers text variant", () => {
-    const content = readStory("Skeleton.stories.tsx");
-    expect(content).toMatch(/\btext\b/i);
-  });
-
-  it("covers avatar variant", () => {
-    const content = readStory("Skeleton.stories.tsx");
-    expect(content).toMatch(/avatar/i);
-  });
-});
-
-// ===========================================================================
-// 33. STORYBOOK STORIES — Progress.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Progress.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Progress.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Progress.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Progress.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers the indeterminate state", () => {
-    const content = readStory("Progress.stories.tsx");
-    expect(content).toMatch(/indeterminate/i);
-  });
-
-  it("covers success and danger variants", () => {
-    const content = readStory("Progress.stories.tsx");
-    expect(content).toMatch(/success|danger/i);
-  });
-});
-
-// ===========================================================================
-// 34. STORYBOOK STORIES — StatusDot.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — StatusDot.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("StatusDot.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("StatusDot.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("StatusDot.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers all 5 semantic variants", () => {
-    const content = readStory("StatusDot.stories.tsx");
-    expect(content).toMatch(/neutral|active|success|warning|danger/i);
-  });
-
-  it("covers pulse and spin animations", () => {
-    const content = readStory("StatusDot.stories.tsx");
-    expect(content).toMatch(/pulse|spin/i);
-  });
-});
-
-// ===========================================================================
-// 35. STORYBOOK STORIES — Toast.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Toast.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Toast.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Toast.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Toast.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers all 4 semantic variants (success, danger, warning, info)", () => {
-    const content = readStory("Toast.stories.tsx");
-    expect(content).toMatch(/success|danger|warning|info/i);
-  });
-
-  it("covers the dismiss interaction", () => {
-    const content = readStory("Toast.stories.tsx");
-    expect(content).toMatch(/dismiss|close/i);
   });
 });

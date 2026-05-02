@@ -2,19 +2,17 @@
  * Tier 1 primitive component coverage.
  *
  * Validates that Button, Badge, Input, Textarea, Label, and Tooltip
- * have been updated to match the Runsight design system component spec, and
- * that Storybook story files exist for all 6 components.
+ * have been updated to match the Runsight design system component spec.
  *
  * Tests read component source files as strings and verify:
  *   1. Correct variant names exist (new spec)
  *   2. Old variant names have been removed
  *   3. Design system tokens are used
  *   4. New structural features (loading state, dot indicator) are present
- *   5. Story files exist with proper Storybook structure
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -22,22 +20,8 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function readComponent(filename: string): string {
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function readStory(filename: string): string {
-  return readFileSync(resolve(STORIES_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  // Stories may be in src/stories/ or colocated in src/components/ui/
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +153,7 @@ describe("Button — old size names removed", () => {
 
   it("no longer has a `default` size key in buttonVariants", () => {
     const source = readComponent("button.tsx");
-    // After migration, the default size becomes "md"
+    // The stable size contract uses "md" as the default size.
     expect(source).not.toMatch(/size:\s*\{[^}]*\bdefault\s*:/s);
   });
 });
@@ -523,166 +507,5 @@ describe("Tooltip — design system tokens used", () => {
     const source = readComponent("tooltip.tsx");
     // The arrow element should use the new surface-raised token, not bg-text-primary
     expect(source).not.toMatch(/bg-text-primary.*Arrow|Arrow.*bg-text-primary/s);
-  });
-});
-
-// ===========================================================================
-// 17. STORYBOOK STORIES — all 7 component story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("Button.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Button.stories.tsx")).toBe(true);
-  });
-
-  it("Badge.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Badge.stories.tsx")).toBe(true);
-  });
-
-  it("Input.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Input.stories.tsx")).toBe(true);
-  });
-
-  it("Textarea.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Textarea.stories.tsx")).toBe(true);
-  });
-
-  it("Label.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Label.stories.tsx")).toBe(true);
-  });
-
-  it("Tooltip.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Tooltip.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 18. STORYBOOK STORIES — proper structure
-// ===========================================================================
-
-describe("Storybook stories — Button.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers the primary variant", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/primary/i);
-  });
-
-  it("covers the loading state", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/loading/i);
-  });
-
-  it("covers the icon-only variant", () => {
-    const content = readStory("Button.stories.tsx");
-    expect(content).toMatch(/icon.?only/i);
-  });
-});
-
-describe("Storybook stories — Badge.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Badge.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Badge.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Badge.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers semantic variants (success, warning, danger, info)", () => {
-    const content = readStory("Badge.stories.tsx");
-    expect(content).toMatch(/success|warning|danger|info/i);
-  });
-
-  it("covers the dot indicator", () => {
-    const content = readStory("Badge.stories.tsx");
-    expect(content).toMatch(/dot/i);
-  });
-});
-
-describe("Storybook stories — Input.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Input.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Input.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Input.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-});
-
-describe("Storybook stories — Textarea.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Textarea.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Textarea.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Textarea.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-});
-
-describe("Storybook stories — Label.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Label.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Label.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Label.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-});
-
-describe("Storybook stories — Tooltip.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Tooltip.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Tooltip.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Tooltip.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
   });
 });

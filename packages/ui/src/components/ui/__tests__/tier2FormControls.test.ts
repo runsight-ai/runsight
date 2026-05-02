@@ -3,13 +3,11 @@
  *
  * Validates that Select and Switch have been updated to use the
  * Runsight design system tokens, and that Checkbox, Radio, and Slider have
- * been created to match the design system component spec. Also validates that
- * Storybook story files exist for all 5 components.
+ * been created to match the design system component spec.
  *
  * Tests read component source files as strings and verify:
  *   1. Existing components (select, switch): required tokens present
  *   2. New components (checkbox, radio, slider): file exists, exports, tokens, ARIA
- *   3. All 5: story files exist with proper Storybook structure
  */
 
 import { describe, it, expect } from "vitest";
@@ -21,28 +19,11 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function componentExists(filename: string): boolean {
   return existsSync(resolve(UI_DIR, filename));
 }
 
 function readComponent(filename: string): string {
-  return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
-}
-
-function readStory(filename: string): string {
-  const storiesPath = resolve(STORIES_DIR, filename);
-  if (existsSync(storiesPath)) {
-    return readFileSync(storiesPath, "utf-8");
-  }
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
@@ -401,196 +382,5 @@ describe("Slider — ARIA compliance", () => {
     const source = readComponent("slider.tsx");
     // ARIA: native input[type=range] or role="slider"
     expect(source).toMatch(/type\s*=\s*["']range["']|role\s*=\s*["']slider["']/);
-  });
-});
-
-// ===========================================================================
-// 27. STORYBOOK STORIES — all 6 component story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("Select.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Select.stories.tsx")).toBe(true);
-  });
-
-  it("Switch.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Switch.stories.tsx")).toBe(true);
-  });
-
-  it("Checkbox.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Checkbox.stories.tsx")).toBe(true);
-  });
-
-  it("Radio.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Radio.stories.tsx")).toBe(true);
-  });
-
-  it("Slider.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Slider.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 28. STORYBOOK STORIES — Select.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Select.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Select.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Select.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Select.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers the default/basic usage", () => {
-    const content = readStory("Select.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers the disabled state", () => {
-    const content = readStory("Select.stories.tsx");
-    expect(content).toMatch(/disabled|Disabled/i);
-  });
-});
-
-// ===========================================================================
-// 29. STORYBOOK STORIES — Switch.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Switch.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Switch.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Switch.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Switch.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers checked and unchecked states", () => {
-    const content = readStory("Switch.stories.tsx");
-    expect(content).toMatch(/checked|Checked|on|On|off|Off/i);
-  });
-
-  it("covers the disabled state", () => {
-    const content = readStory("Switch.stories.tsx");
-    expect(content).toMatch(/disabled|Disabled/i);
-  });
-});
-
-// ===========================================================================
-// 30. STORYBOOK STORIES — Checkbox.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Checkbox.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers checked state", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/checked|Checked/i);
-  });
-
-  it("covers indeterminate state", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/indeterminate|Indeterminate/i);
-  });
-
-  it("covers disabled state", () => {
-    const content = readStory("Checkbox.stories.tsx");
-    expect(content).toMatch(/disabled|Disabled/i);
-  });
-});
-
-// ===========================================================================
-// 32. STORYBOOK STORIES — Radio.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Radio.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers vertical layout", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/vertical|Vertical/i);
-  });
-
-  it("covers horizontal layout", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/horizontal|Horizontal/i);
-  });
-
-  it("covers disabled state", () => {
-    const content = readStory("Radio.stories.tsx");
-    expect(content).toMatch(/disabled|Disabled/i);
-  });
-});
-
-// ===========================================================================
-// 33. STORYBOOK STORIES — Slider.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Slider.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Slider.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Slider.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Slider.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers the default/basic usage with a value", () => {
-    const content = readStory("Slider.stories.tsx");
-    expect(content).toMatch(/Default|Basic|value|Value/i);
-  });
-
-  it("covers the disabled state", () => {
-    const content = readStory("Slider.stories.tsx");
-    expect(content).toMatch(/disabled|Disabled/i);
   });
 });

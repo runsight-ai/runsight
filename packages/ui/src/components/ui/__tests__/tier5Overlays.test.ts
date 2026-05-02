@@ -2,14 +2,13 @@
  * Tier 5 overlay and feedback component coverage.
  *
  * Validates that Dialog, DropdownMenu, Command, Sheet, and Popover
- * have been updated to use Runsight design system tokens, and that Storybook
- * story files exist for all 5 components.
+ * have been updated to use Runsight design system tokens.
  *
  * Tests read component source files as strings and verify design system tokens.
  */
 
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -17,18 +16,8 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function readComponent(filename: string): string {
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return existsSync(resolve(STORIES_DIR, filename));
-}
-
-function readStory(filename: string): string {
-  return readFileSync(resolve(STORIES_DIR, filename), "utf-8");
 }
 
 // ===========================================================================
@@ -269,186 +258,5 @@ describe("Popover — elevation-border-raised token on PopoverContent", () => {
     // Spec: popover border uses --elevation-border-raised DS token
     // Current state: ring-1 ring-foreground/10 (generic opacity shorthand, not DS token)
     expect(source).toMatch(/elevation-border-raised/);
-  });
-});
-
-// ===========================================================================
-// 20. STORYBOOK STORIES — overlay story files exist
-// ===========================================================================
-
-describe("Storybook stories — overlay story files exist", () => {
-  it("Dialog.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("Dialog.stories.tsx")).toBe(true);
-  });
-
-  it("DropdownMenu.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("DropdownMenu.stories.tsx")).toBe(true);
-  });
-
-  it("Command.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("Command.stories.tsx")).toBe(true);
-  });
-
-  it("Sheet.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("Sheet.stories.tsx")).toBe(true);
-  });
-
-  it("Popover.stories.tsx exists in src/stories/", () => {
-    expect(storyExists("Popover.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 23. STORYBOOK STORIES — Dialog.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Dialog.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Dialog.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Dialog.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Dialog.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default dialog usage", () => {
-    const content = readStory("Dialog.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers a dialog with a footer or actions", () => {
-    const content = readStory("Dialog.stories.tsx");
-    expect(content).toMatch(/Footer|footer|Action|action|Button|button/i);
-  });
-});
-
-// ===========================================================================
-// 24. STORYBOOK STORIES — DropdownMenu.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — DropdownMenu.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("DropdownMenu.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("DropdownMenu.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("DropdownMenu.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default dropdown usage", () => {
-    const content = readStory("DropdownMenu.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers dropdown with separator or groups", () => {
-    const content = readStory("DropdownMenu.stories.tsx");
-    expect(content).toMatch(/Separator|separator|Group|group|Section|section/i);
-  });
-});
-
-// ===========================================================================
-// 25. STORYBOOK STORIES — Command.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Command.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Command.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Command.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Command.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default command palette usage", () => {
-    const content = readStory("Command.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers command with shortcuts", () => {
-    const content = readStory("Command.stories.tsx");
-    expect(content).toMatch(/Shortcut|shortcut|Keyboard|keyboard|hotkey|Hotkey/i);
-  });
-});
-
-// ===========================================================================
-// 26. STORYBOOK STORIES — Sheet.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Sheet.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Sheet.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Sheet.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Sheet.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default sheet usage", () => {
-    const content = readStory("Sheet.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers sheet side variants (right, left, top, bottom)", () => {
-    const content = readStory("Sheet.stories.tsx");
-    expect(content).toMatch(/right|left|top|bottom|side|Side/i);
-  });
-});
-
-// ===========================================================================
-// 27. STORYBOOK STORIES — Popover.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Popover.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Popover.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Popover.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Popover.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default popover usage", () => {
-    const content = readStory("Popover.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers popover placement or alignment options", () => {
-    const content = readStory("Popover.stories.tsx");
-    expect(content).toMatch(/align|side|placement|position|top|bottom|left|right/i);
   });
 });

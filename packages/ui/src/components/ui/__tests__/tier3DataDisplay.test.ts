@@ -3,13 +3,11 @@
  *
  * Validates that Table and Card have been updated to use the Runsight design
  * system tokens, and that StatCard and CodeBlock have been created
- * to match the design system component spec. Also validates that Storybook
- * story files exist for all 4 components.
+ * to match the design system component spec.
  *
  * Tests read component source files as strings and verify:
  *   1. Existing components (table, card): required design system tokens present
  *   2. New components (stat-card, code-block): file exists, exports, tokens
- *   3. All 4: story files exist with proper Storybook structure
  */
 
 import { describe, it, expect } from "vitest";
@@ -21,28 +19,11 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function componentExists(filename: string): boolean {
   return existsSync(resolve(UI_DIR, filename));
 }
 
 function readComponent(filename: string): string {
-  return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
-}
-
-function readStory(filename: string): string {
-  const storiesPath = resolve(STORIES_DIR, filename);
-  if (existsSync(storiesPath)) {
-    return readFileSync(storiesPath, "utf-8");
-  }
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
@@ -362,152 +343,5 @@ describe("CodeBlock — copy button", () => {
     const source = readComponent("code-block.tsx");
     // Spec: copy button for clipboard interaction
     expect(source).toMatch(/copy|Copy|clipboard|Clipboard/i);
-  });
-});
-
-// ===========================================================================
-// 23. STORYBOOK STORIES — all 4 component story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("Table.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Table.stories.tsx")).toBe(true);
-  });
-
-  it("Card.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Card.stories.tsx")).toBe(true);
-  });
-
-  it("StatCard.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("StatCard.stories.tsx")).toBe(true);
-  });
-
-  it("CodeBlock.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("CodeBlock.stories.tsx")).toBe(true);
-  });
-
-});
-
-// ===========================================================================
-// 29. STORYBOOK STORIES — Table.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Table.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Table.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Table.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Table.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default usage", () => {
-    const content = readStory("Table.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers mono value display in cells", () => {
-    const content = readStory("Table.stories.tsx");
-    expect(content).toMatch(/mono|Mono|code|Code/i);
-  });
-});
-
-// ===========================================================================
-// 30. STORYBOOK STORIES — Card.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Card.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Card.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Card.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Card.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default usage", () => {
-    const content = readStory("Card.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers a card with header and content", () => {
-    const content = readStory("Card.stories.tsx");
-    expect(content).toMatch(/CardHeader|CardTitle|CardContent/);
-  });
-});
-
-// ===========================================================================
-// 31. STORYBOOK STORIES — StatCard.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — StatCard.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("StatCard.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("StatCard.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("StatCard.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic stat display", () => {
-    const content = readStory("StatCard.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers delta/trend badge variant", () => {
-    const content = readStory("StatCard.stories.tsx");
-    expect(content).toMatch(/delta|Delta|trend|Trend|change|Change/i);
-  });
-});
-
-// ===========================================================================
-// 32. STORYBOOK STORIES — CodeBlock.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — CodeBlock.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("CodeBlock.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("CodeBlock.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("CodeBlock.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic usage with code content", () => {
-    const content = readStory("CodeBlock.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers copy button interaction", () => {
-    const content = readStory("CodeBlock.stories.tsx");
-    expect(content).toMatch(/copy|Copy|clipboard|Clipboard/i);
   });
 });

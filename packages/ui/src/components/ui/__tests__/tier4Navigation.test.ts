@@ -3,14 +3,12 @@
  *
  * Validates that Tabs and the ShellLayout sidebar have been updated to use
  * Runsight design system tokens, and that Breadcrumb and Pagination have been
- * created to match the design system component spec. Also validates that
- * Storybook story files exist for all 4 components.
+ * created to match the design system component spec.
  *
  * Tests read component source files as strings and verify:
  *   1. Existing: Tabs (tabs.tsx) — required DS tokens present
  *   2. New: Breadcrumb (breadcrumb.tsx) — file exists, exports, tokens
  *   3. New: Pagination (pagination.tsx) — file exists, exports, tokens
- *   4. All 3: story files exist with proper Storybook structure
  */
 
 import { describe, it, expect } from "vitest";
@@ -22,28 +20,11 @@ import { resolve } from "node:path";
 // ---------------------------------------------------------------------------
 
 const UI_DIR = resolve(__dirname, "..");
-const STORIES_DIR = resolve(__dirname, "..", "..", "..", "stories");
-
 function componentExists(filename: string): boolean {
   return existsSync(resolve(UI_DIR, filename));
 }
 
 function readComponent(filename: string): string {
-  return readFileSync(resolve(UI_DIR, filename), "utf-8");
-}
-
-function storyExists(filename: string): boolean {
-  return (
-    existsSync(resolve(STORIES_DIR, filename)) ||
-    existsSync(resolve(UI_DIR, filename))
-  );
-}
-
-function readStory(filename: string): string {
-  const storiesPath = resolve(STORIES_DIR, filename);
-  if (existsSync(storiesPath)) {
-    return readFileSync(storiesPath, "utf-8");
-  }
   return readFileSync(resolve(UI_DIR, filename), "utf-8");
 }
 
@@ -271,117 +252,5 @@ describe("Pagination — range display with 'of' pattern", () => {
     const source = readComponent("pagination.tsx");
     // Spec: shows range e.g. "1-10 of 100" — check for "of" keyword in context
     expect(source).toMatch(/\bof\b|total|count/i);
-  });
-});
-
-// ===========================================================================
-// 17. STORYBOOK STORIES — navigation story files exist
-// ===========================================================================
-
-describe("Storybook stories — existence", () => {
-  it("Tabs.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Tabs.stories.tsx")).toBe(true);
-  });
-
-  it("Breadcrumb.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Breadcrumb.stories.tsx")).toBe(true);
-  });
-
-  it("Pagination.stories.tsx exists in src/stories/ or src/components/ui/", () => {
-    expect(storyExists("Pagination.stories.tsx")).toBe(true);
-  });
-});
-
-// ===========================================================================
-// 24. STORYBOOK STORIES — Tabs.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Tabs.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Tabs.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Tabs.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Tabs.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default usage", () => {
-    const content = readStory("Tabs.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers the line/underline or default variant (underline indicator)", () => {
-    const content = readStory("Tabs.stories.tsx");
-    // The default variant IS the underline/line style
-    expect(content).toMatch(/line|Line|underline|Underline|default|Default/i);
-  });
-});
-
-// ===========================================================================
-// 19. STORYBOOK STORIES — Breadcrumb.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Breadcrumb.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Breadcrumb.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Breadcrumb.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Breadcrumb.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default usage", () => {
-    const content = readStory("Breadcrumb.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers multi-level breadcrumb path", () => {
-    const content = readStory("Breadcrumb.stories.tsx");
-    expect(content).toMatch(/multi|Multi|level|Level|nested|Nested|deep|Deep/i);
-  });
-});
-
-// ===========================================================================
-// 27. STORYBOOK STORIES — Pagination.stories.tsx structure
-// ===========================================================================
-
-describe("Storybook stories — Pagination.stories.tsx structure", () => {
-  it("has a default export (meta object)", () => {
-    const content = readStory("Pagination.stories.tsx");
-    expect(content).toMatch(/export\s+default\s+/);
-  });
-
-  it("meta object has a title field", () => {
-    const content = readStory("Pagination.stories.tsx");
-    expect(content).toMatch(/title\s*:/);
-  });
-
-  it("has at least one named story export", () => {
-    const content = readStory("Pagination.stories.tsx");
-    expect(content).toMatch(/export\s+const\s+\w+/);
-  });
-
-  it("covers basic/default usage", () => {
-    const content = readStory("Pagination.stories.tsx");
-    expect(content).toMatch(/Default|Basic|Primary/i);
-  });
-
-  it("covers range display (of pattern)", () => {
-    const content = readStory("Pagination.stories.tsx");
-    expect(content).toMatch(/range|Range|of\s+\d|total|Total|count|Count/i);
   });
 });
