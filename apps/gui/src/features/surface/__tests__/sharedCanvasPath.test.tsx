@@ -555,46 +555,6 @@ describe("shared canvas path", () => {
     expect(screen.getByTestId("surface-status-bar")).not.toBeNull();
   });
 
-  it("renders the shared-path pre-execution failure card when the run has no nodes", async () => {
-    const user = userEvent.setup();
-    mockState.workflow = buildWorkflow();
-    mockState.run = buildRun({
-      status: "failed",
-      error: "Provider configuration missing",
-    });
-    mockState.runNodes = [];
-
-    await renderSurface({
-      mode: "readonly",
-      runId: "run_readonly_shared",
-    });
-
-    const center = screen.getByTestId("surface-center");
-    expect(screen.queryByText("Run failed before execution started")).toBeNull();
-
-    await showCanvasTab(user);
-
-    expect(
-      await within(center).findByText("Run failed before execution started"),
-    ).not.toBeNull();
-    expect(screen.queryByTestId("workflow-canvas-path")).toBeNull();
-    expect(
-      within(center).getByText(/could not prepare this workflow for execution/i),
-    ).not.toBeNull();
-    expect(within(center).getByText("Provider configuration missing")).not.toBeNull();
-    expect(screen.getByTestId("surface-topbar")).not.toBeNull();
-    expect(screen.getByTestId("surface-bottom-panel")).not.toBeNull();
-    expect(screen.getByTestId("surface-status-bar")).not.toBeNull();
-
-    await user.click(screen.getByRole("button", { name: "YAML" }));
-    expect(await within(center).findByTestId("yaml-editor")).not.toBeNull();
-
-    await showCanvasTab(user);
-    expect(
-      await within(center).findByText("Run failed before execution started"),
-    ).not.toBeNull();
-  });
-
   it("keeps edit and readonly on the same canonical WorkflowCanvas host with runtime interaction changes", async () => {
     const readonlyUser = userEvent.setup();
     mockState.workflow = buildWorkflow();

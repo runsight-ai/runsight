@@ -575,6 +575,40 @@ workflow:
     expect(screen.getByTestId("react-flow-node-node_brain").textContent).toContain("completed");
   });
 
+  it("shows a pre-execution failure card when a failed readonly run has no nodes", async () => {
+    const user = userEvent.setup();
+    setReadonlyFixtures({ runStatus: "failed", runNodes: [] });
+    harness.run = buildSurfaceRun({
+      status: "failed",
+      commit_sha: "run_commit_readonly",
+      error: "Provider configuration missing",
+    });
+
+    render(
+      <MemoryRouter>
+        <WorkflowSurface mode="readonly" runId="run_readonly_surface" workflowId="wf_readonly_surface" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText("Run failed before execution started")).toBeNull();
+
+    await user.click(screen.getByTestId("workflow-tab-canvas"));
+
+    expect(await screen.findByText("Run failed before execution started")).toBeTruthy();
+    expect(screen.queryByTestId("react-flow")).toBeNull();
+    expect(screen.getByText(/could not prepare this workflow for execution/i)).toBeTruthy();
+    expect(screen.getByText("Provider configuration missing")).toBeTruthy();
+    expect(screen.getByTestId("surface-topbar")).toBeTruthy();
+    expect(screen.getByTestId("surface-bottom-panel")).toBeTruthy();
+    expect(screen.getByTestId("surface-status-bar")).toBeTruthy();
+
+    await user.click(screen.getByTestId("workflow-tab-yaml"));
+    expect(await screen.findByTestId("yaml-editor")).toBeTruthy();
+
+    await user.click(screen.getByTestId("workflow-tab-canvas"));
+    expect(await screen.findByText("Run failed before execution started")).toBeTruthy();
+  });
+
   it("navigates a readonly run fork through the router into the editable workflow route", async () => {
     setReadonlyFixtures();
 
