@@ -1,16 +1,19 @@
-"""Test safety governance boundary.
+"""Core and repo governance migrated out of packages/core behavior tests.
 
-Owner: core runtime test safety maintainers.
-Boundary: test naming, isolation, and fixture-governance checks for core/API
-test workspaces and browser harness tests.
-Exit criteria: delete this suite only after repo test ownership, isolation, and
-naming policies are enforced by package-local tooling or pre-commit checks.
+Owner: tools/tests owns compact static governance that scans repo policy,
+container packaging files, and test-source ownership boundaries.
+Boundary: this suite may inspect checked-in source, docs, Docker packaging, and
+test files across workspaces. It must not inspect repo-root runtime state such
+as .runsight/, runsight.db, custom/, secrets, or user configuration.
+Exit criteria: delete or narrow this suite once equivalent repo-layout,
+container-hardening, and test-safety checks are enforced by dedicated tooling.
 """
 
 from __future__ import annotations
 
 import ast
 import re
+import subprocess
 import tokenize
 from dataclasses import dataclass
 from datetime import date
@@ -18,10 +21,90 @@ from io import StringIO
 from pathlib import Path
 
 import pytest
+import yaml
 
 pytestmark = pytest.mark.governance
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+AGENTS_POLICY = REPO_ROOT / "AGENTS.md"
+DOCKERFILE = REPO_ROOT / "Dockerfile"
+COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
+ENTRYPOINT = REPO_ROOT / "docker-entrypoint.sh"
+PROCESS_ISOLATION_DOC = (
+    REPO_ROOT
+    / "apps"
+    / "site"
+    / "src"
+    / "content"
+    / "docs"
+    / "docs"
+    / "execution"
+    / "process-isolation.md"
+)
+
+API_TEST_ROOT = REPO_ROOT / "apps" / "api" / "tests"
+CORE_TEST_ROOT = REPO_ROOT / "packages" / "core" / "tests"
+E2E_TEST_ROOT = REPO_ROOT / "testing" / "gui-e2e" / "tests"
+GUI_ROOT = REPO_ROOT / "apps" / "gui"
+SHARED_ROOT = REPO_ROOT / "packages" / "shared"
+UI_ROOT = REPO_ROOT / "packages" / "ui"
+E2E_RUNTIME_ROOT_HELPER = E2E_TEST_ROOT / "helpers" / "runtimeRoot.ts"
+
+TEST_FILE_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT, E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
+PYTHON_TEST_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT)
+TYPESCRIPT_TEST_ROOTS = (E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
+
+TEST_FILE_NAME_TICKET_RE = re.compile(
+    r"(?:^|[^A-Za-z0-9])"
+    r"(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|"
+    r"test[_-]?iso[_-]?\d{3,}|iso[_-]?\d{3,})",
+    re.IGNORECASE,
+)
+PYTHON_SYMBOL_TICKET_RE = re.compile(
+    r"(?:^|_)(?:test_)?(?:run_?\d{3,}|iso_?\d{3,})|Run\d{3,}|RUN_?\d{3,}",
+)
+GOVERNANCE_DOCSTRING_FIELD_RES = (
+    re.compile(r"\bowner\b", re.IGNORECASE),
+    re.compile(r"\bboundary\b", re.IGNORECASE),
+    re.compile(r"\bexit\s+criteria\b", re.IGNORECASE),
+)
+NON_BROWSER_E2E_WORDING_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:e2e|E2E)(?![A-Za-z0-9])|"
+    r"E2E(?=[A-Z])|"
+    r"(?<![A-Za-z0-9])(?i:end(?:[-_]|\s+)to(?:[-_]|\s+)end)(?![A-Za-z0-9])",
+)
+TICKET_FIXTURE_IDENTITY_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9]+[-_])*run[-_]\d{3,}(?:[-_][A-Za-z0-9]+)*(?![A-Za-z0-9_-])",
+    re.IGNORECASE,
+)
+STRUCTURAL_TITLE_TICKET_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|AC\d+)",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class RuntimeStagePattern:
+    id: str
+    regex: re.Pattern[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class ComposeExpectation:
+    id: str
+    service_name: str
+    message: str
+    validator: str
+
+
+@dataclass(frozen=True)
+class DocsLineExpectation:
+    id: str
+    line_match: re.Pattern[str]
+    required: tuple[str, ...]
+    forbidden: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -40,53 +123,72 @@ class AllowlistEntry:
     expires: date
 
 
-E2E_TEST_ROOT = REPO_ROOT / "testing" / "gui-e2e" / "tests"
-API_TEST_ROOT = REPO_ROOT / "apps" / "api" / "tests"
-CORE_TEST_ROOT = REPO_ROOT / "packages" / "core" / "tests"
-GUI_ROOT = REPO_ROOT / "apps" / "gui"
-SHARED_ROOT = REPO_ROOT / "packages" / "shared"
-UI_ROOT = REPO_ROOT / "packages" / "ui"
-E2E_RUNTIME_ROOT_HELPER = E2E_TEST_ROOT / "helpers" / "runtimeRoot.ts"
+@dataclass(frozen=True)
+class WorkspaceReferenceRule:
+    id: str
+    search_root: Path
+    forbidden_reference: re.Pattern[str]
+    message: str
 
-TEST_FILE_NAME_TICKET_RE = re.compile(
-    r"(?:^|[^A-Za-z0-9])"
-    r"(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|"
-    r"test[_-]?iso[_-]?\d{3,}|iso[_-]?\d{3,})",
-    re.IGNORECASE,
-)
-PYTHON_SYMBOL_TICKET_RE = re.compile(
-    r"(?:^|_)(?:test_)?(?:run_?\d{3,}|iso_?\d{3,})|Run\d{3,}|RUN_?\d{3,}",
-)
-PYTHON_GOVERNANCE_DOCSTRING_FIELD_RES = (
-    re.compile(r"\bowner\b", re.IGNORECASE),
-    re.compile(r"\bboundary\b", re.IGNORECASE),
-    re.compile(r"\bexit\s+criteria\b", re.IGNORECASE),
-)
-NON_BROWSER_E2E_WORDING_RE = re.compile(
-    r"(?<![A-Za-z0-9])(?:e2e|E2E)(?![A-Za-z0-9])|"
-    r"E2E(?=[A-Z])|"
-    r"(?<![A-Za-z0-9])(?i:end(?:[-_]|\s+)to(?:[-_]|\s+)end)(?![A-Za-z0-9])",
-)
-TICKET_FIXTURE_IDENTITY_RE = re.compile(
-    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9]+[-_])*run[-_]\d{3,}(?:[-_][A-Za-z0-9]+)*(?![A-Za-z0-9_-])",
-    re.IGNORECASE,
-)
-STRUCTURAL_TITLE_TICKET_RE = re.compile(
-    r"(?<![A-Za-z0-9])(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|AC\d+)",
-    re.IGNORECASE,
-)
-TEST_FILE_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT, E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
-PYTHON_TEST_ROOTS = (API_TEST_ROOT, CORE_TEST_ROOT)
-TYPESCRIPT_TEST_ROOTS = (E2E_TEST_ROOT, GUI_ROOT, SHARED_ROOT, UI_ROOT)
-GOVERNANCE_TEST_FILE = Path(__file__).resolve()
-SELF_POLICY_CONSTANT_NAMES = (
-    "TEST_FILE_NAME_TICKET_RE",
-    "PYTHON_SYMBOL_TICKET_RE",
-    "STRUCTURAL_TITLE_TICKET_RE",
-    "TICKET_FIXTURE_IDENTITY_RE",
-    "NON_BROWSER_E2E_WORDING_RE",
+
+DOCKER_RUNTIME_PATTERNS = (
+    RuntimeStagePattern(
+        id="runtime-user",
+        regex=re.compile(r"^\s*USER\s+(?:runsight|1000)\b", re.MULTILINE),
+        message="Dockerfile runtime stage must switch to the runsight user or UID 1000.",
+    ),
+    RuntimeStagePattern(
+        id="group-gid",
+        regex=re.compile(r"groupadd\b.*(?:--gid|-g)\s+1000\b.*runsight"),
+        message="Dockerfile runtime stage must create the runsight group with GID 1000.",
+    ),
+    RuntimeStagePattern(
+        id="user-uid",
+        regex=re.compile(r"useradd\b.*(?:--uid|-u)\s+1000\b.*runsight"),
+        message="Dockerfile runtime stage must create the runsight user with UID 1000.",
+    ),
+    RuntimeStagePattern(
+        id="git-safe-directory",
+        regex=re.compile(r"git\s+config\s+--global\s+--add\s+safe\.directory\s+/workspace"),
+        message="Dockerfile runtime stage must configure git safe.directory for /workspace.",
+    ),
 )
 
+COMPOSE_EXPECTATIONS = (
+    ComposeExpectation(
+        id="init-permissions",
+        service_name="init-permissions",
+        validator="init_permissions",
+        message="init-permissions must chown /workspace with only CAP_CHOWN restored.",
+    ),
+    ComposeExpectation(
+        id="runsight-service",
+        service_name="runsight",
+        validator="runsight",
+        message="runsight service must drop privileges and enforce resource limits.",
+    ),
+)
+
+PROCESS_ISOLATION_DOC_EXPECTATIONS = (
+    DocsLineExpectation(
+        id="layer-1-container-hardening",
+        line_match=re.compile(r"Layer 1", re.IGNORECASE),
+        required=("container", "hardening"),
+        forbidden=("future",),
+    ),
+    DocsLineExpectation(
+        id="layer-1-unprivileged-user",
+        line_match=re.compile(r"Layer 1", re.IGNORECASE),
+        required=("unprivileged", "non-root"),
+        forbidden=("future",),
+    ),
+    DocsLineExpectation(
+        id="cpu-memory-container-limits",
+        line_match=re.compile(r"cpu.*memory|memory.*cpu", re.IGNORECASE),
+        required=("container",),
+        forbidden=("not enforced",),
+    ),
+)
 
 POLICY_PATTERNS = (
     PolicyPattern(
@@ -143,7 +245,6 @@ POLICY_PATTERNS = (
     ),
 )
 
-
 ALLOWLIST = (
     AllowlistEntry(
         pattern_id="e2e-runtime-env-direct-read",
@@ -152,6 +253,80 @@ ALLOWLIST = (
         expires=date(2026, 10, 1),
     ),
 )
+
+WORKSPACE_REFERENCE_RULES = (
+    WorkspaceReferenceRule(
+        id="api-tests-do-not-scan-core-source-or-tests",
+        search_root=API_TEST_ROOT,
+        forbidden_reference=re.compile(
+            r'["\']packages["\']\s*/\s*["\']core["\']\s*/\s*["\'](?:src|tests)["\']|'
+            r"packages[/\\]core[/\\](?:src|tests)"
+        ),
+        message="API tests must not source-scan packages/core source or tests.",
+    ),
+    WorkspaceReferenceRule(
+        id="core-tests-do-not-scan-api-source-or-tests",
+        search_root=CORE_TEST_ROOT,
+        forbidden_reference=re.compile(
+            r'["\']apps["\']\s*/\s*["\']api["\']\s*/\s*["\'](?:src|tests)["\']|'
+            r"apps[/\\]api[/\\](?:src|tests)"
+        ),
+        message="Core tests must not source-scan apps/api source or tests.",
+    ),
+)
+
+RETIRED_CORE_GOVERNANCE_SUITES = (
+    CORE_TEST_ROOT / "test_discovery_repo_policy_governance.py",
+    CORE_TEST_ROOT / "test_docker_hardening.py",
+    CORE_TEST_ROOT / "test_interceptors_extract.py",
+    CORE_TEST_ROOT / "test_ipc_models_extract.py",
+    CORE_TEST_ROOT / "test_parser_decomposition.py",
+    CORE_TEST_ROOT / "test_source_scan_ownership_governance.py",
+    CORE_TEST_ROOT / "test_test_safety_governance.py",
+)
+
+RETIRED_CROSS_OWNER_SCAN_TESTS = (
+    API_TEST_ROOT / "test_stale_soul_assertion_refs.py",
+    API_TEST_ROOT / "test_soul_assertion_field_removal_governance.py",
+    CORE_TEST_ROOT / "test_soul_assertion_field_removal_governance.py",
+    API_TEST_ROOT / "test_scan_index_usage_governance.py",
+    CORE_TEST_ROOT / "test_scan_index_ids_cleanup.py",
+)
+
+
+def _relative(path: Path) -> str:
+    return path.relative_to(REPO_ROOT).as_posix()
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _runtime_stage_text() -> str:
+    lines = _read(DOCKERFILE).splitlines()
+    in_runtime = False
+    runtime_lines: list[str] = []
+    for line in lines:
+        if re.search(r"FROM\s+\S+\s+AS\s+runtime", line, re.IGNORECASE):
+            in_runtime = True
+            continue
+        if in_runtime and re.match(r"FROM\s+", line, re.IGNORECASE):
+            break
+        if in_runtime:
+            runtime_lines.append(line)
+    return "\n".join(runtime_lines)
+
+
+def _load_compose() -> dict:
+    compose = yaml.safe_load(_read(COMPOSE_FILE))
+    assert isinstance(compose, dict), f"{_relative(COMPOSE_FILE)} must parse as a mapping"
+    return compose
+
+
+def _compose_services() -> dict:
+    services = _load_compose().get("services", {})
+    assert isinstance(services, dict), f"{_relative(COMPOSE_FILE)} services must be a mapping"
+    return services
 
 
 def _iter_source_files(root: Path) -> list[Path]:
@@ -199,25 +374,21 @@ def _find_policy_violations(pattern: PolicyPattern) -> list[str]:
         for source_file in _iter_source_files(root):
             if _allowed(pattern.id, source_file):
                 continue
-            for line_number, line in enumerate(
-                source_file.read_text(encoding="utf-8").splitlines(), 1
-            ):
+            for line_number, line in enumerate(_read(source_file).splitlines(), 1):
                 if pattern.regex.search(line):
-                    relative = source_file.relative_to(REPO_ROOT)
-                    violations.append(f"{relative}:{line_number}: {line.strip()}")
+                    violations.append(f"{_relative(source_file)}:{line_number}: {line.strip()}")
     return violations
 
 
 def _python_tree_and_source(source_file: Path) -> tuple[ast.Module, str]:
-    source = source_file.read_text(encoding="utf-8")
+    source = _read(source_file)
     return ast.parse(source, filename=str(source_file)), source
 
 
 def _python_module_is_marked_or_named_governance_or_migration(
-    source_file: Path, tree: ast.Module, source: str
+    source_file: Path, tree: ast.Module
 ) -> bool:
-    stem = source_file.stem
-    if stem.endswith(("_governance", "_migration")):
+    if source_file.stem.endswith(("_governance", "_migration")):
         return True
 
     for node in tree.body:
@@ -283,32 +454,6 @@ def _python_docstring_line_numbers(tree: ast.Module) -> set[int]:
         end_lineno = first_statement.end_lineno or first_statement.lineno
         line_numbers.update(range(first_statement.lineno, end_lineno + 1))
     return line_numbers
-
-
-def _is_self_governance_policy_source(source_file: Path) -> bool:
-    return source_file.resolve() == GOVERNANCE_TEST_FILE
-
-
-def _is_self_e2e_policy_name(source_file: Path, node_name: str) -> bool:
-    if not _is_self_governance_policy_source(source_file):
-        return False
-    return node_name in {
-        "_is_self_e2e_policy_name",
-        "test_non_browser_python_tests_do_not_use_e2e_wording",
-    }
-
-
-def _is_self_ticket_fixture_policy_line(
-    source_file: Path, line_number: int, line: str, docstring_lines: set[int]
-) -> bool:
-    if not _is_self_governance_policy_source(source_file):
-        return False
-    stripped = line.lstrip()
-    return (
-        line_number in docstring_lines
-        or stripped.startswith("#")
-        or any(policy_name in line for policy_name in SELF_POLICY_CONSTANT_NAMES)
-    )
 
 
 def _line_number(source: str, index: int) -> int:
@@ -442,15 +587,180 @@ def _typescript_test_titles(source: str) -> list[tuple[int, str]]:
     return titles
 
 
+def test_agents_policy_keeps_custom_tools_under_custom_runtime_assets() -> None:
+    policy = _read(AGENTS_POLICY)
+
+    assert "custom/" in policy and "custom/tools/" in policy, (
+        "AGENTS.md must keep custom/tools/ under the custom runtime asset policy "
+        "so package-local discovery tests can use package-owned tool fixtures "
+        "without reading repo-root runtime state."
+    )
+
+
+@pytest.mark.parametrize("case", DOCKER_RUNTIME_PATTERNS, ids=lambda case: case.id)
+def test_dockerfile_runtime_stage_preserves_container_hardening(case: RuntimeStagePattern) -> None:
+    runtime_stage = _runtime_stage_text()
+
+    assert case.regex.search(runtime_stage), case.message
+
+
+def test_dockerfile_runtime_stage_prepares_workspace_for_non_root_user() -> None:
+    runtime_stage = _runtime_stage_text()
+
+    assert re.search(r"mkdir\s+-p\s+/workspace", runtime_stage), (
+        "Dockerfile runtime stage must create /workspace before switching to non-root."
+    )
+    assert re.search(r"chown\s+(?:runsight:runsight|1000:1000)\s+/workspace", runtime_stage), (
+        "Dockerfile runtime stage must chown /workspace to runsight:runsight or 1000:1000."
+    )
+
+
+@pytest.mark.parametrize("case", COMPOSE_EXPECTATIONS, ids=lambda case: case.id)
+def test_docker_compose_preserves_container_hardening(case: ComposeExpectation) -> None:
+    services = _compose_services()
+    service = services.get(case.service_name)
+
+    assert isinstance(service, dict), f"{case.service_name} service is missing. {case.message}"
+    if case.validator == "init_permissions":
+        assert "busybox" in str(service.get("image", "")).lower(), case.message
+        assert str(service.get("user", "")) == "0", case.message
+        assert "ALL" in service.get("cap_drop", []), case.message
+        assert service.get("cap_add") == ["CHOWN"], case.message
+        assert service.get("command") == ["chown", "-R", "1000:1000", "/workspace"], case.message
+        return
+
+    if case.validator == "runsight":
+        assert "ALL" in service.get("cap_drop", []), case.message
+        assert service.get("cap_add") in (None, []), case.message
+        assert "no-new-privileges:true" in service.get("security_opt", []), case.message
+        assert str(service.get("mem_limit", "")).lower() in {"4g", "4096m", "4294967296"}
+        assert str(service.get("memswap_limit", "")).lower() in {"4g", "4096m", "4294967296"}
+        assert float(service.get("cpus", 0)) == 2.0
+        assert service.get("init") is True, case.message
+        depends_on = service.get("depends_on", {})
+        assert isinstance(depends_on, dict) and "init-permissions" in depends_on, case.message
+        assert (
+            depends_on["init-permissions"].get("condition") == "service_completed_successfully"
+        ), case.message
+        return
+
+    raise AssertionError(f"Unknown compose validator: {case.validator}")
+
+
+def test_docker_entrypoint_fails_fast_without_runtime_mkdir(tmp_path: Path) -> None:
+    entrypoint = _read(ENTRYPOINT)
+    missing_workspace = tmp_path / "missing-workspace"
+
+    assert "mkdir" not in entrypoint, "docker-entrypoint.sh must not create runtime workspaces."
+    result = subprocess.run(
+        ["sh", str(ENTRYPOINT), "true"],
+        env={
+            "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+            "RUNSIGHT_BASE_PATH": str(missing_workspace),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "does not exist" in result.stderr
+
+
+def test_docker_entrypoint_execs_with_existing_workspace(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["sh", str(ENTRYPOINT), "true"],
+        env={
+            "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+            "RUNSIGHT_BASE_PATH": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_docker_entrypoint_announces_empty_workspace_scaffolding(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["sh", str(ENTRYPOINT), "true"],
+        env={
+            "PATH": "/app/.venv/bin:/usr/local/bin:/usr/bin:/bin",
+            "RUNSIGHT_BASE_PATH": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "scaffold" in (result.stdout + result.stderr).lower()
+
+
+@pytest.mark.parametrize("case", PROCESS_ISOLATION_DOC_EXPECTATIONS, ids=lambda case: case.id)
+def test_process_isolation_docs_describe_active_container_hardening(
+    case: DocsLineExpectation,
+) -> None:
+    matching_lines = [
+        line for line in _read(PROCESS_ISOLATION_DOC).splitlines() if case.line_match.search(line)
+    ]
+    assert matching_lines, f"{_relative(PROCESS_ISOLATION_DOC)} has no line for {case.id}."
+
+    combined = " ".join(matching_lines).lower()
+    assert any(required in combined for required in case.required), (
+        f"{case.id} must mention one of: {', '.join(case.required)}."
+    )
+    forbidden_hits = [forbidden for forbidden in case.forbidden if forbidden in combined]
+    assert forbidden_hits == [], f"{case.id} still mentions: {', '.join(forbidden_hits)}."
+
+
+def test_moved_core_governance_suites_stay_out_of_core_behavior_tests() -> None:
+    remaining = [_relative(path) for path in RETIRED_CORE_GOVERNANCE_SUITES if path.exists()]
+
+    assert remaining == [], (
+        "Repo/tooling governance should stay under tools/tests, not packages/core/tests.\n"
+        + "\n".join(remaining)
+    )
+
+
+def test_retired_cross_owner_source_scan_tests_stay_removed() -> None:
+    remaining = [_relative(path) for path in RETIRED_CROSS_OWNER_SCAN_TESTS if path.exists()]
+
+    assert remaining == [], (
+        "Retired cross-workspace source-scan cleanup suites should stay removed or be "
+        "rebuilt under tools/tests with explicit ownership.\n" + "\n".join(remaining)
+    )
+
+
+@pytest.mark.parametrize("rule", WORKSPACE_REFERENCE_RULES, ids=lambda rule: rule.id)
+def test_package_tests_do_not_source_scan_sibling_workspace_internals(
+    rule: WorkspaceReferenceRule,
+) -> None:
+    violations: list[str] = []
+    for source_file in _iter_test_source_files(rule.search_root):
+        tree, source = _python_tree_and_source(source_file)
+        if not _python_module_is_marked_or_named_governance_or_migration(source_file, tree):
+            continue
+        for line_number, line in enumerate(source.splitlines(), 1):
+            if rule.forbidden_reference.search(line):
+                violations.append(f"{_relative(source_file)}:{line_number}: {line.strip()}")
+
+    assert violations == [], rule.message + "\n" + "\n".join(violations)
+
+
 def test_test_safety_policy_allowlist_entries_are_documented_and_current() -> None:
     for entry in ALLOWLIST:
-        assert entry.reason.strip(), f"{entry.path} allowlist entry must explain why it exists"
+        assert entry.reason.strip(), f"{_relative(entry.path)} allowlist entry needs a reason"
         assert entry.expires >= date.today(), (
-            f"{entry.path} allowlist entry for {entry.pattern_id} expired on {entry.expires}"
+            f"{_relative(entry.path)} allowlist entry for {entry.pattern_id} expired on "
+            f"{entry.expires}"
         )
-        assert entry.path.exists(), f"{entry.path} allowlist entry points at a missing file"
+        assert entry.path.exists(), (
+            f"{_relative(entry.path)} allowlist entry points at a missing file"
+        )
         assert any(pattern.id == entry.pattern_id for pattern in POLICY_PATTERNS), (
-            f"{entry.path} allowlist entry references unknown pattern {entry.pattern_id!r}"
+            f"{_relative(entry.path)} references unknown pattern {entry.pattern_id!r}"
         )
 
 
@@ -465,7 +775,7 @@ def test_test_file_names_use_behavioral_owners_not_ticket_ids() -> None:
     for root in TEST_FILE_ROOTS:
         for source_file in _iter_test_source_files(root):
             if TEST_FILE_NAME_TICKET_RE.search(source_file.name):
-                violations.append(str(source_file.relative_to(REPO_ROOT)))
+                violations.append(_relative(source_file))
 
     assert violations == [], (
         "Test files should be named after the behavior, module, feature, flow, "
@@ -478,13 +788,12 @@ def test_python_test_symbols_use_behavioral_names_not_ticket_ids() -> None:
     violations: list[str] = []
     for root in PYTHON_TEST_ROOTS:
         for source_file in _iter_test_source_files(root):
-            tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
+            tree = ast.parse(_read(source_file), filename=str(source_file))
             for node in ast.walk(tree):
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     continue
                 if PYTHON_SYMBOL_TICKET_RE.search(node.name):
-                    relative = source_file.relative_to(REPO_ROOT)
-                    violations.append(f"{relative}:{node.lineno}: {node.name}")
+                    violations.append(f"{_relative(source_file)}:{node.lineno}: {node.name}")
 
     assert violations == [], (
         "Python test classes/functions should describe behavior instead of ticket IDs.\n"
@@ -496,26 +805,22 @@ def test_python_governance_and_migration_modules_document_owner_boundary_and_exi
     violations: list[str] = []
     for root in PYTHON_TEST_ROOTS:
         for source_file in _iter_test_source_files(root):
-            tree, source = _python_tree_and_source(source_file)
-            if not _python_module_is_marked_or_named_governance_or_migration(
-                source_file, tree, source
-            ):
+            tree, _ = _python_tree_and_source(source_file)
+            if not _python_module_is_marked_or_named_governance_or_migration(source_file, tree):
                 continue
 
             module_docstring = ast.get_docstring(tree, clean=False) or ""
             missing_fields = [
                 field.pattern.replace("\\b", "").replace("\\s+", " ")
-                for field in PYTHON_GOVERNANCE_DOCSTRING_FIELD_RES
+                for field in GOVERNANCE_DOCSTRING_FIELD_RES
                 if not field.search(module_docstring)
             ]
             if missing_fields:
-                relative = source_file.relative_to(REPO_ROOT)
-                violations.append(f"{relative}: missing {', '.join(missing_fields)}")
+                violations.append(f"{_relative(source_file)}: missing {', '.join(missing_fields)}")
 
     assert violations == [], (
         "Governance and migration Python test modules must state Owner, Boundary, "
-        "and Exit criteria in the top module docstring so temporary guards have a "
-        "clear owner and removal path.\n" + "\n".join(violations)
+        "and Exit criteria in the top module docstring.\n" + "\n".join(violations)
     )
 
 
@@ -524,7 +829,7 @@ def test_non_browser_python_tests_do_not_use_e2e_wording() -> None:
     for root in PYTHON_TEST_ROOTS:
         for source_file in _iter_test_source_files(root):
             tree, source = _python_tree_and_source(source_file)
-            relative = source_file.relative_to(REPO_ROOT)
+            relative = _relative(source_file)
 
             for line_number, label, text in _iter_python_docstrings(tree):
                 if NON_BROWSER_E2E_WORDING_RE.search(text):
@@ -536,8 +841,6 @@ def test_non_browser_python_tests_do_not_use_e2e_wording() -> None:
 
             for node in ast.walk(tree):
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                    continue
-                if _is_self_e2e_policy_name(source_file, node.name):
                     continue
                 if NON_BROWSER_E2E_WORDING_RE.search(node.name):
                     violations.append(f"{relative}:{node.lineno}: {node.name}")
@@ -553,19 +856,12 @@ def test_test_fixture_identities_use_behavioral_names_not_ticket_ids() -> None:
     for root in PYTHON_TEST_ROOTS:
         for source_file in _iter_test_source_files(root):
             tree, source = _python_tree_and_source(source_file)
-            docstring_lines = (
-                _python_docstring_line_numbers(tree)
-                if _is_self_governance_policy_source(source_file)
-                else set()
-            )
+            docstring_lines = _python_docstring_line_numbers(tree)
             for line_number, line in enumerate(source.splitlines(), 1):
-                if _is_self_ticket_fixture_policy_line(
-                    source_file, line_number, line, docstring_lines
-                ):
+                if line_number in docstring_lines or line.lstrip().startswith("#"):
                     continue
                 if TICKET_FIXTURE_IDENTITY_RE.search(line):
-                    relative = source_file.relative_to(REPO_ROOT)
-                    violations.append(f"{relative}:{line_number}: {line.strip()}")
+                    violations.append(f"{_relative(source_file)}:{line_number}: {line.strip()}")
 
     assert violations == [], (
         "Test fixture identities should describe the behavior under test, not the "
@@ -577,11 +873,9 @@ def test_typescript_test_titles_use_behavioral_names_not_ticket_ids_or_ac_labels
     violations: list[str] = []
     for root in TYPESCRIPT_TEST_ROOTS:
         for source_file in _iter_test_source_files(root):
-            source = source_file.read_text(encoding="utf-8")
-            for line_number, title in _typescript_test_titles(source):
+            for line_number, title in _typescript_test_titles(_read(source_file)):
                 if STRUCTURAL_TITLE_TICKET_RE.search(title):
-                    relative = source_file.relative_to(REPO_ROOT)
-                    violations.append(f"{relative}:{line_number}: {title}")
+                    violations.append(f"{_relative(source_file)}:{line_number}: {title}")
 
     assert violations == [], (
         "TypeScript describe/it/test titles should name behavior, not ticket IDs or AC labels.\n"

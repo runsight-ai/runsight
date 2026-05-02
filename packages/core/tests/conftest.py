@@ -114,8 +114,6 @@ def block_output_from_state(block_id, before, after):
 
 _ISOLATION_TEST_PREFIXES = (
     "test_isolation_",
-    "test_ipc_models_extract",
-    "test_interceptors_extract",
     "test_worker_proxies_extract",
     "test_worker_support_extract",
     "test_assertion_isolation",

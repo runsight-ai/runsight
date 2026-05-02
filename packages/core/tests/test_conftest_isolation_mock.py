@@ -440,10 +440,7 @@ class TestIsolationFilesAreExcluded:
         spec.loader.exec_module(conftest_mod)
 
         prefixes = getattr(conftest_mod, "_ISOLATION_TEST_PREFIXES", ())
-        # IPC extraction tests rely on the real harness.
         for expected in (
-            "test_ipc_models_extract",
-            "test_interceptors_extract",
             "test_worker_proxies_extract",
             "test_worker_support_extract",
         ):
