@@ -1,0 +1,25 @@
+testing/gui-e2e/tests/helpers/typed-workflow-inputs-fixture.ts
+  a0d28c569df3af0e 1-384
+testing/gui-e2e/tests/typed-workflow-inputs.spec.ts
+  a0d28c569df3af0e 1,4-26,105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "978f1d5bb53a53b2cb66537672993e7814cbd6f2",
+  "prompts": {
+    "a0d28c569df3af0e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de7ad-a0cd-7ba1-a447-6ea562e8d347",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 409,
+      "total_deletions": 383,
+      "accepted_lines": 409,
+      "overriden_lines": 0
+    }
+  }
+}
