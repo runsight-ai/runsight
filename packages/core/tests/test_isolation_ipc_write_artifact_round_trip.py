@@ -12,6 +12,8 @@ from isolation_ipc_helpers import (
     _make_grant_token,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 # ---------------------------------------------------------------------------
 # write_artifact writes to engine-side ArtifactStore and returns ref
 # ---------------------------------------------------------------------------

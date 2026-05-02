@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -13,7 +12,6 @@ from runsight_api.domain.value_objects import WorkflowEntity
 from runsight_api.logic.services.eval_service import EvalService
 from runsight_api.logic.services.run_service import RunService
 from runsight_api.logic.services.workflow_service import WorkflowService
-from runsight_api.transport import deps as transport_deps
 
 
 def _make_run(
@@ -143,17 +141,8 @@ def test_run_service_uses_only_explicit_run_read_model_for_paginated_queries() -
     ]
 
 
-def test_run_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+def test_run_service_requires_read_model_for_paginated_queries() -> None:
     visible = _make_run("run_visible")
-
-    def _unexpected_run_read_model(session):
-        raise AssertionError("RunService must not construct RunReadModel from run_repo.session")
-
-    monkeypatch.setattr(
-        "runsight_api.data.repositories.run_read_model.RunReadModel",
-        _unexpected_run_read_model,
-    )
-
     run_repo = SimpleNamespace(
         get_run=lambda run_id: visible if run_id == visible.id else None,
         delete_run=lambda run_id: run_id,
@@ -212,19 +201,9 @@ def test_workflow_service_uses_only_explicit_run_read_model_for_health_queries()
     assert result[1].health["regression_count"] == 0
 
 
-def test_workflow_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+def test_workflow_service_requires_read_model_for_health_queries() -> None:
     workflows = [WorkflowEntity(kind="workflow", id="wf_alpha", name="Alpha", enabled=True)]
     workflow_repo = _WorkflowRepositoryDouble(workflows)
-
-    def _unexpected_run_read_model(session):
-        raise AssertionError(
-            "WorkflowService must not construct RunReadModel from run_repo.session"
-        )
-
-    monkeypatch.setattr(
-        "runsight_api.data.repositories.run_read_model.RunReadModel",
-        _unexpected_run_read_model,
-    )
 
     run_repo = SimpleNamespace(session=object())
     service = WorkflowService(workflow_repo=workflow_repo, run_repo=run_repo, git_service=Mock())
@@ -279,7 +258,7 @@ def test_eval_service_uses_only_explicit_run_read_model_for_baselines() -> None:
     assert result.nodes[0].delta.baseline_run_count == 4
 
 
-def test_eval_service_does_not_construct_read_model_from_run_repo_session(monkeypatch) -> None:
+def test_eval_service_requires_read_model_for_baseline_queries() -> None:
     run = _make_run("run_eval", workflow_id="wf_eval", workflow_name="Eval Flow")
     node = RunNode(
         id="run_eval:draft",
@@ -294,15 +273,6 @@ def test_eval_service_does_not_construct_read_model_from_run_repo_session(monkey
         cost_usd=0.3,
         tokens={"prompt": 120, "completion": 180, "total": 300},
     )
-
-    def _unexpected_run_read_model(session):
-        raise AssertionError("EvalService must not construct RunReadModel from run_repo.session")
-
-    monkeypatch.setattr(
-        "runsight_api.data.repositories.run_read_model.RunReadModel",
-        _unexpected_run_read_model,
-    )
-
     run_repo = SimpleNamespace(
         get_run=lambda run_id: run if run_id == "run_eval" else None,
         list_nodes_for_run=lambda run_id: [node] if run_id == "run_eval" else [],
@@ -312,25 +282,3 @@ def test_eval_service_does_not_construct_read_model_from_run_repo_session(monkey
 
     with pytest.raises(RuntimeError, match="requires a run read model"):
         service.get_run_eval("run_eval")
-
-
-@pytest.mark.parametrize(
-    ("factory", "expected_dependencies"),
-    [
-        (transport_deps.get_run_service, {"run_repo", "workflow_repo", "run_read_model"}),
-        (
-            transport_deps.get_workflow_service,
-            {"workflow_repo", "run_repo", "run_read_model", "git_service"},
-        ),
-        (transport_deps.get_eval_service, {"run_repo", "run_read_model"}),
-    ],
-)
-def test_dependency_factories_require_explicit_run_read_model(
-    factory, expected_dependencies
-) -> None:
-    signature = inspect.signature(factory)
-
-    assert expected_dependencies.issubset(signature.parameters), (
-        f"{factory.__name__} must explicitly depend on run_read_model rather than hiding "
-        "read-model construction inside the service"
-    )

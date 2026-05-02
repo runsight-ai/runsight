@@ -6,8 +6,8 @@ before we continue refactoring.
 
 ## Coverage
 
-- Current test files inventoried: 739
-- Reviewed rows in `full-test-cleanup-map.tsv`: 739
+- Current test files inventoried: 738
+- Reviewed rows in `full-test-cleanup-map.tsv`: 738
 - Tier 1 Bronze delete completed: 51 files removed
 - Tier 1 RGB gate: Red matrix approved, Blue approved, Yellow approved
 - Tier 2 Silver merge/delete completed: 130 assigned duplicate files removed,
@@ -35,6 +35,11 @@ before we continue refactoring.
 - Tier 7 pre-flight completed: the 11 remaining deep-review files are grouped
   into GUI settings, E2E context-audit, API governance, core subprocess
   isolation, and core exit-port batches in `tier-7-preflight.md`
+- Tier 7 deep review completed: the final 11 cleanup rows were resolved into
+  behavior owners, explicit subprocess-boundary markers, or deletions of stale
+  source-scan/governance/fake-E2E suites
+- Tier 7 RGB gate: Blue approved, Yellow approved after the subprocess marker
+  follow-up
 - Full test suites run: none
 
 The merged file is `tools/test-audit/full-test-cleanup-map.tsv`.
@@ -65,37 +70,33 @@ Each test file was reviewed for:
 
 | Action | Count |
 |---|---:|
-| KEEP | 728 |
-| REVIEW_DEEP | 11 |
+| KEEP | 738 |
 
 ### By Alignment Status
 
 | Status | Count |
 |---|---:|
-| aligned | 728 |
-| cleanup_needed | 9 |
-| move_candidate | 1 |
-| red_unfinished | 1 |
+| aligned | 738 |
 
 ### By Workspace And Action
 
 | Workspace | KEEP | DELETE | MERGE_THEN_DELETE | SHRINK_TO_SMOKE | SPLIT | EXTERNALIZE_FIXTURES | MOVE_TO_TOOLING | REVIEW_DEEP | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| api | 210 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 213 |
-| core | 348 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 350 |
-| e2e | 20 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 21 |
-| gui | 105 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | 110 |
+| api | 215 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 215 |
+| core | 349 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 349 |
+| e2e | 20 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 20 |
+| gui | 109 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 109 |
 | shared | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 |
 | tools | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
 | ui | 23 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 23 |
 
 ## Interpretation
 
-The epic is not done. The audit says 11 of 739 current test files still need a
-cleanup action before the test surface matches the target convention.
+The cleanup epic is complete according to the audit map: all 738 current test
+files are aligned and every row is marked `KEEP`.
 
-The remaining cleanup work is the deep-review blocker/escalation queue: 11
-suites.
+The remaining cleanup queue is empty: 0 `REVIEW_DEEP`, 0 `SPLIT`, 0
+`EXTERNALIZE_FIXTURES`, 0 `MOVE_TO_TOOLING`, and 0 delete/merge candidates.
 
 Tier 1 removed the original 51 direct delete candidates. Tier 2 removed the
 merge/delete queue. It left five GUI settings source-scan files intentionally
@@ -108,25 +109,27 @@ with behavior-named owner suites, deleting duplicated low-signal assertions, and
 moving shared setup into owning-workspace helpers where useful. Tier 6 removed
 the fixture-externalization queue by moving repeated YAML, JSON, static render
 harnesses, mock services, provider payloads, and temp repo builders into
-package-local helpers while preserving behavior assertions in test files.
+package-local helpers while preserving behavior assertions in test files. Tier
+7 removed the final deep-review queue by replacing GUI settings source scans
+with rendered behavior owners, deleting the fake context-audit E2E owner,
+shrinking API governance/source checks into behavior owners, making core real
+subprocess coverage explicit through markers, and deleting the stale exit-port
+governance suite.
 
 ## High-Risk Items
 
-- `packages/core/tests/test_exit_port_suite_ownership_governance.py` is marked
-  `red_unfinished`; static inspection found the expected exit-port helper/owner
-  suites missing, so deletion is blocked until the intended owner suites exist.
-- `packages/core/tests/conftest.py` is `REVIEW_DEEP`; global autouse isolation
-  can hide subprocess/runtime regressions and needs careful review before
-  changing.
-- Route-mocked browser contracts such as context audit and parser warnings need
-  owner decisions: GUI browser-contract tests versus true E2E smoke.
-- The five escalated GUI settings suites need a rendered settings owner before
-  they can be safely merged and deleted.
+No high-risk cleanup rows remain in `full-test-cleanup-map.tsv`.
+
+Residual risk: full pytest, Vitest, and Playwright suites were intentionally
+not run because the repo forbids full-suite execution in agent sessions. Tier
+validation used targeted owner commands plus Blue/Yellow review.
 
 ## Next Execution Order
 
-1. Run Tier 7 deep-review cleanup from `tier-7-preflight.md`.
-2. Run targeted RGB TDD per cleanup batch, never full pytest/vitest/playwright.
+1. Keep `full-test-cleanup-map.tsv` and `current-test-inventory.tsv` current
+   when test files are added, renamed, or deleted.
+2. Enforce the AGENTS.md naming, ownership, fixture, and isolation rules in RGB
+   prompts so new tests do not reopen the cleanup queue.
 
 Use `tools/test-audit/full-test-cleanup-map.tsv` as the source of truth for the
 ticket breakdown and review checklist.

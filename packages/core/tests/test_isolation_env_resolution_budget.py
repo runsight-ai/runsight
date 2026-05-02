@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestLLMHandlerBudgetOwnership:
     """Engine-side LLM calls must leave budget enforcement to the IPC interceptor."""

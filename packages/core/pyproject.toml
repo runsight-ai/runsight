@@ -36,6 +36,7 @@ addopts = "--maxfail=1 -p no:xdist"
 markers = [
     "governance: static or policy tests that enforce repository boundaries",
     "migration: temporary compatibility or cleanup tests with an explicit exit path",
+    "real_subprocess_isolation: tests that must exercise the real core subprocess isolation boundary",
 ]
 
 [tool.mypy]

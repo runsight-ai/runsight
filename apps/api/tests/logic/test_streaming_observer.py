@@ -7,6 +7,14 @@ from unittest.mock import Mock
 import pytest
 from runsight_core.state import WorkflowState
 
+from runsight_api.domain.events import (
+    SSE_NODE_COMPLETED,
+    SSE_NODE_FAILED,
+    SSE_NODE_STARTED,
+    SSE_RUN_COMPLETED,
+    SSE_RUN_FAILED,
+    SSE_RUN_STARTED,
+)
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
 from runsight_api.logic.services.execution_runtime import ExecutionRuntimeCoordinator
 
@@ -36,13 +44,25 @@ def test_streaming_observer_emits_lifecycle_events() -> None:
 
     events = _drain(observer)
     assert [event["event"] for event in events] == [
-        "run_started",
-        "node_started",
+        SSE_RUN_STARTED,
+        SSE_NODE_STARTED,
         "node_heartbeat",
-        "node_completed",
-        "run_completed",
+        SSE_NODE_COMPLETED,
+        SSE_RUN_COMPLETED,
     ]
     assert events[-1]["data"]["run_id"] == "stream-smoke-run"
+    assert observer.is_done is True
+
+
+def test_streaming_observer_emits_failure_events_and_marks_run_done() -> None:
+    observer = StreamingObserver(run_id="stream-failure-run")
+
+    observer.on_block_error("stream-failure-flow", "draft", "LinearBlock", 0.2, ValueError("bad"))
+    observer.on_workflow_error("stream-failure-flow", RuntimeError("boom"), 0.4)
+
+    events = _drain(observer)
+    assert [event["event"] for event in events] == [SSE_NODE_FAILED, SSE_RUN_FAILED]
+    assert events[-1]["data"]["run_id"] == "stream-failure-run"
     assert observer.is_done is True
 
 
@@ -90,4 +110,4 @@ async def test_runtime_registers_streaming_observer_and_unregisters_on_success()
         ("register", "runtime-stream-smoke"),
         ("unregister", "runtime-stream-smoke"),
     ]
-    assert [event["event"] for event in _drain(captured)] == ["run_started", "run_completed"]
+    assert [event["event"] for event in _drain(captured)] == [SSE_RUN_STARTED, SSE_RUN_COMPLETED]

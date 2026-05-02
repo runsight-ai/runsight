@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHTTPSSRFProtection:
     """HTTP handler must block requests targeting private/reserved IPs."""

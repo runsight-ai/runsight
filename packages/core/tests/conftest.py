@@ -112,23 +112,12 @@ def block_output_from_state(block_id, before, after):
     )
 
 
-_ISOLATION_TEST_PREFIXES = (
-    "test_isolation_",
-    "test_worker_proxies_extract",
-    "test_worker_support_extract",
-    "test_assertion_isolation",
-    "test_tool_builtin_http_pipeline",
-    "test_tool_custom_executor_pipeline",
-    "test_tool_custom_request_resolution",
-    "test_tool_delegate_behavior",
-    "test_tool_ipc_tool_calls",
-    "test_tool_isolated_execution_envelope",
-    "test_tool_parse_validation",
-    "test_tool_pipeline_execution",
-    "test_tool_request_executor_pipeline",
-    "test_tool_runner_behaviors",
-    "test_tool_workflow_fixtures",
-)
+_REAL_SUBPROCESS_ISOLATION_MARKER = "real_subprocess_isolation"
+
+
+def _uses_real_subprocess_isolation(request: pytest.FixtureRequest) -> bool:
+    """Return whether a test explicitly opts into the real subprocess boundary."""
+    return request.node.get_closest_marker(_REAL_SUBPROCESS_ISOLATION_MARKER) is not None
 
 
 @pytest.fixture(autouse=True)
@@ -141,9 +130,10 @@ def _bypass_subprocess_isolation(request, monkeypatch):
     mapping) is exercised while the subprocess spawn is replaced with an
     in-process call to the inner block.
 
-    Isolation-specific tests are excluded so they exercise the real path.
+    Tests that must exercise the real subprocess boundary opt out with the
+    real_subprocess_isolation marker.
     """
-    if request.fspath.basename.startswith(_ISOLATION_TEST_PREFIXES):
+    if _uses_real_subprocess_isolation(request):
         return
 
     try:

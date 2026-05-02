@@ -11,6 +11,8 @@ from isolation_wrapper_helpers import make_state as _make_state
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.isolation.envelope import ResultEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWrapperCostTokenOutputFields:
     """Wrapper maps ResultEnvelope cost and token counts onto BlockOutput fields."""

@@ -13,6 +13,8 @@ from isolation_ipc_helpers import (
     _make_grant_token,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 # ---------------------------------------------------------------------------
 # Socket cleaned up on subprocess exit
 # ---------------------------------------------------------------------------

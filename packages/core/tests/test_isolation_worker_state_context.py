@@ -12,6 +12,8 @@ from isolation_worker_helpers import (
 )
 from runsight_core.isolation.envelope import ResultEnvelope, SoulEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerFitToBudget:
     """Worker must apply fit_to_budget locally for context windowing."""

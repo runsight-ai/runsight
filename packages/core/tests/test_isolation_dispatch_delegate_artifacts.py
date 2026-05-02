@@ -3,6 +3,8 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+import pytest
+
 # Shared fixtures
 from isolation_dispatch_delegate_helpers import (
     _execute_wrapper,
@@ -14,6 +16,8 @@ from isolation_dispatch_delegate_helpers import (
 from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.isolation.envelope import DelegateArtifact
 from runsight_core.state import BlockResult
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestCoordinatorDelegateArtifacts:

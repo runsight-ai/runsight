@@ -18,6 +18,9 @@ import {
 } from "../contextAuditSurfaces";
 import { SoulNode } from "../nodes";
 
+const LONG_REF =
+  "secrets.customer_accounts.production.credentials.primary.api_key.rotated.current.value";
+
 const reactFlowHarness = vi.hoisted(() => ({
   props: null as { edges?: Array<Record<string, unknown>> } | null,
 }));
@@ -102,6 +105,34 @@ function auditEvent(
   };
 }
 
+function deniedAuditEvent(
+  overrides: Partial<ContextAuditEventV1> = {},
+): ContextAuditEventV1 {
+  return auditEvent({
+    node_id: "strict_missing",
+    sequence: 2,
+    records: [
+      {
+        input_name: "api_key",
+        from_ref: LONG_REF,
+        namespace: "metadata",
+        source: "secrets",
+        field_path: "customer_accounts.production.credentials.primary.api_key.value",
+        status: "denied",
+        severity: "error",
+        value_type: null,
+        preview: "[redacted]",
+        reason: "strict declared ref denied",
+        internal: false,
+      },
+    ],
+    resolved_count: 0,
+    denied_count: 1,
+    warning_count: 0,
+    ...overrides,
+  });
+}
+
 describe("context audit overlay inputs", () => {
   beforeEach(() => {
     useContextAuditStore.setState({ activeRunId: null, eventsByRun: {} });
@@ -166,6 +197,29 @@ describe("context audit overlay inputs", () => {
     expect(onSelectNode).toHaveBeenLastCalledWith("summarize");
   });
 
+  it("renders denied rows with error severity and long references", () => {
+    useContextAuditStore
+      .getState()
+      .replaceRunEvents("run-context-surface", [auditEvent(), deniedAuditEvent()]);
+
+    render(
+      React.createElement(ContextAuditPanel, {
+        runId: "run-context-surface",
+        selectedNodeId: null,
+        onSelectNode: vi.fn(),
+      }),
+    );
+
+    const strictRows = screen.getAllByRole("button", {
+      name: "Open context audit for strict_missing",
+    });
+    expect(strictRows).toHaveLength(1);
+    expect(within(strictRows[0]).getByText("api_key")).toBeTruthy();
+    expect(within(strictRows[0]).getByText(LONG_REF)).toBeTruthy();
+    expect(within(strictRows[0]).getByText("denied")).toBeTruthy();
+    expect(within(strictRows[0]).getByText("error")).toBeTruthy();
+  });
+
   it("renders inspector context records with access and resolution badges", () => {
     render(React.createElement(ContextInspectorTab, { events: [auditEvent()] }));
 
@@ -174,6 +228,17 @@ describe("context audit overlay inputs", () => {
     expect(screen.getByText("2 resolved · 1 warning · 0 denied")).toBeTruthy();
     expect(screen.getByText("draft.summary")).toBeTruthy();
     expect(screen.getByText("[redacted]")).toBeTruthy();
+  });
+
+  it("renders inspector denied records with error severity", () => {
+    render(React.createElement(ContextInspectorTab, { events: [deniedAuditEvent()] }));
+
+    expect(screen.getByText("Access declared")).toBeTruthy();
+    expect(screen.getByText("Denied 1")).toBeTruthy();
+    expect(screen.getByText("0 resolved · 0 warning · 1 denied")).toBeTruthy();
+    expect(screen.getByText(LONG_REF)).toBeTruthy();
+    expect(screen.getByText("denied")).toBeTruthy();
+    expect(screen.getByText("error")).toBeTruthy();
   });
 
   it("renders node-level context badges for the active audit run", () => {
@@ -194,6 +259,26 @@ describe("context audit overlay inputs", () => {
 
     expect(screen.getByText("Access declared")).toBeTruthy();
     expect(screen.getByText("Warning 1")).toBeTruthy();
+  });
+
+  it("renders node-level denied context badges for the active audit run", () => {
+    useContextAuditStore.getState().replaceRunEvents("run-context-surface", [deniedAuditEvent()]);
+
+    render(
+      React.createElement(SoulNode as React.ComponentType<Record<string, unknown>>, {
+        id: "strict_missing",
+        selected: false,
+        data: {
+          name: "Strict Missing",
+          status: "failed",
+          stepType: "linear",
+          soulRef: "writer",
+        },
+      }),
+    );
+
+    expect(screen.getByText("Access declared")).toBeTruthy();
+    expect(screen.getByText("Denied 1")).toBeTruthy();
   });
 
   it("adds non-persisted context overlay edges to the rendered canvas only", () => {

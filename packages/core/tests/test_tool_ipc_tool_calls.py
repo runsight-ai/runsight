@@ -13,6 +13,8 @@ from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
 from runsight_core.tools import ToolInstance
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestIpcToolCalls:
     """Tool calls should round-trip across the IPC boundary."""

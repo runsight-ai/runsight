@@ -9,6 +9,8 @@ from isolation_ipc_helpers import (
     _make_observer_interceptor,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestObserverInterceptorContract:
     """ObserverInterceptor OTel span lifecycle and trace context propagation."""

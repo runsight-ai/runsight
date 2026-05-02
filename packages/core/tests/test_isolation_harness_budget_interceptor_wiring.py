@@ -17,6 +17,8 @@ from runsight_core.isolation import (
     ResultEnvelope,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHarnessBudgetInterceptorWiring:
     """SubprocessHarness wires BudgetInterceptor into IPC execution."""

@@ -10,6 +10,8 @@ from isolation_harness_helpers import (
     _socket_fixture_path,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestSubprocessHarnessWiringContract:
     """SubprocessHarness internal wiring for handlers, allowlist, cleanup, and env."""

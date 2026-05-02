@@ -19,6 +19,8 @@ from runsight_core.isolation import (
     SubprocessHarness,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHeartbeatStallKill:
     """No heartbeat within timeout window must terminate the subprocess."""

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import pytest
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -14,6 +16,8 @@ from runsight_core.observer import (
     LoggingObserver,
     WorkflowObserver,
 )
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestOnBlockHeartbeatProtocol:

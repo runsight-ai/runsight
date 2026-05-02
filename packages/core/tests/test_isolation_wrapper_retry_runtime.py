@@ -12,6 +12,8 @@ from runsight_core.blocks.linear import LinearBlock
 from runsight_core.isolation.envelope import ResultEnvelope
 from runsight_core.yaml.schema import RetryConfig
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestRetryConfigWithWrapper:
     """retry_config on IsolatedBlockWrapper must control retry behavior."""

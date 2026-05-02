@@ -23,6 +23,8 @@ from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
 from runsight_core.state import BlockResult, WorkflowState
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class CapturingRunner:
     """Minimal async runner that records content sent by worker-side blocks."""

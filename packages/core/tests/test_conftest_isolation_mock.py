@@ -11,8 +11,9 @@ Tests verify four properties of the corrected conftest:
 3. The patched SubprocessHarness.run receives a ContextEnvelope and returns a
    ResultEnvelope, proving the wrapper built the envelope before calling the
    harness.
-4. Isolation-specific test files (test_iso_* etc.) are excluded from the mock
-   and exercise the real SubprocessHarness.run path.
+4. Tests marked real_subprocess_isolation are excluded from the mock and
+   exercise the real SubprocessHarness.run path. Filename prefixes are not the
+   exclusion contract.
 """
 
 from __future__ import annotations
@@ -400,17 +401,15 @@ class TestMockReturnsValidResultEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# Isolation-specific test files are excluded from the mock
+# Real subprocess tests are excluded from the mock by marker
 # ---------------------------------------------------------------------------
 
 
-class TestIsolationFilesAreExcluded:
-    """Files matching test_isolation_* and related prefixes must NOT have
-    SubprocessHarness.run patched — they exercise the real path."""
+class TestRealSubprocessMarkerContract:
+    """Only tests marked real_subprocess_isolation opt out of the subprocess mock."""
 
-    def test_exclusion_prefixes_include_test_isolation(self):
-        """The conftest _ISOLATION_TEST_PREFIXES must include 'test_isolation_'."""
-        # Import conftest directly to inspect its constant.
+    @staticmethod
+    def _load_conftest_module():
         import importlib.util
         from pathlib import Path
 
@@ -418,36 +417,60 @@ class TestIsolationFilesAreExcluded:
         spec = importlib.util.spec_from_file_location("conftest_module", conftest_path)
         conftest_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(conftest_mod)
+        return conftest_mod
 
-        prefixes = getattr(conftest_mod, "_ISOLATION_TEST_PREFIXES", None)
-        assert prefixes is not None, (
-            "_ISOLATION_TEST_PREFIXES is not defined in conftest. "
-            "The fixture cannot selectively exclude isolation tests."
+    @staticmethod
+    def _make_request(marker):
+        class _Node:
+            def get_closest_marker(self, name: str):
+                if name == "real_subprocess_isolation":
+                    return marker
+                return None
+
+        class _Request:
+            node = _Node()
+
+        return _Request()
+
+    def test_marker_constant_names_real_subprocess_isolation(self):
+        """The explicit opt-out contract is the real_subprocess_isolation marker."""
+        conftest_mod = self._load_conftest_module()
+
+        marker_name = getattr(conftest_mod, "_REAL_SUBPROCESS_ISOLATION_MARKER", None)
+
+        assert marker_name == "real_subprocess_isolation", (
+            "conftest must expose the explicit real_subprocess_isolation marker "
+            "as the subprocess bypass opt-out contract."
         )
-        assert "test_isolation_" in prefixes, (
-            "'test_isolation_' is not in _ISOLATION_TEST_PREFIXES. "
-            "Isolation-specific tests will have harness patched incorrectly."
+
+    def test_marker_opt_out_helper_honors_marker_presence(self):
+        """A test with the marker must skip the in-process subprocess bypass."""
+        conftest_mod = self._load_conftest_module()
+        helper = conftest_mod._uses_real_subprocess_isolation
+        marker = object()
+
+        assert helper(self._make_request(marker)) is True
+
+    def test_marker_opt_out_helper_defaults_to_bypass_for_unmarked_tests(self):
+        """An unmarked test must keep the global in-process subprocess bypass."""
+        conftest_mod = self._load_conftest_module()
+        helper = conftest_mod._uses_real_subprocess_isolation
+
+        assert helper(self._make_request(None)) is False
+
+    def test_filename_prefixes_are_not_the_exclusion_contract(self):
+        """The bypass fixture must not inspect test filenames or prefix allowlists."""
+        conftest_mod = self._load_conftest_module()
+
+        assert not hasattr(conftest_mod, "_ISOLATION_TEST_PREFIXES"), (
+            "filename-prefix subprocess bypass exclusions are obsolete; "
+            "tests must opt out with @pytest.mark.real_subprocess_isolation."
         )
 
-    def test_exclusion_prefixes_include_harness_test_files(self):
-        """_ISOLATION_TEST_PREFIXES must cover the known isolation test file prefixes."""
-        import importlib.util
-        from pathlib import Path
-
-        conftest_path = Path(__file__).parent / "conftest.py"
-        spec = importlib.util.spec_from_file_location("conftest_module", conftest_path)
-        conftest_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(conftest_mod)
-
-        prefixes = getattr(conftest_mod, "_ISOLATION_TEST_PREFIXES", ())
-        for expected in (
-            "test_worker_proxies_extract",
-            "test_worker_support_extract",
-        ):
-            assert expected in prefixes, (
-                f"'{expected}' is not in _ISOLATION_TEST_PREFIXES. "
-                "Those tests exercise real isolation and must not be patched."
-            )
+        source = inspect.getsource(conftest_mod._bypass_subprocess_isolation)
+        assert "request.fspath" not in source
+        assert "basename.startswith" not in source
+        assert "_ISOLATION_TEST_PREFIXES" not in source
 
     def test_bypass_fixture_patches_harness_run_not_wrapper_execute(self):
         """The _bypass_subprocess_isolation fixture must patch SubprocessHarness.run,

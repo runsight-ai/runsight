@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHTTPHandlerTransportContract:
     """make_http_handler must call httpx with strict controls."""

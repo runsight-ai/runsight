@@ -16,6 +16,8 @@ from tool_integration_helpers import (
     _write_workflow_file,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestIsolatedExecutionToolEnvelope:
     """Isolated worker envelopes should include resolved tool metadata."""

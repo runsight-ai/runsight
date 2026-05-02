@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from isolation_wrapper_helpers import make_ctx as _make_ctx
 from isolation_wrapper_helpers import make_soul as _make_soul
 from isolation_wrapper_helpers import make_state as _make_state
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestConversationHistoryRoundTrip:

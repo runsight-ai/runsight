@@ -14,6 +14,8 @@ from isolation_harness_helpers import (
     _socket_fixture_path,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestMinimalEnvironment:
     """Subprocess must receive minimal env with grant token, not API key."""

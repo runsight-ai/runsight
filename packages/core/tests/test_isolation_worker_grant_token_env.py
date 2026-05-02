@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from isolation_worker_helpers import (
     make_context_envelope,
     parse_result_envelope,
     run_worker_subprocess,
     worker_socket_path,
 )
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestWorkerGrantTokenContract:

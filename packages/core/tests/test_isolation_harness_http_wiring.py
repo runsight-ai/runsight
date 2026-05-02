@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHarnessHTTPWiringContract:
     """Harness passes host-scoped credentials to HTTP handler factory."""

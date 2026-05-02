@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestFileIOBaseDir:
     """File I/O handler must scope all paths to a per-workflow base directory."""

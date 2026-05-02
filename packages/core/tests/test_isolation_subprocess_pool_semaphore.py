@@ -2,10 +2,14 @@
 
 import asyncio
 
+import pytest
+
 # Shared fixtures
 from isolation_dispatch_delegate_helpers import (
     _make_result_envelope,
 )
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestSubprocessPoolSemaphore:

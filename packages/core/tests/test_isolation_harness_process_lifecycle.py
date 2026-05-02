@@ -14,6 +14,8 @@ from runsight_core.isolation import (
     HeartbeatMessage,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestTimeoutEnforcement:
     """Subprocess must be killed when it exceeds the timeout."""

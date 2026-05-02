@@ -7,6 +7,8 @@ from isolation_harness_helpers import (
     _tool_call_passthrough,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestIpcHandlerRegistration:
     """Harness should register all engine-side IPC handlers, including generic tool_call."""

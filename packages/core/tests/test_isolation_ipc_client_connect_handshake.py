@@ -13,6 +13,8 @@ from isolation_ipc_helpers import (
     _capability_response_for,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 # ---------------------------------------------------------------------------
 # Grant token authentication and RPC allowlist contract
 # ---------------------------------------------------------------------------

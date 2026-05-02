@@ -9,6 +9,8 @@ from isolation_harness_helpers import (
     _fixture_url,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestLLMCallHandlerContract:
     """Engine-side llm_call handler factory and harness registration contract."""

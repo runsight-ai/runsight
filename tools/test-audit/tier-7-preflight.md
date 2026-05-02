@@ -8,7 +8,7 @@ Tier 7 is the final deep-review cleanup tier. It handles the 11 remaining
 `REVIEW_DEEP` rows in `tools/test-audit/full-test-cleanup-map.tsv` after Tier 6
 removed the fixture-externalization queue.
 
-Current audit state:
+Pre-flight audit state:
 
 | Metric | Count |
 |---|---:|
@@ -49,6 +49,43 @@ Expected audit outcome after Tier 7:
 The exact final `KEEP` count may change if source-scan or governance suites are
 deleted and replaced with fewer behavior-owner suites. The invariant is no
 remaining cleanup action rows.
+
+## Completion Result
+
+Tier 7 is complete as of 2026-05-02.
+
+Final audit state:
+
+| Metric | Count |
+|---|---:|
+| Mapped test files | 738 |
+| Aligned `KEEP` files | 738 |
+| Remaining `REVIEW_DEEP` files | 0 |
+| Remaining `EXTERNALIZE_FIXTURES` files | 0 |
+| Remaining `SPLIT` files | 0 |
+
+Resolved owner decisions:
+
+- GUI settings source-regex suites were deleted and replaced by rendered
+  Settings page, provider-management, fallback, and setup accessibility owners.
+- The route-mocked context-audit E2E spec and helper were deleted; missing
+  denied/error/long-reference assertions moved to GUI context-audit owners.
+- API source/governance-heavy suites were shrunk into behavior owners for SSE
+  event names, streaming/registry behavior, read-model factory wiring, and
+  workflow YAML validation.
+- Core subprocess isolation no longer uses filename-prefix exclusions. Tests
+  that exercise the real subprocess boundary now opt out explicitly with
+  `real_subprocess_isolation`; the 61 legacy real-isolation owner files are
+  marked at module level.
+- The stale 1,041-line exit-port governance suite was deleted after focused
+  exit/loop/output-condition owner suites were targeted-verified.
+
+RGB gate:
+
+- Blue approved the updated Tier 7 diff after the subprocess marker follow-up.
+- Yellow approved the intent alignment after the subprocess marker follow-up.
+- Full pytest, Vitest, and Playwright suites were not run, per repo rule; only
+  targeted verification commands were used.
 
 ## Definition Of Done
 

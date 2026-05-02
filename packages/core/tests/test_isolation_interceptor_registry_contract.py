@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestInterceptorRegistryContract:
     """Interceptor registry applies request/response/stream hooks in deterministic order."""

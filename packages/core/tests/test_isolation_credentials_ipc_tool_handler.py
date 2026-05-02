@@ -6,6 +6,8 @@ import pytest
 from isolation_credentials_helpers import _tool_call_boom, _tool_call_echo
 from runsight_core.isolation import SubprocessHarness
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestSubprocessCredentialScoping:
     """Harness must resolve tool credentials and pass them only via IPC handlers."""

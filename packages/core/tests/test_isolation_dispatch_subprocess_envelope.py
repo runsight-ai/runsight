@@ -1,5 +1,7 @@
 """Dispatch subprocess envelope behavior."""
 
+import pytest
+
 # Shared fixtures
 from isolation_dispatch_delegate_helpers import (
     _execute_wrapper,
@@ -10,6 +12,8 @@ from isolation_dispatch_delegate_helpers import (
 )
 from runsight_core.blocks.dispatch import DispatchBranch
 from runsight_core.isolation.envelope import DelegateArtifact
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestDispatchSingleSubprocess:

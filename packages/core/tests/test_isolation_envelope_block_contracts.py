@@ -12,6 +12,8 @@ from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.state import BlockResult, WorkflowState
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestEnvelopeBlockContracts:
     """Wrapper emits full envelope config for supported block types."""

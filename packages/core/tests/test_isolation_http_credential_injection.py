@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHTTPCredentialInjection:
     """Engine-side IPC http handler must inject credentials into outgoing requests.

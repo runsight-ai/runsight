@@ -12,6 +12,8 @@ from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWrapperExposesSoul:
     """The wrapper must expose self.soul from the inner block for telemetry."""

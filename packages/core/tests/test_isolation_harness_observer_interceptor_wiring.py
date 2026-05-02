@@ -16,6 +16,8 @@ from runsight_core.isolation import (
     ResultEnvelope,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHarnessObserverInterceptorWiring:
     """SubprocessHarness registers ObserverInterceptor in IPC registry."""

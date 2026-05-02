@@ -8,6 +8,8 @@ from isolation_worker_helpers import (
 )
 from runsight_core.isolation.envelope import ToolDefEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerCapabilityNegotiationStartup:
     """Worker startup uses IPCClient.connect capability handshake."""

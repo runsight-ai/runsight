@@ -15,6 +15,8 @@ from isolation_worker_helpers import (
 )
 from runsight_core.isolation.envelope import ResultEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerAssertionBlockContract:
     """Worker must construct assertion adapters for assertion block envelopes."""

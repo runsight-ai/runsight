@@ -13,6 +13,8 @@ from isolation_worker_helpers import (
 )
 from runsight_core.isolation.envelope import ContextEnvelope, HeartbeatMessage, ResultEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerHeartbeat:
     """Worker must emit heartbeat JSON lines on stderr with phase info."""

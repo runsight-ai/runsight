@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 from isolation_ipc_helpers import _make_budget_interceptor, _make_grant_token
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 @pytest.mark.asyncio
 async def test_budget_interceptor_accrues_over_ipc_and_kills_next_request(tmp_path: Path) -> None:

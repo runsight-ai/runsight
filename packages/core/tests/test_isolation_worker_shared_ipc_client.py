@@ -10,6 +10,8 @@ import pytest
 from isolation_worker_helpers import make_context_envelope, worker_socket_path
 from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerSharedIPCClientContract:
     """Worker uses a single shared IPC client and expanded block type creation."""

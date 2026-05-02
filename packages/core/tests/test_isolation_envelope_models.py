@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import pytest
+
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 def test_context_envelope_round_trips_nested_runtime_payload() -> None:
     from runsight_core.isolation import (

@@ -14,6 +14,8 @@ from isolation_ipc_helpers import (
     _make_grant_token,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 # ---------------------------------------------------------------------------
 # IPCServer dispatches http, file_io, delegate, and write_artifact actions
 # ---------------------------------------------------------------------------

@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 from runsight_core.yaml.schema import BaseBlockDef
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestBaseBlockDefSchemaAdditions:
     """BaseBlockDef must include timeout_seconds and stall_thresholds fields."""

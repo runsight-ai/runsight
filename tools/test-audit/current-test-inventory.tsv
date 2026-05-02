@@ -40,7 +40,7 @@ apps/api/tests/domain/test_run_node_eval_fields.py	api	228	.py
 apps/api/tests/domain/test_run_started_at_defaults.py	api	76	.py
 apps/api/tests/domain/test_soul_identity_schema.py	api	137	.py
 apps/api/tests/domain/test_soul_schema_alignment.py	api	125	.py
-apps/api/tests/domain/test_sse_event_constants.py	api	299	.py
+apps/api/tests/domain/test_sse_event_constants.py	api	43	.py
 apps/api/tests/domain/test_state_transition_guards.py	api	473	.py
 apps/api/tests/domain/test_transport_soul_schema.py	api	142	.py
 apps/api/tests/domain/test_workflow_entity_enabled.py	api	69	.py
@@ -75,7 +75,7 @@ apps/api/tests/logic/test_execution_service_main_branch_loading.py	api	119	.py
 apps/api/tests/logic/test_execution_service_snapshot_resolution.py	api	287	.py
 apps/api/tests/logic/test_execution_snapshot_discovery_fail_closed.py	api	246	.py
 apps/api/tests/logic/test_execution_snapshot_preparation.py	api	279	.py
-apps/api/tests/logic/test_execution_stream_registry_cleanup.py	api	70	.py
+apps/api/tests/logic/test_execution_stream_registry_cleanup.py	api	74	.py
 apps/api/tests/logic/test_git_service.py	api	435	.py
 apps/api/tests/logic/test_git_service_missing_binary.py	api	45	.py
 apps/api/tests/logic/test_library_soul_usage_scanning.py	api	528	.py
@@ -88,7 +88,7 @@ apps/api/tests/logic/test_provider_pulse_release_digest_eval_configs.py	api	43	.
 apps/api/tests/logic/test_provider_service.py	api	592	.py
 apps/api/tests/logic/test_regression_logic.py	api	522	.py
 apps/api/tests/logic/test_run_node_summary_counts.py	api	155	.py
-apps/api/tests/logic/test_run_repository_read_model_split.py	api	336	.py
+apps/api/tests/logic/test_run_repository_read_model_split.py	api	284	.py
 apps/api/tests/logic/test_run_service.py	api	365	.py
 apps/api/tests/logic/test_run_service_child_runs.py	api	40	.py
 apps/api/tests/logic/test_run_service_create_run_fields.py	api	101	.py
@@ -104,7 +104,7 @@ apps/api/tests/logic/test_sse_streaming_service_events.py	api	364	.py
 apps/api/tests/logic/test_ssrf_provider.py	api	430	.py
 apps/api/tests/logic/test_state_flow.py	api	208	.py
 apps/api/tests/logic/test_stream_subscription.py	api	405	.py
-apps/api/tests/logic/test_streaming_observer.py	api	93	.py
+apps/api/tests/logic/test_streaming_observer.py	api	113	.py
 apps/api/tests/logic/test_streaming_observer_redaction.py	api	47	.py
 apps/api/tests/logic/test_wire_assertion_configs.py	api	243	.py
 apps/api/tests/logic/test_workflow_enabled_service_contract.py	api	7	.py
@@ -165,6 +165,7 @@ apps/api/tests/transport/test_model_providers_endpoint.py	api	110	.py
 apps/api/tests/transport/test_models_endpoint.py	api	219	.py
 apps/api/tests/transport/test_node_response_enrichment.py	api	405	.py
 apps/api/tests/transport/test_not_found_error_responses.py	api	95	.py
+apps/api/tests/transport/test_read_model_dependency_factories.py	api	57	.py
 apps/api/tests/transport/test_regression_endpoints.py	api	454	.py
 apps/api/tests/transport/test_regression_transport_contracts.py	api	161	.py
 apps/api/tests/transport/test_response_fields.py	api	154	.py
@@ -205,7 +206,8 @@ apps/api/tests/unit/data/filesystem/test_workflow_registry_ids.py	api	123	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_collaborator_boundaries.py	api	395	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_patch_yaml_field.py	api	103	.py
 apps/api/tests/unit/data/filesystem/test_workflow_repo_scanner_collaboration.py	api	282	.py
-apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py	api	274	.py
+apps/api/tests/unit/data/filesystem/test_workflow_repo_tool_governance.py	api	190	.py
+apps/api/tests/unit/data/filesystem/test_workflow_yaml_validation.py	api	104	.py
 apps/api/tests/unit/logic/test_execution_service_secret_resolution.py	api	97	.py
 apps/api/tests/unit/logic/test_provider_connection_security.py	api	220	.py
 apps/api/tests/unit/logic/test_provider_filesystem_wiring_governance.py	api	101	.py
@@ -246,12 +248,11 @@ apps/gui/src/features/runs/__tests__/runsPageContract.test.ts	gui	324	.test.ts
 apps/gui/src/features/runs/__tests__/runsWarningsColumn.test.tsx	gui	305	.test.tsx
 apps/gui/src/features/runs/__tests__/statusEnumValues.test.ts	gui	172	.test.ts
 apps/gui/src/features/runs/__tests__/warningBadges.test.tsx	gui	380	.test.tsx
-apps/gui/src/features/settings/__tests__/modelsFallbackRows.test.ts	gui	105	.test.ts
-apps/gui/src/features/settings/__tests__/modelsFallbackToggle.test.ts	gui	106	.test.ts
-apps/gui/src/features/settings/__tests__/providersDeleteDialog.test.ts	gui	65	.test.ts
-apps/gui/src/features/settings/__tests__/settingsAccessibility.test.ts	gui	62	.test.ts
-apps/gui/src/features/settings/__tests__/settingsErrorStates.test.ts	gui	74	.test.ts
+apps/gui/src/features/settings/__tests__/settingsFallbackBehavior.test.tsx	gui	400	.test.tsx
+apps/gui/src/features/settings/__tests__/settingsPageBehavior.test.tsx	gui	91	.test.tsx
+apps/gui/src/features/settings/__tests__/settingsProviderManagement.test.tsx	gui	285	.test.tsx
 apps/gui/src/features/setup/__tests__/apiKeyModalBehavior.test.tsx	gui	192	.test.tsx
+apps/gui/src/features/setup/__tests__/connectionFeedbackAccessibility.test.tsx	gui	48	.test.tsx
 apps/gui/src/features/setup/__tests__/setupStartFlow.test.tsx	gui	171	.test.tsx
 apps/gui/src/features/setup/__tests__/templateYaml.test.ts	gui	176	.test.ts
 apps/gui/src/features/setup/__tests__/workflowCreateIdentity.test.tsx	gui	72	.test.tsx
@@ -263,7 +264,7 @@ apps/gui/src/features/surface/__tests__/bottomPanelControllers.test.tsx	gui	726	
 apps/gui/src/features/surface/__tests__/canvasStoreRunState.test.ts	gui	239	.test.ts
 apps/gui/src/features/surface/__tests__/canvasTopbarRunControls.test.tsx	gui	123	.test.tsx
 apps/gui/src/features/surface/__tests__/contextAuditContract.test.ts	gui	86	.test.ts
-apps/gui/src/features/surface/__tests__/contextAuditSurfaces.test.ts	gui	254	.test.ts
+apps/gui/src/features/surface/__tests__/contextAuditSurfaces.test.ts	gui	339	.test.ts
 apps/gui/src/features/surface/__tests__/cubicContextAuditPanel.test.tsx	gui	132	.test.tsx
 apps/gui/src/features/surface/__tests__/editorTypeSurfaceContract.test.ts	gui	17	.test.ts
 apps/gui/src/features/surface/__tests__/executionMetrics.test.tsx	gui	126	.test.tsx
@@ -333,7 +334,7 @@ packages/core/tests/assertions/test_scoring.py	core	176	.py
 packages/core/tests/assertions/test_string_assertions.py	core	593	.py
 packages/core/tests/assertions/test_structural_assertions.py	core	301	.py
 packages/core/tests/assertions/test_transform_hooks.py	core	462	.py
-packages/core/tests/conftest.py	core	338	.py
+packages/core/tests/conftest.py	core	328	.py
 packages/core/tests/test_achat_budget_enforcement.py	core	419	.py
 packages/core/tests/test_achat_token_breakdown_contract.py	core	137	.py
 packages/core/tests/test_artifact_store_wiring.py	core	469	.py
@@ -372,7 +373,7 @@ packages/core/tests/test_codeblock_exit_handle.py	core	284	.py
 packages/core/tests/test_codeblock_sandbox_hardening.py	core	214	.py
 packages/core/tests/test_composite_observer_isolation.py	core	188	.py
 packages/core/tests/test_condition_engine.py	core	602	.py
-packages/core/tests/test_conftest_isolation_mock.py	core	478	.py
+packages/core/tests/test_conftest_isolation_mock.py	core	501	.py
 packages/core/tests/test_context_audit_observer.py	core	293	.py
 packages/core/tests/test_context_declaration_parser.py	core	288	.py
 packages/core/tests/test_context_governance_contract.py	core	442	.py
@@ -413,7 +414,6 @@ packages/core/tests/test_eval_schema_metadata.py	core	58	.py
 packages/core/tests/test_eval_yaml_schema.py	core	433	.py
 packages/core/tests/test_execute_block_extraction.py	core	239	.py
 packages/core/tests/test_exit_handle_all_block_types.py	core	109	.py
-packages/core/tests/test_exit_port_suite_ownership_governance.py	core	1041	.py
 packages/core/tests/test_fit_to_budget_phase1.py	core	449	.py
 packages/core/tests/test_fit_to_budget_phase2.py	core	620	.py
 packages/core/tests/test_gate_execute.py	core	490	.py
@@ -425,7 +425,7 @@ packages/core/tests/test_integration_workflow_block_parser.py	core	96	.py
 packages/core/tests/test_integration_workflow_block_with_other_blocks.py	core	90	.py
 packages/core/tests/test_interface_execution.py	core	174	.py
 packages/core/tests/test_isolation_block_schema_parser_wiring.py	core	284	.py
-packages/core/tests/test_isolation_boundary_integration.py	core	105	.py
+packages/core/tests/test_isolation_boundary_integration.py	core	106	.py
 packages/core/tests/test_isolation_context_scope.py	core	273	.py
 packages/core/tests/test_isolation_credentials_ipc_tool_handler.py	core	116	.py
 packages/core/tests/test_isolation_dispatch_delegate_artifacts.py	core	348	.py
@@ -440,7 +440,7 @@ packages/core/tests/test_isolation_harness_ipc_handler_registration.py	core	37	.
 packages/core/tests/test_isolation_harness_llm_ipc_contract.py	core	164	.py
 packages/core/tests/test_isolation_harness_observer_interceptor_wiring.py	core	126	.py
 packages/core/tests/test_isolation_harness_process_lifecycle.py	core	314	.py
-packages/core/tests/test_isolation_harness_result_contracts.py	core	286	.py
+packages/core/tests/test_isolation_harness_result_contracts.py	core	287	.py
 packages/core/tests/test_isolation_harness_stall_monitoring.py	core	323	.py
 packages/core/tests/test_isolation_harness_subprocess_contract.py	core	235	.py
 packages/core/tests/test_isolation_harness_subprocess_runtime.py	core	410	.py
@@ -471,12 +471,12 @@ packages/core/tests/test_isolation_worker_ipc_tool_stubs.py	core	135	.py
 packages/core/tests/test_isolation_worker_proxied_llm_client.py	core	232	.py
 packages/core/tests/test_isolation_worker_shared_ipc_client.py	core	299	.py
 packages/core/tests/test_isolation_worker_state_context.py	core	218	.py
-packages/core/tests/test_isolation_worker_subprocess_startup.py	core	217	.py
+packages/core/tests/test_isolation_worker_subprocess_startup.py	core	218	.py
 packages/core/tests/test_isolation_wrapper_block_wrapping.py	core	82	.py
 packages/core/tests/test_isolation_wrapper_budget_fitting.py	core	60	.py
 packages/core/tests/test_isolation_wrapper_conversation_history.py	core	111	.py
 packages/core/tests/test_isolation_wrapper_cost_token_propagation.py	core	93	.py
-packages/core/tests/test_isolation_wrapper_harness_delegation.py	core	412	.py
+packages/core/tests/test_isolation_wrapper_harness_delegation.py	core	413	.py
 packages/core/tests/test_isolation_wrapper_loop_subprocess_blocks.py	core	79	.py
 packages/core/tests/test_isolation_wrapper_retry_runtime.py	core	218	.py
 packages/core/tests/test_isolation_wrapper_soul_contract.py	core	120	.py
@@ -708,7 +708,6 @@ packages/ui/src/utils/__tests__/cnCanonical.test.ts	ui	64	.test.ts
 testing/gui-e2e/tests/canvas-mutations.spec.ts	e2e	113	.spec.ts
 testing/gui-e2e/tests/canvas-stateful-roundtrip.spec.ts	e2e	92	.spec.ts
 testing/gui-e2e/tests/canvas-yaml.spec.ts	e2e	118	.spec.ts
-testing/gui-e2e/tests/context-audit-flow.spec.ts	e2e	120	.spec.ts
 testing/gui-e2e/tests/dashboard.spec.ts	e2e	100	.spec.ts
 testing/gui-e2e/tests/governance/harness-surface.test.ts	e2e	94	.test.ts
 testing/gui-e2e/tests/missing-resource-pages.spec.ts	e2e	29	.spec.ts

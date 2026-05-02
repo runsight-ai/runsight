@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runsight_core.isolation.envelope import ToolDefEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerIPCToolStubs:
     """Tools must be routed through IPCClient, not executed locally."""

@@ -14,6 +14,8 @@ from isolation_ipc_helpers import (
     _send_raw_authenticated_request_and_collect_frames,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestBudgetInterceptorContract:
     """BudgetInterceptor budget checks, accrual, and IPC short-circuit behavior."""

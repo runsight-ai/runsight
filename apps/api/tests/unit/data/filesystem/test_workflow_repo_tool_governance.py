@@ -13,10 +13,8 @@ from pathlib import Path
 
 import pytest
 
-import runsight_api.data.filesystem.workflow_repo as workflow_repo_module
 from runsight_api.domain.errors import InputValidationError
 from runsight_api.data.filesystem.workflow_repo import WorkflowRepository
-from runsight_core.yaml.validation import ValidationResult
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[3] / "fixtures" / "workflow_repo_tool_governance"
 
@@ -56,16 +54,11 @@ def test_create_stores_tool_governance_warning_on_entity(tmp_path):
 
     assert entity.valid is True
     assert entity.validation_error is None
-    assert entity.warnings == [
-        {
-            "message": (
-                "soul:researcher (custom/souls/researcher.yaml) references undeclared "
-                "tool:http. Declared tools: []"
-            ),
-            "source": "tool_governance",
-            "context": "researcher",
-        }
-    ]
+    assert len(entity.warnings) == 1
+    assert entity.warnings[0]["source"] == "tool_governance"
+    assert entity.warnings[0]["context"] == "researcher"
+    assert "soul:researcher" in entity.warnings[0]["message"]
+    assert "tool:http" in entity.warnings[0]["message"]
 
 
 def test_update_recomputes_tool_governance_warning_from_raw_yaml(tmp_path):
@@ -86,16 +79,11 @@ def test_update_recomputes_tool_governance_warning_from_raw_yaml(tmp_path):
 
     assert updated.valid is True
     assert updated.validation_error is None
-    assert updated.warnings == [
-        {
-            "message": (
-                "soul:researcher (custom/souls/researcher.yaml) references undeclared "
-                "tool:http. Declared tools: []"
-            ),
-            "source": "tool_governance",
-            "context": "researcher",
-        }
-    ]
+    assert len(updated.warnings) == 1
+    assert updated.warnings[0]["source"] == "tool_governance"
+    assert updated.warnings[0]["context"] == "researcher"
+    assert "soul:researcher" in updated.warnings[0]["message"]
+    assert "tool:http" in updated.warnings[0]["message"]
 
 
 def test_create_validates_canonical_builtin_tool_ids_against_repo_contract(tmp_path):
@@ -113,7 +101,7 @@ def test_create_validates_canonical_builtin_tool_ids_against_repo_contract(tmp_p
     assert entity.validation_error is None
 
 
-def test_create_surfaces_missing_custom_tool_id_validation_error(tmp_path):
+def test_create_surfaces_missing_custom_tool_metadata_warning(tmp_path):
     repo = WorkflowRepository(base_path=str(tmp_path))
     _write_soul_file(tmp_path, "researcher", ["lookup_profile"])
 
@@ -126,6 +114,10 @@ def test_create_surfaces_missing_custom_tool_id_validation_error(tmp_path):
 
     assert entity.valid is True
     assert entity.validation_error is None
+    assert len(entity.warnings) == 1
+    assert entity.warnings[0]["source"] == "tool_definitions"
+    assert entity.warnings[0]["context"] == "lookup_profile"
+    assert "tool:lookup_profile" in entity.warnings[0]["message"]
 
 
 def test_create_rejects_legacy_typed_tool_authoring(tmp_path):
@@ -166,82 +158,6 @@ code: |
     assert entity.valid is False
     assert entity.validation_error is not None
     assert "http" in entity.validation_error
-
-
-def test_validate_yaml_content_preserves_error_and_warning_payloads(tmp_path, monkeypatch):
-    repo = WorkflowRepository(base_path=str(tmp_path))
-
-    error_result = ValidationResult()
-    error_result.add_warning(
-        "Tool definition produced a warning alongside an error",
-        source="tool_definitions",
-        context="http",
-    )
-    error_result.add_error(
-        "Tool definition validation exploded",
-        source="tool_definitions",
-        context="http",
-    )
-    warning_result = ValidationResult()
-    warning_result.add_warning(
-        "Tool definition is only a warning",
-        source="tool_definitions",
-        context="http",
-    )
-
-    monkeypatch.setattr(
-        workflow_repo_module,
-        "_validate_declared_tool_definitions",
-        lambda *args, **kwargs: error_result,
-    )
-
-    valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-error", _workflow_fixture_text("valid-declared-tool.yaml")
-    )
-
-    assert valid is False
-    assert validation_error is not None
-    assert "Tool definition validation exploded" in validation_error
-    assert warnings == error_result.warnings_as_dicts()
-
-
-def test_validate_yaml_content_returns_warning_payloads_for_warning_only_result(
-    tmp_path, monkeypatch
-):
-    repo = WorkflowRepository(base_path=str(tmp_path))
-
-    warning_result = ValidationResult()
-    warning_result.add_warning(
-        "Tool definition is only a warning",
-        source="tool_definitions",
-        context="lookup_profile",
-    )
-
-    monkeypatch.setattr(
-        workflow_repo_module,
-        "_validate_declared_tool_definitions",
-        lambda *args, **kwargs: warning_result,
-    )
-
-    valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-warning", _workflow_fixture_text("valid-declared-tool.yaml")
-    )
-
-    assert valid is True
-    assert validation_error is None
-    assert warnings == warning_result.warnings_as_dicts()
-
-
-def test_validate_yaml_content_returns_empty_warning_list_for_schema_error(tmp_path):
-    repo = WorkflowRepository(base_path=str(tmp_path))
-
-    valid, validation_error, warnings = repo._validate_yaml_content(
-        "governance-schema-error", _workflow_fixture_text("legacy-typed-tool.yaml")
-    )
-
-    assert valid is False
-    assert validation_error is not None
-    assert warnings == []
 
 
 def test_build_entity_attaches_warnings_from_validation_result(tmp_path, monkeypatch):

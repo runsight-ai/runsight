@@ -15,6 +15,8 @@ from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWrapperHarnessDelegationPreventsDirectExecution:
     """Wrapper delegates to SubprocessHarness.run(), not direct block.execute()."""

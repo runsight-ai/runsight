@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
 from isolation_wrapper_helpers import make_soul as _make_soul
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
+
+pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestIsolatedBlockWrapperWrapsBlocks:

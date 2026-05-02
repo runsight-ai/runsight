@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestHTTPURLAllowlist:
     """HTTP requests must be validated against a URL allowlist."""

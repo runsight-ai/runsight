@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestProxiedLLMClientContract:
     """Worker LLM path must use ProxiedLLMClient over IPC, not direct LiteLLM calls."""

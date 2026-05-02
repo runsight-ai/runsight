@@ -12,6 +12,8 @@ from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import ResultEnvelope
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 def _make_context(**overrides: Any) -> AssertionContext:
     defaults = dict(

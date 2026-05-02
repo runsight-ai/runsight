@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 class TestWorkerImportBoundary:
     """Worker must not import runsight_core.workflow, observer, or api modules."""

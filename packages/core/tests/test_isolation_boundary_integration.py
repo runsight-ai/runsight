@@ -15,6 +15,8 @@ from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.schema import BlockLimitsDef
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 def _soul(soul_id: str = "soul-integration") -> Soul:
     return Soul(

@@ -17,6 +17,8 @@ from tool_integration_helpers import (
     _write_workflow_dict_file,
 )
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 @pytest.mark.asyncio
 @patch("runsight_core.runner.LiteLLMClient.achat")
