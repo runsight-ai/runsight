@@ -181,6 +181,13 @@ describe("rendered form control contracts", () => {
     const input = screen.getByRole("textbox") as HTMLInputElement;
     expect(input.placeholder).toBe("Add a tag");
 
+    await user.keyboard("{Enter}");
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+
+    await user.type(input, "   ,");
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+    expect(input.value).toBe("");
+
     await user.type(input, " alpha ");
     await user.keyboard("{Enter}");
 
