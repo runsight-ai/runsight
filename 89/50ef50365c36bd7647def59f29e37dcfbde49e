@@ -1,0 +1,23 @@
+testing/gui-e2e/tests/governance/context-audit-ownership.test.ts
+  4126d974ecf6dd44 1-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "8950ef50365c36bd7647def59f29e37dcfbde49e",
+  "prompts": {
+    "4126d974ecf6dd44": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de799-ea5d-7f20-b666-fb17341c4fbf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 219,
+      "total_deletions": 12,
+      "accepted_lines": 216,
+      "overriden_lines": 0
+    }
+  }
+}
