@@ -1,0 +1,323 @@
+tools/test-audit/current-test-inventory.tsv
+  4adca821c1af8eb3 15,17,24,48-49,59,62,73,75,81,83,88-89,97,100,106,109,117,128,132,142,156-157,159,186,195,197,203,214,226,240,245,258,260,262,274,282-283,286,290-291,328,388
+apps/gui/src/features/surface/__tests__/sharedCanvasPath.test.tsx
+  4adca821c1af8eb3 9-14,173-174,201,204-205,217
+apps/api/tests/test_execution_transport_integration.py
+  af528d62b36cdd55 20,22-27,66
+  ea0609cd639bcefc 88,94,121,140,153,166,174
+  148ca64af3bca62e 29
+apps/api/tests/logic/test_async_httpx.py
+  25c5a79f5553dab6 21-29,142-143,145,161-162,164,179-180,182,199-200,202,218-219,221,280,282,298-299,301,322-323,325,345-346,348,371-372,374
+  4adca821c1af8eb3 279
+apps/gui/src/features/surface/__tests__/runInputsModal.test.tsx
+  8cc94e6f70b7b432 8-16
+apps/api/tests/logic/sse_event_helpers.py
+  4adca821c1af8eb3 1-21
+apps/api/tests/logic/test_regression_logic.py
+  4adca821c1af8eb3 14,18-24
+apps/gui/src/features/surface/__tests__/helpers/genericBlockRoundTripHelpers.ts
+  4adca821c1af8eb3 8-45,92-134
+apps/api/tests/logic/assertion_config_fixtures.py
+  af528d62b36cdd55 1-133
+apps/api/tests/transport/eval_endpoint_helpers.py
+  4adca821c1af8eb3 1-114
+apps/api/tests/transport/test_workflow_simulation_input_schema_router.py
+  148ca64af3bca62e 10-22,33-34,39,44-45,56-58,62-63,68,73-74,81,86,106,111,127,132,147,152,165,171
+apps/api/tests/logic/eval_observer_helpers.py
+  ea0609cd639bcefc 11-12,14,16-17,31-36,235-590
+apps/api/tests/logic/test_execution_service_concurrency.py
+  8cc94e6f70b7b432 8,222
+  ea0609cd639bcefc 13-18,55,79,85,117,141,147,172,191,197,232,238,245,269,282,287,296,312,340,345,360,378,383,390,404,409,478,484,493,572,577,585,619,629,635,645
+apps/api/tests/logic/execution_service_helpers.py
+  4adca821c1af8eb3 1-64
+apps/api/tests/unit/logic/settings_service_helpers.py
+  4adca821c1af8eb3 1-60
+apps/gui/src/features/dashboard/__tests__/dashboardTestBuilders.ts
+  4adca821c1af8eb3 1-125
+apps/gui/src/features/surface/__tests__/helpers/runInputsFixtures.ts
+  4adca821c1af8eb3 1-233
+apps/api/tests/logic/test_eval_observer_custom_assertion.py
+  4adca821c1af8eb3 5,8-16
+apps/api/tests/unit/core/test_secrets.py
+  25c5a79f5553dab6 16-21,37,51,254,294,300,313-314,323-324
+  4adca821c1af8eb3 315,325
+apps/gui/src/features/dashboard/__tests__/activeRunsSection.test.ts
+  4adca821c1af8eb3 4,8-17,175
+apps/gui/src/features/surface/__tests__/helpers/surfaceStreamTestHelpers.ts
+  4adca821c1af8eb3 42-57,177-207
+apps/api/tests/data/base_yaml_helpers.py
+  4adca821c1af8eb3 1-46
+apps/api/tests/logic/test_nested_run_lifecycle.py
+  25c5a79f5553dab6 24
+  ea0609cd639bcefc 17,22,105,181,210,233,263,304,312,366,392,431,501,554,562,595,602
+apps/api/tests/logic/nested_run_helpers.py
+  4adca821c1af8eb3 1-50
+apps/api/tests/transport/git_router_helpers.py
+  4adca821c1af8eb3 1-56
+apps/api/tests/transport/test_attention.py
+  148ca64af3bca62e 21
+  25c5a79f5553dab6 22-26,28,44,54,74,104-115,125-136,145-156,177-188,196-207,227-238,246-257,277-288,297-308,330,339,347
+apps/gui/src/features/souls/__tests__/soulLibraryPageContract.test.ts
+  4adca821c1af8eb3 3-9,16,18,21,74-75,86,119,132,141,154,165,178,186
+packages/core/tests/assertions/test_custom_adapter.py
+  148ca64af3bca62e 11,242,288,322,367,395,418,445,475
+  af528d62b36cdd55 9,12-20,25,34,43,51,77,83,98,107,130,142,153,163,198,207,218,223,234,239,254,258,268,279,285,292,299,312,316,333,357,361,378,385,389,406,413,429,435,439,456,465,469,486
+apps/api/tests/unit/data/filesystem/settings_repo_helpers.py
+  4adca821c1af8eb3 1-62
+tools/test-audit/tier-6-preflight.md
+  4adca821c1af8eb3 5-7
+apps/gui/src/features/git/__tests__/commitDialogSaveContract.test.ts
+  4adca821c1af8eb3 3-11,20,100,110,119,128,159,161,169
+apps/api/tests/transport/test_eval_endpoints.py
+  4adca821c1af8eb3 26-32,113,119,133,147,159,182,197,210,242,254,277,289
+apps/api/tests/logic/test_wire_assertion_configs.py
+  148ca64af3bca62e 15-16
+  af528d62b36cdd55 11-14,17-22
+apps/api/tests/data/test_snapshot_validation.py
+  ea0609cd639bcefc 141-157,159,171-175,177-181,183,220-239,241,259-278,280
+  4adca821c1af8eb3 15,47,67,96,176
+  8cc94e6f70b7b432 4-9,16-19,21,33-41,43-46,48,58,60-66,68,81-92,94-95,97,108-122,124,293-312,314-322,336-355,357
+apps/api/tests/logic/test_soul_service.py
+  4adca821c1af8eb3 4-23,32,41-42,44,56-58,60,69-70,72,81,83,92-93,95-109,121-122,131,138-168,181-182,192-202,213-214,216-233,245,251,264,270,279-280,286,338-339,342-347,361-362,368-369,386,398,403,422-423,428-429,451,469,482,493-506,520,522-530
+apps/gui/src/features/surface/__tests__/helpers/saveCommitsToMainFixtures.ts
+  4adca821c1af8eb3 1-188
+apps/api/tests/transport/test_eval_kpis.py
+  8cc94e6f70b7b432 17,20-23
+apps/api/tests/transport/sse_stream_helpers.py
+  4adca821c1af8eb3 1-102
+apps/gui/src/features/surface/__tests__/rerunWorkflowInputs.test.tsx
+  8cc94e6f70b7b432 9-16,279,324,349,412,439,466,504,538
+tools/test-audit/full-test-cleanup-map.tsv
+  4adca821c1af8eb3 15,17,24,48-49,59,62,73,75,81,83,88-89,97,100,103,106,109,117,128,132,142,156-157,159,186,195,197,203,214,226,240,245,258,260,262,274,282-283,286,290-291,328,388
+apps/api/tests/data/filesystem_fixtures.py
+  4adca821c1af8eb3 1-72
+apps/gui/src/features/git/__tests__/commitDialogTestBuilders.ts
+  4adca821c1af8eb3 1-103
+apps/api/tests/transport/test_git_file_read.py
+  148ca64af3bca62e 24-29,35,109,121,133,136,152-156,288
+apps/api/tests/logic/branch_execution_fixtures.py
+  4adca821c1af8eb3 1-78
+apps/api/tests/logic/provider_service_helpers.py
+  4adca821c1af8eb3 1-55
+packages/core/tests/assertions/custom_adapter_helpers.py
+  148ca64af3bca62e 1-93
+apps/api/tests/logic/regression_fixtures.py
+  4adca821c1af8eb3 1-107
+apps/gui/src/features/surface/__tests__/saveCommitsToMain.test.ts
+  4adca821c1af8eb3 12,18-24,26,28-29,34-36,40,72,84,93,177,180,183,191,324-325,328,331
+apps/gui/src/features/souls/__tests__/soulLibraryTestBuilders.ts
+  4adca821c1af8eb3 1-77
+apps/gui/src/features/surface/__tests__/genericBlockRoundTripContract.test.ts
+  4adca821c1af8eb3 7-8,11,14-16,23,39,62,90,141,161
+apps/api/tests/fixtures/parser_warning_run_snapshots/helpers.py
+  4adca821c1af8eb3 1-181
+apps/api/tests/logic/test_workflow_input_validation.py
+  8cc94e6f70b7b432 12-16,20,51,70,92,106,127,142,158,191,214-216,236-238,240,277-280,291-294
+  4adca821c1af8eb3 17-19,232
+apps/api/tests/logic/soul_usage_fixtures.py
+  4adca821c1af8eb3 1-132
+apps/api/tests/logic/workflow_input_validation_fixtures.py
+  4adca821c1af8eb3 1-147
+apps/api/tests/unit/logic/test_settings_service.py
+  4adca821c1af8eb3 14-20,25,37,42,54,68,76,83,92,97,102,109,136,143,152,157,165,186,193,208,217,229,236,250-251,256,264,271,284,292,295,304,313,324,331,343,346,356,365,372,385,396,405,412
+apps/gui/src/features/souls/__tests__/soulDialogTestBuilders.ts
+  4adca821c1af8eb3 1-105
+apps/api/tests/data/test_filesystem.py
+  4adca821c1af8eb3 7-14,25,40,52,84,97,111,119,128,132,149,166,184,219,234-236,250,259
+apps/api/tests/logic/soul_service_helpers.py
+  4adca821c1af8eb3 1-128
+apps/gui/src/features/souls/__tests__/soulDeleteDialogContract.test.ts
+  4adca821c1af8eb3 3-9,415,431,486,505
+apps/api/tests/logic/stream_subscription_helpers.py
+  4adca821c1af8eb3 1-50
+apps/api/tests/logic/test_sim_branches.py
+  ea0609cd639bcefc 18-21,35,40,52,57,70,75,86,91,113,118,123-124,129,134,150,153,157,161,169,174,194,199,210,215,227,232,236,251,256,267,272,281,298,308,312,331,336,341,350,372,398,411
+apps/gui/src/features/surface/__tests__/bottomPanelControllers.test.tsx
+  4adca821c1af8eb3 11-12,15,395,398,414,418,433,436,450,456,463,469,471,482,493,496,529,532-533,538,570,573-574,577,616,619,632,635,642,645,659,663,669,672
+apps/api/tests/logic/provider_http_fixtures.py
+  4adca821c1af8eb3 1-85
+apps/api/tests/transport/eval_kpi_helpers.py
+  4adca821c1af8eb3 1-62
+apps/api/tests/data/snapshot_validation_fixtures.py
+  4adca821c1af8eb3 1-83
+apps/gui/src/features/runs/__tests__/runsPageTestBuilders.ts
+  4adca821c1af8eb3 1-198
+apps/api/tests/logic/test_sse_streaming_service_events.py
+  4adca821c1af8eb3 15
+apps/api/tests/transport/test_sse_stream.py
+  41c5018d4c952bfd 544,560,582-585,605
+  148ca64af3bca62e 20
+  ea0609cd639bcefc 219-230,244,279,281-285,307,326,328-333,355,550,590
+  8cc94e6f70b7b432 21-28,84,106,128,157,178
+  25c5a79f5553dab6 43,49,70,76,92,98,114,120,143,149,164,170,216,236
+apps/api/tests/test_parser_warning_run_snapshots.py
+  148ca64af3bca62e 30
+  ea0609cd639bcefc 16,20-28,81,118,135,137-138,140,219,229,248,264
+apps/api/tests/logic/test_eval_observer_transform.py
+  25c5a79f5553dab6 14,16,18-28
+apps/api/tests/logic/test_provider_service.py
+  4adca821c1af8eb3 69
+  25c5a79f5553dab6 13-17,68,84,113,143,156,169
+apps/gui/src/features/runs/__tests__/runsPageContract.test.ts
+  4adca821c1af8eb3 5,7-20,23-24,48,115,119-120,123
+tools/test-audit/SUMMARY.md
+  4adca821c1af8eb3 30-34,65,72-73,81-82,84,91,94-95,105-108,125-126
+apps/api/tests/transport/workflow_simulation_schema_helpers.py
+  4adca821c1af8eb3 1-138
+apps/api/tests/unit/data/filesystem/test_settings_repo.py
+  25c5a79f5553dab6 11-25,30,33,36-37,39-42,64-69,91,93-95,99-101,105-107,110,112,120,130-136,140-142,146-148,154-157,170,176-177,185,207-213,220-222,234-235,241-242,248-249,257,267-273,286,291-297,327-332
+apps/api/tests/logic/test_execution_service_snapshot_resolution.py
+  ea0609cd639bcefc 5,10,21-22,24-25,35,80,123,173,216,272
+  4adca821c1af8eb3 11-16,18-20
+  b084a26105399d11 17,23,37,101,144,147,194,244
+  af528d62b36cdd55 44-45,53,103-104,113,154-155,163,196-197,206,246-247,257
+apps/api/tests/logic/sim_branch_helpers.py
+  4adca821c1af8eb3 1-35
+apps/api/tests/fixtures/execution_transport/helpers.py
+  4adca821c1af8eb3 1-217
+apps/api/tests/logic/test_library_soul_usage_scanning.py
+  9437559c90ab0e36 9-25,43-47,61,74-80,100-101,103-112,124-125,127-136,147-157,166-176,194-211,213-214,228-235,237-238,247-248,250-258,272-273,275-283,302,318-333,341-356,364-384,394-397,399-423,436-437,439-440,452,465,475,484-491,493,501-518,520-521
+  4adca821c1af8eb3 212,236,249,519
+packages/core/tests/test_custom_assertion_registration.py
+  148ca64af3bca62e 9-19,29-31,74-76,96-97,114-116,122,145,147,175-176,182,184,193,201-203,205,244-245,247,273-274,280,282
+apps/api/tests/unit/core/secrets_helpers.py
+  4adca821c1af8eb3 1-41
+apps/api/tests/logic/test_stream_subscription.py
+  4adca821c1af8eb3 13-16,32,49,73,91,123,127,151,161,190-191,208,235,258-259,265,296-297,301,331-332,336,389,403
+packages/core/tests/custom_assertion_registration_helpers.py
+  4adca821c1af8eb3 1-140
+apps/gui/src/features/surface/__tests__/readonlySurfaceIntegration.test.tsx
+  4adca821c1af8eb3 18,23,265
+apps/api/tests/data/test_base_yaml_repository.py
+  4adca821c1af8eb3 5,7-13,54-55,57,84-85,87,218-219,221,230,232
+apps/api/tests/transport/attention_helpers.py
+  4adca821c1af8eb3 1-83
+apps/api/tests/logic/test_branch_aware_exec.py
+  4adca821c1af8eb3 16,18-25,39,51-52,59,70-71,78,89-90,110,124-125,141,156-157,170,184-185,206,217-218,223,228,241-242,259,277-278,283,298,312-313,338,340,352-353,367,369,381-382,397,399,410-411,424,426,438-439
+apps/api/tests/logic/snapshot_resolution_fixtures.py
+  4adca821c1af8eb3 1-410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "429d8146f1504c48b29e05a1334ce9a0dc3f6d23",
+  "prompts": {
+    "148ca64af3bca62e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-073b-7ac1-babc-5ad2b2eb76db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 204,
+      "total_deletions": 426,
+      "accepted_lines": 204,
+      "overriden_lines": 0
+    },
+    "25c5a79f5553dab6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-0916-7770-a916-48f512e32af6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 327,
+      "total_deletions": 810,
+      "accepted_lines": 317,
+      "overriden_lines": 0
+    },
+    "41c5018d4c952bfd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-0aa7-7ef3-831a-37a71c4ea6ee",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 9,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 4687,
+      "total_deletions": 2217,
+      "accepted_lines": 28482,
+      "overriden_lines": 100
+    },
+    "8cc94e6f70b7b432": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-0bdc-75c2-9922-62f9131a7907",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 210,
+      "total_deletions": 855,
+      "accepted_lines": 198,
+      "overriden_lines": 0
+    },
+    "9437559c90ab0e36": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea30-3fef-73f3-816e-fa82a5152a30",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 253,
+      "total_deletions": 426,
+      "accepted_lines": 251,
+      "overriden_lines": 0
+    },
+    "af528d62b36cdd55": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-0531-7953-9f6a-5d2ff08cb8fd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 229,
+      "total_deletions": 523,
+      "accepted_lines": 219,
+      "overriden_lines": 0
+    },
+    "b084a26105399d11": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea3a-ecc4-7b50-b242-b0ae43732afb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 616,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    },
+    "ea0609cd639bcefc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dea1d-05bd-7f31-bc8c-d170a7965bd7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 655,
+      "total_deletions": 734,
+      "accepted_lines": 631,
+      "overriden_lines": 0
+    }
+  }
+}
