@@ -1,0 +1,23 @@
+apps/gui/src/features/setup/__tests__/setupStartFlow.test.tsx
+  4adca821c1af8eb3 156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b58ff97b306bf70d9f91e788701213a9f96de472",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 23029,
+      "overriden_lines": 0
+    }
+  }
+}
