@@ -22,7 +22,7 @@ def _seed_run(
     session: Session,
     run_id: str,
     *,
-    workflow_id: str = "wf-930",
+    workflow_id: str = "wf-direct-provenance",
     workflow_name: str = "Direct API Workflow",
     created_at: float,
     source: str = "manual",
@@ -77,10 +77,10 @@ class TestDirectApiRunReadModelProvenance:
             source="api",
             branch="main",
             commit_sha=COMMITTED_MAIN_SHA,
-            source_correlation_id="corr-930",
+            source_correlation_id="corr-direct-provenance",
             source_metadata={
                 "entry_path": "direct_api",
-                "client_request_id": "req-930",
+                "client_request_id": "req-direct-provenance",
             },
         )
         db_session.commit()
@@ -98,10 +98,10 @@ class TestDirectApiRunReadModelProvenance:
         assert api_items[0].source == "api"
         assert api_items[0].branch == "main"
         assert api_items[0].commit_sha == COMMITTED_MAIN_SHA
-        assert api_items[0].source_correlation_id == "corr-930"
+        assert api_items[0].source_correlation_id == "corr-direct-provenance"
         assert api_items[0].source_metadata == {
             "entry_path": "direct_api",
-            "client_request_id": "req-930",
+            "client_request_id": "req-direct-provenance",
         }
 
         assert all_total == 3

@@ -12,7 +12,7 @@ import pytest
 from runsight_api.domain.entities.run import RunStatus
 
 
-WORKFLOW_ID = "run944_runtime_guardrails"
+WORKFLOW_ID = "runtime_guardrails_workflow"
 
 
 def _invoker_contract():

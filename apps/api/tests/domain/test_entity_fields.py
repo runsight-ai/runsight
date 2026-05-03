@@ -174,7 +174,7 @@ class TestSqliteBackfillColumns:
 
         from runsight_api.main import _ensure_sqlite_columns
 
-        db_path = tmp_path / "run663_legacy_with_created_at.sqlite"
+        db_path = tmp_path / "legacy_with_created_at.sqlite"
         engine = create_engine(f"sqlite:///{db_path}")
         with engine.begin() as conn:
             conn.exec_driver_sql(

@@ -22,7 +22,7 @@ from runsight_api.transport.deps import (
 )
 
 
-WORKFLOW_ID = "run932_direct_api"
+WORKFLOW_ID = "direct_route_workflow"
 COMMITTED_MAIN_SHA = "932" * 13 + "9"
 SECRET_INPUT = "secret-direct-route-input"
 SECRET_AUTH = "Bearer secret-direct-route-auth"
@@ -431,7 +431,7 @@ def test_direct_api_omitted_enabled_saved_main_snapshot_returns_404_without_run_
             kind="workflow",
             id=WORKFLOW_ID,
             name="Omitted Enabled Main Workflow",
-            yaml="id: run932_direct_api\nkind: workflow\nworkflow:\n  name: Omitted Enabled Main Workflow\n",
+            yaml="id: direct_route_workflow\nkind: workflow\nworkflow:\n  name: Omitted Enabled Main Workflow\n",
         )
     )
 

@@ -75,7 +75,9 @@ NON_BROWSER_E2E_WORDING_RE = re.compile(
     r"(?<![A-Za-z0-9])(?i:end(?:[-_]|\s+)to(?:[-_]|\s+)end)(?![A-Za-z0-9])",
 )
 TICKET_FIXTURE_IDENTITY_RE = re.compile(
-    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9]+[-_])*run[-_]\d{3,}(?:[-_][A-Za-z0-9]+)*(?![A-Za-z0-9_-])",
+    r"(?<![A-Za-z0-9_-])(?:[A-Za-z0-9]+[-_])*"
+    r"(?:run|wf|corr|req|secret|idem)[-_]?\d{3,}(?:[-_][A-Za-z0-9]+)*"
+    r"(?![A-Za-z0-9_-])",
     re.IGNORECASE,
 )
 STRUCTURAL_TITLE_TICKET_RE = re.compile(

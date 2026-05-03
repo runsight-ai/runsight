@@ -33,7 +33,7 @@ def test_body_limit_rejects_oversized_payload_before_json_parsing_or_storage() -
         return {"ok": True}
 
     response = TestClient(app).post(
-        "/api/workflows/wf_944/runs",
+        "/api/workflows/wf_runtime_guardrails/runs",
         content=b'{"inputs":{"query":"' + (b"x" * 128),
         headers={
             "content-type": "application/json",
@@ -51,7 +51,7 @@ def test_external_invocation_log_context_redacts_auth_headers_raw_body_and_input
 
     context = redact_external_invocation_log_context(
         method="POST",
-        path="/api/workflows/wf_944/runs",
+        path="/api/workflows/wf_runtime_guardrails/runs",
         headers={
             "authorization": "Bearer secret-token-944",
             "x-api-key": "secret-api-key-944",
@@ -83,7 +83,7 @@ def test_external_invocation_log_context_redacts_sensitive_keys_inside_input_lis
 
     context = redact_external_invocation_log_context(
         method="POST",
-        path="/api/workflows/wf_944/runs",
+        path="/api/workflows/wf_runtime_guardrails/runs",
         headers={},
         body=None,
         inputs={"records": [{"token": "secret-list-token", "query": "safe"}]},
@@ -106,7 +106,7 @@ def test_redaction_handles_malformed_or_huge_body_without_leaking(raw_body: byte
 
     context = redact_external_invocation_log_context(
         method="POST",
-        path="/api/workflows/wf_944/runs",
+        path="/api/workflows/wf_runtime_guardrails/runs",
         headers={"authorization": "Bearer secret-token-944"},
         body=raw_body,
         inputs=None,

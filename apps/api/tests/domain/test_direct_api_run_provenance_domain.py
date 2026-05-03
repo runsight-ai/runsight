@@ -19,7 +19,7 @@ def _make_run(**overrides):
 
     values = {
         "id": "direct-provenance-provenance",
-        "workflow_id": "wf-930",
+        "workflow_id": "wf-direct-provenance",
         "workflow_name": "Direct API Workflow",
         "task_json": "{}",
         "branch": "main",
@@ -76,7 +76,7 @@ def _mock_run(
 ):
     run = Mock()
     run.id = run_id
-    run.workflow_id = "wf-930"
+    run.workflow_id = "wf-direct-provenance"
     run.workflow_name = "Direct API Workflow"
     run.source = source
     run.branch = branch
@@ -93,7 +93,7 @@ def _mock_node(
     node.node_id = "shared_node"
     node.run_id = run_id
     node.soul_id = "researcher"
-    node.soul_version = "sha256:run930"
+    node.soul_version = "sha256:direct-provenance"
     node.eval_score = 0.9
     node.eval_passed = eval_passed
     node.cost_usd = 0.01
@@ -166,8 +166,8 @@ class TestDirectApiRunEntityProvenance:
         SQLModel.metadata.create_all(engine)
         safe_metadata = {
             "entry_path": "direct_api",
-            "request_path": "/api/workflows/wf-930/invocations",
-            "client_request_id": "req-930",
+            "request_path": "/api/workflows/wf-direct-provenance/invocations",
+            "client_request_id": "req-direct-provenance",
         }
 
         with Session(engine) as session:
@@ -175,7 +175,7 @@ class TestDirectApiRunEntityProvenance:
                 _make_run(
                     id="direct-provenance-api",
                     source_metadata=safe_metadata,
-                    source_correlation_id="corr-930",
+                    source_correlation_id="corr-direct-provenance",
                 )
             )
             session.commit()
@@ -189,7 +189,7 @@ class TestDirectApiRunEntityProvenance:
         assert loaded.source == "api"
         assert loaded.branch == "main"
         assert loaded.commit_sha == COMMITTED_MAIN_SHA
-        assert loaded.source_correlation_id == "corr-930"
+        assert loaded.source_correlation_id == "corr-direct-provenance"
         assert loaded.source_metadata == safe_metadata
 
     @pytest.mark.parametrize(
@@ -247,7 +247,7 @@ class TestDirectApiRunResponseProvenance:
 
         response = RunResponse(
             id="run-api",
-            workflow_id="wf-930",
+            workflow_id="wf-direct-provenance",
             workflow_name="Direct API Workflow",
             status="pending",
             started_at=None,
@@ -259,8 +259,11 @@ class TestDirectApiRunResponseProvenance:
             branch="main",
             source="api",
             commit_sha=COMMITTED_MAIN_SHA,
-            source_correlation_id="corr-930",
-            source_metadata={"entry_path": "direct_api", "client_request_id": "req-930"},
+            source_correlation_id="corr-direct-provenance",
+            source_metadata={
+                "entry_path": "direct_api",
+                "client_request_id": "req-direct-provenance",
+            },
         )
 
         payload = response.model_dump()
@@ -269,10 +272,10 @@ class TestDirectApiRunResponseProvenance:
         assert payload["source"] == "api"
         assert payload["branch"] == "main"
         assert payload["commit_sha"] == COMMITTED_MAIN_SHA
-        assert payload["source_correlation_id"] == "corr-930"
+        assert payload["source_correlation_id"] == "corr-direct-provenance"
         assert payload["source_metadata"] == {
             "entry_path": "direct_api",
-            "client_request_id": "req-930",
+            "client_request_id": "req-direct-provenance",
         }
         assert "idempotency" not in serialized.lower()
 

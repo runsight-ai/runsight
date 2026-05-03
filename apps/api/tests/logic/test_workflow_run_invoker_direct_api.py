@@ -23,7 +23,7 @@ from runsight_api.logic.services.execution_service import (
 from runsight_api.logic.services.run_service import RunService
 
 
-WORKFLOW_ID = "run931_direct_api"
+WORKFLOW_ID = "direct_invocation_workflow"
 COMMITTED_MAIN_SHA = "931" * 13 + "9"
 
 
@@ -308,7 +308,7 @@ class _RecordingRunService:
             }
         )
         self.created_run = Mock()
-        self.created_run.id = "run_run931_created"
+        self.created_run.id = "run_direct_invocation_created"
         self.created_run.workflow_id = workflow_id
         self.created_run.workflow_name = (
             workflow_snapshot.name if workflow_snapshot is not None else workflow_id
@@ -549,7 +549,7 @@ class TestWorkflowRunInvokerDirectApiLaunch:
         result = await invoker.invoke(_direct_api_invocation())
 
         assert _field(result, "accepted") is True
-        assert _field(result, "run_id") == "run_run931_created"
+        assert _field(result, "run_id") == "run_direct_invocation_created"
         assert _value(_field(result, "status")) == "pending"
         assert _field(result, "commit_sha") == COMMITTED_MAIN_SHA
         assert run_service.create_calls == [
@@ -576,7 +576,7 @@ class TestWorkflowRunInvokerDirectApiLaunch:
         ]
         assert execution.launch_calls == [
             {
-                "run_id": "run_run931_created",
+                "run_id": "run_direct_invocation_created",
                 "workflow_id": WORKFLOW_ID,
                 "inputs": prepared,
                 "branch": "main",
@@ -668,11 +668,11 @@ class TestWorkflowRunInvokerDirectApiLaunch:
         _assert_failure_result(
             result,
             code="execution_launch_failed",
-            run_id="run_run931_created",
+            run_id="run_direct_invocation_created",
         )
         assert run_service.create_calls
         assert run_service.fail_calls == [
-            {"run_id": "run_run931_created", "error": "snapshot graph failed"}
+            {"run_id": "run_direct_invocation_created", "error": "snapshot graph failed"}
         ]
         assert _value(run_service.created_run.status) == "failed"
 

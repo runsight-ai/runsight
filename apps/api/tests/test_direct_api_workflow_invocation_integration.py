@@ -68,7 +68,7 @@ blocks:
               "asset_marker": "committed-direct",
           }
 workflow:
-  name: Run941 Committed Direct
+  name: Direct Workflow Committed Direct
   entry: echo
   transitions:
     - from: echo
@@ -93,7 +93,7 @@ blocks:
       def main(data):
           return {{"asset_marker": "{DIRTY_MARKER}"}}
 workflow:
-  name: Run941 Dirty Direct
+  name: Direct Workflow Dirty Direct
   entry: echo
   transitions:
     - from: echo
@@ -121,7 +121,7 @@ blocks:
       child_query: workflow.query
       child_token: workflow.api_token
 workflow:
-  name: Run941 Committed Parent
+  name: Direct Workflow Committed Parent
   entry: invoke_child
   transitions:
     - from: invoke_child
@@ -158,7 +158,7 @@ blocks:
               "asset_marker": "committed-child",
           }
 workflow:
-  name: Run941 Committed Child
+  name: Direct Workflow Committed Child
   entry: child_echo
   transitions:
     - from: child_echo
@@ -183,7 +183,7 @@ blocks:
       def main(data):
           return {{"asset_marker": "{DIRTY_MARKER}"}}
 workflow:
-  name: Run941 Dirty Child
+  name: Direct Workflow Dirty Child
   entry: child_echo
   transitions:
     - from: child_echo
@@ -417,7 +417,7 @@ async def test_direct_api_uses_committed_main_for_validation_metadata_and_dirty_
     assert run.source == "api"
     assert run.branch == "main"
     assert run.commit_sha == committed_sha
-    assert run.workflow_name == "Run941 Committed Direct"
+    assert run.workflow_name == "Direct Workflow Committed Direct"
     assert run.source_correlation_id == "corr-direct-workflow"
     assert run.source_metadata == {
         "entry_path": "direct_api",
@@ -511,7 +511,7 @@ async def test_direct_api_nested_workflow_execution_uses_committed_child_snapsho
     assert child_run.status == RunStatus.completed
     assert child_run.workflow_id == CHILD_WORKFLOW_ID
     assert child_run.parent_run_id == parent_run_id
-    assert child_run.workflow_name == "Run941 Committed Child"
+    assert child_run.workflow_name == "Direct Workflow Committed Child"
     assert child_run.workflow_input_schema is not None
     assert set(child_run.workflow_input_schema) == {"child_query", "child_token"}
     assert "dirty_child_only" not in child_run.workflow_input_schema
