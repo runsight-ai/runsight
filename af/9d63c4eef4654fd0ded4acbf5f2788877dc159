@@ -1,0 +1,31 @@
+packages/ui/src/components/ui/__tests__/renderedOverlayPrimitives.test.tsx
+  4adca821c1af8eb3 7-16,47-54,67-77,133-250
+packages/ui/src/components/ui/__tests__/renderedTabsAndTables.test.tsx
+  4adca821c1af8eb3 16,20-60
+packages/ui/src/components/ui/__tests__/renderedDisplayContracts.test.tsx
+  4adca821c1af8eb3 8,10-18,28-30,32,34,36,41-145
+packages/ui/src/components/ui/__tests__/renderedFormControls.test.tsx
+  4adca821c1af8eb3 6,9,29-67
+packages/ui/src/test/vitest.setup.ts
+  4adca821c1af8eb3 9-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "af9d63c4eef4654fd0ded4acbf5f2788877dc159",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 408,
+      "total_deletions": 45,
+      "accepted_lines": 23391,
+      "overriden_lines": 0
+    }
+  }
+}
