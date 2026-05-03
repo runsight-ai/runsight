@@ -13,9 +13,51 @@ import {
   TableMonoCell,
   TableRow,
 } from "../table";
+import { Pagination } from "../pagination";
 import { TabBadge, Tabs, TabsContent, TabsList, TabsTrigger } from "../tabs";
 
 describe("rendered tabs and tables", () => {
+  it("renders pagination ranges, ellipses, active page, and page-change controls", async () => {
+    const user = createUser();
+    const calls: number[] = [];
+
+    render(
+      <Pagination
+        page={5}
+        totalPages={10}
+        pageSize={25}
+        total={241}
+        onPageChange={(page) => calls.push(page)}
+      />,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "pagination" });
+    const current = screen.getByRole("button", { name: "Page 5" });
+
+    expect(nav.className).toContain("text-sm");
+    expect(current.getAttribute("aria-current")).toBe("page");
+    expect(screen.getAllByText("More pages")).toHaveLength(2);
+    expect(screen.getByText("101–125 of 241")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Go to previous page" }));
+    await user.click(screen.getByRole("button", { name: "Page 6" }));
+    await user.click(screen.getByRole("button", { name: "Go to next page" }));
+
+    expect(calls).toEqual([4, 6, 6]);
+  });
+
+  it("disables pagination boundary controls", () => {
+    const { rerender } = render(<Pagination page={1} totalPages={3} />);
+
+    expect((screen.getByRole("button", { name: "Go to previous page" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Go to next page" }) as HTMLButtonElement).disabled).toBe(false);
+
+    rerender(<Pagination page={3} totalPages={3} />);
+
+    expect((screen.getByRole("button", { name: "Go to previous page" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Go to next page" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("switches tabs through the rendered trigger and panel surface", async () => {
     const user = createUser();
 

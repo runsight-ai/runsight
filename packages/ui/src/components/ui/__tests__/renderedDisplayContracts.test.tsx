@@ -5,7 +5,17 @@ import { describe, expect, it } from "vitest";
 import { RunStatusDot } from "../../../../RunStatusDot";
 import { render, screen } from "../../../test/testUtils";
 import { EmptyState } from "../../shared/EmptyState";
+import { Avatar, AvatarGroup } from "../avatar";
 import { Badge, BadgeDot } from "../badge";
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../breadcrumb";
 import {
   Card,
   CardAction,
@@ -15,13 +25,124 @@ import {
   CardHeader,
   CardTitle,
 } from "../card";
+import { Divider } from "../divider";
+import { Field, FieldError, FieldHelper, FieldLabel } from "../field";
+import { Icon } from "../icon";
 import { KeyValue, KeyValueList } from "../key-value";
+import { Link } from "../link";
 import { NodeCard } from "../node-card";
+import { Progress } from "../progress";
 import { Skeleton } from "../skeleton";
+import { Spinner } from "../spinner";
 import { StatCard } from "../stat-card";
 import { StatusDot } from "../status-dot";
 
 describe("rendered display contracts", () => {
+  it("renders avatar initials, images, and stacked group presentation", () => {
+    const { container, rerender } = render(
+      <AvatarGroup aria-label="Assigned souls">
+        <Avatar size="lg">AD</Avatar>
+        <Avatar size="sm">QA</Avatar>
+      </AvatarGroup>,
+    );
+
+    const group = container.querySelector("[data-slot='avatar-group']");
+    const avatars = container.querySelectorAll("[data-slot='avatar']");
+
+    expect(group?.className).toContain("flex-row-reverse");
+    expect(avatars).toHaveLength(2);
+    expect(avatars[0]?.className).toContain("w-10");
+    expect(avatars[0]?.className).toContain("ml-0");
+    expect(avatars[1]?.className).toContain("w-6");
+    expect(avatars[1]?.className).toContain("-ml-2");
+
+    rerender(<Avatar src="/avatar.png" alt="Ada Lovelace" />);
+
+    const image = screen.getByAltText("Ada Lovelace");
+    expect(image.tagName).toBe("IMG");
+    expect(image.className).toContain("object-cover");
+  });
+
+  it("renders link, icon, divider, and field composition contracts", () => {
+    const { container } = render(
+      <Field>
+        <FieldLabel htmlFor="workflow-name" required>
+          Workflow name
+        </FieldLabel>
+        <Link href="https://example.test" variant="external">
+          Docs
+        </Link>
+        <Icon size="xl" aria-hidden="true">
+          <CircleAlertIcon />
+        </Icon>
+        <Divider orientation="vertical" />
+        <FieldHelper>Visible to teammates.</FieldHelper>
+        <FieldError>Required</FieldError>
+      </Field>,
+    );
+
+    const field = container.querySelector("[data-slot='field']");
+    const link = screen.getByRole("link", { name: /Docs/ });
+    const icon = container.querySelector("[data-slot='icon']");
+    const divider = screen.getByRole("separator");
+
+    expect(field?.className).toContain("flex");
+    expect(field?.className).toContain("gap-1");
+    expect(screen.getByText("Workflow name").textContent).toContain("*");
+    expect(link.className).toContain("text-accent");
+    expect(link.textContent).toContain("↗");
+    expect(icon?.className).toContain("size-6");
+    expect(divider.getAttribute("aria-orientation")).toBe("vertical");
+    expect(divider.className).toContain("w-px");
+    expect(screen.getByText("Visible to teammates.").className).toContain("text-muted");
+    expect(screen.getByText("Required").className).toContain("text-danger-11");
+  });
+
+  it("renders breadcrumb, progress, and spinner presentation contracts", () => {
+    const { container, rerender } = render(
+      <div>
+        <Breadcrumb separator="/">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/runs">Runs</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbEllipsis />
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage variant="id">RUN-423</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <Progress value={140} variant="success" />
+        <Spinner size="lg" variant="accent" />
+      </div>,
+    );
+
+    const breadcrumb = screen.getByRole("navigation", { name: "breadcrumb" });
+    const currentPage = screen.getByText("RUN-423");
+    const separators = container.querySelectorAll("[role='presentation'][aria-hidden='true']");
+    const progress = screen.getByRole("progressbar");
+    const spinner = screen.getByRole("status", { name: "Loading" });
+
+    expect(breadcrumb.className).toContain("overflow-hidden");
+    expect(screen.getByRole("link", { name: "Runs" }).className).toContain("text-muted");
+    expect(currentPage.getAttribute("aria-current")).toBe("page");
+    expect(currentPage.className).toContain("font-mono");
+    expect(separators[0]?.textContent).toBe("/");
+    expect(progress.getAttribute("aria-valuenow")).toBe("100");
+    expect(container.querySelector("[data-slot='progress-fill']")?.getAttribute("style")).toContain("width: 100%");
+    expect(spinner.className).toContain("text-interactive-default");
+    expect(spinner.querySelector("span")?.className).toContain("w-[24px]");
+
+    rerender(<Progress variant="indeterminate" value={50} />);
+
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBeNull();
+    expect(container.querySelector("[data-slot='progress-fill']")?.className).toContain("progress-slide");
+  });
+
   it("renders badge variants and the decorative badge dot", () => {
     render(
       <Badge variant="warning">

@@ -5,6 +5,16 @@ import { describe, expect, it, vi } from "vitest";
 import { createUser, render, screen, waitFor, within } from "../../../test/testUtils";
 import { Button } from "../button";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from "../command";
+import {
   Dialog,
   DialogBody,
   DialogClose,
@@ -35,6 +45,14 @@ import {
   DropdownMenuTrigger,
 } from "../dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "../popover";
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -46,6 +64,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../select";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../sheet";
+import { Toast } from "../toast";
 import { SoulTip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
 
 function DialogHarness() {
@@ -101,6 +130,124 @@ function SelectScrollArrowHarness() {
 }
 
 describe("rendered overlay primitive contracts", () => {
+  it("renders command palette structure, filtering, separators, and shortcuts", async () => {
+    const user = createUser();
+    const onSelect = vi.fn();
+
+    render(
+      <Command>
+        <CommandInput placeholder="Search actions" />
+        <CommandList>
+          <CommandEmpty>No actions found</CommandEmpty>
+          <CommandGroup heading="Workflows">
+            <CommandItem value="open workflow" onSelect={onSelect}>
+              Open workflow
+              <CommandShortcut>⌘O</CommandShortcut>
+            </CommandItem>
+            <CommandSeparator />
+            <CommandItem value="delete workflow">Delete workflow</CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </Command>,
+    );
+
+    const input = screen.getByPlaceholderText("Search actions");
+    const command = input.closest("[data-slot='command']");
+    const item = screen.getByText("Open workflow").closest("[data-slot='command-item']");
+
+    expect(command?.className).toContain("rounded-[var(--radius-2xl)]");
+    expect(input.className).toContain("placeholder:text-(--text-muted)");
+    expect(item).not.toBeNull();
+    expect(screen.getByText("⌘O").className).toContain("font-mono");
+    expect(document.querySelector("[data-slot='command-separator']")).not.toBeNull();
+
+    await user.click(item as HTMLElement);
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders controlled popover content with header semantics and positioning props", async () => {
+    render(
+      <Popover open>
+        <PopoverTrigger>Open filters</PopoverTrigger>
+        <PopoverContent side="right" align="start" className="custom-popover">
+          <PopoverHeader>
+            <PopoverTitle>Run filters</PopoverTitle>
+            <PopoverDescription>Narrow the run list.</PopoverDescription>
+          </PopoverHeader>
+        </PopoverContent>
+      </Popover>,
+    );
+
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-slot='popover-content']")).not.toBeNull();
+    });
+
+    const content = document.body.querySelector("[data-slot='popover-content']");
+    expect(content?.className).toContain("custom-popover");
+    expect(content?.className).toContain("shadow-[var(--elevation-overlay-shadow)]");
+    expect(screen.getByText("Run filters").closest("[data-slot='popover-title']")).not.toBeNull();
+    expect(screen.getByText("Narrow the run list.").closest("[data-slot='popover-description']")).not.toBeNull();
+  });
+
+  it("renders sheet body, footer, side variant, and close affordance inside the portal", async () => {
+    render(
+      <Sheet open>
+        <SheetTrigger>Open details</SheetTrigger>
+        <SheetContent side="bottom">
+          <SheetHeader>
+            <SheetTitle>Run details</SheetTitle>
+            <SheetDescription>Inspect the selected run.</SheetDescription>
+          </SheetHeader>
+          <SheetBody>Execution trace</SheetBody>
+          <SheetFooter>
+            <Button>Save</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>,
+    );
+
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-slot='sheet-content']")).not.toBeNull();
+    });
+
+    const content = document.body.querySelector("[data-slot='sheet-content']");
+    const overlay = document.body.querySelector("[data-slot='sheet-overlay']");
+
+    expect(content?.getAttribute("data-side")).toBe("bottom");
+    expect(content?.className).toContain("rounded-t-[var(--radius-xl)]");
+    expect(overlay?.className).toContain("bg-black/50");
+    expect(screen.getByText("Run details").closest("[data-slot='sheet-title']")).not.toBeNull();
+    expect(screen.getByText("Execution trace").closest("[data-slot='sheet-body']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  it("renders toast variants, ARIA roles, accent border, and dismiss actions", async () => {
+    const user = createUser();
+    const onDismiss = vi.fn();
+    const { rerender } = render(
+      <Toast
+        variant="danger"
+        title="Run failed"
+        description="The evaluator rejected the output."
+        onDismiss={onDismiss}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert.getAttribute("data-variant")).toBe("danger");
+    expect((alert as HTMLElement).style.borderLeft).toContain("var(--danger-9)");
+    expect(screen.getByText("Run failed").className).toContain("text-heading");
+    expect(screen.getByText("The evaluator rejected the output.").className).toContain("text-secondary");
+
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+
+    rerender(<Toast variant="success" title="Saved" />);
+
+    expect(screen.getByRole("status").getAttribute("data-variant")).toBe("success");
+  });
+
   it("opens dialogs from the trigger and closes them from the built-in footer close affordance", async () => {
     const user = createUser();
 
