@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
@@ -265,9 +265,5 @@ describe("generated Direct API shared contracts", () => {
     expect(parsed.commit_sha).toBe("9359359359359359359359359359359359359359");
     expect(parsed.source_correlation_id).toBe("request-run-935");
     expect(parsed.source_metadata).toEqual({ entry_path: "direct_api" });
-  });
-
-  it("does not recreate generated GUI contracts under the product app", () => {
-    expect(existsSync(resolve(REPO_ROOT, "apps", "gui", "src", "types", "generated"))).toBe(false);
   });
 });

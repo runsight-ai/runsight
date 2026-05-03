@@ -97,7 +97,7 @@ API_FIXTURE_TARGETS = (
     ),
     FixtureOwnershipTarget(
         "budget run status",
-        API_TESTS / "logic" / "test_budget_run_status.py",
+        API_TESTS / "logic" / "test_budget_exception_fail_metadata.py",
         API_FIXTURES / "budget_run_status",
     ),
     FixtureOwnershipTarget(
@@ -112,7 +112,7 @@ API_FIXTURE_TARGETS = (
     ),
     FixtureOwnershipTarget(
         "execution preparation",
-        API_TESTS / "logic" / "test_execution_preparation.py",
+        API_TESTS / "logic" / "execution_preparation_helpers.py",
         API_FIXTURES / "execution_preparation",
     ),
     FixtureOwnershipTarget(
@@ -155,12 +155,12 @@ API_FIXTURE_TARGETS = (
 RUNTIME_WORKSPACE_TARGETS = (
     RuntimeWorkspaceTarget(
         "assertion wiring",
-        API_TESTS / "logic" / "test_wire_assertion_configs.py",
+        API_TESTS / "logic" / "assertion_config_fixtures.py",
         "assertion_wiring_workspace",
     ),
     RuntimeWorkspaceTarget(
         "eval observer custom assertion",
-        API_TESTS / "logic" / "test_eval_observer_custom_assertion.py",
+        API_TESTS / "logic" / "eval_observer_helpers.py",
         "base_dir",
     ),
     RuntimeWorkspaceTarget(
@@ -170,12 +170,12 @@ RUNTIME_WORKSPACE_TARGETS = (
     ),
     RuntimeWorkspaceTarget(
         "execution transport",
-        API_TESTS / "test_execution_transport_integration.py",
+        API_TESTS / "fixtures" / "execution_transport" / "helpers.py",
         "base_dir",
     ),
     RuntimeWorkspaceTarget(
         "parser warning run snapshots",
-        API_TESTS / "test_parser_warning_run_snapshots.py",
+        API_TESTS / "fixtures" / "parser_warning_run_snapshots" / "helpers.py",
         "base_dir",
     ),
     RuntimeWorkspaceTarget(
@@ -193,13 +193,13 @@ RUNTIME_WORKSPACE_TARGETS = (
 DB_HELPER_TARGETS = (
     DbHelperTarget(
         "execution preparation",
-        API_TESTS / "logic" / "test_execution_preparation.py",
+        API_TESTS / "logic" / "execution_preparation_helpers.py",
         "_db_engine",
         True,
     ),
     DbHelperTarget(
         "execution transport",
-        API_TESTS / "test_execution_transport_integration.py",
+        API_TESTS / "fixtures" / "execution_transport" / "helpers.py",
         "db_engine",
         True,
     ),
@@ -332,6 +332,22 @@ def _is_pytest_fixture(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool
     )
 
 
+def _pytest_fixture_export_name(function: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    for decorator in function.decorator_list:
+        if _decorator_name(decorator) != "pytest.fixture" or not isinstance(decorator, ast.Call):
+            continue
+        for keyword in decorator.keywords:
+            if keyword.arg == "name":
+                alias = _literal_string(keyword.value)
+                if alias is not None:
+                    return alias
+        if decorator.args:
+            alias = _literal_string(decorator.args[0])
+            if alias is not None:
+                return alias
+    return function.name
+
+
 def _pytest_fixture_function(
     path: Path,
     fixture_name: str,
@@ -339,7 +355,7 @@ def _pytest_fixture_function(
     for statement in _source_tree(path).body:
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if statement.name == fixture_name and _is_pytest_fixture(statement):
+        if _is_pytest_fixture(statement) and _pytest_fixture_export_name(statement) == fixture_name:
             return statement
     return None
 

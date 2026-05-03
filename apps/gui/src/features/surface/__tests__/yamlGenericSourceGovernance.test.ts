@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+// Governance owner: apps/gui surface YAML behavior.
+// Boundary: prevents the rendered canvas YAML compiler/parser from regressing
+// to hardcoded per-block field maps after the generic compiler/parser migration.
+// Exit criteria: delete this source-governance suite once equivalent rendered
+// YAML round-trip coverage fails on those regressions through the public surface.
+
 function readSurfaceSource(relativePath: string): string {
   const canvasDir = resolve(__dirname, "..");
   return readFileSync(resolve(canvasDir, relativePath), "utf-8");
