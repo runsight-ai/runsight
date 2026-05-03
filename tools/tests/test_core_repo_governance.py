@@ -84,6 +84,15 @@ STRUCTURAL_TITLE_TICKET_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:RUN-\d+|test[_-]?run[_-]?\d{3,}|run[_-]?\d{3,}|AC\d+)",
     re.IGNORECASE,
 )
+TYPESCRIPT_RUNTIME_STATE_DERIVATION_RE = re.compile(
+    r"\b(?:path\.)?(?:resolve|join)\s*\("
+    r"[^;]*(?:__dirname|import\.meta\.url|process\.cwd\(\)|"
+    r"\b(?:REPO_ROOT|repoRoot|ROOT|rootDir|workspaceDir|projectRoot)\b)"
+    r"[^;]*['\"](?:custom|\.runsight|runsight\.db)['\"]|"
+    r"\b(?:REPO_ROOT|repoRoot|ROOT|rootDir|workspaceDir|projectRoot)\b"
+    r"[^;]*(?:/|\+|,)[^;]*['\"](?:custom|\.runsight|runsight\.db)['\"]",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 @dataclass(frozen=True)
@@ -380,6 +389,29 @@ def _find_policy_violations(pattern: PolicyPattern) -> list[str]:
                 if pattern.regex.search(line):
                     violations.append(f"{_relative(source_file)}:{line_number}: {line.strip()}")
     return violations
+
+
+def _iter_typescript_statements(source: str) -> list[tuple[int, str]]:
+    statements: list[tuple[int, str]] = []
+    start_line: int | None = None
+    chunk: list[str] = []
+
+    for line_number, line in enumerate(source.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith(("//", "/*", "*")):
+            continue
+        if start_line is None:
+            start_line = line_number
+        chunk.append(line)
+        if ";" in line:
+            statements.append((start_line, "\n".join(chunk)))
+            start_line = None
+            chunk = []
+
+    if chunk and start_line is not None:
+        statements.append((start_line, "\n".join(chunk)))
+
+    return statements
 
 
 def _python_tree_and_source(source_file: Path) -> tuple[ast.Module, str]:
@@ -770,6 +802,24 @@ def test_test_safety_policy_allowlist_entries_are_documented_and_current() -> No
 def test_test_safety_policy_patterns_do_not_reappear(pattern: PolicyPattern) -> None:
     violations = _find_policy_violations(pattern)
     assert violations == [], pattern.message + "\n" + "\n".join(violations)
+
+
+def test_typescript_unit_tests_do_not_derive_repo_root_runtime_state_paths() -> None:
+    violations: list[str] = []
+    for root in TYPESCRIPT_TEST_ROOTS:
+        for source_file in _iter_test_source_files(root):
+            for line_number, statement in _iter_typescript_statements(_read(source_file)):
+                if TYPESCRIPT_RUNTIME_STATE_DERIVATION_RE.search(statement):
+                    violations.append(
+                        f"{_relative(source_file)}:{line_number}: {statement.strip()}"
+                    )
+
+    assert violations == [], (
+        "TypeScript tests must not derive repo-root custom/, .runsight/, or runsight.db "
+        "paths. Use package-owned fixtures, tmp workspaces, or E2E runtime-root helpers; "
+        "literal product path strings are allowed when they are only API/UI payload data.\n"
+        + "\n".join(violations)
+    )
 
 
 def test_test_file_names_use_behavioral_owners_not_ticket_ids() -> None:
