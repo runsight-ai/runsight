@@ -1,0 +1,41 @@
+packages/shared/src/__tests__/runContracts.test.ts
+  4adca821c1af8eb3 24,30-34
+apps/api/tests/test_api_pytest_runtime_isolation.py
+  4adca821c1af8eb3 28,57
+tools/report_coverage_summary.py
+  4adca821c1af8eb3 1-80
+.github/workflows/publish.yml
+  4adca821c1af8eb3 32-74
+apps/api/tests/data/test_workflow_repo_identity.py
+  4adca821c1af8eb3 31,35,68-73
+packages/ui/vitest.config.ts
+  4adca821c1af8eb3 16-26
+packages/shared/vitest.config.ts
+  4adca821c1af8eb3 9-13
+apps/api/tests/data/test_workflow_repo_entity_name.py
+  4adca821c1af8eb3 31
+package.json
+  4adca821c1af8eb3 13
+apps/gui/vitest.unit.config.ts
+  4adca821c1af8eb3 11-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "dc0cfbdf43559f505a5ba4347aea95fb081b056c",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 183,
+      "total_deletions": 48,
+      "accepted_lines": 23196,
+      "overriden_lines": 0
+    }
+  }
+}
