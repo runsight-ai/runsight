@@ -1,0 +1,44 @@
+tools/tests/test_api_fixture_isolation_governance.py
+  4adca821c1af8eb3 100,115,158,163,173,178,196,202,335-350,358
+.gitignore
+  4adca821c1af8eb3 17
+pyproject.toml
+  4adca821c1af8eb3 3
+packages/shared/src/__tests__/directApiContracts.test.ts
+  4adca821c1af8eb3 1
+apps/gui/src/features/surface/__tests__/yamlGenericSourceGovernance.test.ts
+  4adca821c1af8eb3 6-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5a62061b3cd34c389a37c79fbbabe0c92a7eef92",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 35,
+      "total_deletions": 31,
+      "accepted_lines": 22747,
+      "overriden_lines": 0
+    },
+    "a3d1739ac882e144": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019def1a-6563-7a43-96da-0099f9cccc49",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
