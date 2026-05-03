@@ -1,0 +1,33 @@
+apps/gui/src/features/surface/__tests__/httpRequestYamlParser.test.ts
+  4adca821c1af8eb3 20,47
+packages/shared/src/__tests__/directApiContracts.test.ts
+  4adca821c1af8eb3 242-243,255,266
+packages/ui/src/components/ui/__tests__/renderedDisplayContracts.test.tsx
+  4adca821c1af8eb3 115,125
+apps/gui/src/features/surface/__tests__/surfaceRunInputsHistory.test.tsx
+  4adca821c1af8eb3 139,141,143-144,157-158,160
+apps/gui/src/features/runs/__tests__/apiSourceUi.test.tsx
+  4adca821c1af8eb3 77-78,164,167,169-170,183-184,186
+tools/tests/test_core_repo_governance.py
+  4adca821c1af8eb3 858,860-865,867-868
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bbd5bd4a20bca46297ed42398549ef5bd2dd64bf",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 31140,
+      "total_deletions": 52,
+      "accepted_lines": 31116,
+      "overriden_lines": 0
+    }
+  }
+}
