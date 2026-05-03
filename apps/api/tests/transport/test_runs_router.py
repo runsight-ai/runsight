@@ -156,6 +156,88 @@ def test_runs_post_smoke_prepares_persists_and_launches() -> None:
     )
 
 
+def test_runs_post_rejects_reserved_api_source_before_create_or_launch() -> None:
+    run_service = Mock()
+    execution_service = Mock()
+    execution_service.prepare_run_inputs.return_value = _prepared_inputs({"instruction": "go"})
+    execution_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_run_service] = lambda: run_service
+    app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+    response = client.post(
+        "/api/runs",
+        json={
+            "workflow_id": "wf_runs_router",
+            "inputs": {"instruction": "go"},
+            "source": "api",
+            "branch": TEST_BRANCH,
+        },
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+    assert body["status_code"] == 422
+    assert body["details"]["kind"] == "workflow_input_validation"
+    assert body["details"]["fields"][0]["field"] == "source"
+    execution_service.prepare_run_inputs.assert_not_called()
+    run_service.create_run.assert_not_called()
+    execution_service.launch_execution.assert_not_called()
+
+
+def test_runs_post_allows_omitted_branch_and_persists_main() -> None:
+    run = _make_mock_run("run_missing_branch", branch="main")
+    run_service = Mock()
+    run_service.create_run.return_value = run
+    run_service.refresh_run.return_value = run
+    execution_service = Mock()
+    prepared = _prepared_inputs({"instruction": "go"})
+    execution_service.prepare_run_inputs.return_value = prepared
+    execution_service.launch_execution = AsyncMock()
+    app.dependency_overrides[get_run_service] = lambda: run_service
+    app.dependency_overrides[get_execution_service] = lambda: execution_service
+
+    response = client.post(
+        "/api/runs",
+        json={"workflow_id": "wf_runs_router", "inputs": {"instruction": "go"}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["branch"] == "main"
+    assert response.json()["source"] == "manual"
+    execution_service.prepare_run_inputs.assert_called_once_with(
+        "wf_runs_router",
+        {"instruction": "go"},
+        branch=None,
+    )
+    run_service.create_run.assert_called_once_with(
+        "wf_runs_router",
+        prepared,
+        branch="main",
+        source="manual",
+    )
+    execution_service.launch_execution.assert_awaited_once_with(
+        "run_missing_branch",
+        "wf_runs_router",
+        prepared,
+        branch=None,
+    )
+
+
+def test_runs_post_large_unrelated_body_is_not_rejected_by_direct_api_body_limit() -> None:
+    response = client.post(
+        "/api/runs",
+        content=b'{"workflow_id":123,"inputs":{"blob":"' + (b"x" * 1_100_000) + b'"}}',
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "WORKFLOW_INPUT_VALIDATION_ERROR"
+    assert body["status_code"] == 422
+    assert body["error_code"] != "REQUEST_BODY_TOO_LARGE"
+
+
 def test_runs_nodes_smoke_serializes_node_payload() -> None:
     node = Mock()
     node.id = "run_transport_primary:analyze"

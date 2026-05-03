@@ -129,6 +129,13 @@ def test_validate_yaml_rejects_missing_id_and_wrong_kind(tmp_path: Path) -> None
     assert warnings == []
 
 
+def test_build_entity_from_yaml_reports_snapshot_id_mismatch_as_validation_error(tmp_path) -> None:
+    repo = WorkflowRepository(base_path=str(tmp_path))
+
+    with pytest.raises(InputValidationError, match="embedded id"):
+        repo.build_entity_from_yaml("legacy-workflow", _workflow_fixture_text())
+
+
 def test_update_keeps_yaml_and_canvas_persistence_in_separate_workflow_contract_files(
     tmp_path,
 ) -> None:

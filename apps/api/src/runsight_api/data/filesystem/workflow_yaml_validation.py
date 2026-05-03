@@ -62,6 +62,8 @@ def validate_yaml_content(
     tool_governance_validator: Callable[..., Any],
     has_workflow_blocks: Callable[[RunsightWorkflowFile], bool],
     soul_scanner_cls: Callable[..., Any] = SoulScanner,
+    git_ref: str | None = None,
+    git_service: Any = None,
 ) -> tuple[bool, Optional[str], list[dict[str, Optional[str]]]]:
     """Validate raw YAML into the repository entity-facing result shape."""
     if not raw_yaml:
@@ -75,13 +77,19 @@ def validate_yaml_content(
 
         file_def = RunsightWorkflowFile.model_validate(data)
         effective_workflow_input_schema(file_def)
-        souls_map = soul_scanner_cls(base_path).scan().ids()
+        scan_kwargs = {}
+        if git_ref is not None:
+            scan_kwargs = {"git_ref": git_ref, "git_service": git_service}
+        souls_map = soul_scanner_cls(base_path).scan(**scan_kwargs).ids()
         validation_result = tool_governance_validator(file_def, souls_map)
         validation_result.merge(
             declared_tool_definitions_validator(
                 file_def,
                 base_dir=str(base_path),
                 require_custom_metadata=True,
+                git_ref=git_ref,
+                git_service=git_service,
+                fail_closed=git_ref is not None,
             )
         )
         warnings = validation_result.warnings_as_dicts()
@@ -94,7 +102,7 @@ def validate_yaml_content(
 
         if has_workflow_blocks(file_def):
             try:
-                registry_builder(workflow_id, raw_yaml)
+                registry_builder(workflow_id, raw_yaml, git_ref=git_ref, git_service=git_service)
             except ValueError as exc:
                 return False, str(exc), warnings
 

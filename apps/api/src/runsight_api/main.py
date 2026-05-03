@@ -26,7 +26,12 @@ from .data.repositories.run_repo import RunRepository
 from .domain.errors import RunsightError
 from .logic.services.git_service import GitService
 from .logic.services.execution_service import ExecutionService
+from .logic.services.trigger_runtime import (
+    ExternalInvocationAdmission,
+    TriggerRuntimeConfig,
+)
 from .transport.middleware.access_log import AccessLogMiddleware
+from .transport.middleware.body_limit import BodySizeLimitMiddleware
 from .transport.middleware.error_handler import (
     global_exception_handler,
     request_validation_exception_handler,
@@ -54,6 +59,7 @@ def _recover_stale_runs(engine):
             workflow_repo=None,
             provider_repo=None,
             engine=engine,
+            max_concurrent_runs=app_settings.max_concurrent_runs,
         ).fail_ghost_runs()
 
 
@@ -73,6 +79,8 @@ def _ensure_sqlite_columns(engine) -> None:
             "error_traceback": "VARCHAR",
             "source": "VARCHAR NOT NULL DEFAULT 'manual'",
             "commit_sha": "VARCHAR",
+            "source_correlation_id": "VARCHAR",
+            "source_metadata": "JSON",
             "parent_run_id": "TEXT",
             "parent_node_id": "TEXT",
             "root_run_id": "TEXT",
@@ -97,6 +105,7 @@ def _ensure_sqlite_columns(engine) -> None:
     }
 
     with engine.begin() as conn:
+        table_columns: dict[str, set[str]] = {}
         for table_name, columns in additive_columns.items():
             existing = {
                 row[1]
@@ -106,6 +115,23 @@ def _ensure_sqlite_columns(engine) -> None:
                 if column_name in existing:
                     continue
                 conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl}"))
+                existing.add(column_name)
+            table_columns[table_name] = existing
+
+        run_columns = table_columns.get("run", set())
+        if {"source", "created_at"}.issubset(run_columns):
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_run_source_created_at ON run (source, created_at)"
+                )
+            )
+        if {"workflow_id", "source", "created_at"}.issubset(run_columns):
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_run_workflow_source_created_at "
+                    "ON run (workflow_id, source, created_at)"
+                )
+            )
 
 
 def _build_alembic_config() -> AlembicConfig:
@@ -131,11 +157,15 @@ async def lifespan(app: FastAPI):
     settings_repo = FileSystemSettingsRepo(base_path=app_settings.base_path)
     secrets = SecretsEnvLoader(base_path=app_settings.base_path)
     git_service = GitService(app_settings.base_path)
+    trigger_runtime_config = TriggerRuntimeConfig.from_settings(app_settings)
+    app.state.trigger_runtime_config = trigger_runtime_config
+    app.state.external_invocation_admission = ExternalInvocationAdmission(trigger_runtime_config)
     app.state.execution_service = ExecutionService(
         run_repo,
         workflow_repo,
         provider_repo,
         engine=engine,
+        max_concurrent_runs=trigger_runtime_config.max_concurrent_runs,
         secrets=secrets,
         settings_repo=settings_repo,
         git_service=git_service,
@@ -160,6 +190,10 @@ def create_app() -> FastAPI:
     )
 
     # Middleware
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        max_body_bytes=app_settings.external_invocation_body_limit_bytes,
+    )
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RunsightError, global_exception_handler)
@@ -224,4 +258,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=app_settings.host, port=app_settings.port)

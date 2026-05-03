@@ -77,6 +77,14 @@ class PreparedWorkflow:
     commit_sha: Optional[str]
 
 
+@dataclass(frozen=True)
+class ResolvedWorkflowSnapshot:
+    workflow_id: str
+    yaml_content: str
+    commit_sha: Optional[str]
+    git_ref: Optional[str]
+
+
 class ExecutionPreparationService:
     """Owns requested-snapshot loading and runnable workflow construction."""
 
@@ -139,6 +147,47 @@ class ExecutionPreparationService:
             yaml_content = wf_entity.yaml
             commit_sha = get_workflow_commit_sha(workflow_path)
 
+        return self._prepare_yaml_for_launch(
+            workflow_id=workflow_id,
+            yaml_content=yaml_content,
+            commit_sha=commit_sha,
+            git_ref=registry_git_ref,
+            git_service=registry_git_service,
+            parser=parser,
+            prepare_runtime_workflow=prepare_runtime_workflow,
+            requested_ref=explicit_branch,
+        )
+
+    def prepare_resolved_snapshot_for_launch(
+        self,
+        *,
+        snapshot: ResolvedWorkflowSnapshot,
+        parser: Callable[..., Any],
+        prepare_runtime_workflow: Callable[..., tuple[dict[str, Any], RunsightTeamRunner | None]],
+    ) -> PreparedWorkflow:
+        return self._prepare_yaml_for_launch(
+            workflow_id=snapshot.workflow_id,
+            yaml_content=snapshot.yaml_content,
+            commit_sha=snapshot.commit_sha,
+            git_ref=snapshot.git_ref,
+            git_service=self.git_service if snapshot.git_ref is not None else None,
+            parser=parser,
+            prepare_runtime_workflow=prepare_runtime_workflow,
+            requested_ref=snapshot.git_ref,
+        )
+
+    def _prepare_yaml_for_launch(
+        self,
+        *,
+        workflow_id: str,
+        yaml_content: str,
+        commit_sha: Optional[str],
+        git_ref: str | None,
+        git_service: Any,
+        parser: Callable[..., Any],
+        prepare_runtime_workflow: Callable[..., tuple[dict[str, Any], RunsightTeamRunner | None]],
+        requested_ref: str | None,
+    ) -> PreparedWorkflow:
         api_keys = self.resolve_api_keys()
         try:
             workflow_definition, runner = prepare_runtime_workflow(
@@ -154,8 +203,8 @@ class ExecutionPreparationService:
                 workflow_registry = registry_builder(
                     workflow_id,
                     yaml_content,
-                    git_ref=registry_git_ref,
-                    git_service=registry_git_service,
+                    git_ref=git_ref,
+                    git_service=git_service,
                 )
 
             workflow = parser(
@@ -164,14 +213,14 @@ class ExecutionPreparationService:
                 api_keys=api_keys,
                 runner=runner,
                 _base_dir=str(getattr(self.workflow_repo, "base_path", ".")),
-                _discovery_git_ref=registry_git_ref,
-                _discovery_git_service=registry_git_service,
+                _discovery_git_ref=git_ref,
+                _discovery_git_service=git_service,
             )
         except Exception as exc:
-            if explicit_branch is not None:
+            if requested_ref is not None:
                 raise ValueError(
                     f"Requested snapshot could not be loaded for workflow "
-                    f"{_workflow_ref(workflow_id)} on ref {explicit_branch!r}: "
+                    f"{_workflow_ref(workflow_id)} on ref {requested_ref!r}: "
                     f"{_snapshot_failure_reason(exc)}"
                 ) from exc
             raise

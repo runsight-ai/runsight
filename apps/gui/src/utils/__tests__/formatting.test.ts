@@ -210,6 +210,7 @@ describe("formatCommit", () => {
 describe("getSourceVariant", () => {
   it.each([
     ["manual", "neutral"],
+    ["api", "info"],
     ["webhook", "info"],
     ["schedule", "accent"],
     ["simulation", "warning"],

@@ -10,7 +10,7 @@ from ..schemas.dashboard import AttentionItemsResponse, DashboardKPIsResponse
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 PERIOD_HOURS = 24
-PRODUCTION_SOURCES = {"manual", "webhook", "schedule"}
+PRODUCTION_SOURCES = {"manual", "api", "webhook", "schedule"}
 
 
 def _is_production_main_run(run) -> bool:

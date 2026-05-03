@@ -4,10 +4,10 @@ description: Install Runsight via uvx, Docker, or from source for development.
 ---
 
 :::caution
-Runsight's self-hosted API is unauthenticated today. For `uvx runsight`, use
-`--host 127.0.0.1` for local-only access instead of the default `0.0.0.0`. For
-Docker, keep host port publishing on loopback, for example
-`-p 127.0.0.1:8000:8000`, unless you add your own proxy and auth controls.
+Runsight's self-hosted API is unauthenticated today. By default, `uvx runsight`
+binds to `127.0.0.1` for local-only access. For Docker, keep host port
+publishing on loopback, for example `-p 127.0.0.1:8000:8000`, unless you add
+your own proxy and auth controls.
 :::
 
 ## uvx (recommended)
@@ -20,7 +20,7 @@ uvx runsight
 
 This downloads and runs the `runsight` package in an isolated environment. Open [http://localhost:8000](http://localhost:8000).
 
-For loopback-only local use:
+To bind loopback explicitly:
 
 ```bash
 uvx runsight --host 127.0.0.1
@@ -40,7 +40,7 @@ runsight [--host HOST] [--port PORT]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--host` | `0.0.0.0` | Bind address |
+| `--host` | `127.0.0.1` | Bind address |
 | `--port` | `8000` | Bind port |
 
 ## Docker
@@ -62,6 +62,10 @@ workspace in the named volume `workspace_data`, and adds a healthcheck at `/heal
 If you want your current directory to be the workspace instead, use the `docker run`
 command above or edit `docker-compose.yml` to replace the named volume with a bind
 mount.
+
+The Dockerfile may bind to `0.0.0.0` inside the container. Host port publishing
+should still use `127.0.0.1` unless the service is intentionally exposed behind
+your own network and authentication controls.
 
 ### What the container does
 
@@ -169,4 +173,4 @@ tied to commit SHAs.
 If git is not available, the API server will start but git-dependent features (save,
 commit, simulation branches, fork recovery) will fail.
 
-<!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944 — last verified against codebase 2026-04-26 -->
+<!-- Linear: RUN-821, RUN-847, RUN-848, RUN-944, RUN-943 — last verified against codebase 2026-04-26 -->

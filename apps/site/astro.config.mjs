@@ -122,6 +122,7 @@ export default defineConfig({
 						{ label: 'YAML Schema Reference', slug: 'docs/reference/yaml-schema-reference' },
 						{ label: 'Block Type Reference', slug: 'docs/reference/block-type-reference' },
 						{ label: 'Assertion Reference', slug: 'docs/reference/assertion-reference' },
+						{ label: 'Direct API Invocation', slug: 'docs/reference/direct-api-invocation' },
 						{ label: 'CLI Reference', slug: 'docs/reference/cli-reference' },
 						{ label: 'Unified Entity Identity', slug: 'docs/reference/unified-entity-identity' },
 						{ label: 'Identity ADR', slug: 'docs/reference/unified-entity-identity-adr' },

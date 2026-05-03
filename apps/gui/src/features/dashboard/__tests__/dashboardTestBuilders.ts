@@ -69,6 +69,26 @@ export function buildRunList(items: RunResponse[]): RunListResponse {
   };
 }
 
+export function getRequestedSources(params: unknown): string[] {
+  if (params instanceof URLSearchParams) {
+    return params.getAll("source").sort();
+  }
+
+  if (params && typeof params === "object") {
+    const source = (params as { source?: unknown }).source;
+
+    if (Array.isArray(source)) {
+      return source.filter((value): value is string => typeof value === "string").sort();
+    }
+
+    if (typeof source === "string") {
+      return [source];
+    }
+  }
+
+  return [];
+}
+
 export function rootRun(overrides: Partial<RunResponse> = {}): RunResponse {
   return makeRun(overrides);
 }

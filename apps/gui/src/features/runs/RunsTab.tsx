@@ -45,7 +45,7 @@ type SortColumn =
 type SortDirection = "ascending" | "descending";
 type SourceFilter = "production" | "all";
 
-const PRODUCTION_RUN_SOURCES = ["manual", "webhook", "schedule"] as const;
+const PRODUCTION_RUN_SOURCES = ["manual", "webhook", "schedule", "api"] as const;
 const SOURCE_FILTER_LABELS: Record<SourceFilter, string> = {
   production: "Production runs",
   all: "All runs",
@@ -208,6 +208,9 @@ export function RunsTab({
     );
   }, [attentionOnly, runs, searchQuery, sortColumn, sortDirection]);
 
+  const hasLocalFilters = sourceFilter !== "all" || searchQuery.trim() !== "";
+  const hasAnyFilters = Boolean(workflowFilter) || activeOnly || attentionOnly || hasLocalFilters;
+
   const handleSort = (column: SortColumn) => {
     if (column === sortColumn) {
       setSortDirection((current) =>
@@ -225,6 +228,12 @@ export function RunsTab({
 
   const openRun = (runId: string) => {
     navigate(`/runs/${runId}`);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSourceFilter("all");
+    onClearFilters();
   };
 
   return (
@@ -316,7 +325,7 @@ export function RunsTab({
               Retry
             </Button>
           </section>
-        ) : runs.length === 0 && !workflowFilter && !activeOnly ? (
+        ) : runs.length === 0 && !hasAnyFilters ? (
           <EmptyState
             icon={Play}
             title="No runs yet"
@@ -340,7 +349,7 @@ export function RunsTab({
                   ? "No runs are currently in progress."
                   : "Try adjusting your filters."
             }
-            action={{ label: "Clear filters", onClick: onClearFilters }}
+            action={{ label: "Clear filters", onClick: handleClearFilters }}
           />
         ) : (
           <div className={RUN_TABLE_CONTAINER_CLASS}>

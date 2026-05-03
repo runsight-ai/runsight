@@ -47,11 +47,16 @@ class Settings(BaseSettings):
     base_path: str = Field(default_factory=_default_base_path)
     db_url: str = _DB_URL_SENTINEL
     debug: bool = False
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     cors_origins: str = "http://localhost:3000"
     log_level: str = "INFO"
     log_format: str = "json"
+    external_invocation_enabled: bool = True
+    public_base_url: str | None = None
+    external_invocation_body_limit_bytes: int = 1_048_576
+    max_concurrent_runs: int = 5
+    max_pending_external_invocations: int = 32
 
     model_config = SettingsConfigDict(env_prefix="RUNSIGHT_")
 

@@ -10,7 +10,7 @@ import { runsApi, type RunContextAuditParams, type RunQueryParams } from "../api
 import { useContextAuditStore } from "../store/contextAudit";
 import { queryKeys } from "./keys";
 
-const PRODUCTION_RUN_SOURCES = new Set(["manual", "webhook", "schedule"]);
+const PRODUCTION_RUN_SOURCES = new Set(["manual", "webhook", "schedule", "api"]);
 
 function hasSameRunMembership(currentRuns: RunResponse[], nextRuns: RunResponse[]) {
   if (currentRuns.length !== nextRuns.length) {
@@ -189,7 +189,7 @@ export function useActiveRuns() {
       ...queryKeys.runs.all,
       {
         status: ["running", "pending"],
-        source: ["manual", "webhook", "schedule"],
+        source: ["manual", "webhook", "schedule", "api"],
         branch: "main",
       },
     ],
@@ -200,6 +200,7 @@ export function useActiveRuns() {
       params.append("source", "manual");
       params.append("source", "webhook");
       params.append("source", "schedule");
+      params.append("source", "api");
       params.append("branch", "main");
       return runsApi.listRuns(params);
     },

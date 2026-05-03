@@ -20,7 +20,7 @@ import { AlertTriangle, Info } from "lucide-react";
 import { RegressionTooltipBody } from "@/components/shared/RegressionTooltipBody";
 import { WarningTooltipBody } from "@/components/shared/WarningTooltipBody";
 import { useRunRegressions } from "@/queries/runs";
-import { formatCommit, formatCost, formatDuration, getSourceVariant, getTimeAgo } from "@/utils/formatting";
+import { formatCommit, formatCost, formatDuration, formatRunSource, getSourceVariant, getTimeAgo } from "@/utils/formatting";
 import { formatRegressionTooltip } from "../workflows/regressionBadge.utils";
 import {
   formatWarningTooltip,
@@ -56,7 +56,7 @@ function formatStartedAt(startedAt: number | null | undefined) {
 }
 
 function SourceBadge({ source }: { source: RunResponse["source"] }) {
-  return <Badge variant={getSourceVariant(source)}>{source}</Badge>;
+  return <Badge variant={getSourceVariant(source)}>{formatRunSource(source)}</Badge>;
 }
 
 function EvalCell({

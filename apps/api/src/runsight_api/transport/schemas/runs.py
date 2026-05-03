@@ -31,6 +31,13 @@ class WorkflowInputValidationErrorResponse(BaseModel):
     details: WorkflowInputValidationErrorDetails
 
 
+class ErrorResponse(BaseModel):
+    error: str
+    error_code: str
+    status_code: int
+    details: Optional[Dict[str, Any]] = None
+
+
 class RunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -38,6 +45,12 @@ class RunCreate(BaseModel):
     inputs: Dict[str, Any] = Field(default_factory=dict, json_schema_extra={"default": {}})
     source: Optional[str] = "manual"
     branch: Optional[str] = Field(default=None, min_length=1)
+
+
+class DirectApiRunCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inputs: Dict[str, Any]
 
 
 class NodeSummary(BaseModel):
@@ -63,6 +76,8 @@ class RunResponse(BaseModel):
     branch: str
     source: str = "manual"
     commit_sha: Optional[str] = None
+    source_correlation_id: Optional[str] = None
+    source_metadata: Dict[str, Any] = Field(default_factory=dict)
     run_number: Optional[int] = None
     eval_pass_pct: Optional[float] = None
     eval_score_avg: Optional[float] = None

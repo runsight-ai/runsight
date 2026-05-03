@@ -16,7 +16,7 @@ The `EvalService._detect_node_regressions` method compares two matching nodes (s
 | `quality_drop` | `eval_score` dropped by more than 0.1 | `{score_delta: <negative number>}` |
 
 :::note
-Only **production runs** are compared -- runs on the `main` branch with a source of `manual`, `webhook`, or `schedule`. Simulation branches are excluded.
+Only **production runs** are compared -- runs on the `main` branch with a source of `manual`, `api`, `webhook`, or `schedule`. Direct API runs use the shipped `api` source. Webhook and schedule sources are reserved and are not part of RUN-85. Simulation branches are excluded.
 :::
 
 ## How eval_score and eval_passed work
@@ -88,4 +88,4 @@ The regression response schema on the frontend validates three regression types:
 
 The `EvalService.get_attention_items` method scans production runs from the last 24 hours and surfaces regressions as attention items on the dashboard. It flags the same three conditions as the regression endpoints, plus a `new_baseline` info item for the first production run of a soul version. Items are sorted by severity (warnings before info) and recency.
 
-<!-- Linear: RUN-555, RUN-558, RUN-769, RUN-801 -- last verified against codebase 2026-04-10 -->
+<!-- Linear: RUN-555, RUN-558, RUN-769, RUN-801, RUN-943 -- last verified against codebase 2026-04-26 -->

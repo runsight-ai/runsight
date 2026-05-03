@@ -158,6 +158,7 @@ describe("canonical /runs page", () => {
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+        "api",
         "manual",
         "schedule",
         "webhook",
@@ -178,6 +179,7 @@ describe("canonical /runs page", () => {
 
     await waitFor(() => {
       expect(normalizeSources(mocks.runsQueryCalls.at(-1))).toEqual([
+        "api",
         "manual",
         "schedule",
         "webhook",
@@ -190,6 +192,7 @@ describe("canonical /runs page", () => {
     const finalRequest = mocks.runsQueryCalls.at(-1);
 
     expect(normalizeSources(finalRequest)).toEqual([
+      "api",
       "manual",
       "schedule",
       "webhook",

@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import * as sharedZod from "@runsight/shared/zod";
 import { describe, expect, it } from "vitest";
+
+const SHARED_SRC = resolve(__dirname, "..");
+const apiSource = readFileSync(resolve(SHARED_SRC, "api.ts"), "utf8");
 
 type ParseableSchema = {
   parse: (input: unknown) => unknown;
@@ -17,14 +22,47 @@ function getSchema(name: string): ParseableSchema {
   return schema as ParseableSchema;
 }
 
+function extractComponentFieldNames(source: string, componentName: string): string[] {
+  const pattern = new RegExp(`/\\*\\* ${componentName} \\*/\\s*${componentName}: \\{([\\s\\S]*?)\\n\\s+\\};`);
+  const match = source.match(pattern);
+
+  expect(match, `Expected generated api.ts to declare ${componentName}`).not.toBeNull();
+
+  return (match?.[1] ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const fieldMatch = line.match(/^([A-Za-z0-9_]+)\??:/);
+      return fieldMatch?.[1] ?? null;
+    })
+    .filter((field): field is string => field !== null);
+}
+
+function extractComponentBlock(
+  source: string,
+  componentName: string,
+  nextComponentName: string,
+): string {
+  const startMarker = `/** ${componentName} */`;
+  const endMarker = `/** ${nextComponentName} */`;
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+
+  expect(start, `Expected generated api.ts to declare ${componentName}`).toBeGreaterThanOrEqual(0);
+  expect(end, `Expected generated api.ts to declare ${nextComponentName}`).toBeGreaterThan(start);
+
+  return source.slice(start, end);
+}
+
 describe("shared workflow input contract smoke", () => {
-  it("RunCreateSchema requires branch and defaults omitted inputs to an empty object", () => {
+  it("RunCreateSchema accepts branch when provided and defaults omitted inputs to an empty object", () => {
     const schema = getSchema("RunCreateSchema");
 
     const parsed = schema.parse({
       workflow_id: "wf_input_contract",
       branch: "main",
-    }) as { workflow_id: string; branch: string; inputs?: Record<string, unknown> };
+    }) as { workflow_id: string; branch?: string | null; inputs?: Record<string, unknown> };
 
     expect(parsed).toEqual(
       expect.objectContaining({
@@ -33,7 +71,18 @@ describe("shared workflow input contract smoke", () => {
         inputs: {},
       }),
     );
-    expect(() => schema.parse({ workflow_id: "wf_input_contract" })).toThrow();
+
+    const omittedBranch = schema.parse({ workflow_id: "wf_input_contract_without_branch" }) as {
+      workflow_id: string;
+      branch?: string | null;
+      inputs?: Record<string, unknown>;
+    };
+    expect(omittedBranch).toEqual(
+      expect.objectContaining({
+        workflow_id: "wf_input_contract_without_branch",
+        inputs: {},
+      }),
+    );
   });
 
   it("WorkflowResponseSchema preserves identity, list metadata, and input schema metadata", () => {
@@ -181,5 +230,25 @@ describe("shared workflow input contract smoke", () => {
         details: { kind: "workflow_input_validation", fields: [] },
       }),
     ).toThrow();
+  });
+
+  it("generated OpenAPI TS exposes workflow input fields on the run and workflow components", () => {
+    const runCreateFields = extractComponentFieldNames(apiSource, "RunCreate");
+    const runResponseFields = extractComponentFieldNames(apiSource, "RunResponse");
+    const workflowResponseFields = extractComponentFieldNames(apiSource, "WorkflowResponse");
+
+    expect(runCreateFields).toEqual(expect.arrayContaining(["workflow_id", "inputs"]));
+    expect(runResponseFields).toEqual(
+      expect.arrayContaining(["workflow_inputs", "workflow_input_schema"]),
+    );
+    expect(workflowResponseFields).toEqual(expect.arrayContaining(["input_schema"]));
+  });
+
+  it("generated OpenAPI TS keeps defaulted and nullable RunCreate fields optional for callers", () => {
+    const runCreateBlock = extractComponentBlock(apiSource, "RunCreate", "RunEvalResponse");
+
+    expect(runCreateBlock).toMatch(/\binputs\?:/);
+    expect(runCreateBlock).toMatch(/\bsource\?:/);
+    expect(runCreateBlock).toMatch(/\bbranch\?: string \| null;/);
   });
 });

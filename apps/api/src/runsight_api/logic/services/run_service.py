@@ -95,8 +95,15 @@ class RunService:
         *,
         branch: str,
         source: str = "manual",
+        source_correlation_id: str | None = None,
+        source_metadata: Mapping[str, Any] | None = None,
+        workflow_snapshot: Any | None = None,
     ) -> Run:
-        workflow = self.workflow_repo.get_by_id(workflow_id)
+        workflow = (
+            workflow_snapshot
+            if workflow_snapshot is not None
+            else self.workflow_repo.get_by_id(workflow_id)
+        )
         if not workflow:
             raise WorkflowNotFound(f"Workflow {_workflow_ref(workflow_id)} not found")
 
@@ -119,6 +126,8 @@ class RunService:
             task_json="{}",
             branch=branch,
             source=source,
+            source_correlation_id=source_correlation_id,
+            source_metadata=copy.deepcopy(dict(source_metadata or {})),
             warnings_json=warnings_json,
             workflow_inputs=workflow_inputs,
             workflow_input_schema=workflow_input_schema,

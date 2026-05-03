@@ -80,6 +80,8 @@ class RunReadModel:
             if eval_total > 0:
                 eval_pass_pct = float(eval_pass_count or 0) / eval_total * 100
 
+            if not isinstance(run.__dict__.get("source_metadata"), dict):
+                run.__dict__["source_metadata"] = {}
             run.__dict__["run_number"] = int(run_number or 0)
             run.__dict__["eval_pass_pct"] = eval_pass_pct
             items.append(run)

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import traceback
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from runsight_core.observer import CompositeObserver, LoggingObserver
@@ -14,6 +15,18 @@ from ..observers.execution_observer import ExecutionObserver
 from ..observers.streaming_observer import StreamingObserver
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundTaskHandle:
+    task: asyncio.Task
+    release_external_invocation_on_done: bool = True
+
+    def add_done_callback(self, callback) -> None:
+        self.task.add_done_callback(callback)
+
+    def done(self) -> bool:
+        return self.task.done()
 
 
 def _split_runtime_inputs(inputs: Any) -> tuple[dict[str, Any], Any | None]:
@@ -51,10 +64,11 @@ class ExecutionRuntimeCoordinator:
         self.running_tasks: Dict[str, asyncio.Task] = {}
         self.semaphore = asyncio.Semaphore(max_concurrent_runs)
 
-    def track_background_task(self, run_id: str, coroutine) -> None:
+    def track_background_task(self, run_id: str, coroutine) -> BackgroundTaskHandle:
         task = asyncio.create_task(coroutine)
         self.running_tasks[run_id] = task
         task.add_done_callback(lambda t: self.running_tasks.pop(run_id, None))
+        return BackgroundTaskHandle(task)
 
     def cancel(self, run_id: str) -> bool:
         task = self.running_tasks.get(run_id)
