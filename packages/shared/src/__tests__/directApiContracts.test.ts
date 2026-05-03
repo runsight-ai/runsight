@@ -239,8 +239,8 @@ describe("generated Direct API shared contracts", () => {
     assertSourceEnumIfModeled(openapiProperties.source);
 
     const parsed = schema.parse({
-      id: "run_935",
-      workflow_id: "wf_935",
+      id: "direct_api_contract_run",
+      workflow_id: "direct_api_contract_workflow",
       workflow_name: "Direct API contract",
       status: "pending",
       started_at: null,
@@ -252,7 +252,7 @@ describe("generated Direct API shared contracts", () => {
       branch: "main",
       source: "api",
       commit_sha: "9359359359359359359359359359359359359359",
-      source_correlation_id: "request-run-935",
+      source_correlation_id: "request-direct-api-contract",
       source_metadata: { entry_path: "direct_api" },
     }) as {
       source: string;
@@ -263,7 +263,7 @@ describe("generated Direct API shared contracts", () => {
 
     expect(parsed.source).toBe("api");
     expect(parsed.commit_sha).toBe("9359359359359359359359359359359359359359");
-    expect(parsed.source_correlation_id).toBe("request-run-935");
+    expect(parsed.source_correlation_id).toBe("request-direct-api-contract");
     expect(parsed.source_metadata).toEqual({ entry_path: "direct_api" });
   });
 });

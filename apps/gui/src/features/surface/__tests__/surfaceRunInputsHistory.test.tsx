@@ -136,12 +136,12 @@ describe("surface run input history", () => {
   it("renders api run history source as API without displaying request provenance metadata", () => {
     renderSurfaceRunsTable(
       makeRun({
-        id: "run_api_940",
+        id: "surface_api_history_run",
         source: "api",
-        source_correlation_id: "req-surface-940",
+        source_correlation_id: "req-surface-history",
         source_metadata: {
-          authorization: "Bearer surface-secret-940",
-          idempotency_key: "idem-surface-940",
+          authorization: "Bearer surface-history-secret",
+          idempotency_key: "idem-surface-history",
         },
       } as Partial<RunResponse>),
     );
@@ -154,10 +154,10 @@ describe("surface run input history", () => {
     expect(apiBadge.className).toContain("whitespace-nowrap");
 
     const renderedText = row.textContent ?? "";
-    expect(renderedText).not.toContain("req-surface-940");
-    expect(renderedText).not.toContain("idem-surface-940");
+    expect(renderedText).not.toContain("req-surface-history");
+    expect(renderedText).not.toContain("idem-surface-history");
     expect(renderedText).not.toContain("Bearer");
-    expect(renderedText).not.toContain("surface-secret-940");
+    expect(renderedText).not.toContain("surface-history-secret");
   });
 
   it("shows the stored snapshot preview and ignores later workflow schema defaults", () => {

@@ -17,7 +17,7 @@ blocks:
     body_type: json
     auth_type: bearer
     auth_config:
-      token: secret123
+      token: parser_dummy_token
     timeout_seconds: 30
     retry_count: 3
     retry_backoff: exponential
@@ -44,7 +44,7 @@ workflow:
         body: '{"key": "value"}',
         bodyType: "json",
         authType: "bearer",
-        authConfig: { token: "secret123" },
+        authConfig: { token: "parser_dummy_token" },
         timeoutSeconds: 30,
         retryCount: 3,
         retryBackoff: "exponential",

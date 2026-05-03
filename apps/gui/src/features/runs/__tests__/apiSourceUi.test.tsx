@@ -74,8 +74,8 @@ import { RunsTab } from "../RunsTab";
 
 function makeRun(overrides: Partial<RunResponse> = {}): RunResponse {
   return {
-    id: "run_940",
-    workflow_id: "wf_940",
+    id: "api_source_ui_run",
+    workflow_id: "api_source_ui_workflow",
     workflow_name: "API Source Flow",
     status: "completed",
     started_at: 1_774_414_400,
@@ -161,13 +161,13 @@ describe("api run source UI", () => {
   it("renders api source runs as API without leaking request provenance metadata", () => {
     renderRows([
       makeRun({
-        id: "run_api_940",
+        id: "api_source_table_run",
         workflow_name: "API Intake",
         source: "api",
-        source_correlation_id: "req-run-940",
+        source_correlation_id: "req-api-source-table",
         source_metadata: {
-          authorization: "Bearer secret-run-940",
-          idempotency_key: "idem-key-run-940",
+          authorization: "Bearer api-source-table-secret",
+          idempotency_key: "idem-key-api-source-table",
         },
       } as Partial<RunResponse>),
     ]);
@@ -180,10 +180,10 @@ describe("api run source UI", () => {
     expect(apiBadge.className).toContain("whitespace-nowrap");
 
     const renderedText = row.textContent ?? "";
-    expect(renderedText).not.toContain("req-run-940");
-    expect(renderedText).not.toContain("idem-key-run-940");
+    expect(renderedText).not.toContain("req-api-source-table");
+    expect(renderedText).not.toContain("idem-key-api-source-table");
     expect(renderedText).not.toContain("Bearer");
-    expect(renderedText).not.toContain("secret-run-940");
+    expect(renderedText).not.toContain("api-source-table-secret");
   });
 
   it("keeps existing manual and simulation source labels unchanged", () => {

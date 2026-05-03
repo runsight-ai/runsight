@@ -112,7 +112,7 @@ describe("rendered display contracts", () => {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage variant="id">RUN-423</BreadcrumbPage>
+              <BreadcrumbPage variant="id">Workflow Alpha</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -122,7 +122,7 @@ describe("rendered display contracts", () => {
     );
 
     const breadcrumb = screen.getByRole("navigation", { name: "breadcrumb" });
-    const currentPage = screen.getByText("RUN-423");
+    const currentPage = screen.getByText("Workflow Alpha");
     const separators = container.querySelectorAll("[role='presentation'][aria-hidden='true']");
     const progress = screen.getByRole("progressbar");
     const spinner = screen.getByRole("status", { name: "Loading" });

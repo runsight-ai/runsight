@@ -855,12 +855,17 @@ def test_non_browser_python_tests_do_not_use_e2e_wording() -> None:
 
 def test_test_fixture_identities_use_behavioral_names_not_ticket_ids() -> None:
     violations: list[str] = []
-    for root in PYTHON_TEST_ROOTS:
+    for root in TEST_FILE_ROOTS:
         for source_file in _iter_test_source_files(root):
-            tree, source = _python_tree_and_source(source_file)
-            docstring_lines = _python_docstring_line_numbers(tree)
+            if source_file.suffix == ".py":
+                tree, source = _python_tree_and_source(source_file)
+                docstring_lines = _python_docstring_line_numbers(tree)
+            else:
+                source = source_file.read_text(encoding="utf-8")
+                docstring_lines = set()
             for line_number, line in enumerate(source.splitlines(), 1):
-                if line_number in docstring_lines or line.lstrip().startswith("#"):
+                stripped = line.lstrip()
+                if line_number in docstring_lines or stripped.startswith(("#", "//", "/*", "*")):
                     continue
                 if TICKET_FIXTURE_IDENTITY_RE.search(line):
                     violations.append(f"{_relative(source_file)}:{line_number}: {line.strip()}")
