@@ -30,6 +30,10 @@ jobs:
       - run: uv sync --frozen --all-packages --all-groups
       - run: uv run python packages/core/scripts/generate_schema.py --check
       - run: mkdir -p coverage
+      - name: Test repository governance
+        run: uv run pytest tools/tests -q
+      - name: Test E2E governance
+        run: pnpm -C testing/gui-e2e test:governance
       - name: Test API with coverage
         run: |
           uv run pytest apps/api/tests -q \

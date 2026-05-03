@@ -43,6 +43,8 @@ def test_parse_workflow_yaml_resolves_library_soul_refs_for_llm_block_shapes(
         tmp_path,
         """\
         version: "1.0"
+        id: library-soul-smoke
+        kind: workflow
         config:
           model_name: fixture-model
         blocks:
@@ -102,6 +104,8 @@ def test_missing_library_soul_ref_reports_available_souls_and_fixture_directory(
         tmp_path,
         """\
         version: "1.0"
+        id: missing-soul-smoke
+        kind: workflow
         config:
           model_name: fixture-model
         blocks:

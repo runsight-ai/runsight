@@ -407,7 +407,8 @@ def test_readonly_surface_browser_spec_uses_e2e_fixture_owners() -> None:
 def test_surface_workspace_rename_and_run_table_boundaries_are_static() -> None:
     expected_existing_paths = (
         GUI_SRC / "features" / "surface" / "__tests__",
-        GUI_SRC / "features" / "surface" / "__tests__" / "yamlParser.test.ts",
+        GUI_SRC / "features" / "surface" / "__tests__" / "yamlParserBlockFields.test.ts",
+        GUI_SRC / "features" / "surface" / "__tests__" / "yamlParserWorkflowStructure.test.ts",
         GUI_SRC
         / "features"
         / "surface"
