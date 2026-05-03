@@ -1,4 +1,4 @@
-"""End-to-end assertion evaluation smoke coverage."""
+"""Assertion evaluation integration smoke coverage."""
 
 import asyncio
 from pathlib import Path
@@ -134,7 +134,7 @@ def mock_provider():
 
 
 @pytest.mark.asyncio
-async def test_assertion_evaluation_end_to_end_smoke(
+async def test_assertion_evaluation_integration_smoke(
     app_with_real_services,
     db_engine,
     mock_provider,

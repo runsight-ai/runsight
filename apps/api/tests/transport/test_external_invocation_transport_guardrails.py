@@ -37,7 +37,7 @@ def test_body_limit_rejects_oversized_payload_before_json_parsing_or_storage() -
         content=b'{"inputs":{"query":"' + (b"x" * 128),
         headers={
             "content-type": "application/json",
-            "authorization": "Bearer secret-run-944",
+            "authorization": "Bearer secret-runtime-guardrails",
         },
     )
 

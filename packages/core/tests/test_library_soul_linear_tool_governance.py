@@ -1,4 +1,11 @@
-"""Library soul tool governance for linear blocks."""
+"""Library soul tool governance for linear blocks.
+
+Owner: packages/core workflow parser/runtime behavior.
+Boundary: linear block library souls must resolve only workflow-declared tools
+and must not revive legacy global tool discovery.
+Exit criteria: delete once linear library soul tool resolution is covered by
+the canonical workflow parser behavior suite.
+"""
 
 from __future__ import annotations
 

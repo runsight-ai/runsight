@@ -1,4 +1,11 @@
-"""Source governance for the PromptEnvelope isolation rename."""
+"""Source governance for the PromptEnvelope isolation rename.
+
+Owner: packages/core subprocess isolation boundary.
+Boundary: isolation envelope source must expose PromptEnvelope naming and must
+not retain TaskEnvelope/current_task compatibility shims.
+Exit criteria: delete once public subprocess isolation behavior tests fail on
+TaskEnvelope compatibility reintroduction.
+"""
 
 from __future__ import annotations
 

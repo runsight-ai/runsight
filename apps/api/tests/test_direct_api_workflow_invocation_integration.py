@@ -24,16 +24,16 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from runsight_api.domain.entities.run import Run, RunNode, RunStatus
 
 
-WORKFLOW_ID = "run941-direct"
-PARENT_WORKFLOW_ID = "run941-parent"
-CHILD_WORKFLOW_ID = "run941-child"
-SECRET = "run941-secret-plain-text-must-never-echo"
-IDEMPOTENCY_SECRET = "run941-idempotency-key-not-a-contract"
-DIRTY_MARKER = "run941-dirty-working-tree-marker"
+WORKFLOW_ID = "direct_workflow-direct"
+PARENT_WORKFLOW_ID = "direct_workflow-parent"
+CHILD_WORKFLOW_ID = "direct_workflow-child"
+SECRET = "direct_workflow-secret-plain-text-must-never-echo"
+IDEMPOTENCY_SECRET = "direct_workflow-idempotency-key-not-a-contract"
+DIRTY_MARKER = "direct_workflow-dirty-working-tree-marker"
 
 
 DIRECT_WORKFLOW_YAML = """\
-id: run941-direct
+id: direct_workflow-direct
 kind: workflow
 version: "1.0"
 enabled: true
@@ -77,7 +77,7 @@ workflow:
 
 
 DIRTY_DIRECT_WORKFLOW_YAML = f"""\
-id: run941-direct
+id: direct_workflow-direct
 kind: workflow
 version: "1.0"
 inputs:
@@ -102,7 +102,7 @@ workflow:
 
 
 PARENT_WORKFLOW_YAML = """\
-id: run941-parent
+id: direct_workflow-parent
 kind: workflow
 version: "1.0"
 enabled: true
@@ -116,7 +116,7 @@ config: {}
 blocks:
   invoke_child:
     type: workflow
-    workflow_ref: run941-child
+    workflow_ref: direct_workflow-child
     inputs:
       child_query: workflow.query
       child_token: workflow.api_token
@@ -130,7 +130,7 @@ workflow:
 
 
 CHILD_WORKFLOW_YAML = """\
-id: run941-child
+id: direct_workflow-child
 kind: workflow
 version: "1.0"
 enabled: true
@@ -167,7 +167,7 @@ workflow:
 
 
 DIRTY_CHILD_WORKFLOW_YAML = f"""\
-id: run941-child
+id: direct_workflow-child
 kind: workflow
 version: "1.0"
 inputs:
@@ -213,7 +213,7 @@ def _init_git_repo(repo: Path) -> str:
     )
     subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
     subprocess.run(
-        ["git", "commit", "-m", "commit run941 assets"],
+        ["git", "commit", "-m", "commit direct_workflow assets"],
         cwd=repo,
         check=True,
         capture_output=True,
@@ -403,7 +403,7 @@ async def test_direct_api_uses_committed_main_for_validation_metadata_and_dirty_
             f"/api/workflows/{WORKFLOW_ID}/runs",
             json={"inputs": {"query": "committed query", "api_token": SECRET}},
             headers={
-                "x-request-id": "corr-run-941",
+                "x-request-id": "corr-direct-workflow",
                 "x-idempotency-key": IDEMPOTENCY_SECRET,
             },
         )
@@ -418,7 +418,7 @@ async def test_direct_api_uses_committed_main_for_validation_metadata_and_dirty_
     assert run.branch == "main"
     assert run.commit_sha == committed_sha
     assert run.workflow_name == "Run941 Committed Direct"
-    assert run.source_correlation_id == "corr-run-941"
+    assert run.source_correlation_id == "corr-direct-workflow"
     assert run.source_metadata == {
         "entry_path": "direct_api",
         "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",

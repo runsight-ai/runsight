@@ -1,4 +1,11 @@
-"""Library soul tool governance for dispatch exit soul references."""
+"""Library soul tool governance for dispatch exit soul references.
+
+Owner: packages/core workflow parser/runtime behavior.
+Boundary: dispatch exit library souls must resolve only workflow-declared
+tools and must not revive legacy global tool discovery.
+Exit criteria: delete once dispatch exit soul tool resolution is covered by
+the canonical workflow parser behavior suite.
+"""
 
 from __future__ import annotations
 

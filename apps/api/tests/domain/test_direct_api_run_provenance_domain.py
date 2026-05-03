@@ -18,7 +18,7 @@ def _make_run(**overrides):
     from runsight_api.domain.entities.run import Run
 
     values = {
-        "id": "run-930-provenance",
+        "id": "direct-provenance-provenance",
         "workflow_id": "wf-930",
         "workflow_name": "Direct API Workflow",
         "task_json": "{}",
@@ -173,7 +173,7 @@ class TestDirectApiRunEntityProvenance:
         with Session(engine) as session:
             session.add(
                 _make_run(
-                    id="run-930-api",
+                    id="direct-provenance-api",
                     source_metadata=safe_metadata,
                     source_correlation_id="corr-930",
                 )
@@ -183,7 +183,7 @@ class TestDirectApiRunEntityProvenance:
         with Session(engine) as session:
             from runsight_api.domain.entities.run import Run
 
-            loaded = session.get(Run, "run-930-api")
+            loaded = session.get(Run, "direct-provenance-api")
 
         assert loaded is not None
         assert loaded.source == "api"
@@ -296,7 +296,7 @@ class TestDirectApiProductionSourceSemantics:
         simulation_between = _mock_run(
             "run-simulation-pass",
             source="simulation",
-            branch="sim/run-930",
+            branch="sim/direct-provenance",
             created_at=300.0,
         )
         current_manual = _mock_run(

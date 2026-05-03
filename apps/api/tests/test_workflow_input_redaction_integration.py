@@ -1,4 +1,4 @@
-"""End-to-end workflow input redaction smoke coverage."""
+"""Workflow input redaction integration smoke coverage."""
 
 from __future__ import annotations
 

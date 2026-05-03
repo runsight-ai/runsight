@@ -148,11 +148,11 @@ def _direct_api_invocation(**overrides: Any):
     payload = {
         "workflow_id": WORKFLOW_ID,
         "inputs": {"query": "from api"},
-        "source_correlation_id": "corr-run-931",
+        "source_correlation_id": "corr-direct-invocation",
         "source_metadata": {
             "entry_path": "direct_api",
             "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
-            "client_request_id": "req-run-931",
+            "client_request_id": "req-direct-invocation",
         },
     }
     payload.update(overrides)
@@ -363,7 +363,7 @@ class TestWorkflowRunInvocationDirectApiContract:
         assert _value(invocation.caller) == "api"
         assert _value(invocation.source) == "api"
         assert invocation.inputs == {"query": "from api"}
-        assert invocation.source_correlation_id == "corr-run-931"
+        assert invocation.source_correlation_id == "corr-direct-invocation"
         assert invocation.source_metadata["entry_path"] == "direct_api"
         assert _value(getattr(invocation, "branch", "main")) == "main"
         assert getattr(invocation, "commit_sha", None) is None
@@ -558,11 +558,11 @@ class TestWorkflowRunInvokerDirectApiLaunch:
                 "inputs": prepared,
                 "branch": "main",
                 "source": "api",
-                "source_correlation_id": "corr-run-931",
+                "source_correlation_id": "corr-direct-invocation",
                 "source_metadata": {
                     "entry_path": "direct_api",
                     "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
-                    "client_request_id": "req-run-931",
+                    "client_request_id": "req-direct-invocation",
                 },
                 "workflow_snapshot": committed_workflow,
             }
@@ -632,11 +632,11 @@ class TestWorkflowRunInvokerDirectApiLaunch:
         assert run.source == "api"
         assert run.branch == "main"
         assert run.commit_sha == COMMITTED_MAIN_SHA
-        assert run.source_correlation_id == "corr-run-931"
+        assert run.source_correlation_id == "corr-direct-invocation"
         assert run.source_metadata == {
             "entry_path": "direct_api",
             "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
-            "client_request_id": "req-run-931",
+            "client_request_id": "req-direct-invocation",
         }
         assert run.workflow_name == "Committed Main Workflow"
         assert run.warnings_json == [{"code": "main-warning", "message": "from committed main"}]

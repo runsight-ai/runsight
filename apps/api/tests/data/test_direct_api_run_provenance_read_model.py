@@ -68,7 +68,7 @@ class TestDirectApiRunReadModelProvenance:
             "run-simulation",
             created_at=200.0,
             source="simulation",
-            branch="sim/run-930",
+            branch="sim/direct-provenance",
         )
         _seed_run(
             db_session,

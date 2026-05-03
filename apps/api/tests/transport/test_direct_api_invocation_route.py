@@ -24,8 +24,8 @@ from runsight_api.transport.deps import (
 
 WORKFLOW_ID = "run932_direct_api"
 COMMITTED_MAIN_SHA = "932" * 13 + "9"
-SECRET_INPUT = "secret-run-932-input"
-SECRET_AUTH = "Bearer secret-run-932-auth"
+SECRET_INPUT = "secret-direct-route-input"
+SECRET_AUTH = "Bearer secret-direct-route-auth"
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -163,7 +163,7 @@ class _RecordingRunService:
 
 def _mock_run() -> Mock:
     run = Mock()
-    run.id = "run_932_api"
+    run.id = "direct_route_api"
     run.workflow_id = WORKFLOW_ID
     run.workflow_name = "Committed Main Workflow"
     run.status = RunStatus.pending
@@ -177,7 +177,7 @@ def _mock_run() -> Mock:
     run.branch = "main"
     run.source = "api"
     run.commit_sha = COMMITTED_MAIN_SHA
-    run.source_correlation_id = "corr-run-932"
+    run.source_correlation_id = "corr-direct-route"
     run.source_metadata = {"entry_path": "direct_api"}
     run.run_number = None
     run.eval_pass_pct = None
@@ -249,17 +249,17 @@ def test_direct_api_route_invokes_committed_main_snapshot_not_gui_run_contract()
     response = client.post(
         f"/api/workflows/{WORKFLOW_ID}/runs",
         json={"inputs": {"query": "from api", "api_token": SECRET_INPUT}},
-        headers={"x-request-id": "corr-run-932", "authorization": SECRET_AUTH},
+        headers={"x-request-id": "corr-direct-route", "authorization": SECRET_AUTH},
     )
 
     assert response.status_code in {200, 202}
     body = response.json()
-    assert body["id"] == "run_932_api"
+    assert body["id"] == "direct_route_api"
     assert body["status"] == "pending"
     assert body["source"] == "api"
     assert body["branch"] == "main"
     assert body["commit_sha"] == COMMITTED_MAIN_SHA
-    assert body["source_correlation_id"] == "corr-run-932"
+    assert body["source_correlation_id"] == "corr-direct-route"
     assert body["source_metadata"]["entry_path"] == "direct_api"
     assert body["workflow_name"] == "Committed Main Workflow"
     assert SECRET_INPUT not in response.text
@@ -272,7 +272,7 @@ def test_direct_api_route_invokes_committed_main_snapshot_not_gui_run_contract()
     }
     assert execution.launch_snapshot_calls == [
         {
-            "run_id": "run_932_api",
+            "run_id": "direct_route_api",
             "workflow_id": WORKFLOW_ID,
             "inputs": {"query": "from api", "api_token": SECRET_INPUT},
             "branch": "main",
@@ -285,7 +285,7 @@ def test_direct_api_route_invokes_committed_main_snapshot_not_gui_run_contract()
     assert create_call["inputs"] == {"query": "from api", "api_token": SECRET_INPUT}
     assert create_call["branch"] == "main"
     assert create_call["source"] == "api"
-    assert create_call["source_correlation_id"] == "corr-run-932"
+    assert create_call["source_correlation_id"] == "corr-direct-route"
     assert create_call["source_metadata"]["entry_path"] == "direct_api"
     assert create_call["source_metadata"]["request_path"] == f"/api/workflows/{WORKFLOW_ID}/runs"
     assert SECRET_INPUT not in str(create_call["source_metadata"])

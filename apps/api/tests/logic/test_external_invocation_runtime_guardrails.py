@@ -29,7 +29,7 @@ def _direct_api_invocation(**overrides: Any):
     payload = {
         "workflow_id": WORKFLOW_ID,
         "inputs": {"query": "from api"},
-        "source_correlation_id": "corr-run-944",
+        "source_correlation_id": "corr-runtime-guardrails",
         "source_metadata": {
             "entry_path": "direct_api",
             "request_path": f"/api/workflows/{WORKFLOW_ID}/runs",
