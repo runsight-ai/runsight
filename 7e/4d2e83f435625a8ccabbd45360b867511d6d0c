@@ -1,0 +1,29 @@
+apps/api/tests/logic/test_sse_streaming_service_events.py
+  4adca821c1af8eb3 15
+packages/core/tests/test_wire_soul_ref_to_library.py
+  4adca821c1af8eb3 46-47,107-108
+.github/workflows/publish.yml
+  4adca821c1af8eb3 33-36
+tools/tests/test_gui_repo_governance.py
+  4adca821c1af8eb3 410-411
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7e4d2e83f435625a8ccabbd45360b867511d6d0c",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 2,
+      "accepted_lines": 31094,
+      "overriden_lines": 0
+    }
+  }
+}
