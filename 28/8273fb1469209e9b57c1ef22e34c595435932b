@@ -1,0 +1,41 @@
+apps/api/tests/logic/test_workflow_run_invoker_direct_api.py
+  4adca821c1af8eb3 26,311,552,579,671,675
+tools/tests/test_core_repo_governance.py
+  4adca821c1af8eb3 78-80
+apps/api/tests/domain/test_entity_fields.py
+  4adca821c1af8eb3 177
+packages/core/tests/test_artifacts.py
+  4adca821c1af8eb3 28,73,80-81,93,111,113,120,129,131,138,140,147,149,159,162,170,173-174,191,193,201,203,211,213,220,223,240,249,258,269,276,283,297,318,330,341,351,355,375,387,398
+apps/api/tests/data/test_direct_api_run_provenance_read_model.py
+  4adca821c1af8eb3 25,80,83,101,104
+apps/api/tests/logic/test_external_invocation_runtime_guardrails.py
+  4adca821c1af8eb3 15
+apps/api/tests/test_direct_api_workflow_invocation_integration.py
+  4adca821c1af8eb3 71,96,124,161,186,420,514
+apps/api/tests/transport/test_direct_api_invocation_route.py
+  4adca821c1af8eb3 25,434
+apps/api/tests/domain/test_direct_api_run_provenance_domain.py
+  4adca821c1af8eb3 22,79,96,169-170,178,192,250,262-266,275,278
+apps/api/tests/transport/test_external_invocation_transport_guardrails.py
+  4adca821c1af8eb3 36,54,86,109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "288273fb1469209e9b57c1ef22e34c595435932b",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 87,
+      "total_deletions": 82,
+      "accepted_lines": 22799,
+      "overriden_lines": 0
+    }
+  }
+}
