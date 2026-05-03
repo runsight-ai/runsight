@@ -335,7 +335,11 @@ Do NOT create git tags manually. Do NOT modify version fields in `apps/api/pypro
 
 ## Key Rules
 
-- Never run full test suites (pytest or vitest) — they consume ~4GB each and hang the machine. Target specific files only.
+- Local agent runs must not run full test suites (pytest or vitest) because
+  they consume too much memory and hang developer machines. Target specific
+  files only.
+- CI may run package-wide coverage suites on GitHub-hosted runners when a PR
+  intentionally validates release coverage or publishes coverage artifacts.
 - Styling: CVA + Tailwind + @theme tokens. No BEM, no mixing approaches.
 - Main branch = production. Simulation branches for testing uncommitted changes.
 
