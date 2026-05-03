@@ -1,0 +1,62 @@
+apps/api/tests/domain/test_direct_api_run_provenance_domain.py
+  4adca821c1af8eb3 21,176,186,299
+apps/api/tests/data/test_api_source_read_model_metrics.py
+  4adca821c1af8eb3 31,36,59-64,67,75,77-79
+apps/api/tests/data/test_direct_api_run_provenance_read_model.py
+  4adca821c1af8eb3 71
+apps/api/tests/logic/test_workflow_run_invoker_direct_api.py
+  4adca821c1af8eb3 151,155,366,561,565,635,639
+apps/api/tests/transport/test_api_run_provenance_responses.py
+  4adca821c1af8eb3 16-18,52,101,104,107,110-114,118,122-125,127,129-132,138,144,147,150,153,157,163,173-176,185,196,213,215,220,225,228
+packages/core/tests/test_library_soul_dispatch_tool_governance.py
+  7a747a568ce8cfbf 1-8
+apps/api/tests/logic/test_external_invocation_runtime_guardrails.py
+  4adca821c1af8eb3 32
+packages/core/tests/test_library_soul_linear_tool_governance.py
+  7a747a568ce8cfbf 1-8
+apps/api/tests/transport/test_external_invocation_transport_guardrails.py
+  4adca821c1af8eb3 40
+apps/api/tests/transport/test_direct_api_invocation_route.py
+  4adca821c1af8eb3 27-28,166,180,252,257,262,275,288
+apps/api/tests/test_workflow_input_redaction_integration.py
+  7a747a568ce8cfbf 1
+apps/api/tests/test_direct_api_workflow_invocation_integration.py
+  4adca821c1af8eb3 27-32,36,80,105,119,133,170,216,406,421
+apps/api/tests/test_execution_assertion_evaluation.py
+  7a747a568ce8cfbf 1,137
+packages/core/tests/test_prompt_envelope_source_governance.py
+  7a747a568ce8cfbf 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "fe1ae5711a54409679ba9156d9b37dffeb4c5f9e",
+  "prompts": {
+    "4adca821c1af8eb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dcb1b-d362-79c2-8143-992f3644992b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 95,
+      "total_deletions": 86,
+      "accepted_lines": 22804,
+      "overriden_lines": 0
+    },
+    "7a747a568ce8cfbf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019def2d-1fd6-7411-b168-6c80b98c9614",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 6,
+      "accepted_lines": 27,
+      "overriden_lines": 0
+    }
+  }
+}
