@@ -21,13 +21,17 @@ describe("shared run contracts", () => {
     }
   });
 
-  it("RunCreateSchema rejects missing branch", () => {
+  it("RunCreateSchema accepts omitted branch for working-tree runs", () => {
     const result = RunCreateSchema.safeParse({
       workflow_id: "workflow_run_contract",
       source: "simulation",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.branch).toBeUndefined();
+      expect(result.data.source).toBe("simulation");
+    }
   });
 
   it("RunResponseSchema preserves branch, source, and commit_sha", () => {

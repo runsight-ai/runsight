@@ -28,10 +28,11 @@ def test_create_writes_workflow_filename_from_embedded_id_not_generated_slug(tmp
     workflows_dir = tmp_path / "custom" / "workflows"
     raw_yaml = _workflow_fixture_text()
 
-    entity = repo.create({"name": "Research & Review", "yaml": raw_yaml})
+    entity = repo.create({"name": "Review & Research", "yaml": raw_yaml})
 
     assert entity.id == "research-review"
     assert (workflows_dir / "research-review.yaml").exists()
+    assert not (workflows_dir / "review-research.yaml").exists()
     assert not any(
         path.name.startswith("research-review-") for path in workflows_dir.glob("*.yaml")
     )
@@ -64,7 +65,12 @@ def test_update_rejects_workflow_id_stem_mismatch(tmp_path) -> None:
     with pytest.raises(InputValidationError, match="id"):
         repo.update(
             "legacy-workflow",
-            {"name": "Renamed Research Review", "yaml": _workflow_fixture_text()},
+            {
+                "name": "Renamed Research Review",
+                "yaml": _workflow_fixture_text().replace(
+                    "id: research-review", "id: legacy-workflow", 1
+                ),
+            },
         )
 
 

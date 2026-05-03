@@ -25,6 +25,7 @@ SECRET_ENV_FRAGMENTS = (
     "TOKEN",
 )
 RUNSIGHT_ENV_ALLOWLIST = {"RUNSIGHT_BASE_PATH", "RUNSIGHT_DB_URL"}
+SECRET_NAME_FALSE_POSITIVE_ALLOWLIST = {"TIKTOKEN_CACHE_DIR"}
 
 
 class TestApiPytestRuntimeIsolationGovernance:
@@ -53,6 +54,7 @@ class TestApiPytestRuntimeIsolationGovernance:
             name
             for name in os.environ
             if any(fragment in name for fragment in SECRET_ENV_FRAGMENTS)
+            and name not in SECRET_NAME_FALSE_POSITIVE_ALLOWLIST
         ]
 
         assert leaked_names == []

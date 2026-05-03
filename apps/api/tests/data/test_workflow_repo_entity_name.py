@@ -28,7 +28,7 @@ class TestWorkflowEntityNameFromYaml:
 
         entity = repo.create(
             {
-                "name": "My Cool Workflow",
+                "name": "Request Payload Name",
                 "yaml": _workflow_yaml(
                     workflow_id="my-cool-workflow",
                     workflow_name="My Cool Workflow",

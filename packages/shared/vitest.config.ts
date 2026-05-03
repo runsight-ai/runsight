@@ -6,5 +6,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     maxWorkers: 1,
     fileParallelism: false,
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.d.ts", "src/**/*.test.{ts,tsx}", "src/**/__tests__/**"],
+    },
   },
 });

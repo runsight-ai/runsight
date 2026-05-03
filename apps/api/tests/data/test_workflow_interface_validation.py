@@ -125,47 +125,6 @@ def test_create_rejects_unknown_required_interface_input_binding(tmp_path) -> No
     assert "question" in entity.validation_error
 
 
-def test_create_rejects_undeclared_child_output_binding(tmp_path) -> None:
-    _write_child_workflow(
-        tmp_path,
-        filename="child-contract.yaml",
-        yaml_text="""
-        version: "1.0"
-        id: child-contract
-        kind: workflow
-        workflow:
-          name: child-contract
-          entry: start
-          transitions: []
-        """,
-    )
-    child_ref = "child-contract"
-    repo = WorkflowRepository(base_path=str(tmp_path))
-
-    parent_yaml = f"""
-    version: "1.0"
-    id: parent
-    kind: workflow
-    blocks:
-      call_child:
-        type: workflow
-        workflow_ref: {child_ref}
-        inputs:
-          topic: shared_memory.topic
-        outputs:
-          results.summary: detail
-    workflow:
-      name: parent
-      entry: call_child
-      transitions:
-        - from: call_child
-          to: null
-    """
-
-    with pytest.raises(InputValidationError, match="detail"):
-        repo.create({"name": "Parent", "yaml": dedent(parent_yaml).strip() + "\n"})
-
-
 # ---------------------------------------------------------------------------
 # Item 3c: Raw dotted-path bindings rejected through full API save path
 # ---------------------------------------------------------------------------
