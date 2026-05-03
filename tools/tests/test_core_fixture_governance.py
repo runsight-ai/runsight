@@ -81,12 +81,12 @@ class ModuleYamlSectionConstant:
 WORKFLOW_CONSTANT_TARGETS = (
     WorkflowConstantTarget(
         "code block parser",
-        CORE_TESTS / "test_code_block_parser_and_achat.py",
+        CORE_TESTS / "test_code_block_yaml_parser.py",
         "packages/core/tests/fixtures/workflows or workflow_fixture_helpers.py",
     ),
     WorkflowConstantTarget(
         "migrated block round trip",
-        CORE_TESTS / "test_migrate_blocks.py",
+        CORE_TESTS / "test_migrated_block_round_trips.py",
         "packages/core/tests/fixtures/workflows or workflow_fixture_helpers.py",
     ),
     WorkflowConstantTarget(
@@ -112,7 +112,9 @@ TMP_PATH_TARGETS = (
     TmpPathTarget("wire soul_ref library", CORE_TESTS / "test_wire_soul_ref_to_library.py"),
     TmpPathTarget("observer", CORE_TESTS / "test_observer.py"),
     TmpPathTarget("observer soul extension", CORE_TESTS / "test_observer_soul_extension.py"),
-    TmpPathTarget("tool pydantic validation", CORE_TESTS / "test_tool_pydantic_validation.py"),
+    TmpPathTarget(
+        "tool pydantic validation", CORE_TESTS / "test_tool_scanner_pydantic_validation.py"
+    ),
 )
 
 DISCOVERY_SCANNER_SUITES = (
