@@ -88,9 +88,12 @@ TYPESCRIPT_RUNTIME_STATE_DERIVATION_RE = re.compile(
     r"\b(?:path\.)?(?:resolve|join)\s*\("
     r"[^;]*(?:__dirname|import\.meta\.url|process\.cwd\(\)|"
     r"\b(?:REPO_ROOT|repoRoot|ROOT|rootDir|workspaceDir|projectRoot)\b)"
-    r"[^;]*['\"](?:custom|\.runsight|runsight\.db)['\"]|"
+    r"[^;]*['\"][^'\"]*(?:custom|\.runsight|runsight\.db)[^'\"]*['\"]|"
+    r"\b(?:fileURLToPath\s*\(\s*)?new\s+URL\s*\("
+    r"[^;]*['\"][^'\"]*(?:custom|\.runsight|runsight\.db)[^'\"]*['\"]"
+    r"\s*,\s*import\.meta\.url\s*\)|"
     r"\b(?:REPO_ROOT|repoRoot|ROOT|rootDir|workspaceDir|projectRoot)\b"
-    r"[^;]*(?:/|\+|,)[^;]*['\"](?:custom|\.runsight|runsight\.db)['\"]",
+    r"[^;]*(?:/|\+|,)[^;]*['\"][^'\"]*(?:custom|\.runsight|runsight\.db)[^'\"]*['\"]",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -350,6 +353,7 @@ def _iter_source_files(root: Path) -> list[Path]:
         if path.is_file()
         and path.suffix in suffixes
         and "__pycache__" not in path.parts
+        and "node_modules" not in path.parts
         and "test-results" not in path.parts
         and "playwright-report" not in path.parts
     )
@@ -820,6 +824,35 @@ def test_typescript_unit_tests_do_not_derive_repo_root_runtime_state_paths() -> 
         "literal product path strings are allowed when they are only API/UI payload data.\n"
         + "\n".join(violations)
     )
+
+
+@pytest.mark.parametrize(
+    "statement",
+    (
+        'const customRoot = resolve(__dirname, "../../../../custom");',
+        'const stateRoot = path.join(repoRoot, ".runsight");',
+        'const dbPath = fileURLToPath(new URL("../../../../runsight.db", import.meta.url));',
+        'const customPath = new URL("../../../../custom", import.meta.url);',
+    ),
+)
+def test_typescript_runtime_state_derivation_guard_covers_common_path_forms(
+    statement: str,
+) -> None:
+    assert TYPESCRIPT_RUNTIME_STATE_DERIVATION_RE.search(statement)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    (
+        'const workflowPath = "custom/workflows/source-workflow.yaml";',
+        'expect(message).toContain(".runsight is not configured");',
+        'const globalsPath = resolve(dirname(fileURLToPath(import.meta.url)), "..", "globals.css");',
+    ),
+)
+def test_typescript_runtime_state_derivation_guard_allows_payload_strings(
+    statement: str,
+) -> None:
+    assert not TYPESCRIPT_RUNTIME_STATE_DERIVATION_RE.search(statement)
 
 
 def test_test_file_names_use_behavioral_owners_not_ticket_ids() -> None:
