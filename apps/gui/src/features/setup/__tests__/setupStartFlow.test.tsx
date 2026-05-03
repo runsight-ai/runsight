@@ -153,7 +153,7 @@ describe("SetupStartPage flow", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Start with a blank canvas" }));
     fireEvent.change(screen.getByLabelText("Workflow id"), { target: { value: "Bad ID" } });
 
-    expect(screen.getByText("Start Building")).toBeDisabled();
+    expect((screen.getByText("Start Building") as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.change(screen.getByLabelText("Workflow id"), { target: { value: "blank-flow" } });
     fireEvent.change(screen.getByLabelText("Workflow name"), { target: { value: "Blank Flow" } });
