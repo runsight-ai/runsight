@@ -1,0 +1,23 @@
+tools/tests/test_core_repo_governance.py
+  ed8431e4b05637d0 87-95,394-416,807-822
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "84f2843516b69fe17773bb92c63e16f64a05d767",
+  "prompts": {
+    "ed8431e4b05637d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019def43-3a10-7611-a5a3-78ddc1b66dcb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir",
+      "messages": [],
+      "total_additions": 50,
+      "total_deletions": 0,
+      "accepted_lines": 50,
+      "overriden_lines": 0
+    }
+  }
+}
