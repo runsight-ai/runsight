@@ -1,5 +1,5 @@
 """
-RUN-327 — CodeBlock sandbox hardening tests.
+CodeBlock sandbox hardening tests.
 
 These tests cover:
 1. User code that accesses `sys` at runtime gets NameError (sys not available in harness)
@@ -58,10 +58,10 @@ class TestSysNotAvailableAtRuntime:
             "    except NameError:\n"
             "        return {'sys_available': False}\n"
         )
-        block = CodeBlock("test_sys", code=code)
+        block = CodeBlock("sys_reference_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_sys"]
+        result = new_state.results["sys_reference_probe"]
         parsed = json.loads(result.output)
         assert parsed["sys_available"] is False
 
@@ -69,10 +69,8 @@ class TestSysNotAvailableAtRuntime:
     async def test_user_code_calling_sys_exit_fails(self):
         """User code calling sys.exit() should error because sys is not
         importable in the sandboxed subprocess (not in allowed_imports)."""
-        # sys is in BLOCKED_MODULES, so `import sys` in user code is blocked
-        # by AST validation. But the *harness* currently provides it.
-        # After the fix, even if user code tries `sys.exit()` without importing,
-        # it should get NameError since harness no longer imports sys.
+        # Importing sys is blocked by AST validation, and unimported sys access
+        # should remain unavailable inside sandboxed user code.
         code = (
             "def main(data):\n"
             "    try:\n"
@@ -80,10 +78,10 @@ class TestSysNotAvailableAtRuntime:
             "    except NameError:\n"
             "        return {'blocked': True}\n"
         )
-        block = CodeBlock("test_sys_exit", code=code)
+        block = CodeBlock("sys_exit_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_sys_exit"]
+        result = new_state.results["sys_exit_probe"]
         parsed = json.loads(result.output)
         assert parsed["blocked"] is True
 
@@ -101,10 +99,10 @@ class TestDictLiteralsInUserCode:
         """Code containing dict literal `{"key": "value"}` must not raise
         KeyError/IndexError during harness template assembly."""
         code = 'def main(data):\n    d = {"key": "value", "count": 42}\n    return d\n'
-        block = CodeBlock("test_dict", code=code)
+        block = CodeBlock("dict_literal_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_dict"]
+        result = new_state.results["dict_literal_probe"]
         parsed = json.loads(result.output)
         assert parsed["key"] == "value"
         assert parsed["count"] == 42
@@ -113,10 +111,10 @@ class TestDictLiteralsInUserCode:
     async def test_nested_dict_literal(self):
         """Nested dicts with multiple `{}` pairs must work."""
         code = 'def main(data):\n    d = {"outer": {"inner": "val"}}\n    return d\n'
-        block = CodeBlock("test_nested_dict", code=code)
+        block = CodeBlock("nested_dict_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_nested_dict"]
+        result = new_state.results["nested_dict_probe"]
         parsed = json.loads(result.output)
         assert parsed["outer"]["inner"] == "val"
 
@@ -138,10 +136,10 @@ class TestFStringsInUserCode:
             '    msg = f"hello {name}"\n'
             '    return {"message": msg}\n'
         )
-        block = CodeBlock("test_fstring", code=code)
+        block = CodeBlock("fstring_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_fstring"]
+        result = new_state.results["fstring_probe"]
         parsed = json.loads(result.output)
         assert parsed["message"] == "hello world"
 
@@ -162,10 +160,10 @@ class TestSetLiteralsInUserCode:
             "    s = {1, 2, 3}\n"
             '    return {"length": len(s), "items": sorted(list(s))}\n'
         )
-        block = CodeBlock("test_set", code=code)
+        block = CodeBlock("set_literal_probe", code=code)
         state = _make_state()
         new_state = await execute_block_for_test(block, state)
-        result = new_state.results["test_set"]
+        result = new_state.results["set_literal_probe"]
         parsed = json.loads(result.output)
         assert parsed["length"] == 3
         assert parsed["items"] == [1, 2, 3]
@@ -183,19 +181,19 @@ class TestASTValidationStillWorks:
         """import os must be rejected by AST validation."""
         code = "import os\ndef main(data):\n    return {'path': os.getcwd()}\n"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("test_os", code=code)
+            CodeBlock("blocked_os_import_probe", code=code)
 
     def test_import_subprocess_is_blocked(self):
         """import subprocess must be rejected by AST validation."""
         code = "import subprocess\ndef main(data):\n    return {}\n"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("test_subprocess", code=code)
+            CodeBlock("blocked_subprocess_import_probe", code=code)
 
     def test_import_sys_in_user_code_is_blocked(self):
         """import sys in user code must be rejected by AST validation."""
         code = "import sys\ndef main(data):\n    return {}\n"
         with pytest.raises(ValueError, match="not allowed"):
-            CodeBlock("test_sys_import", code=code)
+            CodeBlock("blocked_sys_import_probe", code=code)
 
 
 # ---------------------------------------------------------------------------

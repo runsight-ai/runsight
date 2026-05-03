@@ -1,71 +1,21 @@
-"""Red tests for RUN-5: Concurrent run limits via asyncio.Semaphore.
+"""Concurrent run limits via asyncio.Semaphore.
 
 These tests verify that ExecutionService caps concurrent workflow executions
-using an asyncio.Semaphore. All tests should FAIL until the implementation exists.
+using an asyncio.Semaphore.
 """
 
 import asyncio
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from runsight_api.data.repositories.run_repo import RunRepository
-from runsight_api.logic.services.execution_service import PreparedRunInputs
-from runsight_core.redaction import RunRedactor
-
-
-def _make_service(max_concurrent_runs=None):
-    """Create an ExecutionService with mock dependencies.
-
-    If max_concurrent_runs is provided, passes it to the constructor.
-    This tests that the constructor accepts the new kwarg.
-    """
-    from runsight_api.logic.services.execution_service import ExecutionService
-
-    run_repo = Mock()
-    workflow_repo = Mock()
-    provider_repo = Mock()
-
-    mock_entity = Mock()
-    mock_entity.yaml = (
-        "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-        "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
-        "souls: {}\nconfig: {}"
-    )
-    workflow_repo.get_by_id.return_value = mock_entity
-    provider_repo.get_by_type.return_value = None
-
-    kwargs = dict(
-        run_repo=run_repo,
-        workflow_repo=workflow_repo,
-        provider_repo=provider_repo,
-    )
-    if max_concurrent_runs is not None:
-        kwargs["max_concurrent_runs"] = max_concurrent_runs
-
-    svc = ExecutionService(**kwargs)
-    return svc, run_repo, workflow_repo, provider_repo
-
-
-def _patch_parse_workflow(slow_run_coro):
-    """Return a context manager that patches parse_workflow_yaml.
-
-    The parsed workflow's .run will be set to slow_run_coro.
-    """
-    mock_wf = Mock()
-    mock_wf.run = slow_run_coro
-
-    return patch(
-        "runsight_api.logic.services.execution_service.parse_workflow_yaml",
-        return_value=mock_wf,
-    )
-
-
-def _prepared_inputs(inputs):
-    return PreparedRunInputs(
-        normalized_inputs=inputs,
-        input_redactor=RunRedactor(),
-    )
+from tests.logic.execution_service_helpers import CONCURRENCY_WORKFLOW_ID
+from tests.logic.execution_service_helpers import CONCURRENCY_WORKFLOW_NAME
+from tests.logic.execution_service_helpers import CONCURRENCY_WORKFLOW_YAML
+from tests.logic.execution_service_helpers import concurrency_inputs
+from tests.logic.execution_service_helpers import make_service
+from tests.logic.execution_service_helpers import patch_parse_workflow
 
 
 # ---------------------------------------------------------------------------
@@ -102,37 +52,37 @@ class TestConcurrencyLimit:
         """
         max_concurrent = 2
         total_runs = max_concurrent + 2
-        svc, *_ = _make_service(max_concurrent_runs=max_concurrent)
+        svc, *_ = make_service(max_concurrent_runs=max_concurrent)
 
-        currently_running = 0
+        active_runs = 0
         max_observed = 0
         lock = asyncio.Lock()
         gate = asyncio.Event()
         all_entered = asyncio.Event()
 
         async def tracked_run(*args, **kwargs):
-            nonlocal currently_running, max_observed
+            nonlocal active_runs, max_observed
             async with lock:
-                currently_running += 1
-                if currently_running > max_observed:
-                    max_observed = currently_running
-                if currently_running >= max_concurrent:
+                active_runs += 1
+                if active_runs > max_observed:
+                    max_observed = active_runs
+                if active_runs >= max_concurrent:
                     all_entered.set()
             # Wait at the gate so runs pile up
             await gate.wait()
             async with lock:
-                currently_running -= 1
+                active_runs -= 1
             from runsight_core.state import WorkflowState
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(tracked_run)
+        p1 = patch_parse_workflow(tracked_run)
         with p1:
             for i in range(total_runs):
                 await svc.launch_execution(
-                    f"run_{i}",
-                    "wf_1",
-                    _prepared_inputs({"instruction": "go"}),
+                    f"concurrency-run-{i}",
+                    CONCURRENCY_WORKFLOW_ID,
+                    concurrency_inputs(),
                     branch=None,
                 )
 
@@ -164,37 +114,37 @@ class TestConcurrencyLimit:
 
         Behavioral proof of the default limit without inspecting internals.
         """
-        svc, *_ = _make_service()  # No max_concurrent_runs — should default to 5
+        svc, *_ = make_service()  # No max_concurrent_runs — should default to 5
         total_runs = 7
 
-        currently_running = 0
+        active_runs = 0
         max_observed = 0
         lock = asyncio.Lock()
         gate = asyncio.Event()
         five_entered = asyncio.Event()
 
         async def tracked_run(*args, **kwargs):
-            nonlocal currently_running, max_observed
+            nonlocal active_runs, max_observed
             async with lock:
-                currently_running += 1
-                if currently_running > max_observed:
-                    max_observed = currently_running
-                if currently_running >= 5:
+                active_runs += 1
+                if active_runs > max_observed:
+                    max_observed = active_runs
+                if active_runs >= 5:
                     five_entered.set()
             await gate.wait()
             async with lock:
-                currently_running -= 1
+                active_runs -= 1
             from runsight_core.state import WorkflowState
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(tracked_run)
+        p1 = patch_parse_workflow(tracked_run)
         with p1:
             for i in range(total_runs):
                 await svc.launch_execution(
-                    f"run_d{i}",
-                    "wf_1",
-                    _prepared_inputs({"instruction": "go"}),
+                    f"default-limit-run-{i}",
+                    CONCURRENCY_WORKFLOW_ID,
+                    concurrency_inputs(),
                     branch=None,
                 )
 
@@ -219,7 +169,7 @@ class TestConcurrencyLimit:
         """Runs beyond the semaphore limit queue and eventually execute (no failure)."""
         max_concurrent = 1
         total_runs = 3
-        svc, *_ = _make_service(max_concurrent_runs=max_concurrent)
+        svc, *_ = make_service(max_concurrent_runs=max_concurrent)
 
         completed_count = 0
         lock = asyncio.Lock()
@@ -238,13 +188,13 @@ class TestConcurrencyLimit:
                     all_done.set()
             return result
 
-        p1 = _patch_parse_workflow(gated_run)
+        p1 = patch_parse_workflow(gated_run)
         with p1:
             for i in range(total_runs):
                 await svc.launch_execution(
-                    f"run_q{i}",
-                    "wf_1",
-                    _prepared_inputs({"instruction": "go"}),
+                    f"queued-run-{i}",
+                    CONCURRENCY_WORKFLOW_ID,
+                    concurrency_inputs(),
                     branch=None,
                 )
 
@@ -269,7 +219,7 @@ class TestConcurrencyLimit:
     async def test_excess_runs_do_not_fail(self):
         """Runs beyond the limit should queue, NOT raise or return 429-style error."""
         max_concurrent = 1
-        svc, run_repo, *_ = _make_service(max_concurrent_runs=max_concurrent)
+        svc, *_ = make_service(max_concurrent_runs=max_concurrent)
 
         gate = asyncio.Event()
 
@@ -279,26 +229,26 @@ class TestConcurrencyLimit:
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(blocking_run)
+        p1 = patch_parse_workflow(blocking_run)
         with p1:
             # First run occupies the semaphore
             await svc.launch_execution(
-                "run_a",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "active-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             # Second run should NOT raise — it queues
             await svc.launch_execution(
-                "run_b",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "waiting-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
 
             # Both should be in runtime.running_tasks (one active, one waiting)
-            assert "run_a" in svc._runtime.running_tasks
-            assert "run_b" in svc._runtime.running_tasks
+            assert "active-run" in svc._runtime.running_tasks
+            assert "waiting-run" in svc._runtime.running_tasks
 
             gate.set()
             await asyncio.sleep(0.3)
@@ -314,9 +264,9 @@ class TestSemaphoreRelease:
     async def test_semaphore_released_on_workflow_error(self):
         """If workflow.run() raises, the semaphore slot is released (no deadlock).
 
-        With semaphore(1): run_1 fails, then run_2 should still acquire the semaphore.
+        With semaphore(1), a failed run should release the slot for the next run.
         """
-        svc, *_ = _make_service(max_concurrent_runs=1)
+        svc, *_ = make_service(max_concurrent_runs=1)
 
         call_count = 0
 
@@ -329,21 +279,21 @@ class TestSemaphoreRelease:
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(failing_then_ok)
+        p1 = patch_parse_workflow(failing_then_ok)
         with p1:
             await svc.launch_execution(
-                "run_fail",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "failing-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             await asyncio.sleep(0.1)  # Let the failure happen
 
             # Now launch a second run — it should NOT deadlock
             await svc.launch_execution(
-                "run_ok",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "recovery-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
 
@@ -357,22 +307,22 @@ class TestSemaphoreRelease:
     async def test_semaphore_released_on_cancellation(self):
         """If an asyncio task is cancelled, the semaphore slot is released.
 
-        With semaphore(1): cancel run_1, then run_2 should acquire the semaphore.
+        With semaphore(1), cancelling the first run should let the next run acquire it.
         """
-        svc, *_ = _make_service(max_concurrent_runs=1)
+        svc, *_ = make_service(max_concurrent_runs=1)
 
-        run_started = asyncio.Event()
-        run2_completed = asyncio.Event()
+        cancellable_run_started = asyncio.Event()
+        after_cancel_completed = asyncio.Event()
 
         async def long_run(*args, **kwargs):
-            run_started.set()
+            cancellable_run_started.set()
             await asyncio.sleep(10)  # Simulate long-running workflow
             from runsight_core.state import WorkflowState
 
             return WorkflowState()
 
         async def quick_run(*args, **kwargs):
-            run2_completed.set()
+            after_cancel_completed.set()
             from runsight_core.state import WorkflowState
 
             return WorkflowState()
@@ -387,35 +337,35 @@ class TestSemaphoreRelease:
                 return await long_run(*args, **kwargs)
             return await quick_run(*args, **kwargs)
 
-        p1 = _patch_parse_workflow(dispatch_run)
+        p1 = patch_parse_workflow(dispatch_run)
         with p1:
             await svc.launch_execution(
-                "run_cancel",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "cancellable-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
-            await run_started.wait()
+            await cancellable_run_started.wait()
 
             # Cancel the first task
-            task = svc._runtime.running_tasks.get("run_cancel")
-            assert task is not None, "run_cancel should be in runtime.running_tasks"
+            task = svc._runtime.running_tasks.get("cancellable-run")
+            assert task is not None, "cancellable-run should be in runtime.running_tasks"
             task.cancel()
             await asyncio.sleep(0.1)
 
             # Launch second run — should acquire released semaphore
             await svc.launch_execution(
-                "run_after_cancel",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "after-cancel-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
 
             # Should complete within a reasonable time (not deadlocked)
             try:
-                await asyncio.wait_for(run2_completed.wait(), timeout=2.0)
+                await asyncio.wait_for(after_cancel_completed.wait(), timeout=2.0)
             except asyncio.TimeoutError:
-                pytest.fail("run_after_cancel timed out — semaphore not released on cancellation")
+                pytest.fail("after-cancel-run timed out — semaphore not released on cancellation")
 
     @pytest.mark.asyncio
     async def test_semaphore_released_in_finally_block(self):
@@ -425,19 +375,19 @@ class TestSemaphoreRelease:
         then launching one more run that should still succeed.
         """
         limit = 2
-        svc, *_ = _make_service(max_concurrent_runs=limit)
+        svc, *_ = make_service(max_concurrent_runs=limit)
 
         async def always_fail(*args, **kwargs):
             raise RuntimeError("always fails")
 
-        p1 = _patch_parse_workflow(always_fail)
+        p1 = patch_parse_workflow(always_fail)
         with p1:
             # Fill all semaphore slots with failing runs
             for i in range(limit):
                 await svc.launch_execution(
-                    f"run_fail_{i}",
-                    "wf_1",
-                    _prepared_inputs({"instruction": "go"}),
+                    f"failing-slot-run-{i}",
+                    CONCURRENCY_WORKFLOW_ID,
+                    concurrency_inputs(),
                     branch=None,
                 )
             await asyncio.sleep(0.2)  # Let all fail
@@ -451,18 +401,18 @@ class TestSemaphoreRelease:
 
             return WorkflowState()
 
-        p1c = _patch_parse_workflow(success_run)
+        p1c = patch_parse_workflow(success_run)
         with p1c:
             await svc.launch_execution(
-                "run_after_fails",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "post-failure-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             try:
                 await asyncio.wait_for(success_event.wait(), timeout=2.0)
             except asyncio.TimeoutError:
-                pytest.fail("run_after_fails never ran — semaphore slots leaked from failures")
+                pytest.fail("post-failure-run never ran — semaphore slots leaked from failures")
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +425,7 @@ class TestPendingUntilAcquired:
     async def test_status_pending_while_queued(self):
         """A run blocked on the semaphore should remain in 'pending' status.
 
-        With semaphore(1): run_1 occupies the slot. run_2 should stay pending.
+        With semaphore(1), the first run occupies the slot and the next stays pending.
         """
         from sqlmodel import Session, SQLModel, create_engine
 
@@ -491,21 +441,17 @@ class TestPendingUntilAcquired:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = (
-            "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-            "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
-            "souls: {}\nconfig: {}"
-        )
+        mock_entity.yaml = CONCURRENCY_WORKFLOW_YAML
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 
         # Create two Run records in the DB
         with Session(db_engine) as session:
-            for rid in ("run_active", "run_queued"):
+            for run_id in ("active-run", "queued-run"):
                 run = Run(
-                    id=rid,
-                    workflow_id="wf_1",
-                    workflow_name="wf_1",
+                    id=run_id,
+                    workflow_id=CONCURRENCY_WORKFLOW_ID,
+                    workflow_name=CONCURRENCY_WORKFLOW_NAME,
                     status=RunStatus.pending,
                     task_json="{}",
                     branch="main",
@@ -529,29 +475,29 @@ class TestPendingUntilAcquired:
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(blocking_run)
+        p1 = patch_parse_workflow(blocking_run)
         with p1:
             # First run occupies the semaphore
             await svc.launch_execution(
-                "run_active",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "active-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             await asyncio.sleep(0.1)
 
             # Second run should be queued
             await svc.launch_execution(
-                "run_queued",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "queued-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             await asyncio.sleep(0.1)
 
-            # run_queued should still be pending (blocked on semaphore)
+            # The queued run should still be pending while blocked on the semaphore.
             with Session(db_engine) as session:
-                queued = session.get(Run, "run_queued")
+                queued = session.get(Run, "queued-run")
                 assert queued.status == RunStatus.pending, (
                     f"Expected queued run to remain 'pending', got '{queued.status}'"
                 )
@@ -576,21 +522,17 @@ class TestPendingUntilAcquired:
         provider_repo = Mock()
 
         mock_entity = Mock()
-        mock_entity.yaml = (
-            "workflow:\n  name: t\n  entry: b1\n  transitions: []\n"
-            "blocks:\n  b1:\n    type: linear\n    soul_ref: test\n"
-            "souls: {}\nconfig: {}"
-        )
+        mock_entity.yaml = CONCURRENCY_WORKFLOW_YAML
         workflow_repo.get_by_id.return_value = mock_entity
         provider_repo.get_by_type.return_value = None
 
         with Session(db_engine) as session:
-            for rid in ("run_first", "run_second"):
+            for run_id in ("blocking-run", "released-run"):
                 session.add(
                     Run(
-                        id=rid,
-                        workflow_id="wf_1",
-                        workflow_name="wf_1",
+                        id=run_id,
+                        workflow_id=CONCURRENCY_WORKFLOW_ID,
+                        workflow_name=CONCURRENCY_WORKFLOW_NAME,
                         status=RunStatus.pending,
                         task_json="{}",
                         branch="main",
@@ -627,20 +569,20 @@ class TestPendingUntilAcquired:
 
                 return WorkflowState()
 
-        p1 = _patch_parse_workflow(dispatch_run)
+        p1 = patch_parse_workflow(dispatch_run)
         with p1:
             await svc.launch_execution(
-                "run_first",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "blocking-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             await asyncio.sleep(0.1)
 
             await svc.launch_execution(
-                "run_second",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "released-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
             await asyncio.sleep(0.1)
@@ -656,9 +598,9 @@ class TestPendingUntilAcquired:
             await asyncio.sleep(0.1)
 
             with Session(db_engine) as session:
-                run2 = session.get(Run, "run_second")
-                assert run2.status in (RunStatus.running, RunStatus.completed), (
-                    f"Expected 'running' or 'completed', got '{run2.status}'"
+                released_run = session.get(Run, "released-run")
+                assert released_run.status in (RunStatus.running, RunStatus.completed), (
+                    f"Expected 'running' or 'completed', got '{released_run.status}'"
                 )
 
 
@@ -674,7 +616,7 @@ class TestImmediateReturn:
         the semaphore is fully occupied. The semaphore wait happens in the
         background task, not in launch_execution itself.
         """
-        svc, *_ = _make_service(max_concurrent_runs=1)
+        svc, *_ = make_service(max_concurrent_runs=1)
 
         gate = asyncio.Event()
 
@@ -684,13 +626,13 @@ class TestImmediateReturn:
 
             return WorkflowState()
 
-        p1 = _patch_parse_workflow(blocking_run)
+        p1 = patch_parse_workflow(blocking_run)
         with p1:
             # Fill the semaphore
             await svc.launch_execution(
-                "run_fill",
-                "wf_1",
-                _prepared_inputs({"instruction": "go"}),
+                "slot-filling-run",
+                CONCURRENCY_WORKFLOW_ID,
+                concurrency_inputs(),
                 branch=None,
             )
 
@@ -698,9 +640,9 @@ class TestImmediateReturn:
             try:
                 await asyncio.wait_for(
                     svc.launch_execution(
-                        "run_queued",
-                        "wf_1",
-                        _prepared_inputs({"instruction": "go"}),
+                        "queued-launch-run",
+                        CONCURRENCY_WORKFLOW_ID,
+                        concurrency_inputs(),
                         branch=None,
                     ),
                     timeout=0.5,

@@ -1,4 +1,4 @@
-"""Red tests for RUN-313: RunReadModel.get_baseline() query.
+"""RunReadModel.get_baseline() query.
 
 Tests target the baseline query method on RunReadModel:
   - get_baseline(soul_id, soul_version, limit=100) -> BaselineStats | None
@@ -9,7 +9,6 @@ Tests target the baseline query method on RunReadModel:
 
 Also tests the BaselineStats model itself.
 
-All tests should FAIL until the implementation exists.
 """
 
 import pytest
@@ -89,9 +88,9 @@ class TestGetBaselineAverages:
         """Insert RunNode records matching a given soul_id + soul_version."""
         for i, (cost, tok) in enumerate(zip(costs, tokens)):
             node = RunNode(
-                id=f"run{i}:block{i}",
-                run_id=f"run{i}",
-                node_id=f"block{i}",
+                id=f"baseline_run_{i}:baseline_block_{i}",
+                run_id=f"baseline_run_{i}",
+                node_id=f"baseline_block_{i}",
                 block_type="LinearBlock",
                 status="completed",
                 soul_id=soul_id,
@@ -109,13 +108,13 @@ class TestGetBaselineAverages:
         RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
-            "soul_1",
-            "v1hash",
+            "baseline_soul",
+            "baseline_version_hash",
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         assert stats.avg_cost == pytest.approx(0.20, abs=0.001)
 
@@ -124,13 +123,13 @@ class TestGetBaselineAverages:
         RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
-            "soul_1",
-            "v1hash",
+            "baseline_soul",
+            "baseline_version_hash",
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         assert stats.avg_tokens == pytest.approx(200.0, abs=1.0)
 
@@ -139,14 +138,14 @@ class TestGetBaselineAverages:
         RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
-            "soul_1",
-            "v1hash",
+            "baseline_soul",
+            "baseline_version_hash",
             costs=[0.10, 0.20],
             tokens=[100, 200],
             scores=[0.80, 0.90],
         )
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         assert stats.avg_score == pytest.approx(0.85, abs=0.01)
 
@@ -155,13 +154,13 @@ class TestGetBaselineAverages:
         RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
-            "soul_1",
-            "v1hash",
+            "baseline_soul",
+            "baseline_version_hash",
             costs=[0.10, 0.20],
             tokens=[100, 200],
         )
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         assert stats.avg_score is None
 
@@ -170,13 +169,13 @@ class TestGetBaselineAverages:
         RunReadModel = _import_run_read_model()
         self._seed_nodes(
             db_session,
-            "soul_1",
-            "v1hash",
+            "baseline_soul",
+            "baseline_version_hash",
             costs=[0.10, 0.20, 0.30],
             tokens=[100, 200, 300],
         )
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         assert stats.run_count == 3
 
@@ -190,49 +189,49 @@ class TestGetBaselineFiltering:
     def _seed_mixed_nodes(self, session):
         """Insert nodes with different soul_id / soul_version combos."""
         nodes = [
-            # soul_1 / v1hash — target
+            # baseline_soul / baseline_version_hash — target
             RunNode(
-                id="r1:b1",
-                run_id="r1",
-                node_id="b1",
+                id="target_baseline_run_first:target_baseline_block_first",
+                run_id="target_baseline_run_first",
+                node_id="target_baseline_block_first",
                 block_type="L",
-                soul_id="soul_1",
-                soul_version="v1hash",
+                soul_id="baseline_soul",
+                soul_version="baseline_version_hash",
                 cost_usd=0.10,
                 tokens={"total": 100},
                 status="completed",
             ),
             RunNode(
-                id="r2:b2",
-                run_id="r2",
-                node_id="b2",
+                id="target_baseline_run_second:target_baseline_block_second",
+                run_id="target_baseline_run_second",
+                node_id="target_baseline_block_second",
                 block_type="L",
-                soul_id="soul_1",
-                soul_version="v1hash",
+                soul_id="baseline_soul",
+                soul_version="baseline_version_hash",
                 cost_usd=0.20,
                 tokens={"total": 200},
                 status="completed",
             ),
-            # soul_1 / v2hash — different version, should be excluded
+            # baseline_soul / candidate_version_hash — different version, should be excluded
             RunNode(
-                id="r3:b3",
-                run_id="r3",
-                node_id="b3",
+                id="candidate_version_run:candidate_version_block",
+                run_id="candidate_version_run",
+                node_id="candidate_version_block",
                 block_type="L",
-                soul_id="soul_1",
-                soul_version="v2hash",
+                soul_id="baseline_soul",
+                soul_version="candidate_version_hash",
                 cost_usd=1.00,
                 tokens={"total": 9999},
                 status="completed",
             ),
-            # soul_2 / v1hash — different soul, should be excluded
+            # comparison_soul / baseline_version_hash — different soul, should be excluded
             RunNode(
-                id="r4:b4",
-                run_id="r4",
-                node_id="b4",
+                id="comparison_soul_run:comparison_soul_block",
+                run_id="comparison_soul_run",
+                node_id="comparison_soul_block",
                 block_type="L",
-                soul_id="soul_2",
-                soul_version="v1hash",
+                soul_id="comparison_soul",
+                soul_version="baseline_version_hash",
                 cost_usd=2.00,
                 tokens={"total": 8888},
                 status="completed",
@@ -247,7 +246,7 @@ class TestGetBaselineFiltering:
         RunReadModel = _import_run_read_model()
         self._seed_mixed_nodes(db_session)
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash")
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash")
         assert stats is not None
         # Should average over 0.10 and 0.20, not 1.00 or 2.00
         assert stats.run_count == 2
@@ -258,7 +257,7 @@ class TestGetBaselineFiltering:
         RunReadModel = _import_run_read_model()
         self._seed_mixed_nodes(db_session)
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v2hash")
+        stats = read_model.get_baseline("baseline_soul", "candidate_version_hash")
         assert stats is not None
         assert stats.run_count == 1
         assert stats.avg_cost == pytest.approx(1.00, abs=0.001)
@@ -277,13 +276,13 @@ class TestGetBaselineLimit:
         # Insert 5 nodes with increasing cost: 0.10, 0.20, 0.30, 0.40, 0.50
         for i in range(5):
             node = RunNode(
-                id=f"r{i}:b{i}",
-                run_id=f"r{i}",
-                node_id=f"b{i}",
+                id=f"limited_baseline_run_{i}:limited_baseline_block_{i}",
+                run_id=f"limited_baseline_run_{i}",
+                node_id=f"limited_baseline_block_{i}",
                 block_type="LinearBlock",
                 status="completed",
-                soul_id="soul_1",
-                soul_version="v1hash",
+                soul_id="baseline_soul",
+                soul_version="baseline_version_hash",
                 cost_usd=0.10 * (i + 1),
                 tokens={"total": 100 * (i + 1)},
                 created_at=1000.0 + i,  # increasing time
@@ -292,7 +291,7 @@ class TestGetBaselineLimit:
         db_session.commit()
 
         read_model = RunReadModel(db_session)
-        stats = read_model.get_baseline("soul_1", "v1hash", limit=2)
+        stats = read_model.get_baseline("baseline_soul", "baseline_version_hash", limit=2)
         assert stats is not None
         # With limit=2, should only consider the 2 most recent nodes
         assert stats.run_count == 2

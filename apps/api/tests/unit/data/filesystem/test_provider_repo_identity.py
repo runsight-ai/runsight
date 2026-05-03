@@ -1,0 +1,123 @@
+"""Provider identity comes from embedded YAML id."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+from runsight_api.data.filesystem.provider_repo import FileSystemProviderRepo
+
+
+def _provider_payload(**overrides):
+    payload = {
+        "kind": "provider",
+        "name": "Fixture Provider",
+        "type": "fixture-provider",
+        "api_key": "dummy-provider-key",
+        "base_url": "http://localhost/fixture-provider/v1",
+        "is_active": True,
+        "status": "connected",
+        "models": ["fixture-chat-model", "fixture-small-model"],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _write_provider_file(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def test_create_requires_explicit_embedded_id_and_uses_it_for_filename(tmp_path) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+    providers_dir = Path(tmpdir) / "custom" / "providers"
+
+    entity = repo.create(_provider_payload(id="embedded-provider", name="Fixture Provider"))
+
+    assert entity.id == "embedded-provider"
+    assert (providers_dir / "embedded-provider.yaml").exists()
+    assert not (providers_dir / "fixture-provider.yaml").exists()
+
+
+def test_create_without_id_is_rejected(tmp_path) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+
+    with pytest.raises(ValueError, match="id"):
+        repo.create(_provider_payload())
+
+
+def test_create_rejects_invalid_embedded_id(tmp_path) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+
+    with pytest.raises(ValueError, match="provider id"):
+        repo.create(_provider_payload(id="http"))
+
+
+def test_list_all_does_not_infer_provider_id_from_filename_stem_when_yaml_id_differs(
+    tmp_path,
+) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+    providers_dir = Path(tmpdir) / "custom" / "providers"
+    _write_provider_file(
+        providers_dir / "legacy-provider.yaml",
+        {
+            "id": "embedded-provider",
+            "kind": "provider",
+            "name": "Legacy Provider",
+            "type": "custom",
+            "is_active": True,
+            "status": "connected",
+            "models": [],
+        },
+    )
+
+    assert repo.list_all() == []
+
+
+def test_get_by_id_does_not_return_provider_from_filename_stem_when_yaml_id_differs(
+    tmp_path,
+) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+    providers_dir = Path(tmpdir) / "custom" / "providers"
+    _write_provider_file(
+        providers_dir / "legacy-provider.yaml",
+        {
+            "id": "embedded-provider",
+            "kind": "provider",
+            "name": "Legacy Provider",
+            "type": "custom",
+            "is_active": True,
+            "status": "connected",
+            "models": [],
+        },
+    )
+
+    assert repo.get_by_id("legacy-provider") is None
+
+
+def test_update_does_not_accept_provider_filename_stem_when_yaml_id_differs(tmp_path) -> None:
+    tmpdir = str(tmp_path)
+    repo = FileSystemProviderRepo(base_path=tmpdir)
+    providers_dir = Path(tmpdir) / "custom" / "providers"
+    _write_provider_file(
+        providers_dir / "legacy-provider.yaml",
+        {
+            "id": "embedded-provider",
+            "kind": "provider",
+            "name": "Legacy Provider",
+            "type": "custom",
+            "is_active": True,
+            "status": "connected",
+            "models": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="id"):
+        repo.update("legacy-provider", {"status": "offline"})

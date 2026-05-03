@@ -4,8 +4,9 @@ import {
   truncateText,
   formatTimestamp,
   formatCost,
-  getTimeAgo,
+  formatCommit,
   getSourceVariant,
+  getTimeAgo,
 } from "../formatting";
 
 // ---------------------------------------------------------------------------
@@ -190,15 +191,33 @@ describe("formatCost", () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatCommit
+// ---------------------------------------------------------------------------
+describe("formatCommit", () => {
+  it("returns uncommitted for empty values", () => {
+    expect(formatCommit(null)).toBe("uncommitted");
+    expect(formatCommit(undefined)).toBe("uncommitted");
+  });
+
+  it("slices full commit SHAs to 7 characters", () => {
+    expect(formatCommit("abc1234def5678")).toBe("abc1234");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getSourceVariant
 // ---------------------------------------------------------------------------
 describe("getSourceVariant", () => {
-  it("treats api as a known production source instead of the unknown fallback", () => {
-    expect(getSourceVariant("api")).not.toBe(getSourceVariant("unknown-run-source"));
-  });
-
-  it("keeps unknown run sources on the neutral fallback variant", () => {
-    expect(getSourceVariant("unknown-run-source")).toBe("neutral");
+  it.each([
+    ["manual", "neutral"],
+    ["api", "info"],
+    ["webhook", "info"],
+    ["schedule", "accent"],
+    ["simulation", "warning"],
+    ["unknown", "neutral"],
+    [null, "neutral"],
+  ] as const)("maps %s to %s", (source, variant) => {
+    expect(getSourceVariant(source)).toBe(variant);
   });
 });
 

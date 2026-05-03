@@ -17,7 +17,7 @@ def test_workflow_state_initialization():
 
 
 def test_workflow_state_immutability():
-    """Verify model_copy creates new instance (addresses tech lead issue #7)."""
+    """Verify model_copy creates a new instance."""
     state1 = WorkflowState(results={"a": BlockResult(output="output1")})
     state2 = state1.model_copy(update={"results": {"b": BlockResult(output="output2")}})
 
@@ -28,7 +28,7 @@ def test_workflow_state_immutability():
 
 
 def test_workflow_state_model_fields():
-    """Verify required fields exist (AC-2)."""
+    """Verify required workflow state fields exist."""
     fields = set(WorkflowState.model_fields.keys())
     required = {
         "execution_log",
@@ -47,7 +47,7 @@ def test_workflow_state_with_all_fields():
         execution_log=[{"role": "system", "content": "Hello"}],
         shared_memory={"key": "value"},
         results={"block1": BlockResult(output="output1")},
-        metadata={"blueprint_name": "test_blueprint"},
+        metadata={"blueprint_name": "review_blueprint"},
         total_cost_usd=0.05,
         total_tokens=100,
     )
@@ -56,7 +56,7 @@ def test_workflow_state_with_all_fields():
     assert state.execution_log[0]["role"] == "system"
     assert state.shared_memory["key"] == "value"
     assert state.results["block1"].output == "output1"
-    assert state.metadata["blueprint_name"] == "test_blueprint"
+    assert state.metadata["blueprint_name"] == "review_blueprint"
     assert state.total_cost_usd == 0.05
     assert state.total_tokens == 100
 

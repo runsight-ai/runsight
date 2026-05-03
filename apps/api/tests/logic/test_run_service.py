@@ -46,26 +46,26 @@ def _prepared(inputs: dict[str, object] | None = None):
 # --- create_run ---
 
 
-def test_create_run_happy_path(run_service, run_repo, workflow_repo):
+def test_create_run_creates_pending_run_for_existing_workflow(run_service, run_repo, workflow_repo):
     """create_run succeeds when workflow exists and task_data is provided."""
-    workflow_repo.get_by_id.return_value = Mock(id="wf_1")
+    workflow_repo.get_by_id.return_value = Mock(id="research-workflow")
     run_repo.create_run.return_value = None  # create_run mutates and passes run
 
     run = run_service.create_run(
-        "wf_1",
-        _prepared({"foo": "bar", "task_id": "t1"}),
+        "research-workflow",
+        _prepared({"instruction": "summarize findings", "task_id": "research-task"}),
         branch="main",
     )
 
-    assert run.workflow_id == "wf_1"
-    assert run.workflow_name == "wf_1"
+    assert run.workflow_id == "research-workflow"
+    assert run.workflow_name == "research-workflow"
     assert run.status == RunStatus.pending
     assert run.task_json == "{}"
     assert run.id.startswith("run_")
-    assert run.started_at is None  # RUN-127: started_at defaults to None (pending, not yet running)
+    assert run.started_at is None
     run_repo.create_run.assert_called_once()
     call_run = run_repo.create_run.call_args[0][0]
-    assert call_run.workflow_id == "wf_1"
+    assert call_run.workflow_id == "research-workflow"
 
 
 def test_create_run_workflow_not_found(run_service, workflow_repo):
@@ -73,42 +73,46 @@ def test_create_run_workflow_not_found(run_service, workflow_repo):
     workflow_repo.get_by_id.return_value = None
 
     with pytest.raises(WorkflowNotFound) as exc_info:
-        run_service.create_run("non_existent", _prepared({"foo": "bar"}), branch="main")
+        run_service.create_run(
+            "missing-workflow",
+            _prepared({"instruction": "summarize findings"}),
+            branch="main",
+        )
 
-    assert "non_existent" in str(exc_info.value)
+    assert "missing-workflow" in str(exc_info.value)
 
 
 def test_create_run_accepts_branch_and_source(run_service, run_repo, workflow_repo):
     """create_run should preserve the canonical simulation branch/source pair."""
     workflow = Mock()
-    workflow.id = "wf_1"
+    workflow.id = "simulation-workflow"
     workflow.name = "Simulation Flow"
     workflow_repo.get_by_id.return_value = workflow
     run_repo.create_run.return_value = None
 
     run = run_service.create_run(
-        "wf_1",
-        _prepared({"instruction": "go"}),
+        "simulation-workflow",
+        _prepared({"instruction": "simulate branch-aware execution"}),
         source="simulation",
-        branch="sim/wf_1/20260330/abc12",
+        branch="sim/simulation-workflow/20260330/abc12",
     )
 
     assert run.source == "simulation"
-    assert run.branch == "sim/wf_1/20260330/abc12"
+    assert run.branch == "sim/simulation-workflow/20260330/abc12"
     stored_run = run_repo.create_run.call_args[0][0]
     assert stored_run.source == "simulation"
-    assert stored_run.branch == "sim/wf_1/20260330/abc12"
+    assert stored_run.branch == "sim/simulation-workflow/20260330/abc12"
 
 
 def test_create_run_empty_task_data(run_service, run_repo, workflow_repo):
     """create_run accepts empty task_data (serializes to '{}')."""
-    workflow_repo.get_by_id.return_value = Mock(id="wf_1")
+    workflow_repo.get_by_id.return_value = Mock(id="empty-input-workflow")
     run_repo.create_run.return_value = None
 
-    run = run_service.create_run("wf_1", _prepared(), branch="main")
+    run = run_service.create_run("empty-input-workflow", _prepared(), branch="main")
 
     assert run.task_json == "{}"
-    assert run.workflow_id == "wf_1"
+    assert run.workflow_id == "empty-input-workflow"
 
 
 # --- get_run ---
@@ -117,27 +121,27 @@ def test_create_run_empty_task_data(run_service, run_repo, workflow_repo):
 def test_get_run_exists(run_service, run_repo):
     """get_run returns run when it exists."""
     expected = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
+        id="existing-run",
+        workflow_id="research-workflow",
+        workflow_name="Research workflow",
         status=RunStatus.completed,
         task_json="{}",
         branch="main",
     )
     run_repo.get_run.return_value = expected
 
-    result = run_service.get_run("run_1")
+    result = run_service.get_run("existing-run")
 
     assert result is expected
-    assert result.id == "run_1"
-    run_repo.get_run.assert_called_once_with("run_1")
+    assert result.id == "existing-run"
+    run_repo.get_run.assert_called_once_with("existing-run")
 
 
 def test_get_run_not_found(run_service, run_repo):
     """get_run returns None when run does not exist."""
     run_repo.get_run.return_value = None
 
-    result = run_service.get_run("non_existent")
+    result = run_service.get_run("missing-run")
 
     assert result is None
 
@@ -157,40 +161,40 @@ def test_list_runs_empty(run_service, run_repo):
 
 def test_list_runs_multiple(run_service, run_repo):
     """list_runs returns all runs in repo order."""
-    r1 = Run(
-        id="r1",
-        workflow_id="wf",
-        workflow_name="wf",
+    pending_run = Run(
+        id="pending-listed-run",
+        workflow_id="listing-workflow",
+        workflow_name="Listing workflow",
         status=RunStatus.pending,
         task_json="{}",
         branch="main",
     )
-    r2 = Run(
-        id="r2",
-        workflow_id="wf",
-        workflow_name="wf",
+    completed_run = Run(
+        id="completed-listed-run",
+        workflow_id="listing-workflow",
+        workflow_name="Listing workflow",
         status=RunStatus.completed,
         task_json="{}",
         branch="main",
     )
-    run_repo.list_runs.return_value = [r1, r2]
+    run_repo.list_runs.return_value = [pending_run, completed_run]
 
     result = run_service.list_runs()
 
     assert len(result) == 2
-    assert result[0].id == "r1"
-    assert result[1].id == "r2"
+    assert result[0].id == "pending-listed-run"
+    assert result[1].id == "completed-listed-run"
 
 
 # --- cancel_run ---
 
 
-def test_cancel_run_happy_path(run_service, run_repo):
+def test_cancel_running_run_records_user_cancellation(run_service, run_repo):
     """cancel_run sets status=cancelled and updates run."""
     run = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
+        id="running-run-for-cancel",
+        workflow_id="cancellable-workflow",
+        workflow_name="Cancellable workflow",
         status=RunStatus.running,
         task_json="{}",
         branch="main",
@@ -199,7 +203,7 @@ def test_cancel_run_happy_path(run_service, run_repo):
     run_repo.get_run.return_value = run
     run_repo.update_run.return_value = run
 
-    result = run_service.cancel_run("run_1")
+    result = run_service.cancel_run("running-run-for-cancel")
 
     assert result.status == RunStatus.cancelled
     assert result.cancelled_reason == "Cancelled by user"
@@ -215,18 +219,18 @@ def test_cancel_run_not_found(run_service, run_repo):
     run_repo.get_run.return_value = None
 
     with pytest.raises(RunNotFound) as exc_info:
-        run_service.cancel_run("non_existent")
+        run_service.cancel_run("missing-run")
 
-    assert "non_existent" in str(exc_info.value)
+    assert "missing-run" in str(exc_info.value)
     run_repo.update_run.assert_not_called()
 
 
 def test_cancel_run_already_cancelled(run_service, run_repo):
     """cancel_run succeeds when run is already cancelled (idempotent)."""
     run = Run(
-        id="run_1",
-        workflow_id="wf_1",
-        workflow_name="wf_1",
+        id="already-cancelled-run",
+        workflow_id="cancellable-workflow",
+        workflow_name="Cancellable workflow",
         status=RunStatus.cancelled,
         task_json="{}",
         branch="main",
@@ -234,7 +238,7 @@ def test_cancel_run_already_cancelled(run_service, run_repo):
     run_repo.get_run.return_value = run
     run_repo.update_run.return_value = run
 
-    result = run_service.cancel_run("run_1")
+    result = run_service.cancel_run("already-cancelled-run")
 
     assert result.status == RunStatus.cancelled
     run_repo.update_run.assert_called_once()
@@ -246,24 +250,36 @@ def test_cancel_run_already_cancelled(run_service, run_repo):
 def test_get_run_nodes_with_nodes(run_service, run_repo):
     """get_run_nodes returns nodes for the run."""
     nodes = [
-        RunNode(id="r1:n1", run_id="r1", node_id="n1", block_type="soul", status="completed"),
-        RunNode(id="r1:n2", run_id="r1", node_id="n2", block_type="soul", status="pending"),
+        RunNode(
+            id="node-row-research",
+            run_id="run-with-nodes",
+            node_id="research-node",
+            block_type="soul",
+            status="completed",
+        ),
+        RunNode(
+            id="node-row-review",
+            run_id="run-with-nodes",
+            node_id="review-node",
+            block_type="soul",
+            status="pending",
+        ),
     ]
     run_repo.list_nodes_for_run.return_value = nodes
 
-    result = run_service.get_run_nodes("r1")
+    result = run_service.get_run_nodes("run-with-nodes")
 
     assert len(result) == 2
-    assert result[0].node_id == "n1"
-    assert result[1].node_id == "n2"
-    run_repo.list_nodes_for_run.assert_called_once_with("r1")
+    assert result[0].node_id == "research-node"
+    assert result[1].node_id == "review-node"
+    run_repo.list_nodes_for_run.assert_called_once_with("run-with-nodes")
 
 
 def test_get_run_nodes_empty(run_service, run_repo):
     """get_run_nodes returns empty list when no nodes exist."""
     run_repo.list_nodes_for_run.return_value = []
 
-    result = run_service.get_run_nodes("run_1")
+    result = run_service.get_run_nodes("run-without-nodes")
 
     assert result == []
 
@@ -274,24 +290,24 @@ def test_get_run_nodes_empty(run_service, run_repo):
 def test_get_run_logs_with_logs(run_service, run_repo):
     """get_run_logs returns logs for the run."""
     logs = [
-        LogEntry(run_id="r1", message="msg1", level="info"),
-        LogEntry(run_id="r1", message="msg2", level="error"),
+        LogEntry(run_id="run-with-logs", message="Node started", level="info"),
+        LogEntry(run_id="run-with-logs", message="Node failed", level="error"),
     ]
     run_repo.list_logs_for_run.return_value = logs
 
-    result = run_service.get_run_logs("r1")
+    result = run_service.get_run_logs("run-with-logs")
 
     assert len(result) == 2
-    assert result[0].message == "msg1"
-    assert result[1].message == "msg2"
-    run_repo.list_logs_for_run.assert_called_once_with("r1")
+    assert result[0].message == "Node started"
+    assert result[1].message == "Node failed"
+    run_repo.list_logs_for_run.assert_called_once_with("run-with-logs")
 
 
 def test_get_run_logs_empty(run_service, run_repo):
     """get_run_logs returns empty list when no logs exist."""
     run_repo.list_logs_for_run.return_value = []
 
-    result = run_service.get_run_logs("run_1")
+    result = run_service.get_run_logs("run-without-logs")
 
     assert result == []
 
@@ -303,17 +319,17 @@ def test_get_node_summary_aggregates_cost_and_tokens(run_service, run_repo):
     """get_node_summary aggregates cost_usd and tokens from nodes (read-only)."""
     nodes = [
         RunNode(
-            id="r1:n1",
-            run_id="r1",
-            node_id="n1",
+            id="summary-row-research",
+            run_id="run-with-node-costs",
+            node_id="research-node",
             block_type="soul",
             cost_usd=1.5,
             tokens={"prompt": 100, "completion": 50, "total": 150},
         ),
         RunNode(
-            id="r1:n2",
-            run_id="r1",
-            node_id="n2",
+            id="summary-row-review",
+            run_id="run-with-node-costs",
+            node_id="review-node",
             block_type="soul",
             cost_usd=2.0,
             tokens={"prompt": 200, "completion": 100, "total": 300},
@@ -321,7 +337,7 @@ def test_get_node_summary_aggregates_cost_and_tokens(run_service, run_repo):
     ]
     run_repo.list_nodes_for_run.return_value = nodes
 
-    result = run_service.get_node_summary("run_1")
+    result = run_service.get_node_summary("run-with-node-costs")
 
     assert result["total_cost_usd"] == 3.5
     assert result["total_tokens"] == 450
@@ -333,7 +349,7 @@ def test_get_node_summary_empty_nodes(run_service, run_repo):
     """get_node_summary returns zeros when no nodes."""
     run_repo.list_nodes_for_run.return_value = []
 
-    result = run_service.get_node_summary("run_1")
+    result = run_service.get_node_summary("run-without-node-costs")
 
     assert result["total_cost_usd"] == 0.0
     assert result["total_tokens"] == 0
@@ -346,4 +362,4 @@ def test_get_node_summary_nodes_missing_cost_usd_raises(run_service, run_repo):
     run_repo.list_nodes_for_run.return_value = [node_without_cost]
 
     with pytest.raises(AttributeError):
-        run_service.get_node_summary("run_1")
+        run_service.get_node_summary("run-with-malformed-node")

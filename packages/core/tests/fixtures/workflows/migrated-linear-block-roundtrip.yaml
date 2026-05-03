@@ -1,0 +1,22 @@
+version: "1.0"
+id: linear_roundtrip_workflow
+kind: workflow
+souls:
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Writer
+    system_prompt: "You are a writer."
+blocks:
+  write_step:
+    type: linear
+    soul_ref: writer
+workflow:
+  id: linear_roundtrip_workflow
+  kind: workflow
+  name: linear_roundtrip_workflow
+  entry: write_step
+  transitions:
+    - from: write_step
+      to: null

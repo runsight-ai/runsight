@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createUser, fireEvent, render, screen, waitFor } from "../../../test/testUtils";
 import { Button } from "../button";
+import { Checkbox } from "../checkbox";
 import { Input } from "../input";
 import { Label } from "../label";
+import { Radio, RadioGroup } from "../radio";
 import { SegmentedControl } from "../segmented-control";
 import { Slider } from "../slider";
 import { Switch } from "../switch";
@@ -24,6 +26,45 @@ function TagInputHarness(props: Omit<React.ComponentProps<typeof TagInput>, "tag
 }
 
 describe("rendered form control contracts", () => {
+  it("renders checkbox label, checked state, disabled state, and indeterminate DOM state", () => {
+    const ref = React.createRef<HTMLInputElement>();
+    const { rerender } = render(
+      <Checkbox ref={ref} label="Allow retries" defaultChecked indeterminate />,
+    );
+
+    const checkbox = screen.getByLabelText("Allow retries") as HTMLInputElement;
+
+    expect(checkbox.type).toBe("checkbox");
+    expect(checkbox.checked).toBe(true);
+    expect(checkbox.indeterminate).toBe(true);
+    expect(checkbox.className).toContain("sr-only");
+    expect(ref.current).toBe(checkbox);
+
+    rerender(<Checkbox label="Allow retries" disabled />);
+
+    expect((screen.getByLabelText("Allow retries") as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("renders radio groups with orientation and label associations", () => {
+    render(
+      <RadioGroup orientation="horizontal" aria-label="View mode">
+        <Radio name="view" value="canvas" label="Canvas" defaultChecked />
+        <Radio name="view" value="yaml" label="YAML" disabled />
+      </RadioGroup>,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "View mode" });
+    const canvas = screen.getByLabelText("Canvas") as HTMLInputElement;
+    const yaml = screen.getByLabelText("YAML") as HTMLInputElement;
+
+    expect(group.getAttribute("data-orientation")).toBe("horizontal");
+    expect(group.className).toContain("flex-row");
+    expect(canvas.type).toBe("radio");
+    expect(canvas.checked).toBe(true);
+    expect(yaml.disabled).toBe(true);
+    expect(yaml.className).toContain("rounded-full");
+  });
+
   it("disables buttons and exposes a spinner when loading", () => {
     const { rerender } = render(
       <Button variant="primary" size="md" loading>
@@ -179,12 +220,32 @@ describe("rendered form control contracts", () => {
     render(<TagInputHarness label="Tags" placeholder="Add a tag" />);
 
     const input = screen.getByRole("textbox") as HTMLInputElement;
+    const inputContainer = input.parentElement;
     expect(input.placeholder).toBe("Add a tag");
+    expect(inputContainer?.className).toContain("flex flex-wrap");
+    expect(inputContainer?.className).toContain("border-border-default");
+    expect(inputContainer?.className).toContain("rounded-md");
+    expect(inputContainer?.className).toContain("focus-within:ring-border-focus");
+
+    await user.click(input);
+    await user.keyboard("{Enter}");
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+
+    await user.type(input, "   ,");
+    expect(screen.queryAllByRole("button", { name: /^Remove / })).toHaveLength(0);
+    expect(input.value).toBe("");
 
     await user.type(input, " alpha ");
     await user.keyboard("{Enter}");
 
-    expect(screen.getByText("alpha")).toBeTruthy();
+    const alphaTag = screen.getByText("alpha");
+    const removeAlphaButton = screen.getByRole("button", { name: "Remove alpha" });
+
+    expect(alphaTag).toBeTruthy();
+    expect(alphaTag.className).toContain("max-w-[200px]");
+    expect(alphaTag.className).toContain("truncate");
+    expect(removeAlphaButton.className).toContain("text-muted");
+    expect(removeAlphaButton.className).toContain("hover:text-primary");
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("");
 
@@ -194,7 +255,7 @@ describe("rendered form control contracts", () => {
     await user.type(input, "beta,");
     expect(screen.getByText("beta")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Remove alpha" }));
+    await user.click(removeAlphaButton);
     expect(screen.queryByText("alpha")).toBeNull();
 
     await user.click(input);

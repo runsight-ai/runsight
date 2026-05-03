@@ -29,7 +29,53 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen --all-packages --all-groups
       - run: uv run python packages/core/scripts/generate_schema.py --check
-      - run: uv run pytest apps/api/tests packages/core/tests -q
+      - run: mkdir -p coverage
+      - name: Test repository governance
+        run: uv run pytest tools/tests -q
+      - name: Test E2E governance
+        run: pnpm -C testing/gui-e2e test:governance
+      - name: Test API with coverage
+        run: |
+          uv run pytest apps/api/tests -q \
+            --cov=apps/api/src/runsight_api \
+            --cov-report=term \
+            --cov-report=xml:coverage/apps-api.xml
+      - name: Test core with coverage
+        run: |
+          uv run pytest packages/core/tests -q \
+            --cov=packages/core/src/runsight_core \
+            --cov-report=term \
+            --cov-report=xml:coverage/packages-core.xml
+      - name: Test GUI with coverage
+        run: |
+          pnpm -C apps/gui exec vitest run --config vitest.unit.config.ts \
+            --coverage \
+            --coverage.reporter=text-summary \
+            --coverage.reporter=json-summary \
+            --coverage.reportsDirectory=../../coverage/apps-gui
+      - name: Test shared contracts with coverage
+        run: |
+          pnpm -C packages/shared exec vitest run --config vitest.config.ts \
+            --coverage \
+            --coverage.reporter=text-summary \
+            --coverage.reporter=json-summary \
+            --coverage.reportsDirectory=../../coverage/packages-shared
+      - name: Test UI package with coverage
+        run: |
+          pnpm -C packages/ui exec vitest run --config vitest.config.ts \
+            --coverage \
+            --coverage.reporter=text-summary \
+            --coverage.reporter=json-summary \
+            --coverage.reportsDirectory=../../coverage/packages-ui
+      - name: Summarize package coverage
+        if: always()
+        run: uv run python tools/report_coverage_summary.py
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
       - run: |
           export PATH="$PWD/.venv/bin:$PATH"
           pnpm run lint

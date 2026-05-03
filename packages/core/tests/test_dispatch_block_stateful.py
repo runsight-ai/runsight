@@ -1,5 +1,5 @@
 """
-RUN-192: Failing tests for DispatchBlock stateful conversation history.
+Tests for DispatchBlock stateful conversation history.
 
 Tests verify that when stateful=True, DispatchBlock:
 - Reads N independent histories (one per soul) keyed {block_id}_{soul_id}
@@ -12,121 +12,115 @@ Tests verify that when stateful=True, DispatchBlock:
 When stateful=False (default), conversation_histories must be untouched.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from dispatch_block_helpers import (
+    make_mock_runner,
+    make_soul_alpha,
+    make_soul_beta,
+    make_soul_gamma_with_model,
+)
+from dispatch_block_helpers import (
+    make_result as _make_result,
+)
+from dispatch_block_helpers import (
+    make_stateful_dispatch as _make_stateful_dispatch,
+)
+from dispatch_block_helpers import (
+    run_block as _run_block,
+)
+from dispatch_block_helpers import (
+    setup_runner_side_effect as _setup_runner_side_effect,
+)
+from dispatch_block_helpers import (
+    souls_to_branches as _souls_to_branches,
+)
 from runsight_core import DispatchBlock
-from runsight_core.blocks.dispatch import DispatchBranch
-from runsight_core.primitives import Soul
-from runsight_core.runner import ExecutionResult
+from runsight_core.block_io import BlockOutput, build_block_context
 from runsight_core.state import WorkflowState
 
 
-async def _run_block(block, state: WorkflowState) -> WorkflowState:
-    """Helper: build BlockContext, run block, apply output → WorkflowState."""
-    from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+@pytest.fixture(autouse=True)
+def stub_dispatch_budget(monkeypatch):
+    """Keep dispatch stateful tests independent from real model catalog lookups."""
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
 
-    ctx = build_block_context(block, state)
-    output = await block.execute(ctx)
-    if isinstance(output, WorkflowState):
-        return output
-    if isinstance(output, BlockOutput):
-        return apply_block_output(state, block.block_id, output)
-    return state
+    def _fit_to_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=0,
+            p3_tokens_after=0,
+            p3_pairs_dropped=0,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        return BudgetedContext(
+            instruction=request.instruction,
+            context=request.context or "",
+            messages=list(request.conversation_history),
+            report=report,
+        )
 
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+    monkeypatch.setattr("runsight_core.blocks.dispatch.fit_to_budget", _fit_to_budget)
 
 
 @pytest.fixture
 def mock_runner():
-    """Mock RunsightTeamRunner with controlled outputs."""
-    runner = MagicMock()
-    runner.execute = AsyncMock()
-    runner.model_name = "gpt-4o"
-    return runner
+    return make_mock_runner("runner-default-model")
 
 
 @pytest.fixture
 def soul_alpha():
-    """Soul A without model_name override."""
-    return Soul(
-        id="soul_alpha",
-        kind="soul",
-        name="Reviewer A",
-        role="Reviewer A",
-        system_prompt="You are reviewer A.",
-    )
+    return make_soul_alpha()
 
 
 @pytest.fixture
 def soul_beta():
-    """Soul B without model_name override."""
-    return Soul(
-        id="soul_beta",
-        kind="soul",
-        name="Reviewer B",
-        role="Reviewer B",
-        system_prompt="You are reviewer B.",
-    )
+    return make_soul_beta()
 
 
 @pytest.fixture
 def soul_gamma_with_model():
-    """Soul C with an explicit model_name override."""
-    return Soul(
-        id="soul_gamma",
-        kind="soul",
-        name="Reviewer C",
-        role="Reviewer C",
-        system_prompt="You are reviewer C.",
-        model_name="claude-3-opus-20240229",
-    )
-
-
-def _make_result(soul_id, output, cost=0.0, tokens=0):
-    """Helper to create an ExecutionResult."""
-    return ExecutionResult(
-        task_id="t1",
-        soul_id=soul_id,
-        output=output,
-        cost_usd=cost,
-        total_tokens=tokens,
-    )
-
-
-def _souls_to_branches(souls):
-    """Convert a list of Soul objects to DispatchBranch objects (exit_id = soul.id)."""
-    return [
-        DispatchBranch(exit_id=s.id, label=s.role, soul=s, task_instruction="Execute task")
-        for s in souls
-    ]
-
-
-def _make_stateful_dispatch(block_id, souls, runner):
-    """Helper to create a stateful DispatchBlock."""
-    block = DispatchBlock(block_id, _souls_to_branches(souls), runner)
-    block.stateful = True
-    return block
-
-
-def _setup_runner_side_effect(mock_runner, soul_output_map):
-    """Configure runner.execute to return different outputs per soul.
-
-    soul_output_map: dict mapping soul_id -> ExecutionResult
-    """
-
-    async def _side_effect(instruction, context, soul, **kwargs):
-        return soul_output_map[soul.id]
-
-    mock_runner.execute = AsyncMock(side_effect=_side_effect)
+    return make_soul_gamma_with_model()
 
 
 # ---------------------------------------------------------------------------
-# AC: First invocation — each soul gets its own history entry
+# First invocation — each soul gets its own history entry
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stateful_execute_returns_block_output_with_replacement_histories(
+    mock_runner, soul_alpha, soul_beta
+):
+    """Stateful DispatchBlock exposes full replacement histories before state application."""
+    _setup_runner_side_effect(
+        mock_runner,
+        {
+            "soul_alpha": _make_result("soul_alpha", "Alpha answer."),
+            "soul_beta": _make_result("soul_beta", "Beta answer."),
+        },
+    )
+    block = _make_stateful_dispatch("review", [soul_alpha, soul_beta], mock_runner)
+    state = WorkflowState()
+
+    output = await block.execute(build_block_context(block, state))
+
+    assert isinstance(output, BlockOutput)
+    assert output.conversation_replacements is not None
+    assert set(output.conversation_replacements) == {"review_soul_alpha", "review_soul_beta"}
+    assert output.conversation_replacements["review_soul_alpha"][-1] == {
+        "role": "assistant",
+        "content": "Alpha answer.",
+    }
 
 
 @pytest.mark.asyncio
@@ -218,7 +212,7 @@ async def test_stateful_first_invocation_user_message_uses_branch_instruction(
 
 
 # ---------------------------------------------------------------------------
-# AC: Round 2 — each soul sees only its own prior history
+# Round 2 — each soul sees only its own prior history
 # ---------------------------------------------------------------------------
 
 
@@ -318,7 +312,7 @@ async def test_stateful_continuation_appends_new_pair_per_soul(mock_runner, soul
 
 
 # ---------------------------------------------------------------------------
-# AC: Parallel history independence — soul A's history != soul B's
+# Parallel history independence — soul A's history != soul B's
 # ---------------------------------------------------------------------------
 
 
@@ -405,7 +399,7 @@ async def test_stateful_three_souls_independent_histories(
 
 
 # ---------------------------------------------------------------------------
-# AC: N histories written in single state update (no partial writes)
+# N histories written in single state update (no partial writes)
 # ---------------------------------------------------------------------------
 
 
@@ -467,7 +461,7 @@ async def test_stateful_preserves_other_block_histories(mock_runner, soul_alpha,
 
 
 # ---------------------------------------------------------------------------
-# AC: History key format is {block_id}_{soul_id}
+# History key format is {block_id}_{soul_id}
 # ---------------------------------------------------------------------------
 
 
@@ -493,7 +487,7 @@ async def test_stateful_history_key_format(mock_runner, soul_alpha, soul_beta):
 
 
 # ---------------------------------------------------------------------------
-# AC: Budget fitting is applied per-soul
+# Budget fitting is applied per-soul
 # ---------------------------------------------------------------------------
 
 
@@ -551,7 +545,7 @@ async def test_stateful_windowing_called_per_soul(mock_runner, soul_alpha, soul_
 @pytest.mark.asyncio
 async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, soul_beta):
     """When a soul's history exceeds the token budget, older pairs must be dropped.
-    Simulated via a prune_messages mock that truncates to last 4 messages."""
+    Simulated via a budget stub that truncates to the last 4 messages."""
     # Build a large prior history for alpha (10 pairs = 20 messages)
     large_history = []
     for i in range(10):
@@ -574,18 +568,44 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
         },
     )
 
-    new_state = await _run_block(block, state)
+    from runsight_core.memory.budget import BudgetedContext, BudgetReport
+
+    def _pruning_budget(request, counter):
+        report = BudgetReport(
+            model=request.model,
+            max_input_tokens=0,
+            output_reserve=0,
+            effective_budget=100000,
+            p1_tokens=0,
+            p2_tokens_before=0,
+            p2_tokens_after=0,
+            p3_tokens_before=len(request.conversation_history),
+            p3_tokens_after=min(len(request.conversation_history), 4),
+            p3_pairs_dropped=8,
+            total_tokens=0,
+            headroom=100000,
+            warnings=[],
+        )
+        return BudgetedContext(
+            instruction=request.instruction,
+            context=request.context or "",
+            messages=list(request.conversation_history)[-4:],
+            report=report,
+        )
+
+    with patch("runsight_core.blocks.dispatch.fit_to_budget", side_effect=_pruning_budget):
+        new_state = await _run_block(block, state)
 
     history_a = new_state.conversation_histories["review_soul_alpha"]
-    # With 10 prior pairs + 1 new pair = 22 messages, windowing should prune.
-    # At minimum the new pair must be present
+    assert len(history_a) == 6
+    assert not any("Prompt 0" in msg["content"] for msg in history_a)
+    assert any("Prompt 9" in msg["content"] for msg in history_a)
     assert history_a[-1]["role"] == "assistant"
     assert history_a[-1]["content"] == "New output A."
-    assert len(history_a) >= 2
 
 
 # ---------------------------------------------------------------------------
-# AC: Different model per soul → budget fitting uses correct model
+# Different model per soul → budget fitting uses correct model
 # ---------------------------------------------------------------------------
 
 
@@ -593,9 +613,7 @@ async def test_stateful_windowing_prunes_large_history(mock_runner, soul_alpha, 
 async def test_stateful_windowing_uses_soul_specific_model(
     mock_runner, soul_alpha, soul_gamma_with_model
 ):
-    """When souls have different models, fit_to_budget must use each soul's
-    correct model. soul_alpha uses runner default (gpt-4o),
-    soul_gamma uses its own model (claude-3-opus-20240229)."""
+    """When souls have different models, fit_to_budget uses each soul's model."""
     _setup_runner_side_effect(
         mock_runner,
         {
@@ -642,11 +660,11 @@ async def test_stateful_windowing_uses_soul_specific_model(
         await _run_block(block, state)
 
     # fit_to_budget must have been called with both models
-    assert "gpt-4o" in models_seen, (
-        f"Expected 'gpt-4o' (runner default) in models_seen, got {models_seen}"
+    assert "runner-default-model" in models_seen, (
+        f"Expected runner-default-model in models_seen, got {models_seen}"
     )
-    assert "claude-3-opus-20240229" in models_seen, (
-        f"Expected 'claude-3-opus-20240229' (soul override) in models_seen, got {models_seen}"
+    assert "soul-override-model" in models_seen, (
+        f"Expected soul-override-model in models_seen, got {models_seen}"
     )
 
 
@@ -696,14 +714,14 @@ async def test_stateful_windowing_falls_back_to_runner_model(mock_runner, soul_a
     ) as mock_budget:
         await _run_block(block, state)
 
-    # fit_to_budget must have been called with "gpt-4o" (runner default)
+    # fit_to_budget must have been called with the runner default model.
     assert mock_budget.call_count == 1
     call_request = mock_budget.call_args[0][0]
-    assert call_request.model == "gpt-4o"
+    assert call_request.model == "runner-default-model"
 
 
 # ---------------------------------------------------------------------------
-# AC: No system messages stored in conversation_histories
+# No system messages stored in conversation_histories
 # ---------------------------------------------------------------------------
 
 
@@ -736,7 +754,7 @@ async def test_stateful_no_system_messages_stored(mock_runner, soul_alpha, soul_
 
 
 # ---------------------------------------------------------------------------
-# AC: Non-stateful DispatchBlock unchanged
+# Non-stateful DispatchBlock unchanged
 # ---------------------------------------------------------------------------
 
 
@@ -816,14 +834,14 @@ async def test_non_stateful_does_not_pass_messages_to_runner(mock_runner, soul_a
 
 
 # ---------------------------------------------------------------------------
-# AC: Stateful block still produces standard results, log, cost, tokens
+# Stateful block still produces standard results, log, cost, tokens
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_stateful_still_stores_result_and_log(mock_runner, soul_alpha, soul_beta):
     """Stateful DispatchBlock must still produce results, execution_log, cost, and tokens
-    exactly like the non-stateful path (regression guard)."""
+    exactly like the non-stateful path."""
     _setup_runner_side_effect(
         mock_runner,
         {

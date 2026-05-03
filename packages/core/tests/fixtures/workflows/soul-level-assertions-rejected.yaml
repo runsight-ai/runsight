@@ -1,0 +1,25 @@
+version: "1.0"
+id: soul-only-assertions
+kind: workflow
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: Analyze the data.
+    assertions:
+      - type: contains
+        value: analysis
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: soul_only_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

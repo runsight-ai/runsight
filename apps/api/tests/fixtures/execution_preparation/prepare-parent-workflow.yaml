@@ -1,0 +1,14 @@
+version: "1.0"
+id: prepare-parent-workflow
+kind: workflow
+workflow:
+  name: Prepare Parent Workflow
+  entry: child
+  transitions:
+    - from: child
+      to: null
+blocks:
+  child:
+    type: workflow
+    workflow_ref: prepare-child-workflow
+config: {}

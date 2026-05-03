@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  WorkflowRegressionSchema,
+  RunRegressionsResponseSchema,
+  WorkflowRegressionIssueSchema as WorkflowRegressionSchema,
   WorkflowRegressionsResponseSchema,
-} from "../../../types/schemas/regressions";
+} from "@runsight/shared/zod";
 
 // ---------------------------------------------------------------------------
 // Schema validation — ensures the regression type contract is correct
@@ -12,7 +13,7 @@ import {
 describe("WorkflowRegressionSchema", () => {
   it("parses a valid assertion_regression", () => {
     const input = {
-      node_id: "node-1",
+      node_id: "quality-review-node",
       node_name: "Quality Review",
       type: "assertion_regression",
       delta: { eval_passed: false, baseline_eval_passed: true },
@@ -20,12 +21,12 @@ describe("WorkflowRegressionSchema", () => {
     const result = WorkflowRegressionSchema.parse(input);
     expect(result.type).toBe("assertion_regression");
     expect(result.node_name).toBe("Quality Review");
-    expect(result.node_id).toBe("node-1");
+    expect(result.node_id).toBe("quality-review-node");
   });
 
   it("parses a cost_spike regression with delta record", () => {
     const input = {
-      node_id: "node-2",
+      node_id: "writer-node",
       node_name: "Writer",
       type: "cost_spike",
       delta: { cost_pct: 34, baseline_cost: 0.05 },
@@ -38,7 +39,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("parses a quality_drop regression with delta record", () => {
     const input = {
-      node_id: "node-3",
+      node_id: "summarizer-node",
       node_name: "Summarizer",
       type: "quality_drop",
       delta: { score_delta: -0.2 },
@@ -50,21 +51,21 @@ describe("WorkflowRegressionSchema", () => {
 
   it("accepts optional run_id and run_number fields", () => {
     const input = {
-      node_id: "node-4",
+      node_id: "validator-node",
       node_name: "Validator",
       type: "assertion_regression",
       delta: {},
-      run_id: "run-1",
+      run_id: "run-regression-primary",
       run_number: 5,
     };
     const result = WorkflowRegressionSchema.parse(input);
-    expect(result.run_id).toBe("run-1");
+    expect(result.run_id).toBe("run-regression-primary");
     expect(result.run_number).toBe(5);
   });
 
   it("rejects unknown regression type", () => {
     const input = {
-      node_id: "node-5",
+      node_id: "unknown-type-node",
       node_name: "Foo",
       type: "unknown_type",
       delta: {},
@@ -74,7 +75,7 @@ describe("WorkflowRegressionSchema", () => {
 
   it("rejects missing node_name", () => {
     const input = {
-      node_id: "node-6",
+      node_id: "missing-name-node",
       type: "assertion_regression",
       delta: {},
     };
@@ -87,13 +88,13 @@ describe("WorkflowRegressionsResponseSchema", () => {
     const input = {
       issues: [
         {
-          node_id: "node-1",
+          node_id: "quality-review-node",
           node_name: "Quality Review",
           type: "assertion_regression",
           delta: { eval_passed: false },
         },
         {
-          node_id: "node-2",
+          node_id: "writer-node",
           node_name: "Writer",
           type: "cost_spike",
           delta: { cost_pct: 34 },
@@ -120,7 +121,7 @@ describe("WorkflowRegressionsResponseSchema", () => {
     const input = {
       issues: [
         {
-          node_id: "node-1",
+          node_id: "quality-review-node",
           node_name: "X",
           type: "assertion_regression",
           delta: {},
@@ -131,14 +132,31 @@ describe("WorkflowRegressionsResponseSchema", () => {
   });
 });
 
+describe("RunRegressionsResponseSchema", () => {
+  it("parses run regression responses with the shared transport schema", () => {
+    const result = RunRegressionsResponseSchema.parse({
+      issues: [
+        {
+          node_id: "quality-review-node",
+          node_name: "Quality Review",
+          type: "assertion_regression",
+          delta: { eval_passed: false },
+        },
+      ],
+      count: 1,
+    });
+
+    expect(result.count).toBe(1);
+    expect(result.issues?.[0]?.node_id).toBe("quality-review-node");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // API method contract — workflowsApi.getWorkflowRegressions
 // ---------------------------------------------------------------------------
 
 describe("workflowsApi.getWorkflowRegressions", () => {
   it("is exported as a function from the workflows API module", async () => {
-    // Dynamic import so the test file itself compiles even if the module
-    // doesn't exist yet — the test will fail at runtime with a clear message.
     const { workflowsApi } = await import("../../../api/workflows");
     expect(typeof workflowsApi.getWorkflowRegressions).toBe("function");
   });
@@ -151,8 +169,8 @@ describe("workflowsApi.getWorkflowRegressions", () => {
 describe("queryKeys.workflows.regressions", () => {
   it("produces a namespaced key tuple with workflow id", async () => {
     const { queryKeys } = await import("../../../queries/keys");
-    const key = queryKeys.workflows.regressions("wf-123");
-    expect(key).toEqual(["workflows", "wf-123", "regressions"]);
+    const key = queryKeys.workflows.regressions("workflow-regression-query");
+    expect(key).toEqual(["workflows", "workflow-regression-query", "regressions"]);
   });
 });
 

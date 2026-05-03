@@ -1,16 +1,4 @@
-"""
-Failing tests for RUN-190: Token windowing utility.
-
-Tests cover:
-- prune_messages removes oldest messages first (FIFO)
-- 20-message / 50k-token history pruned to ~28.8k (90% of 32k)
-- Newest messages preserved
-- Empty list in → empty list out
-- Single message exceeding budget → returned as-is
-- Unknown model → fallback to 4096 token limit
-- get_max_tokens helper resolves model → max_input_tokens * 0.9
-- get_max_tokens falls back to 4096 for unknown models
-"""
+"""Token-window pruning and model budget resolution behavior."""
 
 from unittest.mock import patch
 
@@ -43,7 +31,7 @@ class TestPruneMessagesNoPruningNeeded:
         msgs = _make_messages(3)  # 6 messages total
 
         with patch("runsight_core.memory.windowing.token_counter", return_value=100):
-            result = prune_messages(msgs, max_tokens=1000, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=1000, model="budget-model")
 
         assert result == msgs
 
@@ -52,7 +40,7 @@ class TestPruneMessagesNoPruningNeeded:
         msgs = _make_messages(2)
 
         with patch("runsight_core.memory.windowing.token_counter", return_value=500):
-            result = prune_messages(msgs, max_tokens=500, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=500, model="budget-model")
 
         assert result == msgs
 
@@ -73,7 +61,7 @@ class TestPruneMessagesRemovesOldestFirst:
             return 200
 
         with patch("runsight_core.memory.windowing.token_counter", side_effect=fake_counter):
-            result = prune_messages(msgs, max_tokens=500, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=500, model="budget-model")
 
         # Pair 0 removed, pairs 1 and 2 remain
         assert result == msgs[2:]
@@ -88,7 +76,7 @@ class TestPruneMessagesRemovesOldestFirst:
             return counts.get(len(messages), 100)
 
         with patch("runsight_core.memory.windowing.token_counter", side_effect=fake_counter):
-            result = prune_messages(msgs, max_tokens=500, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=500, model="budget-model")
 
         # Pairs 0 and 1 removed, pairs 2 and 3 remain
         assert result == msgs[4:]
@@ -104,14 +92,14 @@ class TestPruneMessagesRemovesOldestFirst:
             return 9999
 
         with patch("runsight_core.memory.windowing.token_counter", side_effect=fake_counter):
-            result = prune_messages(msgs, max_tokens=500, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=500, model="budget-model")
 
         # Only the newest pair survives
         assert result == msgs[-2:]
 
 
-class TestPruneMessagesAcceptanceCriteria:
-    """AC: 20-message history with 50k tokens, max 32k → pruned to ~28.8k."""
+class TestPruneMessagesLargeHistory:
+    """Large histories are pruned to the configured token budget."""
 
     def test_large_history_pruned_to_budget(self):
         """50k-token history pruned to fit within 32k max_tokens."""
@@ -125,7 +113,7 @@ class TestPruneMessagesAcceptanceCriteria:
             return num_pairs * 5000
 
         with patch("runsight_core.memory.windowing.token_counter", side_effect=fake_counter):
-            result = prune_messages(msgs, max_tokens=32000, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=32000, model="budget-model")
 
         # 6 pairs = 12 messages should remain (30000 ≤ 32000)
         assert len(result) == 12
@@ -143,7 +131,7 @@ class TestPruneMessagesEdgeCases:
 
     def test_empty_list_returns_empty(self):
         """No messages → empty list, no crash."""
-        result = prune_messages([], max_tokens=1000, model="gpt-4")
+        result = prune_messages([], max_tokens=1000, model="budget-model")
         assert result == []
 
     def test_single_message_exceeds_budget_returned_as_is(self):
@@ -151,7 +139,7 @@ class TestPruneMessagesEdgeCases:
         msgs = [{"role": "user", "content": "A very long message"}]
 
         with patch("runsight_core.memory.windowing.token_counter", return_value=99999):
-            result = prune_messages(msgs, max_tokens=1000, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=1000, model="budget-model")
 
         assert result == msgs
 
@@ -163,7 +151,7 @@ class TestPruneMessagesEdgeCases:
         ]
 
         with patch("runsight_core.memory.windowing.token_counter", return_value=99999):
-            result = prune_messages(msgs, max_tokens=1000, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=1000, model="budget-model")
 
         assert result == msgs
 
@@ -182,7 +170,7 @@ class TestGetMaxTokens:
             "runsight_core.memory.windowing.get_model_info",
             return_value={"max_input_tokens": 128000},
         ):
-            result = get_max_tokens("gpt-4")
+            result = get_max_tokens("large-context-model")
 
         assert result == int(128000 * 0.9)
 
@@ -192,7 +180,7 @@ class TestGetMaxTokens:
             "runsight_core.memory.windowing.get_model_info",
             return_value={"max_input_tokens": 32000},
         ):
-            result = get_max_tokens("gpt-4-32k")
+            result = get_max_tokens("medium-context-model")
 
         assert result == int(32000 * 0.9)
 
@@ -202,7 +190,7 @@ class TestGetMaxTokens:
             "runsight_core.memory.windowing.get_model_info",
             side_effect=Exception("Unknown model"),
         ):
-            result = get_max_tokens("totally-unknown-model")
+            result = get_max_tokens("unknown-budget-model")
 
         assert result == 4096
 
@@ -212,7 +200,7 @@ class TestGetMaxTokens:
             "runsight_core.memory.windowing.get_model_info",
             side_effect=Exception("Unknown model"),
         ):
-            result = get_max_tokens("fake-model")
+            result = get_max_tokens("unregistered-budget-model")
 
         # 4096 is already conservative, no further reduction
         assert result == 4096
@@ -226,7 +214,7 @@ class TestGetMaxTokens:
 class TestPruneWithModelResolution:
     """Verify prune_messages works with get_max_tokens-resolved budget."""
 
-    def test_end_to_end_with_model_resolution(self):
+    def test_prune_messages_integration_with_model_resolution(self):
         """Resolve max_tokens from model, then prune."""
         msgs = _make_messages(5)  # 10 messages
 
@@ -237,10 +225,10 @@ class TestPruneWithModelResolution:
             "runsight_core.memory.windowing.get_model_info",
             return_value={"max_input_tokens": 4000},
         ):
-            max_tok = get_max_tokens("gpt-4")  # 4000 * 0.9 = 3600
+            max_tok = get_max_tokens("workflow-budget-model")  # 4000 * 0.9 = 3600
 
         with patch("runsight_core.memory.windowing.token_counter", side_effect=fake_counter):
-            result = prune_messages(msgs, max_tokens=max_tok, model="gpt-4")
+            result = prune_messages(msgs, max_tokens=max_tok, model="workflow-budget-model")
 
         # 3600 / 500 = 7.2 → 6 messages fit (3 pairs)
         # 10 msgs = 5000, 8 = 4000, 6 = 3000 ✓

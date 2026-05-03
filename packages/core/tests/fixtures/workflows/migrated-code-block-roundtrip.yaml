@@ -1,0 +1,18 @@
+version: "1.0"
+id: code_roundtrip_workflow
+kind: workflow
+blocks:
+  transform:
+    type: code
+    code: |
+      def main(input_data):
+          return {"result": input_data.get("value", 0) * 2}
+    timeout_seconds: 10
+workflow:
+  id: code_roundtrip_workflow
+  kind: workflow
+  name: code_roundtrip_workflow
+  entry: transform
+  transitions:
+    - from: transform
+      to: null

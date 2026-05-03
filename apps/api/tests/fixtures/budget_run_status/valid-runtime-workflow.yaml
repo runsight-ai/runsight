@@ -1,0 +1,23 @@
+version: "1.0"
+id: inline-budget-workflow
+kind: workflow
+workflow:
+  name: Budget Workflow
+  entry: budgeted-block
+  transitions:
+    - from: budgeted-block
+      to: null
+blocks:
+  budgeted-block:
+    type: linear
+    soul_ref: budget-soul
+souls:
+  budget-soul:
+    id: budget-soul
+    kind: soul
+    name: Budget Soul
+    role: budget evaluator
+    system_prompt: hello
+    provider: fixture-provider
+    model_name: fixture-chat-model
+config: {}

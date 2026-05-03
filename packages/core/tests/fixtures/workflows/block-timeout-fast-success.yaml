@@ -1,0 +1,29 @@
+version: "1.0"
+id: block-timeout-fast-success-workflow
+kind: workflow
+souls:
+  timeout-worker:
+    id: timeout-worker
+    kind: soul
+    name: Timeout Worker
+    role: Timeout Worker
+    system_prompt: Execute the timeout fixture block.
+    provider: fixture-provider
+    model_name: fixture-workflow-limit-model
+blocks:
+  fast_block:
+    type: linear
+    soul_ref: timeout-worker
+    limits:
+      max_duration_seconds: 60
+  block2:
+    type: linear
+    soul_ref: timeout-worker
+workflow:
+  name: block_timeout_fast_success_workflow
+  entry: fast_block
+  transitions:
+    - from: fast_block
+      to: block2
+    - from: block2
+      to: null

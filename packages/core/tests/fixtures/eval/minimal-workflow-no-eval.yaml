@@ -1,0 +1,20 @@
+id: minimal-workflow
+kind: workflow
+version: "1.0"
+souls:
+  default:
+    id: default
+    kind: soul
+    name: Assistant
+    role: assistant
+    system_prompt: "Assistant."
+blocks:
+  greet:
+    type: code
+    code: "result = 'hello'"
+workflow:
+  name: no_eval_workflow
+  entry: greet
+  transitions:
+    - from: greet
+      to: END

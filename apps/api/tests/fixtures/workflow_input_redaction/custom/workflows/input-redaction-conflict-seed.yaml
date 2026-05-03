@@ -1,0 +1,16 @@
+id: input-redaction-conflict-seed
+kind: workflow
+version: "1.0"
+blocks:
+  seed:
+    type: code
+    timeout_seconds: 5
+    code: |
+      def main(data):
+          return {"query": "input-redaction-conflicting-results-workflow-query"}
+workflow:
+  name: input_redaction_conflict_seed
+  entry: seed
+  transitions:
+    - from: seed
+      to: null

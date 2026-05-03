@@ -1,0 +1,41 @@
+id: dispatch-inside-loop-workflow
+kind: workflow
+version: "1.0"
+souls:
+  analyst_a:
+    id: analyst_a
+    kind: soul
+    name: Analyst A
+    role: Analyst A
+    system_prompt: Analyze from perspective A.
+    model_name: fixture-dispatch-loop-model
+  analyst_b:
+    id: analyst_b
+    kind: soul
+    name: Analyst B
+    role: Analyst B
+    system_prompt: Analyze from perspective B.
+    model_name: fixture-dispatch-loop-model
+blocks:
+  multi_dispatch:
+    type: dispatch
+    exits:
+      - id: port_a
+        label: Perspective A
+        soul_ref: analyst_a
+        task: Analyze from angle A
+      - id: port_b
+        label: Perspective B
+        soul_ref: analyst_b
+        task: Analyze from angle B
+  review_loop:
+    type: loop
+    inner_block_refs:
+      - multi_dispatch
+    max_rounds: 2
+workflow:
+  name: dispatch_inside_loop_workflow
+  entry: review_loop
+  transitions:
+    - from: review_loop
+      to: null

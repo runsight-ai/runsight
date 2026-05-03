@@ -1,0 +1,56 @@
+version: "1.0"
+id: dispatch-synthesize-per-exit-inputs-workflow
+kind: workflow
+souls:
+  research-worker:
+    id: research-worker
+    kind: soul
+    name: Research Worker
+    role: Research Worker
+    system_prompt: Research the requested topic.
+    provider: fixture-provider
+    model_name: fixture-dispatch-synthesize-model
+  code-worker:
+    id: code-worker
+    kind: soul
+    name: Code Worker
+    role: Code Worker
+    system_prompt: Implement the requested algorithm.
+    provider: fixture-provider
+    model_name: fixture-dispatch-synthesize-model
+  synthesis-worker:
+    id: synthesis-worker
+    kind: soul
+    name: Synthesis Worker
+    role: Synthesis Worker
+    system_prompt: Synthesize branch outputs.
+    provider: fixture-provider
+    model_name: fixture-dispatch-synthesize-model
+blocks:
+  dispatch_work:
+    type: dispatch
+    exits:
+      - id: researcher
+        label: Research Agent
+        soul_ref: research-worker
+        task: Find papers on quantum computing
+      - id: coder
+        label: Code Agent
+        soul_ref: code-worker
+        task: Implement Grover's algorithm
+  merge_results:
+    type: synthesize
+    soul_ref: synthesis-worker
+    input_block_ids:
+      - dispatch_work.researcher
+      - dispatch_work.coder
+workflow:
+  id: dispatch-synthesize-per-exit-inputs-workflow
+  kind: workflow
+  name: dispatch_synthesize_per_exit_inputs_workflow
+  entry: dispatch_work
+  transitions:
+    - from: dispatch_work
+      to: merge_results
+    - from: merge_results
+      to: null

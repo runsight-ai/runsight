@@ -1,0 +1,4 @@
+name: research-review
+steps:
+  - id: summarize
+    soul: researcher

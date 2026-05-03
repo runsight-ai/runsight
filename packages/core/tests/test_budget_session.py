@@ -1,7 +1,7 @@
 """
-Failing tests for RUN-711: BudgetSession — in-memory accumulator with parent propagation.
+Tests for BudgetSession — in-memory accumulator with parent propagation.
 
-Foundation ticket for RUN-708. BudgetSession is a mutable accumulator tracking
+Foundation coverage for budget enforcement. BudgetSession is a mutable accumulator tracking
 cost/tokens/time during execution. Supports parent chain for hierarchical enforcement.
 
 Tests cover:
@@ -584,7 +584,7 @@ class TestBudgetSessionFromBlockLimits:
 
 
 # ===========================================================================
-# 12. End-to-end: dispatch isolation pattern
+# 12. Integration: dispatch isolation pattern
 # ===========================================================================
 
 

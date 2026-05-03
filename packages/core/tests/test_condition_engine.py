@@ -1,12 +1,4 @@
-"""
-Tests for the standalone condition engine module (runsight_core.conditions.engine).
-
-Red-phase TDD: These tests define the contract for the condition engine extraction
-from ConditionalBlock into a shared, reusable module. They import from the NEW
-module path and should FAIL until the Green team implements the engine.
-
-The engine evaluates conditions against a block's OWN result (no eval_source).
-"""
+"""Standalone condition engine evaluation, grouping, and output-routing behavior."""
 
 import json
 
@@ -56,8 +48,8 @@ class TestResolveDottedPath:
 
     def test_three_level_nested(self):
         """Three-level dot path resolves correctly."""
-        data = {"a": {"b": {"c": 42}}}
-        assert resolve_dotted_path(data, "a.b.c") == 42
+        data = {"response": {"metrics": {"score": 42}}}
+        assert resolve_dotted_path(data, "response.metrics.score") == 42
 
     def test_missing_key_returns_none(self):
         """Missing key returns None (not KeyError)."""
@@ -67,14 +59,14 @@ class TestResolveDottedPath:
 
     def test_missing_nested_key_returns_none(self):
         """Missing intermediate key in nested path returns None."""
-        data = {"a": {"b": 1}}
-        result = resolve_dotted_path(data, "a.x.y")
+        data = {"response": {"status": "ready"}}
+        result = resolve_dotted_path(data, "response.missing.value")
         assert result is None
 
     def test_non_dict_intermediate_returns_none(self):
         """Non-dict at intermediate level returns None."""
-        data = {"a": "string_value"}
-        result = resolve_dotted_path(data, "a.b")
+        data = {"response": "string_value"}
+        result = resolve_dotted_path(data, "response.status")
         assert result is None
 
     def test_empty_dict(self):
@@ -224,7 +216,7 @@ class TestEvaluateConditionStringOperators:
         """'regex' with invalid pattern raises ValueError."""
         c = Condition(eval_key="code", operator="regex", value="[invalid")
         with pytest.raises(ValueError, match="[Rr]egex|[Pp]attern"):
-            evaluate_condition(c, {"code": "test"})
+            evaluate_condition(c, {"code": "200"})
 
 
 # ===== evaluate_condition — Numeric Operators =====
@@ -358,9 +350,9 @@ class TestEvaluateConditionEdgeCases:
 
     def test_unknown_operator_raises(self):
         """Unknown operator raises ValueError."""
-        c = Condition(eval_key="x", operator="banana", value="y")
+        c = Condition(eval_key="status", operator="banana", value="ready")
         with pytest.raises(ValueError, match="[Uu]nknown.*operator|[Uu]nsupported.*operator"):
-            evaluate_condition(c, {"x": "y"})
+            evaluate_condition(c, {"status": "ready"})
 
     def test_missing_key_treated_as_none(self):
         """Missing key in data resolves to None for comparison."""
@@ -407,67 +399,67 @@ class TestEvaluateConditionGroup:
         """AND combinator: all conditions True -> True."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="1"),
-                Condition(eval_key="b", operator="equals", value="2"),
+                Condition(eval_key="status", operator="equals", value="ready"),
+                Condition(eval_key="priority", operator="equals", value="high"),
             ],
             combinator="and",
         )
-        assert evaluate_condition_group(group, {"a": "1", "b": "2"}) is True
+        assert evaluate_condition_group(group, {"status": "ready", "priority": "high"}) is True
 
     def test_and_one_false(self):
         """AND combinator: one condition False -> False."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="1"),
-                Condition(eval_key="b", operator="equals", value="wrong"),
+                Condition(eval_key="status", operator="equals", value="ready"),
+                Condition(eval_key="priority", operator="equals", value="low"),
             ],
             combinator="and",
         )
-        assert evaluate_condition_group(group, {"a": "1", "b": "2"}) is False
+        assert evaluate_condition_group(group, {"status": "ready", "priority": "high"}) is False
 
     def test_or_one_true(self):
         """OR combinator: one condition True -> True."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="wrong"),
-                Condition(eval_key="b", operator="equals", value="2"),
+                Condition(eval_key="status", operator="equals", value="blocked"),
+                Condition(eval_key="priority", operator="equals", value="high"),
             ],
             combinator="or",
         )
-        assert evaluate_condition_group(group, {"a": "1", "b": "2"}) is True
+        assert evaluate_condition_group(group, {"status": "ready", "priority": "high"}) is True
 
     def test_or_all_false(self):
         """OR combinator: all conditions False -> False."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="wrong"),
-                Condition(eval_key="b", operator="equals", value="wrong"),
+                Condition(eval_key="status", operator="equals", value="blocked"),
+                Condition(eval_key="priority", operator="equals", value="low"),
             ],
             combinator="or",
         )
-        assert evaluate_condition_group(group, {"a": "1", "b": "2"}) is False
+        assert evaluate_condition_group(group, {"status": "ready", "priority": "high"}) is False
 
     def test_unknown_combinator_raises(self):
         """Unknown combinator raises ValueError."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="1"),
+                Condition(eval_key="status", operator="equals", value="ready"),
             ],
             combinator="xor",
         )
         with pytest.raises(ValueError, match="[Uu]nknown.*combinator|[Uu]nsupported.*combinator"):
-            evaluate_condition_group(group, {"a": "1"})
+            evaluate_condition_group(group, {"status": "ready"})
 
     def test_default_combinator_is_and(self):
         """Default combinator should be 'and'."""
         group = ConditionGroup(
             conditions=[
-                Condition(eval_key="a", operator="equals", value="1"),
-                Condition(eval_key="b", operator="equals", value="2"),
+                Condition(eval_key="status", operator="equals", value="ready"),
+                Condition(eval_key="priority", operator="equals", value="high"),
             ],
         )
         assert group.combinator == "and"
-        assert evaluate_condition_group(group, {"a": "1", "b": "2"}) is True
+        assert evaluate_condition_group(group, {"status": "ready", "priority": "high"}) is True
 
 
 # ===== evaluate_output_conditions =====
@@ -530,9 +522,15 @@ class TestEvaluateOutputConditions:
     def test_nested_dot_path_in_cases(self):
         """Dot-path eval_key works inside cases for nested block results."""
         cases = [
-            _make_case("deep", [{"eval_key": "a.b.c", "operator": "equals", "value": "found"}]),
+            _make_case(
+                "deep",
+                [{"eval_key": "response.details.outcome", "operator": "equals", "value": "found"}],
+            ),
         ]
-        decision, warnings = evaluate_output_conditions(cases, {"a": {"b": {"c": "found"}}})
+        decision, warnings = evaluate_output_conditions(
+            cases,
+            {"response": {"details": {"outcome": "found"}}},
+        )
         assert decision == "deep"
 
     def test_and_combinator_in_case(self):
@@ -541,18 +539,18 @@ class TestEvaluateOutputConditions:
             _make_case(
                 "both",
                 [
-                    {"eval_key": "a", "operator": "equals", "value": "1"},
-                    {"eval_key": "b", "operator": "equals", "value": "2"},
+                    {"eval_key": "status", "operator": "equals", "value": "ready"},
+                    {"eval_key": "priority", "operator": "equals", "value": "high"},
                 ],
                 combinator="and",
             ),
         ]
         # Both match
-        decision, _ = evaluate_output_conditions(cases, {"a": "1", "b": "2"})
+        decision, _ = evaluate_output_conditions(cases, {"status": "ready", "priority": "high"})
         assert decision == "both"
 
         # One fails -> default
-        decision, _ = evaluate_output_conditions(cases, {"a": "1", "b": "wrong"})
+        decision, _ = evaluate_output_conditions(cases, {"status": "ready", "priority": "low"})
         assert decision == "default"
 
     def test_or_combinator_in_case(self):
@@ -561,14 +559,14 @@ class TestEvaluateOutputConditions:
             _make_case(
                 "either",
                 [
-                    {"eval_key": "a", "operator": "equals", "value": "1"},
-                    {"eval_key": "b", "operator": "equals", "value": "2"},
+                    {"eval_key": "status", "operator": "equals", "value": "ready"},
+                    {"eval_key": "priority", "operator": "equals", "value": "high"},
                 ],
                 combinator="or",
             ),
         ]
         # Only second matches
-        decision, _ = evaluate_output_conditions(cases, {"a": "wrong", "b": "2"})
+        decision, _ = evaluate_output_conditions(cases, {"status": "blocked", "priority": "high"})
         assert decision == "either"
 
     def test_numeric_coercion_warning(self):

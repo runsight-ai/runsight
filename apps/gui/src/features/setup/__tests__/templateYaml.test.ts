@@ -16,6 +16,13 @@ describe("TEMPLATE_YAML export", () => {
 });
 
 describe("TEMPLATE_YAML flow-level wiring", () => {
+  it("embeds workflow identity at the top level", () => {
+    const parsed = parseTemplate();
+
+    expect(parsed.id).toBe("research-review");
+    expect(parsed.kind).toBe("workflow");
+  });
+
   it("declares file_io once at the workflow level", () => {
     const parsed = parseTemplate();
     expect(parsed.tools).toEqual(["file_io"]);
@@ -28,6 +35,13 @@ describe("TEMPLATE_YAML flow-level wiring", () => {
       "reviewer",
       "error_writer",
     ]);
+
+    for (const soulKey of ["researcher", "reviewer", "error_writer"]) {
+      expect(parsed.souls?.[soulKey]?.id).toBe(soulKey);
+      expect(parsed.souls?.[soulKey]?.kind).toBe("soul");
+      expect(typeof parsed.souls?.[soulKey]?.name).toBe("string");
+      expect(parsed.souls?.[soulKey]?.name.length).toBeGreaterThan(0);
+    }
   });
 
   it("only grants file_io to the inline souls that need to write files", () => {
@@ -134,6 +148,14 @@ describe("TEMPLATE_YAML block graph", () => {
   it("declares success and fallback artifact paths in the template", () => {
     expect(TEMPLATE_YAML).toContain("custom/outputs/onboarding-research-brief.md");
     expect(TEMPLATE_YAML).toContain("custom/outputs/onboarding-research-error.md");
+  });
+
+  it("references only the inline souls used by the starter flow", () => {
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*researcher/);
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*reviewer/);
+    expect(TEMPLATE_YAML).toMatch(/soul_ref:\s*error_writer/);
+    expect(TEMPLATE_YAML).not.toMatch(/soul_ref:\s*writer/);
+    expect(TEMPLATE_YAML.match(/soul_ref:/g) ?? []).toHaveLength(3);
   });
 });
 

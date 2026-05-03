@@ -1,0 +1,19 @@
+version: "1.0"
+id: missing_custom_tool
+kind: workflow
+config:
+  model_name: gpt-4o
+tools:
+  - lookup_profile
+blocks:
+  my_block:
+    type: linear
+    soul_ref: researcher
+workflow:
+  id: missing_custom_tool
+  kind: workflow
+  name: Missing Custom Tool
+  entry: my_block
+  transitions:
+    - from: my_block
+      to: null

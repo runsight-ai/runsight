@@ -1,0 +1,26 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze."
+workflow:
+  name: custom_assertion_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: custom_case
+      fixtures:
+        analyze: "any output text"
+      expected:
+        analyze:
+          - type: eval-custom-always-pass

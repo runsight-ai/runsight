@@ -1,4 +1,4 @@
-"""RED phase tests for RUN-6: SSE stream real-time execution events.
+"""SSE stream real-time execution event contracts.
 
 Tests target:
 - GET /api/runs/{run_id}/stream — SSE endpoint
@@ -8,97 +8,28 @@ Tests target:
 - Observer registry in ExecutionService
 """
 
-import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from runsight_api.domain.entities.run import RunStatus
 from runsight_api.main import app
 from runsight_api.transport.deps import get_execution_service, get_run_service
+
+from tests.transport.sse_stream_helpers import (
+    context_audit_message,
+    make_execution_service_with_stream,
+    make_log,
+    make_mock_run,
+    make_run_service,
+    parse_sse_events,
+)
 
 client = TestClient(app)
 SSE_STREAM_PATH = (
     Path(__file__).resolve().parents[2] / "src/runsight_api/transport/routers/sse_stream.py"
 )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_mock_run(run_id="run_sse_1", status=RunStatus.running):
-    mock_run = Mock()
-    mock_run.id = run_id
-    mock_run.workflow_id = "wf_1"
-    mock_run.workflow_name = "wf_1"
-    mock_run.status = status
-    mock_run.started_at = 100.0
-    mock_run.completed_at = None
-    mock_run.duration_s = None
-    mock_run.total_cost_usd = 0.0
-    mock_run.total_tokens = 0
-    mock_run.created_at = 100.0
-    return mock_run
-
-
-def _parse_sse_events(raw: str) -> list[dict]:
-    """Parse SSE text into a list of {event, data} dicts."""
-    events = []
-    current_event = None
-    current_data = []
-
-    for line in raw.split("\n"):
-        if line.startswith("event:"):
-            current_event = line[len("event:") :].strip()
-        elif line.startswith("data:"):
-            current_data.append(line[len("data:") :].strip())
-        elif line == "" and current_event is not None:
-            data_str = "\n".join(current_data)
-            try:
-                data = json.loads(data_str)
-            except json.JSONDecodeError:
-                data = data_str
-            events.append({"event": current_event, "data": data})
-            current_event = None
-            current_data = []
-
-    return events
-
-
-def _context_audit_message(run_id: str) -> dict:
-    return {
-        "schema_version": "context_audit.v1",
-        "event": "context_resolution",
-        "run_id": run_id,
-        "workflow_name": "child_workflow",
-        "node_id": "resolve_context",
-        "block_type": "linear",
-        "access": "declared",
-        "mode": "strict",
-        "records": [
-            {
-                "input_name": "query",
-                "from_ref": "results.query",
-                "namespace": "results",
-                "source": "query",
-                "field_path": "query",
-                "status": "resolved",
-                "severity": "allow",
-                "value_type": "str",
-                "preview": "bounded preview",
-                "reason": None,
-                "internal": False,
-            }
-        ],
-        "resolved_count": 1,
-        "denied_count": 0,
-        "warning_count": 0,
-        "emitted_at": "2026-04-23T00:00:00+00:00",
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -109,16 +40,13 @@ def _context_audit_message(run_id: str) -> dict:
 class TestSSEContentType:
     def test_stream_endpoint_returns_event_stream_content_type(self):
         """GET /api/runs/{id}/stream should return Content-Type: text/event-stream."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         # subscribe_stream returns an async generator that yields one terminal event
         async def _fake_stream(run_id):
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -139,16 +67,13 @@ class TestSSEContentType:
 class TestBlockLifecycleEvents:
     def test_node_started_event_emitted(self):
         """Stream should emit node_started when a block begins execution."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         async def _fake_stream(run_id):
             yield {"event": "node_started", "data": {"node_id": "block_1", "block_type": "llm"}}
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -156,7 +81,7 @@ class TestBlockLifecycleEvents:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
             event_types = [e["event"] for e in events]
             assert "node_started" in event_types
         finally:
@@ -164,16 +89,13 @@ class TestBlockLifecycleEvents:
 
     def test_node_completed_event_emitted(self):
         """Stream should emit node_completed when a block finishes successfully."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         async def _fake_stream(run_id):
             yield {"event": "node_completed", "data": {"node_id": "block_1", "duration_s": 1.5}}
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -181,7 +103,7 @@ class TestBlockLifecycleEvents:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
             event_types = [e["event"] for e in events]
             assert "node_completed" in event_types
         finally:
@@ -189,16 +111,13 @@ class TestBlockLifecycleEvents:
 
     def test_node_failed_event_emitted(self):
         """Stream should emit node_failed when a block errors."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         async def _fake_stream(run_id):
             yield {"event": "node_failed", "data": {"node_id": "block_1", "error": "timeout"}}
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -206,7 +125,7 @@ class TestBlockLifecycleEvents:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
             event_types = [e["event"] for e in events]
             assert "node_failed" in event_types
         finally:
@@ -221,16 +140,13 @@ class TestBlockLifecycleEvents:
 class TestTerminalEvents:
     def test_run_completed_closes_stream(self):
         """After run_completed, the SSE stream should close (no more events)."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         async def _fake_stream(run_id):
             yield {"event": "node_started", "data": {"node_id": "block_1"}}
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -238,23 +154,20 @@ class TestTerminalEvents:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
             assert events[-1]["event"] == "run_completed"
         finally:
             app.dependency_overrides.clear()
 
     def test_run_failed_closes_stream(self):
         """After run_failed, the SSE stream should close."""
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-
-        mock_exec_service = Mock()
+        mock_run_service = make_run_service()
 
         async def _fake_stream(run_id):
             yield {"event": "node_started", "data": {"node_id": "block_1"}}
             yield {"event": "run_failed", "data": {"run_id": run_id, "error": "kaboom"}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -262,7 +175,7 @@ class TestTerminalEvents:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
             assert events[-1]["event"] == "run_failed"
         finally:
             app.dependency_overrides.clear()
@@ -300,29 +213,27 @@ class TestLateJoinReplay:
         Replayed events must use the 'replay' event type and carry data matching
         the persisted log entries, arriving strictly before any live events.
         """
-        mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
+        mock_run_service = make_run_service()
 
         # Simulate prior events already persisted in DB
-        mock_log_1 = Mock()
-        mock_log_1.id = 1
-        mock_log_1.message = json.dumps({"event": "block_start", "block_id": "b1"})
-        mock_log_1.level = "info"
-        mock_log_1.timestamp = 1713790800.0
-        mock_log_2 = Mock()
-        mock_log_2.id = 2
-        mock_log_2.message = json.dumps({"event": "block_complete", "block_id": "b1"})
-        mock_log_2.level = "info"
-        mock_log_2.timestamp = 1713790801.0
-        mock_run_service.get_run_logs.return_value = [mock_log_1, mock_log_2]
-
-        mock_exec_service = Mock()
+        mock_run_service.get_run_logs.return_value = [
+            make_log(
+                id=1,
+                message={"event": "block_start", "block_id": "b1"},
+                timestamp=1713790800.0,
+            ),
+            make_log(
+                id=2,
+                message={"event": "block_complete", "block_id": "b1"},
+                timestamp=1713790801.0,
+            ),
+        ]
 
         async def _fake_stream(run_id):
             yield {"event": "node_started", "data": {"node_id": "b2"}}
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -330,7 +241,7 @@ class TestLateJoinReplay:
         try:
             with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
 
             # Exactly 4 events: 2 replay + 2 live
             assert len(events) == 4
@@ -365,13 +276,13 @@ class TestLateJoinReplay:
         parent_run_id = "run_sse_parent"
 
         mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run(run_id=child_run_id)
+        mock_run_service.get_run.return_value = make_mock_run(run_id=child_run_id)
 
-        replay_log = Mock()
-        replay_log.id = 11
-        replay_log.message = json.dumps({"event": "workflow_complete", "run_id": child_run_id})
-        replay_log.level = "info"
-        replay_log.timestamp = 1713790802.0
+        replay_log = make_log(
+            id=11,
+            message={"event": "workflow_complete", "run_id": child_run_id},
+            timestamp=1713790802.0,
+        )
         mock_run_service.get_run_logs.return_value = [replay_log]
 
         execution_service = ExecutionService(
@@ -393,7 +304,7 @@ class TestLateJoinReplay:
         try:
             with client.stream("GET", f"/api/runs/{child_run_id}/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
 
             assert [event["event"] for event in events] == ["replay"], (
                 "A late child subscriber should receive persisted child replay only; live "
@@ -412,13 +323,14 @@ class TestLateJoinReplay:
         parent_run_id = "run_sse_parent_context"
 
         mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run(run_id=child_run_id)
+        mock_run_service.get_run.return_value = make_mock_run(run_id=child_run_id)
 
-        replay_log = Mock()
-        replay_log.id = 12
-        replay_log.message = json.dumps(_context_audit_message(child_run_id))
-        replay_log.level = "trace"
-        replay_log.timestamp = 1713790803.0
+        replay_log = make_log(
+            id=12,
+            message=context_audit_message(child_run_id),
+            level="trace",
+            timestamp=1713790803.0,
+        )
         mock_run_service.get_run_logs.return_value = [replay_log]
 
         execution_service = ExecutionService(
@@ -440,7 +352,7 @@ class TestLateJoinReplay:
         try:
             with client.stream("GET", f"/api/runs/{child_run_id}/stream") as response:
                 body = response.read().decode()
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
 
             assert [event["event"] for event in events] == ["context_resolution"], (
                 "A child context-resolution replay stream must not switch into live parent "
@@ -619,7 +531,7 @@ class TestObserverRegistry:
 
 
 # ---------------------------------------------------------------------------
-# 9. RUN-410 replay failure logging
+# 9. Replay failure logging
 # ---------------------------------------------------------------------------
 
 
@@ -629,15 +541,13 @@ class TestReplayFailureLogging:
         from runsight_api.transport.routers import sse_stream
 
         mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
+        mock_run_service.get_run.return_value = make_mock_run()
         mock_run_service.get_run_logs.side_effect = RuntimeError("db unavailable")
-
-        mock_exec_service = Mock()
 
         async def _fake_stream(run_id):
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -647,7 +557,7 @@ class TestReplayFailureLogging:
                 with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                     body = response.read().decode()
 
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
 
             assert response.status_code == 200
             assert events[-1]["event"] == "run_completed"
@@ -669,19 +579,15 @@ class TestReplayFailureLogging:
         from runsight_api.transport.routers import sse_stream
 
         mock_run_service = Mock()
-        mock_run_service.get_run.return_value = _make_mock_run()
-        mock_log = Mock()
-        mock_log.id = 7
-        mock_log.message = "payload raw"
-        mock_log.timestamp = 1713790800.0
-        mock_run_service.get_run_logs.return_value = [mock_log]
-
-        mock_exec_service = Mock()
+        mock_run_service.get_run.return_value = make_mock_run()
+        mock_run_service.get_run_logs.return_value = [
+            make_log(id=7, message="payload raw", timestamp=1713790800.0)
+        ]
 
         async def _fake_stream(run_id):
             yield {"event": "run_completed", "data": {"run_id": run_id}}
 
-        mock_exec_service.subscribe_stream = _fake_stream
+        mock_exec_service = make_execution_service_with_stream(_fake_stream)
 
         app.dependency_overrides[get_run_service] = lambda: mock_run_service
         app.dependency_overrides[get_execution_service] = lambda: mock_exec_service
@@ -696,7 +602,7 @@ class TestReplayFailureLogging:
                     with client.stream("GET", "/api/runs/run_sse_1/stream") as response:
                         body = response.read().decode()
 
-            events = _parse_sse_events(body)
+            events = parse_sse_events(body)
 
             assert response.status_code == 200
             assert events[0] == {"event": "replay", "data": {"message": "payload raw"}}

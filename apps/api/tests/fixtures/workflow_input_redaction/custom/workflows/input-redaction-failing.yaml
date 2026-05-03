@@ -1,0 +1,31 @@
+id: input-redaction-failing
+kind: workflow
+version: "1.0"
+inputs:
+  query:
+    type: string
+  api_token:
+    type: string
+    sensitive: true
+souls:
+  failure_fixture:
+    id: failure_fixture
+    kind: soul
+    name: Failure Fixture
+    role: Failure Fixture
+    system_prompt: Trigger a local fixture failure.
+    provider: input-redaction-fixture-provider
+    model_name: input-redaction-fixture-model
+blocks:
+  fail_with_secret:
+    type: linear
+    soul_ref: failure_fixture
+    inputs:
+      token:
+        from: workflow.api_token
+workflow:
+  name: input_redaction_failing
+  entry: fail_with_secret
+  transitions:
+    - from: fail_with_secret
+      to: null

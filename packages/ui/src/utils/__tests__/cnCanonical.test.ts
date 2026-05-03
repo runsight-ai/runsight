@@ -26,7 +26,7 @@ function getExportTarget(value: string | { import?: string; default?: string }) 
   return value.import ?? value.default ?? null;
 }
 
-describe("RUN-513 canonical ui helper ownership", () => {
+describe("canonical ui helper ownership", () => {
   it("keeps the canonical cn implementation in packages/ui", () => {
     expect(existsSync(CANONICAL_HELPER_PATH)).toBe(true);
     expect(readFile(CANONICAL_HELPER_PATH)).toMatch(/export\s+(?:function|const)\s+cn\b/);
@@ -48,7 +48,7 @@ describe("RUN-513 canonical ui helper ownership", () => {
   });
 });
 
-describe("RUN-513 cn behavior stability", () => {
+describe("cn behavior stability", () => {
   it("merges conflicting tailwind utility classes with the last value winning", () => {
     expect(cn("px-2", "px-4", "text-sm")).toBe("px-4 text-sm");
   });

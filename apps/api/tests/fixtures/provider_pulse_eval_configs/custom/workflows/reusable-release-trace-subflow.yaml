@@ -1,0 +1,85 @@
+version: "1.0"
+id: reusable-release-trace-subflow
+kind: workflow
+souls:
+  child_synthesizer:
+    id: child_synthesizer
+    kind: soul
+    name: Child Synthesizer
+    role: Child Synthesizer
+    system_prompt: Fixture soul for API assertion config tests.
+  child_gate:
+    id: child_gate
+    kind: soul
+    name: Child Gate
+    role: Child Gate
+    system_prompt: Fixture soul for API assertion config tests.
+blocks:
+  dispatch_child_views:
+    type: code
+    assertions:
+      - type: contains-json
+        value:
+          type: array
+          minItems: 1
+    code: |
+      def main(data):
+          return [{"exit_id": "signal_scan", "output": "ok"}]
+
+  child_merge:
+    type: synthesize
+    soul_ref: child_synthesizer
+    input_block_ids:
+      - dispatch_child_views
+    assertions:
+      - type: regex
+        value: \S
+      - type: word-count
+        value:
+          min: 5
+
+  child_quality_gate:
+    type: gate
+    soul_ref: child_gate
+    eval_key: child_merge
+    assertions:
+      - type: contains-any
+        value:
+          - PASS
+          - "FAIL:"
+
+  child_revision_loop:
+    type: loop
+    inner_block_refs:
+      - child_merge
+      - child_quality_gate
+    max_rounds: 2
+    break_on_exit: pass
+    retry_on_exit: fail
+    assertions:
+      - type: regex
+        value: ^completed_\d+_rounds$
+
+  package_child_result:
+    type: code
+    assertions:
+      - type: contains-json
+        value:
+          type: object
+          required:
+            - status
+    code: |
+      def main(data):
+          return {"status": "ready"}
+workflow:
+  name: Reusable Release Trace Subflow
+  entry: dispatch_child_views
+  transitions:
+    - from: dispatch_child_views
+      to: child_merge
+    - from: child_merge
+      to: child_quality_gate
+    - from: child_quality_gate
+      to: child_revision_loop
+    - from: child_revision_loop
+      to: package_child_result

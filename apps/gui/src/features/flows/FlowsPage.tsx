@@ -1,44 +1,18 @@
 import { PageHeader } from "@/components/shared";
-import {
-  DEFAULT_WORKFLOW_NAME,
-  buildBlankWorkflowYaml,
-  deriveWorkflowId,
-} from "@/features/setup/workflowDraft";
+import { buildBlankWorkflowCreate } from "@/features/setup/workflowDraft";
 import { useCreateWorkflow } from "@/queries/workflows";
 import { Button } from "@runsight/ui/button";
-import type { WorkflowCreate } from "@runsight/shared/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@runsight/ui/tabs";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { WorkflowsTab } from "./WorkflowsTab";
-
-function buildEmptyWorkflowCreate(): WorkflowCreate {
-  const baseId = deriveWorkflowId(DEFAULT_WORKFLOW_NAME);
-  const uniqueSuffix = `${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-  const workflowId = `${baseId}-${uniqueSuffix}`;
-
-  return {
-    name: DEFAULT_WORKFLOW_NAME,
-    yaml: buildBlankWorkflowYaml(workflowId, DEFAULT_WORKFLOW_NAME),
-    canvas_state: {
-      nodes: [],
-      edges: [],
-      viewport: { x: 0, y: 0, zoom: 1 },
-      selected_node_id: null,
-      canvas_mode: "dag",
-    },
-    commit: false,
-  };
-}
 
 export function Component() {
   const navigate = useNavigate();
   const createWorkflow = useCreateWorkflow();
 
   const handleCreateWorkflow = () => {
-    createWorkflow.mutate(buildEmptyWorkflowCreate(), {
+    createWorkflow.mutate(buildBlankWorkflowCreate(), {
       onSuccess: (workflow) => {
         navigate(`/workflows/${workflow.id}/edit`);
       },

@@ -1,0 +1,53 @@
+version: "1.0"
+id: dispatch-budget-cost-cap-workflow
+kind: workflow
+souls:
+  budget-worker-alpha:
+    id: budget-worker-alpha
+    kind: soul
+    name: Budget Worker Alpha
+    role: Budget Worker Alpha
+    system_prompt: Run the alpha dispatch branch.
+    provider: fixture-provider
+    model_name: fixture-dispatch-budget-model
+  budget-worker-beta:
+    id: budget-worker-beta
+    kind: soul
+    name: Budget Worker Beta
+    role: Budget Worker Beta
+    system_prompt: Run the beta dispatch branch.
+    provider: fixture-provider
+    model_name: fixture-dispatch-budget-model
+  budget-worker-gamma:
+    id: budget-worker-gamma
+    kind: soul
+    name: Budget Worker Gamma
+    role: Budget Worker Gamma
+    system_prompt: Run the gamma dispatch branch.
+    provider: fixture-provider
+    model_name: fixture-dispatch-budget-model
+blocks:
+  budgeted_dispatch:
+    type: dispatch
+    exits:
+      - id: budget_branch_alpha
+        label: Budget Branch Alpha
+        soul_ref: budget-worker-alpha
+        task: Run alpha budget branch
+      - id: budget_branch_beta
+        label: Budget Branch Beta
+        soul_ref: budget-worker-beta
+        task: Run beta budget branch
+      - id: budget_branch_gamma
+        label: Budget Branch Gamma
+        soul_ref: budget-worker-gamma
+        task: Run gamma budget branch
+workflow:
+  name: dispatch_budget_cost_cap_workflow
+  entry: budgeted_dispatch
+  transitions:
+    - from: budgeted_dispatch
+      to: null
+limits:
+  cost_cap_usd: 2.00
+  on_exceed: fail

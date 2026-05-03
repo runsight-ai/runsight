@@ -1,0 +1,28 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-eval-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze."
+workflow:
+  name: transform_reject_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: reject_case
+      fixtures:
+        analyze: '{"result": "success", "extra": "secret data"}'
+      expected:
+        analyze:
+          - type: contains
+            value: "secret data"
+            transform: "json_path:$.result"

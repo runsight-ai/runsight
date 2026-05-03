@@ -1,0 +1,24 @@
+id: child-workflow
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+souls:
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
+    role: Worker
+    system_prompt: You are a worker.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  do_work:
+    type: linear
+    soul_ref: worker
+workflow:
+  name: child_sse_test
+  entry: do_work
+  transitions:
+    - from: do_work
+      to: null

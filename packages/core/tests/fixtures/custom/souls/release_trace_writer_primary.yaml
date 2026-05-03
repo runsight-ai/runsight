@@ -1,0 +1,5 @@
+id: release_trace_writer_primary
+kind: soul
+name: Primary Trace Writer
+role: release_trace_writer_primary
+system_prompt: Fixture soul for testing.

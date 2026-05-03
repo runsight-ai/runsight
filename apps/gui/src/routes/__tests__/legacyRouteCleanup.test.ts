@@ -1,0 +1,136 @@
+// @vitest-environment jsdom
+
+import React from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { useLocation, Outlet } from "react-router";
+
+function RouteEcho({ label }: { label: string }) {
+  const location = useLocation();
+  return React.createElement(
+    "div",
+    null,
+    `${label}:${location.pathname}${location.search}`,
+  );
+}
+
+vi.mock("../guards", () => ({
+  createSetupGuardLoader: () => async () => null,
+  createReverseGuardLoader: () => async () => null,
+}));
+
+vi.mock("../layouts/ShellLayout", () => ({
+  ShellLayout: () => React.createElement(Outlet),
+}));
+
+vi.mock("@/queries/workflows", () => ({
+  useWorkflows: () => ({ data: undefined, isLoading: false, error: null }),
+  useWorkflowRegressions: () => ({ data: undefined }),
+}));
+
+vi.mock("@/queries/runs", () => ({
+  useRuns: () => ({ data: undefined, isLoading: false, error: null }),
+  useRunRegressions: () => ({ data: undefined }),
+}));
+
+vi.mock("@/queries/dashboard", () => ({
+  useAttentionItems: () => ({ data: undefined }),
+}));
+
+vi.mock("@/lib/queryClient", () => ({
+  queryClient: {},
+}));
+
+vi.mock("@/features/setup/SetupStartPage", () => ({
+  Component: () => React.createElement("div", null, "Setup start page"),
+}));
+
+vi.mock("@/features/dashboard/DashboardOrOnboarding", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "dashboard" }),
+}));
+
+vi.mock("@/features/dev/ComponentShowcase", () => ({
+  default: () => React.createElement("div", null, "Component showcase"),
+}));
+
+vi.mock("@/features/workflows/WorkflowList", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "legacy-workflows" }),
+}));
+
+vi.mock("@/features/flows/FlowsPage", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "flows" }),
+}));
+
+vi.mock("@/features/surface/SurfaceCanvas", () => ({
+  Component: () => React.createElement("div", null, "Workflow canvas page"),
+  SurfaceCanvas: () => React.createElement("div", null, "Workflow canvas page"),
+}));
+
+vi.mock("@/features/runs/RunsPage", () => ({
+  Component: () => React.createElement(RouteEcho, { label: "canonical-runs" }),
+}));
+
+// Historical run routes render the shared workflow surface.
+vi.mock("@/features/surface/WorkflowSurface", () => ({
+  WorkflowSurface: ({ runId }: { runId?: string }) =>
+    React.createElement(RouteEcho, { label: `run-surface-${runId ?? "unknown"}` }),
+}));
+
+vi.mock("@/features/health/HealthPage", () => ({
+  Component: () => React.createElement("div", null, "Health page"),
+}));
+
+vi.mock("@/features/settings/SettingsPage", () => ({
+  Component: () => React.createElement("div", null, "Settings page"),
+}));
+
+let activeRouter: { dispose?: () => void } | null = null;
+
+afterEach(() => {
+  cleanup();
+  activeRouter?.dispose?.();
+  activeRouter = null;
+  window.history.pushState({}, "", "/");
+});
+
+async function renderAppAt(initialPath: string) {
+  vi.resetModules();
+  window.history.pushState({}, "", initialPath);
+
+  const { RouterProvider } = await import("react-router");
+  const { router } = await import("../index");
+
+  activeRouter = router;
+  render(React.createElement(RouterProvider, { router }));
+
+  return router;
+}
+
+describe("legacy list route cleanup", () => {
+  it("lets /workflows fall through to normal unknown-route behavior", async () => {
+    await renderAppAt("/workflows");
+
+    expect(await screen.findByText("dashboard:/")).toBeTruthy();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/");
+      expect(window.location.search).toBe("");
+    });
+    expect(screen.queryByText("legacy-workflows:/workflows")).toBeNull();
+  });
+
+  it("keeps /runs as the canonical runs page", async () => {
+    await renderAppAt("/runs");
+
+    expect(await screen.findByText("canonical-runs:/runs")).toBeTruthy();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/runs");
+      expect(window.location.search).toBe("");
+    });
+  });
+
+  it("keeps /runs/:id working", async () => {
+    await renderAppAt("/runs/run_display_primary");
+
+    expect(await screen.findByText("run-surface-run_display_primary:/runs/run_display_primary")).toBeTruthy();
+  });
+});

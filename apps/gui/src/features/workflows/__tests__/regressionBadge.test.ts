@@ -5,6 +5,7 @@ import {
   shouldShowRegressionBadge,
   buildRunsFilterUrl,
 } from "../regressionBadge.utils";
+import { REGRESSION_BADGE_CLASSES } from "../regressionBadge.styles";
 import type { WorkflowRegression } from "../../../types/schemas/regressions";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ const REGRESSIONS_SINGLE: WorkflowRegression[] = [
 const REGRESSIONS_EMPTY: WorkflowRegression[] = [];
 
 // ---------------------------------------------------------------------------
-// AC-4: Badge and tooltip hidden when 0 regressions
+// Badge and tooltip hidden when 0 regressions
 // ---------------------------------------------------------------------------
 
 describe("shouldShowRegressionBadge", () => {
@@ -45,7 +46,7 @@ describe("shouldShowRegressionBadge", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: Tooltip lists per-issue regression summary (type + node name)
+// Tooltip lists per-issue regression summary (type + node name)
 // ---------------------------------------------------------------------------
 
 describe("formatRegressionTooltip", () => {
@@ -86,7 +87,7 @@ describe("formatRegressionTooltip", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: "View runs →" CTA navigates to /runs?workflow=:id
+// "View runs →" CTA navigates to /runs?workflow=:id
 // ---------------------------------------------------------------------------
 
 describe("buildRunsFilterUrl", () => {
@@ -100,5 +101,12 @@ describe("buildRunsFilterUrl", () => {
     expect(url).toContain("/runs?workflow=");
     // The id should be URI-encoded
     expect(url).not.toContain("&id");
+  });
+});
+
+describe("REGRESSION_BADGE_CLASSES", () => {
+  it("uses warning token text styling for regression badges", () => {
+    expect(REGRESSION_BADGE_CLASSES).toContain("--warning-11");
+    expect(REGRESSION_BADGE_CLASSES.length).toBeGreaterThan(0);
   });
 });

@@ -1,5 +1,5 @@
 """
-RUN-252: SQL pagination and batch node summaries for GET /runs.
+SQL pagination and batch node summaries for GET /runs.
 
 These tests verify that:
 - Default limit is 20, max limit is 100 (clamped server-side)
@@ -95,7 +95,7 @@ def test_list_runs_response_includes_total_from_db():
 
 
 def test_list_runs_rejects_legacy_non_tuple_paginated_contract():
-    """Legacy non-tuple pagination results must fail explicitly instead of falling back to list_runs()."""
+    """Legacy non-tuple pagination results are rejected without falling back to list_runs()."""
     mock_service = Mock()
     mock_service.list_runs_paginated.return_value = [_make_mock_run("run_legacy")]
     mock_service.list_runs.return_value = [_make_mock_run("run_unbounded")]
@@ -121,13 +121,13 @@ def test_list_runs_rejects_legacy_non_tuple_paginated_contract():
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_run(run_id="run_123"):
+def _make_mock_run(run_id="run_paginated"):
     from runsight_api.domain.entities.run import RunStatus
 
     mock_run = Mock()
     mock_run.id = run_id
-    mock_run.workflow_id = "wf_1"
-    mock_run.workflow_name = "wf_1"
+    mock_run.workflow_id = "wf_sql_pagination"
+    mock_run.workflow_name = "SQL pagination workflow"
     mock_run.status = RunStatus.pending
     mock_run.started_at = None
     mock_run.completed_at = None

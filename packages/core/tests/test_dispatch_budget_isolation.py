@@ -1,19 +1,19 @@
 """
-Failing tests for RUN-715: DispatchBlock branch session isolation via copy_context.
+Tests for DispatchBlock branch session isolation via copy_context.
 
 DispatchBlock runs branches in parallel via asyncio.gather(). Without isolation,
 concurrent branches sharing a parent BudgetSession create race conditions. Solution:
 each branch gets an isolated child session via copy_context().run(), costs reconciled
 to parent after gather.
 
-Tests cover all acceptance criteria:
+Tests cover branch budget isolation behavior:
 - Each asyncio.gather branch runs with its own isolated BudgetSession
 - Branch costs do NOT accrue to parent during parallel execution
 - After gather returns, all branch costs reconciled to parent via reconcile_child()
 - Flow-level check_or_raise() runs after reconciliation
-- Branch exceeding its own block cap -> BudgetKilledException from that branch
-- Combined branch costs exceeding flow cap -> BudgetKilledException after reconciliation
-- No budget set -> branches run identically to current behavior (zero overhead)
+- Branch exceeding its inherited workflow cap -> BudgetKilledException from that branch
+- Combined branch tokens exceeding flow token cap -> BudgetKilledException after reconciliation
+- No budget set -> branches run without budget overhead
 """
 
 from __future__ import annotations
@@ -56,13 +56,13 @@ def _make_soul(soul_id: str) -> Soul:
 
 def _make_branches(count: int) -> list[DispatchBranch]:
     """Create N branches with distinct souls and instructions."""
-    souls = [_make_soul(f"soul_{i}") for i in range(count)]
+    souls = [_make_soul(f"budget_branch_soul_{i}") for i in range(count)]
     return [
         DispatchBranch(
-            exit_id=f"exit_{i}",
-            label=f"Exit {i}",
+            exit_id=f"budget_branch_{i}",
+            label=f"Budget Branch {i}",
             soul=souls[i],
-            task_instruction=f"Task for branch {i}",
+            task_instruction=f"Run budget branch {i}",
         )
         for i in range(count)
     ]
@@ -81,7 +81,7 @@ def _make_exec_result(task_id: str, soul_id: str, output: str, cost: float = 0.0
 def _make_runner_with_costs(
     branches: list[DispatchBranch], costs: list[float], tokens: list[int] | None = None
 ):
-    """Create a mock runner whose execute_task returns controlled costs per branch.
+    """Create a fixture runner whose runner.execute returns controlled costs per branch.
 
     The side_effect captures the _active_budget contextvar at call time so tests
     can inspect which session was active for each branch.
@@ -90,7 +90,7 @@ def _make_runner_with_costs(
         tokens = [0] * len(branches)
 
     runner = MagicMock()
-    runner.model_name = "gpt-4o"
+    runner.model_name = None
 
     call_idx = 0
     captured_sessions: list[BudgetSession | None] = []
@@ -109,9 +109,9 @@ def _make_runner_with_costs(
             session.accrue(cost_usd=costs[idx], tokens=tokens[idx])
 
         return _make_exec_result(
-            task_id="mock",
+            task_id="dispatch_budget_branch_task",
             soul_id=soul.id,
-            output=f"result_{idx}",
+            output=f"budget_branch_result_{idx}",
             cost=costs[idx],
             tokens=tokens[idx],
         )
@@ -137,11 +137,11 @@ class TestBranchSessionIsolation:
         costs = [0.10, 0.20, 0.30]
         runner = _make_runner_with_costs(branches, costs)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_1", branches, runner)
+            block = DispatchBlock("branch_session_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -168,11 +168,11 @@ class TestBranchSessionIsolation:
         costs = [0.50, 0.50]
         runner = _make_runner_with_costs(branches, costs)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_2", branches, runner)
+            block = DispatchBlock("isolated_child_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -201,12 +201,12 @@ class TestNoConcurrentParentAccrual:
         branches = _make_branches(2)
         costs = [0.50, 0.60]
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
 
         parent_cost_during_execution: list[float] = []
 
         runner = MagicMock()
-        runner.model_name = "gpt-4o"
+        runner.model_name = None
 
         call_idx = 0
 
@@ -223,9 +223,9 @@ class TestNoConcurrentParentAccrual:
             parent_cost_during_execution.append(parent.cost_usd)
 
             return _make_exec_result(
-                task_id="mock",
+                task_id="dispatch_budget_branch_task",
                 soul_id=soul.id,
-                output=f"r{idx}",
+                output=f"parent_accrual_branch_result_{idx}",
                 cost=costs[idx],
             )
 
@@ -233,7 +233,7 @@ class TestNoConcurrentParentAccrual:
 
         _active_budget.set(parent)
         try:
-            block = DispatchBlock("dispatch_3", branches, runner)
+            block = DispatchBlock("parent_accrual_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -263,11 +263,11 @@ class TestPostGatherReconciliation:
         tokens = [100, 200, 300]
         runner = _make_runner_with_costs(branches, costs, tokens)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=2.00)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=2.00)
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_4", branches, runner)
+            block = DispatchBlock("reconciliation_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -284,12 +284,12 @@ class TestPostGatherReconciliation:
         costs = [0.40, 0.40]
         runner = _make_runner_with_costs(branches, costs)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
         parent.accrue(cost_usd=0.50, tokens=200)  # prior cost from earlier blocks
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_5", branches, runner)
+            block = DispatchBlock("prior_cost_reconciliation_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -315,14 +315,14 @@ class TestFlowCheckAfterReconciliation:
         runner = _make_runner_with_costs(branches, costs)
 
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             cost_cap_usd=2.00,
             on_exceed="fail",
         )
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_6", branches, runner)
+            block = DispatchBlock("flow_cap_exceeded_dispatch", branches, runner)
             state = WorkflowState()
 
             with pytest.raises(BudgetKilledException) as exc_info:
@@ -345,14 +345,14 @@ class TestFlowCheckAfterReconciliation:
         runner = _make_runner_with_costs(branches, costs)
 
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             cost_cap_usd=2.00,
             on_exceed="fail",
         )
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_7", branches, runner)
+            block = DispatchBlock("flow_cap_under_dispatch", branches, runner)
             state = WorkflowState()
 
             # Should not raise
@@ -369,7 +369,7 @@ class TestFlowCheckAfterReconciliation:
         runner = _make_runner_with_costs(branches, costs)
 
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             cost_cap_usd=2.00,
             on_exceed="fail",
         )
@@ -377,7 +377,7 @@ class TestFlowCheckAfterReconciliation:
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_8", branches, runner)
+            block = DispatchBlock("prior_cost_flow_cap_dispatch", branches, runner)
             state = WorkflowState()
 
             with pytest.raises(BudgetKilledException) as exc_info:
@@ -389,32 +389,32 @@ class TestFlowCheckAfterReconciliation:
 
 
 # ===========================================================================
-# 5. Branch exceeding its own block cap raises during gather
+# 5. Branch exceeding inherited workflow cap raises during gather
 # ===========================================================================
 
 
-class TestBranchBlockCapEnforcement:
-    """A branch exceeding its own isolated session's cap raises BudgetKilledException."""
+class TestBranchInheritedWorkflowCapEnforcement:
+    """A branch exceeding its inherited isolated workflow cap raises BudgetKilledException."""
 
     @pytest.mark.asyncio
-    async def test_branch_over_block_cap_raises(self):
+    async def test_branch_over_inherited_workflow_cap_raises(self):
         """If a branch's isolated session has cost_cap_usd (inherited from parent)
         and that branch exceeds it, BudgetKilledException propagates from gather.
 
         The achat layer calls session.check_or_raise() after each LLM call.
-        We simulate that by having the mock accrue and then check.
+        We simulate that by having the fixture runner accrue and then check.
         The key assertion: the session checked is an isolated child, not the parent."""
         branches = _make_branches(2)
 
         # Parent cap is $0.50 — isolated children inherit this cap
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             cost_cap_usd=0.50,
             on_exceed="fail",
         )
 
         runner = MagicMock()
-        runner.model_name = "gpt-4o"
+        runner.model_name = None
 
         call_idx = 0
         branch_costs = [0.60, 0.20]  # first branch exceeds $0.50 cap
@@ -433,9 +433,9 @@ class TestBranchBlockCapEnforcement:
                 session.check_or_raise()
 
             return _make_exec_result(
-                task_id="mock",
+                task_id="dispatch_budget_branch_task",
                 soul_id=soul.id,
-                output=f"r{idx}",
+                output=f"budget_branch_result_{idx}",
                 cost=branch_costs[idx],
             )
 
@@ -443,7 +443,7 @@ class TestBranchBlockCapEnforcement:
 
         _active_budget.set(parent)
         try:
-            block = DispatchBlock("dispatch_9", branches, runner)
+            block = DispatchBlock("inherited_branch_workflow_cap_dispatch", branches, runner)
             state = WorkflowState()
 
             with pytest.raises(BudgetKilledException) as exc_info:
@@ -466,12 +466,12 @@ class TestBranchBlockCapEnforcement:
 
 
 # ===========================================================================
-# 6. Combined branch costs exceeding flow cap after reconciliation
+# 6. Combined branch tokens exceeding flow token cap after reconciliation
 # ===========================================================================
 
 
-class TestCombinedBranchCostFlowCap:
-    """Combined costs from all branches should trigger flow-level cap after reconciliation."""
+class TestCombinedBranchTokenFlowCap:
+    """Combined tokens from all branches should trigger flow-level cap after reconciliation."""
 
     @pytest.mark.asyncio
     async def test_token_cap_exceeded_after_reconciliation(self):
@@ -483,14 +483,14 @@ class TestCombinedBranchCostFlowCap:
         runner = _make_runner_with_costs(branches, costs, tokens)
 
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             token_cap=1000,
             on_exceed="fail",
         )
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_10", branches, runner)
+            block = DispatchBlock("token_cap_dispatch", branches, runner)
             state = WorkflowState()
 
             with pytest.raises(BudgetKilledException) as exc_info:
@@ -503,16 +503,18 @@ class TestCombinedBranchCostFlowCap:
 
 
 # ===========================================================================
-# 7. No budget set -> branches run identically to current behavior
+# 7. No budget set -> branches run without budget overhead
 # ===========================================================================
 
 
-class TestNoBudgetSetFallback:
-    """When no budget is active, DispatchBlock should run without any overhead."""
+class TestDispatchWithoutActiveBudget:
+    """DispatchBlock runs without branch budget sessions when no budget is active."""
 
     @pytest.mark.asyncio
-    async def test_no_active_budget_runs_normally(self):
-        """When _active_budget is None, execute works as before with no isolation."""
+    async def test_no_active_budget_preserves_cost_aggregation_without_branch_sessions(
+        self,
+    ):
+        """Without an active budget, branch sessions stay unset and costs aggregate."""
         branches = _make_branches(2)
         costs = [0.30, 0.40]
         runner = _make_runner_with_costs(branches, costs)
@@ -521,12 +523,12 @@ class TestNoBudgetSetFallback:
         _active_budget.set(None)
 
         try:
-            block = DispatchBlock("dispatch_11", branches, runner)
+            block = DispatchBlock("no_budget_cost_dispatch", branches, runner)
             state = WorkflowState()
             result = await _exec(block, state)
 
-            # Execution should succeed normally
-            assert "dispatch_11" in result.results
+            # Dispatch still aggregates branch costs in the execution result.
+            assert "no_budget_cost_dispatch" in result.results
             assert result.total_cost_usd == pytest.approx(0.70)
 
             # All captured sessions should be None (no isolation attempted)
@@ -536,8 +538,8 @@ class TestNoBudgetSetFallback:
             _active_budget.set(None)
 
     @pytest.mark.asyncio
-    async def test_no_budget_produces_correct_results(self):
-        """Without budget, the dispatch block still produces correct per-exit results."""
+    async def test_no_active_budget_writes_per_exit_and_dispatch_result_keys(self):
+        """Without an active budget, dispatch writes per-exit and aggregate result keys."""
         branches = _make_branches(3)
         costs = [0.0, 0.0, 0.0]
         runner = _make_runner_with_costs(branches, costs)
@@ -545,16 +547,16 @@ class TestNoBudgetSetFallback:
         _active_budget.set(None)
 
         try:
-            block = DispatchBlock("dispatch_12", branches, runner)
+            block = DispatchBlock("no_budget_results_dispatch", branches, runner)
             state = WorkflowState()
             result = await _exec(block, state)
 
             # Per-exit results should exist
-            assert "dispatch_12.exit_0" in result.results
-            assert "dispatch_12.exit_1" in result.results
-            assert "dispatch_12.exit_2" in result.results
+            assert "no_budget_results_dispatch.budget_branch_0" in result.results
+            assert "no_budget_results_dispatch.budget_branch_1" in result.results
+            assert "no_budget_results_dispatch.budget_branch_2" in result.results
             # Combined result should exist
-            assert "dispatch_12" in result.results
+            assert "no_budget_results_dispatch" in result.results
         finally:
             _active_budget.set(None)
 
@@ -574,11 +576,11 @@ class TestParentSessionRestored:
         costs = [0.10, 0.10]
         runner = _make_runner_with_costs(branches, costs)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_13", branches, runner)
+            block = DispatchBlock("restore_parent_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -595,14 +597,14 @@ class TestParentSessionRestored:
         runner = _make_runner_with_costs(branches, costs)
 
         parent = BudgetSession(
-            scope_name="workflow:test",
+            scope_name="workflow:dispatch_budget_isolation",
             cost_cap_usd=1.00,
             on_exceed="fail",
         )
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_14", branches, runner)
+            block = DispatchBlock("restore_parent_exception_dispatch", branches, runner)
             state = WorkflowState()
 
             with pytest.raises(BudgetKilledException):
@@ -629,11 +631,11 @@ class TestIsolatedChildScopeNaming:
         costs = [0.10, 0.10]
         runner = _make_runner_with_costs(branches, costs)
 
-        parent = BudgetSession(scope_name="workflow:test", cost_cap_usd=5.0)
+        parent = BudgetSession(scope_name="workflow:dispatch_budget_isolation", cost_cap_usd=5.0)
         _active_budget.set(parent)
 
         try:
-            block = DispatchBlock("dispatch_15", branches, runner)
+            block = DispatchBlock("scope_naming_dispatch", branches, runner)
             state = WorkflowState()
             await _exec(block, state)
 
@@ -641,8 +643,8 @@ class TestIsolatedChildScopeNaming:
             assert len(sessions) == 2
             for i, s in enumerate(sessions):
                 assert s is not None
-                assert f"exit_{i}" in s.scope_name, (
-                    f"Branch session scope should contain exit_id 'exit_{i}', got '{s.scope_name}'"
+                assert f"budget_branch_{i}" in s.scope_name, (
+                    f"Branch session scope should contain exit_id 'budget_branch_{i}', got '{s.scope_name}'"
                 )
         finally:
             _active_budget.set(None)

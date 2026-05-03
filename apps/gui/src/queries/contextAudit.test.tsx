@@ -9,11 +9,13 @@ import { runsApi } from "../api/runs";
 import { queryKeys } from "./keys";
 
 const harness = vi.hoisted(() => ({
+  getChildRuns: vi.fn(),
   getRunContextAudit: vi.fn(),
 }));
 
 vi.mock("../api/runs", () => ({
   runsApi: {
+    getChildRuns: harness.getChildRuns,
     getRunContextAudit: harness.getRunContextAudit,
   },
 }));
@@ -30,6 +32,7 @@ type ContextAuditStoreModule = {
 };
 
 type RunsQueryModule = {
+  useChildRuns: (runId: string) => unknown;
   useRunContextAudit: (runId: string, params?: { page_size?: number }) => {
     fetchNextPage: () => Promise<unknown>;
     hasNextPage?: boolean;
@@ -138,8 +141,9 @@ async function loadStoreModule(): Promise<ContextAuditStoreModule> {
   return import(/* @vite-ignore */ storeModulePath) as Promise<ContextAuditStoreModule>;
 }
 
-describe("RUN-915 context audit query layer", () => {
+describe("context audit query layer", () => {
   beforeEach(async () => {
+    harness.getChildRuns.mockReset();
     harness.getRunContextAudit.mockReset();
     eventSources.length = 0;
     vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
@@ -150,27 +154,45 @@ describe("RUN-915 context audit query layer", () => {
   });
 
   it("adds queryKeys.runs.contextAudit", () => {
-    expect(queryKeys.runs.contextAudit("run_915")).toEqual([
+    expect(queryKeys.runs.contextAudit("run_context_audit")).toEqual([
       "runs",
-      "run_915",
+      "run_context_audit",
       "contextAudit",
+    ]);
+  });
+
+  it("wires child-run drilldown through the runs query layer", async () => {
+    const { useChildRuns } = await loadRunsModule();
+    harness.getChildRuns.mockResolvedValue([{ id: "run_child" }]);
+
+    renderHook(() => useChildRuns("run_parent_drilldown"), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(runsApi.getChildRuns).toHaveBeenCalledWith("run_parent_drilldown");
+    });
+    expect(queryKeys.runs.children("run_parent_drilldown")).toEqual([
+      "runs",
+      "run_parent_drilldown",
+      "children",
     ]);
   });
 
   it("useRunContextAudit fetches paginated history and merges pages in execution order", async () => {
     const { useRunContextAudit } = await loadRunsModule();
     const store = await loadStoreModule();
-    store.useContextAuditStore.getState().clearRun("run_915");
+    store.useContextAuditStore.getState().clearRun("run_context_audit");
     harness.getRunContextAudit
-      .mockResolvedValueOnce(page([event("run_915", "draft", 1)], "cursor-1", true))
-      .mockResolvedValueOnce(page([event("run_915", "review", 2)], null, false));
+      .mockResolvedValueOnce(page([event("run_context_audit", "draft", 1)], "cursor-1", true))
+      .mockResolvedValueOnce(page([event("run_context_audit", "review", 2)], null, false));
 
-    const { result } = renderHook(() => useRunContextAudit("run_915", { page_size: 1 }), {
+    const { result } = renderHook(() => useRunContextAudit("run_context_audit", { page_size: 1 }), {
       wrapper,
     });
 
     await waitFor(() => {
-      expect(runsApi.getRunContextAudit).toHaveBeenCalledWith("run_915", {
+      expect(runsApi.getRunContextAudit).toHaveBeenCalledWith("run_context_audit", {
         page_size: 1,
       });
     });
@@ -180,13 +202,13 @@ describe("RUN-915 context audit query layer", () => {
     });
 
     await waitFor(() => {
-      const events = store.selectRunEvents("run_915")(store.useContextAuditStore.getState());
+      const events = store.selectRunEvents("run_context_audit")(store.useContextAuditStore.getState());
       expect(events.map((item) => `${item.node_id}:${item.sequence}`)).toEqual([
         "draft:1",
         "review:2",
       ]);
     });
-    expect(runsApi.getRunContextAudit).toHaveBeenLastCalledWith("run_915", {
+    expect(runsApi.getRunContextAudit).toHaveBeenLastCalledWith("run_context_audit", {
       cursor: "cursor-1",
       page_size: 1,
     });
@@ -195,23 +217,23 @@ describe("RUN-915 context audit query layer", () => {
   it("useRunContextAuditStream appends valid context_resolution events and dedupes history", async () => {
     const { useRunContextAuditStream } = await loadRunsModule();
     const store = await loadStoreModule();
-    store.useContextAuditStore.getState().clearRun("run_915");
+    store.useContextAuditStore.getState().clearRun("run_context_audit");
     store.useContextAuditStore.getState().clearRun("other_run");
     store.useContextAuditStore
       .getState()
-      .replaceRunEvents("run_915", [event("run_915", "draft", 1)]);
+      .replaceRunEvents("run_context_audit", [event("run_context_audit", "draft", 1)]);
 
-    renderHook(() => useRunContextAuditStream("run_915"), { wrapper });
+    renderHook(() => useRunContextAuditStream("run_context_audit"), { wrapper });
 
-    expect(eventSources[0].url).toBe("/api/runs/run_915/stream");
+    expect(eventSources[0].url).toBe("/api/runs/run_context_audit/stream");
     act(() => {
-      eventSources[0].emit("context_resolution", event("run_915", "draft", 1));
-      eventSources[0].emit("context_resolution", event("run_915", "review", 2));
+      eventSources[0].emit("context_resolution", event("run_context_audit", "draft", 1));
+      eventSources[0].emit("context_resolution", event("run_context_audit", "review", 2));
       eventSources[0].emit("context_resolution", event("other_run", "leak", 3));
-      eventSources[0].emit("replay", event("run_915", "ignored_replay", 4));
+      eventSources[0].emit("replay", event("run_context_audit", "ignored_replay", 4));
     });
 
-    const events = store.selectRunEvents("run_915")(store.useContextAuditStore.getState());
+    const events = store.selectRunEvents("run_context_audit")(store.useContextAuditStore.getState());
     expect(events.map((item) => `${item.node_id}:${item.sequence}`)).toEqual([
       "draft:1",
       "review:2",
@@ -221,23 +243,23 @@ describe("RUN-915 context audit query layer", () => {
   it("useRunContextAuditStream ignores malformed payloads and stays open until terminal events", async () => {
     const { useRunContextAuditStream } = await loadRunsModule();
     const store = await loadStoreModule();
-    store.useContextAuditStore.getState().clearRun("run_915");
+    store.useContextAuditStore.getState().clearRun("run_context_audit");
 
-    renderHook(() => useRunContextAuditStream("run_915"), { wrapper });
+    renderHook(() => useRunContextAuditStream("run_context_audit"), { wrapper });
 
     act(() => {
       eventSources[0].emitRaw("context_resolution", "{not-json");
       eventSources[0].emit("node_completed", { node_id: "draft" });
-      eventSources[0].emit("context_resolution", event("run_915", "draft", 1));
+      eventSources[0].emit("context_resolution", event("run_context_audit", "draft", 1));
     });
 
     expect(eventSources[0].closed).toBe(false);
-    expect(store.selectRunEvents("run_915")(store.useContextAuditStore.getState())).toHaveLength(
+    expect(store.selectRunEvents("run_context_audit")(store.useContextAuditStore.getState())).toHaveLength(
       1,
     );
 
     act(() => {
-      eventSources[0].emit("run_completed", { run_id: "run_915" });
+      eventSources[0].emit("run_completed", { run_id: "run_context_audit" });
     });
 
     expect(eventSources[0].closed).toBe(true);

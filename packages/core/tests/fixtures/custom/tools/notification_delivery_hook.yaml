@@ -1,0 +1,13 @@
+version: "1.0"
+id: notification_delivery_hook
+kind: tool
+type: custom
+executor: python
+name: notification_delivery_hook
+description: Fixture tool for testing.
+parameters:
+  type: object
+  properties: {}
+code: |
+  def main(args):
+      return {}

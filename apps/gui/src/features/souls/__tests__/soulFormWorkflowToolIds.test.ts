@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  blockerProceed: vi.fn(),
+  blockerReset: vi.fn(),
+  blockerState: "unblocked" as "blocked" | "unblocked",
+  isDirty: false,
   navigate: vi.fn(),
   setField: vi.fn(),
   submit: vi.fn(),
@@ -17,7 +21,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("react-router", () => ({
-  useBlocker: () => ({ state: "unblocked", reset: vi.fn(), proceed: vi.fn() }),
+  useBlocker: () => ({
+    state: mocks.blockerState,
+    reset: mocks.blockerReset,
+    proceed: mocks.blockerProceed,
+  }),
   useNavigate: () => mocks.navigate,
   useParams: () => ({}),
   useSearchParams: () => [
@@ -79,7 +87,7 @@ workflow:
 }));
 
 vi.mock("../useSoulForm", () => ({
-  useSoulForm: () => ({
+  useSoulForm: (options: { onSuccess?: (soul: { id: string }) => void }) => ({
     values: {
       name: "Reviewer",
       avatarColor: "warning",
@@ -91,11 +99,14 @@ vi.mock("../useSoulForm", () => ({
       maxTokens: null,
       maxToolIterations: 2,
     },
-    isDirty: false,
+    isDirty: mocks.isDirty,
     isSubmitting: false,
     reset: mocks.reset,
     setField: mocks.setField,
-    submit: mocks.submit,
+    submit: async () => {
+      mocks.submit();
+      options.onSuccess?.({ id: "reviewer" });
+    },
   }),
 }));
 
@@ -124,7 +135,27 @@ vi.mock("../SoulFormBody", () => ({
 }));
 
 vi.mock("../SoulFormFooter", () => ({
-  SoulFormFooter: () => React.createElement("div", null, "SoulFormFooter"),
+  SoulFormFooter: ({
+    mode,
+    returnUrl,
+    onCancel,
+    onSubmit,
+  }: {
+    mode: "create" | "edit";
+    returnUrl: string | null;
+    onCancel: () => void;
+    onSubmit: () => void;
+  }) =>
+    React.createElement(
+      "footer",
+      null,
+      React.createElement("button", { type: "button", onClick: onCancel }, "Cancel"),
+      React.createElement(
+        "button",
+        { type: "button", onClick: onSubmit },
+        returnUrl ? "Save & Return to Canvas" : mode === "create" ? "Create Soul" : "Save Changes",
+      ),
+    ),
 }));
 
 vi.mock("@runsight/ui/button", () => ({
@@ -137,8 +168,10 @@ vi.mock("@runsight/ui/button", () => ({
 
 vi.mock("@runsight/ui/dialog", () => ({
   Dialog: ({
+    open,
     children,
-  }: React.PropsWithChildren) => React.createElement("div", null, children),
+  }: React.PropsWithChildren<{ open?: boolean }>) =>
+    open ? React.createElement("div", null, children) : null,
   DialogContent: ({
     children,
   }: React.PropsWithChildren) => React.createElement("div", null, children),
@@ -152,6 +185,10 @@ vi.mock("@runsight/ui/dialog", () => ({
 
 describe("SoulFormPage workflow tool context", () => {
   beforeEach(() => {
+    mocks.blockerProceed.mockReset();
+    mocks.blockerReset.mockReset();
+    mocks.blockerState = "unblocked";
+    mocks.isDirty = false;
     mocks.navigate.mockReset();
     mocks.setField.mockReset();
     mocks.submit.mockReset();
@@ -167,5 +204,34 @@ describe("SoulFormPage workflow tool context", () => {
     expect(screen.getByText("http:false:true")).toBeTruthy();
     expect(screen.getByText("file_io:true:true")).toBeTruthy();
     expect(mocks.workflowTools.map((tool) => tool.id)).toEqual(["http", "file_io"]);
+  });
+
+  it("returns to the workflow editor after saving a soul opened from canvas", async () => {
+    const { Component } = await import("../SoulFormPage");
+
+    render(React.createElement(Component));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & Return to Canvas" }));
+
+    await waitFor(() => {
+      expect(mocks.submit).toHaveBeenCalledTimes(1);
+      expect(mocks.navigate).toHaveBeenCalledWith(
+        "/workflows/oss-launch-strategy/edit",
+      );
+    });
+  });
+
+  it("shows discard and keep-editing controls when dirty navigation is blocked", async () => {
+    mocks.blockerState = "blocked";
+    mocks.isDirty = true;
+    const { Component } = await import("../SoulFormPage");
+
+    render(React.createElement(Component));
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    expect(mocks.blockerReset).toHaveBeenCalledTimes(1);
+    expect(mocks.blockerProceed).toHaveBeenCalledTimes(1);
   });
 });

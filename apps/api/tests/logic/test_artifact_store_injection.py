@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-184: ArtifactStore injection at ExecutionService._run_workflow.
+ArtifactStore injection at ExecutionService._run_workflow.
 
 Tests cover:
 - ExecutionService._run_workflow creates InMemoryArtifactStore(run_id=run_id)
@@ -59,7 +59,7 @@ class TestArtifactStoreInjection:
         )
 
         await svc._run_workflow(
-            "run-42",
+            "run-artifact-primary",
             mock_wf,
             _prepared_inputs({"instruction": "do something"}),
         )
@@ -92,7 +92,7 @@ class TestArtifactStoreInjection:
         )
 
         await svc._run_workflow(
-            "run-42",
+            "run-artifact-primary",
             mock_wf,
             _prepared_inputs({"instruction": "do something"}),
         )
@@ -122,13 +122,13 @@ class TestArtifactStoreInjection:
         )
 
         await svc._run_workflow(
-            "run-42",
+            "run-artifact-primary",
             mock_wf,
             _prepared_inputs({"instruction": "do something"}),
         )
 
         state = captured_states[0]
-        assert state.artifact_store.run_id == "run-42"
+        assert state.artifact_store.run_id == "run-artifact-primary"
 
     @pytest.mark.asyncio
     async def test_different_runs_get_different_stores(self):
@@ -151,10 +151,18 @@ class TestArtifactStoreInjection:
             engine=None,
         )
 
-        await svc._run_workflow("run-1", mock_wf, _prepared_inputs({"instruction": "first"}))
-        await svc._run_workflow("run-2", mock_wf, _prepared_inputs({"instruction": "second"}))
+        await svc._run_workflow(
+            "run-artifact-first",
+            mock_wf,
+            _prepared_inputs({"instruction": "first"}),
+        )
+        await svc._run_workflow(
+            "run-artifact-second",
+            mock_wf,
+            _prepared_inputs({"instruction": "second"}),
+        )
 
         assert len(captured_states) == 2
         assert captured_states[0].artifact_store is not captured_states[1].artifact_store
-        assert captured_states[0].artifact_store.run_id == "run-1"
-        assert captured_states[1].artifact_store.run_id == "run-2"
+        assert captured_states[0].artifact_store.run_id == "run-artifact-first"
+        assert captured_states[1].artifact_store.run_id == "run-artifact-second"

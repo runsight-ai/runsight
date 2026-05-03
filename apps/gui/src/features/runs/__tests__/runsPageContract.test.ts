@@ -2,81 +2,26 @@
 
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { screen, waitFor, within } from "@testing-library/react";
 import { Outlet, useLocation } from "react-router";
+import {
+  buildProductionRuns,
+  buildRunList,
+  buildRunsQueryState,
+  buildSimulationRun,
+  cleanupRunsRoute,
+  findRunRow,
+  findSourceSelectOption,
+  getSearchParam,
+  getVisibleWorkflowOrder,
+  normalizeSources,
+  renderRunsRoute,
+  type RunFixture,
+} from "./runsPageTestBuilders";
 
 const mocks = vi.hoisted(() => ({
-  productionRuns: [
-    {
-      id: "run_research_7",
-      workflow_id: "wf_research",
-      workflow_name: "Research & Review",
-      run_number: 7,
-      status: "completed",
-      commit_sha: "f078f13deadbeef",
-      source: "manual",
-      branch: "main",
-      started_at: 1_774_414_400,
-      completed_at: 1_774_414_412,
-      duration_seconds: 12.3,
-      total_cost_usd: 0.04,
-      total_tokens: 1200,
-      eval_pass_pct: 92,
-      created_at: 1_774_414_399,
-    },
-    {
-      id: "run_pipeline_12",
-      workflow_id: "wf_pipeline",
-      workflow_name: "Content Pipeline",
-      run_number: 12,
-      status: "failed",
-      commit_sha: "a463263feedbeef",
-      source: "webhook",
-      branch: "main",
-      started_at: 1_774_410_800,
-      completed_at: 1_774_410_808,
-      duration_seconds: 8.1,
-      total_cost_usd: 0.02,
-      total_tokens: 900,
-      eval_pass_pct: 75,
-      created_at: 1_774_410_799,
-    },
-    {
-      id: "run_digest_3",
-      workflow_id: "wf_docs",
-      workflow_name: "Daily Digest",
-      run_number: 3,
-      status: "completed",
-      commit_sha: "705ebea99999999",
-      source: "schedule",
-      branch: "main",
-      started_at: 1_774_407_200,
-      completed_at: 1_774_407_209,
-      duration_seconds: 9.2,
-      total_cost_usd: 0.03,
-      total_tokens: 640,
-      eval_pass_pct: null,
-      created_at: 1_774_407_199,
-    },
-  ],
-  simulationRun: {
-    id: "run_research_sim_8",
-    workflow_id: "wf_research",
-    workflow_name: "Research & Review (Sim)",
-    run_number: 8,
-    status: "running",
-    commit_sha: "9c1deaf77777777",
-    source: "simulation",
-    branch: "sim/research-review/20260331/abc12",
-    started_at: 1_774_416_200,
-    completed_at: null,
-    duration_seconds: 4.8,
-    total_cost_usd: 0.01,
-    total_tokens: 320,
-    eval_pass_pct: 88,
-    created_at: 1_774_416_199,
-  },
+  productionRuns: [] as RunFixture[],
+  simulationRun: null as RunFixture | null,
   runsQueryCalls: [] as unknown[],
   refetchRuns: vi.fn(),
   runsQueryState: {
@@ -94,67 +39,13 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-function normalizeSources(params: unknown): string[] {
-  if (params instanceof URLSearchParams) {
-    return params.getAll("source").sort();
-  }
-
-  if (
-    params &&
-    typeof params === "object" &&
-    "source" in params &&
-    Array.isArray((params as { source?: unknown }).source)
-  ) {
-    return [...((params as { source: string[] }).source)].sort();
-  }
-
-  return [];
-}
-
-function buildRunList(items: Array<Record<string, unknown>>) {
-  return {
-    items,
-    total: items.length,
-    offset: 0,
-    limit: 20,
-  };
-}
-
-function getSearchParam(params: unknown): string | null {
-  if (params instanceof URLSearchParams) {
-    return params.get("search") ?? params.get("query");
-  }
-
-  if (params && typeof params === "object") {
-    const record = params as Record<string, unknown>;
-
-    if (typeof record.search === "string") {
-      return record.search;
-    }
-
-    if (typeof record.query === "string") {
-      return record.query;
-    }
-  }
-
-  return null;
-}
-
-function findSourceSelectOption(label: "All runs" | "Production runs") {
-  return (
-    screen.queryByRole("option", { name: label }) ??
-    screen.queryByRole("menuitemradio", { name: label }) ??
-    screen.getByText(label)
-  );
-}
-
 vi.mock("@/queries/runs", () => ({
   useRuns: (params?: unknown) => {
     mocks.runsQueryCalls.push(params);
     const requestedSources = normalizeSources(params);
     const items =
       requestedSources.length === 0
-        ? [...mocks.productionRuns, mocks.simulationRun]
+        ? [...mocks.productionRuns, ...(mocks.simulationRun ? [mocks.simulationRun] : [])]
         : [...mocks.productionRuns];
 
     return {
@@ -220,54 +111,20 @@ vi.mock("@/features/surface/WorkflowSurface", () => ({
     React.createElement(RouteEcho, { label: "run-detail" }),
 }));
 
-let activeRouter: { dispose?: () => void; state?: { location: Location } } | null = null;
-
 afterEach(() => {
-  cleanup();
-  activeRouter?.dispose?.();
-  activeRouter = null;
-  window.history.pushState({}, "", "/");
+  cleanupRunsRoute();
 });
 
 beforeEach(() => {
+  mocks.productionRuns = buildProductionRuns();
+  mocks.simulationRun = buildSimulationRun();
   mocks.runsQueryCalls.length = 0;
   mocks.refetchRuns.mockReset();
-  mocks.runsQueryState.data = null;
-  mocks.runsQueryState.isLoading = false;
-  mocks.runsQueryState.error = null;
+  mocks.runsQueryState = buildRunsQueryState();
   mocks.attentionItems.items = [];
 });
 
-async function renderRunsRoute(initialPath = "/runs") {
-  vi.resetModules();
-  window.history.pushState({}, "", initialPath);
-
-  const { RouterProvider } = await import("react-router");
-  const { router } = await import("../../../routes");
-
-  activeRouter = router;
-  const user = userEvent.setup();
-  render(React.createElement(RouterProvider, { router }));
-
-  return { router, user };
-}
-
-function findRunRow(workflowName: string) {
-  const table = screen.getByRole("table");
-  return within(table)
-    .getAllByRole("row")
-    .find((row) => within(row).queryByText(workflowName));
-}
-
-function getVisibleWorkflowOrder() {
-  const table = screen.getByRole("table");
-  return within(table)
-    .getAllByRole("row")
-    .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
-}
-
-describe("RUN-487 canonical /runs page", () => {
+describe("canonical /runs page", () => {
   it("autofocuses the Search runs input when the runs page loads", async () => {
     await renderRunsRoute("/runs");
 

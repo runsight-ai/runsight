@@ -1,15 +1,14 @@
-"""Red tests for RUN-289: Structured error base class + enriched error handler.
+"""Structured error base class and enriched error handler coverage.
 
 Tests cover:
 - RunsightError structured fields: error_code, status_code, to_dict()
-- All 8 subclasses have correct class-level error_code and status_code
+- Domain error subclasses have correct class-level error_code and status_code
 - Auto-reads contextvars (run_id, block_id, workflow_name) when not passed
-- ProviderNotFound bug fix (status_code=404, not 500)
+- ProviderNotFound structured error contract
 - Backward compat: raise SubClass("msg") still works
 - Error handler uses to_dict() + request_id from contextvar
 - Unhandled exceptions return 500 with no details leaked
 
-All tests should FAIL until the implementation is written.
 """
 
 import pytest
@@ -80,9 +79,9 @@ class TestRunsightErrorToDict:
     def test_to_dict_includes_run_id_when_set(self):
         from runsight_api.domain.errors import RunsightError
 
-        err = RunsightError("fail", run_id="run-123")
+        err = RunsightError("fail", run_id="run-error-explicit")
         result = err.to_dict()
-        assert result["run_id"] == "run-123"
+        assert result["run_id"] == "run-error-explicit"
 
     def test_to_dict_includes_block_id_when_set(self):
         from runsight_api.domain.errors import RunsightError
@@ -127,10 +126,10 @@ class TestAutoReadContextVars:
         from runsight_api.core.context import bind_execution_context, clear_execution_context
         from runsight_api.domain.errors import RunsightError
 
-        bind_execution_context(run_id="ctx-run-1", workflow_name="ctx-wf")
+        bind_execution_context(run_id="ctx-run-primary", workflow_name="context-workflow-primary")
         try:
             err = RunsightError("auto")
-            assert err.to_dict()["run_id"] == "ctx-run-1"
+            assert err.to_dict()["run_id"] == "ctx-run-primary"
         finally:
             clear_execution_context()
 
@@ -138,10 +137,13 @@ class TestAutoReadContextVars:
         from runsight_api.core.context import bind_execution_context, clear_execution_context
         from runsight_api.domain.errors import RunsightError
 
-        bind_execution_context(run_id="ctx-run-2", workflow_name="ctx-wf-2")
+        bind_execution_context(
+            run_id="ctx-run-secondary",
+            workflow_name="context-workflow-secondary",
+        )
         try:
             err = RunsightError("auto")
-            assert err.to_dict()["workflow_name"] == "ctx-wf-2"
+            assert err.to_dict()["workflow_name"] == "context-workflow-secondary"
         finally:
             clear_execution_context()
 
@@ -160,7 +162,7 @@ class TestAutoReadContextVars:
         from runsight_api.core.context import bind_execution_context, clear_execution_context
         from runsight_api.domain.errors import RunsightError
 
-        bind_execution_context(run_id="ctx-run", workflow_name="ctx-wf")
+        bind_execution_context(run_id="ctx-run", workflow_name="context-workflow-override")
         try:
             err = RunsightError("override", run_id="explicit-run")
             assert err.to_dict()["run_id"] == "explicit-run"
@@ -213,12 +215,12 @@ class TestSubclassErrorCodes:
 
 
 # ---------------------------------------------------------------------------
-# Tests — ProviderNotFound bug fix
+# Tests — ProviderNotFound structured error contract
 # ---------------------------------------------------------------------------
 
 
-class TestProviderNotFoundBugFix:
-    """ProviderNotFound must return 404, not 500 (it was unhandled before)."""
+class TestProviderNotFoundStructuredError:
+    """ProviderNotFound returns a domain 404 response."""
 
     def test_provider_not_found_status_is_404(self):
         from runsight_api.domain.errors import ProviderNotFound
@@ -261,7 +263,7 @@ class TestBackwardCompatibility:
         from runsight_api.domain.errors import RunsightError, WorkflowNotFound
 
         with pytest.raises(RunsightError):
-            raise WorkflowNotFound("wf-1 not found")
+            raise WorkflowNotFound("workflow-missing not found")
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +282,7 @@ class TestErrorHandlerStructuredResponse:
         from runsight_api.transport.middleware.error_handler import global_exception_handler
 
         request = AsyncMock()
-        exc = WorkflowNotFound("wf-missing")
+        exc = WorkflowNotFound("workflow-missing")
         response = await global_exception_handler(request, exc)
         assert response.status_code == 404
 
@@ -293,7 +295,7 @@ class TestErrorHandlerStructuredResponse:
         from runsight_api.transport.middleware.error_handler import global_exception_handler
 
         request = AsyncMock()
-        exc = WorkflowNotFound("wf-missing")
+        exc = WorkflowNotFound("workflow-missing")
         response = await global_exception_handler(request, exc)
         body = json.loads(response.body.decode())
         assert body["error_code"] == "WORKFLOW_NOT_FOUND"
@@ -319,7 +321,7 @@ class TestErrorHandlerStructuredResponse:
 
     @pytest.mark.asyncio
     async def test_handler_uses_exc_status_code_not_isinstance(self):
-        """ProviderNotFound must get 404 from the handler (was unhandled = 500)."""
+        """ProviderNotFound gets its domain status code from the handler."""
         from unittest.mock import AsyncMock
 
         from runsight_api.domain.errors import ProviderNotFound

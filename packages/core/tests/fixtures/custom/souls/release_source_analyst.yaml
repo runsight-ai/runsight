@@ -1,0 +1,5 @@
+id: release_source_analyst
+kind: soul
+name: Release Source Analyst
+role: release_source_analyst
+system_prompt: Fixture soul for testing.

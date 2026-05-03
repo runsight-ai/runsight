@@ -1,0 +1,38 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-eval-model
+    system_prompt: "You are an assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze: {topic}"
+workflow:
+  name: threshold_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 0.8
+  cases:
+    - id: all_assertions_pass
+      fixtures:
+        analyze: "The LLM performed well on this task."
+      expected:
+        analyze:
+          - type: contains
+            value: "LLM"
+          - type: contains
+            value: "performed"
+    - id: partial_assertion_failure
+      fixtures:
+        analyze: "The model showed mixed results overall."
+      expected:
+        analyze:
+          - type: contains
+            value: "model"
+          - type: contains
+            value: "NONEXISTENT_VALUE_FOR_FAILURE"

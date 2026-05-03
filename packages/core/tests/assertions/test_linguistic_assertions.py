@@ -1,15 +1,11 @@
 """Tests for deterministic linguistic assertion plugins.
 
 Covers: levenshtein, bleu, rouge-n.
-
-These tests are RED — the implementation modules do not exist yet.
-They must fail with ImportError until Green creates
-`runsight_core.assertions.deterministic.linguistic`.
 """
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
 
-# ── Import the implementations (will fail until Green creates them) ──────────
+# Implementation imports
 from runsight_core.assertions.deterministic.linguistic import (
     BleuAssertion,
     LevenshteinAssertion,
@@ -24,16 +20,16 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
         output=output,
         prompt="test prompt",
         prompt_hash="abc123",
-        soul_id="soul_1",
+        soul_id="assertion-soul",
         soul_version="v1",
-        block_id="block_1",
+        block_id="assertion-block",
         block_type="linear",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=500.0,
         variables={},
-        run_id="run_1",
-        workflow_id="wf_1",
+        run_id="assertion-run",
+        workflow_id="assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -45,7 +41,7 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
 
 
 class TestLevenshteinAssertion:
-    """AC-1: levenshtein — edit distance <= threshold."""
+    """levenshtein — edit distance <= threshold."""
 
     def test_type_attribute(self):
         a = LevenshteinAssertion(value="hello", threshold=5)
@@ -134,7 +130,7 @@ class TestLevenshteinAssertion:
         result = a.evaluate(long_str, ctx)
         assert result.passed is True
 
-    # ── Return type / reason (AC-7) ──────────────────────────────────────
+    # ── Return type / reason ──────────────────────────────────────
 
     def test_returns_grading_result(self):
         a = LevenshteinAssertion(value="hello", threshold=5)
@@ -156,7 +152,7 @@ class TestLevenshteinAssertion:
 
 
 class TestBleuAssertion:
-    """AC-5: bleu returns continuous scores [0,1], pass when >= threshold."""
+    """bleu returns continuous scores [0,1], pass when >= threshold."""
 
     def test_type_attribute(self):
         a = BleuAssertion(value="reference text", threshold=0.5)
@@ -228,7 +224,7 @@ class TestBleuAssertion:
         result = a.evaluate("Completely different unrelated text here now", ctx)
         assert result.passed is False  # score << 0.5
 
-    # ── Score boundaries (AC-5) ──────────────────────────────────────────
+    # ── Score boundaries ──────────────────────────────────────────
 
     def test_score_is_between_zero_and_one(self):
         a = BleuAssertion(value="reference", threshold=0.0)
@@ -237,7 +233,7 @@ class TestBleuAssertion:
         assert 0.0 <= result.score <= 1.0
 
     def test_score_continuous_not_binary(self):
-        """AC-5: BLEU should produce continuous scores, not just 0/1."""
+        """BLEU should produce continuous scores, not just 0/1."""
         ref = "The quick brown fox jumps over the lazy dog"
         candidate = "The quick brown fox leaps over a lazy dog"
         a = BleuAssertion(value=ref, threshold=0.0)
@@ -262,7 +258,7 @@ class TestBleuAssertion:
         # BLEU with empty reference is not well-defined; should handle gracefully
         assert isinstance(result, GradingResult)
 
-    # ── Return type / reason (AC-7) ──────────────────────────────────────
+    # ── Return type / reason ──────────────────────────────────────
 
     def test_returns_grading_result(self):
         a = BleuAssertion(value="ref", threshold=0.5)
@@ -284,7 +280,7 @@ class TestBleuAssertion:
 
 
 class TestRougeNAssertion:
-    """AC-5: rouge-n returns continuous scores [0,1], pass when >= threshold."""
+    """rouge-n returns continuous scores [0,1], pass when >= threshold."""
 
     def test_type_attribute(self):
         a = RougeNAssertion(value="reference text", threshold=0.75)
@@ -364,7 +360,7 @@ class TestRougeNAssertion:
         result = a.evaluate(candidate, ctx)
         assert result.passed is False
 
-    # ── Score boundaries (AC-5) ──────────────────────────────────────────
+    # ── Score boundaries ──────────────────────────────────────────
 
     def test_score_is_between_zero_and_one(self):
         a = RougeNAssertion(value="reference", threshold=0.0)
@@ -373,7 +369,7 @@ class TestRougeNAssertion:
         assert 0.0 <= result.score <= 1.0
 
     def test_score_continuous_not_binary(self):
-        """AC-5: ROUGE-N should produce continuous scores, not just 0/1."""
+        """ROUGE-N should produce continuous scores, not just 0/1."""
         ref = "The quick brown fox jumps over the lazy dog"
         candidate = "The quick brown fox jumps over a lazy cat"
         a = RougeNAssertion(value=ref, threshold=0.0)
@@ -395,7 +391,7 @@ class TestRougeNAssertion:
         result = a.evaluate("some output", ctx)
         assert isinstance(result, GradingResult)
 
-    # ── Return type / reason (AC-7) ──────────────────────────────────────
+    # ── Return type / reason ──────────────────────────────────────
 
     def test_returns_grading_result(self):
         a = RougeNAssertion(value="ref", threshold=0.5)

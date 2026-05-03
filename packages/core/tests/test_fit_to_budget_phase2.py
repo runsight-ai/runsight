@@ -1,5 +1,5 @@
 """
-Failing tests for RUN-260: fit_to_budget() Phase 2 — P2 truncation, P3 pruning, orphan cleanup.
+Tests for fit_to_budget() Phase 2 — P2 truncation, P3 pruning, orphan cleanup.
 
 Tests cover:
 - P3 history is pruned when total exceeds budget (pairs removed from front)

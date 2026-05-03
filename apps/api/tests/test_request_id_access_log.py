@@ -1,4 +1,4 @@
-"""Red tests for RUN-290: Request-ID middleware + access log middleware.
+"""Request-ID middleware + access log middleware.
 
 Tests cover:
 - middleware/request_id.py: RequestIdMiddleware importable, generates UUID4,
@@ -7,7 +7,6 @@ Tests cover:
   access log with method/path/status_code/duration_ms/request_id
 - main.py: registers both middleware in create_app()
 
-All tests should FAIL until the implementation is written.
 """
 
 import uuid

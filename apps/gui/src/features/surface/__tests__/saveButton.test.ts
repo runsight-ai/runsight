@@ -98,7 +98,7 @@ function renderTopbar(overrides: Partial<React.ComponentProps<typeof SurfaceTopb
 
   const markup = renderToStaticMarkup(
     React.createElement(SurfaceTopbar, {
-      workflowId: "wf_1",
+      workflowId: "surface_save_flow",
       activeTab: "yaml",
       onValueChange: vi.fn(),
       ...overrides,
@@ -120,7 +120,7 @@ beforeEach(() => {
   });
 });
 
-describe("SurfaceTopbar save behavior (RUN-433)", () => {
+describe("SurfaceTopbar save behavior", () => {
   it("renders a quiet save button when the canvas is clean", () => {
     const { markup, saveButton } = renderTopbar({ isDirty: false });
 

@@ -1,0 +1,25 @@
+id: loop-block-assertions-workflow
+kind: workflow
+version: "1.0"
+souls:
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Writer
+    system_prompt: Write carefully.
+    model_name: fixture-dispatch-loop-model
+blocks:
+  draft:
+    type: linear
+    soul_ref: writer
+    assertions:
+      - type: contains
+        value: "expected keyword"
+      - type: is-json
+workflow:
+  name: loop_block_assertions_workflow
+  entry: draft
+  transitions:
+    - from: draft
+      to: null

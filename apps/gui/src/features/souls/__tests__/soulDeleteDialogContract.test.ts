@@ -1,23 +1,12 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-type WorkflowUsage = {
-  workflow_id: string;
-  workflow_name: string;
-};
-
-type SoulLike = {
-  id: string;
-  role: string;
-  provider: string;
-  model_name: string;
-  system_prompt: string;
-  tools: string[];
-  temperature: number;
-  max_tool_iterations: number;
-  avatar_color: string;
-};
+import {
+  buildWorkflowUsages,
+  findButton,
+  makeSoul,
+  markup,
+  type WorkflowUsage,
+} from "./soulDialogTestBuilders";
 
 const mocks = vi.hoisted(() => {
   const queryState = {
@@ -319,78 +308,6 @@ vi.mock("@/queries/souls", () => ({
   useDeleteSoul: mocks.useDeleteSoul,
 }));
 
-function makeSoul(overrides: Partial<SoulLike> = {}): SoulLike {
-  return {
-    id: "soul_123",
-    role: "Researcher",
-    provider: "openai",
-    model_name: "gpt-4o",
-    system_prompt: "You are a careful research assistant.",
-    tools: ["browser"],
-    temperature: 0.7,
-    max_tool_iterations: 5,
-    avatar_color: "accent",
-    ...overrides,
-  };
-}
-
-function textContent(node: React.ReactNode): string {
-  if (node == null || typeof node === "boolean") {
-    return "";
-  }
-
-  if (typeof node === "string" || typeof node === "number") {
-    return String(node);
-  }
-
-  if (!React.isValidElement(node)) {
-    return "";
-  }
-
-  return React.Children.toArray(node.props.children).map(textContent).join("");
-}
-
-function markup(node: React.ReactNode): string {
-  return renderToStaticMarkup(React.createElement(React.Fragment, null, node));
-}
-
-function findElement(
-  node: React.ReactNode,
-  predicate: (element: React.ReactElement) => boolean,
-): React.ReactElement | undefined {
-  if (!React.isValidElement(node)) {
-    return undefined;
-  }
-
-  if (predicate(node)) {
-    return node;
-  }
-
-  for (const child of React.Children.toArray(node.props.children)) {
-    const match = findElement(child, predicate);
-    if (match) {
-      return match;
-    }
-  }
-
-  return undefined;
-}
-
-function findButton(
-  node: React.ReactNode,
-  label: string | RegExp,
-): React.ReactElement | undefined {
-  const matcher =
-    typeof label === "string"
-      ? (value: string) => value === label
-      : (value: string) => label.test(value);
-
-  return findElement(
-    node,
-    (element) => element.type === "button" && matcher(textContent(element)),
-  );
-}
-
 async function renderDialog(overrides: Record<string, unknown> = {}) {
   mocks.stateCursor = 0;
   const { SoulDeleteDialog } = await import("../SoulDeleteDialog");
@@ -420,7 +337,7 @@ function setUsageState({
     usages === undefined
       ? undefined
       : {
-          soul_id: "soul_123",
+          soul_id: "research_soul",
           usages,
           total: usages.length,
         };
@@ -450,7 +367,7 @@ beforeEach(() => {
   setDeleteOutcome("success");
 });
 
-describe("SoulDeleteDialog behavior (RUN-451)", () => {
+describe("SoulDeleteDialog behavior", () => {
   it("does not request usages when the dialog is closed", async () => {
     await renderDialog({ open: false });
 
@@ -464,9 +381,9 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
   });
 
   it("requests usages for the active soul id when open", async () => {
-    await renderDialog({ open: true, soul: makeSoul({ id: "soul_456" }) });
+    await renderDialog({ open: true, soul: makeSoul({ id: "review_soul" }) });
 
-    expect(mocks.useSoulUsages).toHaveBeenCalledWith("soul_456");
+    expect(mocks.useSoulUsages).toHaveBeenCalledWith("review_soul");
   });
 
   it("shows a loading state that disables delete while usages are loading", async () => {
@@ -495,11 +412,7 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
   it("renders three workflow names and a Delete anyway action when the soul has three usages", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
 
     const tree = await renderDialog();
@@ -515,28 +428,20 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
   it("caps the usage list at five workflow names and shows a +2 more indicator", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "wf_1", workflow_name: "Workflow 1" },
-        { workflow_id: "wf_2", workflow_name: "Workflow 2" },
-        { workflow_id: "wf_3", workflow_name: "Workflow 3" },
-        { workflow_id: "wf_4", workflow_name: "Workflow 4" },
-        { workflow_id: "wf_5", workflow_name: "Workflow 5" },
-        { workflow_id: "wf_6", workflow_name: "Workflow 6" },
-        { workflow_id: "wf_7", workflow_name: "Workflow 7" },
-      ],
+      usages: buildWorkflowUsages(7),
     });
 
     const tree = await renderDialog();
     const html = markup(tree);
 
-    expect(html).toContain("Workflow 1");
-    expect(html).toContain("Workflow 2");
-    expect(html).toContain("Workflow 3");
-    expect(html).toContain("Workflow 4");
-    expect(html).toContain("Workflow 5");
+    expect(html).toContain("Research Flow");
+    expect(html).toContain("Review Flow");
+    expect(html).toContain("Deploy Flow");
+    expect(html).toContain("QA Flow");
+    expect(html).toContain("Publish Flow");
     expect(html).toContain("+2 more");
-    expect(html).not.toContain("Workflow 6");
-    expect(html).not.toContain("Workflow 7");
+    expect(html).not.toContain("Archive Flow");
+    expect(html).not.toContain("Audit Flow");
   });
 
   it("shows a caution warning and keeps delete enabled when usage lookup fails", async () => {
@@ -578,11 +483,7 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
 
   it("uses force-delete plumbing and closes on a successful confirm", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
     setDeleteOutcome("success");
 
@@ -592,20 +493,16 @@ describe("SoulDeleteDialog behavior (RUN-451)", () => {
     confirmButton?.props.onClick?.();
 
     expect(mocks.mutateCalls[0]?.variables).toEqual({
-      id: "soul_123",
+      id: "research_soul",
       force: true,
     });
-    expect(mocks.api.deleteSoul).toHaveBeenCalledWith("soul_123", true);
+    expect(mocks.api.deleteSoul).toHaveBeenCalledWith("research_soul", true);
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces delete failures to the user after confirm", async () => {
     setUsageState({
-      usages: [
-        { workflow_id: "wf_1", workflow_name: "Research Flow" },
-        { workflow_id: "wf_2", workflow_name: "Review Flow" },
-        { workflow_id: "wf_3", workflow_name: "Deploy Flow" },
-      ],
+      usages: buildWorkflowUsages(3),
     });
     setDeleteOutcome("error", new Error("Delete failed"));
 

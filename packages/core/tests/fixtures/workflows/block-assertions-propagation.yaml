@@ -1,0 +1,27 @@
+version: "1.0"
+id: block-assertions
+kind: workflow
+config:
+  model_name: gpt-4o
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: Analyze the data.
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    assertions:
+      - type: contains
+        value: analysis
+      - type: cost
+        threshold: 0.02
+workflow:
+  name: block_assertions
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

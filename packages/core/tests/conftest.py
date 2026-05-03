@@ -3,13 +3,9 @@ Shared test infrastructure for runsight_core tests.
 """
 
 import asyncio
-import importlib
-import sys
 import tempfile
-from contextlib import contextmanager
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
-from unittest.mock import patch
+from types import SimpleNamespace
 
 import pytest
 from runsight_core.primitives import Soul
@@ -52,7 +48,7 @@ async def execute_loop_for_test(loop, state, *, blocks, ctx=None):
     from runsight_core.workflow import BlockExecutionContext
 
     loop_ctx = ctx or BlockExecutionContext(
-        workflow_name="test_workflow",
+        workflow_name="loop_helper_workflow",
         blocks=blocks,
         call_stack=[],
         workflow_registry=None,
@@ -116,15 +112,12 @@ def block_output_from_state(block_id, before, after):
     )
 
 
-_ISOLATION_TEST_PREFIXES = (
-    "test_iso_",
-    "test_run817",
-    "test_run818",
-    "test_run819",
-    "test_run820",
-    "test_run812",
-    "test_tool_integration",
-)
+_REAL_SUBPROCESS_ISOLATION_MARKER = "real_subprocess_isolation"
+
+
+def _uses_real_subprocess_isolation(request: pytest.FixtureRequest) -> bool:
+    """Return whether a test explicitly opts into the real subprocess boundary."""
+    return request.node.get_closest_marker(_REAL_SUBPROCESS_ISOLATION_MARKER) is not None
 
 
 @pytest.fixture(autouse=True)
@@ -137,9 +130,10 @@ def _bypass_subprocess_isolation(request, monkeypatch):
     mapping) is exercised while the subprocess spawn is replaced with an
     in-process call to the inner block.
 
-    Isolation-specific tests are excluded so they exercise the real path.
+    Tests that must exercise the real subprocess boundary opt out with the
+    real_subprocess_isolation marker.
     """
-    if request.fspath.basename.startswith(_ISOLATION_TEST_PREFIXES):
+    if _uses_real_subprocess_isolation(request):
         return
 
     try:
@@ -159,7 +153,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         Real execution is handled by the patched _run_in_subprocess which
         calls the inner block directly when the harness is a SubprocessHarness.
         This stub exists so that SubprocessHarness.run is patched away from
-        the real socket/subprocess implementation, satisfying AC2.
+        the real socket/subprocess implementation, satisfying the harness-boundary invariant.
         """
         return ResultEnvelope(
             block_id=envelope.block_id,
@@ -270,14 +264,14 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
 
 def make_test_yaml(steps_yaml: str) -> str:
-    """Wrap step YAML with a standard souls section containing a 'test' soul.
+    """Wrap step YAML with a standard souls section containing a helper analyst.
 
     Args:
         steps_yaml: Block definitions YAML (indented with 2 spaces per block).
 
     Returns:
-        Full workflow YAML string that includes a 'test' soul definition,
-        so that ``parse_workflow_yaml`` can resolve ``soul_ref: test``.
+        Full workflow YAML string that includes a helper analyst soul definition,
+        so that ``parse_workflow_yaml`` can resolve ``soul_ref: helper_analyst``.
     """
     # Extract block names from the steps_yaml for transitions
     import re
@@ -295,19 +289,19 @@ def make_test_yaml(steps_yaml: str) -> str:
 
     return f"""\
 version: "1.0"
-id: inline_test_workflow
+id: inline-helper-workflow
 kind: workflow
 souls:
-  test:
-    id: test
+  helper_analyst:
+    id: helper_analyst
     kind: soul
-    name: Tester
-    role: Tester
-    system_prompt: You test things.
+    name: Helper Analyst
+    role: Analyst
+    system_prompt: Analyze the workflow step.
 blocks:
 {steps_yaml}
 workflow:
-  name: test_workflow
+  name: inline_helper_workflow
   entry: {entry}
   transitions:
 {transitions}"""
@@ -321,171 +315,14 @@ def tmp_path(request):
 
 
 @pytest.fixture
-def test_souls_map():
-    """Provide a souls map with a 'test' Soul for tests that construct blocks directly."""
+def helper_souls_map():
+    """Provide a souls map with a helper analyst for tests that construct blocks directly."""
     return {
-        "test": Soul(
-            id="test",
+        "helper_analyst": Soul(
+            id="helper_analyst",
             kind="soul",
-            name="Tester",
-            role="Tester",
-            system_prompt="You test things.",
+            name="Helper Analyst",
+            role="Analyst",
+            system_prompt="Analyze the workflow step.",
         )
     }
-
-
-def _workflow_repo_import_stubs() -> dict[str, ModuleType]:
-    """Return temporary module stubs for API-adjacent core tests.
-
-    These tests import ``workflow_repo`` from source even when the full API
-    dependency set is not installed. The stubs keep those imports local to the
-    test so they do not poison the wider session.
-    """
-
-    api_src = Path(__file__).resolve().parents[3] / "apps" / "api" / "src" / "runsight_api"
-    stubs: dict[str, ModuleType] = {}
-
-    for module_name, module_path in {
-        "runsight_api": api_src,
-        "runsight_api.core": api_src / "core",
-        "runsight_api.data": api_src / "data",
-        "runsight_api.data.filesystem": api_src / "data" / "filesystem",
-        "runsight_api.domain": api_src / "domain",
-    }.items():
-        module = ModuleType(module_name)
-        module.__path__ = [str(module_path)]
-        stubs[module_name] = module
-
-    structlog_stub = ModuleType("structlog")
-    structlog_stub.contextvars = SimpleNamespace(
-        bind_contextvars=lambda **_: None,
-        unbind_contextvars=lambda *_, **__: None,
-    )
-    stubs["structlog"] = structlog_stub
-
-    ruamel_stub = ModuleType("ruamel")
-    ruamel_yaml_stub = ModuleType("ruamel.yaml")
-
-    class _YAML:
-        pass
-
-    ruamel_yaml_stub.YAML = _YAML
-    ruamel_stub.yaml = ruamel_yaml_stub
-    stubs["ruamel"] = ruamel_stub
-    stubs["ruamel.yaml"] = ruamel_yaml_stub
-
-    sqlmodel_stub = ModuleType("sqlmodel")
-
-    class _SQLModel:
-        metadata = SimpleNamespace(
-            create_all=lambda *_args, **_kwargs: None,
-            drop_all=lambda *_args, **_kwargs: None,
-        )
-
-    class _Session:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-    sqlmodel_stub.SQLModel = _SQLModel
-    sqlmodel_stub.Session = _Session
-    sqlmodel_stub.Field = lambda *args, **kwargs: None
-    sqlmodel_stub.Relationship = lambda *args, **kwargs: None
-    sqlmodel_stub.create_engine = lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs)
-    stubs["sqlmodel"] = sqlmodel_stub
-
-    return stubs
-
-
-@pytest.fixture
-def workflow_repo_module():
-    """Load ``workflow_repo`` with temporary stubs that are cleaned up per test."""
-
-    @contextmanager
-    def _load():
-        with patch.dict(sys.modules, _workflow_repo_import_stubs()):
-            sys.modules.pop("runsight_api.domain.errors", None)
-            sys.modules.pop("runsight_api.domain.value_objects", None)
-            sys.modules.pop("runsight_api.data.filesystem.workflow_repo", None)
-            importlib.invalidate_caches()
-            module = importlib.import_module("runsight_api.data.filesystem.workflow_repo")
-            try:
-                yield module
-            finally:
-                sys.modules.pop("runsight_api.domain.errors", None)
-                sys.modules.pop("runsight_api.domain.value_objects", None)
-                sys.modules.pop("runsight_api.data.filesystem.workflow_repo", None)
-
-    return _load
-
-
-def _tools_router_import_stubs() -> dict[str, ModuleType]:
-    """Return temporary module stubs for the tools router scanner test."""
-
-    root = Path(__file__).resolve().parents[3]
-    api_src = root / "apps" / "api" / "src" / "runsight_api"
-    stubs: dict[str, ModuleType] = {}
-
-    for module_name, module_path in {
-        "runsight_api": api_src,
-        "runsight_api.core": api_src / "core",
-        "runsight_api.transport": api_src / "transport",
-        "runsight_api.transport.routers": api_src / "transport" / "routers",
-        "runsight_api.transport.schemas": api_src / "transport" / "schemas",
-        "runsight_api.domain": api_src / "domain",
-    }.items():
-        module = ModuleType(module_name)
-        module.__path__ = [str(module_path)]
-        stubs[module_name] = module
-
-    config_module = ModuleType("runsight_api.core.config")
-    config_module.settings = SimpleNamespace(base_path=".")
-    stubs["runsight_api.core.config"] = config_module
-
-    errors_module = ModuleType("runsight_api.domain.errors")
-
-    class InputValidationError(Exception):
-        pass
-
-    errors_module.InputValidationError = InputValidationError
-    stubs["runsight_api.domain.errors"] = errors_module
-
-    fastapi_module = ModuleType("fastapi")
-
-    class _APIRouter:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def get(self, *args, **kwargs):
-            def _decorator(func):
-                return func
-
-            return _decorator
-
-    fastapi_module.APIRouter = _APIRouter
-    stubs["fastapi"] = fastapi_module
-
-    return stubs
-
-
-@pytest.fixture
-def tools_router_module():
-    """Load the tools router with temporary stubs that are cleaned up per test."""
-
-    @contextmanager
-    def _load():
-        with patch.dict(sys.modules, _tools_router_import_stubs()):
-            sys.modules.pop("runsight_api.transport.routers.tools", None)
-            importlib.invalidate_caches()
-            module = importlib.import_module("runsight_api.transport.routers.tools")
-            try:
-                yield module
-            finally:
-                sys.modules.pop("runsight_api.transport.routers.tools", None)
-
-    return _load

@@ -1,8 +1,8 @@
 """
-RUN-228: Path traversal validation tests for filesystem repositories.
+Path traversal validation tests for filesystem repositories.
 
 Every repo's _get_path() must reject IDs that could escape the base directory.
-These tests are expected to FAIL until the validation is implemented.
+These tests cover path validation for repository identifiers.
 """
 
 import pytest
@@ -74,8 +74,8 @@ class TestNormalIdsAccepted:
     """Ensure normal, safe IDs do not raise errors."""
 
     SAFE_IDS = [
-        "my-soul-123",
-        "test_soul",
+        "editorial-soul",
+        "editorial_soul_profile",
         "simple",
         "CamelCase",
         "with-dashes-and-123",

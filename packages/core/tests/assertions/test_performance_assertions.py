@@ -1,15 +1,11 @@
 """Tests for deterministic performance assertion plugins.
 
 Covers: cost, latency.
-
-These tests are RED — the implementation modules do not exist yet.
-They must fail with ImportError until Green creates
-`runsight_core.assertions.deterministic.performance`.
 """
 
 from runsight_core.assertions.base import AssertionContext, GradingResult
 
-# ── Import the implementations (will fail until Green creates them) ──────────
+# Implementation imports
 from runsight_core.assertions.deterministic.performance import (
     CostAssertion,
     LatencyAssertion,
@@ -23,16 +19,16 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
         output=output,
         prompt="test prompt",
         prompt_hash="abc123",
-        soul_id="soul_1",
+        soul_id="assertion-soul",
         soul_version="v1",
-        block_id="block_1",
+        block_id="assertion-block",
         block_type="linear",
         cost_usd=0.001,
         total_tokens=100,
         latency_ms=500.0,
         variables={},
-        run_id="run_1",
-        workflow_id="wf_1",
+        run_id="assertion-run",
+        workflow_id="assertion-workflow",
     )
     defaults.update(overrides)
     return AssertionContext(**defaults)
@@ -44,7 +40,7 @@ def make_context(output: str = "", **overrides) -> AssertionContext:
 
 
 class TestCostAssertion:
-    """AC-6: cost reads from AssertionContext.cost_usd, not output text."""
+    """cost reads from AssertionContext.cost_usd, not output text."""
 
     def test_type_attribute(self):
         a = CostAssertion(threshold=0.01)
@@ -71,7 +67,7 @@ class TestCostAssertion:
         assert result.score == 0.0
 
     def test_ignores_output_text(self):
-        """AC-6: cost should read from context, not from output string."""
+        """cost should read from context, not from output string."""
         a = CostAssertion(threshold=0.01)
         ctx = make_context("cost is $100.00", cost_usd=0.005)
         result = a.evaluate("cost is $100.00", ctx)
@@ -116,7 +112,7 @@ class TestCostAssertion:
 
 
 class TestLatencyAssertion:
-    """AC-6: latency reads from AssertionContext.latency_ms, not output text."""
+    """latency reads from AssertionContext.latency_ms, not output text."""
 
     def test_type_attribute(self):
         a = LatencyAssertion(threshold=1000)
@@ -143,7 +139,7 @@ class TestLatencyAssertion:
         assert result.score == 0.0
 
     def test_ignores_output_text(self):
-        """AC-6: latency should read from context, not from output string."""
+        """latency should read from context, not from output string."""
         a = LatencyAssertion(threshold=1000)
         ctx = make_context("latency was 9999ms", latency_ms=200.0)
         result = a.evaluate("latency was 9999ms", ctx)

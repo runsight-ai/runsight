@@ -1,8 +1,8 @@
 """
-Failing tests for RUN-710: BudgetKilledException + BudgetWarningEvent +
+Tests for BudgetKilledException + BudgetWarningEvent +
 BudgetKillEvent + _active_budget ContextVar.
 
-Foundation ticket for the RUN-708 budget enforcement epic.
+Foundation coverage for budget enforcement.
 
 Tests cover:
 - Module importability: runsight_core.budget_enforcement exists

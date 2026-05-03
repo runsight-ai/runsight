@@ -284,6 +284,10 @@ def main() -> None:
         sys.stdout = _real_stdout
         _real_stdout.write(result_env.model_dump_json() + "\n")
         _real_stdout.flush()
+        _heartbeat_stop.set()
+        sys.stderr.flush()
+        if __name__ == "__main__":
+            os._exit(exit_code)
         sys.exit(exit_code)
 
     try:

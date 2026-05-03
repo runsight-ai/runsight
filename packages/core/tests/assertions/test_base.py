@@ -130,30 +130,30 @@ class TestAssertionContext:
             output="Hello world",
             prompt="Say hello",
             prompt_hash="abc123",
-            soul_id="soul-1",
+            soul_id="base-assertion-soul",
             soul_version="v1",
-            block_id="block-1",
+            block_id="base-assertion-block",
             block_type="LinearBlock",
             cost_usd=0.002,
             total_tokens=150,
             latency_ms=320.5,
             variables={"name": "Alice"},
-            run_id="run-001",
-            workflow_id="wf-001",
+            run_id="base-assertion-run",
+            workflow_id="base-assertion-workflow",
         )
         assert ctx.output == "Hello world"
         assert ctx.prompt == "Say hello"
         assert ctx.prompt_hash == "abc123"
-        assert ctx.soul_id == "soul-1"
+        assert ctx.soul_id == "base-assertion-soul"
         assert ctx.soul_version == "v1"
-        assert ctx.block_id == "block-1"
+        assert ctx.block_id == "base-assertion-block"
         assert ctx.block_type == "LinearBlock"
         assert ctx.cost_usd == 0.002
         assert ctx.total_tokens == 150
         assert ctx.latency_ms == 320.5
         assert ctx.variables == {"name": "Alice"}
-        assert ctx.run_id == "run-001"
-        assert ctx.workflow_id == "wf-001"
+        assert ctx.run_id == "base-assertion-run"
+        assert ctx.workflow_id == "base-assertion-workflow"
 
     def test_json_serializable(self):
         ctx = AssertionContext(

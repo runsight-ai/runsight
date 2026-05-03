@@ -1,0 +1,5 @@
+id: release_gate
+kind: soul
+name: Release Gate
+role: release_gate
+system_prompt: Fixture soul for testing.

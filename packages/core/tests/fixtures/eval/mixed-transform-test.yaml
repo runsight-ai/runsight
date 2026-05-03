@@ -1,0 +1,30 @@
+version: "1.0"
+souls:
+  default:
+    id: default
+    model: fixture-eval-model
+    system_prompt: "Assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default
+    prompt_template: "Analyze."
+workflow:
+  name: mixed_transform_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: mixed_case
+      fixtures:
+        analyze: '{"result": "success", "extra": "data"}'
+      expected:
+        analyze:
+          - type: equals
+            value: "success"
+            transform: "json_path:$.result"
+          - type: is-json
+            value:

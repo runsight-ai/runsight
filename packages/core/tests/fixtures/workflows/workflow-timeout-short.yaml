@@ -1,0 +1,29 @@
+version: "1.0"
+id: workflow-timeout-short-workflow
+kind: workflow
+souls:
+  limit-worker:
+    id: limit-worker
+    kind: soul
+    name: Limit Worker
+    role: Limit Worker
+    system_prompt: Execute the workflow limit fixture block.
+    provider: fixture-provider
+    model_name: fixture-workflow-limit-model
+blocks:
+  block1:
+    type: linear
+    soul_ref: limit-worker
+  block2:
+    type: linear
+    soul_ref: limit-worker
+workflow:
+  name: workflow_timeout_short_workflow
+  entry: block1
+  transitions:
+    - from: block1
+      to: block2
+    - from: block2
+      to: null
+limits:
+  max_duration_seconds: 1

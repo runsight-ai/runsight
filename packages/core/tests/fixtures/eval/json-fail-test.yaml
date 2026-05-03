@@ -1,0 +1,27 @@
+version: "1.0"
+souls:
+  analyst:
+    id: analyst
+    model: fixture-eval-model
+    system_prompt: "You are an analyst."
+blocks:
+  summarize:
+    type: llm
+    soul: analyst
+    prompt_template: "Summarize."
+workflow:
+  name: json_fail_test
+  entry: summarize
+  transitions:
+    - from: summarize
+      to: END
+eval:
+  threshold: 1.0
+  cases:
+    - id: bad_json_case
+      fixtures:
+        summarize: "This is plain text, not JSON at all."
+      expected:
+        summarize:
+          - type: is-json
+            value:

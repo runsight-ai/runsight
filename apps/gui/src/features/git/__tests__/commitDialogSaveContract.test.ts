@@ -1,6 +1,14 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  defaultGitDiff,
+  defaultWorkflowDraft,
+  findCommitSaveButton,
+  findElement,
+  renderCommitDialogMarkup,
+  renderCommitDialogTree,
+  textContent,
+} from "./commitDialogTestBuilders";
 
 const mocks = vi.hoisted(() => ({
   stateValues: [] as unknown[],
@@ -9,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   workflowCommitPending: false,
   genericCommitMutate: vi.fn(),
   gitDiffResult: {
-    data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
+    data: undefined,
     isLoading: false,
   } as { data?: { diff?: string }; isLoading: boolean },
 }));
@@ -89,60 +97,7 @@ vi.mock("@runsight/ui/button", () => ({
 const { CommitDialog } = await import("../CommitDialog");
 
 function renderDialog(overrides: Record<string, unknown> = {}) {
-  mocks.stateCursor = 0;
-
-  return (
-    CommitDialog as unknown as (props: Record<string, unknown>) => React.ReactElement | null
-  )({
-    open: true,
-    onOpenChange: vi.fn(),
-    onCommitSuccess: vi.fn(),
-    files: [{ path: "custom/workflows/wf_1.yaml", status: "A" }],
-    workflowId: "wf_1",
-    draft: {
-      yaml: "workflow:\n  name: Draft Flow\n",
-      canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
-    },
-    ...overrides,
-  });
-}
-
-function textContent(node: React.ReactNode): string {
-  if (node == null || typeof node === "boolean") {
-    return "";
-  }
-
-  if (typeof node === "string" || typeof node === "number") {
-    return String(node);
-  }
-
-  if (!React.isValidElement(node)) {
-    return "";
-  }
-
-  return React.Children.toArray(node.props.children).map(textContent).join("");
-}
-
-function findElement(
-  node: React.ReactNode,
-  predicate: (element: React.ReactElement) => boolean,
-): React.ReactElement | undefined {
-  if (!React.isValidElement(node)) {
-    return undefined;
-  }
-
-  if (predicate(node)) {
-    return node;
-  }
-
-  for (const child of React.Children.toArray(node.props.children)) {
-    const match = findElement(child, predicate);
-    if (match) {
-      return match;
-    }
-  }
-
-  return undefined;
+  return renderCommitDialogTree(CommitDialog, mocks, overrides);
 }
 
 beforeEach(() => {
@@ -152,21 +107,16 @@ beforeEach(() => {
   mocks.workflowCommitPending = false;
   mocks.genericCommitMutate.mockReset();
   mocks.gitDiffResult = {
-    data: { diff: "diff --git a/custom/workflows/wf_1.yaml b/custom/workflows/wf_1.yaml" },
+    data: defaultGitDiff,
     isLoading: false,
   };
 });
 
-describe("CommitDialog workflow save contract (RUN-424)", () => {
+describe("CommitDialog workflow save contract", () => {
   it("requires an editable commit message and routes save through the workflow commit mutation", () => {
     const initialTree = renderDialog();
     const messageInput = findElement(initialTree, (element) => element.type === "textarea");
-    const saveButton = findElement(
-      initialTree,
-      (element) =>
-        typeof element.props.onClick === "function" &&
-        ["Commit", "Save", "Committing...", "Saving..."].includes(textContent(element)),
-    );
+    const saveButton = findCommitSaveButton(initialTree);
 
     expect(messageInput?.props.value).toBe("");
     expect(saveButton?.props.disabled).toBe(true);
@@ -175,12 +125,7 @@ describe("CommitDialog workflow save contract (RUN-424)", () => {
 
     const editedTree = renderDialog();
     const editedMessageInput = findElement(editedTree, (element) => element.type === "textarea");
-    const enabledSaveButton = findElement(
-      editedTree,
-      (element) =>
-        typeof element.props.onClick === "function" &&
-        ["Commit", "Save", "Committing...", "Saving..."].includes(textContent(element)),
-    );
+    const enabledSaveButton = findCommitSaveButton(editedTree);
 
     expect(editedMessageInput?.props.value).toBe("  Save workflow to main  ");
     expect(enabledSaveButton?.props.disabled).toBe(false);
@@ -191,10 +136,10 @@ describe("CommitDialog workflow save contract (RUN-424)", () => {
 
     expect(mocks.genericCommitMutate).not.toHaveBeenCalled();
     expect(variables).toEqual({
-      workflowId: "wf_1",
+      workflowId: "review_flow",
       payload: {
         yaml: "workflow:\n  name: Draft Flow\n",
-        canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
+        canvas_state: { nodes: [{ id: "draft-soul-node" }], edges: [] },
         message: "Save workflow to main",
       },
     });
@@ -211,21 +156,9 @@ describe("CommitDialog workflow save contract (RUN-424)", () => {
       isLoading: false,
     };
 
-    const markup = renderToStaticMarkup(
-      React.createElement(CommitDialog as unknown as React.ComponentType<Record<string, unknown>>, {
-        open: true,
-        onOpenChange: vi.fn(),
-        onCommitSuccess: vi.fn(),
-        files: [{ path: "custom/workflows/wf_1.yaml", status: "A" }],
-        workflowId: "wf_1",
-        draft: {
-          yaml: "workflow:\n  name: Draft Flow\n",
-          canvas_state: { nodes: [{ id: "node-1" }], edges: [] },
-        },
-      }),
-    );
+    const markup = renderCommitDialogMarkup(CommitDialog);
 
-    expect(markup).toContain("workflow:\n  name: Draft Flow\n");
+    expect(markup).toContain(defaultWorkflowDraft.yaml);
   });
 
   it("prevents duplicate submit while the workflow commit is pending", () => {
@@ -233,12 +166,7 @@ describe("CommitDialog workflow save contract (RUN-424)", () => {
 
     const pendingTree = renderDialog();
 
-    const saveButton = findElement(
-      pendingTree,
-      (element) =>
-        typeof element.props.onClick === "function" &&
-        ["Commit", "Save", "Committing...", "Saving..."].includes(textContent(element)),
-    );
+    const saveButton = findCommitSaveButton(pendingTree);
 
     expect(saveButton?.props.disabled).toBe(true);
     expect(textContent(saveButton)).toMatch(/saving|committing/i);

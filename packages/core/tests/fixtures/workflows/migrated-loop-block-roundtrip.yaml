@@ -1,0 +1,27 @@
+version: "1.0"
+id: loop_roundtrip_workflow
+kind: workflow
+souls:
+  worker:
+    id: worker
+    kind: soul
+    name: Worker
+    role: Worker
+    system_prompt: "You are a worker."
+blocks:
+  task_step:
+    type: linear
+    soul_ref: worker
+  loop_step:
+    type: loop
+    inner_block_refs:
+      - task_step
+    max_rounds: 3
+workflow:
+  id: loop_roundtrip_workflow
+  kind: workflow
+  name: loop_roundtrip_workflow
+  entry: loop_step
+  transitions:
+    - from: loop_step
+      to: null

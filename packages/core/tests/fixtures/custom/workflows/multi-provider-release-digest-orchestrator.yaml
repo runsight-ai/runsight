@@ -4,8 +4,8 @@ kind: workflow
 tools:
   - http
   - file_io
-  - slack_payload_builder
-  - slack_webhook
+  - notification_payload_builder
+  - notification_delivery_hook
 blocks:
   prepare_manifest:
     type: code
@@ -51,14 +51,14 @@ blocks:
     exits:
       - id: product_angle
         label: Product Angle
-        soul_ref: release_web_analyst_openai
+        soul_ref: release_source_analyst
         task: >
           Working from the current task and any carried round context, identify
           the most important provider/model updates and delivery implications for
           the digest. Use HTTP when you need source confirmation. Return concise bullets.
       - id: risk_angle
         label: Risk Angle
-        soul_ref: release_quality_reviewer_anthropic
+        soul_ref: release_quality_reviewer
         task: >
           Working from the current task and any carried round context, identify
           caveats, contradictions, and cost/runtime concerns. Use HTTP when you
@@ -228,7 +228,7 @@ blocks:
 
   merge_round_outputs:
     type: synthesize
-    soul_ref: release_synthesizer_openai
+    soul_ref: release_synthesizer
     input_block_ids:
       - dispatch_source_branches
       - capture_primary_package
@@ -243,7 +243,7 @@ blocks:
 
   round_gate:
     type: gate
-    soul_ref: release_gate_anthropic
+    soul_ref: release_gate
     eval_key: merge_round_outputs
     timeout_seconds: 45
     assertions:
@@ -319,7 +319,7 @@ blocks:
 
   fact_check_addendum:
     type: linear
-    soul_ref: release_quality_reviewer_anthropic
+    soul_ref: release_quality_reviewer
     stateful: true
     timeout_seconds: 45
     assertions:
@@ -328,7 +328,7 @@ blocks:
 
   write_final_report:
     type: linear
-    soul_ref: release_report_writer_openai
+    soul_ref: release_report_writer
     timeout_seconds: 45
     assertions:
       - type: regex
@@ -338,9 +338,9 @@ blocks:
       backoff: fixed
       backoff_base_seconds: 1.0
 
-  send_slack_digest:
+  send_notification_digest:
     type: linear
-    soul_ref: release_slack_reporter_openai
+    soul_ref: release_notification_reporter
     timeout_seconds: 30
     assertions:
       - type: regex
@@ -368,8 +368,8 @@ blocks:
         from: shared_memory.secondary_packaged.quality_status
       report_write_output:
         from: write_final_report
-      slack_output:
-        from: send_slack_digest
+      notification_output:
+        from: send_notification_digest
     assertions:
       - type: contains-json
         value:
@@ -382,7 +382,7 @@ blocks:
             - secondary_quality
             - post_loop_route
             - report_write_result
-            - slack_result
+            - notification_result
     code: |
       import json
 
@@ -410,7 +410,7 @@ blocks:
               "secondary_quality": data.get("secondary_quality_status"),
               "post_loop_route": route,
               "report_write_result": data.get("report_write_output", ""),
-              "slack_result": data.get("slack_output", ""),
+              "notification_result": data.get("notification_output", ""),
           }
 workflow:
   name: Provider Pulse Release Digest
@@ -428,8 +428,8 @@ workflow:
     - from: fact_check_addendum
       to: write_final_report
     - from: write_final_report
-      to: send_slack_digest
-    - from: send_slack_digest
+      to: send_notification_digest
+    - from: send_notification_digest
       to: finalize_run
     - from: finalize_run
       to: null

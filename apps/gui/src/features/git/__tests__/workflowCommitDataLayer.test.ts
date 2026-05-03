@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.toastError.mockReset();
 });
 
-describe("workflow commit data layer (RUN-424)", () => {
+describe("workflow commit data layer", () => {
   it("posts workflow save payloads through the API client to /workflows/:id/commits", async () => {
     mocks.apiPost.mockResolvedValue({
       hash: "abc123def456",
@@ -53,13 +53,13 @@ describe("workflow commit data layer (RUN-424)", () => {
         workflowId: string,
         payload: { yaml: string; message: string; canvas_state?: Record<string, unknown> },
       ) => Promise<unknown>;
-    }).commitWorkflow("wf_1", {
+    }).commitWorkflow("review_flow", {
       yaml: "workflow:\n  name: Updated Flow\n",
       canvas_state: { nodes: [], edges: [] },
       message: "Save workflow to main",
     });
 
-    expect(mocks.apiPost).toHaveBeenCalledWith("/workflows/wf_1/commits", {
+    expect(mocks.apiPost).toHaveBeenCalledWith("/workflows/review_flow/commits", {
       yaml: "workflow:\n  name: Updated Flow\n",
       canvas_state: { nodes: [], edges: [] },
       message: "Save workflow to main",
@@ -83,7 +83,7 @@ describe("workflow commit data layer (RUN-424)", () => {
           workflowId: string,
           payload: { yaml: string; message: string; canvas_state?: Record<string, unknown> },
         ) => Promise<unknown>;
-      }).commitWorkflow("wf_1", {
+      }).commitWorkflow("review_flow", {
         yaml: "workflow:\n  name: Updated Flow\n",
         canvas_state: { nodes: [], edges: [] },
         message: "Save workflow to main",
@@ -109,7 +109,7 @@ describe("workflow commit data layer (RUN-424)", () => {
 
     await expect(
       mutation.mutationFn?.({
-        workflowId: "wf_1",
+        workflowId: "review_flow",
         payload: {
           yaml: "workflow:\n  name: Updated Flow\n",
           canvas_state: { nodes: [], edges: [] },
@@ -135,7 +135,7 @@ describe("workflow commit data layer (RUN-424)", () => {
 
     await expect(
       mutation.mutationFn?.({
-        workflowId: "wf_1",
+        workflowId: "review_flow",
         payload: {
           yaml: "workflow:\n  name: Updated Flow\n",
           canvas_state: { nodes: [], edges: [] },
@@ -170,7 +170,7 @@ describe("workflow commit data layer (RUN-424)", () => {
     )();
 
     await mutation.mutationFn?.({
-      workflowId: "wf_1",
+      workflowId: "review_flow",
       payload: {
         yaml: "workflow:\n  name: Updated Flow\n",
         canvas_state: { nodes: [], edges: [] },
@@ -178,7 +178,7 @@ describe("workflow commit data layer (RUN-424)", () => {
       },
     });
 
-    expect(mocks.apiPost).toHaveBeenCalledWith("/workflows/wf_1/commits", {
+    expect(mocks.apiPost).toHaveBeenCalledWith("/workflows/review_flow/commits", {
       yaml: "workflow:\n  name: Updated Flow\n",
       canvas_state: { nodes: [], edges: [] },
       message: "Save workflow to main",
@@ -186,11 +186,11 @@ describe("workflow commit data layer (RUN-424)", () => {
 
     mutation.onSuccess?.(
       { hash: "abc123def456", message: "Save workflow to main" },
-      { workflowId: "wf_1" },
+      { workflowId: "review_flow" },
     );
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: queryKeys.workflows.detail("wf_1"),
+      queryKey: queryKeys.workflows.detail("review_flow"),
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.git.status,

@@ -1,0 +1,30 @@
+id: single-block
+kind: workflow
+version: "1.0"
+config:
+  model_name: gpt-4o
+inputs:
+  instruction:
+    type: string
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: You are a careful analyst.
+    provider: openai
+    model_name: gpt-4o
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+    inputs:
+      instruction:
+        from: workflow.instruction
+workflow:
+  name: single_block_sse_test
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

@@ -16,7 +16,7 @@ import type { StepNodeData } from "@/types/schemas/canvas";
 import { getIconForBlockType } from "../surfaceUtils";
 import { ContextAccessBadge, ContextResolutionBadge } from "../contextAuditSurfaces";
 
-type SurfaceNodeKind = "start" | "task" | "soul";
+type SurfaceNodeKind = "start" | "soul";
 
 interface SurfaceNodeCardProps {
   id: string;
@@ -90,8 +90,7 @@ function mapNodeStatus(status: string) {
 
 function kindLabel(kind: SurfaceNodeKind) {
   if (kind === "soul") return "SOUL";
-  if (kind === "start") return "START";
-  return "TASK";
+  return "START";
 }
 
 function SurfaceNodeCardComponent({

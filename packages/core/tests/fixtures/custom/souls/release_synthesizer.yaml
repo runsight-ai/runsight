@@ -1,0 +1,5 @@
+id: release_synthesizer
+kind: soul
+name: Release Synthesizer
+role: release_synthesizer
+system_prompt: Fixture soul for testing.

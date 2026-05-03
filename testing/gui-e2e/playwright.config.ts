@@ -5,6 +5,18 @@ import { fileURLToPath } from "node:url";
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(configDir, "../..");
 const e2eProjectRoot = path.join(configDir, ".runtime");
+const resetRuntimeScript = [
+  'const fs = require("node:fs");',
+  'const path = require("node:path");',
+  `const expected = ${JSON.stringify(path.resolve(e2eProjectRoot))};`,
+  'const actual = path.resolve(process.env.RUNSIGHT_BASE_PATH || "");',
+  'if (actual !== expected || path.basename(actual) !== ".runtime") {',
+  'throw new Error("Refusing to delete unguarded RUNSIGHT_BASE_PATH: " + actual);',
+  "}",
+  "fs.rmSync(actual, { recursive: true, force: true });",
+].join(" ");
+const scaffoldRuntimeCommand =
+  'uv run python -c "import os, subprocess; from pathlib import Path; from runsight_api.core.project import scaffold_project; base = Path(os.environ[\\"RUNSIGHT_BASE_PATH\\"]); base.mkdir(parents=True, exist_ok=True); scaffold_project(base); subprocess.run([\\"git\\", \\"branch\\", \\"-M\\", \\"main\\"], cwd=base, check=True)"';
 
 process.env.RUNSIGHT_BASE_PATH = e2eProjectRoot;
 process.env.RUNSIGHT_E2E_PROJECT_ROOT = e2eProjectRoot;
@@ -31,8 +43,11 @@ export default defineConfig({
   webServer: [
     {
       name: "api",
-      command:
-        "bash -lc 'rm -rf \"$RUNSIGHT_BASE_PATH\" && uv run python -c \"import os, subprocess; from pathlib import Path; from runsight_api.core.project import scaffold_project; base = Path(os.environ[\\\"RUNSIGHT_BASE_PATH\\\"]); base.mkdir(parents=True, exist_ok=True); scaffold_project(base); subprocess.run([\\\"git\\\", \\\"branch\\\", \\\"-M\\\", \\\"main\\\"], cwd=base, check=True)\" && uv run runsight --host 127.0.0.1 --port 8000'",
+      command: [
+        `node -e '${resetRuntimeScript}'`,
+        scaffoldRuntimeCommand,
+        "uv run runsight --host 127.0.0.1 --port 8000",
+      ].join(" && "),
       cwd: repoRoot,
       env: {
         RUNSIGHT_BASE_PATH: e2eProjectRoot,

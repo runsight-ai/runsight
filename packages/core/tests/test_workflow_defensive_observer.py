@@ -1,13 +1,11 @@
-"""Red tests for RUN-128: Defensive observer wrapping in Workflow.run().
+"""Tests for defensive observer wrapping in Workflow.run().
 
-Currently, Workflow.run() calls observer methods directly without try/except.
-If an observer raises, it crashes the workflow execution. RUN-128 requires that
-observer errors are caught and logged, never propagating to crash the workflow.
+Observer errors are caught and logged, never propagated in place of workflow
+execution behavior.
 
 Critical edge case: an observer error in on_block_error must NOT replace the
 original block error — the original exception must still propagate.
 
-All tests should FAIL until the implementation is done.
 """
 
 import pytest
@@ -74,14 +72,14 @@ class TestDefensiveObserverOnWorkflowStart:
     @pytest.mark.asyncio
     async def test_observer_crash_on_workflow_start_does_not_propagate(self):
         """If observer.on_workflow_start raises, workflow still executes and completes."""
-        wf = Workflow("test_wf")
-        wf.add_block(SuccessBlock("b1"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(SuccessBlock("observer_entry_block"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         state = await wf.run(WorkflowState(), observer=CrashingObserver())
-        assert "b1" in state.results
-        assert state.results["b1"].output == "done"
+        assert "observer_entry_block" in state.results
+        assert state.results["observer_entry_block"].output == "done"
 
 
 # ---------------------------------------------------------------------------
@@ -93,13 +91,13 @@ class TestDefensiveObserverOnBlockStart:
     @pytest.mark.asyncio
     async def test_observer_crash_on_block_start_does_not_propagate(self):
         """If observer.on_block_start raises, block still executes."""
-        wf = Workflow("test_wf")
-        wf.add_block(SuccessBlock("b1"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(SuccessBlock("observer_entry_block"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         state = await wf.run(WorkflowState(), observer=CrashingObserver())
-        assert "b1" in state.results
+        assert "observer_entry_block" in state.results
 
 
 # ---------------------------------------------------------------------------
@@ -111,16 +109,16 @@ class TestDefensiveObserverOnBlockComplete:
     @pytest.mark.asyncio
     async def test_observer_crash_on_block_complete_does_not_propagate(self):
         """If observer.on_block_complete raises, workflow continues to next block."""
-        wf = Workflow("test_wf")
-        wf.add_block(SuccessBlock("b1"))
-        wf.add_block(SuccessBlock("b2"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", "b2")
-        wf.add_transition("b2", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(SuccessBlock("observer_entry_block"))
+        wf.add_block(SuccessBlock("observer_followup_block"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", "observer_followup_block")
+        wf.add_transition("observer_followup_block", None)
 
         state = await wf.run(WorkflowState(), observer=CrashingObserver())
-        assert "b1" in state.results
-        assert "b2" in state.results
+        assert "observer_entry_block" in state.results
+        assert "observer_followup_block" in state.results
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +130,12 @@ class TestDefensiveObserverOnBlockError:
     @pytest.mark.asyncio
     async def test_observer_crash_on_block_error_preserves_original_error(self):
         """If observer.on_block_error raises, the ORIGINAL block error propagates, not the observer error."""
-        wf = Workflow("test_wf")
-        wf.add_block(FailBlock("b1", error_cls=ValueError, msg="original block error"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(
+            FailBlock("observer_entry_block", error_cls=ValueError, msg="original block error")
+        )
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         with pytest.raises(ValueError, match="original block error"):
             await wf.run(WorkflowState(), observer=CrashingObserver())
@@ -143,10 +143,10 @@ class TestDefensiveObserverOnBlockError:
     @pytest.mark.asyncio
     async def test_observer_crash_on_block_error_does_not_raise_observer_error(self):
         """The observer's RuntimeError must NOT surface — only the original ValueError."""
-        wf = Workflow("test_wf")
-        wf.add_block(FailBlock("b1", error_cls=ValueError, msg="real error"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(FailBlock("observer_entry_block", error_cls=ValueError, msg="real error"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         try:
             await wf.run(WorkflowState(), observer=CrashingObserver())
@@ -166,13 +166,13 @@ class TestDefensiveObserverOnWorkflowComplete:
     @pytest.mark.asyncio
     async def test_observer_crash_on_workflow_complete_still_returns_state(self):
         """If observer.on_workflow_complete raises, workflow still returns final state."""
-        wf = Workflow("test_wf")
-        wf.add_block(SuccessBlock("b1"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(SuccessBlock("observer_entry_block"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         state = await wf.run(WorkflowState(), observer=CrashingObserver())
-        assert "b1" in state.results
+        assert "observer_entry_block" in state.results
 
 
 # ---------------------------------------------------------------------------
@@ -184,10 +184,12 @@ class TestDefensiveObserverOnWorkflowError:
     @pytest.mark.asyncio
     async def test_observer_crash_on_workflow_error_preserves_original_error(self):
         """If observer.on_workflow_error raises, the original workflow error propagates."""
-        wf = Workflow("test_wf")
-        wf.add_block(FailBlock("b1", error_cls=TypeError, msg="original workflow error"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(
+            FailBlock("observer_entry_block", error_cls=TypeError, msg="original workflow error")
+        )
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         with pytest.raises(TypeError, match="original workflow error"):
             await wf.run(WorkflowState(), observer=CrashingObserver())
@@ -227,16 +229,16 @@ class TestSelectiveObserverCrash:
     @pytest.mark.asyncio
     async def test_other_observer_methods_still_called_after_crash(self):
         """If on_block_complete crashes, subsequent observer calls (workflow_complete) still happen."""
-        wf = Workflow("test_wf")
-        wf.add_block(SuccessBlock("b1"))
-        wf.set_entry("b1")
-        wf.add_transition("b1", None)
+        wf = Workflow("observer_resilience_workflow")
+        wf.add_block(SuccessBlock("observer_entry_block"))
+        wf.set_entry("observer_entry_block")
+        wf.add_transition("observer_entry_block", None)
 
         obs = SelectiveCrashObserver()
         state = await wf.run(WorkflowState(), observer=obs)
 
         assert "workflow_start" in obs.calls
-        assert "block_start:b1" in obs.calls
+        assert "block_start:observer_entry_block" in obs.calls
         # on_block_complete crashed, but workflow_complete should still fire
         assert "workflow_complete" in obs.calls
-        assert "b1" in state.results
+        assert "observer_entry_block" in state.results

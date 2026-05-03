@@ -1,0 +1,5 @@
+id: release_trace_writer_secondary
+kind: soul
+name: Secondary Trace Writer
+role: release_trace_writer_secondary
+system_prompt: Fixture soul for testing.

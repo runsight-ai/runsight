@@ -77,7 +77,7 @@ workflow:
         nodes: [
           {
             id: "research",
-            type: "task",
+            type: "soul",
             position: { x: 0, y: 0 },
             data: { stepId: "research", name: "Research", stepType: "linear", status: "idle" },
           },
@@ -88,5 +88,22 @@ workflow:
         canvas_mode: "dag",
       }),
     ).toBe(true);
+
+    expect(
+      hasRenderableCanvasState({
+        nodes: [
+          {
+            id: "research",
+            type: "task",
+            position: { x: 0, y: 0 },
+            data: { stepId: "research", name: "Research", stepType: "linear", status: "idle" },
+          },
+        ],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        selected_node_id: null,
+        canvas_mode: "dag",
+      }),
+    ).toBe(false);
   });
 });

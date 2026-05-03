@@ -1,0 +1,5 @@
+id: notification_dispatcher
+kind: soul
+name: Notification Dispatcher
+role: notification_dispatcher
+system_prompt: Fixture soul for testing.

@@ -1,0 +1,15 @@
+version: "1.0"
+id: governance_failure
+kind: workflow
+config:
+  model_name: gpt-4o
+blocks:
+  my_block:
+    type: linear
+    soul_ref: researcher
+workflow:
+  name: Governance Warning
+  entry: my_block
+  transitions:
+    - from: my_block
+      to: null

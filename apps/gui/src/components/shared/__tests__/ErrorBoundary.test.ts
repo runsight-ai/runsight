@@ -1,11 +1,10 @@
 /**
- * RED-TEAM tests for RUN-239: Error Boundary Strategy.
+ * Error boundary strategy coverage.
  *
  * The app must have React Error Boundaries at three levels — App, Route, and
- * Canvas — so that a component crash never blanks the entire page. Currently
- * zero error boundaries exist.
+ * Canvas — so that a component crash never blanks the entire page.
  *
- * These tests MUST FAIL until the Green Team implements:
+ * Tests verify:
  *  - ErrorBoundary.tsx exporting AppErrorBoundary, RouteErrorBoundary,
  *    CanvasErrorBoundary as class components
  *  - Each class: getDerivedStateFromError, componentDidCatch, render, and a
@@ -22,7 +21,7 @@ import {
 } from "../ErrorBoundary";
 
 // ---------------------------------------------------------------------------
-// 1. Module exports exist (AC5 — tests verify error catching and fallback)
+// 1. Module exports exist
 // ---------------------------------------------------------------------------
 
 describe("ErrorBoundary module exports", () => {
@@ -40,7 +39,7 @@ describe("ErrorBoundary module exports", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Each boundary is a distinct class (AC1-2 — distinct fallback UI per level)
+// 2. Each boundary is a distinct class
 // ---------------------------------------------------------------------------
 
 describe("Error boundaries are distinct classes", () => {
@@ -58,7 +57,7 @@ describe("Error boundaries are distinct classes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Class component interface — getDerivedStateFromError (AC5)
+// 3. Class component interface — getDerivedStateFromError
 //    Each boundary must derive { hasError: true } from any thrown error.
 // ---------------------------------------------------------------------------
 
@@ -92,7 +91,7 @@ describe("getDerivedStateFromError", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. componentDidCatch exists (AC4 — logs to console)
+// 4. componentDidCatch exists
 // ---------------------------------------------------------------------------
 
 describe("componentDidCatch", () => {
@@ -134,7 +133,7 @@ describe("componentDidCatch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. render method exists (AC3 — fallback has Retry/Reload button)
+// 5. render method exists
 // ---------------------------------------------------------------------------
 
 describe("render method", () => {
@@ -152,7 +151,7 @@ describe("render method", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. State reset mechanism (AC3 — Retry/Reload buttons reset error state)
+// 6. State reset mechanism
 //    Each boundary must expose a way to reset hasError back to false.
 // ---------------------------------------------------------------------------
 

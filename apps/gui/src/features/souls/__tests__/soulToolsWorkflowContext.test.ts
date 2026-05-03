@@ -94,7 +94,7 @@ const FORM_VALUES = {
   maxToolIterations: 3,
 };
 
-describe("RUN-490 workflow tool context rendering", () => {
+describe("workflow tool context rendering", () => {
   it("renders canonical tool metadata with workflow availability badges while keeping delegate hidden", () => {
     render(
       React.createElement(SoulToolsSection as unknown as React.ComponentType<any>, {

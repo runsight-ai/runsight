@@ -1,10 +1,10 @@
 """
-RUN-277 — Red tests: LiteLLMClient.achat() tool calling support.
+LiteLLMClient.achat() tool calling behavior.
 
 These tests verify that achat() can:
-1. Accept tools and tool_choice parameters (AC2)
-2. Return tool_calls, finish_reason, and raw_message in the response dict (AC2, AC3, AC4)
-3. Maintain backward compatibility when called without tools (AC1)
+1. Accept tools and tool_choice parameters.
+2. Return tool_calls, finish_reason, and raw_message in the response dict.
+3. Preserve no-tool response behavior.
 
 All tests mock litellm.acompletion to avoid real API calls.
 """
@@ -81,7 +81,7 @@ def _make_response(
 
 
 # ---------------------------------------------------------------------------
-# AC1: Backward compatibility — achat() without tools
+# No-tool response shape
 # ---------------------------------------------------------------------------
 
 
@@ -160,9 +160,7 @@ class TestAchatBackwardCompatWithToolFields:
     @pytest.mark.asyncio
     @patch("runsight_core.llm.client.acompletion", new_callable=AsyncMock)
     @patch("runsight_core.llm.client.completion_cost", return_value=0.002)
-    async def test_no_tools_does_not_pass_temperature_when_unset(
-        self, mock_cost, mock_acompletion
-    ):
+    async def test_no_tools_does_not_pass_temperature_when_unset(self, mock_cost, mock_acompletion):
         """Unspecified temperature must stay unset so provider defaults can apply."""
         mock_acompletion.return_value = _make_response()
 
@@ -190,7 +188,7 @@ class TestAchatBackwardCompatWithToolFields:
 
 
 # ---------------------------------------------------------------------------
-# AC2: achat() with tools — passes tools to litellm, extracts tool_calls
+# Tool calling request and response handling
 # ---------------------------------------------------------------------------
 
 
@@ -343,7 +341,7 @@ class TestAchatToolCalling:
 
 
 # ---------------------------------------------------------------------------
-# AC3: finish_reason correctly extracted
+# finish_reason extraction
 # ---------------------------------------------------------------------------
 
 
@@ -401,7 +399,7 @@ class TestAchatFinishReason:
 
 
 # ---------------------------------------------------------------------------
-# AC4: raw_message for re-feeding in agentic loop
+# raw_message support for agentic loops
 # ---------------------------------------------------------------------------
 
 

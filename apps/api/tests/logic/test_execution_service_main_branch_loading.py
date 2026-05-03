@@ -1,4 +1,4 @@
-"""Focused regression coverage for RUN-423 main-branch workflow loading."""
+"""Main-branch workflow loading uses committed YAML."""
 
 import subprocess
 from pathlib import Path
@@ -57,7 +57,7 @@ async def test_launch_execution_reads_main_yaml_from_git_not_working_tree(tmp_pa
     from runsight_api.logic.services.execution_service import ExecutionService
     from runsight_api.logic.services.git_service import GitService
 
-    main_yaml = """id: wf_1
+    main_yaml = """id: wf_main_branch
 kind: workflow
 version: '1.0'
 workflow:
@@ -71,7 +71,7 @@ blocks:
 souls: {}
 config: {}
 """
-    dirty_yaml = """id: wf_1
+    dirty_yaml = """id: wf_main_branch
 kind: workflow
 version: '1.0'
 workflow:
@@ -86,8 +86,8 @@ souls: {}
 config: {}
 """
 
-    repo = _init_git_repo_with_workflow(tmp_path, workflow_id="wf_1", main_yaml=main_yaml)
-    workflow_path = repo / "custom" / "workflows" / "wf_1.yaml"
+    repo = _init_git_repo_with_workflow(tmp_path, workflow_id="wf_main_branch", main_yaml=main_yaml)
+    workflow_path = repo / "custom" / "workflows" / "wf_main_branch.yaml"
     workflow_path.write_text(dirty_yaml)
 
     run_repo = Mock()
@@ -109,7 +109,7 @@ config: {}
 
         await svc.launch_execution(
             "run_main_branch_yaml",
-            "wf_1",
+            "wf_main_branch",
             _prepared_inputs({"instruction": "execute main"}),
             branch="main",
         )

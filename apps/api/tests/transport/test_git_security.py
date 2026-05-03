@@ -1,4 +1,4 @@
-"""Red-phase tests for RUN-124: Git subprocess security hardening.
+"""Git subprocess security hardening.
 
 Tests cover:
 - Path traversal prevention (relative and absolute)
@@ -10,9 +10,8 @@ Tests cover:
 - Error response scrubbing (no filesystem paths leaked)
 - shell=False enforcement (source code audit)
 
-These tests assert against *explicit* validation behaviour that the router
-must implement.  They will FAIL until the Green Team adds input-sanitisation
-guards to the git router.
+These tests assert the explicit validation behaviour that keeps git router
+inputs constrained before subprocess execution.
 """
 
 import subprocess

@@ -1,0 +1,30 @@
+version: "1.0"
+id: legacy_typed_tool
+kind: workflow
+config:
+  model_name: gpt-4o
+tools:
+  http:
+    type: builtin
+    source: runsight/http
+souls:
+  researcher:
+    id: researcher
+    kind: soul
+    name: Researcher
+    role: Researcher
+    system_prompt: Search the web.
+    tools:
+      - http
+blocks:
+  my_block:
+    type: linear
+    soul_ref: researcher
+workflow:
+  id: legacy_typed_tool
+  kind: workflow
+  name: Legacy Typed Tool
+  entry: my_block
+  transitions:
+    - from: my_block
+      to: null

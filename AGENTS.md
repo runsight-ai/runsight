@@ -231,6 +231,58 @@ Do not use `testing/` as a dumping ground for every test in the repo.
 `testing/` is for harness-style verification workspaces, not ordinary unit
 tests.
 
+## Test Isolation And Fixture Ownership
+
+Tests must never read from or write to a developer's real runtime state.
+Repo-root `.runsight/`, `runsight.db`, `custom/`, and user-facing config or
+template files are product/runtime data, not test fixtures.
+
+Required isolation rules:
+
+- Python tests use `tmp_path`, package-local fixtures, in-memory state, or an
+  explicit test database/schema. They must not use repo-root `.runsight/` or
+  `custom/` unless the test is explicitly classified as governance or migration
+  coverage.
+- Vitest tests keep fixtures inside the owning workspace, usually beside the
+  suite or under that workspace's test utilities. They must not depend on
+  runtime-authored files from repo-root `custom/`.
+- Playwright and browser-system tests use only the isolated
+  `RUNSIGHT_E2E_PROJECT_ROOT` / `RUNSIGHT_BASE_PATH` workspace owned by
+  `testing/gui-e2e`. They must fail fast when that isolation root is missing.
+  Do not fall back to the repo root, inspect server process cwd with `lsof`, or
+  infer a runtime workspace from `process.cwd()`.
+- Fixtures belong to the workspace that owns the behavior under test. API tests
+  own API fixtures under `apps/api/tests`; core tests own core fixtures under
+  `packages/core/tests`; GUI tests own GUI fixtures under `apps/gui/src` test
+  helpers; E2E fixtures live in `testing/gui-e2e`. Cross-workspace fixture reuse
+  requires promoting the fixture to an explicitly shared contract or duplicating
+  the minimal data in the consumer workspace.
+- Tests must not call live third-party services. Network access is limited to
+  localhost harnesses or mocked/intercepted clients. Provider, webhook, and SSRF
+  cases should use dummy URLs and assert request construction or rejection, not
+  make real external requests.
+- Secrets and credentials in tests must be dummy values. Do not read real
+  `.env`, `.runsight/secrets.env`, shell credential stores, or user provider
+  configuration.
+
+Governance and migration tests are allowed to inspect source files or fixture
+layouts, but they must say so in the suite name or marker and should include
+the boundary they protect, the owner, and the exit criteria. They should not
+become a substitute for behavior tests.
+
+Test names should describe the behavior, module, feature, flow, or boundary
+being verified. Ticket IDs may appear in comments or regression metadata, but
+new test files should not be named after tickets unless the suite is temporary
+migration coverage with a planned deletion or rename path.
+
+Every behavior-owning module or flow needs an explicit owner decision:
+
+- mirror unit suite for cohesive module behavior
+- feature or flow suite for cross-component behavior
+- integration or E2E suite for runtime wiring
+- governance or migration suite for repo-boundary enforcement
+- no dedicated suite when behavior is already covered by a higher-value owner
+
 ## Migration Map From Current Layout
 
 These are the important canonical homes.
@@ -283,7 +335,11 @@ Do NOT create git tags manually. Do NOT modify version fields in `apps/api/pypro
 
 ## Key Rules
 
-- Never run full test suites (pytest or vitest) — they consume ~4GB each and hang the machine. Target specific files only.
+- Local agent runs must not run full test suites (pytest or vitest) because
+  they consume too much memory and hang developer machines. Target specific
+  files only.
+- CI may run package-wide coverage suites on GitHub-hosted runners when a PR
+  intentionally validates release coverage or publishes coverage artifacts.
 - Styling: CVA + Tailwind + @theme tokens. No BEM, no mixing approaches.
 - Main branch = production. Simulation branches for testing uncommitted changes.
 

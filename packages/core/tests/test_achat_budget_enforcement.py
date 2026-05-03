@@ -1,5 +1,5 @@
 """
-RUN-712 — Red tests: achat() budget enforcement via contextvars.
+Tests for achat() budget enforcement via contextvars.
 
 After achat() computes the response cost, it must:
 1. Read _active_budget.get(None)

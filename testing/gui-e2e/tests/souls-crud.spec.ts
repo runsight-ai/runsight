@@ -115,6 +115,27 @@ test.describe("Souls CRUD", () => {
     expect(updated?.role).toBe(testSoulNameEdited);
   });
 
+  test("filters souls with search and restores rows after clearing", async ({ page }) => {
+    await page.goto("/souls");
+    await page.waitForLoadState("networkidle");
+
+    const searchInput = page.getByPlaceholder(/search souls/i);
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
+
+    await searchInput.fill(testSoulNameEdited);
+    await expect(page.getByText(testSoulNameEdited, { exact: true }).first()).toBeVisible({
+      timeout: 10000,
+    });
+
+    await searchInput.fill("xyznonexistent12345");
+    await expect(page.getByText("No results found")).toBeVisible({ timeout: 5000 });
+
+    await searchInput.clear();
+    await expect(page.getByText(testSoulNameEdited, { exact: true }).first()).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
   test("clicking a soul row opens the edit route", async ({ page }) => {
     expect(createdSoulId).not.toBeNull();
 

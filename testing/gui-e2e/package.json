@@ -5,10 +5,12 @@
   "scripts": {
     "lint": "pnpm --dir ../.. exec eslint testing/gui-e2e",
     "test": "playwright test",
-    "test:list": "playwright test --list"
+    "test:list": "playwright test --list",
+    "test:governance": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "vitest": "^3.2.4",
     "yaml": "^2.8.2"
   }
 }

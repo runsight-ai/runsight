@@ -1,0 +1,34 @@
+version: "1.0"
+souls:
+  default_soul:
+    id: default_soul
+    model: gpt-4o
+    system_prompt: "You are a research assistant."
+blocks:
+  analyze:
+    type: llm
+    soul: default_soul
+    prompt_template: "Analyze: {task_instruction}"
+workflow:
+  name: eval_runner_workflow
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: END
+eval:
+  threshold: 0.8
+  cases:
+    - id: case_1
+      inputs:
+        task_instruction: "Research LLMs"
+      expected:
+        analyze:
+          - type: contains
+            value: "LLM"
+    - id: case_2
+      inputs:
+        task_instruction: "Research transformers"
+      expected:
+        analyze:
+          - type: contains
+            value: "transformer"

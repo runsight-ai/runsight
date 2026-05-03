@@ -1,5 +1,8 @@
 import asyncio
 
+import pytest
+
+from runsight_api.domain.events import SSE_RUN_COMPLETED, SSE_RUN_FAILED
 from runsight_api.logic.observers.streaming_observer import StreamingObserver
 from runsight_api.logic.services.execution_stream_registry import ExecutionStreamRegistry
 
@@ -43,20 +46,21 @@ async def _drain_completed_subscription(registry: ExecutionStreamRegistry, run_i
     return observed
 
 
-def test_completed_stream_marker_allows_one_late_terminal_drain() -> None:
+@pytest.mark.parametrize("terminal_event", [SSE_RUN_COMPLETED, SSE_RUN_FAILED])
+def test_completed_stream_marker_allows_one_late_terminal_drain(terminal_event: str) -> None:
     registry = ExecutionStreamRegistry()
     run_id = "run_completed_late_subscriber"
     observer = StreamingObserver(run_id=run_id)
 
     registry.register(run_id, observer)
-    observer.queue.put_nowait({"event": "run_completed", "data": {"run_id": run_id}})
+    observer.queue.put_nowait({"event": terminal_event, "data": {"run_id": run_id}})
     observer.is_done = True
     registry.unregister(run_id)
 
     observed = asyncio.run(_drain_completed_subscription(registry, run_id))
     observed_again = asyncio.run(_drain_completed_subscription(registry, run_id))
 
-    assert observed == [{"event": "run_completed", "data": {"run_id": run_id}}]
+    assert observed == [{"event": terminal_event, "data": {"run_id": run_id}}]
     assert observed_again == []
 
 

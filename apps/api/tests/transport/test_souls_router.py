@@ -18,7 +18,7 @@ def test_souls_list():
         name="Test Soul",
         role="Test Soul",
         system_prompt="Follow the prompt",
-        model_name="gpt-4o-mini",
+        model_name="fixture-small-model",
         workflow_count=2,
     )
     mock_service.list_souls.return_value = [mock_soul]
@@ -45,7 +45,7 @@ def test_souls_get():
         name="Test Soul",
         role="Test Soul",
         system_prompt="Follow the prompt",
-        model_name="gpt-4o-mini",
+        model_name="fixture-small-model",
     )
     mock_service.get_soul.return_value = mock_soul
     app.dependency_overrides[get_soul_service] = lambda: mock_service
@@ -54,7 +54,7 @@ def test_souls_get():
     assert response.status_code == 200
     assert response.json()["id"] == "sl_1"
     assert response.json()["role"] == "Test Soul"
-    assert response.json()["model_name"] == "gpt-4o-mini"
+    assert response.json()["model_name"] == "fixture-small-model"
     app.dependency_overrides.clear()
 
 
@@ -76,7 +76,7 @@ def test_souls_post():
         name="New Soul",
         role="New Soul",
         system_prompt="Create the soul",
-        model_name="gpt-4o",
+        model_name="fixture-chat-model",
     )
     mock_service.create_soul.return_value = mock_soul
     app.dependency_overrides[get_soul_service] = lambda: mock_service
@@ -89,13 +89,13 @@ def test_souls_post():
             "name": "New Soul",
             "role": "New Soul",
             "system_prompt": "Create the soul",
-            "model_name": "gpt-4o",
+            "model_name": "fixture-chat-model",
         },
     )
     assert response.status_code == 200
     assert response.json()["id"] == "sl_new"
     assert response.json()["role"] == "New Soul"
-    assert response.json()["model_name"] == "gpt-4o"
+    assert response.json()["model_name"] == "fixture-chat-model"
     app.dependency_overrides.clear()
 
 
@@ -160,7 +160,7 @@ def test_souls_put():
         name="Updated Soul",
         role="Updated Soul",
         system_prompt="Updated prompt",
-        model_name="claude-sonnet",
+        model_name="fixture-update-model",
     )
     mock_service.update_soul.return_value = mock_soul
     app.dependency_overrides[get_soul_service] = lambda: mock_service
@@ -170,12 +170,12 @@ def test_souls_put():
         json={
             "role": "Updated Soul",
             "system_prompt": "Updated prompt",
-            "model_name": "claude-sonnet",
+            "model_name": "fixture-update-model",
         },
     )
     assert response.status_code == 200
     assert response.json()["role"] == "Updated Soul"
-    assert response.json()["model_name"] == "claude-sonnet"
+    assert response.json()["model_name"] == "fixture-update-model"
     app.dependency_overrides.clear()
 
 
@@ -187,7 +187,7 @@ def test_souls_put_rejects_unknown_fields():
         name="Updated Soul",
         role="Updated Soul",
         system_prompt="Updated prompt",
-        model_name="claude-sonnet",
+        model_name="fixture-update-model",
     )
     app.dependency_overrides[get_soul_service] = lambda: mock_service
 
@@ -244,7 +244,7 @@ def test_souls_delete_in_use_returns_409():
     mock_workflow_repo = Mock()
     mock_service.delete_soul.side_effect = SoulInUse(
         "Soul is referenced",
-        details={"usages": [{"workflow_id": "wf-1", "workflow_name": "Review Flow"}]},
+        details={"usages": [{"workflow_id": "wf_soul_usage", "workflow_name": "Review Flow"}]},
     )
     app.dependency_overrides[get_soul_service] = lambda: mock_service
     app.dependency_overrides[get_workflow_repo] = lambda: mock_workflow_repo
@@ -253,7 +253,7 @@ def test_souls_delete_in_use_returns_409():
     assert response.status_code == 409
     assert response.json()["error_code"] == "SOUL_IN_USE"
     assert response.json()["details"] == {
-        "usages": [{"workflow_id": "wf-1", "workflow_name": "Review Flow"}]
+        "usages": [{"workflow_id": "wf_soul_usage", "workflow_name": "Review Flow"}]
     }
     app.dependency_overrides.clear()
 
@@ -274,7 +274,7 @@ def test_souls_delete_missing_returns_404():
 def test_souls_get_usages():
     mock_service = Mock()
     mock_service.get_soul_usages.return_value = [
-        {"workflow_id": "wf-1", "workflow_name": "Research Flow"}
+        {"workflow_id": "wf_soul_usage", "workflow_name": "Research Flow"}
     ]
     app.dependency_overrides[get_soul_service] = lambda: mock_service
 
@@ -282,7 +282,7 @@ def test_souls_get_usages():
     assert response.status_code == 200
     assert response.json() == {
         "soul_id": "researcher",
-        "usages": [{"workflow_id": "wf-1", "workflow_name": "Research Flow"}],
+        "usages": [{"workflow_id": "wf_soul_usage", "workflow_name": "Research Flow"}],
         "total": 1,
     }
     mock_service.get_soul_usages.assert_called_once_with("researcher")

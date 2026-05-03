@@ -1,0 +1,28 @@
+version: "1.0"
+id: bind-loop-warning-workflow
+kind: workflow
+config:
+  model_name: gpt-4o
+tools:
+  - lookup_profile
+souls:
+  analyst:
+    id: analyst
+    kind: soul
+    name: Analyst
+    role: Analyst
+    system_prompt: Use the lookup tool if needed.
+    provider: openai
+    model_name: gpt-4o
+    tools:
+      - lookup_profile
+blocks:
+  analyze:
+    type: linear
+    soul_ref: analyst
+workflow:
+  name: bind_loop_warning_workflow
+  entry: analyze
+  transitions:
+    - from: analyze
+      to: null

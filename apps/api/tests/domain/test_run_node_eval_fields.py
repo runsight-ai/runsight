@@ -1,4 +1,4 @@
-"""Red tests for RUN-313: New RunNode fields — prompt_hash, soul_version, eval_*.
+"""New RunNode fields — prompt_hash, soul_version, eval_*.
 
 Tests target new fields on RunNode model:
   - prompt_hash: str | None
@@ -7,7 +7,6 @@ Tests target new fields on RunNode model:
   - eval_passed: bool | None
   - eval_results: dict | None  (JSON blob)
 
-All tests should FAIL until the implementation exists.
 """
 
 import pytest
@@ -85,6 +84,10 @@ class TestRunNodeFieldDefaults:
         """eval_results defaults to None when not provided."""
         node = RunNode(id="run1:b1", run_id="run1", node_id="b1", block_type="LinearBlock")
         assert node.eval_results is None
+
+    def test_tokens_default_to_zero_counts(self):
+        node = RunNode(id="run1:b1", run_id="run1", node_id="b1", block_type="LinearBlock")
+        assert node.tokens == {"prompt": 0, "completion": 0, "total": 0}
 
 
 # ---------------------------------------------------------------------------

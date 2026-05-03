@@ -41,11 +41,11 @@ beforeEach(() => {
   mocks.toastError.mockReset();
 });
 
-describe("soul data API helpers (RUN-444)", () => {
+describe("soul data API helpers", () => {
   it("adds soulsApi.getSoulUsages and calls /souls/:id/usages", async () => {
     mocks.apiGet.mockResolvedValue({
       soul_id: "researcher",
-      usages: [{ workflow_id: "wf_1", workflow_name: "Research Flow" }],
+      usages: [{ workflow_id: "research_flow", workflow_name: "Research Flow" }],
       total: 1,
     });
 
@@ -65,7 +65,7 @@ describe("soul data API helpers (RUN-444)", () => {
     expect(mocks.apiGet).toHaveBeenCalledWith("/souls/researcher/usages");
     expect(result).toEqual({
       soul_id: "researcher",
-      usages: [{ workflow_id: "wf_1", workflow_name: "Research Flow" }],
+      usages: [{ workflow_id: "research_flow", workflow_name: "Research Flow" }],
       total: 1,
     });
   });
@@ -144,8 +144,8 @@ describe("soul data API helpers (RUN-444)", () => {
 
   it("adds settingsApi.listModelProviders and calls /models/providers", async () => {
     mocks.apiGet.mockResolvedValue([
-      { id: "openai", name: "OpenAI", model_count: 12, is_configured: true },
-      { id: "anthropic", name: "Anthropic", model_count: 5, is_configured: false },
+      { id: "fixture-primary", name: "Fixture Primary", model_count: 12, is_configured: true },
+      { id: "fixture-backup", name: "Fixture Backup", model_count: 5, is_configured: false },
     ]);
 
     const { settingsApi } = await import("../../api/settings");
@@ -161,8 +161,8 @@ describe("soul data API helpers (RUN-444)", () => {
 
     expect(mocks.apiGet).toHaveBeenCalledWith("/models/providers");
     expect(result).toEqual([
-      { id: "openai", name: "OpenAI", model_count: 12, is_configured: true },
-      { id: "anthropic", name: "Anthropic", model_count: 5, is_configured: false },
+      { id: "fixture-primary", name: "Fixture Primary", model_count: 12, is_configured: true },
+      { id: "fixture-backup", name: "Fixture Backup", model_count: 5, is_configured: false },
     ]);
   });
 
@@ -170,9 +170,9 @@ describe("soul data API helpers (RUN-444)", () => {
     mocks.apiGet.mockResolvedValue({
       items: [
         {
-          provider: "openai",
-          provider_name: "OpenAI",
-          model_id: "gpt-4o",
+          provider: "fixture-primary",
+          provider_name: "Fixture Primary",
+          model_id: "fixture-chat-model",
           mode: "chat",
           max_tokens: 128000,
           input_cost_per_token: 0.000005,
@@ -191,20 +191,20 @@ describe("soul data API helpers (RUN-444)", () => {
 
     const result = await (
       listModelsForProvider as (provider: string) => Promise<unknown[]>
-    )("openai");
+    )("fixture-primary");
 
-    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=openai");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=fixture-primary");
     expect(Array.isArray(result)).toBe(true);
     expect(result).toEqual([
       expect.objectContaining({
-        provider: "openai",
-        model_id: "gpt-4o",
+        provider: "fixture-primary",
+        model_id: "fixture-chat-model",
       }),
     ]);
   });
 });
 
-describe("soul data query keys (RUN-444)", () => {
+describe("soul data query keys", () => {
   it("adds queryKeys.souls.usages(id)", async () => {
     const { queryKeys } = await import("../keys");
     const usagesKey = (queryKeys.souls as Record<string, unknown>).usages;
@@ -231,13 +231,13 @@ describe("soul data query keys (RUN-444)", () => {
     expect(models).toBeTypeOf("object");
     expect(models.providers).toEqual(expect.arrayContaining(["models", "providers"]));
     expect(models.byProvider).toBeTypeOf("function");
-    expect((models.byProvider as (provider: string) => readonly string[])("openai")).toEqual(
-      expect.arrayContaining(["models", "openai"]),
-    );
+    expect(
+      (models.byProvider as (provider: string) => readonly string[])("fixture-primary"),
+    ).toEqual(expect.arrayContaining(["models", "fixture-primary"]));
   });
 });
 
-describe("soul data query hooks (RUN-444)", () => {
+describe("soul data query hooks", () => {
   it("adds useSoulUsages and wires useQuery to soulsApi.getSoulUsages", async () => {
     const { useSoulUsages } = await import("../souls");
     const { queryKeys } = await import("../keys");
@@ -352,11 +352,11 @@ describe("soul data query hooks (RUN-444)", () => {
         queryFn: () => Promise<unknown>;
         enabled: boolean;
       }
-    )("openai");
+    )("fixture-primary");
 
     expect(mocks.useQuery).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: queryKeys.models.byProvider("openai"),
+        queryKey: queryKeys.models.byProvider("fixture-primary"),
         enabled: true,
       }),
     );
@@ -364,6 +364,132 @@ describe("soul data query hooks (RUN-444)", () => {
     mocks.apiGet.mockResolvedValue({ items: [], total: 0 });
 
     await query.queryFn();
-    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=openai");
+    expect(mocks.apiGet).toHaveBeenCalledWith("/models?provider=fixture-primary");
   });
+});
+
+type MutationOptions = {
+  onSuccess?: (data?: unknown, variables?: unknown, context?: unknown) => void;
+  onError?: (error: Error, variables?: unknown, context?: unknown) => void;
+};
+
+type MutationToastCase = {
+  modulePath: "../souls" | "../workflows" | "../runs" | "../settings" | "../git";
+  hookName: string;
+  successMessage: string;
+  variables?: unknown;
+};
+
+const mutationToastCases: MutationToastCase[] = [
+  {
+    modulePath: "../souls",
+    hookName: "useCreateSoul",
+    successMessage: "Soul created",
+  },
+  {
+    modulePath: "../souls",
+    hookName: "useUpdateSoul",
+    successMessage: "Soul updated",
+    variables: { id: "researcher" },
+  },
+  {
+    modulePath: "../souls",
+    hookName: "useDeleteSoul",
+    successMessage: "Soul deleted",
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useCreateWorkflow",
+    successMessage: "Workflow created",
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useUpdateWorkflow",
+    successMessage: "Workflow updated",
+    variables: { id: "workflow-toast" },
+  },
+  {
+    modulePath: "../workflows",
+    hookName: "useDeleteWorkflow",
+    successMessage: "Workflow deleted",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useCreateRun",
+    successMessage: "Run started",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useCancelRun",
+    successMessage: "Run cancelled",
+    variables: "run-toast",
+  },
+  {
+    modulePath: "../runs",
+    hookName: "useDeleteRun",
+    successMessage: "Run deleted",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useCreateProvider",
+    successMessage: "Provider added",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateProvider",
+    successMessage: "Provider updated",
+    variables: { id: "provider-toast" },
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useDeleteProvider",
+    successMessage: "Provider deleted",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useTestProviderConnection",
+    successMessage: "Connection successful",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateFallbackTarget",
+    successMessage: "Fallback target updated",
+  },
+  {
+    modulePath: "../settings",
+    hookName: "useUpdateAppSettings",
+    successMessage: "Settings saved",
+  },
+  {
+    modulePath: "../git",
+    hookName: "useCommit",
+    successMessage: "Changes committed",
+  },
+];
+
+async function loadQueryModule(modulePath: MutationToastCase["modulePath"]) {
+  return import(/* @vite-ignore */ modulePath) as Promise<Record<string, unknown>>;
+}
+
+describe("query mutation toast behavior", () => {
+  it.each(mutationToastCases)(
+    "$hookName announces success and failure through toast callbacks",
+    async ({ modulePath, hookName, successMessage, variables }) => {
+      const mod = await loadQueryModule(modulePath);
+      const hook = mod[hookName] as () => MutationOptions;
+
+      expect(hook).toBeTypeOf("function");
+
+      const mutation = hook();
+      const failure = new Error(`${hookName} failed`);
+
+      mutation.onSuccess?.({}, variables, undefined);
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(successMessage);
+
+      mutation.onError?.(failure, variables, undefined);
+      expect(mocks.toastError).toHaveBeenCalledWith(expect.any(String), {
+        description: failure.message,
+      });
+    },
+  );
 });

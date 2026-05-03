@@ -30,7 +30,7 @@ function formatTokens(total_tokens: number): string {
 export function ExecutionMetrics({ runId }: ExecutionMetricsProps) {
   const activeRunId = useCanvasStore((s) => s.activeRunId);
   const [visible, setVisible] = useState(false);
-  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const lastRunIdRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: run } = useRun(runId ?? "", {
@@ -42,9 +42,9 @@ export function ExecutionMetrics({ runId }: ExecutionMetricsProps) {
 
   // Show metrics when a run reaches a terminal state
   useEffect(() => {
-    if (runId && isTerminal && runId !== lastRunId) {
+    if (runId && isTerminal && runId !== lastRunIdRef.current) {
       setVisible(true);
-      setLastRunId(runId);
+      lastRunIdRef.current = runId;
 
       // Clear any existing timer
       if (timerRef.current) {
@@ -62,7 +62,7 @@ export function ExecutionMetrics({ runId }: ExecutionMetricsProps) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [runId, isTerminal, lastRunId]);
+  }, [runId, isTerminal]);
 
   // Hide when a new run starts
   useEffect(() => {
