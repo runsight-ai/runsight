@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import stat
 import uuid
 from enum import Enum
@@ -23,15 +24,19 @@ _RESERVED_WORKER_METADATA_KEYS = frozenset(
         "api_keys",
         "authorization",
         "callable",
+        "command",
         "credential_refs",
         "execute",
+        "executable_path",
         "headers",
         "host_path",
         "host_tools",
         "http_credentials",
+        "local_path",
         "secret_config",
         "tool",
         "tool_instance",
+        "tool_ref",
         "url_allowlist",
     }
 )
@@ -57,6 +62,11 @@ _SECRET_VALUE_MARKERS = (
     "authorization",
     "password",
     "-----begin ",
+)
+_CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_METADATA_KEY_SEPARATOR = re.compile(r"[^0-9A-Za-z]+")
+_COMPACT_RESERVED_WORKER_METADATA_KEYS = frozenset(
+    key.replace("_", "") for key in _RESERVED_WORKER_METADATA_KEYS
 )
 
 
@@ -102,16 +112,25 @@ def _validate_mode_mapping(
 
 
 def _normalized_metadata_key(key: str) -> str:
-    return key.strip().lower().replace("-", "_")
+    camel_split = _CAMEL_CASE_BOUNDARY.sub("_", key.strip())
+    separated = _METADATA_KEY_SEPARATOR.sub("_", camel_split)
+    return "_".join(part for part in separated.lower().split("_") if part)
 
 
 def _validate_worker_policy_metadata_key(key: str) -> str:
     if not key:
         raise ValueError("worker policy metadata keys cannot be empty")
     normalized = _normalized_metadata_key(key)
-    if normalized in _RESERVED_WORKER_METADATA_KEYS:
+    compact_normalized = normalized.replace("_", "")
+    if (
+        normalized in _RESERVED_WORKER_METADATA_KEYS
+        or compact_normalized in _COMPACT_RESERVED_WORKER_METADATA_KEYS
+    ):
         raise ValueError(f"worker policy metadata key is host-only: {key}")
-    if any(fragment in normalized for fragment in _SECRET_KEY_FRAGMENTS):
+    if any(
+        fragment in normalized or fragment.replace("_", "") in compact_normalized
+        for fragment in _SECRET_KEY_FRAGMENTS
+    ):
         raise ValueError(f"worker policy metadata key is secret-like: {key}")
     return key
 
@@ -540,8 +559,8 @@ class IPCClientConfig(BaseModel):
     @field_validator("request_timeout_seconds")
     @classmethod
     def _validate_request_timeout_seconds(cls, value: float) -> float:
-        if value <= 0:
-            raise ValueError("request_timeout_seconds must be positive")
+        if not isfinite(value) or value <= 0:
+            raise ValueError("request_timeout_seconds must be finite and positive")
         return value
 
     @field_validator("max_frame_bytes")
