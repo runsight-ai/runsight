@@ -1,0 +1,21 @@
+packages/core/tests/test_workspace_materializer_contract.py
+  s_1a01253cf4f160::t_9b3a815560b73e 5,16-24,33,47,53,59,76,92,107,129,145,165,181
+packages/core/tests/test_workspace_runtime_contract_governance.py
+  s_1a01253cf4f160::t_b86ce630ce70c6 1-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "bc71bbad86ba258c0f7a9f98c19b5197f0c4b4a4",
+  "prompts": {},
+  "sessions": {
+    "s_1a01253cf4f160": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0919-59ba-79f3-b367-c839d72310f2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
