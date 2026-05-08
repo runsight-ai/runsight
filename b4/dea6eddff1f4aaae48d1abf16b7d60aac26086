@@ -1,0 +1,19 @@
+pyproject.toml
+  s_036548dc1f1120::t_05b78bdb94267e 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b4dea6eddff1f4aaae48d1abf16b7d60aac26086",
+  "prompts": {},
+  "sessions": {
+    "s_036548dc1f1120": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0968-593c-7593-aa23-1421c3145e8e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
