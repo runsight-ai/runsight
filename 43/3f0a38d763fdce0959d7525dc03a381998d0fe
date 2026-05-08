@@ -1,0 +1,23 @@
+packages/core/tests/test_isolation_ipc_config_contract.py
+  s_105b3a2bf049a1::t_4b5d2d0c8696b4 1-184
+packages/core/tests/test_isolation_ipc_client_config_startup.py
+  s_105b3a2bf049a1::t_0f2ed1f7d087bc 1-85
+packages/core/tests/test_isolation_worker_ipc_config_startup.py
+  s_105b3a2bf049a1::t_36fef1ec7c433d 1-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "433f0a38d763fdce0959d7525dc03a381998d0fe",
+  "prompts": {},
+  "sessions": {
+    "s_105b3a2bf049a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e096f-aae9-7d52-bbd4-59861d891a2c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
