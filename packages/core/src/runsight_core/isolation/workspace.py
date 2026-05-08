@@ -5,6 +5,7 @@ from __future__ import annotations
 import stat
 import uuid
 from enum import Enum
+from math import isfinite
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
@@ -13,6 +14,50 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 
 _SPECIAL_PERMISSION_BITS = stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX
+_RAW_POLICY_MODES = frozenset({"allow", "deny"})
+_NETWORK_MEDIATED_MODES = frozenset({"allow", "deny"})
+_FILESYSTEM_MEDIATED_MODES = frozenset({"workspace", "deny"})
+_CREDENTIAL_MODES = frozenset({"host-bound", "none", "deny"})
+_RESERVED_WORKER_METADATA_KEYS = frozenset(
+    {
+        "api_keys",
+        "authorization",
+        "callable",
+        "credential_refs",
+        "execute",
+        "headers",
+        "host_path",
+        "host_tools",
+        "http_credentials",
+        "secret_config",
+        "tool",
+        "tool_instance",
+        "url_allowlist",
+    }
+)
+_SECRET_KEY_FRAGMENTS = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "authorization",
+        "cookie",
+        "password",
+        "private_key",
+        "refresh_token",
+        "secret",
+        "access_token",
+    }
+)
+_SECRET_VALUE_MARKERS = (
+    "bearer ",
+    "basic ",
+    "sk-",
+    "secret",
+    "api_key",
+    "authorization",
+    "password",
+    "-----begin ",
+)
 
 
 def _validate_workspace_relative_path(value: str, *, allow_dot: bool) -> str:
@@ -37,6 +82,77 @@ def _validate_workspace_relative_path(value: str, *, allow_dot: bool) -> str:
     if any(part == ".." for part in path.parts):
         raise ValueError("workspace path cannot contain '..' components")
     return value
+
+
+def _validate_mode_mapping(
+    value: dict[str, Any],
+    *,
+    owner: str,
+    allowed_keys: set[str],
+    allowed_modes: dict[str, frozenset[str]],
+) -> dict[str, Any]:
+    for key, mode in value.items():
+        if key not in allowed_keys:
+            raise ValueError(f"{owner} policy contains unknown key: {key}")
+        if not isinstance(mode, str):
+            raise ValueError(f"{owner}.{key} policy mode must be a string")
+        if mode not in allowed_modes[key]:
+            raise ValueError(f"{owner}.{key} policy mode is invalid: {mode}")
+    return value
+
+
+def _normalized_metadata_key(key: str) -> str:
+    return key.strip().lower().replace("-", "_")
+
+
+def _validate_worker_policy_metadata_key(key: str) -> str:
+    if not key:
+        raise ValueError("worker policy metadata keys cannot be empty")
+    normalized = _normalized_metadata_key(key)
+    if normalized in _RESERVED_WORKER_METADATA_KEYS:
+        raise ValueError(f"worker policy metadata key is host-only: {key}")
+    if any(fragment in normalized for fragment in _SECRET_KEY_FRAGMENTS):
+        raise ValueError(f"worker policy metadata key is secret-like: {key}")
+    return key
+
+
+def _validate_worker_policy_metadata_string(value: str) -> str:
+    lowered = value.strip().lower()
+    if any(marker in lowered for marker in _SECRET_VALUE_MARKERS):
+        raise ValueError("worker policy metadata value is secret-like")
+    return value
+
+
+def _sanitize_worker_policy_metadata(value: Any) -> Any:
+    if isinstance(value, dict):
+        sanitized: dict[str, Any] = {}
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise ValueError("worker policy metadata keys must be strings")
+            sanitized[_validate_worker_policy_metadata_key(key)] = _sanitize_worker_policy_metadata(
+                child
+            )
+        return sanitized
+    if isinstance(value, list | tuple):
+        return [_sanitize_worker_policy_metadata(child) for child in value]
+    if isinstance(value, str):
+        return _validate_worker_policy_metadata_string(value)
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ValueError("worker policy metadata numbers must be finite")
+        return value
+    raise ValueError("worker policy metadata must be JSON-serializable policy data")
+
+
+def _sanitize_worker_policy_metadata_mapping(value: dict[str, Any]) -> dict[str, Any]:
+    sanitized = _sanitize_worker_policy_metadata(value)
+    if not isinstance(sanitized, dict):
+        raise ValueError("worker policy metadata must be a mapping")
+    return sanitized
 
 
 class WorkspaceMaterialization(BaseModel):
@@ -86,6 +202,61 @@ class WorkspacePolicy(BaseModel):
     credentials: dict[str, Any] = Field(default_factory=dict)
     max_materialization_bytes: int | None = None
 
+    @field_validator("network")
+    @classmethod
+    def _validate_network(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_mode_mapping(
+            value,
+            owner="network",
+            allowed_keys={"raw", "mediated"},
+            allowed_modes={
+                "raw": _RAW_POLICY_MODES,
+                "mediated": _NETWORK_MEDIATED_MODES,
+            },
+        )
+
+    @field_validator("filesystem")
+    @classmethod
+    def _validate_filesystem(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_mode_mapping(
+            value,
+            owner="filesystem",
+            allowed_keys={"raw", "mediated"},
+            allowed_modes={
+                "raw": _RAW_POLICY_MODES,
+                "mediated": _FILESYSTEM_MEDIATED_MODES,
+            },
+        )
+
+    @field_validator("credentials")
+    @classmethod
+    def _validate_credentials(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_mode_mapping(
+            value,
+            owner="credentials",
+            allowed_keys={"mode"},
+            allowed_modes={"mode": _CREDENTIAL_MODES},
+        )
+
+    @field_validator("max_materialization_bytes")
+    @classmethod
+    def _validate_max_materialization_bytes(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("max_materialization_bytes must be positive")
+        return value
+
+    def raw_network_mode(self) -> str | None:
+        value = self.network.get("raw")
+        return value if isinstance(value, str) else None
+
+    def raw_filesystem_mode(self) -> str | None:
+        value = self.filesystem.get("raw")
+        return value if isinstance(value, str) else None
+
+    def credential_mode(self) -> str | None:
+        value = self.credentials.get("mode")
+        return value if isinstance(value, str) else None
+
 
 class PolicyCapabilityReport(BaseModel):
     """Backend capability report for advisory and enforced policy controls."""
@@ -106,13 +277,13 @@ class PolicyCapabilityReport(BaseModel):
         advisory: list[str] = []
         enforced: list[str] = []
 
-        if policy.network.get("raw"):
+        if policy.raw_network_mode() == "deny":
             advisory.append("raw_network_restriction")
-        if policy.filesystem.get("raw"):
+        if policy.raw_filesystem_mode() == "deny":
             advisory.append("raw_filesystem_restriction")
-        if policy.credentials:
+        if policy.credential_mode() in {"host-bound", "deny"}:
             enforced.append("credential_host_binding")
-        if policy.filesystem.get("mediated"):
+        if policy.filesystem.get("mediated") in {"workspace", "deny"}:
             enforced.append("mediated_file_constraints")
         if policy.max_materialization_bytes is not None:
             enforced.append("materialization_size_limits")
@@ -249,6 +420,11 @@ class WorkerToolSchema(BaseModel):
     schema_: dict[str, Any] = Field(alias="schema")
     policy_metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("policy_metadata")
+    @classmethod
+    def _validate_policy_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _sanitize_worker_policy_metadata_mapping(value)
+
     @property
     def schema(self) -> dict[str, Any]:
         return self.schema_
@@ -266,6 +442,11 @@ class HostToolExecutionRef(BaseModel):
     secret_config: dict[str, Any] = Field(default_factory=dict)
     host_path: Path | None = None
     policy_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("policy_metadata")
+    @classmethod
+    def _validate_policy_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _sanitize_worker_policy_metadata_mapping(value)
 
 
 class HostToolExecutionRegistry(BaseModel):
@@ -336,6 +517,15 @@ class IPCBinding(BaseModel):
 
     path: str
 
+    @field_validator("path")
+    @classmethod
+    def _validate_path(cls, value: str) -> str:
+        if not value:
+            raise ValueError("IPC binding path cannot be empty")
+        if not value.strip():
+            raise ValueError("IPC binding path cannot be blank")
+        return value
+
 
 class IPCClientConfig(BaseModel):
     """Serializable IPC client configuration."""
@@ -346,6 +536,20 @@ class IPCClientConfig(BaseModel):
     binding: IPCBinding
     request_timeout_seconds: float = 30.0
     max_frame_bytes: int = 1_048_576
+
+    @field_validator("request_timeout_seconds")
+    @classmethod
+    def _validate_request_timeout_seconds(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError("request_timeout_seconds must be positive")
+        return value
+
+    @field_validator("max_frame_bytes")
+    @classmethod
+    def _validate_max_frame_bytes(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("max_frame_bytes must be positive")
+        return value
 
 
 class WorkerLaunchSpec(BaseModel):
