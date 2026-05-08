@@ -40,6 +40,7 @@ from runsight_core.isolation.interceptors import (
 )
 from runsight_core.isolation.ipc import IPCServer
 from runsight_core.isolation.ipc_models import GrantToken
+from runsight_core.isolation.workspace import IPCClientConfig, IPCTransport
 from runsight_core.state import BlockResult
 from runsight_core.yaml.schema import BlockLimitsDef
 
@@ -178,10 +179,15 @@ class SubprocessHarness:
         self._grant_token = GrantToken(block_id=block_id)
         env: dict[str, str] = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "RUNSIGHT_GRANT_TOKEN": self._grant_token.token,
         }
         if socket_path is not None:
-            env["RUNSIGHT_IPC_SOCKET"] = socket_path
+            ipc_config = IPCClientConfig(
+                version=1,
+                transport=IPCTransport.UNIX_SOCKET,
+                grant_token=self._grant_token.token,
+                unix_socket={"path": socket_path},
+            )
+            env.update(ipc_config.to_env())
 
         # macOS dynamic linker paths
         if sys.platform == "darwin":

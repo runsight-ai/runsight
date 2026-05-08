@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+import json
+import os
 import re
 import stat
 import uuid
+from collections.abc import Callable, Mapping
 from enum import Enum
 from math import isfinite
 from pathlib import Path, PurePosixPath
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 
@@ -68,6 +73,7 @@ _METADATA_KEY_SEPARATOR = re.compile(r"[^0-9A-Za-z]+")
 _COMPACT_RESERVED_WORKER_METADATA_KEYS = frozenset(
     key.replace("_", "") for key in _RESERVED_WORKER_METADATA_KEYS
 )
+_IPC_CONFIG_ENV = "RUNSIGHT_IPC_CONFIG_B64"
 
 
 def _validate_workspace_relative_path(value: str, *, allow_dot: bool) -> str:
@@ -524,11 +530,13 @@ class WorkspaceHarness(Protocol):
 class IPCTransport(str, Enum):
     """Supported worker IPC transports."""
 
-    UNIX_SOCKET = "unix-socket"
+    UNIX_SOCKET = "unix_socket"
+    TCP = "tcp"
+    STDIO = "stdio"
 
 
-class IPCBinding(BaseModel):
-    """Concrete IPC binding details."""
+class UnixSocketEndpoint(BaseModel):
+    """Unix socket endpoint details."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -538,10 +546,43 @@ class IPCBinding(BaseModel):
     @classmethod
     def _validate_path(cls, value: str) -> str:
         if not value:
-            raise ValueError("IPC binding path cannot be empty")
+            raise ValueError("IPC endpoint path cannot be empty")
         if not value.strip():
-            raise ValueError("IPC binding path cannot be blank")
+            raise ValueError("IPC endpoint path cannot be blank")
         return value
+
+
+class TCPClientEndpoint(BaseModel):
+    """TCP endpoint details for future IPC transports."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    host: str
+    port: int
+
+    @field_validator("host")
+    @classmethod
+    def _validate_host(cls, value: str) -> str:
+        if not value:
+            raise ValueError("tcp host cannot be empty")
+        if not value.strip():
+            raise ValueError("tcp host cannot be blank")
+        return value
+
+    @field_validator("port")
+    @classmethod
+    def _validate_port(cls, value: int) -> int:
+        if value <= 0 or value > 65535:
+            raise ValueError("tcp port must be between 1 and 65535")
+        return value
+
+
+class StdioClientEndpoint(BaseModel):
+    """Stdio endpoint details for future IPC transports."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    protocol: Literal["jsonl"]
 
 
 class IPCClientConfig(BaseModel):
@@ -549,24 +590,176 @@ class IPCClientConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    version: Literal[1] = 1
     transport: IPCTransport
-    binding: IPCBinding
-    request_timeout_seconds: float = 30.0
-    max_frame_bytes: int = 1_048_576
+    grant_token: str
+    heartbeat_interval_ms: int = 1000
+    unix_socket: UnixSocketEndpoint | None = None
+    tcp: TCPClientEndpoint | None = None
+    stdio: StdioClientEndpoint | None = None
 
-    @field_validator("request_timeout_seconds")
+    @model_validator(mode="before")
     @classmethod
-    def _validate_request_timeout_seconds(cls, value: float) -> float:
-        if not isfinite(value) or value <= 0:
-            raise ValueError("request_timeout_seconds must be finite and positive")
+    def _normalize_flat_endpoint_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+
+        unix_socket_path = normalized.pop("unix_socket_path", None)
+        if unix_socket_path is not None:
+            if "unix_socket" in normalized and normalized["unix_socket"] != {
+                "path": unix_socket_path
+            }:
+                raise ValueError("unix_socket and unix_socket_path must describe the same endpoint")
+            normalized.setdefault("unix_socket", {"path": unix_socket_path})
+
+        tcp_host = normalized.pop("tcp_host", None)
+        tcp_port = normalized.pop("tcp_port", None)
+        if tcp_host is not None or tcp_port is not None:
+            tcp_endpoint = {
+                key: value
+                for key, value in {"host": tcp_host, "port": tcp_port}.items()
+                if value is not None
+            }
+            if "tcp" in normalized and normalized["tcp"] != tcp_endpoint:
+                raise ValueError("tcp and tcp_host/tcp_port must describe the same endpoint")
+            normalized.setdefault("tcp", tcp_endpoint)
+
+        stdio_protocol = normalized.pop("stdio_protocol", None)
+        if stdio_protocol is not None:
+            if "stdio" in normalized and normalized["stdio"] != {"protocol": stdio_protocol}:
+                raise ValueError("stdio and stdio_protocol must describe the same endpoint")
+            normalized.setdefault("stdio", {"protocol": stdio_protocol})
+
+        return normalized
+
+    @field_validator("grant_token")
+    @classmethod
+    def _validate_grant_token(cls, value: str) -> str:
+        if not value:
+            raise ValueError("grant_token cannot be empty")
+        if not value.strip():
+            raise ValueError("grant_token cannot be blank")
         return value
 
-    @field_validator("max_frame_bytes")
+    @field_validator("heartbeat_interval_ms")
     @classmethod
-    def _validate_max_frame_bytes(cls, value: int) -> int:
+    def _validate_heartbeat_interval_ms(cls, value: int) -> int:
         if value <= 0:
-            raise ValueError("max_frame_bytes must be positive")
+            raise ValueError("heartbeat_interval_ms must be positive")
         return value
+
+    @model_validator(mode="after")
+    def _validate_transport_config(self) -> "IPCClientConfig":
+        required_endpoint = {
+            IPCTransport.UNIX_SOCKET: self.unix_socket,
+            IPCTransport.TCP: self.tcp,
+            IPCTransport.STDIO: self.stdio,
+        }[self.transport]
+        if required_endpoint is None:
+            raise ValueError(f"{self.transport.value} transport requires endpoint config")
+
+        configured = [
+            self.unix_socket is not None,
+            self.tcp is not None,
+            self.stdio is not None,
+        ]
+        if sum(configured) != 1:
+            raise ValueError("IPC client config must include exactly one transport endpoint")
+        return self
+
+    @property
+    def unix_socket_path(self) -> str | None:
+        return self.unix_socket.path if self.unix_socket is not None else None
+
+    @property
+    def tcp_host(self) -> str | None:
+        return self.tcp.host if self.tcp is not None else None
+
+    @property
+    def tcp_port(self) -> int | None:
+        return self.tcp.port if self.tcp is not None else None
+
+    @property
+    def stdio_protocol(self) -> Literal["jsonl"] | None:
+        return self.stdio.protocol if self.stdio is not None else None
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "IPCClientConfig":
+        source = os.environ if env is None else env
+        encoded = source.get(_IPC_CONFIG_ENV)
+        if not encoded:
+            raise ValueError(f"Missing required environment variable: {_IPC_CONFIG_ENV}")
+
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError(f"{_IPC_CONFIG_ENV} must be valid base64") from exc
+
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"{_IPC_CONFIG_ENV} must decode to utf-8 json") from exc
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{_IPC_CONFIG_ENV} must decode to json") from exc
+
+        return cls.model_validate(payload)
+
+    def to_env(self) -> dict[str, str]:
+        raw = self.model_dump_json(exclude_none=True).encode("utf-8")
+        return {_IPC_CONFIG_ENV: base64.b64encode(raw).decode("ascii")}
+
+
+class IPCBinding(BaseModel):
+    """Prepared IPC binding for launching a worker."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_config: IPCClientConfig
+    server_endpoint: UnixSocketEndpoint
+    env: dict[str, str]
+    cleanup_required: bool = True
+    _close_callback: Callable[[], None] | None = PrivateAttr(default=None)
+
+    def close(self) -> None:
+        if self._close_callback is not None:
+            self._close_callback()
+            return
+        if self.cleanup_required:
+            Path(self.server_endpoint.path).unlink(missing_ok=True)
+
+
+class UnixSocketIPCTransport:
+    """Prepare Unix socket IPC bindings while exposing a transport-neutral worker config."""
+
+    def __init__(self, *, socket_dir: Path | str | None = None) -> None:
+        self._socket_dir = Path(socket_dir) if socket_dir is not None else None
+
+    def prepare(self, session: WorkspaceSession, policy: WorkspacePolicy) -> IPCBinding:
+        del policy
+        socket_dir = self._socket_dir or (session.host_root / "ipc")
+        socket_dir.mkdir(parents=True, exist_ok=True)
+        socket_path = socket_dir / f"rs-{session.id}-{uuid.uuid4().hex[:12]}.sock"
+        endpoint = UnixSocketEndpoint(path=str(socket_path))
+        client_config = IPCClientConfig(
+            version=1,
+            transport=IPCTransport.UNIX_SOCKET,
+            grant_token=uuid.uuid4().hex,
+            heartbeat_interval_ms=1000,
+            unix_socket=endpoint,
+        )
+        binding = IPCBinding(
+            client_config=client_config,
+            server_endpoint=endpoint,
+            env=client_config.to_env(),
+            cleanup_required=True,
+        )
+
+        def _close() -> None:
+            socket_path.unlink(missing_ok=True)
+
+        binding._close_callback = _close
+        return binding
 
 
 class WorkerLaunchSpec(BaseModel):

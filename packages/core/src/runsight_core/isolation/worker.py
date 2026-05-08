@@ -24,6 +24,8 @@ from runsight_core.isolation.envelope import (
     HeartbeatMessage,
     ResultEnvelope,
 )
+from runsight_core.primitives import Soul
+from runsight_core.state import WorkflowState
 
 # ---------------------------------------------------------------------------
 # Heartbeat thread
@@ -118,12 +120,12 @@ def _build_delegate_artifacts_from_output(
 async def _execute_envelope(
     *,
     envelope: ContextEnvelope,
-    ipc_socket: str,
+    ipc_config: isolation_ipc.IPCClientConfig,
 ) -> tuple[ResultEnvelope, int]:
     global _heartbeat_phase
 
     block_id = envelope.block_id
-    ipc_client = isolation_ipc.IPCClient(socket_path=ipc_socket)
+    ipc_client = isolation_ipc.IPCClient.from_config(ipc_config)
 
     try:
         capability = await ipc_client.connect()
@@ -148,6 +150,25 @@ async def _execute_envelope(
         runner = _proxies.create_runner(model_name=envelope.soul.model_name, ipc_client=ipc_client)
 
         state = _support.build_scoped_state(envelope)
+        if not isinstance(soul, Soul):
+            soul = Soul(
+                id=envelope.soul.id,
+                kind="soul",
+                name=envelope.soul.name,
+                role=envelope.soul.role,
+                system_prompt=envelope.soul.system_prompt,
+                model_name=envelope.soul.model_name,
+                provider=envelope.soul.provider or None,
+                temperature=envelope.soul.temperature,
+                max_tokens=envelope.soul.max_tokens,
+                required_tool_calls=list(envelope.soul.required_tool_calls),
+                max_tool_iterations=envelope.soul.max_tool_iterations,
+                resolved_tools=resolved_tools,
+            )
+        if not isinstance(state, WorkflowState):
+            state = WorkflowState(
+                conversation_histories=dict(getattr(state, "conversation_histories", {}))
+            )
 
         model = envelope.soul.model_name
         history_key = f"{envelope.block_id}_{envelope.soul.id}"
@@ -291,26 +312,14 @@ def main() -> None:
         sys.exit(exit_code)
 
     try:
-        # Check required env vars
-        grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN")
-        ipc_socket = os.environ.get("RUNSIGHT_IPC_SOCKET")
-
-        if not grant_token:
+        try:
+            ipc_config = isolation_ipc.IPCClientConfig.from_env(os.environ)
+        except Exception as exc:
             _write_result(
                 _error_result(
                     block_id,
-                    "Missing required environment variable: RUNSIGHT_GRANT_TOKEN",
-                    "EnvironmentError",
-                ),
-                exit_code=1,
-            )
-
-        if not ipc_socket:
-            _write_result(
-                _error_result(
-                    block_id,
-                    "Missing required environment variable: RUNSIGHT_IPC_SOCKET",
-                    "EnvironmentError",
+                    str(exc),
+                    type(exc).__name__,
                 ),
                 exit_code=1,
             )
@@ -336,7 +345,7 @@ def main() -> None:
         # persistent IPC reader/writer stay loop-affine for all LLM/tool calls.
         _heartbeat_phase = "setup"
         result_env, exit_code = asyncio.run(
-            _execute_envelope(envelope=envelope, ipc_socket=ipc_socket)
+            _execute_envelope(envelope=envelope, ipc_config=ipc_config)
         )
         _write_result(result_env, exit_code=exit_code)
 
