@@ -1,0 +1,19 @@
+packages/core/tests/test_workspace_runtime_contracts.py
+  s_eaaeb991026951::t_50b2d347ad4d71 271-288,345-406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "e519b12e0091d3d45af8b3bb3c1f964d8b338bbb",
+  "prompts": {},
+  "sessions": {
+    "s_eaaeb991026951": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e093f-ec36-74b0-bddc-ef76c84dd4c7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
