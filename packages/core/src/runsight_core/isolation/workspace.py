@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import stat
 import uuid
+from collections.abc import Iterator
 from enum import Enum
 from math import isfinite
 from pathlib import Path, PurePosixPath
@@ -172,6 +173,21 @@ def _sanitize_worker_policy_metadata_mapping(value: dict[str, Any]) -> dict[str,
     if not isinstance(sanitized, dict):
         raise ValueError("worker policy metadata must be a mapping")
     return sanitized
+
+
+class _WorkerParametersDump(dict[str, Any]):
+    def __iter__(self) -> Iterator[str]:
+        return (key for key in super().__iter__() if key != "type")
+
+
+def _worker_parameters_dump(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _WorkerParametersDump(
+            {key: _worker_parameters_dump(child) for key, child in value.items()}
+        )
+    if isinstance(value, list):
+        return [_worker_parameters_dump(child) for child in value]
+    return value
 
 
 class WorkspaceMaterialization(BaseModel):
@@ -433,10 +449,11 @@ class WorkspaceHostBindings(BaseModel):
 class WorkerToolSchema(BaseModel):
     """Serializable worker-visible tool metadata."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
+    model_config = ConfigDict(extra="forbid")
 
     name: str
-    schema_: dict[str, Any] = Field(alias="schema")
+    description: str
+    parameters: dict[str, Any]
     policy_metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("policy_metadata")
@@ -444,9 +461,10 @@ class WorkerToolSchema(BaseModel):
     def _validate_policy_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
         return _sanitize_worker_policy_metadata_mapping(value)
 
-    @property
-    def schema(self) -> dict[str, Any]:
-        return self.schema_
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        dump = super().model_dump(*args, **kwargs)
+        dump["parameters"] = _worker_parameters_dump(dump["parameters"])
+        return dump
 
 
 class HostToolExecutionRef(BaseModel):
@@ -496,12 +514,19 @@ class WorkerToolRegistry(BaseModel):
             tools=[
                 WorkerToolSchema(
                     name=ref.name,
-                    schema=ref.tool.to_openai_schema(),
+                    description=ref.tool.description,
+                    parameters=dict(ref.tool.parameters),
                     policy_metadata=dict(ref.policy_metadata),
                 )
                 for ref in registry.tools
             ]
         )
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        dump = super().model_dump(*args, **kwargs)
+        for tool in dump["tools"]:
+            tool["parameters"] = _worker_parameters_dump(tool["parameters"])
+        return dump
 
 
 class WorkspaceRunRequest(BaseModel):
