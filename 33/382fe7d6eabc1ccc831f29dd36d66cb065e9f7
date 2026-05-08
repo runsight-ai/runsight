@@ -1,0 +1,25 @@
+packages/core/tests/test_isolation_worker_ipc_config_startup.py
+  s_105b3a2bf049a1::t_36fef1ec7c433d 1-9,11-103,120,122-123,128,134,141,152-154,177-180,183-184,186-193
+  s_105b3a2bf049a1::t_78ff504d4b7669 10,104-119,121,124-127,129-133,135-140,142-151,155-176,181-182,185,194-200
+packages/core/tests/test_isolation_ipc_config_contract.py
+  s_105b3a2bf049a1::t_4b5d2d0c8696b4 1-184
+packages/core/tests/test_isolation_ipc_client_config_startup.py
+  s_105b3a2bf049a1::t_0f2ed1f7d087bc 1-25,38-87,89-91,156,159-163
+  s_105b3a2bf049a1::t_95901971066565 26-37,88,92-155,157-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "33382fe7d6eabc1ccc831f29dd36d66cb065e9f7",
+  "prompts": {},
+  "sessions": {
+    "s_105b3a2bf049a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e096f-aae9-7d52-bbd4-59861d891a2c",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
