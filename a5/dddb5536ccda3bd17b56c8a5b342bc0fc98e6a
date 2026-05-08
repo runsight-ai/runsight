@@ -1,0 +1,21 @@
+packages/core/tests/test_workspace_runtime_contracts.py
+  s_eaaeb991026951::t_7330b3f3a09f97 391-393,410-437,450-457,470-484
+  s_eaaeb991026951::t_845d15eb7f9032 394-409,458-469
+  s_eaaeb991026951::t_50b2d347ad4d71 271-288,345-390,438-449,485-488
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "a5dddb5536ccda3bd17b56c8a5b342bc0fc98e6a",
+  "prompts": {},
+  "sessions": {
+    "s_eaaeb991026951": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e093f-ec36-74b0-bddc-ef76c84dd4c7",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
