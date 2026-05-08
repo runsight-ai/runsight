@@ -268,6 +268,24 @@ class TestIPCContractSerialization:
         assert restored.request_timeout_seconds == 3.5
         assert restored.max_frame_bytes == 65536
 
+    @pytest.mark.parametrize("request_timeout_seconds", [float("nan"), float("inf"), float("-inf")])
+    def test_ipc_client_config_rejects_non_finite_request_timeouts(
+        self,
+        request_timeout_seconds: float,
+    ) -> None:
+        IPCBinding = _contract("IPCBinding")
+        IPCClientConfig = _contract("IPCClientConfig")
+        IPCTransport = _contract("IPCTransport")
+
+        _assert_validation_rejects(
+            lambda: IPCClientConfig(
+                transport=IPCTransport.UNIX_SOCKET,
+                binding=IPCBinding(path="ipc/worker.sock"),
+                request_timeout_seconds=request_timeout_seconds,
+                max_frame_bytes=65536,
+            )
+        )
+
 
 class TestHostAndWorkerToolRegistries:
     def test_host_tool_registry_rejects_duplicate_names_before_worker_launch(self) -> None:
@@ -323,6 +341,151 @@ class TestHostAndWorkerToolRegistries:
         assert "credential_refs" not in keys
         assert "secret_config" not in keys
         assert "host_path" not in keys
+
+    @pytest.mark.parametrize(
+        "metadata_key",
+        [
+            "hostPath",
+            "host path",
+            "host-path",
+            "local_path",
+            "executable_path",
+            "tool_ref",
+            "command",
+            "execute",
+            "tool_instance",
+            "api key",
+            "private key",
+            "credential refs",
+            "http credentials",
+            "url allowlist",
+        ],
+    )
+    @pytest.mark.parametrize("contract_name", ["HostToolExecutionRef", "WorkerToolSchema"])
+    def test_tool_policy_metadata_rejects_host_only_secret_and_tool_aliases_before_serialization(
+        self,
+        contract_name: str,
+        metadata_key: str,
+    ) -> None:
+        contract = _contract(contract_name)
+        policy_metadata = {metadata_key: "worker-visible"}
+
+        if contract_name == "HostToolExecutionRef":
+            _assert_validation_rejects(
+                lambda: contract(
+                    name="lookup",
+                    tool=_tool("lookup"),
+                    policy_metadata=policy_metadata,
+                )
+            )
+            return
+
+        _assert_validation_rejects(
+            lambda: contract(
+                name="lookup",
+                schema=_tool("lookup").to_openai_schema(),
+                policy_metadata=policy_metadata,
+            )
+        )
+
+    @pytest.mark.parametrize(
+        "policy_metadata",
+        [
+            pytest.param(
+                {"network": {"command": "worker-visible"}},
+                id="nested-command",
+            ),
+            pytest.param(
+                {"constraints": [{"host path": "/tmp/public-cache"}]},
+                id="list-host-path",
+            ),
+            pytest.param(
+                {"scope": {"credential refs": ["openai"]}},
+                id="nested-credential-refs",
+            ),
+            pytest.param(
+                {"layers": [[{"url allowlist": ["https://internal.test"]}]]},
+                id="nested-list-url-allowlist",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("contract_name", ["HostToolExecutionRef", "WorkerToolSchema"])
+    def test_tool_policy_metadata_rejects_nested_host_only_secret_and_tool_aliases_before_serialization(
+        self,
+        contract_name: str,
+        policy_metadata: dict[str, Any],
+    ) -> None:
+        contract = _contract(contract_name)
+
+        if contract_name == "HostToolExecutionRef":
+            _assert_validation_rejects(
+                lambda: contract(
+                    name="lookup",
+                    tool=_tool("lookup"),
+                    policy_metadata=policy_metadata,
+                )
+            )
+            return
+
+        _assert_validation_rejects(
+            lambda: contract(
+                name="lookup",
+                schema=_tool("lookup").to_openai_schema(),
+                policy_metadata=policy_metadata,
+            )
+        )
+
+    def test_host_tool_registry_rejects_unsafe_policy_metadata_before_worker_derivation(
+        self,
+    ) -> None:
+        HostToolExecutionRegistry = _contract("HostToolExecutionRegistry")
+
+        _assert_validation_rejects(
+            lambda: HostToolExecutionRegistry(
+                tools=[
+                    {
+                        "name": "lookup",
+                        "tool": _tool("lookup"),
+                        "policy_metadata": {"command": "worker-visible"},
+                    }
+                ]
+            )
+        )
+
+    @pytest.mark.parametrize(
+        "policy_metadata",
+        [
+            pytest.param(
+                {"network": {"command": "worker-visible"}},
+                id="nested-command",
+            ),
+            pytest.param(
+                {"constraints": [{"host path": "/tmp/public-cache"}]},
+                id="list-host-path",
+            ),
+            pytest.param(
+                {"scope": {"credential refs": ["openai"]}},
+                id="nested-credential-refs",
+            ),
+        ],
+    )
+    def test_host_tool_registry_rejects_nested_unsafe_policy_metadata_before_worker_derivation(
+        self,
+        policy_metadata: dict[str, Any],
+    ) -> None:
+        HostToolExecutionRegistry = _contract("HostToolExecutionRegistry")
+
+        _assert_validation_rejects(
+            lambda: HostToolExecutionRegistry(
+                tools=[
+                    {
+                        "name": "lookup",
+                        "tool": _tool("lookup"),
+                        "policy_metadata": policy_metadata,
+                    }
+                ]
+            )
+        )
 
     def test_workspace_host_bindings_are_excluded_from_worker_request_serialization(self) -> None:
         HostToolExecutionRegistry = _contract("HostToolExecutionRegistry")
