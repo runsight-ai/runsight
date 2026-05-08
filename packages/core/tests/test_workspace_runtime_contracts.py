@@ -32,17 +32,30 @@ async def _noop_execute(args: dict[str, Any]) -> dict[str, Any]:
     return {"args": args}
 
 
+def _tool_parameters() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+    }
+
+
 def _tool(name: str, execute: Callable[[dict[str, Any]], Any] = _noop_execute) -> ToolInstance:
     return ToolInstance(
         name=name,
         description="Fixture tool.",
-        parameters={
-            "type": "object",
-            "properties": {"query": {"type": "string"}},
-            "required": ["query"],
-        },
+        parameters=_tool_parameters(),
         execute=execute,
     )
+
+
+class _ProviderNeutralTool:
+    name = "lookup"
+    description = "Fixture tool."
+    parameters = _tool_parameters()
+
+    def to_openai_schema(self) -> dict[str, Any]:
+        raise AssertionError("Worker registry derivation must not call provider adapters")
 
 
 def _assert_validation_rejects(factory: Callable[[], object]) -> None:
@@ -330,7 +343,6 @@ class TestHostAndWorkerToolRegistries:
         keys = _iter_mapping_keys(worker_registry)
 
         assert worker_registry.tools[0].name == "lookup"
-        assert worker_registry.tools[0].schema["function"]["name"] == "lookup"
         assert worker_registry.tools[0].policy_metadata == {"network": "mediated"}
         assert "secret-header" not in serialized
         assert "sk-secret-value" not in serialized
@@ -341,6 +353,64 @@ class TestHostAndWorkerToolRegistries:
         assert "credential_refs" not in keys
         assert "secret_config" not in keys
         assert "host_path" not in keys
+
+        assert keys.isdisjoint({"function", "type"})
+        assert worker_registry.model_dump(mode="json")["tools"][0] == {
+            "name": "lookup",
+            "description": "Fixture tool.",
+            "parameters": _tool_parameters(),
+            "policy_metadata": {"network": "mediated"},
+        }
+
+    def test_worker_registry_derivation_uses_provider_neutral_tool_metadata_without_provider_adapter(
+        self,
+    ) -> None:
+        HostToolExecutionRef = _contract("HostToolExecutionRef")
+        HostToolExecutionRegistry = _contract("HostToolExecutionRegistry")
+        WorkerToolRegistry = _contract("WorkerToolRegistry")
+
+        registry = HostToolExecutionRegistry(
+            tools=[
+                HostToolExecutionRef(
+                    name="lookup",
+                    tool=_ProviderNeutralTool(),
+                    policy_metadata={"network": "mediated"},
+                )
+            ]
+        )
+
+        worker_registry = WorkerToolRegistry.from_host_registry(registry)
+
+        assert worker_registry.model_dump(mode="json")["tools"][0] == {
+            "name": "lookup",
+            "description": "Fixture tool.",
+            "parameters": _tool_parameters(),
+            "policy_metadata": {"network": "mediated"},
+        }
+
+    def test_worker_registry_serializes_provider_neutral_parameters_without_function_wrappers(
+        self,
+    ) -> None:
+        HostToolExecutionRef = _contract("HostToolExecutionRef")
+        HostToolExecutionRegistry = _contract("HostToolExecutionRegistry")
+        WorkerToolRegistry = _contract("WorkerToolRegistry")
+
+        registry = HostToolExecutionRegistry(
+            tools=[
+                HostToolExecutionRef(
+                    name="lookup",
+                    tool=_tool("lookup"),
+                    policy_metadata={"network": "mediated"},
+                )
+            ]
+        )
+
+        worker_registry = WorkerToolRegistry.from_host_registry(registry)
+        payload = worker_registry.model_dump(mode="json")
+        keys = _iter_mapping_keys(payload)
+
+        assert keys.isdisjoint({"function", "type"})
+        assert payload["tools"][0]["parameters"] == _tool_parameters()
 
     @pytest.mark.parametrize(
         "metadata_key",
@@ -383,7 +453,8 @@ class TestHostAndWorkerToolRegistries:
         _assert_validation_rejects(
             lambda: contract(
                 name="lookup",
-                schema=_tool("lookup").to_openai_schema(),
+                description="Fixture tool.",
+                parameters=_tool_parameters(),
                 policy_metadata=policy_metadata,
             )
         )
@@ -430,7 +501,8 @@ class TestHostAndWorkerToolRegistries:
         _assert_validation_rejects(
             lambda: contract(
                 name="lookup",
-                schema=_tool("lookup").to_openai_schema(),
+                description="Fixture tool.",
+                parameters=_tool_parameters(),
                 policy_metadata=policy_metadata,
             )
         )
