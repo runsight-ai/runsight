@@ -1,0 +1,32 @@
+packages/core/src/runsight_core/isolation/workspace.py
+  s_0bed19d487f615::t_43b612cd7b7c98 5-8,12,16,18,76,533-535,538-539,549,551,555-587,593,595-599,636-642,645,647,649,652-701,703,705-762
+  s_0bed19d487f615::t_0db0e14ba6b6e0 702,704
+  s_0bed19d487f615::t_c224239e696ed1 601,603-635
+packages/core/src/runsight_core/isolation/worker.py
+  s_0bed19d487f615::t_364bbfc3d9ba84 123,128,315-317,321-322,348
+  s_0bed19d487f615::t_d1ff24cbf7a8ae 27-28,153-171
+packages/core/src/runsight_core/isolation/ipc.py
+  s_0bed19d487f615::t_203a954459c003 434,439,453-459
+packages/core/src/runsight_core/isolation/__init__.py
+  s_0bed19d487f615::t_f036f173773e4f 29,68
+packages/core/src/runsight_core/isolation/harness.py
+  s_0bed19d487f615::t_8d468778ecb73a 43,184-190
+pyproject.toml
+  s_0bed19d487f615::t_aa68364f88b26d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "371bbe0a9d71f81bb8d3f65bc1dd7bac98b123e7",
+  "prompts": {},
+  "sessions": {
+    "s_0bed19d487f615": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e097c-94e2-77c3-87a4-db446ff4115b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
