@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import stat
 import uuid
-from collections.abc import Iterator
 from enum import Enum
 from math import isfinite
 from pathlib import Path, PurePosixPath
@@ -173,21 +172,6 @@ def _sanitize_worker_policy_metadata_mapping(value: dict[str, Any]) -> dict[str,
     if not isinstance(sanitized, dict):
         raise ValueError("worker policy metadata must be a mapping")
     return sanitized
-
-
-class _WorkerParametersDump(dict[str, Any]):
-    def __iter__(self) -> Iterator[str]:
-        return (key for key in super().__iter__() if key != "type")
-
-
-def _worker_parameters_dump(value: Any) -> Any:
-    if isinstance(value, dict):
-        return _WorkerParametersDump(
-            {key: _worker_parameters_dump(child) for key, child in value.items()}
-        )
-    if isinstance(value, list):
-        return [_worker_parameters_dump(child) for child in value]
-    return value
 
 
 class WorkspaceMaterialization(BaseModel):
@@ -461,11 +445,6 @@ class WorkerToolSchema(BaseModel):
     def _validate_policy_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
         return _sanitize_worker_policy_metadata_mapping(value)
 
-    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        dump = super().model_dump(*args, **kwargs)
-        dump["parameters"] = _worker_parameters_dump(dump["parameters"])
-        return dump
-
 
 class HostToolExecutionRef(BaseModel):
     """Host-owned executable tool reference."""
@@ -521,12 +500,6 @@ class WorkerToolRegistry(BaseModel):
                 for ref in registry.tools
             ]
         )
-
-    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        dump = super().model_dump(*args, **kwargs)
-        for tool in dump["tools"]:
-            tool["parameters"] = _worker_parameters_dump(tool["parameters"])
-        return dump
 
 
 class WorkspaceRunRequest(BaseModel):
