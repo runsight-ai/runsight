@@ -1,0 +1,22 @@
+pyproject.toml
+  s_f7317196fea975::t_7417832c180b74 3
+packages/core/src/runsight_core/isolation/workspace.py
+  s_f7317196fea975::t_914b479e52997e 5
+  s_f7317196fea975::t_66a1b41ffbe520 27,30,35,39,66-70,115-117,124-128,130-133,562-563
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "902ded6ceb6cc63a907592cdd33e5e4dbf37fde8",
+  "prompts": {},
+  "sessions": {
+    "s_f7317196fea975": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0948-1387-7751-920e-3f902595cc6c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
