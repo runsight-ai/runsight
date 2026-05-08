@@ -38,16 +38,19 @@ class TestMinimalEnvironment:
         assert "PATH" in env
 
     @pytest.mark.asyncio
-    async def test_spawn_env_contains_grant_token(self):
-        """Subprocess env must include RUNSIGHT_GRANT_TOKEN."""
-        from runsight_core.isolation import SubprocessHarness
+    async def test_spawn_env_contains_encoded_ipc_config_with_grant_token(self, tmp_path: Path):
+        """Subprocess env must include the encoded IPC config with the grant token."""
+        from runsight_core.isolation import IPCClientConfig, SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
-        env = harness._build_subprocess_env()
+        env = harness._build_subprocess_env(
+            socket_path=_socket_fixture_path(tmp_path, "rs-harness-grant.sock")
+        )
 
-        assert "RUNSIGHT_GRANT_TOKEN" in env
-        assert isinstance(env["RUNSIGHT_GRANT_TOKEN"], str)
-        assert env["RUNSIGHT_GRANT_TOKEN"] != ""
+        assert set(env) >= {"PATH", "RUNSIGHT_IPC_CONFIG_B64"}
+        assert "RUNSIGHT_GRANT_TOKEN" not in env
+        decoded = IPCClientConfig.from_env(env)
+        assert decoded.grant_token
 
     @pytest.mark.asyncio
     async def test_spawn_env_does_not_include_block_api_key(self):
@@ -72,16 +75,18 @@ class TestMinimalEnvironment:
             assert var not in env, f"{var} should not be in subprocess env"
 
     @pytest.mark.asyncio
-    async def test_spawn_env_contains_ipc_socket_path(self, tmp_path: Path):
-        """Subprocess env must include RUNSIGHT_IPC_SOCKET."""
-        from runsight_core.isolation import SubprocessHarness
+    async def test_spawn_env_contains_ipc_socket_path_in_config(self, tmp_path: Path):
+        """Subprocess env must include the IPC socket path inside RUNSIGHT_IPC_CONFIG_B64."""
+        from runsight_core.isolation import IPCClientConfig, SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         socket_path = _socket_fixture_path(tmp_path, "rs-harness-ipc.sock")
         env = harness._build_subprocess_env(socket_path=socket_path)
 
-        assert "RUNSIGHT_IPC_SOCKET" in env
-        assert env["RUNSIGHT_IPC_SOCKET"] == socket_path
+        assert "RUNSIGHT_IPC_CONFIG_B64" in env
+        assert "RUNSIGHT_IPC_SOCKET" not in env
+        decoded = IPCClientConfig.from_env(env)
+        assert decoded.unix_socket.path == socket_path
 
     @pytest.mark.asyncio
     async def test_spawn_env_has_macos_dylib_paths(self):
@@ -105,7 +110,7 @@ class TestMinimalEnvironment:
             socket_path=_socket_fixture_path(tmp_path, "rs-test.sock")
         )
 
-        # PATH + grant token + socket + maybe macOS dylib paths = at most ~5-6 keys
+        # PATH + IPC config + maybe macOS dylib paths = at most a few keys
         assert len(env) <= 10, f"Env has too many keys ({len(env)}), should be minimal"
 
 

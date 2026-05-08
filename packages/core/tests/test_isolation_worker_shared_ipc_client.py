@@ -7,7 +7,7 @@ import sys
 import threading
 
 import pytest
-from isolation_worker_helpers import make_context_envelope, worker_socket_path
+from isolation_worker_helpers import make_context_envelope, worker_ipc_config_env
 from runsight_core.isolation.envelope import ResultEnvelope, ToolDefEnvelope
 
 pytestmark = pytest.mark.real_subprocess_isolation
@@ -111,6 +111,10 @@ class TestWorkerSharedIPCClientContract:
                 self.llm_calls: list[dict[str, object]] = []
                 FakeIPCClient.instances.append(self)
 
+            @classmethod
+            def from_config(cls, config):
+                return cls(socket_path=config.unix_socket.path)
+
             async def connect(self):
                 self.connect_calls += 1
                 return {
@@ -189,8 +193,8 @@ class TestWorkerSharedIPCClientContract:
         def _fake_create_block(envelope_arg, soul_arg, runner_arg):
             return _FakeBlock(envelope_arg.block_id, soul_arg, runner_arg)
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-worker-shared")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", worker_socket_path("shared-ipc"))
+        for key, value in worker_ipc_config_env(grant_token="grant-worker-shared").items():
+            monkeypatch.setenv(key, value)
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())

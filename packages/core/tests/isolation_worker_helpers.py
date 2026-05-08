@@ -15,6 +15,7 @@ from runsight_core.isolation.envelope import (
     ResultEnvelope,
     SoulEnvelope,
 )
+from runsight_core.isolation.workspace import IPCClientConfig, IPCTransport
 
 SAFE_SUBPROCESS_ENV_KEYS = (
     "HOME",
@@ -38,6 +39,22 @@ def worker_socket_path(label: str = "fixture", *, tmp_path: Path | None = None) 
     return str(base_path / f"rsw-{safe_label}-{uuid.uuid4().hex[:12]}.sock")
 
 
+def worker_ipc_config_env(
+    *,
+    ipc_socket_path: str | None = None,
+    grant_token: str = "grant-token-fixture",
+) -> dict[str, str]:
+    """Build the encoded worker IPC config environment contract."""
+    socket_path = ipc_socket_path or worker_socket_path()
+    config = IPCClientConfig(
+        version=1,
+        transport=IPCTransport.UNIX_SOCKET,
+        grant_token=grant_token,
+        unix_socket={"path": socket_path},
+    )
+    return config.to_env()
+
+
 def minimal_worker_env(
     env_extra: dict[str, str] | None = None,
     *,
@@ -51,8 +68,7 @@ def minimal_worker_env(
     if os.environ.get("PYTHONPATH"):
         pythonpath.append(os.environ["PYTHONPATH"])
     env["PYTHONPATH"] = os.pathsep.join(pythonpath)
-    env.setdefault("RUNSIGHT_GRANT_TOKEN", "grant-token-fixture")
-    env.setdefault("RUNSIGHT_IPC_SOCKET", ipc_socket_path or worker_socket_path())
+    env.update(worker_ipc_config_env(ipc_socket_path=ipc_socket_path))
     if env_extra:
         env.update(env_extra)
     for key in omit:

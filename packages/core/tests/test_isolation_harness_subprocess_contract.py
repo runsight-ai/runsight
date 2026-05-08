@@ -224,7 +224,7 @@ class TestSubprocessHarnessWiringContract:
         self,
         tmp_path: Path,
     ):
-        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import IPCClientConfig, SubprocessHarness
 
         harness = SubprocessHarness(api_keys={"openai": "dummy-openai-key"})
         env = harness._build_subprocess_env(
@@ -232,6 +232,7 @@ class TestSubprocessHarnessWiringContract:
             block_id="env-linear-block",
         )
 
-        assert "RUNSIGHT_GRANT_TOKEN" in env
-        assert env["RUNSIGHT_GRANT_TOKEN"] != ""
+        assert "RUNSIGHT_IPC_CONFIG_B64" in env
+        assert "RUNSIGHT_GRANT_TOKEN" not in env
+        assert IPCClientConfig.from_env(env).grant_token != ""
         assert "RUNSIGHT_BLOCK_API_KEY" not in env

@@ -9,7 +9,6 @@ from isolation_worker_helpers import (
     make_context_envelope,
     parse_result_envelope,
     run_worker_subprocess,
-    worker_socket_path,
 )
 from runsight_core.isolation.envelope import ContextEnvelope, HeartbeatMessage, ResultEnvelope
 
@@ -95,70 +94,35 @@ class TestWorkerErrorsInResultEnvelope:
         assert result_env.block_id == "worker_block"
 
 
-class TestWorkerMissingGrantToken:
-    """Missing RUNSIGHT_GRANT_TOKEN must exit 1 with error in ResultEnvelope."""
+class TestWorkerMissingIpcConfig:
+    """Missing RUNSIGHT_IPC_CONFIG_B64 must exit 1 with error in ResultEnvelope."""
 
-    def test_missing_grant_token_exits_nonzero(self):
-        """Worker exits with code 1 when RUNSIGHT_GRANT_TOKEN is absent."""
+    def test_missing_ipc_config_exits_nonzero(self):
+        """Worker exits with code 1 when RUNSIGHT_IPC_CONFIG_B64 is absent."""
         envelope = make_context_envelope()
         result = run_worker_subprocess(
             envelope,
-            {"RUNSIGHT_IPC_SOCKET": worker_socket_path("missing-grant")},
-            omit=("RUNSIGHT_GRANT_TOKEN",),
+            omit=("RUNSIGHT_IPC_CONFIG_B64",),
         )
         assert result.returncode == 1
         # Must produce a ResultEnvelope, not just a Python traceback
         stdout = result.stdout.strip()
-        assert stdout, "Expected ResultEnvelope on stdout for missing API key"
+        assert stdout, "Expected ResultEnvelope on stdout for missing IPC config"
         result_env = parse_result_envelope(stdout)
         assert result_env.error is not None
 
-    def test_missing_grant_token_has_error_in_result(self):
-        """ResultEnvelope on stdout describes the missing grant token."""
+    def test_missing_ipc_config_has_error_in_result(self):
+        """ResultEnvelope on stdout describes the missing IPC config."""
         envelope = make_context_envelope()
         result = run_worker_subprocess(
             envelope,
-            {"RUNSIGHT_IPC_SOCKET": worker_socket_path("grant-error")},
-            omit=("RUNSIGHT_GRANT_TOKEN",),
+            omit=("RUNSIGHT_IPC_CONFIG_B64",),
         )
         stdout = result.stdout.strip()
         assert stdout, "Expected ResultEnvelope on stdout even on env error"
         result_env = parse_result_envelope(stdout)
         assert result_env.error is not None
-        assert "RUNSIGHT_GRANT_TOKEN" in result_env.error
-
-
-class TestWorkerMissingIpcSocket:
-    """Missing RUNSIGHT_IPC_SOCKET must exit 1 with error in ResultEnvelope."""
-
-    def test_missing_ipc_socket_exits_nonzero(self):
-        """Worker exits with code 1 when RUNSIGHT_IPC_SOCKET is absent."""
-        envelope = make_context_envelope()
-        result = run_worker_subprocess(
-            envelope,
-            {"RUNSIGHT_GRANT_TOKEN": "grant-token-fixture"},
-            omit=("RUNSIGHT_IPC_SOCKET",),
-        )
-        assert result.returncode == 1
-        # Must produce a ResultEnvelope, not just a Python traceback
-        stdout = result.stdout.strip()
-        assert stdout, "Expected ResultEnvelope on stdout for missing IPC socket"
-        result_env = parse_result_envelope(stdout)
-        assert result_env.error is not None
-
-    def test_missing_ipc_socket_has_error_in_result(self):
-        """ResultEnvelope on stdout describes the missing IPC socket."""
-        envelope = make_context_envelope()
-        result = run_worker_subprocess(
-            envelope,
-            {"RUNSIGHT_GRANT_TOKEN": "grant-token-fixture"},
-            omit=("RUNSIGHT_IPC_SOCKET",),
-        )
-        stdout = result.stdout.strip()
-        assert stdout, "Expected ResultEnvelope on stdout even on env error"
-        result_env = parse_result_envelope(stdout)
-        assert result_env.error is not None
-        assert "RUNSIGHT_IPC_SOCKET" in result_env.error
+        assert "RUNSIGHT_IPC_CONFIG_B64" in result_env.error
 
 
 class TestWorkerExitCodes:
@@ -205,10 +169,6 @@ class TestWorkerEnvelopeParsing:
     def test_invalid_json_produces_error_result(self):
         """Malformed JSON input yields exit 1 with error in ResultEnvelope."""
         result = run_worker_subprocess(
-            env_extra={
-                "RUNSIGHT_GRANT_TOKEN": "grant-token-fixture",
-                "RUNSIGHT_IPC_SOCKET": worker_socket_path("invalid-json"),
-            },
             input_text="this is not json",
         )
         assert result.returncode == 1

@@ -285,39 +285,40 @@ class TestPolicyCapabilityReport:
 
 class TestIPCContractSerialization:
     def test_ipc_client_config_round_trips_without_losing_binding_details(self) -> None:
-        IPCBinding = _contract("IPCBinding")
         IPCClientConfig = _contract("IPCClientConfig")
         IPCTransport = _contract("IPCTransport")
 
         config = IPCClientConfig(
+            version=1,
             transport=IPCTransport.UNIX_SOCKET,
-            binding=IPCBinding(path="ipc/worker.sock"),
-            request_timeout_seconds=3.5,
-            max_frame_bytes=65536,
+            grant_token="grant-token-fixture",
+            heartbeat_interval_ms=3500,
+            unix_socket={"path": "ipc/worker.sock"},
         )
 
         restored = IPCClientConfig.model_validate_json(config.model_dump_json())
 
         assert restored.transport == IPCTransport.UNIX_SOCKET
-        assert restored.binding.path == "ipc/worker.sock"
-        assert restored.request_timeout_seconds == 3.5
-        assert restored.max_frame_bytes == 65536
+        assert restored.grant_token == "grant-token-fixture"
+        assert restored.heartbeat_interval_ms == 3500
+        assert restored.unix_socket.path == "ipc/worker.sock"
+        assert restored.unix_socket_path == "ipc/worker.sock"
 
-    @pytest.mark.parametrize("request_timeout_seconds", [float("nan"), float("inf"), float("-inf")])
-    def test_ipc_client_config_rejects_non_finite_request_timeouts(
+    @pytest.mark.parametrize("heartbeat_interval_ms", [0, -1])
+    def test_ipc_client_config_rejects_non_positive_heartbeat_intervals(
         self,
-        request_timeout_seconds: float,
+        heartbeat_interval_ms: int,
     ) -> None:
-        IPCBinding = _contract("IPCBinding")
         IPCClientConfig = _contract("IPCClientConfig")
         IPCTransport = _contract("IPCTransport")
 
         _assert_validation_rejects(
             lambda: IPCClientConfig(
+                version=1,
                 transport=IPCTransport.UNIX_SOCKET,
-                binding=IPCBinding(path="ipc/worker.sock"),
-                request_timeout_seconds=request_timeout_seconds,
-                max_frame_bytes=65536,
+                grant_token="grant-token-fixture",
+                heartbeat_interval_ms=heartbeat_interval_ms,
+                unix_socket={"path": "ipc/worker.sock"},
             )
         )
 

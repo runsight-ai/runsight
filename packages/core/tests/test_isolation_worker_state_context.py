@@ -8,7 +8,7 @@ import pytest
 from isolation_worker_helpers import (
     make_context_envelope,
     run_worker_subprocess,
-    worker_socket_path,
+    worker_ipc_config_env,
 )
 from runsight_core.isolation.envelope import ResultEnvelope, SoulEnvelope
 
@@ -86,6 +86,10 @@ class TestWorkerBlockContextInputs:
             def __init__(self, *, socket_path: str) -> None:
                 self.socket_path = socket_path
 
+            @classmethod
+            def from_config(cls, config):
+                return cls(socket_path=config.unix_socket.path)
+
             async def connect(self):
                 return {
                     "accepted": True,
@@ -112,9 +116,10 @@ class TestWorkerBlockContextInputs:
         monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
         monkeypatch.setattr(worker._support, "_create_block", _fake_create_block)
 
+        ipc_config = worker.isolation_ipc.IPCClientConfig.from_env(worker_ipc_config_env())
         result_env, exit_code = await worker._execute_envelope(
             envelope=envelope,
-            ipc_socket=worker_socket_path("inputs"),
+            ipc_config=ipc_config,
         )
 
         assert exit_code == 0
