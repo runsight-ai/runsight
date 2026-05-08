@@ -1,0 +1,35 @@
+packages/core/tests/test_isolation_worker_subprocess_startup.py
+  s_0bed19d487f615::t_8513661a304429 97-98,100-101,105,110,114-115,119,125
+packages/core/tests/test_workspace_runtime_contracts.py
+  s_0bed19d487f615::t_655527b4bdf0c4 292,294-296,302-305,307-308,310,317,319-321
+packages/core/tests/test_isolation_worker_shared_ipc_client.py
+  s_0bed19d487f615::t_ec4bc85bd2c031 10,114-117,196-197
+packages/core/tests/test_isolation_worker_state_context.py
+  s_0bed19d487f615::t_9f825b64cdabef 11,89-92,119,122
+packages/core/tests/test_isolation_harness_subprocess_runtime.py
+  s_0bed19d487f615::t_decff61f4bddc9 41-43,46-48,50-53,78-80,86-89,113
+packages/core/tests/test_isolation_worker_assertion_block_contract.py
+  s_0bed19d487f615::t_549f5f7edbae43 14,158-161,179-180,232-235,276-277
+packages/core/tests/test_isolation_harness_subprocess_contract.py
+  s_0bed19d487f615::t_9eb11953c9f3df 227,235-237
+packages/core/tests/test_isolation_worker_grant_token_env.py
+  s_0bed19d487f615::t_d6e2fce041494e 28
+packages/core/tests/isolation_worker_helpers.py
+  s_0bed19d487f615::t_66e65f57fd0075 18,42-57,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b582c284e37105b7d3ba113d8b17d4a3cc0ac109",
+  "prompts": {},
+  "sessions": {
+    "s_0bed19d487f615": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e097c-94e2-77c3-87a4-db446ff4115b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
