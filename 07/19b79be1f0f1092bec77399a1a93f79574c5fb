@@ -1,0 +1,21 @@
+packages/core/src/runsight_core/isolation/workspace.py
+  s_fe8c478fe367c7::t_722eec2d3be8d0 280,282,284,286
+  s_fe8c478fe367c7::t_b26be5b51d4951 8,17-45,47,49-60,87-157,205-259,423-427,446-450,520-528,540-552
+  s_fe8c478fe367c7::t_4256a721f0e243 46,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "0719b79be1f0f1092bec77399a1a93f79574c5fb",
+  "prompts": {},
+  "sessions": {
+    "s_fe8c478fe367c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e092f-e017-76e0-9bf6-2923465526b7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
