@@ -83,6 +83,28 @@ def _iter_mapping_keys(value: object) -> set[str]:
     return keys
 
 
+def _assert_provider_neutral_worker_tool_payload(tool: dict[str, Any]) -> None:
+    assert set(tool) == {"name", "description", "parameters", "policy_metadata"}
+    assert "function" not in tool
+    assert tool.get("type") != "function"
+
+
+def _assert_plain_json_schema_parameters(parameters: object) -> None:
+    assert type(parameters) is dict
+    assert set(parameters) == {"type", "properties", "required"}
+    assert parameters["type"] == "object"
+    assert parameters["required"] == ["query"]
+
+    properties = parameters["properties"]
+    assert type(properties) is dict
+    assert set(properties) == {"query"}
+
+    query_schema = properties["query"]
+    assert type(query_schema) is dict
+    assert set(query_schema) == {"type"}
+    assert query_schema["type"] == "string"
+
+
 def _context_envelope() -> ContextEnvelope:
     return ContextEnvelope(
         block_id="block",
@@ -354,8 +376,10 @@ class TestHostAndWorkerToolRegistries:
         assert "secret_config" not in keys
         assert "host_path" not in keys
 
-        assert keys.isdisjoint({"function", "type"})
-        assert worker_registry.model_dump(mode="json")["tools"][0] == {
+        tool_payload = worker_registry.model_dump(mode="json")["tools"][0]
+        _assert_provider_neutral_worker_tool_payload(tool_payload)
+        _assert_plain_json_schema_parameters(tool_payload["parameters"])
+        assert tool_payload == {
             "name": "lookup",
             "description": "Fixture tool.",
             "parameters": _tool_parameters(),
@@ -381,7 +405,10 @@ class TestHostAndWorkerToolRegistries:
 
         worker_registry = WorkerToolRegistry.from_host_registry(registry)
 
-        assert worker_registry.model_dump(mode="json")["tools"][0] == {
+        tool_payload = worker_registry.model_dump(mode="json")["tools"][0]
+        _assert_provider_neutral_worker_tool_payload(tool_payload)
+        _assert_plain_json_schema_parameters(tool_payload["parameters"])
+        assert tool_payload == {
             "name": "lookup",
             "description": "Fixture tool.",
             "parameters": _tool_parameters(),
@@ -407,10 +434,48 @@ class TestHostAndWorkerToolRegistries:
 
         worker_registry = WorkerToolRegistry.from_host_registry(registry)
         payload = worker_registry.model_dump(mode="json")
-        keys = _iter_mapping_keys(payload)
+        tool_payload = payload["tools"][0]
+        parameters = tool_payload["parameters"]
 
-        assert keys.isdisjoint({"function", "type"})
-        assert payload["tools"][0]["parameters"] == _tool_parameters()
+        _assert_provider_neutral_worker_tool_payload(tool_payload)
+        assert "function" not in tool_payload
+        assert tool_payload.get("type") != "function"
+        _assert_plain_json_schema_parameters(parameters)
+        assert parameters == _tool_parameters()
+
+    def test_worker_tool_schema_dump_exclude_parameters_preserves_pydantic_semantics(
+        self,
+    ) -> None:
+        WorkerToolSchema = _contract("WorkerToolSchema")
+
+        schema = WorkerToolSchema(
+            name="lookup",
+            description="Fixture tool.",
+            parameters=_tool_parameters(),
+        )
+
+        assert schema.model_dump(exclude={"parameters"}) == {
+            "name": "lookup",
+            "description": "Fixture tool.",
+            "policy_metadata": {},
+        }
+
+    def test_worker_tool_registry_dump_exclude_tools_preserves_pydantic_semantics(
+        self,
+    ) -> None:
+        WorkerToolRegistry = _contract("WorkerToolRegistry")
+
+        registry = WorkerToolRegistry(
+            tools=[
+                {
+                    "name": "lookup",
+                    "description": "Fixture tool.",
+                    "parameters": _tool_parameters(),
+                }
+            ]
+        )
+
+        assert registry.model_dump(exclude={"tools"}) == {}
 
     @pytest.mark.parametrize(
         "metadata_key",
