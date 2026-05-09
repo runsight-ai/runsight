@@ -12,6 +12,7 @@ from isolation_wrapper_helpers import make_state as _make_state
 from runsight_core.block_io import BlockOutput, build_block_context
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.primitives import Step
 from runsight_core.state import BlockResult, WorkflowState
 
@@ -19,10 +20,10 @@ pytestmark = pytest.mark.real_subprocess_isolation
 
 
 class TestWrapperHarnessDelegationPreventsDirectExecution:
-    """Wrapper delegates to SubprocessHarness.run(), not direct block.execute()."""
+    """Wrapper delegates to its workspace harness, not direct block.execute()."""
 
     def test_wrapper_execute_returns_block_output(self):
-        """Wrapper.execute() returns a BlockOutput (via subprocess)."""
+        """Wrapper.execute() returns a BlockOutput from the workspace boundary."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -32,7 +33,7 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
         inner = LinearBlock("isolated_linear_block", soul, runner)
         wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
-        # The wrapper should invoke SubprocessHarness, not inner.execute() directly
+        # The wrapper should invoke the workspace boundary, not inner.execute() directly.
         mock_result = ResultEnvelope(
             block_id="isolated_linear_block",
             output="test output",
@@ -112,8 +113,8 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
 
         captured = {}
 
-        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
-            captured["envelope"] = envelope
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            captured["request"] = request
             return ResultEnvelope(
                 block_id="isolated_linear_block",
                 output="ok",
@@ -140,7 +141,9 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
 
         result_output = await wrapper.execute(_make_ctx(wrapper, state))
 
-        envelope = captured["envelope"]
+        request = captured["request"]
+        assert isinstance(request, WorkspaceRunRequest)
+        envelope = request.envelope
         assert envelope.inputs == {
             "real_output": "wrapped",
             "workflow_string": "plain string output",
@@ -173,8 +176,8 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
         wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         captured = {}
 
-        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
-            captured["envelope"] = envelope
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            captured["request"] = request
             return ResultEnvelope(
                 block_id="isolated_linear_block",
                 output="ok",
@@ -197,7 +200,9 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
 
         await wrapper.execute(ctx)
 
-        assert captured["envelope"].inputs == {"data": "declared value"}
+        request = captured["request"]
+        assert isinstance(request, WorkspaceRunRequest)
+        assert request.envelope.inputs == {"data": "declared value"}
 
 
 # ==============================================================================
@@ -206,7 +211,7 @@ class TestWrapperHarnessDelegationPreventsDirectExecution:
 
 
 class TestWrapperHarnessWiringContract:
-    """wrapper must delegate to SubprocessHarness with no direct-execute bypass."""
+    """Wrapper must delegate to the workspace harness with no direct-execute bypass."""
 
     @staticmethod
     def _write_external_soul(base_dir: Path) -> None:
@@ -265,7 +270,7 @@ class TestWrapperHarnessWiringContract:
 
         result = ResultEnvelope(
             block_id="isolated_linear_block",
-            output="subprocess output",
+            output="workspace output",
             exit_handle="done",
             cost_usd=0.25,
             total_tokens=123,
@@ -279,10 +284,10 @@ class TestWrapperHarnessWiringContract:
         class _FakeHarness:
             def __init__(self, result_envelope: ResultEnvelope):
                 self.result_envelope = result_envelope
-                self.calls: list[ContextEnvelope] = []
+                self.calls: list[WorkspaceRunRequest] = []
 
-            async def run(self, envelope: ContextEnvelope) -> ResultEnvelope:
-                self.calls.append(envelope)
+            async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+                self.calls.append(request)
                 return self.result_envelope
 
         harness = _FakeHarness(result)
@@ -298,19 +303,21 @@ class TestWrapperHarnessWiringContract:
         block_output = await wrapper.execute(_make_ctx(wrapper, state))
 
         assert len(harness.calls) == 1
-        assert harness.calls[0].block_id == "isolated_linear_block"
+        request = harness.calls[0]
+        assert isinstance(request, WorkspaceRunRequest)
+        assert request.envelope.block_id == "isolated_linear_block"
         # The instruction is conveyed via scoped_shared_memory["_resolved_inputs"]
         assert (
-            harness.calls[0].scoped_shared_memory.get("_resolved_inputs", {}).get("instruction")
+            request.envelope.scoped_shared_memory.get("_resolved_inputs", {}).get("instruction")
             == "Summarize this"
         )
         inner.execute.assert_not_called()
-        assert block_output.output == "subprocess output"
+        assert block_output.output == "workspace output"
         assert block_output.cost_usd == pytest.approx(0.25)
         assert block_output.total_tokens == 123
 
     @pytest.mark.asyncio
-    async def test_not_implemented_from_subprocess_path_is_not_swallowed_by_direct_fallback(self):
+    async def test_not_implemented_from_workspace_path_is_not_swallowed_by_direct_fallback(self):
         from unittest.mock import AsyncMock, MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
@@ -320,8 +327,8 @@ class TestWrapperHarnessWiringContract:
         inner.execute = AsyncMock()
         wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
 
-        async def _not_implemented(_: ContextEnvelope) -> ResultEnvelope:
-            raise NotImplementedError("subprocess wiring missing")
+        async def _not_implemented(_: WorkspaceRunRequest) -> ResultEnvelope:
+            raise NotImplementedError("workspace wiring missing")
 
         wrapper._run_in_subprocess = _not_implemented
 
@@ -331,11 +338,12 @@ class TestWrapperHarnessWiringContract:
         inner.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_run_in_subprocess_delegates_to_harness_with_exact_envelope(self):
+    async def test_run_in_subprocess_delegates_to_harness_with_exact_request(self):
         from unittest.mock import MagicMock
 
         from runsight_core.isolation import IsolatedBlockWrapper
         from runsight_core.isolation.envelope import PromptEnvelope, SoulEnvelope
+        from runsight_core.isolation.workspace import WorkspaceManifest, WorkspacePolicy
 
         expected = ResultEnvelope(
             block_id="isolated_linear_block",
@@ -352,10 +360,10 @@ class TestWrapperHarnessWiringContract:
 
         class _FakeHarness:
             def __init__(self):
-                self.calls: list[ContextEnvelope] = []
+                self.calls: list[WorkspaceRunRequest] = []
 
-            async def run(self, envelope: ContextEnvelope) -> ResultEnvelope:
-                self.calls.append(envelope)
+            async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+                self.calls.append(request)
                 return expected
 
         harness = _FakeHarness()
@@ -386,17 +394,29 @@ class TestWrapperHarnessWiringContract:
             max_output_bytes=1_000_000,
         )
 
-        actual = await wrapper._run_in_subprocess(envelope)
+        request = WorkspaceRunRequest(
+            envelope=envelope,
+            manifest=WorkspaceManifest(materializations=[], working_dir="."),
+            policy=WorkspacePolicy(
+                network={"raw": "deny", "mediated": "allow"},
+                filesystem={"raw": "deny", "mediated": "workspace"},
+                credentials={"mode": "host-bound"},
+            ),
+            worker_tools=[],
+            host_bindings=None,
+        )
+
+        actual = await wrapper._run_in_subprocess(request)
 
         assert actual == expected
-        assert harness.calls == [envelope]
+        assert harness.calls == [request]
 
-    def test_parse_workflow_yaml_wires_subprocess_harness_into_wrapped_llm_block(
+    def test_parse_workflow_yaml_wires_unix_local_harness_into_wrapped_llm_block(
         self, tmp_path: Path
     ):
         from unittest.mock import MagicMock
 
-        from runsight_core.isolation import SubprocessHarness
+        from runsight_core.isolation import UnixLocalHarness
         from runsight_core.yaml.parser import parse_workflow_yaml
 
         self._write_external_soul(tmp_path)
@@ -411,4 +431,4 @@ class TestWrapperHarnessWiringContract:
 
         harness = getattr(wrapped_block, "harness", None)
         assert harness is not None
-        assert isinstance(harness, SubprocessHarness)
+        assert isinstance(harness, UnixLocalHarness)
