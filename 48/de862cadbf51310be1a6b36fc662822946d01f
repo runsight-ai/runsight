@@ -1,0 +1,19 @@
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_4a83efb9d7a694::t_f5bb2498d9d96e 321-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "48de862cadbf51310be1a6b36fc662822946d01f",
+  "prompts": {},
+  "sessions": {
+    "s_4a83efb9d7a694": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cb6-e34c-79c3-a0a0-ad367486b07f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
