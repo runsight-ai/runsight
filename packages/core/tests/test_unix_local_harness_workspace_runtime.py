@@ -318,6 +318,45 @@ async def test_valid_workspace_run_launches_worker_module_and_returns_result(
 
 
 @pytest.mark.asyncio
+async def test_unix_worker_launcher_executes_worker_launch_spec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_module = importlib.import_module("runsight_core.isolation.workspace")
+    UnixWorkerLauncher = _isolation_contract("UnixWorkerLauncher")
+    launched: dict[str, Any] = {}
+    fake_process = _FakeWorkerProcess(stdout=_ImmediateStdout(b""), returncode=0)
+    spec = WorkerLaunchSpec(
+        argv=["python", "-m", "runsight_core.isolation.worker"],
+        cwd=tmp_path / "runtime-workspace",
+        env={"RUNSIGHT_IPC_CONFIG_B64": "encoded-ipc-config"},
+    )
+    spec.cwd.mkdir()
+
+    async def fake_create_subprocess_exec(*argv: str, **kwargs: Any) -> _FakeWorkerProcess:
+        launched["argv"] = list(argv)
+        launched["cwd"] = kwargs.get("cwd")
+        launched["env"] = kwargs.get("env")
+        return fake_process
+
+    monkeypatch.setattr(
+        workspace_module.asyncio,
+        "create_subprocess_exec",
+        fake_create_subprocess_exec,
+    )
+
+    handle = await UnixWorkerLauncher().launch(spec)
+
+    assert launched["argv"] == spec.argv
+    assert launched["cwd"] == spec.cwd
+    assert launched["env"] == spec.env
+    assert handle.pid == fake_process.pid
+    assert await handle.wait() == 0
+    await handle.terminate()
+    assert fake_process.terminate_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_materialized_files_and_worker_cwd_share_the_canonical_workspace_root(
     tmp_path: Path,
 ) -> None:
