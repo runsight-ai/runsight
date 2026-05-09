@@ -1,0 +1,26 @@
+packages/core/tests/test_conftest_isolation_mock.py
+  s_8238999cf26c64::t_80d571386e705e 15,408-409,426,435-436,439,441-442,449,457,467
+packages/core/tests/test_workspace_runtime_workflow_integration.py
+  s_8238999cf26c64::t_0884750c7de040 190
+  s_8238999cf26c64::t_507912c021486c 15,595-599,610-611,622
+  s_8238999cf26c64::t_929ee4c8487976 1-14,16-189,191-594,600-602,604-609,612-621,623-626
+  s_8238999cf26c64::t_80910099ba8e66 603
+packages/core/tests/conftest.py
+  s_8238999cf26c64::t_4f0d1652534c94 115-131,135-136,149-150,152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "d88d66e1423e8b76affcc2113b572c6473620137",
+  "prompts": {},
+  "sessions": {
+    "s_8238999cf26c64": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d0a-5a0a-7563-97c1-44461afc00c5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
