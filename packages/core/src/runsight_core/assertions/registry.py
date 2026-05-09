@@ -233,7 +233,7 @@ async def _run_smart_llm_assertion(
     if grading.assertion_type is None:
         grading.assertion_type = "llm_judge"
 
-    # Active BudgetSession accounting happens inside the subprocess harness IPC path.
+    # Active BudgetSession accounting happens inside the workspace harness IPC path.
     # Re-accruing result.cost_usd here would double-count the same LLM call.
     return grading
 

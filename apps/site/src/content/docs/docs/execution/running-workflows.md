@@ -33,7 +33,7 @@ When a production run starts:
 1. The API resolves the committed `main` workflow YAML for the requested workflow and verifies that the committed snapshot has `enabled: true`.
 2. A `Run` record is created with `status: pending` and `branch: "main"`.
 3. The execution service acquires a concurrency slot (default: 5 concurrent runs), then transitions the run to `running`.
-4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` with a `SubprocessHarness`.
+4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` with a `UnixLocalHarness`.
 5. Each block executes sequentially through the transition graph. LLM blocks (linear, gate, synthesize, dispatch) run in isolated subprocesses --- the subprocess has no API keys and communicates with the engine over a Unix socket IPC channel. A `RunNode` record is created per block.
 6. On completion, the observer writes `status: completed` with final cost and token totals.
 

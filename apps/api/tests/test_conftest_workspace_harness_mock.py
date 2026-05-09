@@ -16,14 +16,12 @@ def _load_api_conftest():
     return conftest_path, conftest_mod
 
 
-def test_api_conftest_patches_workspace_harness_boundary_not_subprocess_run() -> None:
+def test_api_conftest_patches_workspace_harness_boundary() -> None:
     conftest_path, _ = _load_api_conftest()
     source = conftest_path.read_text(encoding="utf-8")
 
     assert "UnixLocalHarness" in source
     assert 'UnixLocalHarness, "run"' in source
-    assert "SubprocessHarness.run" not in source
-    assert 'SubprocessHarness, "run"' not in source
     assert 'IsolatedBlockWrapper, "execute"' not in source
 
 

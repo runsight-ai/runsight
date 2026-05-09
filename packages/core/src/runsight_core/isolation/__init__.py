@@ -9,7 +9,6 @@ from runsight_core.isolation.envelope import (
     SoulEnvelope,
     ToolDefEnvelope,
 )
-from runsight_core.isolation.harness import SubprocessHarness
 from runsight_core.isolation.interceptors import (
     InterceptorRegistry,
     IPCInterceptor,
@@ -65,7 +64,6 @@ __all__ = [
     "PromptEnvelope",
     "ResultEnvelope",
     "SoulEnvelope",
-    "SubprocessHarness",
     "ToolDefEnvelope",
     "UnixLocalHarness",
     "UnixSocketIPCTransport",

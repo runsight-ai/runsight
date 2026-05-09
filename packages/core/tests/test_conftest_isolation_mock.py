@@ -494,10 +494,6 @@ class TestRealSubprocessMarkerContract:
             "conftest still patches IsolatedBlockWrapper.execute. "
             "It must patch UnixLocalHarness.run instead."
         )
-        assert "SubprocessHarness.run" not in source, (
-            "conftest still refers to SubprocessHarness.run. "
-            "The _bypass_subprocess_isolation fixture must patch UnixLocalHarness.run."
-        )
         assert "UnixLocalHarness" in source and '"run"' in source, (
             "conftest does not appear to patch UnixLocalHarness.run. "
             "The _bypass_subprocess_isolation fixture must monkeypatch "

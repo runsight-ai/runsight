@@ -1,4 +1,4 @@
-"""Package-local helpers for SubprocessHarness isolation tests."""
+"""Package-local helpers for workspace isolation tests."""
 
 from __future__ import annotations
 

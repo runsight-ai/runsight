@@ -31,6 +31,8 @@ from runsight_core.isolation import (
 )
 from runsight_core.isolation.workspace import UnixSocketEndpoint
 
+pytestmark = pytest.mark.real_subprocess_isolation
+
 
 def _isolation_contract(name: str) -> type[Any]:
     return getattr(importlib.import_module("runsight_core.isolation"), name)
@@ -269,16 +271,12 @@ def _harness(
     return harness, session_factory, transport, launcher
 
 
-def test_unix_local_harness_is_distinct_from_legacy_subprocess_harness() -> None:
+def test_unix_local_harness_public_contract_uses_workspace_request() -> None:
     UnixLocalHarness = _isolation_contract("UnixLocalHarness")
-    SubprocessHarness = _isolation_contract("SubprocessHarness")
     WorkspaceRunRequestContract = _isolation_contract("WorkspaceRunRequest")
 
-    assert UnixLocalHarness is not SubprocessHarness
-    assert not issubclass(UnixLocalHarness, SubprocessHarness)
-
     init_parameters = set(inspect.signature(UnixLocalHarness).parameters)
-    legacy_side_channels = {
+    constructor_side_channels = {
         "api_keys",
         "resolved_tools",
         "tool_credentials",
@@ -287,7 +285,7 @@ def test_unix_local_harness_is_distinct_from_legacy_subprocess_harness() -> None
         "working_dir",
         "grant_token",
     }
-    assert init_parameters.isdisjoint(legacy_side_channels)
+    assert init_parameters.isdisjoint(constructor_side_channels)
 
     run_signature = inspect.signature(UnixLocalHarness.run)
     run_hints = get_type_hints(UnixLocalHarness.run)

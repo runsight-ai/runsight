@@ -1,8 +1,9 @@
-"""Smoke coverage for the real isolation subprocess boundary."""
+"""Smoke coverage for the real workspace isolation boundary."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -10,7 +11,7 @@ import pytest
 from runsight_core.block_io import apply_block_output, build_block_context
 from runsight_core.blocks.linear import LinearBlock
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
-from runsight_core.isolation import IsolatedBlockWrapper, SubprocessHarness
+from runsight_core.isolation import IsolatedBlockWrapper, UnixLocalHarness, UnixSocketIPCTransport
 from runsight_core.primitives import Soul
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.schema import BlockLimitsDef
@@ -84,8 +85,13 @@ async def test_linear_wrapper_real_subprocess_routes_llm_and_reconciles_budget(
     soul = _soul("linear-soul")
     inner = LinearBlock("isolated-linear-block", soul, MagicMock())
     inner.limits = BlockLimitsDef(cost_cap_usd=1.0, token_cap=100)
-    harness = SubprocessHarness(api_keys={"openai": "sk-test-openai"})
-    wrapper = IsolatedBlockWrapper("isolated-linear-block", inner, harness=harness)
+    harness = UnixLocalHarness(ipc_transport=UnixSocketIPCTransport(socket_dir=Path("/tmp")))
+    wrapper = IsolatedBlockWrapper(
+        "isolated-linear-block",
+        inner,
+        harness=harness,
+        api_keys={"openai": "sk-test-openai"},
+    )
     state = WorkflowState()
 
     try:
@@ -103,5 +109,3 @@ async def test_linear_wrapper_real_subprocess_routes_llm_and_reconciles_budget(
     assert next_state.total_tokens == 12
     assert workflow_budget.cost_usd == pytest.approx(0.03)
     assert workflow_budget.tokens == 12
-    assert harness._grant_token is not None
-    assert harness._grant_token.consumed is True

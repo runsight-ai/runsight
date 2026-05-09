@@ -1,4 +1,4 @@
-"""Assertion isolation via subprocess harness coverage."""
+"""Assertion isolation via workspace harness coverage."""
 
 from __future__ import annotations
 
@@ -77,10 +77,6 @@ class TestSmartAssertionIsolation:
                     error_type=None,
                 )
 
-        class ForbiddenSubprocessHarness:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise AssertionError("llm_judge must use UnixLocalHarness")
-
         monkeypatch.setattr(
             custom_module,
             "_run_plugin_sync",
@@ -90,12 +86,6 @@ class TestSmartAssertionIsolation:
         )
         monkeypatch.setattr(registry_module, "UnixLocalHarness", FakeHarness, raising=False)
         monkeypatch.setattr(isolation_module, "UnixLocalHarness", FakeHarness, raising=False)
-        monkeypatch.setattr(
-            registry_module,
-            "SubprocessHarness",
-            ForbiddenSubprocessHarness,
-            raising=False,
-        )
 
         result = await run_assertions(
             [
@@ -189,18 +179,8 @@ class TestSmartAssertionIsolation:
                     error_type=None,
                 )
 
-        class ForbiddenSubprocessHarness:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise AssertionError("llm_judge must use UnixLocalHarness")
-
         monkeypatch.setattr(registry_module, "UnixLocalHarness", FakeHarness, raising=False)
         monkeypatch.setattr(isolation_module, "UnixLocalHarness", FakeHarness, raising=False)
-        monkeypatch.setattr(
-            registry_module,
-            "SubprocessHarness",
-            ForbiddenSubprocessHarness,
-            raising=False,
-        )
 
         try:
             _ = await run_assertions(
@@ -234,7 +214,6 @@ class TestSmartAssertionIsolation:
         monkeypatch: pytest.MonkeyPatch,
     ):
         import runsight_core.assertions.custom as custom_module
-        import runsight_core.assertions.registry as registry_module
 
         plugin_name = "simple_custom_no_llm"
         adapter_cls = custom_module._build_adapter_class(
@@ -263,17 +242,12 @@ def get_assert(output, context):
             captured_env = dict(kwargs.get("env", {}))
             return _FakeProc()
 
-        class _ForbiddenHarness:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise AssertionError("simple custom assertions must not use SubprocessHarness")
-
         monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-isolation-should-not-leak")
         monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", "/tmp/rs-isolation.sock")
         monkeypatch.setenv("RUNSIGHT_BLOCK_API_KEY", "dummy-block-api-key-should-not-leak")
         monkeypatch.setattr(
             custom_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
         )
-        monkeypatch.setattr(registry_module, "SubprocessHarness", _ForbiddenHarness, raising=False)
 
         result = await run_assertions(
             [{"type": f"custom:{plugin_name}", "config": {"mode": "simple"}}],
