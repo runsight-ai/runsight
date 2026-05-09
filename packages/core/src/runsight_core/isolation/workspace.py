@@ -475,6 +475,15 @@ class HostToolExecutionRef(BaseModel):
     secret_config: dict[str, Any] = Field(default_factory=dict)
     host_path: Path | None = None
     policy_metadata: dict[str, Any] = Field(default_factory=dict)
+    source: str | None = Field(default=None, exclude=True)
+    tool_type: str | None = Field(default=None, exclude=True)
+    config: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    request_config: dict[str, Any] | None = Field(default=None, exclude=True)
+    timeout_seconds: int | None = Field(default=None, exclude=True)
+    max_output_bytes: int | None = Field(default=None, exclude=True)
+    response_size_policy: Any | None = Field(default=None, exclude=True)
+    mediation: str | None = Field(default=None, exclude=True)
+    mediated_handler: Any | None = Field(default=None, exclude=True)
 
     @field_validator("policy_metadata")
     @classmethod
@@ -926,20 +935,63 @@ class UnixLocalHarness:
         from runsight_core.isolation import handlers as handlers_module
 
         host_bindings = request.host_bindings or WorkspaceHostBindings()
+        http_handler = handlers_module.make_http_handler(
+            credentials=dict(host_bindings.http_credentials),
+            url_allowlist=list(host_bindings.url_allowlist),
+        )
+        file_io_handler = handlers_module.make_file_io_handler(base_dir=str(session.host_root))
+        host_tools = self._bind_mediated_host_tools(
+            host_bindings.host_tools,
+            file_io_handler=file_io_handler,
+            http_handler=http_handler,
+        )
         return {
             "llm_call": handlers_module.make_llm_call_handler(
                 api_keys=dict(host_bindings.api_keys)
             ),
-            "http": handlers_module.make_http_handler(
-                credentials=dict(host_bindings.http_credentials),
-                url_allowlist=list(host_bindings.url_allowlist),
-            ),
-            "file_io": handlers_module.make_file_io_handler(base_dir=str(session.host_root)),
+            "http": http_handler,
+            "file_io": file_io_handler,
             "tool_call": handlers_module.make_tool_call_handler(
-                host_tools=host_bindings.host_tools,
+                host_tools=host_tools,
                 worker_tools=list(request.worker_tools),
             ),
         }
+
+    def _bind_mediated_host_tools(
+        self,
+        registry: HostToolExecutionRegistry,
+        *,
+        file_io_handler: Any,
+        http_handler: Any,
+    ) -> HostToolExecutionRegistry:
+        refs: list[HostToolExecutionRef] = []
+        for ref in registry.tools:
+            mediation = self._mediation_for_host_tool(ref)
+            if mediation == "file_io":
+                refs.append(
+                    ref.model_copy(
+                        update={"mediation": mediation, "mediated_handler": file_io_handler}
+                    )
+                )
+                continue
+            if mediation == "http":
+                refs.append(
+                    ref.model_copy(
+                        update={"mediation": mediation, "mediated_handler": http_handler}
+                    )
+                )
+                continue
+            refs.append(ref)
+        return HostToolExecutionRegistry(tools=refs)
+
+    def _mediation_for_host_tool(self, ref: HostToolExecutionRef) -> str | None:
+        if ref.name == "file_io":
+            return "file_io"
+        if ref.name == "http_request":
+            return "http"
+        if ref.request_config is not None:
+            return "http"
+        return None
 
     def _worker_envelope(self, request: WorkspaceRunRequest) -> ContextEnvelope:
         if not request.worker_tools:

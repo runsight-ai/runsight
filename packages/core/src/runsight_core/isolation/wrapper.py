@@ -238,6 +238,13 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
                 secret_config=dict(getattr(tool, "secret_config", None) or {}),
                 host_path=getattr(tool, "host_path", None),
                 policy_metadata=dict(getattr(tool, "policy_metadata", None) or {}),
+                source=getattr(tool, "source", None),
+                tool_type=getattr(tool, "tool_type", None),
+                config=dict(getattr(tool, "config", None) or {}),
+                request_config=getattr(tool, "request_config", None),
+                timeout_seconds=getattr(tool, "timeout_seconds", None),
+                max_output_bytes=getattr(tool, "max_output_bytes", None),
+                response_size_policy=getattr(tool, "response_size_policy", None),
             )
             for tool in resolved_tools
         ]
