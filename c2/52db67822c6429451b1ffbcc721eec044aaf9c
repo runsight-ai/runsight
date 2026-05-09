@@ -1,0 +1,19 @@
+packages/core/tests/test_workspace_runtime_workflow_integration.py
+  s_ceb28c18f29090::t_719783739c2fbf 163-165,305-307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "c252db67822c6429451b1ffbcc721eec044aaf9c",
+  "prompts": {},
+  "sessions": {
+    "s_ceb28c18f29090": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d3c-a610-7453-98e9-6d33d260cc81",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
