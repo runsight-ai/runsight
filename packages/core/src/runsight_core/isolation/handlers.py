@@ -15,6 +15,7 @@ import httpx
 
 from runsight_core.budget_enforcement import _active_budget
 from runsight_core.isolation.ipc_models import Handler
+from runsight_core.isolation.workspace import HostToolExecutionRegistry, WorkerToolSchema
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.paths import is_path_within_base
 from runsight_core.runner import _detect_provider
@@ -200,14 +201,46 @@ def make_file_io_handler(
 # ---------------------------------------------------------------------------
 
 
-def make_tool_call_handler(resolved_tools: dict[str, Any]) -> Handler:
-    """Return an IPC handler that dispatches to resolved ToolInstances by name."""
+def make_tool_call_handler(
+    resolved_tools: dict[str, Any] | None = None,
+    *,
+    host_tools: HostToolExecutionRegistry | None = None,
+    worker_tools: list[WorkerToolSchema] | None = None,
+) -> Handler:
+    """Return an IPC handler that dispatches allowed tool calls by name."""
+
+    if host_tools is not None or worker_tools is not None:
+        host_registry = host_tools or HostToolExecutionRegistry(tools=[])
+        worker_tool_names = {tool.name for tool in worker_tools or []}
+        host_tool_refs = {tool.name: tool for tool in host_registry.tools}
+
+        async def _handle_workspace_tool_call(params: dict[str, Any]) -> dict[str, Any]:
+            tool_name = str(params.get("name", ""))
+            tool_args = params.get("arguments", {})
+
+            host_ref = host_tool_refs.get(tool_name)
+            if host_ref is None or tool_name not in worker_tool_names:
+                return {"error": {"code": "tool_not_found", "tool": tool_name}}
+
+            try:
+                output = host_ref.tool.execute(tool_args)
+                if hasattr(output, "__await__"):
+                    output = await output
+            except Exception:
+                logger.exception("ipc.tool_call.failed", extra={"tool_name": tool_name})
+                return {"error": f"Tool '{tool_name}' failed"}
+
+            return {"output": output}
+
+        return _handle_workspace_tool_call
+
+    legacy_tools = resolved_tools or {}
 
     async def _handle(params: dict[str, Any]) -> dict[str, Any]:
         tool_name = str(params.get("name", ""))
         tool_args = params.get("arguments", {})
 
-        tool = resolved_tools.get(tool_name)
+        tool = legacy_tools.get(tool_name)
         if tool is None:
             return {"error": f"Unknown tool: {tool_name}"}
 

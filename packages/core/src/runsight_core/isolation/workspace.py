@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import json
 import os
 import re
+import shutil
+import socket
 import stat
+import sys
+import tempfile
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from enum import Enum
@@ -17,7 +23,12 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
-from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+from runsight_core.isolation.envelope import (
+    ContextEnvelope,
+    HeartbeatMessage,
+    ResultEnvelope,
+    ToolDefEnvelope,
+)
 
 _SPECIAL_PERMISSION_BITS = stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX
 _RAW_POLICY_MODES = frozenset({"allow", "deny"})
@@ -792,3 +803,408 @@ class WorkerLauncher(Protocol):
 
     async def launch(self, spec: WorkerLaunchSpec) -> WorkerProcessHandle:
         """Launch a worker process."""
+
+
+_SIGTERM_GRACE_SECONDS = 5
+
+
+class _WorkspaceHeartbeatTracker:
+    def __init__(
+        self,
+        *,
+        phase_timeout: float,
+        stall_thresholds: dict[str, int | float] | None,
+    ) -> None:
+        self._phase_timeout = phase_timeout
+        self._stall_thresholds = stall_thresholds or {}
+        self._current_phase = ""
+        self._phase_started_at = time.monotonic()
+
+    def update(self, heartbeat: HeartbeatMessage) -> None:
+        if heartbeat.phase != self._current_phase:
+            self._current_phase = heartbeat.phase
+            self._phase_started_at = time.monotonic()
+
+    @property
+    def is_stalled(self) -> bool:
+        threshold = self._stall_thresholds.get(self._current_phase, self._phase_timeout)
+        return (time.monotonic() - self._phase_started_at) > threshold
+
+
+class _UnixWorkerProcessHandle:
+    def __init__(self, process: Any) -> None:
+        self._process = process
+
+    @property
+    def pid(self) -> int:
+        return int(self._process.pid)
+
+    @property
+    def returncode(self) -> int | None:
+        return self._process.returncode
+
+    @property
+    def stdin(self) -> Any:
+        return self._process.stdin
+
+    @property
+    def stdout(self) -> Any:
+        return self._process.stdout
+
+    @property
+    def stderr(self) -> Any:
+        return self._process.stderr
+
+    async def wait(self) -> int:
+        return int(await self._process.wait())
+
+    async def terminate(self) -> None:
+        result = self._process.terminate()
+        if hasattr(result, "__await__"):
+            await result
+
+    async def kill(self) -> None:
+        kill = getattr(self._process, "kill", None)
+        if kill is None:
+            return
+        result = kill()
+        if hasattr(result, "__await__"):
+            await result
+
+
+class UnixWorkerLauncher:
+    """Launches workspace workers from a transport-neutral launch spec."""
+
+    async def launch(self, spec: WorkerLaunchSpec) -> WorkerProcessHandle:
+        process = await asyncio.create_subprocess_exec(
+            *spec.argv,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=spec.cwd,
+            env=spec.env,
+        )
+        return _UnixWorkerProcessHandle(process)
+
+
+class UnixLocalHarness:
+    """Workspace-aware local Unix backend for process-isolated worker execution."""
+
+    def __init__(
+        self,
+        *,
+        session_factory: WorkspaceSessionFactory | None = None,
+        ipc_transport: UnixSocketIPCTransport | None = None,
+        worker_launcher: WorkerLauncher | None = None,
+        cleanup: str = "always",
+        timeout_seconds: int = 300,
+        heartbeat_timeout: float = 30.0,
+        phase_timeout: float = 60.0,
+        stall_thresholds: dict[str, int | float] | None = None,
+    ) -> None:
+        self._session_factory = session_factory or WorkspaceSessionFactory(
+            host_root=Path(tempfile.mkdtemp(prefix="rs-workspace-"))
+        )
+        self._ipc_transport = ipc_transport or UnixSocketIPCTransport()
+        self._worker_launcher = worker_launcher or UnixWorkerLauncher()
+        self._cleanup_mode = cleanup
+        self._timeout_seconds = timeout_seconds
+        self._heartbeat_timeout = heartbeat_timeout
+        self._phase_timeout = phase_timeout
+        self._stall_thresholds = stall_thresholds or {}
+
+    @classmethod
+    def capability_report(cls, policy: WorkspacePolicy) -> PolicyCapabilityReport:
+        return PolicyCapabilityReport.from_policy(policy, backend="unix-local")
+
+    def _build_ipc_handlers(
+        self,
+        *,
+        request: WorkspaceRunRequest,
+        session: WorkspaceSession,
+    ) -> dict[str, Any]:
+        from runsight_core.isolation import handlers as handlers_module
+
+        host_bindings = request.host_bindings or WorkspaceHostBindings()
+        return {
+            "llm_call": handlers_module.make_llm_call_handler(
+                api_keys=dict(host_bindings.api_keys)
+            ),
+            "http": handlers_module.make_http_handler(
+                credentials=dict(host_bindings.http_credentials),
+                url_allowlist=list(host_bindings.url_allowlist),
+            ),
+            "file_io": handlers_module.make_file_io_handler(base_dir=str(session.host_root)),
+            "tool_call": handlers_module.make_tool_call_handler(
+                host_tools=host_bindings.host_tools,
+                worker_tools=list(request.worker_tools),
+            ),
+        }
+
+    def _worker_envelope(self, request: WorkspaceRunRequest) -> ContextEnvelope:
+        if not request.worker_tools:
+            return request.envelope
+
+        tools = [
+            ToolDefEnvelope(
+                source="host",
+                config={"policy_metadata": dict(tool.policy_metadata)},
+                exits=[],
+                name=tool.name,
+                description=tool.description,
+                parameters=dict(tool.parameters),
+                tool_type="host",
+            )
+            for tool in request.worker_tools
+        ]
+        return request.envelope.model_copy(update={"tools": tools})
+
+    def _create_server_socket(self, endpoint: UnixSocketEndpoint) -> socket.socket:
+        socket_path = Path(endpoint.path)
+        socket_path.parent.mkdir(parents=True, exist_ok=True)
+        socket_path.unlink(missing_ok=True)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(str(socket_path))
+        os.chmod(socket_path, 0o600)
+        sock.listen(1)
+        return sock
+
+    async def _monitor_heartbeats(self, process: Any) -> str | None:
+        tracker = _WorkspaceHeartbeatTracker(
+            phase_timeout=self._phase_timeout,
+            stall_thresholds=self._stall_thresholds,
+        )
+
+        while getattr(process, "returncode", None) is None:
+            try:
+                line = await asyncio.wait_for(
+                    process.stderr.readline(),
+                    timeout=self._heartbeat_timeout,
+                )
+            except asyncio.TimeoutError:
+                await self._terminate_process(process)
+                return "heartbeat stalled"
+
+            if not line:
+                return None
+
+            try:
+                tracker.update(HeartbeatMessage.model_validate_json(line.strip()))
+            except Exception:
+                continue
+
+            if tracker.is_stalled:
+                await self._terminate_process(process)
+                return "worker phase stalled"
+
+        return None
+
+    async def _terminate_process(self, process: Any) -> None:
+        terminate = getattr(process, "terminate", None)
+        if terminate is None:
+            return
+        result = terminate()
+        if hasattr(result, "__await__"):
+            await result
+
+    async def _kill_process(self, process: Any) -> None:
+        await self._terminate_process(process)
+        if getattr(process, "returncode", None) is not None:
+            return
+
+        try:
+            await asyncio.wait_for(process.wait(), timeout=_SIGTERM_GRACE_SECONDS)
+        except asyncio.TimeoutError:
+            kill = getattr(process, "kill", None)
+            if kill is None:
+                return
+            result = kill()
+            if hasattr(result, "__await__"):
+                await result
+
+    def _validate_result(self, raw_json: str | bytes, *, max_bytes: int) -> ResultEnvelope:
+        raw_bytes = raw_json.encode("utf-8") if isinstance(raw_json, str) else raw_json
+        if len(raw_bytes) > max_bytes:
+            raise ValueError(
+                f"Result size {len(raw_bytes)} bytes exceeds maximum of {max_bytes} bytes"
+            )
+        return ResultEnvelope.model_validate_json(raw_bytes)
+
+    def _map_return_code(self, code: int) -> str | None:
+        if code == 0:
+            return None
+
+        signal_names: dict[int, str] = {
+            -9: "Process killed by SIGKILL (signal 9) - possible OOM",
+            -11: "Process killed by SIGSEGV (signal 11) - segfault",
+            -15: "Process terminated by SIGTERM (signal 15)",
+            -6: "Process aborted by SIGABRT (signal 6)",
+            -2: "Process interrupted by SIGINT (signal 2)",
+        }
+        if code in signal_names:
+            return signal_names[code]
+        if code < 0:
+            return f"Process killed by signal {-code}"
+        return f"Process exit error (code {code})"
+
+    def _error_result(
+        self,
+        *,
+        envelope: ContextEnvelope,
+        error: str,
+        error_type: str,
+    ) -> ResultEnvelope:
+        return ResultEnvelope(
+            block_id=envelope.block_id,
+            output=None,
+            exit_handle="error",
+            cost_usd=0.0,
+            total_tokens=0,
+            tool_calls_made=0,
+            delegate_artifacts={},
+            conversation_history=[],
+            error=error,
+            error_type=error_type,
+        )
+
+    def _should_cleanup(self, *, succeeded: bool) -> bool:
+        return self._cleanup_mode == "always" or (self._cleanup_mode == "on_success" and succeeded)
+
+    async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+        from runsight_core.budget_enforcement import BudgetSession, _active_budget
+        from runsight_core.isolation.interceptors import (
+            BudgetInterceptor,
+            InterceptorRegistry,
+            ObserverInterceptor,
+        )
+        from runsight_core.isolation.ipc import IPCServer
+        from runsight_core.isolation.ipc_models import GrantToken
+        from runsight_core.yaml.schema import BlockLimitsDef
+
+        session = self._session_factory.create(request.manifest, request.policy)
+        binding: IPCBinding | None = None
+        server_socket: socket.socket | None = None
+        ipc_server: Any | None = None
+        ipc_task: asyncio.Task[None] | None = None
+        succeeded = False
+
+        try:
+            session = WorkspaceMaterializer(session).materialize(request.manifest)
+            binding = self._ipc_transport.prepare(session, request.policy)
+            server_socket = self._create_server_socket(binding.server_endpoint)
+
+            envelope = self._worker_envelope(request)
+            ipc_handlers = self._build_ipc_handlers(request=request, session=session)
+            registry = InterceptorRegistry()
+            registry.register(ObserverInterceptor(block_id=envelope.block_id))
+
+            active_budget = _active_budget.get(None)
+            if isinstance(active_budget, BudgetSession):
+                raw_limits = envelope.block_config.get("limits")
+                budget_session = active_budget
+                if raw_limits is not None:
+                    block_limits = (
+                        raw_limits
+                        if isinstance(raw_limits, BlockLimitsDef)
+                        else BlockLimitsDef.model_validate(raw_limits)
+                    )
+                    budget_session = BudgetSession.from_block_limits(
+                        block_limits,
+                        envelope.block_id,
+                        parent=active_budget,
+                    )
+                registry.register(
+                    BudgetInterceptor(session=budget_session, block_id=envelope.block_id)
+                )
+
+            ipc_server = IPCServer(
+                sock=server_socket,
+                handlers=ipc_handlers,
+                registry=registry,
+                grant_token=GrantToken(
+                    block_id=envelope.block_id,
+                    token=binding.client_config.grant_token,
+                ),
+            )
+            ipc_task = asyncio.create_task(ipc_server.serve())
+
+            spec = WorkerLaunchSpec(
+                argv=[sys.executable, "-m", "runsight_core.isolation.worker"],
+                cwd=session.runtime_workdir,
+                env=dict(binding.env),
+                ipc=binding.client_config,
+            )
+            process = await self._worker_launcher.launch(spec)
+
+            envelope_json = envelope.model_dump_json()
+            if process.stdin is not None:
+                process.stdin.write(envelope_json.encode())
+                process.stdin.write(b"\n")
+                await process.stdin.drain()
+                process.stdin.close()
+
+            monitor_task = asyncio.create_task(self._monitor_heartbeats(process))
+            monitor_error: str | None = None
+            timeout = envelope.timeout_seconds or self._timeout_seconds
+            try:
+                stdout_data = await asyncio.wait_for(process.stdout.read(), timeout=timeout)
+            except (asyncio.TimeoutError, TimeoutError):
+                await self._kill_process(process)
+                raise TimeoutError(f"Subprocess timed out after {timeout} seconds")
+            finally:
+                if monitor_task.done():
+                    monitor_error = monitor_task.result()
+                else:
+                    monitor_task.cancel()
+                    try:
+                        await monitor_task
+                    except asyncio.CancelledError:
+                        pass
+
+            return_code = await process.wait()
+            if monitor_error is not None:
+                succeeded = True
+                return self._error_result(
+                    envelope=envelope,
+                    error=monitor_error,
+                    error_type="BlockStallError",
+                )
+
+            raw_output = stdout_data.decode("utf-8").strip()
+            if return_code != 0:
+                if raw_output:
+                    try:
+                        result = self._validate_result(
+                            raw_output,
+                            max_bytes=envelope.max_output_bytes,
+                        )
+                        succeeded = True
+                        return result
+                    except Exception:
+                        pass
+                error_msg = self._map_return_code(return_code)
+                succeeded = True
+                return self._error_result(
+                    envelope=envelope,
+                    error=error_msg or f"Process exit error (code {return_code})",
+                    error_type="SubprocessError",
+                )
+
+            result = self._validate_result(raw_output, max_bytes=envelope.max_output_bytes)
+            succeeded = True
+            return result
+        finally:
+            if ipc_server is not None:
+                await ipc_server.shutdown()
+            if ipc_task is not None:
+                ipc_task.cancel()
+                try:
+                    await ipc_task
+                except asyncio.CancelledError:
+                    pass
+            if server_socket is not None:
+                server_socket.close()
+            if binding is not None:
+                binding.close()
+            if self._should_cleanup(succeeded=succeeded) and session.cleanup:
+                shutil.rmtree(session.host_root, ignore_errors=True)
