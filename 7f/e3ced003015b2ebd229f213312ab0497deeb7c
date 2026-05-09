@@ -1,0 +1,26 @@
+packages/core/src/runsight_core/isolation/handlers.py
+  s_84135a0f36a549::t_84d7059c51f05f 18,204-237,243
+packages/core/src/runsight_core/isolation/__init__.py
+  s_84135a0f36a549::t_12d3fa7bd05914 29,31,70,72
+packages/core/src/runsight_core/isolation/workspace.py
+  s_84135a0f36a549::t_35fbddab88fbaa 11-12,14-16,806-1037,1040-1115,1119-1210
+  s_84135a0f36a549::t_0c844905366fa0 5,26-31,1038-1039,1116-1118
+pyproject.toml
+  s_84135a0f36a549::t_fb8de4710417a6 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "7fe3ced003015b2ebd229f213312ab0497deeb7c",
+  "prompts": {},
+  "sessions": {
+    "s_84135a0f36a549": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cbb-329e-7e02-aebb-822b27bfabca",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
