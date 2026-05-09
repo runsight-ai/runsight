@@ -1,4 +1,4 @@
-"""IsolatedBlockWrapper — wraps LLM blocks for subprocess execution."""
+"""IsolatedBlockWrapper — wraps LLM blocks for workspace harness execution."""
 
 from __future__ import annotations
 
@@ -65,12 +65,17 @@ def _get_soul(inner_block: BaseBlock) -> Any:
 
 def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
     if type(inner_block).__name__ == "DispatchBlock":
-        tools: list[Any] = []
+        tools_by_name: dict[str, Any] = {}
         for branch in getattr(inner_block, "branches", []):
             branch_soul = getattr(branch, "soul", None)
+            branch_tool_names: set[str] = set()
             for tool in getattr(branch_soul, "resolved_tools", None) or []:
-                tools.append(tool)
-        return tools
+                tool_name = str(tool.name)
+                if tool_name in branch_tool_names:
+                    raise ValueError(f"duplicate tool name in dispatch branch: {tool_name}")
+                branch_tool_names.add(tool_name)
+                tools_by_name.setdefault(tool_name, tool)
+        return list(tools_by_name.values())
     return list(getattr(soul, "resolved_tools", None) or [])
 
 
@@ -106,7 +111,7 @@ def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
 
 
 def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Normalize workflow results for the subprocess envelope.
+    """Normalize workflow results for the isolation envelope.
 
     WorkflowBlock output mappings may write plain strings/dicts back into
     ``state.results`` instead of BlockResult instances. The isolation envelope
@@ -240,11 +245,10 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
 
 
 class IsolatedBlockWrapper(BaseBlock):
-    """Wraps an LLM block to execute it in an isolated subprocess.
+    """Wraps an LLM block to execute it through the workspace isolation harness.
 
-    Delegates execution to ``_run_in_subprocess`` which sends a ContextEnvelope
-    and receives a ResultEnvelope.  The envelope is then mapped back onto
-    WorkflowState.
+    Delegates execution to ``_run_in_subprocess`` with a WorkspaceRunRequest and
+    maps the returned ResultEnvelope back onto WorkflowState.
     """
 
     def __init__(
@@ -268,9 +272,7 @@ class IsolatedBlockWrapper(BaseBlock):
         """Forward attribute access to the inner block for attributes not on the wrapper."""
         return getattr(self.inner_block, name)
 
-    async def _run_in_subprocess(
-        self, request: WorkspaceRunRequest | ContextEnvelope
-    ) -> ResultEnvelope:
+    async def _run_in_subprocess(self, request: WorkspaceRunRequest) -> ResultEnvelope:
         """Run the inner block through the configured workspace harness."""
         if self.harness is None:
             if self._harness_factory is None:
@@ -281,10 +283,10 @@ class IsolatedBlockWrapper(BaseBlock):
         return await self.harness.run(request)
 
     async def execute(self, ctx: "BlockContext") -> "BlockOutput":
-        """Execute the inner block through the subprocess isolation boundary.
+        """Execute the inner block through the workspace isolation boundary.
 
-        Builds a ContextEnvelope, executes the subprocess path, and maps the
-        ResultEnvelope back to BlockOutput.
+        Builds a WorkspaceRunRequest and maps the ResultEnvelope back to
+        BlockOutput.
         """
         from runsight_core.block_io import BlockOutput
 
@@ -368,7 +370,7 @@ class IsolatedBlockWrapper(BaseBlock):
         with suppress_declared_inputs_for_block(self.inner_block.block_id):
             result = await self._run_in_subprocess(request)
 
-        # Handle errors from the subprocess
+        # Handle errors from the workspace harness
         if result.error is not None:
             error_type = result.error_type or "BlockExecutionError"
             if error_type == "BudgetKilledException":
