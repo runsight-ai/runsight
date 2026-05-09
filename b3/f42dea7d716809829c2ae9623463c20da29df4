@@ -1,0 +1,28 @@
+packages/core/src/runsight_core/isolation/workspace.py
+  s_06bc47c8eb9abf::t_e811c67d468244 478-486,938-947,952-953,955,960-994
+packages/core/src/runsight_core/isolation/handlers.py
+  s_06bc47c8eb9abf::t_61494db6e9df5b 64,97
+  s_06bc47c8eb9abf::t_3301fcd75f3658 9,24-29,111,122-131,220-221,225-226,228,232-234,237-239,246-377
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_06bc47c8eb9abf::t_82c3359be24ec6 241-247
+pyproject.toml
+  s_06bc47c8eb9abf::t_4ed187d7efa714 3
+packages/core/src/runsight_core/tools/_catalog.py
+  s_06bc47c8eb9abf::t_72623c7c2f4b07 444,450-460
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b3f42dea7d716809829c2ae9623463c20da29df4",
+  "prompts": {},
+  "sessions": {
+    "s_06bc47c8eb9abf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d60-c612-79f2-877f-cc053aa65d09",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
