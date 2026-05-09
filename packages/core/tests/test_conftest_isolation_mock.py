@@ -12,7 +12,7 @@ Tests verify four properties of the corrected conftest:
 3. The patched UnixLocalHarness.run receives a WorkspaceRunRequest and returns
    a ResultEnvelope, proving the wrapper built the request before calling the
    harness.
-4. Tests marked real_subprocess_isolation are excluded from the mock and
+4. Tests marked real_workspace_runtime are excluded from the mock and
    exercise the real worker path. Filename prefixes are not the
    exclusion contract.
 """
@@ -405,8 +405,8 @@ class TestMockReturnsValidResultEnvelope:
 # ---------------------------------------------------------------------------
 
 
-class TestRealSubprocessMarkerContract:
-    """Only tests marked real_subprocess_isolation opt out of the subprocess mock."""
+class TestRealWorkspaceRuntimeMarkerContract:
+    """Only tests marked real_workspace_runtime opt out of the subprocess mock."""
 
     @staticmethod
     def _load_conftest_module():
@@ -423,7 +423,7 @@ class TestRealSubprocessMarkerContract:
     def _make_request(marker):
         class _Node:
             def get_closest_marker(self, name: str):
-                if name == "real_subprocess_isolation":
+                if name == "real_workspace_runtime":
                     return marker
                 return None
 
@@ -432,21 +432,21 @@ class TestRealSubprocessMarkerContract:
 
         return _Request()
 
-    def test_marker_constant_names_real_subprocess_isolation(self):
-        """The explicit opt-out contract is the real_subprocess_isolation marker."""
+    def test_marker_constant_names_real_workspace_runtime(self):
+        """The explicit opt-out contract is the real_workspace_runtime marker."""
         conftest_mod = self._load_conftest_module()
 
-        marker_name = getattr(conftest_mod, "_REAL_SUBPROCESS_ISOLATION_MARKER", None)
+        marker_name = getattr(conftest_mod, "_REAL_WORKSPACE_RUNTIME_MARKER", None)
 
-        assert marker_name == "real_subprocess_isolation", (
-            "conftest must expose the explicit real_subprocess_isolation marker "
+        assert marker_name == "real_workspace_runtime", (
+            "conftest must expose the explicit real_workspace_runtime marker "
             "as the subprocess bypass opt-out contract."
         )
 
     def test_marker_opt_out_helper_honors_marker_presence(self):
         """A test with the marker must skip the in-process subprocess bypass."""
         conftest_mod = self._load_conftest_module()
-        helper = conftest_mod._uses_real_subprocess_isolation
+        helper = conftest_mod._uses_real_workspace_runtime
         marker = object()
 
         assert helper(self._make_request(marker)) is True
@@ -454,7 +454,7 @@ class TestRealSubprocessMarkerContract:
     def test_marker_opt_out_helper_defaults_to_bypass_for_unmarked_tests(self):
         """An unmarked test must keep the global in-process subprocess bypass."""
         conftest_mod = self._load_conftest_module()
-        helper = conftest_mod._uses_real_subprocess_isolation
+        helper = conftest_mod._uses_real_workspace_runtime
 
         assert helper(self._make_request(None)) is False
 
@@ -464,7 +464,7 @@ class TestRealSubprocessMarkerContract:
 
         assert not hasattr(conftest_mod, "_ISOLATION_TEST_PREFIXES"), (
             "filename-prefix subprocess bypass exclusions are obsolete; "
-            "tests must opt out with @pytest.mark.real_subprocess_isolation."
+            "tests must opt out with @pytest.mark.real_workspace_runtime."
         )
 
         source = inspect.getsource(conftest_mod._bypass_subprocess_isolation)

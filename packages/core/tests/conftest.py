@@ -112,12 +112,28 @@ def block_output_from_state(block_id, before, after):
     )
 
 
-_REAL_SUBPROCESS_ISOLATION_MARKER = "real_subprocess_isolation"
+_REAL_WORKSPACE_RUNTIME_MARKER = "real_workspace_runtime"
+_LEGACY_REAL_SUBPROCESS_ISOLATION_MARKER = "real_subprocess_isolation"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "real_workspace_runtime: tests that must exercise the real Unix-local workspace runtime",
+    )
+
+
+def _uses_real_workspace_runtime(request: pytest.FixtureRequest) -> bool:
+    """Return whether a test explicitly opts into the real workspace runtime."""
+    return (
+        request.node.get_closest_marker(_REAL_WORKSPACE_RUNTIME_MARKER) is not None
+        or request.node.get_closest_marker(_LEGACY_REAL_SUBPROCESS_ISOLATION_MARKER) is not None
+    )
 
 
 def _uses_real_subprocess_isolation(request: pytest.FixtureRequest) -> bool:
-    """Return whether a test explicitly opts into the real subprocess boundary."""
-    return request.node.get_closest_marker(_REAL_SUBPROCESS_ISOLATION_MARKER) is not None
+    """Compatibility alias for older real-boundary tests."""
+    return _uses_real_workspace_runtime(request)
 
 
 @pytest.fixture(autouse=True)
@@ -130,10 +146,10 @@ def _bypass_subprocess_isolation(request, monkeypatch):
     is exercised while the worker launch is replaced with an in-process call
     to the inner block.
 
-    Tests that must exercise the real subprocess boundary opt out with the
-    real_subprocess_isolation marker.
+    Tests that must exercise the real workspace runtime opt out with the
+    real_workspace_runtime marker.
     """
-    if _uses_real_subprocess_isolation(request):
+    if _uses_real_workspace_runtime(request):
         return
 
     try:
