@@ -21,6 +21,15 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
+from runsight_core.isolation.workspace import (
+    HostToolExecutionRef,
+    HostToolExecutionRegistry,
+    WorkerToolRegistry,
+    WorkspaceHostBindings,
+    WorkspaceManifest,
+    WorkspacePolicy,
+    WorkspaceRunRequest,
+)
 from runsight_core.state import BlockResult
 
 if TYPE_CHECKING:
@@ -56,12 +65,12 @@ def _get_soul(inner_block: BaseBlock) -> Any:
 
 def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
     if type(inner_block).__name__ == "DispatchBlock":
-        tools_by_name: dict[str, Any] = {}
+        tools: list[Any] = []
         for branch in getattr(inner_block, "branches", []):
             branch_soul = getattr(branch, "soul", None)
             for tool in getattr(branch_soul, "resolved_tools", None) or []:
-                tools_by_name[tool.name] = tool
-        return list(tools_by_name.values())
+                tools.append(tool)
+        return tools
     return list(getattr(soul, "resolved_tools", None) or [])
 
 
@@ -205,6 +214,31 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
     return block_type, block_config
 
 
+def _workspace_policy() -> WorkspacePolicy:
+    return WorkspacePolicy(
+        network={"raw": "deny", "mediated": "allow"},
+        filesystem={"raw": "deny", "mediated": "workspace"},
+        credentials={"mode": "host-bound"},
+    )
+
+
+def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionRegistry:
+    return HostToolExecutionRegistry(
+        tools=[
+            HostToolExecutionRef(
+                name=tool.name,
+                tool=tool,
+                credential_refs=list(getattr(tool, "credential_refs", None) or []),
+                headers=dict(getattr(tool, "headers", None) or {}),
+                secret_config=dict(getattr(tool, "secret_config", None) or {}),
+                host_path=getattr(tool, "host_path", None),
+                policy_metadata=dict(getattr(tool, "policy_metadata", None) or {}),
+            )
+            for tool in resolved_tools
+        ]
+    )
+
+
 class IsolatedBlockWrapper(BaseBlock):
     """Wraps an LLM block to execute it in an isolated subprocess.
 
@@ -221,26 +255,30 @@ class IsolatedBlockWrapper(BaseBlock):
         harness: Any | None = None,
         harness_factory: Callable[[], Any] | None = None,
         retry_config: Optional[Any] = None,
+        api_keys: dict[str, str] | None = None,
     ):
         super().__init__(block_id, retry_config=retry_config)
         self.inner_block = inner_block
         self.soul = _get_soul(inner_block)
         self.harness = harness
         self._harness_factory = harness_factory
+        self._api_keys = dict(api_keys or {})
 
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the inner block for attributes not on the wrapper."""
         return getattr(self.inner_block, name)
 
-    async def _run_in_subprocess(self, envelope: ContextEnvelope) -> ResultEnvelope:
-        """Run the inner block in a subprocess via SubprocessHarness."""
+    async def _run_in_subprocess(
+        self, request: WorkspaceRunRequest | ContextEnvelope
+    ) -> ResultEnvelope:
+        """Run the inner block through the configured workspace harness."""
         if self.harness is None:
             if self._harness_factory is None:
                 raise NotImplementedError(
-                    "SubprocessHarness is not configured on IsolatedBlockWrapper"
+                    "Workspace harness is not configured on IsolatedBlockWrapper"
                 )
             self.harness = self._harness_factory()
-        return await self.harness.run(envelope)
+        return await self.harness.run(request)
 
     async def execute(self, ctx: "BlockContext") -> "BlockOutput":
         """Execute the inner block through the subprocess isolation boundary.
@@ -295,13 +333,8 @@ class IsolatedBlockWrapper(BaseBlock):
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)
-
-        if (
-            self.harness is not None
-            and soul is not None
-            and hasattr(self.harness, "_resolved_tools")
-        ):
-            self.harness._resolved_tools = {tool.name: tool for tool in resolved_tools}
+        host_tools = _build_host_tool_registry(resolved_tools)
+        worker_tools = WorkerToolRegistry.from_host_registry(host_tools).tools
 
         envelope = ContextEnvelope(
             block_id=self.block_id,
@@ -321,9 +354,19 @@ class IsolatedBlockWrapper(BaseBlock):
             timeout_seconds=300,
             max_output_bytes=1_000_000,
         )
+        request = WorkspaceRunRequest(
+            envelope=envelope,
+            manifest=WorkspaceManifest(materializations=[], working_dir="."),
+            policy=_workspace_policy(),
+            worker_tools=worker_tools,
+            host_bindings=WorkspaceHostBindings(
+                api_keys=dict(self._api_keys),
+                host_tools=host_tools,
+            ),
+        )
 
         with suppress_declared_inputs_for_block(self.inner_block.block_id):
-            result = await self._run_in_subprocess(envelope)
+            result = await self._run_in_subprocess(request)
 
         # Handle errors from the subprocess
         if result.error is not None:

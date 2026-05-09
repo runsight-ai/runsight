@@ -1177,14 +1177,13 @@ def _wrap_llm_blocks_with_isolation(
     api_keys: Optional[Dict[str, str]],
 ) -> None:
     """Wrap LLM blocks with IsolatedBlockWrapper (Step 6.5a — structural replacement)."""
-    from runsight_core.isolation.harness import SubprocessHarness
+    from runsight_core.isolation.workspace import UnixLocalHarness
     from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
 
     for block_id, block_def in file_def.blocks.items():
         if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
             inner = built_blocks[block_id]
-            harness = SubprocessHarness(
-                api_keys=dict(api_keys or {}),
+            harness = UnixLocalHarness(
                 timeout_seconds=block_def.timeout_seconds,
                 stall_thresholds=dict(block_def.stall_thresholds or {}),
             )
@@ -1193,6 +1192,7 @@ def _wrap_llm_blocks_with_isolation(
                 inner_block=inner,
                 harness=harness,
                 retry_config=inner.retry_config,
+                api_keys=dict(api_keys or {}),
             )
             wrapper.assertions = getattr(inner, "assertions", None)
             wrapper.exit_conditions = getattr(inner, "exit_conditions", None)

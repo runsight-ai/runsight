@@ -18,7 +18,14 @@ from runsight_core.assertions.base import (
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.isolation.envelope import ContextEnvelope, PromptEnvelope, SoulEnvelope
-from runsight_core.isolation.harness import SubprocessHarness
+from runsight_core.isolation.workspace import (
+    HostToolExecutionRegistry,
+    UnixLocalHarness,
+    WorkspaceHostBindings,
+    WorkspaceManifest,
+    WorkspacePolicy,
+    WorkspaceRunRequest,
+)
 
 if TYPE_CHECKING:
     from runsight_core.yaml.discovery import AssertionMeta, ScanIndex
@@ -197,10 +204,24 @@ async def _run_smart_llm_assertion(
     context: AssertionContext,
     api_keys: dict[str, str],
 ) -> GradingResult:
-    """Run an llm_judge assertion through the subprocess harness."""
-    harness = SubprocessHarness(api_keys=dict(api_keys))
+    """Run an llm_judge assertion through the workspace harness."""
+    harness = UnixLocalHarness()
     envelope = _build_assertion_envelope(cfg=cfg, output=output, context=context)
-    result = await harness.run(envelope)
+    request = WorkspaceRunRequest(
+        envelope=envelope,
+        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        policy=WorkspacePolicy(
+            network={"raw": "deny", "mediated": "allow"},
+            filesystem={"raw": "deny", "mediated": "workspace"},
+            credentials={"mode": "host-bound"},
+        ),
+        worker_tools=[],
+        host_bindings=WorkspaceHostBindings(
+            api_keys=dict(api_keys),
+            host_tools=HostToolExecutionRegistry(tools=[]),
+        ),
+    )
+    result = await harness.run(request)
 
     if result.error:
         raise RuntimeError(result.error)
