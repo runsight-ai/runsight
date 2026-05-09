@@ -141,6 +141,12 @@ class _HostToolDeniedHarness(UnixLocalHarness):
         return await super().run(request)
 
 
+class _WorkerToolDeniedHarness(UnixLocalHarness):
+    async def run(self, request: WorkspaceRunRequest):
+        request = request.model_copy(update={"worker_tools": []})
+        return await super().run(request)
+
+
 class _RequestRecordingHarness(UnixLocalHarness):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -782,6 +788,80 @@ async def test_unknown_host_tool_returns_structured_error_to_worker(
     assert tool_results == [
         {"error": {"code": "tool_not_found", "tool": "lookup_profile"}},
     ]
+    _assert_worker_env_is_ipc_only(launcher)
+    assert not workspace_root.exists()
+
+
+@pytest.mark.asyncio
+async def test_host_only_tool_returns_structured_error_and_does_not_execute(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_real_workspace_runtime_fixture_active()
+    tool_results = _patch_tool_call_recorder(monkeypatch)
+    tool_calls: list[dict[str, Any]] = []
+
+    async def execute_lookup(args: dict[str, Any]) -> dict[str, Any]:
+        tool_calls.append(args)
+        raise AssertionError("host-only lookup_profile must not execute")
+
+    def responder(payload: dict[str, Any], call_number: int) -> dict[str, Any]:
+        if call_number == 1:
+            return {
+                "content": "",
+                "cost_usd": 0.01,
+                "prompt_tokens": 5,
+                "completion_tokens": 1,
+                "total_tokens": 6,
+                "tool_calls": [
+                    {
+                        "id": "call_lookup",
+                        "type": "function",
+                        "function": {
+                            "name": "lookup_profile",
+                            "arguments": json.dumps({"name": "Ada"}),
+                        },
+                    }
+                ],
+                "finish_reason": "tool_calls",
+            }
+        assert "tool_not_found" in payload["messages"][-1]["content"]
+        return {
+            "content": "handled host-only tool",
+            "cost_usd": 0.01,
+            "prompt_tokens": 5,
+            "completion_tokens": 2,
+            "total_tokens": 7,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
+
+    _patch_llm_stream(monkeypatch, responder)
+    harness, launcher, workspace_root = _harness(
+        tmp_path,
+        harness_cls=_WorkerToolDeniedHarness,
+    )
+    workflow, wrapper = _parse_with_harness(
+        _workflow_yaml(),
+        base_dir=tmp_path,
+        harness=harness,
+    )
+    wrapper.soul.resolved_tools = [
+        ToolInstance(
+            name="lookup_profile",
+            description="Lookup a test profile.",
+            parameters={"type": "object", "properties": {"name": {"type": "string"}}},
+            execute=execute_lookup,
+        )
+    ]
+
+    state = await workflow.run(WorkflowState())
+
+    assert state.results["draft"].output == "handled host-only tool"
+    assert tool_results == [
+        {"error": {"code": "tool_not_found", "tool": "lookup_profile"}},
+    ]
+    assert tool_calls == []
     _assert_worker_env_is_ipc_only(launcher)
     assert not workspace_root.exists()
 
