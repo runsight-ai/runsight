@@ -1,0 +1,21 @@
+packages/core/tests/test_workspace_runtime_removal_governance.py
+  s_a58f56a33f1ed9::t_548f70c957cff2 39,98,102
+  s_a58f56a33f1ed9::t_7bc0e809a73b0c 41-61,65-67,69-71,94,96-97,99-101,103-104,120,122
+  s_a58f56a33f1ed9::t_9e403b286d331f 62-64,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "95789f85a2145a744a8e1147202e2cf20ce6f32d",
+  "prompts": {},
+  "sessions": {
+    "s_a58f56a33f1ed9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cf7-48dc-7c31-a2f4-16a909547890",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
