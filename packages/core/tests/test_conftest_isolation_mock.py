@@ -6,7 +6,8 @@ so the wrapper's request construction and result mapping are exercised.
 
 Tests verify four properties of the corrected conftest:
 
-1. IsolatedBlockWrapper.execute is NOT patched — it must be the real method.
+1. IsolatedBlockWrapper.execute and _run_in_subprocess are NOT patched — they
+   must be the real wrapper.py methods.
 2. UnixLocalHarness.run IS patched — the conftest patches at the workspace
    harness level.
 3. The patched UnixLocalHarness.run receives a WorkspaceRunRequest and returns
@@ -118,6 +119,22 @@ class TestWrapperExecuteIsNotPatched:
         assert source_file.endswith("wrapper.py"), (
             f"IsolatedBlockWrapper.execute (original) is defined in '{source_file}', "
             "expected 'wrapper.py'. The conftest has replaced it."
+        )
+
+    def test_run_in_subprocess_is_the_real_wrapper_implementation(self):
+        """The private wrapper boundary must remain the real wrapper.py method."""
+        method = IsolatedBlockWrapper._run_in_subprocess
+        source_file = inspect.getfile(method)
+        source = inspect.getsource(method)
+
+        assert source_file.endswith("wrapper.py"), (
+            f"IsolatedBlockWrapper._run_in_subprocess is defined in '{source_file}', "
+            "expected 'wrapper.py'. The conftest must not patch this private boundary."
+        )
+        assert "return await self.harness.run(request)" in source, (
+            "The real _run_in_subprocess implementation delegates to harness.run. "
+            "If this assertion fails, ordinary tests may be bypassing the workspace "
+            "harness boundary."
         )
 
 
@@ -245,6 +262,47 @@ class TestWrapperBuildsRequestBeforeCallingHarness:
             "WorkspaceRunRequest.envelope.block_id is '%s', expected 'context_envelope_block'. "
             "The wrapper execute path may be patched." % received[0].envelope.block_id
         )
+
+    @pytest.mark.asyncio
+    async def test_unmarked_wrapper_call_reaches_unix_local_harness_run(
+        self,
+        helper_souls_map,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """In ordinary tests the wrapper must reach UnixLocalHarness.run."""
+        from runsight_core.blocks.linear import LinearBlock
+        from runsight_core.state import WorkflowState
+
+        soul = helper_souls_map["helper_analyst"]
+        inner_block = LinearBlock(
+            block_id="ordinary_workspace_boundary_block",
+            soul=soul,
+            runner=_make_mock_runner(),
+        )
+
+        received: list[WorkspaceRunRequest] = []
+
+        async def _capture_run(
+            _self: UnixLocalHarness,
+            request: WorkspaceRunRequest,
+        ) -> ResultEnvelope:
+            received.append(request)
+            return _make_result_envelope(block_id=request.envelope.block_id)
+
+        monkeypatch.setattr(UnixLocalHarness, "run", _capture_run)
+        wrapper = IsolatedBlockWrapper(
+            block_id="ordinary_workspace_boundary_block",
+            inner_block=inner_block,
+            harness=UnixLocalHarness(),
+        )
+
+        await wrapper.execute(_make_ctx(wrapper, WorkflowState()))
+
+        assert len(received) == 1, (
+            "The wrapper call did not reach UnixLocalHarness.run. "
+            "The conftest may be patching _run_in_subprocess or another wrapper-private boundary."
+        )
+        assert isinstance(received[0], WorkspaceRunRequest)
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +551,10 @@ class TestRealWorkspaceRuntimeMarkerContract:
         assert 'IsolatedBlockWrapper, "execute"' not in source, (
             "conftest still patches IsolatedBlockWrapper.execute. "
             "It must patch UnixLocalHarness.run instead."
+        )
+        assert 'IsolatedBlockWrapper, "_run_in_subprocess"' not in source, (
+            "conftest still patches IsolatedBlockWrapper._run_in_subprocess. "
+            "Ordinary-test bypass must patch UnixLocalHarness.run instead."
         )
         assert "UnixLocalHarness" in source and '"run"' in source, (
             "conftest does not appear to patch UnixLocalHarness.run. "

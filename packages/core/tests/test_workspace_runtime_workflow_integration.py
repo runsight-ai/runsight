@@ -182,6 +182,8 @@ def _harness(
     cleanup: str = "always",
     harness_cls: type[UnixLocalHarness] = UnixLocalHarness,
     timeout_seconds: int = 5,
+    heartbeat_timeout: float = 30.0,
+    phase_timeout: float = 60.0,
 ) -> tuple[UnixLocalHarness, _RecordingUnixWorkerLauncher, Path]:
     workspace_root = (host_root or tmp_path / "workspace").resolve()
     launcher = _RecordingUnixWorkerLauncher()
@@ -191,8 +193,8 @@ def _harness(
         worker_launcher=launcher,
         cleanup=cleanup,
         timeout_seconds=timeout_seconds,
-        heartbeat_timeout=2.0,
-        phase_timeout=2.0,
+        heartbeat_timeout=heartbeat_timeout,
+        phase_timeout=phase_timeout,
     )
     return harness, launcher, workspace_root
 

@@ -5,7 +5,6 @@ Shared test infrastructure for runsight_core tests.
 import asyncio
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from runsight_core.primitives import Soul
@@ -142,9 +141,9 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
     Production code spawns a real worker via the workspace harness where
     parent-process mocks are invisible.  This patches UnixLocalHarness.run so
-    the wrapper's real execute() path (request construction, result mapping)
-    is exercised while the worker launch is replaced with an in-process call
-    to the inner block.
+    the wrapper's real execute() and _run_in_subprocess paths (request
+    construction, harness delegation, result mapping) are exercised while the
+    worker launch is replaced with an in-process worker simulation.
 
     Tests that must exercise the real workspace runtime opt out with the
     real_workspace_runtime marker.
@@ -154,137 +153,176 @@ def _bypass_subprocess_isolation(request, monkeypatch):
 
     try:
         from runsight_core.isolation.envelope import (
-            ContextEnvelope,
             DelegateArtifact,
             ResultEnvelope,
         )
-        from runsight_core.isolation.workspace import UnixLocalHarness, WorkspaceRunRequest
-        from runsight_core.isolation.wrapper import IsolatedBlockWrapper
+        from runsight_core.isolation.workspace import (
+            UnixLocalHarness,
+            WorkspaceMaterializer,
+            WorkspaceRunRequest,
+        )
     except ImportError:
         return
 
-    def _envelope_from_request(request: WorkspaceRunRequest | ContextEnvelope) -> ContextEnvelope:
-        return request.envelope if isinstance(request, WorkspaceRunRequest) else request
+    class _InProcessIPCClient:
+        """Tiny IPC client facade backed by the harness's host-side handlers."""
 
-    async def _in_process_workspace_run(
-        self, request: WorkspaceRunRequest | ContextEnvelope
-    ) -> ResultEnvelope:
-        """No-op replacement for UnixLocalHarness.run.
+        def __init__(self, handlers):
+            self._handlers = handlers
 
-        Real execution is handled by the patched _run_in_subprocess which
-        calls the inner block directly when the harness is a production
-        workspace harness.  This stub exists so that UnixLocalHarness.run is
-        patched away from the real worker implementation.
-        """
-        envelope = _envelope_from_request(request)
-        return ResultEnvelope(
-            block_id=envelope.block_id,
-            output="",
-            exit_handle="default",
-            cost_usd=0.0,
-            total_tokens=0,
-            tool_calls_made=0,
-            delegate_artifacts={},
-            conversation_history=[],
-            error=None,
-            error_type=None,
-        )
+        async def request(self, name, payload):
+            handler = self._handlers[name]
+            result = handler(payload)
+            if hasattr(result, "__await__"):
+                return await result
+            return result
 
-    async def _patched_run_in_subprocess(
-        self: IsolatedBlockWrapper, request: WorkspaceRunRequest | ContextEnvelope
-    ) -> ResultEnvelope:
-        """Execute in-process when harness is real, forward when harness is a test mock.
+        async def request_stream(self, name, payload):
+            handler = self._handlers[name]
+            stream = handler(payload)
+            if hasattr(stream, "__await__"):
+                stream = await stream
+            async for chunk in stream:
+                yield chunk
 
-        When the wrapper's harness is a real workspace harness, this calls the
-        inner block directly so litellm mocks in the parent process are visible.
-        When the harness is a test-supplied mock (e.g. AsyncMock), it forwards
-        to harness.run so test assertions on the mock work correctly.
-        """
-        if self.harness is None:
-            if self._harness_factory is None:
-                raise NotImplementedError(
-                    "Workspace harness is not configured on IsolatedBlockWrapper"
-                )
-            self.harness = self._harness_factory()
+        async def connect(self):
+            return {"accepted": True, "error": None}
 
-        if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
-            return await self.harness.run(request)
+        async def close(self):
+            return None
 
-        envelope = _envelope_from_request(request)
-
-        from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
+    async def _in_process_workspace_run(self: UnixLocalHarness, request: WorkspaceRunRequest):
+        """Run the worker logic in-process at the workspace harness boundary."""
+        from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
-        from runsight_core.state import BlockResult, WorkflowState
+        from runsight_core.isolation import worker_proxies as _proxies
+        from runsight_core.isolation import worker_support as _support
+        from runsight_core.state import BlockResult
 
-        results: dict[str, BlockResult] = {}
-        for key, val in envelope.scoped_results.items():
-            if isinstance(val, dict):
-                results[key] = BlockResult(
-                    output=val.get("output", ""),
-                    exit_handle=val.get("exit_handle"),
-                )
-            else:
-                results[key] = BlockResult(output=str(val))
+        session = self._session_factory.create(request.manifest, request.policy)
+        session = WorkspaceMaterializer(session).materialize(request.manifest)
+        envelope = self._worker_envelope(request)
+        ipc_client = _InProcessIPCClient(self._build_ipc_handlers(request=request, session=session))
 
-        state = WorkflowState(
-            results=results,
-            shared_memory=dict(envelope.scoped_shared_memory),
-        )
-
-        active_budget = _active_budget.get(None)
-        if isinstance(active_budget, BudgetSession):
-            active_budget.check_or_raise(block_id=envelope.block_id)
-
-        budget_token = _active_budget.set(None)
         try:
-            block_ctx = build_block_context(self.inner_block, state)
-            block_ctx = block_ctx.model_copy(
-                update={"inputs": {**block_ctx.inputs, **dict(envelope.inputs)}}
+            resolved_tools = _proxies.create_tool_stubs(envelope.tools, ipc_client=ipc_client)
+            soul = _support.reconstruct_soul(envelope.soul, resolved_tools=resolved_tools)
+            runner = _proxies.create_runner(
+                model_name=envelope.soul.model_name,
+                ipc_client=ipc_client,
             )
-            raw_output = await self.inner_block.execute(block_ctx)
-            if isinstance(raw_output, WorkflowState):
-                result_state = raw_output
-            elif isinstance(raw_output, BlockOutput):
-                result_state = apply_block_output(state, self.inner_block.block_id, raw_output)
-            else:
-                result_state = state
+            state = _support.build_scoped_state(envelope)
+
+            history_key = f"{envelope.block_id}_{envelope.soul.id}"
+            history = state.conversation_histories.get(history_key, [])
+            budgeted_history = history
+            if history:
+                budgeted_history = _support.build_budgeted_history(
+                    model=envelope.soul.model_name,
+                    system_prompt=soul.system_prompt,
+                    instruction=envelope.prompt.instruction,
+                    conversation_history=history,
+                )
+
+            active_budget = _active_budget.get(None)
+            if isinstance(active_budget, BudgetSession):
+                active_budget.check_or_raise(block_id=envelope.block_id)
+
+            budget_token = _active_budget.set(None)
+            try:
+                block = _support._create_block(envelope, soul, runner)
+                block_type = _support._BLOCK_TYPE_MAP.get(
+                    envelope.block_type.lower(),
+                    envelope.block_type.lower(),
+                )
+                if block_type == "assertion":
+                    raw_context = envelope.prompt.context
+                    context_text = (
+                        raw_context.get("text") if isinstance(raw_context, dict) else None
+                    )
+                    block_ctx = BlockContext(
+                        block_id=envelope.block_id,
+                        instruction=envelope.prompt.instruction,
+                        context=context_text,
+                        inputs=dict(envelope.inputs),
+                        conversation_history=budgeted_history,
+                        soul=soul,
+                        model_name=envelope.soul.model_name,
+                        state_snapshot=state,
+                    )
+                else:
+                    base_ctx = build_block_context(block, state)
+                    block_ctx = base_ctx.model_copy(
+                        update={
+                            "inputs": {**base_ctx.inputs, **dict(envelope.inputs)},
+                            "conversation_history": budgeted_history,
+                        }
+                    )
+                block_output = await block.execute(block_ctx)
+            finally:
+                _active_budget.reset(budget_token)
+
+            if not isinstance(block_output, BlockOutput):
+                return ResultEnvelope(
+                    block_id=envelope.block_id,
+                    output=None,
+                    exit_handle="error",
+                    cost_usd=0.0,
+                    total_tokens=0,
+                    tool_calls_made=0,
+                    delegate_artifacts={},
+                    conversation_history=[],
+                    error=f"worker block returned {type(block_output).__name__}",
+                    error_type="TypeError",
+                )
+
+            if isinstance(active_budget, BudgetSession):
+                active_budget.accrue(
+                    cost_usd=block_output.cost_usd,
+                    tokens=block_output.total_tokens,
+                )
+
+            delegate_artifacts: dict[str, DelegateArtifact] = {}
+            if block_type == "dispatch" and block_output.extra_results:
+                port_prefix = f"{envelope.block_id}."
+                for key, val in block_output.extra_results.items():
+                    if key.startswith(port_prefix):
+                        port = key[len(port_prefix) :]
+                        output_text = val.output if isinstance(val, BlockResult) else str(val)
+                        delegate_artifacts[port] = DelegateArtifact(prompt=output_text)
+
+            conversation_history = list(budgeted_history)
+            if (
+                block_output.conversation_updates
+                and history_key in block_output.conversation_updates
+            ):
+                conversation_history += block_output.conversation_updates[history_key]
+            elif (
+                block_output.conversation_replacements
+                and history_key in block_output.conversation_replacements
+            ):
+                conversation_history = block_output.conversation_replacements[history_key]
+
+            return ResultEnvelope(
+                block_id=envelope.block_id,
+                output=block_output.output if block_output.output else None,
+                exit_handle=block_output.exit_handle or "done",
+                cost_usd=block_output.cost_usd,
+                total_tokens=block_output.total_tokens,
+                tool_calls_made=0,
+                delegate_artifacts=delegate_artifacts,
+                conversation_history=conversation_history,
+                error=None,
+                error_type=None,
+            )
         finally:
-            _active_budget.reset(budget_token)
-
-        if isinstance(active_budget, BudgetSession):
-            active_budget.accrue(
-                cost_usd=result_state.total_cost_usd,
-                tokens=result_state.total_tokens,
-            )
-
-        block_result = result_state.results.get(self.inner_block.block_id, BlockResult(output=""))
-
-        # Extract delegate artifacts (dispatch block per-port results).
-        delegate_artifacts: dict[str, DelegateArtifact] = {}
-        port_prefix = f"{self.inner_block.block_id}."
-        for key, val in result_state.results.items():
-            if key.startswith(port_prefix):
-                port = key[len(port_prefix) :]
-                output_text = val.output if isinstance(val, BlockResult) else str(val)
-                delegate_artifacts[port] = DelegateArtifact(prompt=output_text)
-
-        # Mirror the real worker: successful isolated blocks default to "done"
-        # when the inner block does not emit an explicit exit handle.
-        return SimpleNamespace(
-            block_id=envelope.block_id,
-            output=block_result.output,
-            exit_handle=block_result.exit_handle or "done",
-            cost_usd=result_state.total_cost_usd,
-            total_tokens=result_state.total_tokens,
-            tool_calls_made=0,
-            delegate_artifacts=delegate_artifacts,
-            conversation_history=[],
-            error=None,
-            error_type=None,
-        )
+            if self._should_cleanup(succeeded=True):
+                try:
+                    session.host_root.rmdir()
+                except OSError:
+                    pass
 
     monkeypatch.setattr(UnixLocalHarness, "run", _in_process_workspace_run)
-    monkeypatch.setattr(IsolatedBlockWrapper, "_run_in_subprocess", _patched_run_in_subprocess)
 
 
 def make_test_yaml(steps_yaml: str) -> str:
