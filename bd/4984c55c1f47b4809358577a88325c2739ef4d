@@ -1,0 +1,38 @@
+apps/site/src/content/docs/docs/execution/running-workflows.md
+  s_e43f30b246c4ad::t_cc30af72040dd9 36
+packages/core/tests/assertions/test_assertion_isolation.py
+  s_e43f30b246c4ad::t_cc30af72040dd9 1
+pyproject.toml
+  s_e43f30b246c4ad::t_cc30af72040dd9 3
+apps/api/tests/test_conftest_workspace_harness_mock.py
+  s_e43f30b246c4ad::t_cc30af72040dd9 19
+packages/core/tests/test_isolation_boundary_integration.py
+  s_e43f30b246c4ad::t_b8a1837f66094a 14,88
+  s_e43f30b246c4ad::t_f17b0fb1d37b98 6
+  s_e43f30b246c4ad::t_cc30af72040dd9 1,89-94
+tools/test-audit/full-test-cleanup-map.tsv
+  s_e43f30b246c4ad::t_cc30af72040dd9 326
+packages/core/src/runsight_core/assertions/registry.py
+  s_e43f30b246c4ad::t_8b41076142f011 236
+packages/core/tests/isolation_harness_helpers.py
+  s_e43f30b246c4ad::t_cc30af72040dd9 1
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_e43f30b246c4ad::t_10834224db65ab 34-35
+  s_e43f30b246c4ad::t_cc30af72040dd9 274,279,288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "bd4984c55c1f47b4809358577a88325c2739ef4d",
+  "prompts": {},
+  "sessions": {
+    "s_e43f30b246c4ad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cfc-54b7-7151-867a-608e3fc0085e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
