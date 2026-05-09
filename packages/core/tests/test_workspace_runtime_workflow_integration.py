@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 from isolation_harness_helpers import _make_context_envelope
 from pydantic import ValidationError
+from runsight_core import isolation
 from runsight_core.isolation import (
     HostToolExecutionRegistry,
     IsolatedBlockWrapper,
@@ -41,11 +42,71 @@ pytestmark = pytest.mark.real_workspace_runtime
 class _RecordingUnixWorkerLauncher:
     def __init__(self) -> None:
         self.specs: list[WorkerLaunchSpec] = []
+        self.stdin_payloads: list[list[bytes]] = []
         self._launcher = UnixWorkerLauncher()
 
     async def launch(self, spec: WorkerLaunchSpec):
         self.specs.append(spec)
-        return await self._launcher.launch(spec)
+        process = await self._launcher.launch(spec)
+        if process.stdin is not None:
+            captured: list[bytes] = []
+            self.stdin_payloads.append(captured)
+            return _RecordingProcessHandle(
+                process,
+                stdin=_RecordingStdinProxy(process.stdin, captured),
+            )
+        return process
+
+
+class _RecordingProcessHandle:
+    def __init__(self, delegate: Any, *, stdin: Any) -> None:
+        self._delegate = delegate
+        self._stdin = stdin
+
+    @property
+    def pid(self) -> int:
+        return self._delegate.pid
+
+    @property
+    def returncode(self) -> int | None:
+        return self._delegate.returncode
+
+    @property
+    def stdin(self) -> Any:
+        return self._stdin
+
+    @property
+    def stdout(self) -> Any:
+        return self._delegate.stdout
+
+    @property
+    def stderr(self) -> Any:
+        return self._delegate.stderr
+
+    async def wait(self) -> int:
+        return await self._delegate.wait()
+
+    async def terminate(self) -> None:
+        await self._delegate.terminate()
+
+    async def kill(self) -> None:
+        await self._delegate.kill()
+
+
+class _RecordingStdinProxy:
+    def __init__(self, delegate: Any, captured: list[bytes]) -> None:
+        self._delegate = delegate
+        self._captured = captured
+
+    def write(self, payload: bytes) -> None:
+        self._captured.append(bytes(payload))
+        self._delegate.write(payload)
+
+    async def drain(self) -> None:
+        await self._delegate.drain()
+
+    def close(self) -> None:
+        self._delegate.close()
 
 
 class _LaunchForbidden:
@@ -80,9 +141,20 @@ class _HostToolDeniedHarness(UnixLocalHarness):
         return await super().run(request)
 
 
+class _RequestRecordingHarness(UnixLocalHarness):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.requests: list[WorkspaceRunRequest] = []
+
+    async def run(self, request: WorkspaceRunRequest):
+        self.requests.append(request)
+        return await super().run(request)
+
+
 def _assert_real_workspace_runtime_fixture_active() -> None:
     assert inspect.getfile(WrapperClass._run_in_subprocess).endswith("wrapper.py")
     assert "worker_launcher" in inspect.getsource(HarnessClass.run)
+    assert not hasattr(isolation, "SubprocessHarness")
 
 
 def _workflow_yaml(
@@ -226,6 +298,13 @@ def _assert_worker_env_is_ipc_only(launcher: _RecordingUnixWorkerLauncher) -> No
     assert "RUNSIGHT_GRANT_TOKEN" not in worker_env
     assert "RUNSIGHT_IPC_SOCKET" not in worker_env
     assert "sk-host-only-runtime-test" not in serialized
+
+
+def _worker_envelope_from_stdin(launcher: _RecordingUnixWorkerLauncher) -> dict[str, Any]:
+    assert launcher.stdin_payloads, "worker stdin was not recorded"
+    raw_payload = b"".join(launcher.stdin_payloads[0]).decode("utf-8")
+    first_line = raw_payload.splitlines()[0]
+    return json.loads(first_line)
 
 
 @pytest.mark.asyncio
@@ -388,6 +467,125 @@ async def test_tool_workflow_requires_worker_and_host_authorization(
 
 
 @pytest.mark.asyncio
+async def test_worker_launch_receives_sanitized_tool_metadata_and_host_only_secrets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_real_workspace_runtime_fixture_active()
+    tool_calls: list[dict[str, Any]] = []
+
+    async def execute_lookup(args: dict[str, Any]) -> dict[str, Any]:
+        tool_calls.append(args)
+        return {"profile": f"verified:{args['subject']}"}
+
+    def responder(payload: dict[str, Any], call_number: int) -> dict[str, Any]:
+        if call_number == 1:
+            return {
+                "content": "",
+                "cost_usd": 0.02,
+                "prompt_tokens": 6,
+                "completion_tokens": 1,
+                "total_tokens": 7,
+                "tool_calls": [
+                    {
+                        "id": "call_secure_lookup",
+                        "type": "function",
+                        "function": {
+                            "name": "secure_lookup",
+                            "arguments": json.dumps({"subject": "Ada"}),
+                        },
+                    }
+                ],
+                "finish_reason": "tool_calls",
+            }
+        assert payload["messages"][-1]["role"] == "tool"
+        assert "verified:Ada" in payload["messages"][-1]["content"]
+        return {
+            "content": "secure lookup complete",
+            "cost_usd": 0.03,
+            "prompt_tokens": 8,
+            "completion_tokens": 2,
+            "total_tokens": 10,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
+
+    captured_llm = _patch_llm_stream(monkeypatch, responder)
+    host_path = (tmp_path / "host-only" / "secure_lookup.py").resolve()
+    secret_tool = ToolInstance(
+        name="secure_lookup",
+        description="Lookup a subject through a host-only system.",
+        parameters={
+            "type": "object",
+            "properties": {"subject": {"type": "string"}},
+            "required": ["subject"],
+        },
+        execute=execute_lookup,
+    )
+    secret_tool.credential_refs = ["vault://providers/lookup"]
+    secret_tool.headers = {"Authorization": "Bearer host-tool-token"}
+    secret_tool.secret_config = {"api_key": "tool-secret-config"}
+    secret_tool.host_path = str(host_path)
+    secret_tool.config = {
+        "credential_refs": ["vault://providers/lookup"],
+        "headers": {"Authorization": "Bearer host-tool-token"},
+        "secret_config": {"api_key": "tool-secret-config"},
+        "host_path": str(host_path),
+    }
+    secret_tool.source = str(host_path)
+    secret_tool.policy_metadata = {"classification": "test-safe"}
+
+    harness, launcher, workspace_root = _harness(
+        tmp_path,
+        harness_cls=_RequestRecordingHarness,
+    )
+    assert isinstance(harness, _RequestRecordingHarness)
+    workflow, wrapper = _parse_with_harness(
+        _workflow_yaml(),
+        base_dir=tmp_path,
+        harness=harness,
+    )
+    wrapper.soul.resolved_tools = [secret_tool]
+
+    state = await workflow.run(WorkflowState())
+
+    assert state.results["draft"].output == "secure lookup complete"
+    assert tool_calls == [{"subject": "Ada"}]
+    assert captured_llm["api_keys"] == {"openai": "sk-host-only-runtime-test"}
+    assert len(harness.requests) == 1
+
+    request = harness.requests[0]
+    assert request.host_bindings is not None
+    [host_ref] = request.host_bindings.host_tools.tools
+    assert host_ref.tool is secret_tool
+    assert host_ref.credential_refs == ["vault://providers/lookup"]
+    assert host_ref.headers == {"Authorization": "Bearer host-tool-token"}
+    assert host_ref.secret_config == {"api_key": "tool-secret-config"}
+    assert Path(host_ref.host_path) == host_path
+
+    _assert_worker_env_is_ipc_only(launcher)
+    worker_envelope = _worker_envelope_from_stdin(launcher)
+    serialized_worker_payload = json.dumps(worker_envelope, sort_keys=True)
+    assert "sk-host-only-runtime-test" not in serialized_worker_payload
+    assert "Bearer host-tool-token" not in serialized_worker_payload
+    assert "tool-secret-config" not in serialized_worker_payload
+    assert "vault://providers/lookup" not in serialized_worker_payload
+    assert str(host_path) not in serialized_worker_payload
+
+    [worker_tool] = worker_envelope["tools"]
+    assert worker_tool["name"] == "secure_lookup"
+    assert worker_tool["source"] == "host"
+    assert worker_tool["tool_type"] == "host"
+    assert worker_tool["config"] == {"policy_metadata": {"classification": "test-safe"}}
+    assert "execute" not in worker_tool
+    assert "credential_refs" not in worker_tool
+    assert "headers" not in worker_tool
+    assert "secret_config" not in worker_tool
+    assert "host_path" not in worker_tool
+    assert not workspace_root.exists()
+
+
+@pytest.mark.asyncio
 async def test_file_tool_writes_under_canonical_workspace_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -451,6 +649,72 @@ async def test_file_tool_writes_under_canonical_workspace_root(
     assert written.read_text(encoding="utf-8") == "file output"
     assert is_path_within_base(workspace_root, written)
     assert not (tmp_path / "reports" / "result.txt").exists()
+    _assert_worker_env_is_ipc_only(launcher)
+
+
+@pytest.mark.asyncio
+async def test_file_tool_rejects_workspace_escape_before_host_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_real_workspace_runtime_fixture_active()
+    workspace_root = (tmp_path / "canonical-workspace").resolve()
+    escaped = tmp_path / "escape.txt"
+
+    def responder(payload: dict[str, Any], call_number: int) -> dict[str, Any]:
+        if call_number == 1:
+            return {
+                "content": "",
+                "cost_usd": 0.01,
+                "prompt_tokens": 5,
+                "completion_tokens": 1,
+                "total_tokens": 6,
+                "tool_calls": [
+                    {
+                        "id": "call_file_escape",
+                        "type": "function",
+                        "function": {
+                            "name": "file_io",
+                            "arguments": json.dumps(
+                                {
+                                    "action": "write",
+                                    "path": "../escape.txt",
+                                    "content": "escaped",
+                                }
+                            ),
+                        },
+                    }
+                ],
+                "finish_reason": "tool_calls",
+            }
+        assert "Tool 'file_io' failed" in payload["messages"][-1]["content"]
+        return {
+            "content": "file escape blocked",
+            "cost_usd": 0.01,
+            "prompt_tokens": 5,
+            "completion_tokens": 2,
+            "total_tokens": 7,
+            "tool_calls": [],
+            "finish_reason": "stop",
+        }
+
+    _patch_llm_stream(monkeypatch, responder)
+    harness, launcher, _workspace_root = _harness(
+        tmp_path,
+        host_root=workspace_root,
+        cleanup="never",
+    )
+    workflow, _wrapper = _parse_with_harness(
+        _workflow_yaml(soul_tools=["file_io"], workflow_tools=["file_io"]),
+        base_dir=workspace_root,
+        harness=harness,
+    )
+
+    state = await workflow.run(WorkflowState())
+
+    assert state.results["draft"].output == "file escape blocked"
+    assert not escaped.exists()
+    assert not (workspace_root.parent / "escape.txt").exists()
     _assert_worker_env_is_ipc_only(launcher)
 
 
@@ -520,6 +784,101 @@ async def test_unknown_host_tool_returns_structured_error_to_worker(
     ]
     _assert_worker_env_is_ipc_only(launcher)
     assert not workspace_root.exists()
+
+
+@pytest.mark.asyncio
+async def test_harness_http_handler_applies_host_side_policy_and_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    from runsight_core.isolation import handlers as handlers_module
+    from runsight_core.security import SSRFError
+
+    _assert_real_workspace_runtime_fixture_active()
+    workspace_root = (tmp_path / "workspace").resolve()
+    harness, _launcher, _workspace_root = _harness(
+        tmp_path,
+        host_root=workspace_root,
+        cleanup="never",
+    )
+    session = WorkspaceSessionFactory(host_root=workspace_root).create(
+        WorkspaceManifest(materializations=[], working_dir="."),
+        WorkspacePolicy(
+            network={"raw": "deny", "mediated": "allow"},
+            filesystem={"raw": "deny", "mediated": "workspace"},
+            credentials={"mode": "host-bound"},
+        ),
+    )
+    request = WorkspaceRunRequest(
+        envelope=_make_context_envelope(timeout_seconds=1),
+        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        policy=WorkspacePolicy(
+            network={"raw": "deny", "mediated": "allow"},
+            filesystem={"raw": "deny", "mediated": "workspace"},
+            credentials={"mode": "host-bound"},
+        ),
+        host_bindings=WorkspaceHostBindings(
+            http_credentials={"api.fixture.test": {"Authorization": "Bearer host-http-token"}},
+            url_allowlist=["api.fixture.test"],
+        ),
+        worker_tools=[],
+    )
+    captured_http: list[dict[str, Any]] = []
+
+    async def fake_perform_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured_http.append(kwargs)
+        return {"status_code": 200, "body": "ok", "headers": {}}
+
+    validate_ssrf = AsyncMock(return_value=None)
+    monkeypatch.setattr(handlers_module, "_perform_http_request", fake_perform_http_request)
+    monkeypatch.setattr(handlers_module, "validate_ssrf", validate_ssrf)
+
+    http_handler = harness._build_ipc_handlers(request=request, session=session)["http"]
+    worker_payload = {
+        "method": "GET",
+        "url": "https://api.fixture.test/data",
+        "headers": {"Accept": "application/json"},
+    }
+    allowed = await http_handler(worker_payload)
+
+    assert allowed == {"status_code": 200, "body": "ok", "headers": {}}
+    assert "Authorization" not in worker_payload["headers"]
+    assert captured_http[0]["headers"]["Authorization"] == "Bearer host-http-token"
+    validate_ssrf.assert_awaited_once_with("https://api.fixture.test/data")
+
+    blocked = await http_handler(
+        {
+            "method": "GET",
+            "url": "https://blocked.fixture.test/data",
+            "headers": {},
+        }
+    )
+    assert "Host not on allowed list" in blocked["error"]
+    assert len(captured_http) == 1
+
+    validate_ssrf.reset_mock(side_effect=True)
+    validate_ssrf.side_effect = SSRFError("private address")
+    ssrf_request = WorkspaceRunRequest(
+        envelope=_make_context_envelope(timeout_seconds=1),
+        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        policy=request.policy,
+        host_bindings=WorkspaceHostBindings(url_allowlist=["10.0.0.1"]),
+        worker_tools=[],
+    )
+    ssrf_http_handler = harness._build_ipc_handlers(request=ssrf_request, session=session)["http"]
+
+    ssrf_blocked = await ssrf_http_handler(
+        {
+            "method": "GET",
+            "url": "http://10.0.0.1/internal",
+            "headers": {},
+        }
+    )
+
+    assert "ssrf" in ssrf_blocked["error"].lower()
+    assert len(captured_http) == 1
 
 
 @pytest.mark.asyncio
