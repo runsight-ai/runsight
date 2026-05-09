@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlparse
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
@@ -43,6 +46,8 @@ _SOUL_ATTR_MAP = {
 
 # LLM block types that should be wrapped at build time
 LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "dispatch"})
+_HTTP_URL_ALLOWLIST_ENV = "RUNSIGHT_HTTP_URL_ALLOWLIST"
+_HTTP_ALLOWLIST_SPLIT = re.compile(r"[\s,]+")
 
 
 _BLOCK_TYPE_MAP = {
@@ -251,6 +256,65 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
     )
 
 
+def _hostname_from_allowlist_entry(value: str) -> str | None:
+    entry = value.strip()
+    if not entry:
+        return None
+    parsed = urlparse(entry)
+    hostname = parsed.hostname if parsed.scheme else entry
+    hostname = hostname.strip().lower()
+    return hostname or None
+
+
+def _static_request_hostname(request_config: dict[str, Any] | None) -> str | None:
+    if not request_config:
+        return None
+    raw_url = str(request_config.get("url") or "")
+    parsed = urlparse(raw_url)
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname or any(marker in hostname for marker in ("{", "}", "$")):
+        return None
+    return hostname
+
+
+def _http_url_allowlist_from_host_tools(
+    host_tools: HostToolExecutionRegistry,
+) -> list[str]:
+    hosts = {
+        hostname
+        for ref in host_tools.tools
+        if (hostname := _static_request_hostname(ref.request_config)) is not None
+    }
+    return sorted(hosts)
+
+
+def _http_url_allowlist_from_env() -> list[str]:
+    raw_allowlist = os.environ.get(_HTTP_URL_ALLOWLIST_ENV, "")
+    hosts = {
+        hostname
+        for entry in _HTTP_ALLOWLIST_SPLIT.split(raw_allowlist)
+        if (hostname := _hostname_from_allowlist_entry(entry)) is not None
+    }
+    return sorted(hosts)
+
+
+def _build_workspace_host_bindings(
+    *,
+    api_keys: dict[str, str],
+    host_tools: HostToolExecutionRegistry,
+) -> WorkspaceHostBindings:
+    return WorkspaceHostBindings(
+        api_keys=dict(api_keys),
+        host_tools=host_tools,
+        url_allowlist=sorted(
+            {
+                *_http_url_allowlist_from_host_tools(host_tools),
+                *_http_url_allowlist_from_env(),
+            }
+        ),
+    )
+
+
 class IsolatedBlockWrapper(BaseBlock):
     """Wraps an LLM block to execute it through the workspace isolation harness.
 
@@ -368,8 +432,8 @@ class IsolatedBlockWrapper(BaseBlock):
             manifest=WorkspaceManifest(materializations=[], working_dir="."),
             policy=_workspace_policy(),
             worker_tools=worker_tools,
-            host_bindings=WorkspaceHostBindings(
-                api_keys=dict(self._api_keys),
+            host_bindings=_build_workspace_host_bindings(
+                api_keys=self._api_keys,
                 host_tools=host_tools,
             ),
         )

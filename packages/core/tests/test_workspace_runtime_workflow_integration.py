@@ -279,6 +279,23 @@ def _harness(
     return harness, launcher, workspace_root
 
 
+def _workspace_session_roots(workspace_root: Path) -> list[Path]:
+    if not workspace_root.exists():
+        return []
+    return sorted(path for path in workspace_root.iterdir() if path.is_dir())
+
+
+def _single_workspace_session_root(workspace_root: Path) -> Path:
+    sessions = _workspace_session_roots(workspace_root)
+    assert len(sessions) == 1
+    return sessions[0]
+
+
+def _assert_workspace_base_cleaned(workspace_root: Path) -> None:
+    assert workspace_root.is_dir()
+    assert _workspace_session_roots(workspace_root) == []
+
+
 def _parse_with_harness(
     yaml_text: str,
     *,
@@ -349,7 +366,7 @@ async def test_parsed_linear_workflow_runs_through_workspace_worker(
     assert captured["api_keys"] == {"openai": "sk-host-only-runtime-test"}
     assert captured["payloads"][0]["model"] == "gpt-4o-mini"
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -397,7 +414,7 @@ async def test_stateful_workflow_replaces_history_returned_from_worker(
     assert second_state.total_cost_usd == pytest.approx(0.02)
     assert second_state.total_tokens == 10
     assert len(launcher.specs) == 2
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -471,7 +488,7 @@ async def test_tool_workflow_requires_worker_and_host_authorization(
     assert state.total_tokens == 17
     assert tool_calls == [{"name": "Ada"}]
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -590,7 +607,7 @@ async def test_worker_launch_receives_sanitized_tool_metadata_and_host_only_secr
     assert "headers" not in worker_tool
     assert "secret_config" not in worker_tool
     assert "host_path" not in worker_tool
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -652,10 +669,12 @@ async def test_file_tool_writes_under_canonical_workspace_root(
 
     state = await workflow.run(WorkflowState())
 
-    written = (workspace_root / "reports" / "result.txt").resolve()
+    session_root = _single_workspace_session_root(workspace_root)
+    written = (session_root / "reports" / "result.txt").resolve()
     assert state.results["draft"].output == "file write complete"
     assert written.read_text(encoding="utf-8") == "file output"
-    assert is_path_within_base(workspace_root, written)
+    assert is_path_within_base(session_root, written)
+    assert not (workspace_root / "reports" / "result.txt").exists()
     assert not (tmp_path / "reports" / "result.txt").exists()
     _assert_worker_env_is_ipc_only(launcher)
 
@@ -791,7 +810,7 @@ async def test_unknown_host_tool_returns_structured_error_to_worker(
         {"error": {"code": "tool_not_found", "tool": "lookup_profile"}},
     ]
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -865,7 +884,7 @@ async def test_host_only_tool_returns_structured_error_and_does_not_execute(
     ]
     assert tool_calls == []
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -986,7 +1005,7 @@ async def test_worker_failure_cleans_workspace(
         await workflow.run(WorkflowState())
 
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -1026,7 +1045,7 @@ async def test_worker_timeout_cleans_workspace_and_terminates_launch(
         await workflow.run(WorkflowState())
 
     _assert_worker_env_is_ipc_only(launcher)
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)
 
 
 @pytest.mark.asyncio
@@ -1038,8 +1057,6 @@ async def test_invalid_manifest_path_fails_before_worker_launch_and_cleans_works
     with pytest.raises(ValidationError, match=r"workspace path cannot contain '\.\.'"):
         WorkspaceMaterialization(path="../escape.txt", content="nope")
 
-    workspace_root.mkdir(parents=True)
-    (workspace_root / "not-a-directory").write_text("conflict", encoding="utf-8")
     launcher = _LaunchForbidden()
     harness = UnixLocalHarness(
         session_factory=WorkspaceSessionFactory(host_root=workspace_root),
@@ -1050,7 +1067,7 @@ async def test_invalid_manifest_path_fails_before_worker_launch_and_cleans_works
     request = WorkspaceRunRequest(
         envelope=_make_context_envelope(timeout_seconds=1),
         manifest=WorkspaceManifest(
-            materializations=[],
+            materializations=[WorkspaceMaterialization(path="not-a-directory", content="conflict")],
             working_dir="not-a-directory",
         ),
         policy=WorkspacePolicy(
@@ -1062,8 +1079,11 @@ async def test_invalid_manifest_path_fails_before_worker_launch_and_cleans_works
         host_bindings=WorkspaceHostBindings(),
     )
 
-    with pytest.raises(ValueError, match="working directory is not a directory"):
+    with pytest.raises(
+        (FileExistsError, PermissionError, ValueError),
+        match="not-a-directory|regular file|already exists",
+    ):
         await harness.run(request)
 
     assert launcher.specs == []
-    assert not workspace_root.exists()
+    _assert_workspace_base_cleaned(workspace_root)

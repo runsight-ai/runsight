@@ -200,7 +200,10 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         from runsight_core.state import BlockResult
 
         session = self._session_factory.create(request.manifest, request.policy)
-        session = WorkspaceMaterializer(session).materialize(request.manifest)
+        session = WorkspaceMaterializer(session).materialize(
+            request.manifest,
+            policy=request.policy,
+        )
         envelope = self._worker_envelope(request)
         ipc_client = _InProcessIPCClient(self._build_ipc_handlers(request=request, session=session))
 

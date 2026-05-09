@@ -125,6 +125,8 @@ See [Direct API Invocation](/docs/reference/direct-api-invocation) for the copya
 
 Every LLM block runs through the workspace isolation path. API keys, HTTP credentials, URL allowlists, and executable tool references stay in host-only `WorkspaceHostBindings` and host execution registries. The worker receives only serializable manifests, policy, worker-visible tool metadata, and its config-based IPC connection details.
 
+Request-backed custom HTTP tools seed allowed hosts from their host-side request URL. Dynamic built-in `http` calls require `RUNSIGHT_HTTP_URL_ALLOWLIST` on the host; otherwise mediated HTTP is denied before network access.
+
 `UnixLocalHarness` is the current local workspace harness. It gives each run a fresh workspace root, starts the worker with `cwd` inside that workspace, scopes mediated file I/O to the same root, validates the result envelope, and cleans up afterward. Unix-local isolation protects host-mediated credentials and workspace access, but it is not a container-grade OS sandbox.
 
 See [Workspace Isolation](/docs/execution/process-isolation) for the full architecture.

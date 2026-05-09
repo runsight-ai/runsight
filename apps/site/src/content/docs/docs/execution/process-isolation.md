@@ -43,9 +43,11 @@ The request contains serializable data the worker is allowed to know:
 
 Host-only bindings are intentionally separate. `WorkspaceHostBindings` carries provider API keys, HTTP credentials, URL allowlists, and executable host tools. Those bindings are consumed by the harness to build host-side IPC handlers and are not serialized into the worker manifest or injected as worker environment secrets.
 
+For HTTP tools, request-backed custom tools seed the allowlist from their host-side request URL. Dynamic built-in `http` calls use the host-only `RUNSIGHT_HTTP_URL_ALLOWLIST` setting, a comma- or whitespace-separated list of allowed hostnames or URLs. Empty allowlists deny mediated HTTP before any network request is made.
+
 ## Workspace materialization
 
-`UnixLocalHarness` owns the local workspace root by default. For each session it:
+`UnixLocalHarness` owns the local workspace base by default. For each session it creates a fresh child workspace and:
 
 - Validates that manifest paths are relative.
 - Materializes declared files under the harness-owned workspace root.

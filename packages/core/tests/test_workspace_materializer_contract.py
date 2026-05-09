@@ -177,6 +177,29 @@ def test_materializer_creates_and_validates_workspace_working_directory(tmp_path
     ) == "payload"
 
 
+def test_materializer_enforces_policy_materialization_size_before_writes(
+    tmp_path: Path,
+) -> None:
+    WorkspaceMaterializer = _contract("WorkspaceMaterializer")
+    WorkspacePolicy = _contract("WorkspacePolicy")
+
+    session = _session(tmp_path)
+
+    with pytest.raises(ValueError, match="max_materialization_bytes"):
+        WorkspaceMaterializer(session).materialize(
+            _manifest(
+                [
+                    _materialization("small.txt", content="1234"),
+                    _materialization("large.txt", content="5678"),
+                ]
+            ),
+            policy=WorkspacePolicy(max_materialization_bytes=7),
+        )
+
+    assert not (session.host_root / "small.txt").exists()
+    assert not (session.host_root / "large.txt").exists()
+
+
 def test_materializer_rejects_working_directory_that_resolves_to_file(tmp_path: Path) -> None:
     WorkspaceMaterializer = _contract("WorkspaceMaterializer")
 

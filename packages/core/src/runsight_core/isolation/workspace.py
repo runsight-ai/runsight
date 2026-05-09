@@ -347,11 +347,14 @@ class WorkspaceSessionFactory:
 
     def create(self, manifest: WorkspaceManifest, policy: WorkspacePolicy) -> WorkspaceSession:
         del manifest, policy
-        host_root = self.host_root.resolve()
-        host_root.mkdir(parents=True, exist_ok=True)
+        base_root = self.host_root.resolve()
+        base_root.mkdir(parents=True, exist_ok=True)
+        session_id = uuid.uuid4().hex
+        host_root = base_root / session_id
+        host_root.mkdir(mode=0o700)
         runtime_root = host_root
         return WorkspaceSession(
-            id=uuid.uuid4().hex,
+            id=session_id,
             host_root=host_root,
             runtime_root=runtime_root,
             runtime_workdir=runtime_root,
@@ -403,12 +406,35 @@ class WorkspaceMaterializer:
     def __init__(self, session: WorkspaceSession) -> None:
         self.session = session
 
-    def materialize(self, manifest: WorkspaceManifest) -> WorkspaceSession:
+    def materialize(
+        self,
+        manifest: WorkspaceManifest,
+        *,
+        policy: WorkspacePolicy | None = None,
+    ) -> WorkspaceSession:
+        self._validate_materialization_size(manifest, policy)
         self._validate_or_create_working_dir(manifest.working_dir)
         for materialization in manifest.materializations:
             self._write_materialization(materialization)
         self._validate_or_create_working_dir(manifest.working_dir)
         return self.session
+
+    def _validate_materialization_size(
+        self,
+        manifest: WorkspaceManifest,
+        policy: WorkspacePolicy | None,
+    ) -> None:
+        if policy is None or policy.max_materialization_bytes is None:
+            return
+        total_bytes = sum(
+            len(materialization.content.encode("utf-8"))
+            for materialization in manifest.materializations
+        )
+        if total_bytes > policy.max_materialization_bytes:
+            raise ValueError(
+                "workspace materializations exceed max_materialization_bytes="
+                f"{policy.max_materialization_bytes}"
+            )
 
     def _validate_or_create_working_dir(self, working_dir: str) -> None:
         target = _resolve_under(self.session.runtime_root, working_dir)
@@ -1141,7 +1167,10 @@ class UnixLocalHarness:
         succeeded = False
 
         try:
-            session = WorkspaceMaterializer(session).materialize(request.manifest)
+            session = WorkspaceMaterializer(session).materialize(
+                request.manifest,
+                policy=request.policy,
+            )
             binding = self._ipc_transport.prepare(session, request.policy)
             server_socket = self._create_server_socket(binding.server_endpoint)
 

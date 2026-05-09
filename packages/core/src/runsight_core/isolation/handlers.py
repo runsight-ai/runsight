@@ -55,6 +55,8 @@ def make_http_handler(
     url_allowlist: list[str],
 ) -> Handler:
     """Return an IPC handler that performs real HTTP requests with SSRF/allowlist checks."""
+    allowed_hosts = {_allowlist_hostname(entry) for entry in url_allowlist}
+    allowed_hosts.discard("")
 
     async def _handle(params: dict[str, Any]) -> dict[str, Any]:
         url: str = params.get("url", "")
@@ -69,7 +71,7 @@ def make_http_handler(
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
 
-        if hostname not in url_allowlist:
+        if hostname not in allowed_hosts:
             return {"error": f"Host not on allowed list: {hostname}"}
 
         # -- SSRF validation ----------------------------------------------
@@ -100,6 +102,11 @@ def make_http_handler(
         )
 
     return _handle
+
+
+def _allowlist_hostname(entry: str) -> str:
+    parsed = urlparse(str(entry).strip())
+    return (parsed.hostname if parsed.scheme else str(entry).strip()).lower()
 
 
 async def _perform_http_request(

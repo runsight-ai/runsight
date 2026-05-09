@@ -503,6 +503,58 @@ class TestWrapperWorkspaceRunRequest:
         assert "credential_refs" not in worker_payload
 
     @pytest.mark.asyncio
+    async def test_request_tool_hosts_seed_workspace_http_allowlist(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("RUNSIGHT_HTTP_URL_ALLOWLIST", raising=False)
+        request_tool = _tool("lookup_profile")
+        request_tool.request_config = {
+            "method": "GET",
+            "url": "https://api.fixture.test/profiles/{{ profile_id }}",
+            "headers": {},
+            "body_template": None,
+            "response_path": "data.profile",
+        }
+        soul = _make_soul()
+        soul.resolved_tools = [request_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == ["api.fixture.test"]
+        worker_payload = request.worker_tools[0].model_dump(mode="json")
+        assert "api.fixture.test" not in str(worker_payload)
+        assert "url_allowlist" not in str(worker_payload)
+
+    @pytest.mark.asyncio
+    async def test_dynamic_http_tool_uses_host_allowlist_environment_source(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv(
+            "RUNSIGHT_HTTP_URL_ALLOWLIST",
+            "public.fixture.test, https://cdn.fixture.test/assets",
+        )
+        http_tool = _tool("http_request")
+        soul = _make_soul()
+        soul.resolved_tools = [http_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == [
+            "cdn.fixture.test",
+            "public.fixture.test",
+        ]
+
+    @pytest.mark.asyncio
     async def test_duplicate_tool_names_fail_before_workspace_launch(self):
         soul = _make_soul()
         soul.resolved_tools = [_tool("lookup"), _tool("lookup")]

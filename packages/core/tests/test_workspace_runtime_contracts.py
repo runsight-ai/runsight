@@ -235,16 +235,36 @@ class TestWorkspaceSessionFactory:
         WorkspaceSessionFactory = _contract("WorkspaceSessionFactory")
 
         factory = WorkspaceSessionFactory(host_root=tmp_path / "host")
+        base_root = (tmp_path / "host").resolve()
         session = factory.create(
             WorkspaceManifest(materializations=[], working_dir="."), WorkspacePolicy()
         )
 
         assert session.id
-        assert session.host_root == (tmp_path / "host").resolve()
+        assert session.host_root == base_root / session.id
         assert session.runtime_root == session.host_root.resolve()
         assert session.runtime_workdir == session.runtime_root
+        assert base_root.is_dir()
         assert session.host_root.is_dir()
         assert session.runtime_workdir.is_dir()
+
+    def test_session_factory_creates_fresh_child_roots_for_each_run(self, tmp_path: Path) -> None:
+        WorkspaceManifest = _contract("WorkspaceManifest")
+        WorkspacePolicy = _contract("WorkspacePolicy")
+        WorkspaceSessionFactory = _contract("WorkspaceSessionFactory")
+
+        factory = WorkspaceSessionFactory(host_root=tmp_path / "host")
+        manifest = WorkspaceManifest(materializations=[], working_dir=".")
+        policy = WorkspacePolicy()
+
+        first = factory.create(manifest, policy)
+        second = factory.create(manifest, policy)
+
+        assert first.host_root != second.host_root
+        assert first.host_root.parent == (tmp_path / "host").resolve()
+        assert second.host_root.parent == (tmp_path / "host").resolve()
+        assert first.host_root.is_dir()
+        assert second.host_root.is_dir()
 
 
 class TestWorkspaceHarnessContract:
