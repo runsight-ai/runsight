@@ -1,0 +1,20 @@
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_87e1b2f7357ca2::t_8a5c8b68f81205 197-216,433,619-621
+  s_87e1b2f7357ca2::t_9e9a99ac4139c2 5,13-14,16,83,86,88-89,94-196,217-367,409-413,420-431,442-451,534,536-560,564-568,611-618,622-658
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "22d23da49d9a559e4a12010aaa046d2ea5040cf3",
+  "prompts": {},
+  "sessions": {
+    "s_87e1b2f7357ca2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cd3-1225-7110-8e3e-6e0a6aeeee5c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
