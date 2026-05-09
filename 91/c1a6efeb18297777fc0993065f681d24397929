@@ -1,0 +1,22 @@
+packages/core/tests/test_tool_isolated_execution_envelope.py
+  s_ee746ad60e27ef::t_492e091b3f1246 12,124-125,142-145,148-163
+packages/core/tests/test_isolation_wrapper_harness_delegation.py
+  s_ee746ad60e27ef::t_86a48618934755 26,273,315
+  s_ee746ad60e27ef::t_d56fa76e312da5 15,23,36,116-117,144-146,179-180,203-205,214,287,289-290,306-308,311,320,330-331,341,346,363,365-366,397-409,412,414,419,434
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "91c1a6efeb18297777fc0993065f681d24397929",
+  "prompts": {},
+  "sessions": {
+    "s_ee746ad60e27ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0ce3-d2fb-7e93-94e0-d52aab2120ee",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
