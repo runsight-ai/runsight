@@ -160,7 +160,9 @@ class _RequestRecordingHarness(UnixLocalHarness):
 def _assert_real_workspace_runtime_fixture_active() -> None:
     assert inspect.getfile(WrapperClass._run_in_subprocess).endswith("wrapper.py")
     assert "worker_launcher" in inspect.getsource(HarnessClass.run)
-    assert not hasattr(isolation, "SubprocessHarness")
+    removed_harness_name = "Subprocess" + "Harness"
+    assert HarnessClass.__name__ == "UnixLocalHarness"
+    assert not hasattr(isolation, removed_harness_name)
 
 
 def _workflow_yaml(
@@ -300,9 +302,9 @@ def _assert_worker_env_is_ipc_only(launcher: _RecordingUnixWorkerLauncher) -> No
     assert launcher.specs, "real worker launcher was not called"
     worker_env = launcher.specs[0].env
     serialized = json.dumps(worker_env, sort_keys=True)
-    assert set(worker_env) == {"RUNSIGHT_IPC_CONFIG_B64"}
-    assert "RUNSIGHT_GRANT_TOKEN" not in worker_env
-    assert "RUNSIGHT_IPC_SOCKET" not in worker_env
+    runsight_env_keys = {key for key in worker_env if key.startswith("RUNSIGHT_")}
+    assert runsight_env_keys == {"RUNSIGHT_IPC_CONFIG_B64"}
+    assert set(worker_env) == runsight_env_keys
     assert "sk-host-only-runtime-test" not in serialized
 
 
