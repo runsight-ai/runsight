@@ -36,11 +36,39 @@ PARSER_WRAPPER_ASSERTION_RUNTIME_FILES = (
     CORE_SOURCE_ROOT / "runsight_core" / "assertions" / "registry.py",
 )
 WORKER_SOURCE_FILES = (CORE_SOURCE_ROOT / "runsight_core" / "isolation" / "worker.py",)
-DOC_ROOTS = (
-    REPO_ROOT,
-    REPO_ROOT / "apps" / "site",
-)
+DOC_SITE_ROOT = REPO_ROOT / "apps" / "site"
 DOC_FILE_PATTERNS = ("README*", "*.md", "*.mdx")
+DOC_PRUNED_DIR_NAMES = frozenset(
+    {
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".runsight",
+        ".tox",
+        ".venv",
+        "__pycache__",
+        "build",
+        "custom",
+        "dist",
+        "node_modules",
+        "playwright-report",
+        "storybook-static",
+        "test-results",
+    }
+)
+LEGITIMATE_LEGACY_ENV_TEST_FILES = frozenset(
+    {
+        "test_assertion_isolation.py",
+        "test_isolation_harness_subprocess_contract.py",
+        "test_isolation_harness_subprocess_runtime.py",
+        "test_isolation_ipc_client_config_startup.py",
+        "test_isolation_ipc_config_contract.py",
+        "test_isolation_worker_ipc_config_startup.py",
+        "test_unix_local_harness_workspace_runtime.py",
+        THIS_FILE.name,
+    }
+)
 
 
 def _relative(path: Path) -> str:
@@ -63,14 +91,17 @@ def _line_hits(path: Path, pattern: re.Pattern[str]) -> list[str]:
 
 def _doc_files() -> list[Path]:
     files: set[Path] = set()
-    for root in DOC_ROOTS:
-        if not root.exists():
-            continue
+    if REPO_ROOT.exists():
         for pattern in DOC_FILE_PATTERNS:
-            if root == REPO_ROOT and pattern in {"*.md", "*.mdx"}:
-                files.update(path for path in root.glob(pattern) if path.is_file())
-            else:
-                files.update(path for path in root.rglob(pattern) if path.is_file())
+            files.update(path for path in REPO_ROOT.glob(pattern) if path.is_file())
+
+    if DOC_SITE_ROOT.exists():
+        for pattern in DOC_FILE_PATTERNS:
+            files.update(
+                path
+                for path in DOC_SITE_ROOT.rglob(pattern)
+                if path.is_file() and not DOC_PRUNED_DIR_NAMES.intersection(path.parts)
+            )
     return sorted(files)
 
 
@@ -86,12 +117,9 @@ def _is_migration_or_governance_test(path: Path) -> bool:
 
 
 def _is_legacy_env_rejection_test(path: Path) -> bool:
-    """Allow only suites whose names clearly own legacy IPC rejection coverage."""
+    """Allow only suites that explicitly own legacy IPC rejection/ignore coverage."""
 
-    if _is_migration_or_governance_test(path):
-        return True
-    name = path.name.lower()
-    return "ipc_config" in name or "startup" in name and "worker" in name
+    return path.name in LEGITIMATE_LEGACY_ENV_TEST_FILES
 
 
 class _LegacyEnvReadVisitor(ast.NodeVisitor):
