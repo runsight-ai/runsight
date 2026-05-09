@@ -1,0 +1,43 @@
+packages/core/src/runsight_core/isolation/workspace.py
+  s_f21a46e9687d54::t_aaf0ec124ab437 350-354,357,409-415,422-437
+  s_f21a46e9687d54::t_ea4e1bff240cb9 1170-1173
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_978d3b2af836e3 5-6,9,49-50,259-317,435-436
+packages/core/src/runsight_core/isolation/handlers.py
+  s_f21a46e9687d54::t_78d9898bb82ed4 58-59,74,107-109
+packages/core/tests/test_workspace_materializer_contract.py
+  s_f21a46e9687d54::t_ba97126c8095d5 180-202
+packages/core/tests/conftest.py
+  s_f21a46e9687d54::t_aba76770967421 203-206
+apps/site/src/content/docs/docs/execution/process-isolation.md
+  s_f21a46e9687d54::t_b18d7acebd1435 46-47,50
+packages/core/tests/test_workspace_runtime_contracts.py
+  s_f21a46e9687d54::t_6d76ab2e1440d6 238,244,247,251-267
+apps/site/src/content/docs/docs/execution/running-workflows.md
+  s_f21a46e9687d54::t_68694c919d44b4 128-129
+packages/core/tests/test_workspace_runtime_workflow_integration.py
+  s_f21a46e9687d54::t_0ec0f53417044a 369,417,491,610,813,887,1008,1048
+  s_f21a46e9687d54::t_3863bf28b2e4aa 672-673,676-677
+  s_f21a46e9687d54::t_94a6a0a23161b9 282-298
+  s_f21a46e9687d54::t_4693739dad8dbe 1070,1089
+  s_f21a46e9687d54::t_37f95133041f21 1082-1085
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_2ec7f8d797cc9d 511-556
+  s_f21a46e9687d54::t_de09d200220188 506-510
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "f3a01c4b6d75790179910a182735695212fcfab0",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
