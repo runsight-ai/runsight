@@ -5,10 +5,10 @@ description: How Runsight isolates LLM block execution with per-run workspaces, 
 
 Runsight isolates LLM block execution around a **workspace** rather than around a provider or a container backend. The durable contract is:
 
-1. The parser builds a `WorkspaceRunRequest`.
-2. A workspace harness executes the request.
-3. The harness validates a `ResultEnvelope`.
-4. Runsight converts the result back into normal block output.
+1. The parser wraps LLM blocks with `IsolatedBlockWrapper`.
+2. At execution time, the wrapper builds a `WorkspaceRunRequest`.
+3. A workspace harness executes the request and validates a `ResultEnvelope`.
+4. The wrapper converts the validated result back into normal `BlockOutput`.
 
 The current local implementation of that contract is `UnixLocalHarness`. It creates a fresh workspace session, starts a local Unix worker process inside that session's runtime directory, mediates host capabilities through IPC, validates the worker result, and cleans up according to the workspace policy.
 
@@ -64,24 +64,23 @@ The worker discovers its IPC configuration from one environment variable:
 RUNSIGHT_IPC_CONFIG_B64=<base64-json IPCClientConfig>
 ```
 
-That encoded `IPCClientConfig` is the current worker discovery contract. The worker uses it to connect to the host-side IPC handlers for model calls, tool execution, HTTP access, file access, heartbeat supervision, and result delivery.
+That encoded `IPCClientConfig` is the current worker discovery contract. The worker uses it to connect to the host-side IPC handlers for model calls, tool execution, HTTP access, and file access.
 
-The worker returns a `ResultEnvelope`. The harness validates that envelope before converting it back into `BlockOutput` for the normal workflow execution path.
+Worker IPC handlers are for model calls, tool execution, HTTP access, and file access. Heartbeats are emitted as stderr JSON lines and monitored by the harness. The final `ResultEnvelope` is written to stdout as JSON and validated by the harness before the wrapper converts it back into `BlockOutput` for the normal workflow execution path.
 
 ## Policy and capabilities
 
-`WorkspacePolicy` is runtime policy, not just documentation. It validates modes and controls the workspace session behavior the harness can enforce.
+`WorkspacePolicy` is runtime policy, not just documentation. It validates modes and controls the workspace session behavior the harness can enforce. The serializable request shape, including the worker manifest and policy data, is validated before execution.
 
-The Unix-local capability report distinguishes between two kinds of limits:
+`PolicyCapabilityReport.from_policy` reports capability entries conditionally from the policy:
 
 | Capability area | Unix-local behavior |
 |-----------------|---------------------|
-| Credential binding | Enforced through host-only `WorkspaceHostBindings` |
-| Mediated file I/O | Enforced against the session workspace root |
-| Workspace materialization size | Enforced by the harness |
-| Worker manifest and policy shape | Enforced through serializable request validation |
-| Raw network restriction | Advisory in Unix-local |
-| Raw filesystem restriction | Advisory in Unix-local |
+| Raw network deny | Advisory in Unix-local when requested by policy |
+| Raw filesystem deny | Advisory in Unix-local when requested by policy |
+| Credential host binding | Enforced when credential host-binding policy applies |
+| Mediated file constraints | Enforced when mediated file policy applies |
+| Materialization size limits | Enforced when workspace materialization limits apply |
 
 Because Unix-local workers are local Unix processes, direct process-level network and filesystem restrictions are advisory. Runsight's enforced controls apply to host-mediated capabilities: provider calls, credentialed HTTP calls, registered tool execution, materialized workspace files, and mediated file operations.
 

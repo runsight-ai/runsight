@@ -57,7 +57,7 @@ Simulation branches are disposable --- they capture the exact state of the workf
 
 ## The Run record
 
-Each run is stored as a `Run` row in the SQLite database with these fields:
+Each run is stored as a `Run` row in the SQLite database. Important fields include:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -65,7 +65,7 @@ Each run is stored as a `Run` row in the SQLite database with these fields:
 | `workflow_id` | `str` | Which workflow was executed |
 | `workflow_name` | `str` | Human-readable workflow name |
 | `status` | `RunStatus` | Current state (`pending` / `running` / `completed` / `failed` / `cancelled`) |
-| `branch` | `str` | Git branch this run executed against (default: `"main"`) |
+| `branch` | `str` | Git branch this run executed against; production launch paths set `"main"` |
 | `source` | `str` | How the run was triggered, such as `manual`, `simulation`, or `api` |
 | `commit_sha` | `str?` | Git commit SHA of the YAML that executed |
 | `total_cost_usd` | `float` | Accumulated LLM cost |
@@ -84,7 +84,7 @@ Each block execution within a run creates a `RunNode` record:
 |-------|------|-------------|
 | `id` | `str` | Composite key: `{run_id}:{node_id}` |
 | `node_id` | `str` | Block ID from the workflow YAML |
-| `block_type` | `str` | Block type (`linear`, `gate`, `code`, `loop`, `workflow`) |
+| `block_type` | `str` | Block type (`linear`, `gate`, `synthesize`, `dispatch`, `code`, `loop`, `workflow`) |
 | `status` | `NodeStatus` | `pending` / `running` / `completed` / `failed` |
 | `cost_usd` | `float` | Cost for this block's LLM calls |
 | `tokens` | `dict` | Token breakdown: `{"prompt": N, "completion": N, "total": N}` |
@@ -106,7 +106,7 @@ The child run response includes `parent_run_id`, `root_run_id`, and `depth` fiel
 
 ## Ghost run recovery
 
-If the server restarts while runs are in `running` status, those runs become "ghosts" --- they will never complete because the asyncio task is gone. On startup, the execution service calls `fail_ghost_runs()` to mark all `running` runs as `failed` with the error message `"Ghost run: server restarted while running"`.
+If the server restarts while runs are in `pending` or `running` status, those runs become "ghosts" --- they will never complete because the asyncio task is gone. On startup, the execution service calls `fail_ghost_runs()` to mark `pending` and `running` runs as `failed` with `error: "API server restarted during execution"`.
 
 ## Triggering runs
 
