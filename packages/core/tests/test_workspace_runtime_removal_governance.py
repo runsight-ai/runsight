@@ -26,6 +26,7 @@ API_SOURCE_ROOT = REPO_ROOT / "apps" / "api" / "src"
 CORE_TEST_ROOT = REPO_ROOT / "packages" / "core" / "tests"
 
 LEGACY_HARNESS_NAME = "SubprocessHarness"
+LEGACY_POOL_NAME = "SubprocessPool"
 LEGACY_WORKER_ENV_NAMES = frozenset({"RUNSIGHT_IPC_SOCKET", "RUNSIGHT_GRANT_TOKEN"})
 CURRENT_WORKER_ENV_NAME = "RUNSIGHT_IPC_CONFIG_B64"
 
@@ -207,6 +208,17 @@ def test_production_source_has_no_public_subprocess_harness_runtime_path() -> No
     assert offenders == []
 
 
+def test_production_source_has_no_subprocess_pool_residual_isolation_path() -> None:
+    legacy_pool_reference = re.compile(rf"\b{LEGACY_POOL_NAME}\b")
+
+    offenders: list[str] = []
+    for root in PRODUCTION_SOURCE_ROOTS:
+        for path in _python_files(root):
+            offenders.extend(_line_hits(path, legacy_pool_reference))
+
+    assert offenders == []
+
+
 def test_parser_wrapper_and_assertion_runtime_paths_do_not_construct_subprocess_harness() -> None:
     legacy_runtime_reference = re.compile(
         rf"\b(?:from\s+[\w.]+\s+import\s+.*{LEGACY_HARNESS_NAME}"
@@ -242,6 +254,18 @@ def test_ordinary_core_tests_no_longer_import_patch_or_instantiate_subprocess_ha
         if _is_migration_or_governance_test(path):
             continue
         offenders.extend(_line_hits(path, legacy_reference))
+
+    assert offenders == []
+
+
+def test_ordinary_core_tests_no_longer_import_or_instantiate_subprocess_pool() -> None:
+    legacy_pool_reference = re.compile(rf"\b{LEGACY_POOL_NAME}\b")
+
+    offenders: list[str] = []
+    for path in _python_files(CORE_TEST_ROOT):
+        if _is_migration_or_governance_test(path):
+            continue
+        offenders.extend(_line_hits(path, legacy_pool_reference))
 
     assert offenders == []
 

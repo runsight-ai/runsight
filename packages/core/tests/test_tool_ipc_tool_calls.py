@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from runsight_core.isolation import (
+    HostToolExecutionRef,
+    HostToolExecutionRegistry,
+    WorkerToolSchema,
+)
 from runsight_core.isolation.handlers import make_tool_call_handler
 from runsight_core.isolation.ipc import IPCServer
 from runsight_core.tools import ToolInstance
@@ -36,22 +41,31 @@ class TestIpcToolCalls:
         from runsight_core.isolation.ipc_models import GrantToken
 
         grant = GrantToken(block_id="test-tool-call")
+        echo_parameters = {
+            "type": "object",
+            "properties": {"value": {"type": "string"}},
+            "required": ["value"],
+        }
+        echo_tool = ToolInstance(
+            name="echo_tool",
+            description="Echo values.",
+            parameters=echo_parameters,
+            execute=_echo,
+        )
         server = IPCServer(
             sock=sock,
             handlers={
                 "tool_call": make_tool_call_handler(
-                    {
-                        "echo_tool": ToolInstance(
+                    host_tools=HostToolExecutionRegistry(
+                        tools=[HostToolExecutionRef(name="echo_tool", tool=echo_tool)]
+                    ),
+                    worker_tools=[
+                        WorkerToolSchema(
                             name="echo_tool",
                             description="Echo values.",
-                            parameters={
-                                "type": "object",
-                                "properties": {"value": {"type": "string"}},
-                                "required": ["value"],
-                            },
-                            execute=_echo,
+                            parameters=echo_parameters,
                         )
-                    }
+                    ],
                 )
             },
             grant_token=grant,

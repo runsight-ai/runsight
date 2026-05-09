@@ -227,6 +227,18 @@ class _RecordingTool:
         return {"echo": args}
 
 
+class _DirectExecutionTrapTool:
+    def __init__(self, *, name: str, parameters: dict[str, Any]) -> None:
+        self.name = name
+        self.description = "Must be mediated by the workspace handler."
+        self.parameters = parameters
+        self.calls: list[dict[str, Any]] = []
+
+    async def execute(self, args: dict[str, Any]) -> dict[str, Any]:
+        self.calls.append(args)
+        return {"direct_tool_instance_executed": self.name}
+
+
 def _worker_tool(name: str) -> WorkerToolSchema:
     return WorkerToolSchema(
         name=name,
@@ -600,6 +612,29 @@ def test_unix_local_capability_report_marks_raw_restrictions_advisory() -> None:
     assert "docker" not in report.backend.lower()
 
 
+def test_tool_call_handler_public_contract_requires_workspace_registries_only() -> None:
+    from runsight_core.isolation.handlers import make_tool_call_handler
+
+    signature = inspect.signature(make_tool_call_handler)
+
+    assert "resolved_tools" not in signature.parameters
+    assert list(signature.parameters) == ["host_tools", "worker_tools"]
+    assert all(
+        parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        for parameter in signature.parameters.values()
+    )
+
+
+def test_tool_call_handler_rejects_positional_tool_registry_contract() -> None:
+    from runsight_core.isolation.handlers import make_tool_call_handler
+
+    with pytest.raises(TypeError):
+        make_tool_call_handler({"lookup": _RecordingTool()})
+
+    with pytest.raises(TypeError):
+        make_tool_call_handler()
+
+
 @pytest.mark.asyncio
 async def test_tool_call_executes_only_when_host_and_worker_registries_match() -> None:
     from runsight_core.isolation.handlers import make_tool_call_handler
@@ -614,6 +649,155 @@ async def test_tool_call_executes_only_when_host_and_worker_registries_match() -
 
     assert result == {"output": {"echo": {"value": "hi"}}}
     assert tool.calls == [{"value": "hi"}]
+
+
+@pytest.mark.asyncio
+async def test_tool_call_mediates_worker_file_io_through_workspace_file_handler(
+    tmp_path: Path,
+) -> None:
+    file_parameters = {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["read", "write"]},
+            "path": {"type": "string"},
+            "content": {"type": "string"},
+        },
+        "required": ["action", "path"],
+    }
+    direct_file_tool = _DirectExecutionTrapTool(name="file_io", parameters=file_parameters)
+    host_bindings = WorkspaceHostBindings(
+        host_tools=HostToolExecutionRegistry(
+            tools=[HostToolExecutionRef(name="file_io", tool=direct_file_tool)]
+        )
+    )
+    request = _workspace_request(
+        host_bindings=host_bindings,
+        worker_tools=[
+            WorkerToolSchema(
+                name="file_io",
+                description="Read or write files in the workspace.",
+                parameters=file_parameters,
+            )
+        ],
+    )
+    process = _FakeWorkerProcess(
+        stdout=_ImmediateStdout(_make_result_envelope().model_dump_json().encode())
+    )
+    harness, session_factory, _transport, _launcher = _harness(
+        tmp_path=tmp_path,
+        process=process,
+    )
+    session = session_factory.create(request.manifest, request.policy)
+    tool_call_handler = harness._build_ipc_handlers(request=request, session=session)["tool_call"]
+
+    result = await tool_call_handler(
+        {
+            "name": "file_io",
+            "arguments": {
+                "action": "write",
+                "path": "reports/result.txt",
+                "content": "workspace-owned",
+            },
+        }
+    )
+
+    assert direct_file_tool.calls == []
+    assert "error" not in result
+    assert (session.host_root / "reports" / "result.txt").read_text(
+        encoding="utf-8"
+    ) == "workspace-owned"
+
+
+@pytest.mark.asyncio
+async def test_tool_call_mediates_worker_http_request_through_workspace_http_handler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from runsight_core.isolation import handlers as handlers_module
+
+    http_parameters = {
+        "type": "object",
+        "properties": {
+            "method": {"type": "string"},
+            "url": {"type": "string"},
+            "headers": {"type": "object"},
+        },
+        "required": ["method", "url"],
+    }
+    direct_http_tool = _DirectExecutionTrapTool(
+        name="http_request",
+        parameters=http_parameters,
+    )
+    captured_http: list[dict[str, Any]] = []
+    ssrf_checks: list[str] = []
+
+    async def fake_validate_ssrf(url: str) -> None:
+        ssrf_checks.append(url)
+
+    async def fake_perform_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured_http.append(kwargs)
+        return {"status_code": 200, "body": "ok", "headers": {}}
+
+    monkeypatch.setattr(handlers_module, "validate_ssrf", fake_validate_ssrf)
+    monkeypatch.setattr(handlers_module, "_perform_http_request", fake_perform_http_request)
+
+    host_bindings = WorkspaceHostBindings(
+        http_credentials={"api.fixture.test": {"Authorization": "Bearer host-http-token"}},
+        url_allowlist=["api.fixture.test"],
+        host_tools=HostToolExecutionRegistry(
+            tools=[HostToolExecutionRef(name="http_request", tool=direct_http_tool)]
+        ),
+    )
+    request = _workspace_request(
+        host_bindings=host_bindings,
+        worker_tools=[
+            WorkerToolSchema(
+                name="http_request",
+                description="Perform an HTTP request through the workspace host.",
+                parameters=http_parameters,
+            )
+        ],
+    )
+    process = _FakeWorkerProcess(
+        stdout=_ImmediateStdout(_make_result_envelope().model_dump_json().encode())
+    )
+    harness, session_factory, _transport, _launcher = _harness(
+        tmp_path=tmp_path,
+        process=process,
+    )
+    session = session_factory.create(request.manifest, request.policy)
+    tool_call_handler = harness._build_ipc_handlers(request=request, session=session)["tool_call"]
+
+    allowed = await tool_call_handler(
+        {
+            "name": "http_request",
+            "arguments": {
+                "method": "GET",
+                "url": "https://api.fixture.test/data",
+                "headers": {"Accept": "application/json"},
+            },
+        }
+    )
+
+    assert direct_http_tool.calls == []
+    assert "error" not in allowed
+    assert ssrf_checks == ["https://api.fixture.test/data"]
+    assert captured_http[0]["headers"]["Authorization"] == "Bearer host-http-token"
+    assert captured_http[0]["headers"]["Accept"] == "application/json"
+
+    blocked = await tool_call_handler(
+        {
+            "name": "http_request",
+            "arguments": {
+                "method": "GET",
+                "url": "https://blocked.fixture.test/data",
+                "headers": {},
+            },
+        }
+    )
+
+    assert "Host not on allowed list" in json.dumps(blocked)
+    assert len(captured_http) == 1
 
 
 @pytest.mark.asyncio
