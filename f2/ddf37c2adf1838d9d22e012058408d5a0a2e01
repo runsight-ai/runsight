@@ -1,0 +1,23 @@
+packages/core/tests/test_tool_ipc_tool_calls.py
+  s_8dc9a22450e14f::t_cc6722cb8e4694 12-16,44-54,59-63,66,68
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_8dc9a22450e14f::t_0805659bd289ad 230-241,615-637,654-800
+packages/core/tests/test_workspace_runtime_removal_governance.py
+  s_8dc9a22450e14f::t_950b1679b63280 29,211-221,257-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "f2ddf37c2adf1838d9d22e012058408d5a0a2e01",
+  "prompts": {},
+  "sessions": {
+    "s_8dc9a22450e14f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d55-ca8e-76b3-b909-be92ad36dafd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
