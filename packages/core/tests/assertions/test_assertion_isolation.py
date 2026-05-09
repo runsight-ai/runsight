@@ -11,6 +11,7 @@ from runsight_core.assertions.registry import register_assertion, run_assertions
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.budget_enforcement import BudgetSession, _active_budget
 from runsight_core.isolation.envelope import ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 
 pytestmark = pytest.mark.real_subprocess_isolation
 
@@ -48,11 +49,12 @@ class TestSmartAssertionIsolation:
         captured: dict[str, Any] = {}
 
         class FakeHarness:
-            def __init__(self, *, api_keys: dict[str, str], **kwargs: Any) -> None:
-                captured["api_keys"] = dict(api_keys)
+            def __init__(self, **kwargs: Any) -> None:
+                captured["harness_kwargs"] = dict(kwargs)
 
-            async def run(self, envelope: Any) -> ResultEnvelope:
-                captured["envelope"] = envelope
+            async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+                captured["request"] = request
+                envelope = request.envelope
                 return ResultEnvelope(
                     block_id=envelope.block_id,
                     output=json.dumps(
@@ -75,6 +77,10 @@ class TestSmartAssertionIsolation:
                     error_type=None,
                 )
 
+        class ForbiddenSubprocessHarness:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise AssertionError("llm_judge must use UnixLocalHarness")
+
         monkeypatch.setattr(
             custom_module,
             "_run_plugin_sync",
@@ -82,8 +88,14 @@ class TestSmartAssertionIsolation:
                 AssertionError("llm_judge must not run via custom plugin sync path")
             ),
         )
-        monkeypatch.setattr(registry_module, "SubprocessHarness", FakeHarness, raising=False)
-        monkeypatch.setattr(isolation_module, "SubprocessHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(registry_module, "UnixLocalHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(isolation_module, "UnixLocalHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(
+            registry_module,
+            "SubprocessHarness",
+            ForbiddenSubprocessHarness,
+            raising=False,
+        )
 
         result = await run_assertions(
             [
@@ -105,11 +117,20 @@ class TestSmartAssertionIsolation:
             api_keys={"openai": "dummy-engine-openai-key"},
         )
 
-        assert captured["api_keys"] == {"openai": "dummy-engine-openai-key"}
-        assert captured["envelope"].block_type == "assertion"
-        assert captured["envelope"].block_config["assertion"]["type"] == "llm_judge"
-        assert captured["envelope"].block_config["output_to_grade"] == "The candidate answer."
-        assert captured["envelope"].block_config["judge_soul"]["model_name"] == "gpt-4o-mini"
+        assert captured["harness_kwargs"] == {}
+        request = captured["request"]
+        assert isinstance(request, WorkspaceRunRequest)
+        assert request.host_bindings is not None
+        assert request.host_bindings.api_keys == {"openai": "dummy-engine-openai-key"}
+        assert request.worker_tools == []
+        assert request.host_bindings.host_tools.tools == []
+        assert request.manifest.working_dir == "."
+        assert request.envelope.block_type == "assertion"
+        assert request.envelope.block_config["assertion"]["type"] == "llm_judge"
+        assert request.envelope.block_config["output_to_grade"] == "The candidate answer."
+        assert request.envelope.block_config["judge_soul"]["model_name"] == "gpt-4o-mini"
+        assert request.envelope.timeout_seconds == 30
+        assert request.envelope.max_output_bytes == 1_000_000
 
         assert isinstance(result, AssertionsResult)
         assert len(result.results) == 1
@@ -138,13 +159,14 @@ class TestSmartAssertionIsolation:
         budget_token = _active_budget.set(workflow_budget)
 
         class FakeHarness:
-            def __init__(self, *, api_keys: dict[str, str], **kwargs: Any) -> None:
-                self._api_keys = dict(api_keys)
+            def __init__(self, **kwargs: Any) -> None:
+                self._kwargs = dict(kwargs)
 
-            async def run(self, envelope: Any) -> ResultEnvelope:
+            async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
                 active_budget = _active_budget.get(None)
                 if isinstance(active_budget, BudgetSession):
                     active_budget.accrue(cost_usd=0.10, tokens=15)
+                envelope = request.envelope
                 return ResultEnvelope(
                     block_id=envelope.block_id,
                     output=json.dumps(
@@ -167,8 +189,18 @@ class TestSmartAssertionIsolation:
                     error_type=None,
                 )
 
-        monkeypatch.setattr(registry_module, "SubprocessHarness", FakeHarness, raising=False)
-        monkeypatch.setattr(isolation_module, "SubprocessHarness", FakeHarness, raising=False)
+        class ForbiddenSubprocessHarness:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise AssertionError("llm_judge must use UnixLocalHarness")
+
+        monkeypatch.setattr(registry_module, "UnixLocalHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(isolation_module, "UnixLocalHarness", FakeHarness, raising=False)
+        monkeypatch.setattr(
+            registry_module,
+            "SubprocessHarness",
+            ForbiddenSubprocessHarness,
+            raising=False,
+        )
 
         try:
             _ = await run_assertions(

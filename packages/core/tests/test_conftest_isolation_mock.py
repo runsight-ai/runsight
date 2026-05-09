@@ -1,18 +1,19 @@
 """
 Tests for the conftest mock-at-boundary isolation contract.
 
-The conftest must patch SubprocessHarness.run rather than IsolatedBlockWrapper.execute
-so the wrapper's envelope construction and result mapping are exercised.
+The conftest must patch UnixLocalHarness.run rather than IsolatedBlockWrapper.execute
+so the wrapper's request construction and result mapping are exercised.
 
 Tests verify four properties of the corrected conftest:
 
 1. IsolatedBlockWrapper.execute is NOT patched — it must be the real method.
-2. SubprocessHarness.run IS patched — the conftest patches at the harness level.
-3. The patched SubprocessHarness.run receives a ContextEnvelope and returns a
-   ResultEnvelope, proving the wrapper built the envelope before calling the
+2. UnixLocalHarness.run IS patched — the conftest patches at the workspace
+   harness level.
+3. The patched UnixLocalHarness.run receives a WorkspaceRunRequest and returns
+   a ResultEnvelope, proving the wrapper built the request before calling the
    harness.
 4. Tests marked real_subprocess_isolation are excluded from the mock and
-   exercise the real SubprocessHarness.run path. Filename prefixes are not the
+   exercise the real worker path. Filename prefixes are not the
    exclusion contract.
 """
 
@@ -25,10 +26,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
 from runsight_core.isolation.envelope import (
-    ContextEnvelope,
     ResultEnvelope,
 )
-from runsight_core.isolation.harness import SubprocessHarness
+from runsight_core.isolation.workspace import UnixLocalHarness, WorkspaceRunRequest
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 
 
@@ -92,7 +92,7 @@ class TestWrapperExecuteIsNotPatched:
         assert "ContextEnvelope" in source, (
             "IsolatedBlockWrapper.execute appears to be patched by conftest — "
             "it does not contain the real ContextEnvelope construction logic. "
-            "The conftest must patch SubprocessHarness.run instead."
+            "The conftest must patch UnixLocalHarness.run instead."
         )
 
     def test_execute_calls_run_in_subprocess(self):
@@ -122,57 +122,54 @@ class TestWrapperExecuteIsNotPatched:
 
 
 # ---------------------------------------------------------------------------
-# SubprocessHarness.run is patched in normal test context
+# UnixLocalHarness.run is patched in normal test context
 # ---------------------------------------------------------------------------
 
 
-class TestSubprocessHarnessRunIsPatched:
-    """The conftest must monkeypatch SubprocessHarness.run to an in-process executor."""
+class TestWorkspaceHarnessRunIsPatched:
+    """The conftest must monkeypatch UnixLocalHarness.run to an in-process executor."""
 
     def test_harness_run_is_not_the_real_subprocess_spawner(self):
-        """SubprocessHarness.run must be patched to avoid spawning real subprocesses.
+        """UnixLocalHarness.run must be patched to avoid spawning real workers.
 
-        The real run() creates Unix sockets and spawns subprocesses.  In a
+        The real run() creates workspace sessions and spawns workers.  In a
         patched state it should be an AsyncMock or a simple coroutine that does
-        not create sockets.
+        not launch a worker process.
         """
-        run_method = SubprocessHarness.run
+        run_method = UnixLocalHarness.run
         source = inspect.getsource(run_method)
-        # The real implementation calls create_socket and
-        # asyncio.create_subprocess_exec.  If still unpatched these will appear
-        # in its source.
-        assert "create_socket" not in source or "AsyncMock" in str(type(run_method)), (
-            "SubprocessHarness.run does not appear to be patched. "
+        assert "worker_launcher" not in source or "AsyncMock" in str(type(run_method)), (
+            "UnixLocalHarness.run does not appear to be patched. "
             "The conftest must replace it with an in-process executor so that "
-            "litellm mocks are visible and no real subprocesses are spawned."
+            "litellm mocks are visible and no real workers are spawned."
         )
 
     def test_harness_run_is_a_coroutine_function(self):
-        """The patched SubprocessHarness.run must still be awaitable."""
-        run_method = SubprocessHarness.run
+        """The patched UnixLocalHarness.run must still be awaitable."""
+        run_method = UnixLocalHarness.run
         # Either the class-level method is still the original (and thus a
         # coroutine function), or it has been patched to an AsyncMock.  Either
         # way it must be awaitable.  If the conftest patches at the harness
         # instance level during wrapper.execute, the class-level method is
         # still the real one here — that is fine for this check.
         assert inspect.iscoroutinefunction(run_method) or isinstance(run_method, AsyncMock), (
-            "SubprocessHarness.run must be a coroutine function (or AsyncMock). "
+            "UnixLocalHarness.run must be a coroutine function (or AsyncMock). "
             "Found: %s" % type(run_method)
         )
 
 
 # ---------------------------------------------------------------------------
-# Wrapper builds ContextEnvelope and passes it to harness.run
+# Wrapper builds WorkspaceRunRequest and passes it to harness.run
 # ---------------------------------------------------------------------------
 
 
-class TestWrapperBuildsEnvelopeBeforeCallingHarness:
-    """IsolatedBlockWrapper.execute must construct a ContextEnvelope and pass it
-    to harness.run, proving the envelope construction path is exercised."""
+class TestWrapperBuildsRequestBeforeCallingHarness:
+    """IsolatedBlockWrapper.execute must construct a WorkspaceRunRequest and pass it
+    to harness.run, proving the request construction path is exercised."""
 
     @pytest.mark.asyncio
-    async def test_harness_run_receives_context_envelope(self, helper_souls_map):
-        """harness.run must be called with a ContextEnvelope instance."""
+    async def test_harness_run_receives_workspace_run_request(self, helper_souls_map):
+        """harness.run must be called with a WorkspaceRunRequest instance."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
@@ -184,13 +181,13 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
             runner=_make_mock_runner(),
         )
 
-        received_envelopes: list[Any] = []
+        received_requests: list[Any] = []
 
-        async def _capture_run(envelope: ContextEnvelope) -> ResultEnvelope:
-            received_envelopes.append(envelope)
-            return _make_result_envelope(block_id=envelope.block_id)
+        async def _capture_run(request: WorkspaceRunRequest) -> ResultEnvelope:
+            received_requests.append(request)
+            return _make_result_envelope(block_id=request.envelope.block_id)
 
-        harness_mock = AsyncMock(spec=SubprocessHarness)
+        harness_mock = AsyncMock(spec=UnixLocalHarness)
         harness_mock.run.side_effect = _capture_run
 
         wrapper = IsolatedBlockWrapper(
@@ -203,19 +200,19 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
 
         await wrapper.execute(_make_ctx(wrapper, state))
 
-        assert len(received_envelopes) == 1, (
+        assert len(received_requests) == 1, (
             "harness.run was not called exactly once. "
             "IsolatedBlockWrapper.execute may have been patched by conftest, "
-            "bypassing the envelope construction."
+            "bypassing the request construction."
         )
-        assert isinstance(received_envelopes[0], ContextEnvelope), (
-            "harness.run was not called with a ContextEnvelope. "
-            "Got: %s" % type(received_envelopes[0])
+        assert isinstance(received_requests[0], WorkspaceRunRequest), (
+            "harness.run was not called with a WorkspaceRunRequest. "
+            "Got: %s" % type(received_requests[0])
         )
 
     @pytest.mark.asyncio
-    async def test_context_envelope_contains_block_id(self, helper_souls_map):
-        """The ContextEnvelope passed to harness.run must have the correct block_id."""
+    async def test_workspace_request_envelope_contains_block_id(self, helper_souls_map):
+        """The WorkspaceRunRequest passed to harness.run must have the correct block_id."""
         from runsight_core.blocks.linear import LinearBlock
         from runsight_core.state import WorkflowState
 
@@ -226,13 +223,13 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
             runner=_make_mock_runner(),
         )
 
-        received: list[ContextEnvelope] = []
+        received: list[WorkspaceRunRequest] = []
 
-        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
-            received.append(envelope)
-            return _make_result_envelope(block_id=envelope.block_id)
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            received.append(request)
+            return _make_result_envelope(block_id=request.envelope.block_id)
 
-        harness_mock = AsyncMock(spec=SubprocessHarness)
+        harness_mock = AsyncMock(spec=UnixLocalHarness)
         harness_mock.run.side_effect = _capture
 
         wrapper = IsolatedBlockWrapper(
@@ -244,9 +241,9 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
         state = WorkflowState()
         await wrapper.execute(_make_ctx(wrapper, state))
 
-        assert received[0].block_id == "context_envelope_block", (
-            "ContextEnvelope.block_id is '%s', expected 'context_envelope_block'. "
-            "The wrapper execute path may be patched." % received[0].block_id
+        assert received[0].envelope.block_id == "context_envelope_block", (
+            "WorkspaceRunRequest.envelope.block_id is '%s', expected 'context_envelope_block'. "
+            "The wrapper execute path may be patched." % received[0].envelope.block_id
         )
 
 
@@ -256,7 +253,7 @@ class TestWrapperBuildsEnvelopeBeforeCallingHarness:
 
 
 class TestMockReturnsValidResultEnvelope:
-    """When patched at the harness level, SubprocessHarness.run must return
+    """When patched at the harness level, UnixLocalHarness.run must return
     a ResultEnvelope with all required fields populated."""
 
     @pytest.mark.asyncio
@@ -274,7 +271,8 @@ class TestMockReturnsValidResultEnvelope:
 
         expected_output = "the answer is 42"
 
-        async def _harness_run(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def _harness_run(request: WorkspaceRunRequest) -> ResultEnvelope:
+            envelope = request.envelope
             return ResultEnvelope(
                 block_id=envelope.block_id,
                 output=expected_output,
@@ -288,7 +286,7 @@ class TestMockReturnsValidResultEnvelope:
                 error_type=None,
             )
 
-        harness_mock = AsyncMock(spec=SubprocessHarness)
+        harness_mock = AsyncMock(spec=UnixLocalHarness)
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
@@ -322,7 +320,8 @@ class TestMockReturnsValidResultEnvelope:
             runner=_make_mock_runner(),
         )
 
-        async def _harness_run(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def _harness_run(request: WorkspaceRunRequest) -> ResultEnvelope:
+            envelope = request.envelope
             return ResultEnvelope(
                 block_id=envelope.block_id,
                 output="done",
@@ -336,7 +335,7 @@ class TestMockReturnsValidResultEnvelope:
                 error_type=None,
             )
 
-        harness_mock = AsyncMock(spec=SubprocessHarness)
+        harness_mock = AsyncMock(spec=UnixLocalHarness)
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
@@ -368,7 +367,8 @@ class TestMockReturnsValidResultEnvelope:
             runner=_make_mock_runner(),
         )
 
-        async def _harness_run(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def _harness_run(request: WorkspaceRunRequest) -> ResultEnvelope:
+            envelope = request.envelope
             return ResultEnvelope(
                 block_id=envelope.block_id,
                 output="branched",
@@ -382,7 +382,7 @@ class TestMockReturnsValidResultEnvelope:
                 error_type=None,
             )
 
-        harness_mock = AsyncMock(spec=SubprocessHarness)
+        harness_mock = AsyncMock(spec=UnixLocalHarness)
         harness_mock.run.side_effect = _harness_run
 
         wrapper = IsolatedBlockWrapper(
@@ -473,11 +473,11 @@ class TestRealSubprocessMarkerContract:
         assert "_ISOLATION_TEST_PREFIXES" not in source
 
     def test_bypass_fixture_patches_harness_run_not_wrapper_execute(self):
-        """The _bypass_subprocess_isolation fixture must patch SubprocessHarness.run,
+        """The _bypass_subprocess_isolation fixture must patch UnixLocalHarness.run,
         NOT IsolatedBlockWrapper.execute.
 
-        This protects the core invariant: conftest must patch harness.run,
-        never wrapper.execute.
+        This protects the core invariant: conftest must patch the workspace
+        harness boundary, never wrapper.execute.
         """
         import importlib.util
         from pathlib import Path
@@ -492,10 +492,14 @@ class TestRealSubprocessMarkerContract:
 
         assert 'IsolatedBlockWrapper, "execute"' not in source, (
             "conftest still patches IsolatedBlockWrapper.execute. "
-            "It must patch SubprocessHarness.run instead."
+            "It must patch UnixLocalHarness.run instead."
         )
-        assert "SubprocessHarness" in source and '"run"' in source, (
-            "conftest does not appear to patch SubprocessHarness.run. "
+        assert "SubprocessHarness.run" not in source, (
+            "conftest still refers to SubprocessHarness.run. "
+            "The _bypass_subprocess_isolation fixture must patch UnixLocalHarness.run."
+        )
+        assert "UnixLocalHarness" in source and '"run"' in source, (
+            "conftest does not appear to patch UnixLocalHarness.run. "
             "The _bypass_subprocess_isolation fixture must monkeypatch "
-            "SubprocessHarness.run to an in-process executor."
+            "UnixLocalHarness.run to an in-process executor."
         )

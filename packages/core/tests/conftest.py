@@ -124,11 +124,11 @@ def _uses_real_subprocess_isolation(request: pytest.FixtureRequest) -> bool:
 def _bypass_subprocess_isolation(request, monkeypatch):
     """Keep block execution in-process so litellm mocks are visible.
 
-    Production code spawns a real subprocess via SubprocessHarness where
-    parent-process mocks are invisible.  This patches SubprocessHarness.run
-    so the wrapper's real execute() path (envelope construction, result
-    mapping) is exercised while the subprocess spawn is replaced with an
-    in-process call to the inner block.
+    Production code spawns a real worker via the workspace harness where
+    parent-process mocks are invisible.  This patches UnixLocalHarness.run so
+    the wrapper's real execute() path (request construction, result mapping)
+    is exercised while the worker launch is replaced with an in-process call
+    to the inner block.
 
     Tests that must exercise the real subprocess boundary opt out with the
     real_subprocess_isolation marker.
@@ -142,19 +142,25 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             DelegateArtifact,
             ResultEnvelope,
         )
-        from runsight_core.isolation.harness import SubprocessHarness
+        from runsight_core.isolation.workspace import UnixLocalHarness, WorkspaceRunRequest
         from runsight_core.isolation.wrapper import IsolatedBlockWrapper
     except ImportError:
         return
 
-    async def _in_process_harness_run(self, envelope: ContextEnvelope) -> ResultEnvelope:
-        """No-op replacement for SubprocessHarness.run.
+    def _envelope_from_request(request: WorkspaceRunRequest | ContextEnvelope) -> ContextEnvelope:
+        return request.envelope if isinstance(request, WorkspaceRunRequest) else request
+
+    async def _in_process_workspace_run(
+        self, request: WorkspaceRunRequest | ContextEnvelope
+    ) -> ResultEnvelope:
+        """No-op replacement for UnixLocalHarness.run.
 
         Real execution is handled by the patched _run_in_subprocess which
-        calls the inner block directly when the harness is a SubprocessHarness.
-        This stub exists so that SubprocessHarness.run is patched away from
-        the real socket/subprocess implementation, satisfying the harness-boundary invariant.
+        calls the inner block directly when the harness is a production
+        workspace harness.  This stub exists so that UnixLocalHarness.run is
+        patched away from the real worker implementation.
         """
+        envelope = _envelope_from_request(request)
         return ResultEnvelope(
             block_id=envelope.block_id,
             output="",
@@ -169,24 +175,26 @@ def _bypass_subprocess_isolation(request, monkeypatch):
         )
 
     async def _patched_run_in_subprocess(
-        self: IsolatedBlockWrapper, envelope: ContextEnvelope
+        self: IsolatedBlockWrapper, request: WorkspaceRunRequest | ContextEnvelope
     ) -> ResultEnvelope:
         """Execute in-process when harness is real, forward when harness is a test mock.
 
-        When the wrapper's harness is a real SubprocessHarness, this calls the
-        inner block directly — litellm mocks in the parent process are visible.
+        When the wrapper's harness is a real workspace harness, this calls the
+        inner block directly so litellm mocks in the parent process are visible.
         When the harness is a test-supplied mock (e.g. AsyncMock), it forwards
         to harness.run so test assertions on the mock work correctly.
         """
         if self.harness is None:
             if self._harness_factory is None:
                 raise NotImplementedError(
-                    "SubprocessHarness is not configured on IsolatedBlockWrapper"
+                    "Workspace harness is not configured on IsolatedBlockWrapper"
                 )
             self.harness = self._harness_factory()
 
         if type(self.harness).__name__ in ("MagicMock", "AsyncMock"):
-            return await self.harness.run(envelope)
+            return await self.harness.run(request)
+
+        envelope = _envelope_from_request(request)
 
         from runsight_core.block_io import BlockOutput, apply_block_output, build_block_context
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
@@ -259,7 +267,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             error_type=None,
         )
 
-    monkeypatch.setattr(SubprocessHarness, "run", _in_process_harness_run)
+    monkeypatch.setattr(UnixLocalHarness, "run", _in_process_workspace_run)
     monkeypatch.setattr(IsolatedBlockWrapper, "_run_in_subprocess", _patched_run_in_subprocess)
 
 
