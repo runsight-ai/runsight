@@ -1,0 +1,33 @@
+packages/core/tests/conftest.py
+  s_c2cf2fa0eb91a3::t_6028d0cbce1975 190
+  s_c2cf2fa0eb91a3::t_7ff0e47ff7d3e8 127-131,145,150-156,159-161,163,178,182-183,195-197,270
+apps/api/tests/conftest.py
+  s_c2cf2fa0eb91a3::t_6e270b25402042 141
+  s_c2cf2fa0eb91a3::t_094b75c4b7c60e 87-88,90-92,102,107-113,116-118,120,135,146-148,195
+packages/core/tests/assertions/test_assertion_isolation.py
+  s_c2cf2fa0eb91a3::t_1a1839006652bf 14,52-53,55-57,80-83,91-98,120-133,162-163,165,169,192-203
+packages/core/tests/test_conftest_isolation_mock.py
+  s_c2cf2fa0eb91a3::t_7220154197ce84 4-5,10-13,16,31,129-130,133,135,137,139,141-142,144,148-149,156,166-168,171-172,184,186-188,190,203,206,208-210,214-215,226,228-230,232,244-246,289,338,385,476,479-480,497-502,504
+  s_c2cf2fa0eb91a3::t_c43a47a1b02580 95,125,162,256,274-275,323-324,370-371,495
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_c2cf2fa0eb91a3::t_5d0beedab33780 1-298
+apps/api/tests/test_conftest_workspace_harness_mock.py
+  s_c2cf2fa0eb91a3::t_7439a15fea7051 1-5,7-31,33-35
+  s_c2cf2fa0eb91a3::t_0e91eea7485582 6,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "749201a8ac5cd052fb361a913866fc0b2e052522",
+  "prompts": {},
+  "sessions": {
+    "s_c2cf2fa0eb91a3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0cc7-77b2-7af0-a721-92ca37583e15",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
