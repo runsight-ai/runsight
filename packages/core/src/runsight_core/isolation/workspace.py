@@ -937,9 +937,12 @@ class UnixLocalHarness:
         phase_timeout: float = 60.0,
         stall_thresholds: dict[str, int | float] | None = None,
     ) -> None:
-        self._session_factory = session_factory or WorkspaceSessionFactory(
-            host_root=Path(tempfile.mkdtemp(prefix="rs-workspace-"))
-        )
+        self._owned_session_base_root: Path | None = None
+        if session_factory is None:
+            self._owned_session_base_root = Path(tempfile.mkdtemp(prefix="rs-workspace-")).resolve()
+            self._session_factory = WorkspaceSessionFactory(host_root=self._owned_session_base_root)
+        else:
+            self._session_factory = session_factory
         self._ipc_transport = ipc_transport or UnixSocketIPCTransport()
         self._worker_launcher = worker_launcher or UnixWorkerLauncher()
         self._cleanup_mode = cleanup
@@ -1148,6 +1151,16 @@ class UnixLocalHarness:
     def _should_cleanup(self, *, succeeded: bool) -> bool:
         return self._cleanup_mode == "always" or (self._cleanup_mode == "on_success" and succeeded)
 
+    def _cleanup_owned_session_base_root(self) -> None:
+        if self._owned_session_base_root is None:
+            return
+        try:
+            self._owned_session_base_root.rmdir()
+        except FileNotFoundError:
+            return
+        except OSError:
+            return
+
     async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
         from runsight_core.budget_enforcement import BudgetSession, _active_budget
         from runsight_core.isolation.interceptors import (
@@ -1289,3 +1302,4 @@ class UnixLocalHarness:
                 binding.close()
             if self._should_cleanup(succeeded=succeeded) and session.cleanup:
                 shutil.rmtree(session.host_root, ignore_errors=True)
+                self._cleanup_owned_session_base_root()

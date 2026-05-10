@@ -442,6 +442,43 @@ async def test_cleanup_always_removes_workspace_and_ipc_resources(
 
 
 @pytest.mark.asyncio
+async def test_default_harness_cleanup_removes_owned_session_base_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_module = importlib.import_module("runsight_core.isolation.workspace")
+    owned_base = (tmp_path / "rs-workspace-owned").resolve()
+
+    def fake_mkdtemp(prefix: str) -> str:
+        assert prefix == "rs-workspace-"
+        owned_base.mkdir(mode=0o700)
+        return str(owned_base)
+
+    monkeypatch.setattr(workspace_module.tempfile, "mkdtemp", fake_mkdtemp)
+
+    expected = _make_result_envelope(output="default harness cleanup")
+    process = _FakeWorkerProcess(stdout=_ImmediateStdout(expected.model_dump_json().encode()))
+    transport = _RecordingIPCTransport(_ipc_binding(tmp_path / "ipc" / "owned.sock"))
+    launcher = _RecordingWorkerLauncher(process)
+    UnixLocalHarness = _isolation_contract("UnixLocalHarness")
+    harness = UnixLocalHarness(
+        ipc_transport=transport,
+        worker_launcher=launcher,
+        cleanup="always",
+        heartbeat_timeout=1,
+    )
+
+    assert owned_base.is_dir()
+
+    result = await harness.run(_workspace_request())
+
+    assert result == expected
+    assert launcher.specs[0].cwd.parent == owned_base
+    assert not owned_base.exists()
+    assert transport.closed is True
+
+
+@pytest.mark.asyncio
 async def test_heartbeat_stall_terminates_worker_and_returns_stall_error(
     tmp_path: Path,
 ) -> None:
