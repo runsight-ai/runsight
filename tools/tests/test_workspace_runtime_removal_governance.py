@@ -1,6 +1,6 @@
 """Governance for removing the legacy public subprocess harness path.
 
-Owner: packages/core owns the workspace runtime isolation contract boundary.
+Owner: tools/tests owns cross-workspace governance for the runtime isolation boundary.
 Boundary: this suite may inspect checked-in source, tests, and user-facing docs.
 It must not inspect repo-root runtime state such as .runsight/, runsight.db,
 custom/, secrets, or user configuration.
@@ -18,7 +18,7 @@ import pytest
 
 pytestmark = pytest.mark.governance
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 THIS_FILE = Path(__file__).resolve()
 
 CORE_SOURCE_ROOT = REPO_ROOT / "packages" / "core" / "src"

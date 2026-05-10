@@ -16,6 +16,12 @@ The current local implementation of that contract is `UnixLocalHarness`. It crea
 Workspace isolation is a credential, state, and workspace boundary. The current Unix-local backend is not a hard OS security sandbox: it does not add container namespaces, cgroups, or seccomp. It is the architecture layer that lets stricter backends be added later without changing workflow YAML, parser contracts, or block wrappers.
 :::
 
+## Deployment hardening
+
+Workspace isolation and container hardening are separate layers. The workspace boundary governs each isolated block run; the Docker deployment also applies service-level process controls around Runsight itself.
+
+- **Layer 1 — Container hardening:** Docker deployments run as a non-root/unprivileged user, drop Linux capabilities, prevent privilege escalation, and apply container CPU and memory limits.
+
 ## Why workspace isolation
 
 LLM blocks accept arbitrary prompts and may request model calls, tools, HTTP access, or file operations. Runsight treats those requests as work that must cross an explicit boundary:
