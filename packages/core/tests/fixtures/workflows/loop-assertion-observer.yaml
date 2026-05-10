@@ -8,6 +8,7 @@ souls:
     name: Quality Critic
     role: Quality Critic
     system_prompt: Evaluate quality.
+    provider: fixture-provider
     model_name: fixture-dispatch-loop-model
 blocks:
   evaluate:
