@@ -37,16 +37,26 @@ def make_mock_runner():
 
 
 def patch_fixture_model_budget(monkeypatch) -> None:
+    from runsight_core import runner as runner_module
+    from runsight_core.isolation import handlers as handlers_module
     from runsight_core.memory import budget as budget_module
 
     original_get_model_info = budget_module.get_model_info
+    original_detect_provider = runner_module._detect_provider
 
     def _get_model_info(model: str):
         if model == FIXTURE_RUNNER_MODEL:
             return {"max_input_tokens": 8192}
         return original_get_model_info(model)
 
+    def _detect_provider(model: str) -> str:
+        if model == FIXTURE_RUNNER_MODEL:
+            return "openai"
+        return original_detect_provider(model)
+
     monkeypatch.setattr(budget_module, "get_model_info", _get_model_info)
+    monkeypatch.setattr(runner_module, "_detect_provider", _detect_provider)
+    monkeypatch.setattr(handlers_module, "_detect_provider", _detect_provider)
 
 
 def make_soul(soul_id: str, role: str, prompt: str) -> Soul:

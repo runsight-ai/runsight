@@ -15,16 +15,26 @@ _FIXTURE_MODEL = "fixture-dispatch-delegate-model"
 
 @pytest.fixture(autouse=True)
 def _fixture_model_budget(monkeypatch):
+    from runsight_core import runner as runner_module
+    from runsight_core.isolation import handlers as handlers_module
     from runsight_core.memory import budget as budget_module
 
     original_get_model_info = budget_module.get_model_info
+    original_detect_provider = runner_module._detect_provider
 
     def _get_model_info(model: str):
         if model == _FIXTURE_MODEL:
             return {"max_input_tokens": 8192}
         return original_get_model_info(model)
 
+    def _detect_provider(model: str) -> str:
+        if model == _FIXTURE_MODEL:
+            return "openai"
+        return original_detect_provider(model)
+
     monkeypatch.setattr(budget_module, "get_model_info", _get_model_info)
+    monkeypatch.setattr(runner_module, "_detect_provider", _detect_provider)
+    monkeypatch.setattr(handlers_module, "_detect_provider", _detect_provider)
 
 
 def _text_response(content: str) -> Dict[str, Any]:
@@ -147,7 +157,11 @@ def _three_exit_workflow_with_downstream() -> Dict[str, Any]:
 async def test_delegate_selected_exit_routes_to_downstream_declared_input(
     mock_achat: AsyncMock, tmp_path
 ) -> None:
-    workflow = parse_workflow_yaml(_three_exit_workflow_with_downstream(), _base_dir=str(tmp_path))
+    workflow = parse_workflow_yaml(
+        _three_exit_workflow_with_downstream(),
+        _base_dir=str(tmp_path),
+        api_keys={"openai": "dummy-openai-key"},
+    )
     mock_achat.side_effect = [
         _tool_call_response("port_b"),
         _text_response("Delegated to B."),

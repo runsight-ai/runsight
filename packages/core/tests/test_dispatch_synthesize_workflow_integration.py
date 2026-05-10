@@ -68,7 +68,10 @@ class TestDispatchSynthesizeAggregateWorkflow:
         patched_completion_call.side_effect = _completion_for_branch_prompt
         patched_cost_calculator.return_value = 0.01
 
-        wf = parse_workflow_yaml(workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE))
+        wf = parse_workflow_yaml(
+            workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE),
+            api_keys={"openai": "dummy-openai-key"},
+        )
         final_state = await wf.run(WorkflowState())
 
         assert "dispatch_work.researcher" in final_state.results
@@ -104,7 +107,10 @@ class TestDispatchSynthesizeAggregateWorkflow:
         patched_completion_call.side_effect = _capturing_completion
         patched_cost_calculator.return_value = 0.001
 
-        wf = parse_workflow_yaml(workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE))
+        wf = parse_workflow_yaml(
+            workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE),
+            api_keys={"openai": "dummy-openai-key"},
+        )
         await wf.run(WorkflowState())
 
         dispatch_prompts = captured_prompts[:2]
@@ -133,7 +139,10 @@ class TestDispatchSynthesizeAggregateWorkflow:
         patched_completion_call.side_effect = _capturing_completion
         patched_cost_calculator.return_value = 0.001
 
-        wf = parse_workflow_yaml(workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE))
+        wf = parse_workflow_yaml(
+            workflow_fixture_text(_AGGREGATE_INPUT_FIXTURE),
+            api_keys={"openai": "dummy-openai-key"},
+        )
         await wf.run(WorkflowState())
 
         assert captured_synthesize_prompts
@@ -193,7 +202,10 @@ class TestDispatchSynthesizePerExitInputs:
         )
         patched_cost_calculator.return_value = 0.001
 
-        wf = parse_workflow_yaml(workflow_fixture_text(_PER_EXIT_INPUTS_FIXTURE))
+        wf = parse_workflow_yaml(
+            workflow_fixture_text(_PER_EXIT_INPUTS_FIXTURE),
+            api_keys={"openai": "dummy-openai-key"},
+        )
         final_state = await wf.run(WorkflowState())
 
         assert wf.name == "dispatch_synthesize_per_exit_inputs_workflow"

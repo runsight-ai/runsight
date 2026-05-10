@@ -28,19 +28,35 @@ _FIXTURE_DIR = Path(__file__).parent / "fixtures" / "workflows"
 _WORKFLOW_COST_CAP_FIXTURE = "workflow-cost-cap.yaml"
 _TERMINAL_BLOCK_COST_CAP_FIXTURE = "terminal-block-cost-cap.yaml"
 _NO_LIMITS_FIXTURE = "workflow-cost-tracking-no-limits.yaml"
+_FIXTURE_MODEL = "fixture-cost-cap-model"
 
 
 @pytest.fixture(autouse=True)
 def _fixture_model_budget(monkeypatch):
+    from runsight_core import runner as runner_module
+    from runsight_core.isolation import handlers as handlers_module
+
+    original_detect_provider = runner_module._detect_provider
+
     def _get_fixture_model_info(model: str):
-        assert model == "fixture-cost-cap-model"
+        assert model == _FIXTURE_MODEL
         return {"max_input_tokens": 8192}
 
+    def _detect_provider(model: str) -> str:
+        if model == _FIXTURE_MODEL:
+            return "openai"
+        return original_detect_provider(model)
+
     monkeypatch.setattr("runsight_core.memory.budget.get_model_info", _get_fixture_model_info)
+    monkeypatch.setattr(runner_module, "_detect_provider", _detect_provider)
+    monkeypatch.setattr(handlers_module, "_detect_provider", _detect_provider)
 
 
 def _parse_fixture_workflow(fixture_name: str):
-    return parse_workflow_yaml((_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"))
+    return parse_workflow_yaml(
+        (_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"),
+        api_keys={"openai": "dummy-openai-key"},
+    )
 
 
 def _make_completion_response(
