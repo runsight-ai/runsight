@@ -1,0 +1,22 @@
+packages/core/tests/test_mixed_block_pipeline_integration.py
+  s_f21a46e9687d54::t_2418d8f2c8cbc5 42-43,48,68-141,178,198,217,234,252,284,306,323,344,373,401,424,455
+  s_f21a46e9687d54::t_ec85a531ba586f 476
+packages/core/tests/fixtures/workflows/mixed-pipeline.yaml
+  s_f21a46e9687d54::t_2418d8f2c8cbc5 9-10,17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "355859c221735d070586cb16ebed43accc26cbea",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
