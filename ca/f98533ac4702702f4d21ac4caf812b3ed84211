@@ -1,0 +1,29 @@
+packages/core/tests/loop_integration_helpers.py
+  s_f21a46e9687d54::t_30edadf81caf70 15-16,20,27-31,33-34,115
+packages/core/tests/fixtures/workflows/dispatch-inside-loop.yaml
+  s_f21a46e9687d54::t_30edadf81caf70 11,19
+packages/core/tests/fixtures/workflows/loop-block-assertions.yaml
+  s_f21a46e9687d54::t_30edadf81caf70 11
+packages/core/tests/test_dispatch_inside_loop_integration.py
+  s_f21a46e9687d54::t_30edadf81caf70 6,24-43,242,261-278
+packages/core/tests/fixtures/workflows/loop-assertion-observer.yaml
+  s_f21a46e9687d54::t_30edadf81caf70 11
+packages/core/tests/test_loop_assertion_observer_integration.py
+  s_f21a46e9687d54::t_30edadf81caf70 24-43,73-77,242,261-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "caf98533ac4702702f4d21ac4caf812b3ed84211",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
