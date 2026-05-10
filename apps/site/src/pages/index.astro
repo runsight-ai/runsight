@@ -5,6 +5,10 @@ import { siteIdentity, withSiteUrl } from "../config/site.mjs";
 
 const canonicalUrl = withSiteUrl(siteIdentity.links.homepage);
 const socialImageUrl = withSiteUrl(siteIdentity.socialImagePath);
+const feedUrl = withSiteUrl(siteIdentity.links.feed);
+const skillsUrl = withSiteUrl(siteIdentity.links.skills);
+const datePublished = siteIdentity.datePublished.slice(0, 10);
+const dateModified = siteIdentity.dateModified.slice(0, 10);
 const structuredData = JSON.stringify([
   {
     "@context": "https://schema.org",
@@ -25,6 +29,18 @@ const structuredData = JSON.stringify([
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: siteIdentity.name,
+    author: {
+      "@type": "Organization",
+      name: siteIdentity.author.name,
+      url: siteIdentity.author.url,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: siteIdentity.author.name,
+      url: siteIdentity.author.url,
+    },
+    datePublished,
+    dateModified,
     applicationCategory: "DeveloperApplication",
     operatingSystem: "macOS, Linux, Windows",
     url: siteIdentity.siteUrl,
@@ -46,9 +62,15 @@ const structuredData = JSON.stringify([
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{siteIdentity.homepageTitle}</title>
   <meta name="description" content={siteIdentity.homepageDescription}>
+  <meta name="author" content={siteIdentity.author.name}>
+  <meta name="article:published_time" content={siteIdentity.datePublished}>
+  <meta property="article:published_time" content={siteIdentity.datePublished}>
+  <meta property="article:modified_time" content={siteIdentity.dateModified}>
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href={canonicalUrl}>
   <link rel="sitemap" href="/sitemap.xml">
+  <link rel="alternate" type="application/rss+xml" title="Runsight updates" href={feedUrl}>
+  <link rel="help" type="text/markdown" title="Runsight AI integration guide" href={skillsUrl}>
   <meta property="og:title" content={siteIdentity.homepageTitle}>
   <meta property="og:description" content={siteIdentity.homepageDescription}>
   <meta property="og:type" content="website">
@@ -68,10 +90,12 @@ const structuredData = JSON.stringify([
 
   <!-- Fonts: Satoshi (marketing) + JetBrains Mono (code) -->
   <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
-  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap" rel="stylesheet"></noscript>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 </head>
 
 <body>
@@ -133,7 +157,7 @@ const structuredData = JSON.stringify([
               <a href="https://github.com/runsight-ai/runsight" class="btn-ghost">View on GitHub</a>
             </div>
             <a href="https://www.cubic.dev/" class="hero__powered" rel="noopener noreferrer">
-              <img src="/brands/cubic-mark.svg" alt="" width="16" height="16" loading="lazy">
+              <img src="/brands/cubic-mark.svg" alt="" width="16" height="16" loading="eager" fetchpriority="high">
               <span>Powered by <strong>cubic.dev</strong></span>
             </a>
           </div>
@@ -257,7 +281,7 @@ const structuredData = JSON.stringify([
       <div class="container">
         <div class="feature-duality__header" data-reveal>
           <span class="section-label">THE DUALITY</span>
-          <h2 id="duality-heading" class="section-title">Canvas and YAML. Same state.</h2>
+          <h2 id="duality-heading" class="section-title">How do canvas and YAML stay in sync?</h2>
           <p class="section-description">
             Two views of the same workflow. Edit YAML in the Monaco editor — the canvas updates. Move nodes on the canvas — the YAML stays clean. Commit the YAML to Git like any other code.
           </p>
@@ -302,7 +326,7 @@ const structuredData = JSON.stringify([
       <div class="container">
         <div class="features-bento__header" data-reveal>
           <span class="section-label">CAPABILITIES</span>
-          <h2 id="features-heading" class="section-title">Ship agents like you ship code.</h2>
+          <h2 id="features-heading" class="section-title">What makes Runsight production-ready?</h2>
         </div>
 
         <div class="bento-grid" data-reveal-stagger>
@@ -392,7 +416,7 @@ const structuredData = JSON.stringify([
       <div class="container">
         <div class="before-after__header" data-reveal>
           <span class="section-label">THE DIFFERENCE</span>
-          <h2 id="ba-heading" class="section-title">Stop debugging agents in the dark.</h2>
+          <h2 id="ba-heading" class="section-title">What changes when agents run through Runsight?</h2>
         </div>
 
         <div class="before-after__grid" data-reveal-stagger>
@@ -429,7 +453,7 @@ const structuredData = JSON.stringify([
       <div class="container">
         <div class="how-it-works__header" data-reveal>
           <span class="section-label">HOW IT WORKS</span>
-          <h2 id="hiw-heading" class="section-title">One command. Open your browser.</h2>
+          <h2 id="hiw-heading" class="section-title">How do you start with Runsight?</h2>
         </div>
 
         <div class="steps-grid" data-reveal-stagger>
