@@ -1,0 +1,21 @@
+packages/core/tests/test_prompt_envelope_source_governance.py
+  s_f21a46e9687d54::t_77a04523bb60a2 14,52-53,60
+packages/core/tests/prompt_envelope_helpers.py
+  s_f21a46e9687d54::t_77a04523bb60a2 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "8218741601bbb116b604fb698ee64a9cac24fe70",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
