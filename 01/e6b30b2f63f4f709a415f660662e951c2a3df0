@@ -1,0 +1,21 @@
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_f21a46e9687d54::t_a5a783b3ebaec3 445-480
+packages/core/src/runsight_core/isolation/workspace.py
+  s_f21a46e9687d54::t_a6adb40c99d0ee 940-945,1154-1163,1305
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "01e6b30b2f63f4f709a415f660662e951c2a3df0",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
