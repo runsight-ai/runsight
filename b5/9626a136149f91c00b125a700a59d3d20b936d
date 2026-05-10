@@ -1,0 +1,21 @@
+apps/site/src/config/site.mjs
+  s_f04d823f160e40::t_4dc6bf7593e19f 11-12
+tools/site/check-discoverability.mjs
+  s_f04d823f160e40::t_4dc6bf7593e19f 68,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b59626a136149f91c00b125a700a59d3d20b936d",
+  "prompts": {},
+  "sessions": {
+    "s_f04d823f160e40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e12b9-f448-7e90-972a-58b3d216857e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
