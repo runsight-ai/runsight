@@ -1,0 +1,27 @@
+packages/core/tests/test_dispatch_delegate_routing_integration.py
+  s_f21a46e9687d54::t_8dd9c433c02ed8 18-19,23,30-34,36-37,160-164
+packages/core/tests/test_workflow_cost_cap_integration.py
+  s_f21a46e9687d54::t_4e18cf9da88a6d 31,36-40,42,45-49,51-52,56-59
+packages/core/tests/test_dispatch_synthesize_workflow_integration.py
+  s_f21a46e9687d54::t_eb787c157aa27e 71-74,110-113,142-145,205-208
+packages/core/tests/test_dispatch_budget_workflow_integration.py
+  s_f21a46e9687d54::t_d3cf279a2598a6 15,24-47,49-52
+packages/core/tests/dispatch_synthesize_helpers.py
+  s_f21a46e9687d54::t_564aec471d460e 40-41,45,52-56,58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b56e1646d373657705dcc77eb404331375116dc7",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
