@@ -65,7 +65,7 @@ async function checkRenderedOutput() {
 	expectIncludes(home, 'rel="sitemap" href="/sitemap.xml"', "index.html");
 	expectIncludes(home, 'type="application/rss+xml" title="Runsight updates"', "index.html");
 	expectIncludes(home, 'type="text/markdown" title="Runsight AI integration guide"', "index.html");
-	expectIncludes(home, 'name="author" content="Cubic"', "index.html");
+	expectIncludes(home, 'name="author" content="Runsight"', "index.html");
 	expectIncludes(home, 'name="article:published_time"', "index.html");
 	expectIncludes(home, 'property="og:title"', "index.html");
 	expectIncludes(home, 'name="twitter:card"', "index.html");
@@ -136,7 +136,7 @@ async function checkLiveSite(baseUrl) {
 	expectIncludes(homepage.text, 'property="og:title"', "/");
 	expectIncludes(homepage.text, 'name="twitter:card"', "/");
 	expectIncludes(homepage.text, 'type="application/ld+json"', "/");
-	expectIncludes(homepage.text, 'name="author" content="Cubic"', "/");
+	expectIncludes(homepage.text, 'name="author" content="Runsight"', "/");
 	expectIncludes(homepage.text, 'loading="eager" fetchpriority="high"', "/");
 
 	console.log(`Live discoverability checks passed for ${baseUrl}`);

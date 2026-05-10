@@ -8,8 +8,8 @@ export const siteIdentity = {
 		'Design agent workflows in YAML. Commit to Git. Track cost per run. Evaluate with built-in assertions. Open source, self-hosted.',
 	docsDescription: 'YAML-first workflow engine for AI agents.',
 	author: {
-		name: 'Cubic',
-		url: 'https://www.cubic.dev/',
+		name: 'Runsight',
+		url: 'https://runsight.ai/',
 	},
 	datePublished: '2026-04-08T00:00:00Z',
 	dateModified: '2026-05-10T00:00:00Z',
