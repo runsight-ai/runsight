@@ -1,0 +1,34 @@
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_a359ac4f311cd9 558-580
+packages/core/tests/test_conftest_isolation_mock.py
+  s_f21a46e9687d54::t_023ecc505d8c27 556-558
+  s_f21a46e9687d54::t_b7a2d47f9a6d67 112
+  s_f21a46e9687d54::t_aef63397690a3a 30-31,33-40,43,84-111,113-130,517-555,559-580
+packages/core/tests/test_workspace_materializer_contract.py
+  s_f21a46e9687d54::t_b5488cb13cdd27 207-209,214-215
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_3dafe7a213c41e 264-274
+packages/core/tests/conftest.py
+  s_f21a46e9687d54::t_bf3cf821b9dc01 243-247,317
+packages/core/tests/test_isolation_http_url_allowlist.py
+  s_f21a46e9687d54::t_ea78c7d3b7dc37 159-178
+  s_f21a46e9687d54::t_ab0d58e8ac9243 130-158
+packages/core/src/runsight_core/isolation/handlers.py
+  s_f21a46e9687d54::t_1c587176589c5e 108-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "acaf3b74e23c490a03539ffbd745b41a77c29ef3",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
