@@ -10,7 +10,8 @@ from isolation_wrapper_helpers import make_ctx as _make_ctx
 from isolation_wrapper_helpers import make_soul as _make_soul
 from isolation_wrapper_helpers import make_state as _make_state
 from runsight_core.blocks.linear import LinearBlock
-from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+from runsight_core.isolation.envelope import ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 
 pytestmark = pytest.mark.real_subprocess_isolation
 
@@ -32,9 +33,10 @@ class TestLoopBlockWithSubprocessInnerBlocks:
 
         call_count = 0
 
-        async def mock_run(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def mock_run(request: WorkspaceRunRequest) -> ResultEnvelope:
             nonlocal call_count
             call_count += 1
+            envelope = request.envelope
             # Each round adds to conversation history
             incoming = list(envelope.conversation_history)
             new_history = incoming + [
