@@ -261,7 +261,17 @@ def _hostname_from_allowlist_entry(value: str) -> str | None:
     if not entry:
         return None
     parsed = urlparse(entry)
-    hostname = parsed.hostname if parsed.scheme else entry
+    if parsed.hostname is not None:
+        hostname = parsed.hostname
+    elif "://" in entry:
+        hostname = ""
+    else:
+        host_part = entry.split("/", 1)[0].rsplit("@", 1)[-1]
+        raw_hostname, separator, raw_port = host_part.rpartition(":")
+        if separator:
+            hostname = raw_hostname if raw_hostname and raw_port.isdigit() else ""
+        else:
+            hostname = host_part
     hostname = hostname.strip().lower()
     return hostname or None
 

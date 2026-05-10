@@ -204,11 +204,15 @@ def test_materializer_rejects_working_directory_that_resolves_to_file(tmp_path: 
     WorkspaceMaterializer = _contract("WorkspaceMaterializer")
 
     session = _session(tmp_path)
+    target = session.host_root / "nested" / "work"
+    target.parent.mkdir(parents=True)
+    target.write_text("not a directory", encoding="utf-8")
 
     _assert_materialization_rejects(
         lambda: WorkspaceMaterializer(session).materialize(
             _manifest(
-                [_materialization("nested/work", content="payload")], working_dir="nested/work"
+                [_materialization("nested/output.txt", content="payload")],
+                working_dir="nested/work",
             )
         )
     )

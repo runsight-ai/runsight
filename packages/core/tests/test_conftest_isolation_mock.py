@@ -27,10 +27,20 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from runsight_core.block_io import BlockContext, BlockOutput, build_block_context
 from runsight_core.isolation.envelope import (
+    ContextEnvelope,
+    PromptEnvelope,
     ResultEnvelope,
+    SoulEnvelope,
 )
-from runsight_core.isolation.workspace import UnixLocalHarness, WorkspaceRunRequest
+from runsight_core.isolation.workspace import (
+    UnixLocalHarness,
+    WorkspaceHostBindings,
+    WorkspaceManifest,
+    WorkspacePolicy,
+    WorkspaceRunRequest,
+)
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
+from runsight_core.state import BlockResult
 
 
 def _make_ctx(wrapper: IsolatedBlockWrapper, state) -> BlockContext:
@@ -68,6 +78,53 @@ def _make_result_envelope(block_id: str = "mock_envelope_block") -> ResultEnvelo
         conversation_history=[],
         error=None,
         error_type=None,
+    )
+
+
+def _make_workspace_request(envelope: ContextEnvelope) -> WorkspaceRunRequest:
+    return WorkspaceRunRequest(
+        envelope=envelope,
+        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        policy=WorkspacePolicy(),
+        worker_tools=[],
+        host_bindings=WorkspaceHostBindings(),
+    )
+
+
+def _make_workspace_envelope(
+    *,
+    block_id: str = "mock_workspace_block",
+    block_type: str = "linear",
+    prompt_context: Any | None = None,
+) -> ContextEnvelope:
+    prompt = PromptEnvelope.model_construct(
+        id=f"{block_id}_prompt",
+        instruction="Execute the fixture block.",
+        context={} if prompt_context is None else prompt_context,
+    )
+    return ContextEnvelope.model_construct(
+        block_id=block_id,
+        block_type=block_type,
+        block_config={},
+        soul=SoulEnvelope(
+            id="mock_workspace_soul",
+            role="Tester",
+            name="Mock Workspace Soul",
+            system_prompt="Test workspace behavior.",
+            model_name="gpt-4o-mini",
+        ),
+        tools=[],
+        prompt=prompt,
+        inputs={},
+        scoped_workflow_inputs={},
+        scoped_results={},
+        scoped_shared_memory={},
+        scoped_metadata={},
+        access="declared",
+        context_audit=[],
+        conversation_history=[],
+        timeout_seconds=30,
+        max_output_bytes=1_000_000,
     )
 
 
@@ -456,6 +513,71 @@ class TestMockReturnsValidResultEnvelope:
             "exit_handle 'branch_a' was not preserved. "
             "Got: %s. Wrapper may be bypassed." % block_output.exit_handle
         )
+
+    @pytest.mark.asyncio
+    async def test_in_process_assertion_harness_preserves_string_prompt_context(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The in-process harness must mirror worker.py for string assertion context."""
+        from runsight_core.isolation import worker_support as _support
+
+        captured: dict[str, Any] = {}
+
+        class _FakeAssertionBlock:
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                captured["context"] = ctx.context
+                return BlockOutput(output="assertion ok")
+
+        monkeypatch.setattr(
+            _support, "_create_block", lambda *_args, **_kwargs: _FakeAssertionBlock()
+        )
+
+        envelope = _make_workspace_envelope(
+            block_id="assertion_context_block",
+            block_type="assertion",
+            prompt_context="literal assertion context",
+        )
+
+        result = await UnixLocalHarness().run(_make_workspace_request(envelope))
+
+        assert result.output == "assertion ok"
+        assert captured["context"] == "literal assertion context"
+
+    @pytest.mark.asyncio
+    async def test_in_process_dispatch_harness_reports_delegate_tool_call_count(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The in-process harness must mirror worker.py tool_calls_made reporting."""
+        from runsight_core.isolation import worker_support as _support
+
+        class _FakeDispatchBlock:
+            block_id = "dispatch_block"
+            branches: list[Any] = []
+
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(
+                    output="dispatch done",
+                    extra_results={
+                        "dispatch_block.alpha": BlockResult(output="alpha prompt"),
+                        "dispatch_block.beta": BlockResult(output="beta prompt"),
+                    },
+                )
+
+        monkeypatch.setattr(
+            _support, "_create_block", lambda *_args, **_kwargs: _FakeDispatchBlock()
+        )
+
+        envelope = _make_workspace_envelope(
+            block_id="dispatch_block",
+            block_type="dispatch",
+        )
+
+        result = await UnixLocalHarness().run(_make_workspace_request(envelope))
+
+        assert set(result.delegate_artifacts) == {"alpha", "beta"}
+        assert result.tool_calls_made == 2
 
 
 # ---------------------------------------------------------------------------

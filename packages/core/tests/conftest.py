@@ -240,9 +240,11 @@ def _bypass_subprocess_isolation(request, monkeypatch):
                 )
                 if block_type == "assertion":
                     raw_context = envelope.prompt.context
-                    context_text = (
-                        raw_context.get("text") if isinstance(raw_context, dict) else None
-                    )
+                    context_text = None
+                    if isinstance(raw_context, dict):
+                        context_text = raw_context.get("text") or None
+                    elif isinstance(raw_context, str):
+                        context_text = raw_context or None
                     block_ctx = BlockContext(
                         block_id=envelope.block_id,
                         instruction=envelope.prompt.instruction,
@@ -312,7 +314,7 @@ def _bypass_subprocess_isolation(request, monkeypatch):
                 exit_handle=block_output.exit_handle or "done",
                 cost_usd=block_output.cost_usd,
                 total_tokens=block_output.total_tokens,
-                tool_calls_made=0,
+                tool_calls_made=len(delegate_artifacts),
                 delegate_artifacts=delegate_artifacts,
                 conversation_history=conversation_history,
                 error=None,

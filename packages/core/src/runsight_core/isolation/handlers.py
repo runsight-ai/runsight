@@ -105,8 +105,22 @@ def make_http_handler(
 
 
 def _allowlist_hostname(entry: str) -> str:
-    parsed = urlparse(str(entry).strip())
-    return (parsed.hostname if parsed.scheme else str(entry).strip()).lower()
+    raw_entry = str(entry).strip()
+    if not raw_entry:
+        return ""
+    parsed = urlparse(raw_entry)
+    if parsed.hostname is not None:
+        hostname = parsed.hostname
+    elif "://" in raw_entry:
+        hostname = ""
+    else:
+        host_part = raw_entry.split("/", 1)[0].rsplit("@", 1)[-1]
+        raw_hostname, separator, raw_port = host_part.rpartition(":")
+        if separator:
+            hostname = raw_hostname if raw_hostname and raw_port.isdigit() else ""
+        else:
+            hostname = host_part
+    return hostname.strip().lower()
 
 
 async def _perform_http_request(
