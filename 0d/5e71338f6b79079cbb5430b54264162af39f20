@@ -1,0 +1,19 @@
+packages/core/tests/unit/test_exit_port_yaml_execution.py
+  s_f21a46e9687d54::t_b905ffe0dfa14b 30-49,186,189-199,274-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "0d5e71338f6b79079cbb5430b54264162af39f20",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
