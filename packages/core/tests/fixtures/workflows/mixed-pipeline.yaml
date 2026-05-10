@@ -6,12 +6,16 @@ souls:
     name: Content Writer
     role: Content Writer
     system_prompt: Generate structured JSON output.
+    provider: openai
+    model_name: gpt-4o-mini
   evaluator:
     id: evaluator
     kind: soul
     name: Quality Evaluator
     role: Quality Evaluator
     system_prompt: Evaluate content quality.
+    provider: openai
+    model_name: gpt-4o-mini
 blocks:
   linear_block:
     type: linear
