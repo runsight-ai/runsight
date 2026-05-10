@@ -1,0 +1,31 @@
+packages/core/tests/test_context_governance_integration.py
+  s_f21a46e9687d54::t_09286599e1e986 206-207,266-267
+packages/core/tests/test_isolation_context_scope.py
+  s_f21a46e9687d54::t_b483f9cec65b83 135,138
+packages/core/tests/test_isolation_wrapper_soul_contract.py
+  s_f21a46e9687d54::t_687ed6a6d94263 12,95-96
+packages/core/tests/test_isolation_dispatch_subprocess_envelope.py
+  s_f21a46e9687d54::t_acd2a1106b3ef6 43,45,81,83
+packages/core/tests/test_isolation_wrapper_conversation_history.py
+  s_f21a46e9687d54::t_e76ab1416ec117 13,88-89
+packages/core/tests/test_isolation_envelope_block_contracts.py
+  s_f21a46e9687d54::t_9936d8363989d8 13,30-31
+packages/core/tests/test_isolation_wrapper_loop_subprocess_blocks.py
+  s_f21a46e9687d54::t_758875fe138a2c 14,36,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6761841d13f4e411b1f64a9f1ba4575a4b64d77d",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
