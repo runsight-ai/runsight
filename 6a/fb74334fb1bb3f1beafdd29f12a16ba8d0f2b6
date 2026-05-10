@@ -1,0 +1,23 @@
+tools/tests/test_workspace_runtime_removal_governance.py
+  s_f21a46e9687d54::t_69c45b365bbe15 1-339
+tools/tests/test_core_repo_governance.py
+  s_f21a46e9687d54::t_e341b9d868abfb 300
+apps/site/src/content/docs/docs/execution/process-isolation.md
+  s_f21a46e9687d54::t_8faaef74a45f95 19-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6afb74334fb1bb3f1beafdd29f12a16ba8d0f2b6",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
