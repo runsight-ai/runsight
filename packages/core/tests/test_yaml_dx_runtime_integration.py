@@ -27,6 +27,20 @@ class _ScriptedRunner:
         return SimpleNamespace(output=str(output), cost_usd=0.0, total_tokens=0, exit_handle=None)
 
 
+def _completion_response(content: str):
+    message = SimpleNamespace(content=content, tool_calls=None)
+    choice = SimpleNamespace(message=message, finish_reason="stop")
+    usage = SimpleNamespace(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+    return SimpleNamespace(choices=[choice], usage=usage, _hidden_params={"response_cost": 0.0})
+
+
+def _split_user_prompt(prompt: str) -> tuple[str, str | None]:
+    marker = "\n\nContext:\n"
+    if marker not in prompt:
+        return prompt, None
+    return prompt.split(marker, 1)
+
+
 def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
     workflow_file = base_dir / name
     workflow_file.write_text(dedent(yaml_content), encoding="utf-8")
@@ -140,7 +154,9 @@ async def test_depends_chain_executes_like_explicit_transitions(tmp_path: Path) 
 
 
 @pytest.mark.asyncio
-async def test_gate_shorthand_routes_by_exit_handle_at_runtime(tmp_path: Path) -> None:
+async def test_gate_shorthand_routes_by_exit_handle_at_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workflow_path = _write_workflow_file(
         tmp_path,
         "gate_shorthand.yaml",
@@ -155,6 +171,8 @@ async def test_gate_shorthand_routes_by_exit_handle_at_runtime(tmp_path: Path) -
             name: Evaluator
             role: Evaluator
             system_prompt: Evaluate carefully.
+            provider: openai
+            model_name: gpt-4o-mini
         blocks:
           analyze:
             type: code
@@ -196,9 +214,28 @@ async def test_gate_shorthand_routes_by_exit_handle_at_runtime(tmp_path: Path) -
         }
     )
 
-    final_state = await parse_workflow_yaml(workflow_path, runner=runner).run(
-        WorkflowState(shared_memory={"status": "approved"})
-    )
+    async def _fake_completion(**kwargs):
+        messages = list(kwargs.get("messages", []))
+        user_prompt = next(
+            (
+                str(message.get("content", ""))
+                for message in reversed(messages)
+                if message.get("role") == "user"
+            ),
+            "",
+        )
+        instruction, context = _split_user_prompt(user_prompt)
+        result = await runner.execute(instruction, context, SimpleNamespace(id="evaluator"))
+        return _completion_response(result.output)
+
+    monkeypatch.setattr("runsight_core.llm.client.acompletion", _fake_completion)
+    monkeypatch.setattr("runsight_core.llm.client.completion_cost", lambda **_: 0.0)
+
+    final_state = await parse_workflow_yaml(
+        workflow_path,
+        runner=runner,
+        api_keys={"openai": "dummy-openai-key"},
+    ).run(WorkflowState(shared_memory={"status": "approved"}))
 
     assert final_state.results["quality_gate"].exit_handle == "pass"
     assert "approve" in final_state.results
