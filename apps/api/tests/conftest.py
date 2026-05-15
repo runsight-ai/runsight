@@ -36,6 +36,16 @@ _TEST_RUNTIME_ROOT = Path(
 _TEST_RUNSIGHT_DIR = _TEST_RUNTIME_ROOT / ".runsight"
 _TEST_RUNSIGHT_DIR.mkdir(parents=True, exist_ok=True)
 _TEST_DB_PATH = _TEST_RUNSIGHT_DIR / "runsight.db"
+_TEST_WORKSPACE_API_KEYS = {
+    "anthropic": "dummy-test-api-key",
+    "azure": "dummy-test-api-key",
+    "gemini": "dummy-test-api-key",
+    "google": "dummy-test-api-key",
+    "groq": "dummy-test-api-key",
+    "mistral": "dummy-test-api-key",
+    "openai": "dummy-test-api-key",
+    "openrouter": "dummy-test-api-key",
+}
 
 
 def _scrub_inherited_runtime_env() -> None:
@@ -98,6 +108,7 @@ def _bypass_subprocess_isolation(monkeypatch):
         )
         from runsight_core.isolation.workspace import (
             UnixLocalHarness,
+            WorkspaceHostBindings,
             WorkspaceMaterializer,
             WorkspaceRunRequest,
         )
@@ -131,6 +142,19 @@ def _bypass_subprocess_isolation(monkeypatch):
         async def close(self):
             return None
 
+    def _with_test_api_keys(request: WorkspaceRunRequest) -> WorkspaceRunRequest:
+        host_bindings = request.host_bindings or WorkspaceHostBindings()
+        if host_bindings.api_keys:
+            return request
+
+        return request.model_copy(
+            update={
+                "host_bindings": host_bindings.model_copy(
+                    update={"api_keys": dict(_TEST_WORKSPACE_API_KEYS)}
+                )
+            }
+        )
+
     async def _in_process_workspace_run(
         self: UnixLocalHarness, request: WorkspaceRunRequest
     ) -> ResultEnvelope:
@@ -142,6 +166,7 @@ def _bypass_subprocess_isolation(monkeypatch):
 
         from runsight_core.state import BlockResult
 
+        request = _with_test_api_keys(request)
         session = self._session_factory.create(request.manifest, request.policy)
         session = WorkspaceMaterializer(session).materialize(
             request.manifest,
