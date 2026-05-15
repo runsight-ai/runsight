@@ -12,9 +12,14 @@ def normalize_allowlist_hostname(value: object) -> str:
     if not entry:
         return ""
 
-    parsed = urlparse(entry)
-    if parsed.hostname is not None:
-        return parsed.hostname.strip().lower()
+    try:
+        parsed = urlparse(entry)
+        if parsed.hostname is not None:
+            if parsed.netloc and ":" in parsed.netloc:
+                parsed.port
+            return parsed.hostname.strip().lower()
+    except ValueError:
+        return ""
     if "://" in entry:
         return ""
 

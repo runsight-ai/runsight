@@ -266,8 +266,13 @@ def _static_request_hostname(request_config: dict[str, Any] | None) -> str | Non
     if not request_config:
         return None
     raw_url = str(request_config.get("url") or "")
-    parsed = urlparse(raw_url)
-    hostname = (parsed.hostname or "").strip().lower()
+    try:
+        parsed = urlparse(raw_url)
+        hostname = (parsed.hostname or "").strip().lower()
+        if parsed.netloc and ":" in parsed.netloc:
+            parsed.port
+    except ValueError:
+        return None
     if not hostname or any(marker in hostname for marker in ("{", "}", "$")):
         return None
     return hostname

@@ -205,6 +205,29 @@ class TestHTTPURLAllowlist:
         assert "error" in result
         assert "allowed" in result["error"].lower()
 
+    @pytest.mark.asyncio
+    async def test_url_like_allowlist_entry_with_invalid_port_is_ignored(
+        self,
+        tmp_path: Path,
+    ):
+        """URL-like allowlist entries must validate ports before trusting hostnames."""
+        from runsight_core.isolation.handlers import make_http_handler
+
+        handler = make_http_handler(
+            credentials={},
+            url_allowlist=["https://api.fixture.test:bad/path"],
+        )
+
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.fixture.test/data",
+                "headers": {},
+            }
+        )
+        assert "error" in result
+        assert "allowed" in result["error"].lower()
+
 
 # ---------------------------------------------------------------------------
 # Behavior coverage

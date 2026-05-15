@@ -538,6 +538,56 @@ class TestWrapperWorkspaceRunRequest:
         assert "url_allowlist" not in str(worker_payload)
 
     @pytest.mark.asyncio
+    async def test_request_tool_malformed_static_url_is_dropped_without_crash(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("RUNSIGHT_HTTP_URL_ALLOWLIST", raising=False)
+        request_tool = _tool("lookup_profile")
+        request_tool.request_config = {
+            "method": "GET",
+            "url": "https://[2001:db8::1",
+            "headers": {},
+            "body_template": None,
+            "response_path": "data.profile",
+        }
+        soul = _make_soul()
+        soul.resolved_tools = [request_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == []
+
+    @pytest.mark.asyncio
+    async def test_request_tool_static_url_with_invalid_port_is_not_allowlisted(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.delenv("RUNSIGHT_HTTP_URL_ALLOWLIST", raising=False)
+        request_tool = _tool("lookup_profile")
+        request_tool.request_config = {
+            "method": "GET",
+            "url": "http://[::1]:bad/path",
+            "headers": {},
+            "body_template": None,
+            "response_path": "data.profile",
+        }
+        soul = _make_soul()
+        soul.resolved_tools = [request_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == []
+
+    @pytest.mark.asyncio
     async def test_dynamic_http_tool_uses_host_allowlist_environment_source(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -605,6 +655,27 @@ class TestWrapperWorkspaceRunRequest:
         request = harness.requests[0]
         assert request.host_bindings is not None
         assert request.host_bindings.url_allowlist == ["api.fixture.test"]
+
+    @pytest.mark.asyncio
+    async def test_dynamic_http_allowlist_drops_url_like_invalid_port_entries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv(
+            "RUNSIGHT_HTTP_URL_ALLOWLIST",
+            "https://api.fixture.test:bad/path, https://cdn.fixture.test/assets",
+        )
+        http_tool = _tool("http_request")
+        soul = _make_soul()
+        soul.resolved_tools = [http_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == ["cdn.fixture.test"]
 
     @pytest.mark.asyncio
     async def test_duplicate_tool_names_fail_before_workspace_launch(self):
