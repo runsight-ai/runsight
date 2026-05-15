@@ -78,6 +78,7 @@ def _error_result(
         tool_calls_made=0,
         delegate_artifacts={},
         conversation_history=conversation_history or [],
+        conversation_histories={},
         error=error,
         error_type=error_type,
     )
@@ -253,6 +254,22 @@ async def _execute_envelope(
         else:
             output_history = list(budgeted_history)
 
+        output_histories: dict[str, list[dict[str, Any]]] = {}
+        if block_output.conversation_replacements:
+            output_histories.update(
+                {
+                    key: list(messages)
+                    for key, messages in block_output.conversation_replacements.items()
+                }
+            )
+        if block_output.conversation_updates:
+            for key, messages in block_output.conversation_updates.items():
+                existing = list(state.conversation_histories.get(key, []))
+                existing.extend(messages)
+                output_histories[key] = existing
+        if output_history:
+            output_histories[history_key] = list(output_history)
+
         return (
             ResultEnvelope(
                 block_id=block_id,
@@ -263,6 +280,7 @@ async def _execute_envelope(
                 tool_calls_made=len(delegate_artifacts),
                 delegate_artifacts=delegate_artifacts,
                 conversation_history=output_history,
+                conversation_histories=output_histories,
                 error=None,
                 error_type=None,
             ),

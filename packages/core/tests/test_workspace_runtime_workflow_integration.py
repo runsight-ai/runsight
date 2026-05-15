@@ -814,7 +814,7 @@ async def test_unknown_host_tool_returns_structured_error_to_worker(
 
 
 @pytest.mark.asyncio
-async def test_host_only_tool_returns_structured_error_and_does_not_execute(
+async def test_worker_hidden_tool_is_not_exposed_or_executed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -828,34 +828,17 @@ async def test_host_only_tool_returns_structured_error_and_does_not_execute(
 
     def responder(payload: dict[str, Any], call_number: int) -> dict[str, Any]:
         if call_number == 1:
+            assert payload.get("tools") in (None, [])
             return {
-                "content": "",
+                "content": "worker registry denied tool visibility",
                 "cost_usd": 0.01,
                 "prompt_tokens": 5,
                 "completion_tokens": 1,
                 "total_tokens": 6,
-                "tool_calls": [
-                    {
-                        "id": "call_lookup",
-                        "type": "function",
-                        "function": {
-                            "name": "lookup_profile",
-                            "arguments": json.dumps({"name": "Ada"}),
-                        },
-                    }
-                ],
-                "finish_reason": "tool_calls",
+                "tool_calls": [],
+                "finish_reason": "stop",
             }
-        assert "tool_not_found" in payload["messages"][-1]["content"]
-        return {
-            "content": "handled host-only tool",
-            "cost_usd": 0.01,
-            "prompt_tokens": 5,
-            "completion_tokens": 2,
-            "total_tokens": 7,
-            "tool_calls": [],
-            "finish_reason": "stop",
-        }
+        raise AssertionError("worker-hidden tools must use single-shot execution")
 
     _patch_llm_stream(monkeypatch, responder)
     harness, launcher, workspace_root = _harness(
@@ -878,10 +861,8 @@ async def test_host_only_tool_returns_structured_error_and_does_not_execute(
 
     state = await workflow.run(WorkflowState())
 
-    assert state.results["draft"].output == "handled host-only tool"
-    assert tool_results == [
-        {"error": {"code": "tool_not_found", "tool": "lookup_profile"}},
-    ]
+    assert state.results["draft"].output == "worker registry denied tool visibility"
+    assert tool_results == []
     assert tool_calls == []
     _assert_worker_env_is_ipc_only(launcher)
     _assert_workspace_base_cleaned(workspace_root)

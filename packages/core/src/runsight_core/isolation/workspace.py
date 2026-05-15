@@ -437,13 +437,15 @@ class WorkspaceMaterializer:
             )
 
     def _validate_or_create_working_dir(self, working_dir: str) -> None:
-        target = _resolve_under(self.session.runtime_root, working_dir)
-        if target.is_symlink():
-            raise PermissionError(f"workspace working directory is a symlink: {target}")
-        if target.exists() and not target.is_dir():
-            raise ValueError(f"workspace working directory is not a directory: {target}")
-        target.mkdir(parents=True, exist_ok=True)
-        self.session.runtime_workdir = target
+        host_target = _resolve_under(self.session.host_root, working_dir)
+        if host_target.is_symlink():
+            raise PermissionError(f"workspace working directory is a symlink: {host_target}")
+        if host_target.exists() and not host_target.is_dir():
+            raise ValueError(f"workspace working directory is not a directory: {host_target}")
+        host_target.mkdir(parents=True, exist_ok=True)
+        self.session.runtime_workdir = self.session.runtime_root.joinpath(
+            *_relative_parts(working_dir)
+        )
 
     def _write_materialization(self, materialization: WorkspaceMaterialization) -> None:
         target = _resolve_under(self.session.host_root, materialization.path)
@@ -564,6 +566,21 @@ class WorkspaceRunRequest(BaseModel):
     policy: WorkspacePolicy
     worker_tools: list[WorkerToolSchema] = Field(default_factory=list)
     host_bindings: WorkspaceHostBindings | None = Field(default=None, exclude=True)
+
+    def worker_envelope(self) -> ContextEnvelope:
+        tools = [
+            ToolDefEnvelope(
+                source="host",
+                config={"policy_metadata": dict(tool.policy_metadata)},
+                exits=[],
+                name=tool.name,
+                description=tool.description,
+                parameters=dict(tool.parameters),
+                tool_type="host",
+            )
+            for tool in self.worker_tools
+        ]
+        return self.envelope.model_copy(update={"tools": tools})
 
 
 class WorkspaceHarness(Protocol):
@@ -783,9 +800,14 @@ class UnixSocketIPCTransport:
 
     def prepare(self, session: WorkspaceSession, policy: WorkspacePolicy) -> IPCBinding:
         del policy
-        socket_dir = self._socket_dir or (session.host_root / "ipc")
+        owned_socket_dir: Path | None = None
+        if self._socket_dir is None:
+            socket_dir = Path(tempfile.mkdtemp(prefix="rs-ipc-", dir="/tmp"))
+            owned_socket_dir = socket_dir
+        else:
+            socket_dir = self._socket_dir
         socket_dir.mkdir(parents=True, exist_ok=True)
-        socket_path = socket_dir / f"rs-{session.id}-{uuid.uuid4().hex[:12]}.sock"
+        socket_path = socket_dir / f"rs-{uuid.uuid4().hex[:16]}.sock"
         endpoint = UnixSocketEndpoint(path=str(socket_path))
         client_config = IPCClientConfig(
             version=1,
@@ -803,6 +825,8 @@ class UnixSocketIPCTransport:
 
         def _close() -> None:
             socket_path.unlink(missing_ok=True)
+            if owned_socket_dir is not None:
+                shutil.rmtree(owned_socket_dir, ignore_errors=True)
 
         binding._close_callback = _close
         return binding
@@ -984,20 +1008,42 @@ class UnixLocalHarness:
         from runsight_core.isolation import handlers as handlers_module
 
         host_bindings = request.host_bindings or WorkspaceHostBindings()
-        http_handler = handlers_module.make_http_handler(
-            credentials=dict(host_bindings.http_credentials),
-            url_allowlist=list(host_bindings.url_allowlist),
-        )
-        file_io_handler = handlers_module.make_file_io_handler(base_dir=str(session.host_root))
+        credentials_mode = request.policy.credential_mode() or "none"
+        network_mediated = str(request.policy.network.get("mediated", "allow"))
+        filesystem_mediated = str(request.policy.filesystem.get("mediated", "workspace"))
+
+        if network_mediated == "deny":
+            http_handler = self._denied_handler("mediated network disabled by workspace policy")
+        else:
+            http_handler = handlers_module.make_http_handler(
+                credentials=(
+                    dict(host_bindings.http_credentials) if credentials_mode == "host-bound" else {}
+                ),
+                url_allowlist=list(host_bindings.url_allowlist),
+            )
+
+        if filesystem_mediated == "deny":
+            file_io_handler = self._denied_handler(
+                "mediated filesystem disabled by workspace policy"
+            )
+        else:
+            file_io_handler = handlers_module.make_file_io_handler(base_dir=str(session.host_root))
+
         host_tools = self._bind_mediated_host_tools(
             host_bindings.host_tools,
             file_io_handler=file_io_handler,
             http_handler=http_handler,
         )
+        if credentials_mode == "deny":
+            llm_call_handler = self._denied_stream_handler(
+                "credentials disabled by workspace policy"
+            )
+        else:
+            llm_call_handler = handlers_module.make_llm_call_handler(
+                api_keys=dict(host_bindings.api_keys) if credentials_mode == "host-bound" else {}
+            )
         return {
-            "llm_call": handlers_module.make_llm_call_handler(
-                api_keys=dict(host_bindings.api_keys)
-            ),
+            "llm_call": llm_call_handler,
             "http": http_handler,
             "file_io": file_io_handler,
             "tool_call": handlers_module.make_tool_call_handler(
@@ -1005,6 +1051,18 @@ class UnixLocalHarness:
                 worker_tools=list(request.worker_tools),
             ),
         }
+
+    def _denied_handler(self, message: str) -> Any:
+        async def _handle(_params: dict[str, Any]) -> dict[str, str]:
+            return {"error": message}
+
+        return _handle
+
+    def _denied_stream_handler(self, message: str) -> Any:
+        async def _handle(_params: dict[str, Any]):
+            yield {"error": message}
+
+        return _handle
 
     def _bind_mediated_host_tools(
         self,
@@ -1043,22 +1101,7 @@ class UnixLocalHarness:
         return None
 
     def _worker_envelope(self, request: WorkspaceRunRequest) -> ContextEnvelope:
-        if not request.worker_tools:
-            return request.envelope
-
-        tools = [
-            ToolDefEnvelope(
-                source="host",
-                config={"policy_metadata": dict(tool.policy_metadata)},
-                exits=[],
-                name=tool.name,
-                description=tool.description,
-                parameters=dict(tool.parameters),
-                tool_type="host",
-            )
-            for tool in request.worker_tools
-        ]
-        return request.envelope.model_copy(update={"tools": tools})
+        return request.worker_envelope()
 
     def _create_server_socket(self, endpoint: UnixSocketEndpoint) -> socket.socket:
         socket_path = Path(endpoint.path)

@@ -91,13 +91,17 @@ def build_scoped_state(envelope: ContextEnvelope) -> WorkflowState:
             results[block_id] = BlockResult(output=str(result_data))
 
     history_key = f"{envelope.block_id}_{envelope.soul.id}"
+    conversation_histories = {
+        key: list(messages) for key, messages in envelope.conversation_histories.items()
+    }
+    conversation_histories.setdefault(history_key, list(envelope.conversation_history))
 
     return WorkflowState(
         workflow_inputs=dict(envelope.scoped_workflow_inputs),
         shared_memory=dict(envelope.scoped_shared_memory),
         results=results,
         metadata=dict(envelope.scoped_metadata),
-        conversation_histories={history_key: list(envelope.conversation_history)},
+        conversation_histories=conversation_histories,
     )
 
 
@@ -122,11 +126,22 @@ _BLOCK_TYPE_MAP = {
 def _resolve_block_soul(block_soul: Any, fallback_soul: Soul) -> Soul:
     if not isinstance(block_soul, dict):
         return fallback_soul
+    resolved_tool_names = block_soul.get("resolved_tool_names")
+    allowed_tool_names = (
+        {str(name) for name in resolved_tool_names}
+        if isinstance(resolved_tool_names, list)
+        else None
+    )
     payload = fallback_soul.model_dump(exclude={"resolved_tools"})
-    payload.update(block_soul)
+    payload.update(
+        {key: value for key, value in block_soul.items() if key != "resolved_tool_names"}
+    )
     payload.setdefault("required_tool_calls", fallback_soul.required_tool_calls or [])
     payload.setdefault("max_tool_iterations", fallback_soul.max_tool_iterations)
-    payload["resolved_tools"] = fallback_soul.resolved_tools
+    resolved_tools = list(fallback_soul.resolved_tools or [])
+    if allowed_tool_names is not None:
+        resolved_tools = [tool for tool in resolved_tools if str(tool.name) in allowed_tool_names]
+    payload["resolved_tools"] = resolved_tools
     return Soul.model_validate(payload)
 
 

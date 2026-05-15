@@ -203,9 +203,12 @@ async def _run_smart_llm_assertion(
     output: str,
     context: AssertionContext,
     api_keys: dict[str, str],
+    workspace_harness_factory: Callable[[], Any] | None = None,
 ) -> GradingResult:
     """Run an llm_judge assertion through the workspace harness."""
-    harness = UnixLocalHarness()
+    harness = (
+        workspace_harness_factory() if workspace_harness_factory is not None else UnixLocalHarness()
+    )
     envelope = _build_assertion_envelope(cfg=cfg, output=output, context=context)
     request = WorkspaceRunRequest(
         envelope=envelope,
@@ -290,6 +293,7 @@ async def run_assertions(
         Awaitable[GradingResult],
     ]
     | None = None,
+    workspace_harness_factory: Callable[[], Any] | None = None,
     max_concurrent: int = 10,
 ) -> AssertionsResult:
     """Run a list of assertion configs concurrently and return aggregated results."""
@@ -312,6 +316,7 @@ async def run_assertions(
                         output=output,
                         context=context,
                         api_keys=api_keys,
+                        workspace_harness_factory=workspace_harness_factory,
                     )
                 else:
                     raise ValueError(

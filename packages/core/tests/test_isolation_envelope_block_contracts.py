@@ -156,6 +156,7 @@ class TestEnvelopeBlockContracts:
             "max_tokens": None,
             "required_tool_calls": [],
             "max_tool_iterations": 5,
+            "resolved_tool_names": [],
         }
         assert revise["soul"] == {
             "id": fixer.id,
@@ -167,4 +168,5 @@ class TestEnvelopeBlockContracts:
             "max_tokens": None,
             "required_tool_calls": [],
             "max_tool_iterations": 5,
+            "resolved_tool_names": [],
         }

@@ -169,8 +169,12 @@ def _scoped_context_for_envelope(
     )
 
 
-def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
-    return {
+def _serialize_soul_summary(
+    soul: Any,
+    *,
+    include_resolved_tool_names: bool = False,
+) -> dict[str, Any]:
+    payload = {
         "id": getattr(soul, "id", ""),
         "role": getattr(soul, "role", ""),
         "system_prompt": getattr(soul, "system_prompt", ""),
@@ -181,6 +185,11 @@ def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
         "required_tool_calls": list(getattr(soul, "required_tool_calls", None) or []),
         "max_tool_iterations": getattr(soul, "max_tool_iterations", 5),
     }
+    if include_resolved_tool_names:
+        payload["resolved_tool_names"] = [
+            str(tool.name) for tool in getattr(soul, "resolved_tools", None) or []
+        ]
+    return payload
 
 
 def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
@@ -217,7 +226,10 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
                 "exit_id": branch.exit_id,
                 "label": branch.label,
                 "task_instruction": branch.task_instruction,
-                "soul": _serialize_soul_summary(branch.soul),
+                "soul": _serialize_soul_summary(
+                    branch.soul,
+                    include_resolved_tool_names=True,
+                ),
             }
             for branch in inner_block.branches
         ]
@@ -393,6 +405,14 @@ class IsolatedBlockWrapper(BaseBlock):
         # Gather conversation history for stateful blocks
         history_key = f"{self.block_id}_{soul.id}" if soul else self.block_id
         conversation_history = list(ctx.conversation_history) if self.inner_block.stateful else []
+        conversation_histories: dict[str, list[dict[str, Any]]] = {}
+        if self.inner_block.stateful and state is not None:
+            conversation_histories = {
+                key: list(messages)
+                for key, messages in getattr(state, "conversation_histories", {}).items()
+            }
+            if conversation_history:
+                conversation_histories.setdefault(history_key, list(conversation_history))
 
         (
             scoped_inputs,
@@ -425,6 +445,7 @@ class IsolatedBlockWrapper(BaseBlock):
             access=access,
             context_audit=context_audit,
             conversation_history=conversation_history,
+            conversation_histories=conversation_histories,
             timeout_seconds=300,
             max_output_bytes=1_000_000,
         )
@@ -469,8 +490,11 @@ class IsolatedBlockWrapper(BaseBlock):
         # The worker returns the full stateful history, so replace instead of
         # appending to avoid duplicating prior turns on repeated isolated calls.
         conversation_replacements: dict | None = None
-        if self.inner_block.stateful and result.conversation_history:
-            conversation_replacements = {history_key: result.conversation_history}
+        if self.inner_block.stateful:
+            result_histories = dict(getattr(result, "conversation_histories", {}) or {})
+            if result.conversation_history:
+                result_histories[history_key] = result.conversation_history
+            conversation_replacements = result_histories or None
 
         return BlockOutput(
             output=result.output or "",

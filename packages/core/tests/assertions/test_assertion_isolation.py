@@ -133,6 +133,62 @@ class TestSmartAssertionIsolation:
         assert grading.metadata["judge_model"] == "gpt-4o-mini"
 
     @pytest.mark.asyncio
+    async def test_llm_judge_accepts_workspace_harness_factory_backend_override(self):
+        captured: dict[str, Any] = {}
+
+        class FakeHarness:
+            async def run(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+                captured["request"] = request
+                return ResultEnvelope(
+                    block_id=request.envelope.block_id,
+                    output=json.dumps(
+                        {
+                            "passed": True,
+                            "score": 0.9,
+                            "reason": "factory harness accepted output",
+                            "assertion_type": "llm_judge",
+                        }
+                    ),
+                    exit_handle="done",
+                    cost_usd=0.0,
+                    total_tokens=0,
+                    tool_calls_made=0,
+                    delegate_artifacts={},
+                    conversation_history=[],
+                    error=None,
+                    error_type=None,
+                )
+
+        def harness_factory() -> FakeHarness:
+            captured["factory_called"] = True
+            return FakeHarness()
+
+        result = await run_assertions(
+            [
+                {
+                    "type": "llm_judge",
+                    "config": {
+                        "rubric": "Score factual quality",
+                        "judge_soul": {
+                            "id": "quality-judge",
+                            "role": "Judge",
+                            "system_prompt": "Grade output quality.",
+                            "model_name": "gpt-4o-mini",
+                        },
+                    },
+                }
+            ],
+            output="The candidate answer.",
+            context=_make_context(),
+            api_keys={"openai": "dummy-engine-openai-key"},
+            workspace_harness_factory=harness_factory,
+        )
+
+        assert captured["factory_called"] is True
+        assert isinstance(captured["request"], WorkspaceRunRequest)
+        assert result.results[0].score == pytest.approx(0.9)
+
+    @pytest.mark.asyncio
     async def test_llm_judge_accrues_assertion_cost_and_tokens_into_active_budget_session(
         self,
         monkeypatch: pytest.MonkeyPatch,

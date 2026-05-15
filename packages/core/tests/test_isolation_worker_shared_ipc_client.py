@@ -80,6 +80,91 @@ class TestWorkerSharedIPCClientContract:
         assert default_client._ipc_client is shared_client
         assert alt_client._ipc_client is shared_client
 
+    def test_scoped_state_preserves_all_envelope_conversation_histories(self):
+        from runsight_core.isolation.worker_support import build_scoped_state
+
+        envelope = make_context_envelope(
+            conversation_history=[{"role": "user", "content": "fallback"}],
+            conversation_histories={
+                "worker_block_left": [{"role": "assistant", "content": "left"}],
+                "worker_block_right": [{"role": "assistant", "content": "right"}],
+            },
+        )
+
+        state = build_scoped_state(envelope)
+
+        assert state.conversation_histories["worker_block_worker_soul"] == [
+            {"role": "user", "content": "fallback"}
+        ]
+        assert state.conversation_histories["worker_block_left"] == [
+            {"role": "assistant", "content": "left"}
+        ]
+        assert state.conversation_histories["worker_block_right"] == [
+            {"role": "assistant", "content": "right"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_execute_envelope_returns_all_block_conversation_replacements(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.block_io import BlockOutput
+        from runsight_core.isolation import worker
+        from runsight_core.isolation.workspace import IPCClientConfig, IPCTransport
+
+        branch_histories = {
+            "worker_block_left": [{"role": "assistant", "content": "left"}],
+            "worker_block_right": [{"role": "assistant", "content": "right"}],
+        }
+        envelope = make_context_envelope(block_type="assertion")
+        ipc_config = IPCClientConfig(
+            transport=IPCTransport.UNIX_SOCKET,
+            grant_token="grant-worker-histories",
+            unix_socket={"path": "/tmp/rs-worker-histories.sock"},
+        )
+
+        class FakeIPCClient:
+            @classmethod
+            def from_config(cls, _config):
+                return cls()
+
+            async def connect(self):
+                return {
+                    "accepted": True,
+                    "error": None,
+                    "done": True,
+                    "active_actions": [],
+                    "engine_context": {},
+                }
+
+            async def close(self):
+                return None
+
+        class FakeBlock:
+            async def execute(self, _ctx):
+                return BlockOutput(
+                    output="done",
+                    exit_handle="left",
+                    conversation_replacements=branch_histories,
+                )
+
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._proxies, "create_tool_stubs", lambda *args, **kwargs: [])
+        monkeypatch.setattr(worker._proxies, "create_runner", lambda *args, **kwargs: object())
+        monkeypatch.setattr(
+            worker._support,
+            "_create_block",
+            lambda _envelope, _soul, _runner: FakeBlock(),
+        )
+
+        result_env, exit_code = await worker._execute_envelope(
+            envelope=envelope,
+            ipc_config=ipc_config,
+        )
+
+        assert exit_code == 0
+        assert result_env.conversation_histories == branch_histories
+
     def test_main_uses_single_ipc_client_and_connects_once_before_llm_and_tool_calls(
         self,
         monkeypatch: pytest.MonkeyPatch,

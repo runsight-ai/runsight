@@ -68,6 +68,7 @@ class ContextEnvelope(BaseModel):
     access: Literal["declared"] = "declared"
     context_audit: list[ContextAuditEventV1] = Field(default_factory=list)
     conversation_history: list[dict[str, Any]]
+    conversation_histories: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     timeout_seconds: int
     max_output_bytes: int
 
@@ -83,6 +84,7 @@ class ResultEnvelope(BaseModel):
     tool_calls_made: int
     delegate_artifacts: dict[str, DelegateArtifact]
     conversation_history: list[dict[str, Any]]
+    conversation_histories: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     error: str | None
     error_type: str | None
 

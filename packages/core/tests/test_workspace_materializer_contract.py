@@ -177,6 +177,29 @@ def test_materializer_creates_and_validates_workspace_working_directory(tmp_path
     ) == "payload"
 
 
+def test_materializer_uses_host_root_for_writes_and_runtime_root_for_worker_cwd(
+    tmp_path: Path,
+) -> None:
+    WorkspaceMaterializer = _contract("WorkspaceMaterializer")
+
+    session = _session(tmp_path).model_copy(
+        update={
+            "runtime_root": Path("/runsight-runtime"),
+            "runtime_workdir": Path("/runsight-runtime"),
+        }
+    )
+
+    WorkspaceMaterializer(session).materialize(
+        _manifest([_materialization("nested/work/output.txt")], working_dir="nested/work")
+    )
+
+    assert (session.host_root / "nested" / "work").is_dir()
+    assert (session.host_root / "nested" / "work" / "output.txt").read_text(
+        encoding="utf-8"
+    ) == "payload"
+    assert session.runtime_workdir == Path("/runsight-runtime") / "nested" / "work"
+
+
 def test_materializer_enforces_policy_materialization_size_before_writes(
     tmp_path: Path,
 ) -> None:

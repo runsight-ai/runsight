@@ -6,6 +6,7 @@ import asyncio
 import importlib
 import inspect
 import json
+import socket
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, get_type_hints
@@ -13,12 +14,14 @@ from typing import Any, get_type_hints
 import pytest
 from isolation_harness_helpers import _make_context_envelope, _make_result_envelope
 from runsight_core.isolation import (
+    ContextEnvelope,
     HostToolExecutionRef,
     HostToolExecutionRegistry,
     IPCBinding,
     IPCClientConfig,
     IPCTransport,
     ResultEnvelope,
+    ToolDefEnvelope,
     UnixSocketIPCTransport,
     WorkerLaunchSpec,
     WorkerToolSchema,
@@ -59,6 +62,7 @@ def _workspace_manifest(
 
 def _workspace_request(
     *,
+    envelope: ContextEnvelope | None = None,
     manifest: WorkspaceManifest | None = None,
     policy: WorkspacePolicy | None = None,
     host_bindings: WorkspaceHostBindings | None = None,
@@ -67,7 +71,8 @@ def _workspace_request(
     max_output_bytes: int = 1_000_000,
 ) -> WorkspaceRunRequest:
     return WorkspaceRunRequest(
-        envelope=_make_context_envelope(
+        envelope=envelope
+        or _make_context_envelope(
             timeout_seconds=timeout_seconds,
             max_output_bytes=max_output_bytes,
         ),
@@ -371,6 +376,69 @@ def test_worker_process_handle_contract_declares_runtime_process_surface() -> No
         "terminate",
         "kill",
     }.issubset(declared)
+
+
+def test_default_unix_socket_transport_uses_short_bindable_ipc_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_module = importlib.import_module("runsight_core.isolation.workspace")
+    ipc_dir = tmp_path / "rs-ipc-owned"
+
+    def fake_mkdtemp(prefix: str, dir: str | None = None) -> str:
+        assert prefix == "rs-ipc-"
+        assert dir == "/tmp"
+        ipc_dir.mkdir(mode=0o700)
+        return str(ipc_dir)
+
+    monkeypatch.setattr(workspace_module.tempfile, "mkdtemp", fake_mkdtemp)
+    long_host_root = (tmp_path / ("workspace-" * 12) / ("session-" * 8)).resolve()
+    long_host_root.mkdir(parents=True)
+    session = WorkspaceSession(
+        id="workspace-session-" + ("a" * 32),
+        host_root=long_host_root,
+        runtime_root=long_host_root,
+        runtime_workdir=long_host_root,
+        cleanup=True,
+    )
+
+    binding = UnixSocketIPCTransport().prepare(session, WorkspacePolicy())
+    socket_path = Path(binding.server_endpoint.path)
+
+    try:
+        assert socket_path.parent == ipc_dir
+        assert len(str(socket_path).encode("utf-8")) < 104
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.bind(str(socket_path))
+    finally:
+        binding.close()
+
+    assert not ipc_dir.exists()
+
+
+def test_worker_envelope_always_rewrites_tools_from_public_worker_contract(
+    tmp_path: Path,
+) -> None:
+    UnixLocalHarness = _isolation_contract("UnixLocalHarness")
+    harness = UnixLocalHarness(session_factory=_RecordingSessionFactory(tmp_path / "workspace"))
+    leaked_tool = ToolDefEnvelope(
+        source="legacy",
+        config={"callable": "must-not-reach-worker"},
+        exits=[],
+        name="leaked_tool",
+        description="Legacy envelope tool.",
+        parameters={"type": "object"},
+        tool_type="host",
+    )
+    envelope = _make_context_envelope().model_copy(update={"tools": [leaked_tool]})
+    request = _workspace_request(envelope=envelope, worker_tools=[])
+
+    contract_envelope = request.worker_envelope()
+    worker_envelope = harness._worker_envelope(request)
+
+    assert contract_envelope.tools == []
+    assert worker_envelope.tools == []
+    assert request.envelope.tools == [leaked_tool]
 
 
 @pytest.mark.asyncio
@@ -681,6 +749,93 @@ async def test_host_handlers_are_built_from_workspace_host_bindings_only(
     assert "RUNSIGHT_IPC_SOCKET" not in worker_env
     assert "sk-host-only" not in serialized_env
     assert "Bearer http-host-only" not in serialized_env
+
+
+@pytest.mark.asyncio
+async def test_workspace_policy_deny_modes_block_mediated_handlers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from runsight_core.isolation import handlers as handlers_module
+
+    async def fake_validate_ssrf(_url: str) -> None:
+        return None
+
+    async def forbidden_http_request(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("HTTP request must not execute when mediated network is denied")
+
+    monkeypatch.setattr(handlers_module, "validate_ssrf", fake_validate_ssrf)
+    monkeypatch.setattr(handlers_module, "_perform_http_request", forbidden_http_request)
+
+    policy = WorkspacePolicy(
+        network={"raw": "deny", "mediated": "deny"},
+        filesystem={"raw": "deny", "mediated": "deny"},
+        credentials={"mode": "deny"},
+    )
+    direct_file_tool = _DirectExecutionTrapTool(
+        name="file_io",
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {"type": "string"},
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+        },
+    )
+    request = _workspace_request(
+        policy=policy,
+        host_bindings=WorkspaceHostBindings(
+            api_keys={"openai": "sk-host-only"},
+            http_credentials={"api.fixture.test": {"Authorization": "Bearer host-only"}},
+            url_allowlist=["api.fixture.test"],
+            host_tools=HostToolExecutionRegistry(
+                tools=[HostToolExecutionRef(name="file_io", tool=direct_file_tool)]
+            ),
+        ),
+        worker_tools=[_worker_tool("file_io")],
+    )
+    process = _FakeWorkerProcess(
+        stdout=_ImmediateStdout(_make_result_envelope().model_dump_json().encode())
+    )
+    harness, session_factory, _transport, _launcher = _harness(
+        tmp_path=tmp_path,
+        process=process,
+    )
+    session = session_factory.create(request.manifest, request.policy)
+    handlers = harness._build_ipc_handlers(request=request, session=session)
+
+    file_result = await handlers["file_io"](
+        {
+            "action_type": "write",
+            "path": "blocked.txt",
+            "content": "must not be written",
+        }
+    )
+    http_result = await handlers["http"](
+        {
+            "method": "GET",
+            "url": "https://api.fixture.test/data",
+            "headers": {},
+        }
+    )
+    tool_result = await handlers["tool_call"](
+        {
+            "name": "file_io",
+            "arguments": {
+                "action": "write",
+                "path": "tool-blocked.txt",
+                "content": "must not be written",
+            },
+        }
+    )
+
+    assert "disabled by workspace policy" in json.dumps(file_result)
+    assert "disabled by workspace policy" in json.dumps(http_result)
+    assert "disabled by workspace policy" in json.dumps(tool_result)
+    assert not (session.host_root / "blocked.txt").exists()
+    assert not (session.host_root / "tool-blocked.txt").exists()
+    assert direct_file_tool.calls == []
 
 
 @pytest.mark.asyncio

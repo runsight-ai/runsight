@@ -27,6 +27,7 @@ def _result_envelope(
     exit_handle: str = "done",
     delegate_artifacts: dict[str, DelegateArtifact] | None = None,
     conversation_history: list[dict[str, Any]] | None = None,
+    conversation_histories: dict[str, list[dict[str, Any]]] | None = None,
 ) -> ResultEnvelope:
     return ResultEnvelope(
         block_id=block_id,
@@ -37,6 +38,7 @@ def _result_envelope(
         tool_calls_made=0,
         delegate_artifacts=delegate_artifacts or {},
         conversation_history=conversation_history or [],
+        conversation_histories=conversation_histories or {},
         error=None,
         error_type=None,
     )
@@ -171,6 +173,7 @@ def _assert_block_config(block_type: str, block_config: dict[str, Any]) -> None:
                     "max_tokens": None,
                     "required_tool_calls": [],
                     "max_tool_iterations": 5,
+                    "resolved_tool_names": [],
                 },
             },
             {
@@ -187,6 +190,7 @@ def _assert_block_config(block_type: str, block_config: dict[str, Any]) -> None:
                     "max_tokens": None,
                     "required_tool_calls": [],
                     "max_tool_iterations": 5,
+                    "resolved_tool_names": [],
                 },
             },
         ]
@@ -409,6 +413,56 @@ workflow:
 
         assert isinstance(block, IsolatedBlockWrapper)
         assert isinstance(block.harness, UnixLocalHarness)
+
+    def test_yaml_linear_llm_block_accepts_workspace_harness_factory_override(self) -> None:
+        from runsight_core.isolation import IsolatedBlockWrapper
+        from runsight_core.yaml.parser import parse_workflow_yaml
+
+        captured_kwargs: list[dict[str, Any]] = []
+
+        class _DockerSwapHarness:
+            async def run(self, request: Any) -> ResultEnvelope:
+                del request
+                return _result_envelope()
+
+        def _factory(**kwargs: Any) -> _DockerSwapHarness:
+            captured_kwargs.append(dict(kwargs))
+            return _DockerSwapHarness()
+
+        workflow = parse_workflow_yaml(
+            """\
+version: "1.0"
+id: workspace_harness_factory_wiring
+kind: workflow
+souls:
+  writer:
+    id: writer
+    kind: soul
+    name: Writer
+    role: Writer
+    system_prompt: Write clearly.
+    model_name: fixture-isolation-model
+blocks:
+  draft:
+    type: linear
+    soul_ref: writer
+workflow:
+  name: workspace_harness_factory_wiring
+  entry: draft
+  transitions:
+    - from: draft
+      to: null
+""",
+            runner=MagicMock(),
+            api_keys={"openai": "dummy-openai-key"},
+            workspace_harness_factory=_factory,
+        )
+
+        block = workflow.blocks["draft"]
+
+        assert isinstance(block, IsolatedBlockWrapper)
+        assert isinstance(block.harness, _DockerSwapHarness)
+        assert captured_kwargs == [{"timeout_seconds": 300, "stall_thresholds": {}}]
 
 
 class TestWrapperWorkspaceRunRequest:
@@ -692,6 +746,55 @@ class TestWrapperWorkspaceRunRequest:
             await wrapper.execute(_make_ctx(wrapper, _make_state()))
 
     @pytest.mark.asyncio
+    async def test_dispatch_branch_tool_scopes_survive_worker_reconstruction(self):
+        from runsight_core.isolation import WorkspaceRunRequest
+        from runsight_core.isolation.worker_support import _resolve_block_soul
+
+        research_soul = _make_soul("dispatch_research_soul")
+        research_soul.resolved_tools = [_tool("research_lookup")]
+        review_soul = _make_soul("dispatch_review_soul")
+        review_soul.resolved_tools = [_tool("review_lookup")]
+        dispatch = DispatchBlock(
+            "isolated_dispatch_block",
+            [
+                DispatchBranch(
+                    exit_id="research",
+                    label="Research",
+                    soul=research_soul,
+                    task_instruction="Research the input.",
+                ),
+                DispatchBranch(
+                    exit_id="review",
+                    label="Review",
+                    soul=review_soul,
+                    task_instruction="Review the draft.",
+                ),
+            ],
+            MagicMock(),
+        )
+        harness = _CapturingWorkspaceHarness(
+            _result_envelope(block_id="isolated_dispatch_block", exit_handle="research")
+        )
+        wrapper = _wrapper_for(dispatch, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert isinstance(request, WorkspaceRunRequest)
+        branches = request.envelope.block_config["branches"]
+        assert branches[0]["soul"]["resolved_tool_names"] == ["research_lookup"]
+        assert branches[1]["soul"]["resolved_tool_names"] == ["review_lookup"]
+
+        fallback_soul = _make_soul("dispatch_fallback_soul")
+        fallback_soul.resolved_tools = [_tool("research_lookup"), _tool("review_lookup")]
+        reconstructed = [_resolve_block_soul(branch["soul"], fallback_soul) for branch in branches]
+
+        assert [[tool.name for tool in soul.resolved_tools or []] for soul in reconstructed] == [
+            ["research_lookup"],
+            ["review_lookup"],
+        ]
+
+    @pytest.mark.asyncio
     async def test_wrapper_does_not_mutate_harness_private_tool_registries(self):
         soul = _make_soul()
         soul.resolved_tools = [_tool("search")]
@@ -783,6 +886,33 @@ workflow:
 
         history_key = f"isolated_linear_block_{soul.id}"
         assert block_output.conversation_replacements == {history_key: updated_history}
+
+    @pytest.mark.asyncio
+    async def test_workspace_result_mapping_preserves_all_stateful_history_replacements(self):
+        branch_histories = {
+            "isolated_dispatch_block_research": [
+                {"role": "user", "content": "research branch"},
+                {"role": "assistant", "content": "research answer"},
+            ],
+            "isolated_dispatch_block_review": [
+                {"role": "user", "content": "review branch"},
+                {"role": "assistant", "content": "review answer"},
+            ],
+        }
+        dispatch = _block_under_test("dispatch")
+        harness = _CapturingWorkspaceHarness(
+            _result_envelope(
+                block_id="isolated_dispatch_block",
+                output="research output",
+                exit_handle="research",
+                conversation_histories=branch_histories,
+            )
+        )
+        wrapper = _wrapper_for(dispatch, harness=harness, stateful=True)
+
+        block_output = await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        assert block_output.conversation_replacements == branch_histories
 
 
 class TestUnixLocalHarnessDefaults:
