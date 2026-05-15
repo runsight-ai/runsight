@@ -1,0 +1,34 @@
+packages/core/src/runsight_core/isolation/url_allowlist.py
+  s_f21a46e9687d54::t_c70244f1713b4c 15-22
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_e917163ea52db9 269-275
+packages/core/tests/test_isolation_http_url_allowlist.py
+  s_f21a46e9687d54::t_705640abe29af8 208-230
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_44c6d2c0c772de 660-679
+  s_a3d76d021813c7::t_dd9c9093f67714 541-589
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b26d5ec39f57c9c63a734f557d8e890dd787f84e",
+  "prompts": {},
+  "sessions": {
+    "s_a3d76d021813c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2b98-efe9-7773-ac2a-8b1d4d4108bb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    },
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
