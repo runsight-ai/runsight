@@ -1,0 +1,24 @@
+apps/api/tests/conftest.py
+  s_f21a46e9687d54::t_18902ad91cdc10 92
+  s_f21a46e9687d54::t_b2283f21ae6c1f 99-103,107-132,135,137-142,144-148,150-170,173-175,177-224,227-231,233-269
+  s_f21a46e9687d54::t_9a1fdc08f4dba7 143
+apps/api/tests/test_conftest_workspace_harness_mock.py
+  s_f21a46e9687d54::t_c5eba69d8aaddb 26
+  s_f21a46e9687d54::t_7326326a6f80ae 34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "7878b3ede151b998c48a173afd717ccffe40fad2",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
