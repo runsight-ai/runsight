@@ -1,0 +1,21 @@
+packages/core/tests/test_isolation_worker_shared_ipc_client.py
+  s_f21a46e9687d54::t_256ee9953544f8 168-235
+packages/core/src/runsight_core/isolation/worker.py
+  s_f21a46e9687d54::t_e716ac402b92e9 247,252-253,258-262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "662ae5c992a78889272e113b944564c4c8c3362f",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
