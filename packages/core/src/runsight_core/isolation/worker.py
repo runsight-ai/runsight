@@ -244,17 +244,22 @@ async def _execute_envelope(
 
         # Extract updated conversation history from BlockOutput
         output_history: list[dict[str, Any]] = []
-        if block_output.conversation_updates and history_key in block_output.conversation_updates:
-            output_history = list(budgeted_history) + block_output.conversation_updates[history_key]
-        elif (
+        if (
             block_output.conversation_replacements
             and history_key in block_output.conversation_replacements
         ):
             output_history = block_output.conversation_replacements[history_key]
+        elif block_output.conversation_updates and history_key in block_output.conversation_updates:
+            output_history = list(budgeted_history) + block_output.conversation_updates[history_key]
         else:
             output_history = list(budgeted_history)
 
         output_histories: dict[str, list[dict[str, Any]]] = {}
+        if block_output.conversation_updates:
+            for key, messages in block_output.conversation_updates.items():
+                existing = list(state.conversation_histories.get(key, []))
+                existing.extend(messages)
+                output_histories[key] = existing
         if block_output.conversation_replacements:
             output_histories.update(
                 {
@@ -262,11 +267,6 @@ async def _execute_envelope(
                     for key, messages in block_output.conversation_replacements.items()
                 }
             )
-        if block_output.conversation_updates:
-            for key, messages in block_output.conversation_updates.items():
-                existing = list(state.conversation_histories.get(key, []))
-                existing.extend(messages)
-                output_histories[key] = existing
         if output_history:
             output_histories[history_key] = list(output_history)
 

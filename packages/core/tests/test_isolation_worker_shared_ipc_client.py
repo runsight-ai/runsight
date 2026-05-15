@@ -165,6 +165,74 @@ class TestWorkerSharedIPCClientContract:
         assert exit_code == 0
         assert result_env.conversation_histories == branch_histories
 
+    @pytest.mark.asyncio
+    async def test_execute_envelope_applies_conversation_replacements_after_updates(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        from runsight_core.block_io import BlockOutput
+        from runsight_core.isolation import worker
+        from runsight_core.isolation.workspace import IPCClientConfig, IPCTransport
+
+        history_key = "worker_block_worker_soul"
+        envelope = make_context_envelope(
+            block_type="assertion",
+            conversation_history=[{"role": "user", "content": "prior"}],
+        )
+        ipc_config = IPCClientConfig(
+            transport=IPCTransport.UNIX_SOCKET,
+            grant_token="grant-worker-history-precedence",
+            unix_socket={"path": "/tmp/rs-worker-history-precedence.sock"},
+        )
+
+        class FakeIPCClient:
+            @classmethod
+            def from_config(cls, _config):
+                return cls()
+
+            async def connect(self):
+                return {
+                    "accepted": True,
+                    "error": None,
+                    "done": True,
+                    "active_actions": [],
+                    "engine_context": {},
+                }
+
+            async def close(self):
+                return None
+
+        replacement = [{"role": "assistant", "content": "replacement wins"}]
+
+        class FakeBlock:
+            async def execute(self, _ctx):
+                return BlockOutput(
+                    output="done",
+                    exit_handle="done",
+                    conversation_updates={
+                        history_key: [{"role": "assistant", "content": "update loses"}]
+                    },
+                    conversation_replacements={history_key: replacement},
+                )
+
+        monkeypatch.setattr(worker.isolation_ipc, "IPCClient", FakeIPCClient)
+        monkeypatch.setattr(worker._proxies, "create_tool_stubs", lambda *args, **kwargs: [])
+        monkeypatch.setattr(worker._proxies, "create_runner", lambda *args, **kwargs: object())
+        monkeypatch.setattr(
+            worker._support,
+            "_create_block",
+            lambda _envelope, _soul, _runner: FakeBlock(),
+        )
+
+        result_env, exit_code = await worker._execute_envelope(
+            envelope=envelope,
+            ipc_config=ipc_config,
+        )
+
+        assert exit_code == 0
+        assert result_env.conversation_history == replacement
+        assert result_env.conversation_histories[history_key] == replacement
+
     def test_main_uses_single_ipc_client_and_connects_once_before_llm_and_tool_calls(
         self,
         monkeypatch: pytest.MonkeyPatch,
