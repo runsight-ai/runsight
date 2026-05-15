@@ -1,0 +1,56 @@
+packages/core/tests/test_isolation_worker_shared_ipc_client.py
+  s_f21a46e9687d54::t_e0e31a7c45ed20 83-118,120-167
+  s_f21a46e9687d54::t_bc1ca577318f67 119
+packages/core/tests/test_isolation_envelope_block_contracts.py
+  s_f21a46e9687d54::t_2865a16c263826 159,171
+packages/core/src/runsight_core/isolation/worker.py
+  s_f21a46e9687d54::t_89556b4ee7c5d9 81,257-272,283
+packages/core/tests/test_workspace_materializer_contract.py
+  s_f21a46e9687d54::t_fb09863bcd566b 180-202
+packages/core/src/runsight_core/isolation/envelope.py
+  s_f21a46e9687d54::t_2492249c9ff2cc 71,87
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_c0ca1df7ae6313 30,41,176,193,417-464,466,748-789,791-796,890-915
+  s_f21a46e9687d54::t_4cb7bc3de33bcc 465,790
+packages/core/tests/test_isolation_envelope_models.py
+  s_f21a46e9687d54::t_8a73f99dbc28b8 55-57,72-74,89,98-100
+packages/core/tests/assertions/test_assertion_isolation.py
+  s_f21a46e9687d54::t_bd2cc69ede485f 136-190
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_a0b1b805fc04cb 172-177,188-192,229-232,408-415,448,493-497
+packages/core/src/runsight_core/isolation/worker_support.py
+  s_f21a46e9687d54::t_c247281f507f5c 94-97,104,129-134,136-138,141-144
+packages/core/src/runsight_core/assertions/registry.py
+  s_f21a46e9687d54::t_400a517a6e31dc 206,211,296,319
+packages/core/tests/test_workspace_runtime_workflow_integration.py
+  s_f21a46e9687d54::t_53cc6ca0de7e5c 831,833,838-839,841,864-865
+  s_f21a46e9687d54::t_d6d7f1edd43f49 817
+packages/core/src/runsight_core/yaml/parser.py
+  s_f21a46e9687d54::t_787a7e9bb33c8a 9,1178,1184,1188,1262,1303-1308
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_f21a46e9687d54::t_df8f84fbbf77fd 17,65,74-75
+  s_f21a46e9687d54::t_6e022398d13d39 9,24,381-387,389,391-409,411-435,437-438,440-443,754-838
+  s_f21a46e9687d54::t_e2192e74144402 436,439
+  s_f21a46e9687d54::t_685f11f124ba20 410
+  s_f21a46e9687d54::t_b824ed4ebe425e 388,390
+packages/core/src/runsight_core/isolation/workspace.py
+  s_f21a46e9687d54::t_26847618b92548 805,1020
+  s_f21a46e9687d54::t_e3db4695aebb40 440-448,803-804,806-808,810,828-829,1011-1019,1021-1031,1037-1044,1046,1055-1066
+  s_f21a46e9687d54::t_be8263da464130 570-583,1104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "76d56f2bfb32c75ad72c9ad41d8c7ca9cc9842ba",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
