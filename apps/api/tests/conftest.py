@@ -36,6 +36,7 @@ _TEST_RUNTIME_ROOT = Path(
 _TEST_RUNSIGHT_DIR = _TEST_RUNTIME_ROOT / ".runsight"
 _TEST_RUNSIGHT_DIR.mkdir(parents=True, exist_ok=True)
 _TEST_DB_PATH = _TEST_RUNSIGHT_DIR / "runsight.db"
+_TEST_WORKSPACE_MODEL_NAME = "gpt-4o-mini"
 _TEST_WORKSPACE_API_KEYS = {
     "anthropic": "dummy-test-api-key",
     "azure": "dummy-test-api-key",
@@ -173,6 +174,14 @@ def _bypass_subprocess_isolation(monkeypatch):
             policy=request.policy,
         )
         envelope = self._worker_envelope(request)
+        if not envelope.soul.model_name.strip():
+            envelope = envelope.model_copy(
+                update={
+                    "soul": envelope.soul.model_copy(
+                        update={"model_name": _TEST_WORKSPACE_MODEL_NAME}
+                    )
+                }
+            )
         ipc_client = _InProcessIPCClient(self._build_ipc_handlers(request=request, session=session))
 
         try:
