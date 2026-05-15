@@ -16,6 +16,7 @@ import httpx
 
 from runsight_core.budget_enforcement import _active_budget
 from runsight_core.isolation.ipc_models import Handler
+from runsight_core.isolation.url_allowlist import normalize_allowlist_hostname
 from runsight_core.isolation.workspace import HostToolExecutionRegistry, WorkerToolSchema
 from runsight_core.llm.client import LiteLLMClient
 from runsight_core.paths import is_path_within_base
@@ -105,22 +106,7 @@ def make_http_handler(
 
 
 def _allowlist_hostname(entry: str) -> str:
-    raw_entry = str(entry).strip()
-    if not raw_entry:
-        return ""
-    parsed = urlparse(raw_entry)
-    if parsed.hostname is not None:
-        hostname = parsed.hostname
-    elif "://" in raw_entry:
-        hostname = ""
-    else:
-        host_part = raw_entry.split("/", 1)[0].rsplit("@", 1)[-1]
-        raw_hostname, separator, raw_port = host_part.rpartition(":")
-        if separator:
-            hostname = raw_hostname if raw_hostname and raw_port.isdigit() else ""
-        else:
-            hostname = host_part
-    return hostname.strip().lower()
+    return normalize_allowlist_hostname(entry)
 
 
 async def _perform_http_request(

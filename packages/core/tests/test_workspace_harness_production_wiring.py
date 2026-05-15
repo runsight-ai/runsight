@@ -579,6 +579,27 @@ class TestWrapperWorkspaceRunRequest:
         ]
 
     @pytest.mark.asyncio
+    async def test_dynamic_http_allowlist_drops_malformed_url_like_at_entries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv(
+            "RUNSIGHT_HTTP_URL_ALLOWLIST",
+            "mailto:user@example.com, https://api.fixture.test/path",
+        )
+        http_tool = _tool("http_request")
+        soul = _make_soul()
+        soul.resolved_tools = [http_tool]
+        harness = _CapturingWorkspaceHarness()
+        wrapper = _linear_wrapper(soul=soul, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert request.host_bindings is not None
+        assert request.host_bindings.url_allowlist == ["api.fixture.test"]
+
+    @pytest.mark.asyncio
     async def test_duplicate_tool_names_fail_before_workspace_launch(self):
         soul = _make_soul()
         soul.resolved_tools = [_tool("lookup"), _tool("lookup")]

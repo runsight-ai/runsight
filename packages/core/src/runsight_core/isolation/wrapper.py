@@ -24,6 +24,7 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
+from runsight_core.isolation.url_allowlist import normalize_allowlist_hostname
 from runsight_core.isolation.workspace import (
     HostToolExecutionRef,
     HostToolExecutionRegistry,
@@ -257,22 +258,7 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
 
 
 def _hostname_from_allowlist_entry(value: str) -> str | None:
-    entry = value.strip()
-    if not entry:
-        return None
-    parsed = urlparse(entry)
-    if parsed.hostname is not None:
-        hostname = parsed.hostname
-    elif "://" in entry:
-        hostname = ""
-    else:
-        host_part = entry.split("/", 1)[0].rsplit("@", 1)[-1]
-        raw_hostname, separator, raw_port = host_part.rpartition(":")
-        if separator:
-            hostname = raw_hostname if raw_hostname and raw_port.isdigit() else ""
-        else:
-            hostname = host_part
-    hostname = hostname.strip().lower()
+    hostname = normalize_allowlist_hostname(value)
     return hostname or None
 
 
