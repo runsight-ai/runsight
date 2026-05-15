@@ -23,6 +23,7 @@ def test_api_conftest_patches_workspace_harness_boundary() -> None:
     assert "UnixLocalHarness" in source
     assert 'UnixLocalHarness, "run"' in source
     assert 'IsolatedBlockWrapper, "execute"' not in source
+    assert "_run_in_subprocess" not in source
 
 
 def test_api_conftest_in_process_bypass_accepts_workspace_run_request() -> None:
@@ -30,4 +31,5 @@ def test_api_conftest_in_process_bypass_accepts_workspace_run_request() -> None:
     source = inspect.getsource(conftest_mod._bypass_subprocess_isolation)
 
     assert "WorkspaceRunRequest" in source
-    assert "_envelope_from_request" in source
+    assert "WorkspaceMaterializer" in source
+    assert "_worker_envelope(request)" in source
