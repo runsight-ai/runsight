@@ -35,13 +35,21 @@ class _RecordingStdIn:
 class _StaticStdOut:
     def __init__(self, result: ResultEnvelope) -> None:
         self._result = result
+        self._sent = False
 
-    async def read(self) -> bytes:
-        return self._result.model_dump_json().encode()
+    async def read(self, n: int = -1) -> bytes:
+        if self._sent:
+            return b""
+        self._sent = True
+        payload = self._result.model_dump_json().encode()
+        if n is None or n < 0:
+            return payload
+        return payload[:n]
 
 
 class _HangingStdOut:
-    async def read(self) -> bytes:
+    async def read(self, n: int = -1) -> bytes:
+        del n
         await asyncio.Event().wait()
         return b""
 

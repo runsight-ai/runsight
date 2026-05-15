@@ -36,8 +36,10 @@ from runsight_core.isolation.workspace import (
     UnixLocalHarness,
     WorkspaceHostBindings,
     WorkspaceManifest,
+    WorkspaceMaterialization,
     WorkspacePolicy,
     WorkspaceRunRequest,
+    WorkspaceSessionFactory,
 )
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 from runsight_core.state import BlockResult
@@ -81,10 +83,14 @@ def _make_result_envelope(block_id: str = "mock_envelope_block") -> ResultEnvelo
     )
 
 
-def _make_workspace_request(envelope: ContextEnvelope) -> WorkspaceRunRequest:
+def _make_workspace_request(
+    envelope: ContextEnvelope,
+    *,
+    manifest: WorkspaceManifest | None = None,
+) -> WorkspaceRunRequest:
     return WorkspaceRunRequest(
         envelope=envelope,
-        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        manifest=manifest or WorkspaceManifest(materializations=[], working_dir="."),
         policy=WorkspacePolicy(),
         worker_tools=[],
         host_bindings=WorkspaceHostBindings(),
@@ -578,6 +584,49 @@ class TestMockReturnsValidResultEnvelope:
 
         assert set(result.delegate_artifacts) == {"alpha", "beta"}
         assert result.tool_calls_made == 2
+
+    @pytest.mark.asyncio
+    async def test_in_process_harness_cleanup_removes_materialized_session_tree(
+        self,
+        tmp_path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The conftest harness cleanup must remove nested materialized files."""
+        from runsight_core.isolation import worker_support as _support
+
+        class _FakeLinearBlock:
+            block_id = "cleanup_workspace_block"
+            branches: list[Any] = []
+
+            async def execute(self, ctx: BlockContext) -> BlockOutput:
+                return BlockOutput(output=f"workspace={ctx.block_id}")
+
+        monkeypatch.setattr(
+            _support,
+            "_create_block",
+            lambda *_args, **_kwargs: _FakeLinearBlock(),
+        )
+
+        base_root = tmp_path / "workspace-base"
+        harness = UnixLocalHarness(
+            session_factory=WorkspaceSessionFactory(host_root=base_root),
+        )
+        manifest = WorkspaceManifest(
+            materializations=[
+                WorkspaceMaterialization(
+                    path="nested/fixture/input.txt",
+                    content="materialized fixture",
+                )
+            ],
+            working_dir=".",
+        )
+        envelope = _make_workspace_envelope(block_id="cleanup_workspace_block")
+
+        result = await harness.run(_make_workspace_request(envelope, manifest=manifest))
+
+        assert result.output == "workspace=cleanup_workspace_block"
+        assert base_root.exists()
+        assert list(base_root.iterdir()) == []
 
 
 # ---------------------------------------------------------------------------

@@ -64,9 +64,13 @@ def _workspace_request(
     host_bindings: WorkspaceHostBindings | None = None,
     worker_tools: list[WorkerToolSchema] | None = None,
     timeout_seconds: int = 30,
+    max_output_bytes: int = 1_000_000,
 ) -> WorkspaceRunRequest:
     return WorkspaceRunRequest(
-        envelope=_make_context_envelope(timeout_seconds=timeout_seconds),
+        envelope=_make_context_envelope(
+            timeout_seconds=timeout_seconds,
+            max_output_bytes=max_output_bytes,
+        ),
         manifest=manifest or _workspace_manifest(),
         policy=policy or _workspace_policy(),
         host_bindings=host_bindings,
@@ -144,13 +148,56 @@ class _RecordingStdin:
 class _ImmediateStdout:
     def __init__(self, payload: bytes) -> None:
         self.payload = payload
+        self._sent = False
 
-    async def read(self) -> bytes:
+    async def read(self, n: int = -1) -> bytes:
+        if self._sent:
+            return b""
+        self._sent = True
+        if n is None or n < 0:
+            return self.payload
+        return self.payload[:n]
+
+
+class _BoundedReadProbeStdout:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+        self.read_limits: list[int] = []
+        self._sent = False
+
+    async def read(self, n: int = -1) -> bytes:
+        self.read_limits.append(n)
+        if n is None or n < 0:
+            raise AssertionError("worker stdout must be read with max_output_bytes + 1")
+        if self._sent:
+            return b""
+        self._sent = True
         return self.payload
 
 
+class _ChunkedStdout:
+    def __init__(self, payload: bytes, *, chunk_sizes: list[int]) -> None:
+        self.remaining = bytearray(payload)
+        self.chunk_sizes = list(chunk_sizes)
+        self.read_limits: list[int] = []
+
+    async def read(self, n: int = -1) -> bytes:
+        self.read_limits.append(n)
+        if n is None or n < 0:
+            raise AssertionError("worker stdout must be read with an explicit byte limit")
+        if not self.remaining:
+            return b""
+
+        next_chunk_size = self.chunk_sizes.pop(0) if self.chunk_sizes else n
+        size = min(n, next_chunk_size, len(self.remaining))
+        payload = bytes(self.remaining[:size])
+        del self.remaining[:size]
+        return payload
+
+
 class _TimeoutStdout:
-    async def read(self) -> bytes:
+    async def read(self, n: int = -1) -> bytes:
+        del n
         raise TimeoutError("worker timed out")
 
 
@@ -158,7 +205,8 @@ class _UntilTerminatedStdout:
     def __init__(self, process: "_FakeWorkerProcess") -> None:
         self.process = process
 
-    async def read(self) -> bytes:
+    async def read(self, n: int = -1) -> bytes:
+        del n
         await self.process.terminated.wait()
         return b""
 
@@ -306,6 +354,25 @@ def test_unix_local_harness_public_contract_uses_workspace_request() -> None:
     assert run_hints["return"] is ResultEnvelope
 
 
+def test_worker_process_handle_contract_declares_runtime_process_surface() -> None:
+    WorkerProcessHandle = _isolation_contract("WorkerProcessHandle")
+
+    declared = set(getattr(WorkerProcessHandle, "__annotations__", {})) | {
+        name for name in WorkerProcessHandle.__dict__ if not name.startswith("_")
+    }
+
+    assert {
+        "pid",
+        "stdin",
+        "stdout",
+        "stderr",
+        "returncode",
+        "wait",
+        "terminate",
+        "kill",
+    }.issubset(declared)
+
+
 @pytest.mark.asyncio
 async def test_valid_workspace_run_launches_worker_module_and_returns_result(
     tmp_path: Path,
@@ -325,6 +392,46 @@ async def test_valid_workspace_run_launches_worker_module_and_returns_result(
     assert spec.argv[-2:] == ["-m", "runsight_core.isolation.worker"]
     assert spec.cwd == session_factory.host_root.resolve()
     assert spec.ipc is not None
+
+
+@pytest.mark.asyncio
+async def test_worker_stdout_read_is_bounded_by_max_output_bytes(tmp_path: Path) -> None:
+    expected = _make_result_envelope(output="bounded")
+    payload = expected.model_dump_json().encode()
+    max_output_bytes = len(payload) + 32
+    stdout = _BoundedReadProbeStdout(payload)
+    process = _FakeWorkerProcess(stdout=stdout)
+    harness, _session_factory, _transport, _launcher = _harness(
+        tmp_path=tmp_path,
+        process=process,
+    )
+
+    result = await harness.run(_workspace_request(max_output_bytes=max_output_bytes))
+
+    assert result == expected
+    assert stdout.read_limits[0] == max_output_bytes + 1
+    assert all(limit > 0 for limit in stdout.read_limits)
+
+
+@pytest.mark.asyncio
+async def test_worker_stdout_bounded_read_accumulates_partial_chunks_until_eof(
+    tmp_path: Path,
+) -> None:
+    expected = _make_result_envelope(output="chunked")
+    payload = expected.model_dump_json().encode()
+    max_output_bytes = len(payload) + 32
+    stdout = _ChunkedStdout(payload, chunk_sizes=[5, 3, 7])
+    process = _FakeWorkerProcess(stdout=stdout)
+    harness, _session_factory, _transport, _launcher = _harness(
+        tmp_path=tmp_path,
+        process=process,
+    )
+
+    result = await harness.run(_workspace_request(max_output_bytes=max_output_bytes))
+
+    assert result == expected
+    assert stdout.read_limits[0] == max_output_bytes + 1
+    assert all(0 < limit <= max_output_bytes + 1 for limit in stdout.read_limits)
 
 
 @pytest.mark.asyncio
@@ -835,6 +942,128 @@ async def test_tool_call_mediates_worker_http_request_through_workspace_http_han
 
     assert "Host not on allowed list" in json.dumps(blocked)
     assert len(captured_http) == 1
+
+
+@pytest.mark.asyncio
+async def test_dynamic_http_worker_args_do_not_expand_host_env_templates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from runsight_core.isolation.handlers import make_tool_call_handler
+
+    monkeypatch.setenv("RUNSIGHT_DYNAMIC_HTTP_SECRET", "host-secret")
+    http_parameters = {
+        "type": "object",
+        "properties": {
+            "method": {"type": "string"},
+            "url": {"type": "string"},
+            "headers": {"type": "object"},
+            "body": {"type": "string"},
+        },
+        "required": ["method", "url"],
+    }
+    dynamic_calls: list[dict[str, Any]] = []
+    host_config_calls: list[dict[str, Any]] = []
+
+    async def capture_dynamic_http(params: dict[str, Any]) -> dict[str, Any]:
+        dynamic_calls.append(params)
+        return {"status_code": 200, "body": "dynamic ok", "headers": {}}
+
+    async def capture_host_config_http(params: dict[str, Any]) -> dict[str, Any]:
+        host_config_calls.append(params)
+        return {"status_code": 200, "body": "host ok", "headers": {}}
+
+    handler = make_tool_call_handler(
+        host_tools=HostToolExecutionRegistry(
+            tools=[
+                HostToolExecutionRef(
+                    name="http_request",
+                    tool=_DirectExecutionTrapTool(
+                        name="http_request",
+                        parameters=http_parameters,
+                    ),
+                    mediation="http",
+                    mediated_handler=capture_dynamic_http,
+                ),
+                HostToolExecutionRef(
+                    name="host_config_http",
+                    tool=_DirectExecutionTrapTool(
+                        name="host_config_http",
+                        parameters=http_parameters,
+                    ),
+                    mediation="http",
+                    mediated_handler=capture_host_config_http,
+                    request_config={
+                        "method": "POST",
+                        "url": (
+                            "https://api.fixture.test/{{ path }}?"
+                            "secret=${RUNSIGHT_DYNAMIC_HTTP_SECRET}"
+                        ),
+                        "headers": {
+                            "X-Host-Secret": "${RUNSIGHT_DYNAMIC_HTTP_SECRET}",
+                            "X-Request-ID": "{{ request_id }}",
+                        },
+                        "body_template": (
+                            "payload={{ body_value }};secret=${RUNSIGHT_DYNAMIC_HTTP_SECRET}"
+                        ),
+                    },
+                ),
+            ]
+        ),
+        worker_tools=[
+            WorkerToolSchema(
+                name="http_request",
+                description="Dynamic worker-provided HTTP request.",
+                parameters=http_parameters,
+            ),
+            WorkerToolSchema(
+                name="host_config_http",
+                description="Host-owned HTTP request config.",
+                parameters=http_parameters,
+            ),
+        ],
+    )
+
+    await handler(
+        {
+            "name": "http_request",
+            "arguments": {
+                "method": "POST",
+                "url": "https://api.fixture.test/${RUNSIGHT_DYNAMIC_HTTP_SECRET}",
+                "headers": {"X-Worker": "${RUNSIGHT_DYNAMIC_HTTP_SECRET}"},
+                "body": "body=${RUNSIGHT_DYNAMIC_HTTP_SECRET}",
+            },
+        }
+    )
+    await handler(
+        {
+            "name": "host_config_http",
+            "arguments": {
+                "path": "templated",
+                "request_id": "request-123",
+                "body_value": "hello",
+            },
+        }
+    )
+
+    assert dynamic_calls == [
+        {
+            "method": "POST",
+            "url": "https://api.fixture.test/${RUNSIGHT_DYNAMIC_HTTP_SECRET}",
+            "headers": {"X-Worker": "${RUNSIGHT_DYNAMIC_HTTP_SECRET}"},
+            "content": "body=${RUNSIGHT_DYNAMIC_HTTP_SECRET}",
+        }
+    ]
+    assert host_config_calls == [
+        {
+            "method": "POST",
+            "url": "https://api.fixture.test/templated?secret=host-secret",
+            "headers": {
+                "X-Host-Secret": "host-secret",
+                "X-Request-ID": "request-123",
+            },
+            "content": "payload=hello;secret=host-secret",
+        }
+    ]
 
 
 @pytest.mark.asyncio

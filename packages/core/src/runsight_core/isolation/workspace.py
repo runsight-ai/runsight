@@ -826,11 +826,30 @@ class WorkerProcessHandle(Protocol):
     def pid(self) -> int:
         """Return the operating system process id."""
 
+    @property
+    def stdin(self) -> Any | None:
+        """Return the writable stdin stream, when one is available."""
+
+    @property
+    def stdout(self) -> Any:
+        """Return the readable stdout stream."""
+
+    @property
+    def stderr(self) -> Any:
+        """Return the readable stderr stream."""
+
+    @property
+    def returncode(self) -> int | None:
+        """Return the process exit code when the process has exited."""
+
     async def wait(self) -> int:
         """Wait for process exit and return the status code."""
 
     async def terminate(self) -> None:
         """Request process termination."""
+
+    async def kill(self) -> None:
+        """Force process termination."""
 
 
 class WorkerLauncher(Protocol):
@@ -841,6 +860,7 @@ class WorkerLauncher(Protocol):
 
 
 _SIGTERM_GRACE_SECONDS = 5
+_STDOUT_READ_CHUNK_BYTES = 64 * 1024
 
 
 class _WorkspaceHeartbeatTracker:
@@ -1103,6 +1123,21 @@ class UnixLocalHarness:
             if hasattr(result, "__await__"):
                 await result
 
+    async def _read_worker_stdout(self, stdout: Any, *, max_bytes: int) -> bytes:
+        chunks: list[bytes] = []
+        total_bytes = 0
+
+        while total_bytes <= max_bytes:
+            read_size = min(_STDOUT_READ_CHUNK_BYTES, max_bytes + 1 - total_bytes)
+            chunk = await stdout.read(read_size)
+            if not chunk:
+                return b"".join(chunks)
+
+            chunks.append(chunk)
+            total_bytes += len(chunk)
+
+        return b"".join(chunks)
+
     def _validate_result(self, raw_json: str | bytes, *, max_bytes: int) -> ResultEnvelope:
         raw_bytes = raw_json.encode("utf-8") if isinstance(raw_json, str) else raw_json
         if len(raw_bytes) > max_bytes:
@@ -1241,7 +1276,13 @@ class UnixLocalHarness:
             monitor_error: str | None = None
             timeout = envelope.timeout_seconds or self._timeout_seconds
             try:
-                stdout_data = await asyncio.wait_for(process.stdout.read(), timeout=timeout)
+                stdout_data = await asyncio.wait_for(
+                    self._read_worker_stdout(
+                        process.stdout,
+                        max_bytes=envelope.max_output_bytes,
+                    ),
+                    timeout=timeout,
+                )
             except (asyncio.TimeoutError, TimeoutError):
                 await self._kill_process(process)
                 raise TimeoutError(f"Subprocess timed out after {timeout} seconds")
@@ -1254,6 +1295,10 @@ class UnixLocalHarness:
                         await monitor_task
                     except asyncio.CancelledError:
                         pass
+
+            if len(stdout_data) > envelope.max_output_bytes:
+                await self._kill_process(process)
+                self._validate_result(stdout_data, max_bytes=envelope.max_output_bytes)
 
             return_code = await process.wait()
             if monitor_error is not None:

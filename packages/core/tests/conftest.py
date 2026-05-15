@@ -3,6 +3,7 @@ Shared test infrastructure for runsight_core tests.
 """
 
 import asyncio
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -322,10 +323,8 @@ def _bypass_subprocess_isolation(request, monkeypatch):
             )
         finally:
             if self._should_cleanup(succeeded=True):
-                try:
-                    session.host_root.rmdir()
-                except OSError:
-                    pass
+                shutil.rmtree(session.host_root, ignore_errors=True)
+                self._cleanup_owned_session_base_root()
 
     monkeypatch.setattr(UnixLocalHarness, "run", _in_process_workspace_run)
 

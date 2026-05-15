@@ -309,10 +309,13 @@ async def _execute_mediated_http_tool(host_ref: Any, tool_args: dict[str, Any]) 
             "body_template": tool_args.get("body"),
             "response_path": tool_args.get("response_path"),
         }
-
-    rendered_url = _render_http_template(str(request_config["url"]), tool_args)
-    rendered_body = _render_http_template(request_config.get("body_template"), tool_args)
-    rendered_headers = _render_http_headers(request_config.get("headers"), tool_args)
+        rendered_url = str(request_config["url"])
+        rendered_body = request_config.get("body_template")
+        rendered_headers = _literal_http_headers(request_config.get("headers"))
+    else:
+        rendered_url = _render_http_template(str(request_config["url"]), tool_args)
+        rendered_body = _render_http_template(request_config.get("body_template"), tool_args)
+        rendered_headers = _render_http_headers(request_config.get("headers"), tool_args)
 
     params: dict[str, Any] = {
         "method": str(request_config.get("method", "GET")),
@@ -346,6 +349,12 @@ def _render_http_headers(
     if headers is None:
         return {}
     return {key: _render_http_template(value, tool_args) or "" for key, value in headers.items()}
+
+
+def _literal_http_headers(headers: Any) -> dict[str, str]:
+    if headers is None or not isinstance(headers, dict):
+        return {}
+    return {str(key): "" if value is None else str(value) for key, value in headers.items()}
 
 
 def _normalize_mediated_http_response(

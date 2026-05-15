@@ -323,13 +323,20 @@ class _RecordingStdin:
 class _ImmediateStdout:
     def __init__(self, payload: bytes) -> None:
         self.payload = payload
+        self._sent = False
 
-    async def read(self) -> bytes:
-        return self.payload
+    async def read(self, n: int = -1) -> bytes:
+        if self._sent:
+            return b""
+        self._sent = True
+        if n is None or n < 0:
+            return self.payload
+        return self.payload[:n]
 
 
 class _TimeoutStdout:
-    async def read(self) -> bytes:
+    async def read(self, n: int = -1) -> bytes:
+        del n
         raise TimeoutError("worker timed out")
 
 
