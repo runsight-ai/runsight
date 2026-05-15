@@ -287,8 +287,10 @@ def _bypass_subprocess_isolation(monkeypatch):
 
             return ResultEnvelope(
                 block_id=envelope.block_id,
-                output=block_output.output if block_output.output else None,
-                exit_handle=block_output.exit_handle or "done",
+                output=block_output.output,
+                exit_handle=(
+                    block_output.exit_handle if block_output.exit_handle is not None else "done"
+                ),
                 cost_usd=block_output.cost_usd,
                 total_tokens=block_output.total_tokens,
                 tool_calls_made=len(delegate_artifacts),

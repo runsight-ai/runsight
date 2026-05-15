@@ -33,3 +33,13 @@ def test_api_conftest_in_process_bypass_accepts_workspace_run_request() -> None:
     assert "WorkspaceRunRequest" in source
     assert "WorkspaceMaterializer" in source
     assert "_worker_envelope(request)" in source
+
+
+def test_api_conftest_preserves_empty_worker_result_fields() -> None:
+    _, conftest_mod = _load_api_conftest()
+    source = inspect.getsource(conftest_mod._bypass_subprocess_isolation)
+
+    assert "output=block_output.output if block_output.output else None" not in source
+    assert 'exit_handle=block_output.exit_handle or "done"' not in source
+    assert "output=block_output.output," in source
+    assert "if block_output.exit_handle is not None" in source
