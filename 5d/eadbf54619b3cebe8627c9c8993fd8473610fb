@@ -1,0 +1,52 @@
+packages/core/src/runsight_core/isolation/handlers.py
+  s_9b39ae9cbd3b0c::t_2aa3495612e928 312-318,354-357
+packages/core/tests/conftest.py
+  s_f21a46e9687d54::t_8acdb238eb9133 327
+  s_9b39ae9cbd3b0c::t_84ef309805bd09 6,326
+packages/core/tests/test_conftest_isolation_mock.py
+  s_d53a083b5299d2::t_b13e0b7985eea8 39,42,86-90,93,588-629
+packages/core/tests/isolation_harness_helpers.py
+  s_f21a46e9687d54::t_83d7b1cd0f2506 38,41-43
+  s_9b39ae9cbd3b0c::t_25703fc6668f07 40,44-47,51-52
+packages/core/src/runsight_core/isolation/workspace.py
+  s_9b39ae9cbd3b0c::t_f2e0cec26cf89e 829-844,851-852,1279,1284-1285,1299-1301
+  s_f21a46e9687d54::t_f4ff47b4f0c21c 863,1126-1140,1280-1283
+packages/core/tests/test_unix_local_harness_workspace_runtime.py
+  s_d53a083b5299d2::t_38cbc7ea94d3cb 67,70-73,152-153,157-160,162-165,167-171,199-200,208-209,357-375,397-402,424-432,435-436,947-1005,1007-1066
+  s_f21a46e9687d54::t_7eedb765dff6f9 151,154-156,166,172-174,178-197,403-423,433-434,1006
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_2b23cb660e57df 326,329-331
+  s_9b39ae9cbd3b0c::t_ca48ea5af679b6 328,332-334,338-339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "5deadbf54619b3cebe8627c9c8993fd8473610fb",
+  "prompts": {},
+  "sessions": {
+    "s_9b39ae9cbd3b0c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2b77-c940-75f0-a7cd-42f77464a4a9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    },
+    "s_d53a083b5299d2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2b72-3c27-7302-989e-f7e1e4ab0e91",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    },
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
