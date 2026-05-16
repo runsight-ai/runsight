@@ -84,7 +84,13 @@ def _iter_mapping_keys(value: object) -> set[str]:
 
 
 def _assert_provider_neutral_worker_tool_payload(tool: dict[str, Any]) -> None:
-    assert set(tool) == {"name", "description", "parameters", "policy_metadata"}
+    assert set(tool) == {
+        "name",
+        "binding_id",
+        "description",
+        "parameters",
+        "policy_metadata",
+    }
     assert "function" not in tool
     assert tool.get("type") != "function"
 
@@ -402,6 +408,7 @@ class TestHostAndWorkerToolRegistries:
         _assert_plain_json_schema_parameters(tool_payload["parameters"])
         assert tool_payload == {
             "name": "lookup",
+            "binding_id": None,
             "description": "Fixture tool.",
             "parameters": _tool_parameters(),
             "policy_metadata": {"network": "mediated"},
@@ -431,6 +438,7 @@ class TestHostAndWorkerToolRegistries:
         _assert_plain_json_schema_parameters(tool_payload["parameters"])
         assert tool_payload == {
             "name": "lookup",
+            "binding_id": None,
             "description": "Fixture tool.",
             "parameters": _tool_parameters(),
             "policy_metadata": {"network": "mediated"},
@@ -477,6 +485,7 @@ class TestHostAndWorkerToolRegistries:
 
         assert schema.model_dump(exclude={"parameters"}) == {
             "name": "lookup",
+            "binding_id": None,
             "description": "Fixture tool.",
             "policy_metadata": {},
         }

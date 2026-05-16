@@ -481,9 +481,19 @@ class WorkerToolSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    binding_id: str | None = None
     description: str
     parameters: dict[str, Any]
     policy_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("binding_id")
+    @classmethod
+    def _validate_binding_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("worker tool binding_id cannot be blank")
+        return value
 
     @field_validator("policy_metadata")
     @classmethod
@@ -497,6 +507,7 @@ class HostToolExecutionRef(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     name: str
+    binding_id: str | None = None
     tool: Any
     credential_refs: list[str] = Field(default_factory=list)
     headers: dict[str, str] = Field(default_factory=dict)
@@ -518,19 +529,28 @@ class HostToolExecutionRef(BaseModel):
     def _validate_policy_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
         return _sanitize_worker_policy_metadata_mapping(value)
 
+    @field_validator("binding_id")
+    @classmethod
+    def _validate_binding_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("host tool binding_id cannot be blank")
+        return value
+
 
 class HostToolExecutionRegistry(BaseModel):
-    """Registry of executable host tool references keyed by unique name."""
+    """Registry of executable host tool references keyed by unique binding id."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     tools: list[HostToolExecutionRef] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _validate_unique_names(self) -> "HostToolExecutionRegistry":
-        names = [tool.name for tool in self.tools]
-        if len(names) != len(set(names)):
-            raise ValueError("host tool execution registry cannot contain duplicate names")
+    def _validate_unique_binding_ids(self) -> "HostToolExecutionRegistry":
+        binding_ids = [tool.binding_id or tool.name for tool in self.tools]
+        if len(binding_ids) != len(set(binding_ids)):
+            raise ValueError("host tool execution registry cannot contain duplicate binding ids")
         return self
 
 
@@ -541,12 +561,20 @@ class WorkerToolRegistry(BaseModel):
 
     tools: list[WorkerToolSchema] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _validate_unique_binding_ids(self) -> "WorkerToolRegistry":
+        binding_ids = [tool.binding_id or tool.name for tool in self.tools]
+        if len(binding_ids) != len(set(binding_ids)):
+            raise ValueError("worker tool registry cannot contain duplicate binding ids")
+        return self
+
     @classmethod
     def from_host_registry(cls, registry: HostToolExecutionRegistry) -> "WorkerToolRegistry":
         return cls(
             tools=[
                 WorkerToolSchema(
                     name=ref.name,
+                    binding_id=ref.binding_id,
                     description=ref.tool.description,
                     parameters=dict(ref.tool.parameters),
                     policy_metadata=dict(ref.policy_metadata),
@@ -574,6 +602,7 @@ class WorkspaceRunRequest(BaseModel):
                 config={"policy_metadata": dict(tool.policy_metadata)},
                 exits=[],
                 name=tool.name,
+                binding_id=tool.binding_id,
                 description=tool.description,
                 parameters=dict(tool.parameters),
                 tool_type="host",

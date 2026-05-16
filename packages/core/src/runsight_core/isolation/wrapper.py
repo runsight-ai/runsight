@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
@@ -59,6 +60,12 @@ _BLOCK_TYPE_MAP = {
 }
 
 
+@dataclass(frozen=True)
+class _ResolvedToolBinding:
+    binding_id: str
+    tool: Any
+
+
 def _get_soul(inner_block: BaseBlock) -> Any:
     """Extract the soul from an inner block, handling different attribute names."""
     if type(inner_block).__name__ == "DispatchBlock":
@@ -69,27 +76,60 @@ def _get_soul(inner_block: BaseBlock) -> Any:
     return getattr(inner_block, attr_name, None)
 
 
+def _dispatch_tool_binding_id(branch_exit_id: str, tool_name: str, tool_index: int) -> str:
+    return f"dispatch:{branch_exit_id}:{tool_name}:{tool_index}"
+
+
+def _validate_unique_tool_names(resolved_tools: list[Any], *, scope: str) -> None:
+    names: set[str] = set()
+    for tool in resolved_tools:
+        tool_name = str(tool.name)
+        if tool_name in names:
+            raise ValueError(f"duplicate tool name in {scope}: {tool_name}")
+        names.add(tool_name)
+
+
+def _binding_tool(resolved_tool: Any) -> Any:
+    return resolved_tool.tool if isinstance(resolved_tool, _ResolvedToolBinding) else resolved_tool
+
+
+def _binding_id(resolved_tool: Any) -> str:
+    if isinstance(resolved_tool, _ResolvedToolBinding):
+        return resolved_tool.binding_id
+    return str(getattr(resolved_tool, "binding_id", None) or resolved_tool.name)
+
+
 def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
     if type(inner_block).__name__ == "DispatchBlock":
-        tools_by_name: dict[str, Any] = {}
+        tool_bindings: list[_ResolvedToolBinding] = []
         for branch in getattr(inner_block, "branches", []):
             branch_soul = getattr(branch, "soul", None)
-            branch_tool_names: set[str] = set()
-            for tool in getattr(branch_soul, "resolved_tools", None) or []:
+            branch_tools = list(getattr(branch_soul, "resolved_tools", None) or [])
+            _validate_unique_tool_names(branch_tools, scope="dispatch branch")
+            for tool_index, tool in enumerate(branch_tools):
                 tool_name = str(tool.name)
-                if tool_name in branch_tool_names:
-                    raise ValueError(f"duplicate tool name in dispatch branch: {tool_name}")
-                branch_tool_names.add(tool_name)
-                tools_by_name.setdefault(tool_name, tool)
-        return list(tools_by_name.values())
-    return list(getattr(soul, "resolved_tools", None) or [])
+                tool_bindings.append(
+                    _ResolvedToolBinding(
+                        binding_id=_dispatch_tool_binding_id(
+                            str(branch.exit_id),
+                            tool_name,
+                            tool_index,
+                        ),
+                        tool=tool,
+                    )
+                )
+        return tool_bindings
+    resolved_tools = list(getattr(soul, "resolved_tools", None) or [])
+    _validate_unique_tool_names(resolved_tools, scope="soul")
+    return [_ResolvedToolBinding(binding_id=str(tool.name), tool=tool) for tool in resolved_tools]
 
 
 def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefEnvelope]:
     """Serialize resolved tool metadata for the worker-side tool loop."""
     tool_envelopes: list[ToolDefEnvelope] = []
 
-    for tool in resolved_tools:
+    for resolved_tool in resolved_tools:
+        tool = _binding_tool(resolved_tool)
         exits = []
         port_enum = (
             getattr(tool, "parameters", {}).get("properties", {}).get("port", {}).get("enum", [])
@@ -103,6 +143,7 @@ def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefE
                 config=dict(getattr(tool, "config", {}) or {}),
                 exits=exits,
                 name=tool.name,
+                binding_id=_binding_id(resolved_tool),
                 description=tool.description,
                 parameters=dict(tool.parameters or {}),
                 tool_type=str(getattr(tool, "tool_type", "")),
@@ -172,7 +213,7 @@ def _scoped_context_for_envelope(
 def _serialize_soul_summary(
     soul: Any,
     *,
-    include_resolved_tool_names: bool = False,
+    resolved_tool_binding_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     payload = {
         "id": getattr(soul, "id", ""),
@@ -185,10 +226,8 @@ def _serialize_soul_summary(
         "required_tool_calls": list(getattr(soul, "required_tool_calls", None) or []),
         "max_tool_iterations": getattr(soul, "max_tool_iterations", 5),
     }
-    if include_resolved_tool_names:
-        payload["resolved_tool_names"] = [
-            str(tool.name) for tool in getattr(soul, "resolved_tools", None) or []
-        ]
+    if resolved_tool_binding_ids is not None:
+        payload["resolved_tool_binding_ids"] = list(resolved_tool_binding_ids)
     return payload
 
 
@@ -228,7 +267,16 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
                 "task_instruction": branch.task_instruction,
                 "soul": _serialize_soul_summary(
                     branch.soul,
-                    include_resolved_tool_names=True,
+                    resolved_tool_binding_ids=[
+                        _dispatch_tool_binding_id(
+                            str(branch.exit_id),
+                            str(tool.name),
+                            tool_index,
+                        )
+                        for tool_index, tool in enumerate(
+                            getattr(branch.soul, "resolved_tools", None) or []
+                        )
+                    ],
                 ),
             }
             for branch in inner_block.branches
@@ -249,6 +297,7 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
     return HostToolExecutionRegistry(
         tools=[
             HostToolExecutionRef(
+                binding_id=_binding_id(resolved_tool),
                 name=tool.name,
                 tool=tool,
                 credential_refs=list(getattr(tool, "credential_refs", None) or []),
@@ -264,7 +313,8 @@ def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionReg
                 max_output_bytes=getattr(tool, "max_output_bytes", None),
                 response_size_policy=getattr(tool, "response_size_policy", None),
             )
-            for tool in resolved_tools
+            for resolved_tool in resolved_tools
+            for tool in [_binding_tool(resolved_tool)]
         ]
     )
 

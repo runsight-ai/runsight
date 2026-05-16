@@ -126,21 +126,25 @@ _BLOCK_TYPE_MAP = {
 def _resolve_block_soul(block_soul: Any, fallback_soul: Soul) -> Soul:
     if not isinstance(block_soul, dict):
         return fallback_soul
-    resolved_tool_names = block_soul.get("resolved_tool_names")
-    allowed_tool_names = (
-        {str(name) for name in resolved_tool_names}
-        if isinstance(resolved_tool_names, list)
+    resolved_tool_binding_ids = block_soul.get("resolved_tool_binding_ids")
+    allowed_binding_ids = (
+        {str(binding_id) for binding_id in resolved_tool_binding_ids}
+        if isinstance(resolved_tool_binding_ids, list)
         else None
     )
     payload = fallback_soul.model_dump(exclude={"resolved_tools"})
     payload.update(
-        {key: value for key, value in block_soul.items() if key != "resolved_tool_names"}
+        {key: value for key, value in block_soul.items() if key != "resolved_tool_binding_ids"}
     )
     payload.setdefault("required_tool_calls", fallback_soul.required_tool_calls or [])
     payload.setdefault("max_tool_iterations", fallback_soul.max_tool_iterations)
     resolved_tools = list(fallback_soul.resolved_tools or [])
-    if allowed_tool_names is not None:
-        resolved_tools = [tool for tool in resolved_tools if str(tool.name) in allowed_tool_names]
+    if allowed_binding_ids is not None:
+        resolved_tools = [
+            tool
+            for tool in resolved_tools
+            if str(getattr(tool, "binding_id", None) or tool.name) in allowed_binding_ids
+        ]
     payload["resolved_tools"] = resolved_tools
     return Soul.model_validate(payload)
 

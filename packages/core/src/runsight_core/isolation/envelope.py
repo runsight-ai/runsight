@@ -32,6 +32,7 @@ class ToolDefEnvelope(BaseModel):
     config: dict[str, Any]
     exits: list[str]
     name: str = ""
+    binding_id: str | None = None
     description: str = ""
     parameters: dict[str, Any] = Field(default_factory=dict)
     tool_type: str = ""

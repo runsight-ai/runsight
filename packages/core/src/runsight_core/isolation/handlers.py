@@ -227,17 +227,18 @@ def make_tool_call_handler(
     host_tools: HostToolExecutionRegistry,
     worker_tools: list[WorkerToolSchema],
 ) -> Handler:
-    """Return an IPC handler that dispatches allowed tool calls by name."""
+    """Return an IPC handler that dispatches allowed tool calls by binding id."""
 
-    worker_tool_names = {tool.name for tool in worker_tools}
-    host_tool_refs = {tool.name: tool for tool in host_tools.tools}
+    worker_tool_binding_ids = {_effective_tool_binding_id(tool) for tool in worker_tools}
+    host_tool_refs = {_effective_tool_binding_id(tool): tool for tool in host_tools.tools}
 
     async def _handle_workspace_tool_call(params: dict[str, Any]) -> dict[str, Any]:
         tool_name = str(params.get("name", ""))
+        binding_id = str(params.get("binding_id") or tool_name)
         tool_args = params.get("arguments", {})
 
-        host_ref = host_tool_refs.get(tool_name)
-        if host_ref is None or tool_name not in worker_tool_names:
+        host_ref = host_tool_refs.get(binding_id)
+        if host_ref is None or binding_id not in worker_tool_binding_ids:
             return {"error": {"code": "tool_not_found", "tool": tool_name}}
 
         try:
@@ -251,6 +252,10 @@ def make_tool_call_handler(
         return {"output": output}
 
     return _handle_workspace_tool_call
+
+
+def _effective_tool_binding_id(tool: Any) -> str:
+    return str(getattr(tool, "binding_id", None) or tool.name)
 
 
 class _ToolCallMediationError(Exception):

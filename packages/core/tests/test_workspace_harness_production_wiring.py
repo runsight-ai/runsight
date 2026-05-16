@@ -173,7 +173,7 @@ def _assert_block_config(block_type: str, block_config: dict[str, Any]) -> None:
                     "max_tokens": None,
                     "required_tool_calls": [],
                     "max_tool_iterations": 5,
-                    "resolved_tool_names": [],
+                    "resolved_tool_binding_ids": [],
                 },
             },
             {
@@ -190,7 +190,7 @@ def _assert_block_config(block_type: str, block_config: dict[str, Any]) -> None:
                     "max_tokens": None,
                     "required_tool_calls": [],
                     "max_tool_iterations": 5,
-                    "resolved_tool_names": [],
+                    "resolved_tool_binding_ids": [],
                 },
             },
         ]
@@ -748,6 +748,7 @@ class TestWrapperWorkspaceRunRequest:
     @pytest.mark.asyncio
     async def test_dispatch_branch_tool_scopes_survive_worker_reconstruction(self):
         from runsight_core.isolation import WorkspaceRunRequest
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
         from runsight_core.isolation.worker_support import _resolve_block_soul
 
         research_soul = _make_soul("dispatch_research_soul")
@@ -782,17 +783,94 @@ class TestWrapperWorkspaceRunRequest:
         request = harness.requests[0]
         assert isinstance(request, WorkspaceRunRequest)
         branches = request.envelope.block_config["branches"]
-        assert branches[0]["soul"]["resolved_tool_names"] == ["research_lookup"]
-        assert branches[1]["soul"]["resolved_tool_names"] == ["review_lookup"]
+        assert branches[0]["soul"]["resolved_tool_binding_ids"] == [
+            "dispatch:research:research_lookup:0"
+        ]
+        assert branches[1]["soul"]["resolved_tool_binding_ids"] == [
+            "dispatch:review:review_lookup:0"
+        ]
+
+        class _NoopIPCClient:
+            async def request(self, _action: str, _payload: dict[str, Any]) -> dict[str, Any]:
+                return {"output": "unused"}
 
         fallback_soul = _make_soul("dispatch_fallback_soul")
-        fallback_soul.resolved_tools = [_tool("research_lookup"), _tool("review_lookup")]
+        fallback_soul.resolved_tools = create_tool_stubs(
+            request.envelope.tools,
+            ipc_client=_NoopIPCClient(),
+        )
         reconstructed = [_resolve_block_soul(branch["soul"], fallback_soul) for branch in branches]
 
         assert [[tool.name for tool in soul.resolved_tools or []] for soul in reconstructed] == [
             ["research_lookup"],
             ["review_lookup"],
         ]
+
+    @pytest.mark.asyncio
+    async def test_dispatch_branch_same_name_tool_scopes_survive_worker_reconstruction(self):
+        from runsight_core.isolation import WorkspaceRunRequest
+        from runsight_core.isolation.worker_proxies import create_tool_stubs
+        from runsight_core.isolation.worker_support import _resolve_block_soul
+
+        left_tool = _tool("shared")
+        left_tool.description = "left-config"
+        right_tool = _tool("shared")
+        right_tool.description = "right-config"
+        left_soul = _make_soul("dispatch_left_soul")
+        left_soul.resolved_tools = [left_tool]
+        right_soul = _make_soul("dispatch_right_soul")
+        right_soul.resolved_tools = [right_tool]
+        dispatch = DispatchBlock(
+            "isolated_dispatch_block",
+            [
+                DispatchBranch(
+                    exit_id="left",
+                    label="Left",
+                    soul=left_soul,
+                    task_instruction="Use the left config.",
+                ),
+                DispatchBranch(
+                    exit_id="right",
+                    label="Right",
+                    soul=right_soul,
+                    task_instruction="Use the right config.",
+                ),
+            ],
+            MagicMock(),
+        )
+        harness = _CapturingWorkspaceHarness(
+            _result_envelope(block_id="isolated_dispatch_block", exit_handle="left")
+        )
+        wrapper = _wrapper_for(dispatch, harness=harness)
+
+        await wrapper.execute(_make_ctx(wrapper, _make_state()))
+
+        request = harness.requests[0]
+        assert isinstance(request, WorkspaceRunRequest)
+        assert request.host_bindings is not None
+        host_refs = request.host_bindings.host_tools.tools
+        assert [ref.name for ref in host_refs] == ["shared", "shared"]
+        assert [ref.tool.description for ref in host_refs] == ["left-config", "right-config"]
+        assert len({ref.binding_id for ref in host_refs}) == 2
+
+        branches = request.envelope.block_config["branches"]
+        assert branches[0]["soul"]["resolved_tool_binding_ids"] == [host_refs[0].binding_id]
+        assert branches[1]["soul"]["resolved_tool_binding_ids"] == [host_refs[1].binding_id]
+
+        class _NoopIPCClient:
+            async def request(self, _action: str, _payload: dict[str, Any]) -> dict[str, Any]:
+                return {"output": "unused"}
+
+        fallback_soul = _make_soul("dispatch_fallback_soul")
+        fallback_soul.resolved_tools = create_tool_stubs(
+            request.envelope.tools,
+            ipc_client=_NoopIPCClient(),
+        )
+        reconstructed = [_resolve_block_soul(branch["soul"], fallback_soul) for branch in branches]
+
+        assert [
+            [tool.description for tool in soul.resolved_tools or []] for soul in reconstructed
+        ] == [["left-config"], ["right-config"]]
 
     @pytest.mark.asyncio
     async def test_wrapper_does_not_mutate_harness_private_tool_registries(self):
