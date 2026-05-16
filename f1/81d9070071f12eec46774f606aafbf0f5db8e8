@@ -1,0 +1,21 @@
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_54994296459cf8 537,552,560,563
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_a140e74315fea9 124-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f181d9070071f12eec46774f606aafbf0f5db8e8",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
