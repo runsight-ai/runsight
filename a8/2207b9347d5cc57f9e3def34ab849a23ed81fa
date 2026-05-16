@@ -1,0 +1,39 @@
+packages/core/tests/test_isolation_worker_ipc_tool_stubs.py
+  s_f21a46e9687d54::t_405611c9fb470b 9-10,14-15,121-209
+packages/core/src/runsight_core/isolation/worker_proxies.py
+  s_f21a46e9687d54::t_1a6025e31f5d33 150-152,155,167-171,173-175
+packages/core/src/runsight_core/isolation/wrapper.py
+  s_f21a46e9687d54::t_3fe2a077105653 8,63-68,79-101,104,107-109,111-124,131-132,146,216,229-230,270-279,300,316-317
+packages/core/src/runsight_core/isolation/worker_support.py
+  s_f21a46e9687d54::t_1dc31672e383c3 129-132,137,142-147
+packages/core/src/runsight_core/isolation/workspace.py
+  s_f21a46e9687d54::t_7c23a2e176c902 484,489-497,510,532-540,543,550-553,564-570,577,605
+packages/core/tests/test_workspace_harness_production_wiring.py
+  s_f21a46e9687d54::t_93ab7ffae3ea3e 751,793-795,798-801
+  s_f21a46e9687d54::t_8788dae74d62fa 176,193,786-791
+  s_f21a46e9687d54::t_ea22e727a3cf3e 810-874
+packages/core/tests/test_isolation_envelope_block_contracts.py
+  s_f21a46e9687d54::t_d57c99e1fed782 159,171
+packages/core/src/runsight_core/isolation/envelope.py
+  s_f21a46e9687d54::t_20d37b327934a4 35
+packages/core/src/runsight_core/isolation/handlers.py
+  s_f21a46e9687d54::t_4c017150fa4096 230,232-233,237,240-241,257-258
+packages/core/tests/test_workspace_runtime_contracts.py
+  s_f21a46e9687d54::t_8c8b372f62454a 87-93,411,441,488
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "a82207b9347d5cc57f9e3def34ab849a23ed81fa",
+  "prompts": {},
+  "sessions": {
+    "s_f21a46e9687d54": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e08e5-24e9-73e3-9c72-6b805f0da6e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
