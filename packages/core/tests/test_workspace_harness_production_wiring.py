@@ -534,6 +534,7 @@ class TestWrapperWorkspaceRunRequest:
         from runsight_core.isolation.workspace import WorkspaceRunRequest
 
         search_tool = _tool("search")
+        search_tool.binding_id = "host-binding:search"
         soul = _make_soul()
         soul.resolved_tools = [search_tool]
         harness = _CapturingWorkspaceHarness()
@@ -548,6 +549,7 @@ class TestWrapperWorkspaceRunRequest:
         assert len(request.host_bindings.host_tools.tools) == 1
         host_ref = request.host_bindings.host_tools.tools[0]
         assert host_ref.name == "search"
+        assert host_ref.binding_id == "host-binding:search"
         assert host_ref.tool is search_tool
         assert callable(host_ref.tool.execute)
 
@@ -555,8 +557,10 @@ class TestWrapperWorkspaceRunRequest:
         worker_tool = request.worker_tools[0]
         assert isinstance(worker_tool, WorkerToolSchema)
         assert worker_tool.name == "search"
+        assert worker_tool.binding_id == "host-binding:search"
         assert worker_tool.description == "search fixture tool"
         assert worker_tool.parameters == search_tool.parameters
+        assert request.envelope.tools[0].binding_id == "host-binding:search"
         worker_payload = worker_tool.model_dump(mode="json")
         assert "execute" not in worker_payload
         assert "tool" not in worker_payload

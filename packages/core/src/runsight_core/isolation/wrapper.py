@@ -121,7 +121,9 @@ def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
         return tool_bindings
     resolved_tools = list(getattr(soul, "resolved_tools", None) or [])
     _validate_unique_tool_names(resolved_tools, scope="soul")
-    return [_ResolvedToolBinding(binding_id=str(tool.name), tool=tool) for tool in resolved_tools]
+    return [
+        _ResolvedToolBinding(binding_id=_binding_id(tool), tool=tool) for tool in resolved_tools
+    ]
 
 
 def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefEnvelope]:
