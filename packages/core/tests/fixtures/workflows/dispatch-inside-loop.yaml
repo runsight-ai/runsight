@@ -8,6 +8,7 @@ souls:
     name: Analyst A
     role: Analyst A
     system_prompt: Analyze from perspective A.
+    provider: fixture-provider
     model_name: fixture-dispatch-loop-model
   analyst_b:
     id: analyst_b
@@ -15,6 +16,7 @@ souls:
     name: Analyst B
     role: Analyst B
     system_prompt: Analyze from perspective B.
+    provider: fixture-provider
     model_name: fixture-dispatch-loop-model
 blocks:
   multi_dispatch:

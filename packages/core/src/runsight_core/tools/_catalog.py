@@ -441,12 +441,23 @@ def _build_http_tool(
             response_size_policy=response_size_policy,
         )
 
-    return ToolInstance(
+    tool = ToolInstance(
         name=tool_name,
         description=description,
         parameters=parameters,
         execute=_execute,
     )
+    tool.request_config = {
+        "method": method,
+        "url": url,
+        "headers": dict(headers or {}),
+        "body_template": body_template,
+        "response_path": response_path,
+    }
+    tool.timeout_seconds = timeout_seconds
+    tool.max_output_bytes = max_output_bytes
+    tool.response_size_policy = response_size_policy
+    return tool
 
 
 def _resolve_http_tool_id(

@@ -8,7 +8,8 @@ from isolation_wrapper_helpers import make_soul as _make_soul
 from isolation_wrapper_helpers import make_state as _make_state
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.linear import LinearBlock
-from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+from runsight_core.isolation.envelope import ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.observer import compute_prompt_hash, compute_soul_version
 from runsight_core.primitives import Soul
 
@@ -91,7 +92,8 @@ class TestWrapperExposesSoul:
         wrapper = IsolatedBlockWrapper(block_id="isolated_linear_block", inner_block=inner)
         captured = {}
 
-        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            envelope = request.envelope
             captured["envelope"] = envelope
             return ResultEnvelope(
                 block_id="isolated_linear_block",

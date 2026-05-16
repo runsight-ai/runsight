@@ -6,7 +6,7 @@ Exports: parse_workflow_yaml
 from __future__ import annotations
 
 import logging
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
@@ -1175,16 +1175,17 @@ def _wrap_llm_blocks_with_isolation(
     file_def: RunsightWorkflowFile,
     built_blocks: Dict[str, Any],
     api_keys: Optional[Dict[str, str]],
+    workspace_harness_factory: Callable[..., Any] | None = None,
 ) -> None:
     """Wrap LLM blocks with IsolatedBlockWrapper (Step 6.5a — structural replacement)."""
-    from runsight_core.isolation.harness import SubprocessHarness
+    from runsight_core.isolation.workspace import UnixLocalHarness
     from runsight_core.isolation.wrapper import LLM_BLOCK_TYPES, IsolatedBlockWrapper
 
+    harness_factory = workspace_harness_factory or UnixLocalHarness
     for block_id, block_def in file_def.blocks.items():
         if block_def.type in LLM_BLOCK_TYPES and block_id in built_blocks:
             inner = built_blocks[block_id]
-            harness = SubprocessHarness(
-                api_keys=dict(api_keys or {}),
+            harness = harness_factory(
                 timeout_seconds=block_def.timeout_seconds,
                 stall_thresholds=dict(block_def.stall_thresholds or {}),
             )
@@ -1193,6 +1194,7 @@ def _wrap_llm_blocks_with_isolation(
                 inner_block=inner,
                 harness=harness,
                 retry_config=inner.retry_config,
+                api_keys=dict(api_keys or {}),
             )
             wrapper.assertions = getattr(inner, "assertions", None)
             wrapper.exit_conditions = getattr(inner, "exit_conditions", None)
@@ -1257,6 +1259,7 @@ def parse_workflow_yaml(
     _base_dir: Optional[str] = None,
     _discovery_git_ref: str | None = None,
     _discovery_git_service: Any = None,
+    workspace_harness_factory: Callable[..., Any] | None = None,
 ) -> Workflow:
     """Parse a YAML workflow definition into a validated, runnable Workflow object."""
     file_def, workflow_base_dir, require_custom_metadata = _normalize_workflow_input(
@@ -1297,7 +1300,12 @@ def parse_workflow_yaml(
     for block_id, block_def in file_def.blocks.items():
         if block_id in built_blocks:
             _bridge_block_attributes(block_id, block_def, built_blocks[block_id])
-    _wrap_llm_blocks_with_isolation(file_def, built_blocks, api_keys)
+    _wrap_llm_blocks_with_isolation(
+        file_def,
+        built_blocks,
+        api_keys,
+        workspace_harness_factory=workspace_harness_factory,
+    )
     _validate_and_resolve_tools(
         file_def,
         souls_map,

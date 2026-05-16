@@ -9,7 +9,6 @@ from isolation_worker_helpers import (
     make_context_envelope,
     parse_result_envelope,
     run_worker_subprocess,
-    worker_socket_path,
 )
 
 pytestmark = pytest.mark.real_subprocess_isolation
@@ -26,14 +25,10 @@ class TestWorkerGrantTokenContract:
         source = source_file.read_text()
         assert "RUNSIGHT_BLOCK_API_KEY" not in source
 
-    def test_worker_does_not_fail_for_missing_block_api_key_when_grant_token_present(self):
+    def test_worker_does_not_fail_for_missing_block_api_key_when_ipc_config_present(self):
         envelope = make_context_envelope(block_type="nonexistent_block_type_xyz")
         result = run_worker_subprocess(
             envelope,
-            {
-                "RUNSIGHT_GRANT_TOKEN": "grant-token-fixture",
-                "RUNSIGHT_IPC_SOCKET": worker_socket_path("grant-contract"),
-            },
             omit=("RUNSIGHT_BLOCK_API_KEY",),
         )
 

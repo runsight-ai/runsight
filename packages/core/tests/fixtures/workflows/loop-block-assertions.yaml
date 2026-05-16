@@ -8,6 +8,7 @@ souls:
     name: Writer
     role: Writer
     system_prompt: Write carefully.
+    provider: fixture-provider
     model_name: fixture-dispatch-loop-model
 blocks:
   draft:

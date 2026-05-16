@@ -10,6 +10,7 @@ from runsight_core.blocks.dispatch import DispatchBlock, DispatchBranch
 from runsight_core.blocks.gate import GateBlock
 from runsight_core.blocks.synthesize import SynthesizeBlock
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.state import BlockResult, WorkflowState
 
 pytestmark = pytest.mark.real_subprocess_isolation
@@ -26,7 +27,8 @@ class TestEnvelopeBlockContracts:
     ) -> ContextEnvelope:
         captured: dict[str, ContextEnvelope] = {}
 
-        async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            envelope = request.envelope
             captured["envelope"] = envelope
             return ResultEnvelope(
                 block_id=wrapper.block_id,
@@ -154,6 +156,7 @@ class TestEnvelopeBlockContracts:
             "max_tokens": None,
             "required_tool_calls": [],
             "max_tool_iterations": 5,
+            "resolved_tool_binding_ids": [],
         }
         assert revise["soul"] == {
             "id": fixer.id,
@@ -165,4 +168,5 @@ class TestEnvelopeBlockContracts:
             "max_tokens": None,
             "required_tool_calls": [],
             "max_tool_iterations": 5,
+            "resolved_tool_binding_ids": [],
         }

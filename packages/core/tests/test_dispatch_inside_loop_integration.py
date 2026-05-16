@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 from loop_integration_helpers import (
@@ -18,6 +19,26 @@ from runsight_core.blocks.loop import LoopBlock
 from runsight_core.state import BlockResult, WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 from workflow_fixture_helpers import workflow_fixture_text
+
+
+def _completion_response(content: str):
+    message = MagicMock()
+    message.content = content
+    message.tool_calls = None
+
+    choice = MagicMock()
+    choice.message = message
+    choice.finish_reason = "stop"
+
+    usage = MagicMock()
+    usage.prompt_tokens = 0
+    usage.completion_tokens = 0
+    usage.total_tokens = 0
+
+    response = MagicMock()
+    response.choices = [choice]
+    response.usage = usage
+    return response
 
 
 @pytest.fixture(autouse=True)
@@ -218,7 +239,7 @@ class TestDispatchInsideLoop:
         assert "output_2" in round2_state.results["dispatcher.port_a"].output
 
     @pytest.mark.asyncio
-    async def test_dispatch_inside_loop_via_yaml(self, tmp_path):
+    async def test_dispatch_inside_loop_via_yaml(self, tmp_path, monkeypatch):
         """Full YAML-to-execution flow: parse a workflow with a dispatch block
         inside a loop block, then run it with a scripted runner.
 
@@ -237,7 +258,24 @@ class TestDispatchInsideLoop:
             }
         )
 
-        workflow = parse_workflow_yaml(str(wf_path), runner=runner)
+        attempts = {"a": 0, "b": 0}
+
+        async def _fake_completion(**kwargs):
+            message_blob = json.dumps(kwargs.get("messages", []))
+            if "angle A" in message_blob or "perspective A" in message_blob:
+                attempts["a"] += 1
+                return _completion_response(f"A_round_{attempts['a']}")
+            attempts["b"] += 1
+            return _completion_response(f"B_round_{attempts['b']}")
+
+        monkeypatch.setattr("runsight_core.llm.client.acompletion", _fake_completion)
+        monkeypatch.setattr("runsight_core.llm.client.completion_cost", lambda **_: 0.0)
+
+        workflow = parse_workflow_yaml(
+            str(wf_path),
+            runner=runner,
+            api_keys={"openai": "dummy-openai-key"},
+        )
 
         state = WorkflowState()
         final = await workflow.run(state)

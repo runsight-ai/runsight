@@ -127,6 +127,107 @@ class TestHTTPURLAllowlist:
             )
         assert "error" not in result
 
+    @pytest.mark.asyncio
+    async def test_allowlist_host_port_entry_normalizes_to_hostname(self, tmp_path: Path):
+        """Host:port allowlist entries are host entries, not malformed URL schemes."""
+        from unittest.mock import AsyncMock, patch
+
+        from runsight_core.isolation.handlers import make_http_handler
+
+        handler = make_http_handler(
+            credentials={},
+            url_allowlist=["api.fixture.test:8443"],
+        )
+
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://api.fixture.test/data",
+                    "headers": {},
+                }
+            )
+        assert "error" not in result
+
+    @pytest.mark.asyncio
+    async def test_ipv6_host_port_entry_normalizes_without_brackets(self, tmp_path: Path):
+        """Bracketed IPv6 host:port allowlist entries match parsed request hostnames."""
+        from unittest.mock import AsyncMock, patch
+
+        from runsight_core.isolation.handlers import make_http_handler
+
+        handler = make_http_handler(
+            credentials={},
+            url_allowlist=["[2001:db8::1]:8443"],
+        )
+
+        with (
+            patch("runsight_core.isolation.handlers.validate_ssrf", new_callable=AsyncMock),
+            patch(
+                "runsight_core.isolation.handlers._perform_http_request",
+                new_callable=AsyncMock,
+                return_value={"status_code": 200, "body": "ok", "headers": {}},
+            ),
+        ):
+            result = await handler(
+                {
+                    "method": "GET",
+                    "url": "https://[2001:db8::1]/data",
+                    "headers": {},
+                }
+            )
+        assert "error" not in result
+
+    @pytest.mark.asyncio
+    async def test_malformed_scheme_allowlist_entry_is_ignored_without_crash(
+        self,
+        tmp_path: Path,
+    ):
+        """Malformed URL-like allowlist entries do not crash handler construction."""
+        from runsight_core.isolation.handlers import make_http_handler
+
+        handler = make_http_handler(credentials={}, url_allowlist=["http:"])
+
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.fixture.test/data",
+                "headers": {},
+            }
+        )
+        assert "error" in result
+        assert "allowed" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_url_like_allowlist_entry_with_invalid_port_is_ignored(
+        self,
+        tmp_path: Path,
+    ):
+        """URL-like allowlist entries must validate ports before trusting hostnames."""
+        from runsight_core.isolation.handlers import make_http_handler
+
+        handler = make_http_handler(
+            credentials={},
+            url_allowlist=["https://api.fixture.test:bad/path"],
+        )
+
+        result = await handler(
+            {
+                "method": "GET",
+                "url": "https://api.fixture.test/data",
+                "headers": {},
+            }
+        )
+        assert "error" in result
+        assert "allowed" in result["error"].lower()
+
 
 # ---------------------------------------------------------------------------
 # Behavior coverage

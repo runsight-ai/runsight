@@ -12,6 +12,7 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 
 _FIXTURE_DIR = Path(__file__).parent / "fixtures" / "workflows"
 _COST_CAP_WORKFLOW_FIXTURE = "dispatch-budget-cost-cap.yaml"
+_FIXTURE_MODEL = "fixture-dispatch-budget-model"
 _DISPATCH_KEY = "budgeted_dispatch"
 _BRANCH_KEYS = [
     "budgeted_dispatch.budget_branch_alpha",
@@ -20,8 +21,35 @@ _BRANCH_KEYS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _fixture_model_contracts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from runsight_core import runner as runner_module
+    from runsight_core.isolation import handlers as handlers_module
+    from runsight_core.memory import budget as budget_module
+
+    original_get_model_info = budget_module.get_model_info
+    original_detect_provider = runner_module._detect_provider
+
+    def _get_model_info(model: str):
+        if model == _FIXTURE_MODEL:
+            return {"max_input_tokens": 8192}
+        return original_get_model_info(model)
+
+    def _detect_provider(model: str) -> str:
+        if model == _FIXTURE_MODEL:
+            return "openai"
+        return original_detect_provider(model)
+
+    monkeypatch.setattr(budget_module, "get_model_info", _get_model_info)
+    monkeypatch.setattr(runner_module, "_detect_provider", _detect_provider)
+    monkeypatch.setattr(handlers_module, "_detect_provider", _detect_provider)
+
+
 def _parse_fixture_workflow(fixture_name: str):
-    return parse_workflow_yaml((_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"))
+    return parse_workflow_yaml(
+        (_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"),
+        api_keys={"openai": "dummy-openai-key"},
+    )
 
 
 def _make_completion_response(content: str, total_tokens: int):

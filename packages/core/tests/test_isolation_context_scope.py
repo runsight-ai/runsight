@@ -18,6 +18,7 @@ from runsight_core.blocks.linear import LinearBlock
 from runsight_core.context_governance import ContextAuditEventV1
 from runsight_core.isolation.envelope import ContextEnvelope, PromptEnvelope, SoulEnvelope
 from runsight_core.isolation.worker_support import build_scoped_state
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 from runsight_core.primitives import Soul
 from runsight_core.runner import ExecutionResult
@@ -131,9 +132,10 @@ async def test_isolated_wrapper_serializes_only_resolver_scoped_values() -> None
     wrapper.declared_inputs = {"summary": "a.summary"}
     captured: dict[str, ContextEnvelope] = {}
 
-    async def _capture(envelope: ContextEnvelope):
+    async def _capture(request: WorkspaceRunRequest):
         from runsight_core.isolation.envelope import ResultEnvelope
 
+        envelope = request.envelope
         captured["envelope"] = envelope
         return ResultEnvelope(
             block_id=envelope.block_id,

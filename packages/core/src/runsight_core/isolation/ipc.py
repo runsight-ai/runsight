@@ -18,6 +18,7 @@ from runsight_core.budget_enforcement import (
     budget_killed_exception_from_payload,
     budget_killed_exception_to_payload,
 )
+from runsight_core.isolation.workspace import IPCClientConfig, IPCTransport
 
 logger = logging.getLogger(__name__)
 
@@ -430,12 +431,12 @@ class IPCServer:
 class IPCClient:
     """Async Unix socket client that sends NDJSON requests and reads correlated responses."""
 
-    def __init__(self, *, socket_path: str) -> None:
+    def __init__(self, *, socket_path: str, grant_token: str = "") -> None:
         self._socket_path = socket_path
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._closed = False
-        self._grant_token = os.environ.get("RUNSIGHT_GRANT_TOKEN", "")
+        self._grant_token = grant_token
         self._supported_actions = [
             "llm_call",
             "tool_call",
@@ -448,6 +449,14 @@ class IPCClient:
         self._active_actions: list[str] = []
         self._initial_engine_context: dict[str, Any] = {}
         self._request_lock = asyncio.Lock()
+
+    @classmethod
+    def from_config(cls, config: IPCClientConfig) -> "IPCClient":
+        if config.transport != IPCTransport.UNIX_SOCKET:
+            raise ValueError(f"unsupported IPC transport: {config.transport.value}")
+        if config.unix_socket is None:
+            raise ValueError("unix_socket transport requires socket path")
+        return cls(socket_path=config.unix_socket.path, grant_token=config.grant_token)
 
     async def connect(self) -> _ipc_models.CapabilityResponse:
         """Open a connection to the IPC socket."""
@@ -472,9 +481,6 @@ class IPCClient:
 
         self._active_actions = list(response.active_actions)
         self._initial_engine_context = dict(response.engine_context)
-        if response.accepted:
-            os.environ.pop("RUNSIGHT_GRANT_TOKEN", None)
-            self._grant_token = ""
         return response
 
     async def _read_response_line(self) -> tuple[bool, Any, str | None]:

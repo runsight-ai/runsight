@@ -297,6 +297,7 @@ RETIRED_CORE_GOVERNANCE_SUITES = (
     CORE_TEST_ROOT / "test_parser_decomposition.py",
     CORE_TEST_ROOT / "test_source_scan_ownership_governance.py",
     CORE_TEST_ROOT / "test_test_safety_governance.py",
+    CORE_TEST_ROOT / "test_workspace_runtime_removal_governance.py",
 )
 
 RETIRED_CROSS_OWNER_SCAN_TESTS = (

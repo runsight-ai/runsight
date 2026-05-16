@@ -52,6 +52,9 @@ def test_context_envelope_round_trips_nested_runtime_payload() -> None:
         scoped_shared_memory={"trace_id": "trace-1"},
         scoped_metadata={"run_id": "run-1"},
         conversation_history=[{"role": "user", "content": "go"}],
+        conversation_histories={
+            "dispatch_research": [{"role": "assistant", "content": "branch memory"}]
+        },
         timeout_seconds=30,
         max_output_bytes=4096,
     )
@@ -66,6 +69,9 @@ def test_context_envelope_round_trips_nested_runtime_payload() -> None:
     assert restored.scoped_workflow_inputs == {"topic": "profiles"}
     assert restored.scoped_results == {"load": {"output": "raw profile"}}
     assert restored.scoped_metadata == {"run_id": "run-1"}
+    assert restored.conversation_histories == {
+        "dispatch_research": [{"role": "assistant", "content": "branch memory"}]
+    }
 
 
 def test_result_envelope_round_trips_delegate_artifacts_and_failure_fields() -> None:
@@ -80,6 +86,7 @@ def test_result_envelope_round_trips_delegate_artifacts_and_failure_fields() -> 
         tool_calls_made=1,
         delegate_artifacts={"summary": DelegateArtifact(prompt="summarize profile")},
         conversation_history=[{"role": "assistant", "content": "failed"}],
+        conversation_histories={"dispatch_summary": [{"role": "assistant", "content": "kept"}]},
         error="timeout",
         error_type="TimeoutError",
     )
@@ -88,6 +95,9 @@ def test_result_envelope_round_trips_delegate_artifacts_and_failure_fields() -> 
 
     assert restored.exit_handle == "error"
     assert restored.delegate_artifacts["summary"].prompt == "summarize profile"
+    assert restored.conversation_histories == {
+        "dispatch_summary": [{"role": "assistant", "content": "kept"}]
+    }
     assert restored.error == "timeout"
     assert restored.error_type == "TimeoutError"
 

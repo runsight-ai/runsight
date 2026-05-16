@@ -15,6 +15,7 @@ from runsight_core.context_governance import (
 )
 from runsight_core.isolation.envelope import ContextEnvelope, ResultEnvelope
 from runsight_core.isolation.worker_support import build_scoped_state
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.isolation.wrapper import IsolatedBlockWrapper
 from runsight_core.observer import CompositeObserver
 from runsight_core.primitives import Soul, Step
@@ -202,7 +203,8 @@ async def test_isolated_wrapper_envelope_and_worker_state_are_scoped_from_same_d
     wrapper.declared_inputs = dict(inner.declared_inputs)
     captured: dict[str, ContextEnvelope] = {}
 
-    async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+    async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+        envelope = request.envelope
         captured["envelope"] = envelope
         return ResultEnvelope(
             block_id=envelope.block_id,
@@ -261,7 +263,8 @@ async def test_isolated_wrapper_preserves_multiple_declared_fields_from_same_sou
     wrapper.declared_inputs = dict(inner.declared_inputs)
     captured: dict[str, ContextEnvelope] = {}
 
-    async def _capture(envelope: ContextEnvelope) -> ResultEnvelope:
+    async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+        envelope = request.envelope
         captured["envelope"] = envelope
         return ResultEnvelope(
             block_id=envelope.block_id,

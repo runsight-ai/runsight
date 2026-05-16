@@ -1,6 +1,6 @@
 ---
 title: Running Workflows
-description: Production runs vs simulation runs — how Runsight executes workflows and tracks run history.
+description: Production runs vs simulation runs - how Runsight executes workflows and tracks run history.
 ---
 
 Runsight has two execution modes: **production runs** on the main branch and **simulation runs** on disposable branches. Every run is persisted as a database record with per-block node tracking, parent-child linkage for sub-workflows, and a commit SHA tying the run back to the workflow YAML that executed.
@@ -33,9 +33,12 @@ When a production run starts:
 1. The API resolves the committed `main` workflow YAML for the requested workflow and verifies that the committed snapshot has `enabled: true`.
 2. A `Run` record is created with `status: pending` and `branch: "main"`.
 3. The execution service acquires a concurrency slot (default: 5 concurrent runs), then transitions the run to `running`.
-4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` with a `SubprocessHarness`.
-5. Each block executes sequentially through the transition graph. LLM blocks (linear, gate, synthesize, dispatch) run in isolated subprocesses --- the subprocess has no API keys and communicates with the engine over a Unix socket IPC channel. A `RunNode` record is created per block.
-6. On completion, the observer writes `status: completed` with final cost and token totals.
+4. The engine parses the YAML, builds the workflow graph, and wraps every LLM block in an `IsolatedBlockWrapper` backed by `UnixLocalHarness`.
+5. Each block executes sequentially through the transition graph. A `RunNode` record is created per block.
+6. For LLM blocks (linear, gate, synthesize, dispatch), the wrapper creates a `WorkspaceRunRequest`. `UnixLocalHarness` creates a workspace session, materializes declared files, and starts a local Unix worker inside the session workspace.
+7. The worker discovers host IPC through `RUNSIGHT_IPC_CONFIG_B64=<base64-json IPCClientConfig>`. Model calls, HTTP access, file access, and tool execution are mediated by host-side handlers built from per-run host bindings and registries.
+8. The harness validates the worker `ResultEnvelope`, cleans up the workspace according to policy, and returns the result to the normal block wrapper path.
+9. On completion, the observer writes `status: completed` with final cost and token totals.
 
 Direct API runs ignore dirty working tree edits to workflow YAML and nested workflow YAML. Referenced workflow blocks are resolved through the same committed snapshot. Parser and discovery paths receive the resolved git ref for snapshot-capable workflow assets, while provider settings, server settings, and API keys remain live runtime configuration from the running server environment. Omitted `enabled` is treated as disabled for Direct API invocation.
 
@@ -54,7 +57,7 @@ Simulation branches are disposable --- they capture the exact state of the workf
 
 ## The Run record
 
-Each run is stored as a `Run` row in the SQLite database with these fields:
+Each run is stored as a `Run` row in the SQLite database. Important fields include:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -62,7 +65,7 @@ Each run is stored as a `Run` row in the SQLite database with these fields:
 | `workflow_id` | `str` | Which workflow was executed |
 | `workflow_name` | `str` | Human-readable workflow name |
 | `status` | `RunStatus` | Current state (`pending` / `running` / `completed` / `failed` / `cancelled`) |
-| `branch` | `str` | Git branch this run executed against (default: `"main"`) |
+| `branch` | `str` | Git branch this run executed against; production launch paths set `"main"` |
 | `source` | `str` | How the run was triggered, such as `manual`, `simulation`, or `api` |
 | `commit_sha` | `str?` | Git commit SHA of the YAML that executed |
 | `total_cost_usd` | `float` | Accumulated LLM cost |
@@ -73,7 +76,7 @@ Each run is stored as a `Run` row in the SQLite database with these fields:
 | `root_run_id` | `str?` | Top-level ancestor run ID |
 | `depth` | `int` | Nesting depth (0 for top-level runs) |
 
-## RunNode — per-block tracking
+## RunNode - per-block tracking
 
 Each block execution within a run creates a `RunNode` record:
 
@@ -81,7 +84,7 @@ Each block execution within a run creates a `RunNode` record:
 |-------|------|-------------|
 | `id` | `str` | Composite key: `{run_id}:{node_id}` |
 | `node_id` | `str` | Block ID from the workflow YAML |
-| `block_type` | `str` | Block type (`linear`, `gate`, `code`, `loop`, `workflow`) |
+| `block_type` | `str` | Block type (`linear`, `gate`, `synthesize`, `dispatch`, `code`, `loop`, `workflow`) |
 | `status` | `NodeStatus` | `pending` / `running` / `completed` / `failed` |
 | `cost_usd` | `float` | Cost for this block's LLM calls |
 | `tokens` | `dict` | Token breakdown: `{"prompt": N, "completion": N, "total": N}` |
@@ -95,7 +98,7 @@ Each block execution within a run creates a `RunNode` record:
 
 When a workflow contains a `workflow` block, the child workflow executes as a nested run. The parent `RunNode` records the `child_run_id`, and the child `Run` stores `parent_run_id`, `root_run_id`, and `depth`. This creates a tree of runs that you can query via the API:
 
-```bash title="API — list child runs"
+```bash title="API - list child runs"
 curl http://localhost:8000/api/runs/{parent_run_id}/children
 ```
 
@@ -103,7 +106,7 @@ The child run response includes `parent_run_id`, `root_run_id`, and `depth` fiel
 
 ## Ghost run recovery
 
-If the server restarts while runs are in `running` status, those runs become "ghosts" --- they will never complete because the asyncio task is gone. On startup, the execution service calls `fail_ghost_runs()` to mark all `running` runs as `failed` with the error message `"Ghost run: server restarted while running"`.
+If the server restarts while runs are in `pending` or `running` status, those runs become "ghosts" --- they will never complete because the asyncio task is gone. On startup, the execution service calls `fail_ghost_runs()` to mark `pending` and `running` runs as `failed` with `error: "API server restarted during execution"`.
 
 ## Triggering runs
 
@@ -118,8 +121,14 @@ Webhook and schedule triggers are not part of RUN-85. Runs can be triggered manu
 
 See [Direct API Invocation](/docs/reference/direct-api-invocation) for the copyable curl example and full request reference.
 
-## Process isolation
+## Workspace isolation
 
-Every LLM block runs in an isolated subprocess. API keys stay in the engine process --- the subprocess proxies all LLM calls through the IPC channel, where budget interceptors enforce cost caps and observer interceptors record traces. This is transparent: workflow YAML and block behavior are unchanged. See [Process Isolation](/docs/execution/process-isolation) for the full architecture.
+Every LLM block runs through the workspace isolation path. API keys, HTTP credentials, URL allowlists, and executable tool references stay in host-only `WorkspaceHostBindings` and host execution registries. The worker receives only serializable manifests, policy, worker-visible tool metadata, and its config-based IPC connection details.
 
-<!-- Linear: RUN-554, RUN-590, RUN-607, RUN-717, RUN-391, RUN-943 — last verified against codebase 2026-04-26 -->
+Request-backed custom HTTP tools seed allowed hosts from their host-side request URL. Dynamic built-in `http` calls require `RUNSIGHT_HTTP_URL_ALLOWLIST` on the host; otherwise mediated HTTP is denied before network access.
+
+`UnixLocalHarness` is the current local workspace harness. It gives each run a fresh workspace root, starts the worker with `cwd` inside that workspace, scopes mediated file I/O to the same root, validates the result envelope, and cleans up afterward. Unix-local isolation protects host-mediated credentials and workspace access, but it is not a container-grade OS sandbox.
+
+See [Workspace Isolation](/docs/execution/process-isolation) for the full architecture.
+
+<!-- Linear: RUN-554, RUN-590, RUN-607, RUN-717, RUN-391, RUN-943, RUN-999, RUN-1000, RUN-1001, RUN-1002, RUN-1003, RUN-1004, RUN-1005, RUN-1006, RUN-1007 - last verified against codebase 2026-05-09 -->

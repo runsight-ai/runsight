@@ -1,115 +1,133 @@
 ---
-title: Process Isolation
-description: How Runsight isolates LLM block execution in subprocesses — trust boundaries, credential proxying, budget enforcement, and the layered defense model.
+title: Workspace Isolation
+description: How Runsight isolates LLM block execution with per-run workspaces, mediated host capabilities, and Unix-local workers.
 ---
 
-Runsight executes every LLM block in a separate subprocess. The subprocess has no API keys, no access to engine memory, and no credentials. Every interaction with the outside world — LLM calls, tool invocations, HTTP requests, file writes — is mediated through a supervised IPC channel where the engine enforces budget limits, records traces, and validates every request.
+Runsight isolates LLM block execution around a **workspace** rather than around a provider or a container backend. The durable contract is:
 
-## Why process isolation
+1. The parser wraps LLM blocks with `IsolatedBlockWrapper`.
+2. At execution time, the wrapper builds a `WorkspaceRunRequest`.
+3. A workspace harness executes the request and validates a `ResultEnvelope`.
+4. The wrapper converts the validated result back into normal `BlockOutput`.
 
-LLM blocks accept arbitrary prompts and execute tool calls determined by model output. A compromised or misbehaving model could attempt to:
-
-- Read API keys from environment variables and exfiltrate them
-- Mutate engine state shared across blocks
-- Bypass budget enforcement by calling the LLM provider directly
-- Access credentials for unrelated services
-
-Process isolation eliminates these risks by creating a **credential boundary**: API keys never enter the subprocess. Every LLM call is proxied through the engine, which holds the real keys, enforces budgets, and records observability data.
+The current local implementation of that contract is `UnixLocalHarness`. It creates a fresh workspace session, starts a local Unix worker process inside that session's runtime directory, mediates host capabilities through IPC, validates the worker result, and cleans up according to the workspace policy.
 
 :::note
-Process isolation is a **credential and state boundary**, not a full OS-level sandbox. See [Known Limitations](#known-limitations) for what is and is not protected.
+Workspace isolation is a credential, state, and workspace boundary. The current Unix-local backend is not a hard OS security sandbox: it does not add container namespaces, cgroups, or seccomp. It is the architecture layer that lets stricter backends be added later without changing workflow YAML, parser contracts, or block wrappers.
 :::
 
-## The trust boundary
+## Deployment hardening
 
-The isolation architecture splits execution into two processes with a strict boundary between them.
+Workspace isolation and container hardening are separate layers. The workspace boundary governs each isolated block run; the Docker deployment also applies service-level process controls around Runsight itself.
 
-![Trust boundary between engine and subprocess](/diagrams/trust-boundary.svg)
+- **Layer 1 — Container hardening:** Docker deployments run as a non-root/unprivileged user, drop Linux capabilities, prevent privilege escalation, and apply container CPU and memory limits.
 
-The subprocess receives only four environment variables: `PATH`, the IPC socket path, a single-use authentication token, and a macOS library path. API keys, cloud credentials, `HOME`, `USER`, and all other environment variables are never passed.
+## Why workspace isolation
 
-## How communication works
+LLM blocks accept arbitrary prompts and may request model calls, tools, HTTP access, or file operations. Runsight treats those requests as work that must cross an explicit boundary:
 
-The engine and subprocess communicate over four purpose-built channels.
+- Model provider keys stay in the host runtime.
+- HTTP credentials and URL allowlists stay in host-only bindings.
+- Executable tools stay registered on the host.
+- Worker-visible state is serialized into a manifest and policy.
+- File operations mediated by the host are scoped to the run workspace.
 
-![Four communication channels between engine and subprocess](/diagrams/communication-channels.svg)
+This design keeps the public execution model provider-neutral. The worker asks the host to perform model and tool work through the workspace IPC layer. The host decides which provider credentials, HTTP credentials, allowlists, and executable tool handlers apply to that run.
 
-- **stdin** delivers the block configuration once at startup — what to execute, which soul, what state.
-- **stdout** carries the final result once on exit — output text, cost, tokens, exit handle.
-- **stderr** streams heartbeat messages every 5 seconds for liveness monitoring and stall detection.
-- **Unix socket** is the bidirectional IPC channel for all engine interactions — LLM calls, tool execution, HTTP requests, and file operations.
+## The workspace boundary
 
-## Authentication
+When workflow YAML is parsed, LLM blocks are wrapped with `IsolatedBlockWrapper`. At execution time the wrapper sends a `WorkspaceRunRequest` to `UnixLocalHarness`.
 
-Each subprocess gets a **single-use grant token** — a random string minted by the engine just before the subprocess is spawned:
+The request contains serializable data the worker is allowed to know:
 
-- The token must be presented on the first IPC message
-- After acceptance, the token is consumed — a second connection attempt is rejected
-- The token expires after 120 seconds if the subprocess is too slow to connect
-- The subprocess clears the token from its own environment immediately after connecting
+| Data | Purpose |
+|------|---------|
+| Block manifest | Describes the block, inputs, and runtime-visible configuration |
+| Workspace manifest | Lists files to materialize into the run workspace |
+| `WorkspacePolicy` | Runtime policy for the session |
+| Worker tool metadata | Serializable declarations for tools the worker may request |
 
-This ties authentication to the subprocess lifecycle: the token works exactly once, for exactly one process, within a bounded time window.
+Host-only bindings are intentionally separate. `WorkspaceHostBindings` carries provider API keys, HTTP credentials, URL allowlists, and executable host tools. Those bindings are consumed by the harness to build host-side IPC handlers and are not serialized into the worker manifest or injected as worker environment secrets.
 
-## Proxied LLM calls
+For HTTP tools, request-backed custom tools seed the allowlist from their host-side request URL. Dynamic built-in `http` calls use the host-only `RUNSIGHT_HTTP_URL_ALLOWLIST` setting, a comma- or whitespace-separated list of allowed hostnames or URLs. Empty allowlists deny mediated HTTP before any network request is made.
 
-The subprocess does not call LLM providers directly. It uses a proxied client with the same interface as the real LLM client — block code calls the same method, but the call is routed through the IPC channel to the engine.
+## Workspace materialization
 
-![LLM call proxied through engine](/diagrams/llm-proxy-flow.svg)
+`UnixLocalHarness` owns the local workspace base by default. For each session it creates a fresh child workspace and:
 
-The engine resolves the correct API key for the requested model, makes the actual API call, and returns the result. A strict allowlist controls which generation parameters the subprocess can set — standard parameters like `max_tokens` and `temperature` are allowed, while parameters that could redirect the API call are silently dropped.
+- Validates that manifest paths are relative.
+- Materializes declared files under the harness-owned workspace root.
+- Creates the runtime working directory.
+- Starts the worker with `cwd` set to that runtime directory.
+- Scopes host-mediated file reads and writes to the same canonical workspace root.
+- Applies cleanup according to the workspace policy.
 
-## The interceptor chain
+The important detail is that process `cwd` and mediated file I/O share one canonical root. A block can reason about its workspace consistently, while the host still validates mediated file paths against the session root.
 
-Every request crossing the IPC boundary passes through a chain of interceptors — engine-side middleware that validates, meters, and traces each request without changing the protocol.
+## IPC and authentication
 
-![Interceptor chain request and response flow](/diagrams/interceptor-chain.svg)
+The worker discovers its IPC configuration from one environment variable:
 
-Interceptors run in **forward order** on the request path and **reverse order** on the response path — an "onion" pattern where each interceptor sets up context on the way in and cleans up on the way out.
+```text
+RUNSIGHT_IPC_CONFIG_B64=<base64-json IPCClientConfig>
+```
 
-Adding a new engine concern — governance, rate limiting, audit logging — means writing one interceptor and registering it. No protocol changes, no handler modifications, no subprocess updates. The architecture is designed so that new engine capabilities compose without touching existing code.
+That encoded `IPCClientConfig` is the current worker discovery contract. The worker uses it to connect to the host-side IPC handlers for model calls, tool execution, HTTP access, and file access.
 
-## Budget enforcement
+Worker IPC handlers are for model calls, tool execution, HTTP access, and file access. Heartbeats are emitted as stderr JSON lines and monitored by the harness. The final `ResultEnvelope` is written to stdout as JSON and validated by the harness before the wrapper converts it back into `BlockOutput` for the normal workflow execution path.
 
-Budget limits defined in workflow YAML work transparently across the isolation boundary:
+## Policy and capabilities
 
-- **Before each LLM call:** The budget interceptor checks the remaining budget. If exceeded, the call is rejected before the LLM provider is contacted — no money spent.
-- **After each LLM call:** The interceptor accrues the reported cost and tokens. Costs propagate up the parent chain — block-level costs roll up to the workflow budget.
-- **When budget is exceeded mid-execution:** The current call's result is returned (the money is already spent). The next call is rejected. This avoids discarding work you've already paid for.
+`WorkspacePolicy` is runtime policy, not just documentation. It validates modes and controls the workspace session behavior the harness can enforce. The serializable request shape, including the worker manifest and policy data, is validated before execution.
 
-See [Budget & Limits](/docs/execution/budget-and-limits) for the full YAML configuration.
+`PolicyCapabilityReport.from_policy` reports capability entries conditionally from the policy:
 
-## Smart assertions
+| Capability area | Unix-local behavior |
+|-----------------|---------------------|
+| Raw network deny | Advisory in Unix-local when requested by policy |
+| Raw filesystem deny | Advisory in Unix-local when requested by policy |
+| Credential host binding | Enforced when credential host-binding policy applies |
+| Mediated file constraints | Enforced when mediated file policy applies |
+| Materialization size limits | Enforced when workspace materialization limits apply |
 
-Assertions that use LLM calls for grading (like `llm_judge`) run through the same isolation path. The judge's LLM call goes through the IPC channel, passes through the interceptor chain, and its cost counts toward the block's budget. Simple custom assertions (Python plugins that return pass/fail) continue to run in a minimal subprocess without IPC access.
+Because Unix-local workers are local Unix processes, direct process-level network and filesystem restrictions are advisory. Runsight's enforced controls apply to host-mediated capabilities: provider calls, credentialed HTTP calls, registered tool execution, materialized workspace files, and mediated file operations.
 
-See [Custom Assertions](/docs/evaluation/custom-assertions#llm-graded-assertions-llm_judge) for configuration details.
+## Tool execution
 
-## Layered defense model
+Tool execution is split across two registries:
 
-Runsight uses defense-in-depth with four active layers.
+| Registry | Visibility | Contents |
+|----------|------------|----------|
+| `WorkerToolRegistry` | Worker-visible | Serializable tool names and metadata |
+| `HostToolExecutionRegistry` | Host-only | Executable tool references and secrets |
 
-![Layered defense model](/diagrams/layered-defense.svg)
+A worker can request a tool only by using worker-visible metadata. The host executes the tool only when the same name exists in the host execution registry for that run. This keeps tool discovery serializable while keeping executable references and secrets out of the worker manifest.
 
-- **Layer 1 — Container hardening:** The Docker deployment runs as an unprivileged user, drops all Linux capabilities, prevents privilege escalation, and enforces memory and CPU limits. A runaway process is killed by the kernel, not the host.
-- **Layer 2 — Process isolation:** The subprocess runs in a separate OS process. No shared memory, no API keys, no credentials.
-- **Layer 3 — IPC mediation:** Every engine interaction passes through the interceptor chain. Budgets enforced per call. Actions validated against an allowlist. Traces recorded automatically.
-- **Layer 4 — Nested subprocess:** Code execution (CodeBlock) and simple assertion plugins run in a further-nested subprocess with an even more restricted environment.
+## Provider-neutral model calls
 
-## Known limitations
+The workspace harness does not depend on a specific model provider. The worker uses a proxied runner/client over IPC. The host-side handler resolves the provider from the requested model name and the API keys available in the run's host bindings.
 
-Process isolation is a credential boundary, not a full execution sandbox.
+Budget enforcement and tracing stay on the host side, so model calls made from isolated blocks still participate in normal Runsight accounting. See [Budget & Limits](/docs/execution/budget-and-limits) for budget configuration.
 
-| What | Status | Detail |
-|------|--------|--------|
-| API key isolation | **Protected** | Keys never enter subprocess environment or memory |
-| Engine state isolation | **Protected** | No access to engine memory or database |
-| Budget enforcement | **Protected** | Every LLM call passes through the budget interceptor |
-| Observability | **Protected** | Every IPC action creates a trace span |
-| Network access | Not restricted | Subprocess can use Python `socket` directly (but has nothing to exfiltrate) |
-| Filesystem access | Partially restricted | IPC file handler is sandboxed; direct `open()` calls are not |
-| CPU / memory limits | **Container-level** | mem_limit, memswap_limit, and cpus enforced via Docker cgroups |
-| Python imports | Not restricted | Subprocess can import any installed package |
+## Assertions
 
-The isolation boundary works because the subprocess has **nothing valuable** — no API keys, no credentials, no engine state. Even if the subprocess makes direct network calls, it has nothing sensitive to send.
+Assertions that use model calls for grading, such as `llm_judge`, use the same host-mediated model path. Their model calls are still budgeted and observed through the workspace boundary.
 
-<!-- Linear: RUN-391 — last verified against codebase 2026-04-11 -->
+See [Custom Assertions](/docs/evaluation/custom-assertions#llm-graded-assertions-llm_judge) for assertion configuration details.
+
+## Trade-offs
+
+Workspace isolation gives Runsight a stable execution boundary without making the local backend pretend to be stronger than it is.
+
+| Property | What Unix-local provides |
+|----------|--------------------------|
+| Fresh workspace | Each session gets a harness-owned workspace root and runtime working directory |
+| Credential isolation | Provider keys, HTTP credentials, allowlists, and executable tools stay host-only |
+| File mediation | Host-mediated reads and writes are scoped to the session root |
+| Supervision | Worker heartbeat, timeout, result validation, and cleanup are owned by the harness |
+| Backend portability | Parser, wrapper, request, and result contracts are backend-neutral |
+| OS sandboxing | Not a container-grade boundary in the current local implementation |
+
+Future backends can provide stronger OS-level enforcement behind the same `WorkspaceRunRequest` to `ResultEnvelope` contract. The current docs describe the shipped Unix-local runtime only.
+
+<!-- Linear: RUN-999, RUN-1000, RUN-1001, RUN-1002, RUN-1003, RUN-1004, RUN-1005, RUN-1006, RUN-1007 - last verified against codebase 2026-05-09 -->

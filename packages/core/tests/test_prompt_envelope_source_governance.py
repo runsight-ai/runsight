@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import ast
 
-from prompt_envelope_helpers import ENVELOPE_PY, HARNESS_PY, INIT_PY, WORKER_SUPPORT_PY
+from prompt_envelope_helpers import ENVELOPE_PY, INIT_PY, WORKER_SUPPORT_PY, WRAPPER_PY
 
 
 def _parse(path) -> ast.Module:
@@ -49,15 +49,15 @@ def test_worker_support_has_no_task_import_or_current_task_reference() -> None:
     assert "current_task" not in source
 
 
-def test_harness_uses_prompt_envelope_not_task_envelope() -> None:
-    tree = _parse(HARNESS_PY)
+def test_wrapper_uses_prompt_envelope_not_task_envelope() -> None:
+    tree = _parse(WRAPPER_PY)
     imported_names = [
         alias.name
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom)
         for alias in node.names
     ]
-    source = HARNESS_PY.read_text(encoding="utf-8")
+    source = WRAPPER_PY.read_text(encoding="utf-8")
 
     assert "PromptEnvelope" in imported_names
     assert "TaskEnvelope" not in imported_names

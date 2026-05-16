@@ -69,6 +69,8 @@ def _write_soul_file(base_dir: Path, name: str = "writer") -> None:
             name: Writer
             role: Writer
             system_prompt: Write carefully.
+            provider: openai
+            model_name: gpt-4o
             """
         ),
         encoding="utf-8",
@@ -84,6 +86,26 @@ def _write_workflow_file(base_dir: Path, yaml_content: str) -> str:
     return str(workflow_file)
 
 
+def _completion_response(content: str):
+    message = MagicMock()
+    message.content = content
+    message.tool_calls = None
+
+    choice = MagicMock()
+    choice.message = message
+    choice.finish_reason = "stop"
+
+    usage = MagicMock()
+    usage.prompt_tokens = 0
+    usage.completion_tokens = 0
+    usage.total_tokens = 0
+
+    response = MagicMock()
+    response.choices = [choice]
+    response.usage = usage
+    return response
+
+
 # ===========================================================================
 # 1. Workflow.run() signature accepts inputs parameter
 # ===========================================================================
@@ -97,7 +119,7 @@ class TestYamlWorkflowInputSeedingIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_yaml_parsed_workflow_resolves_input_from_caller(self, tmp_path):
+    async def test_yaml_parsed_workflow_resolves_input_from_caller(self, tmp_path, monkeypatch):
         """
         Parse a YAML workflow where step_a declares inputs from workflow.message.
         Run with inputs={"message": "hello"}.
@@ -144,13 +166,18 @@ class TestYamlWorkflowInputSeedingIntegration:
 
         mock_runner.execute = AsyncMock(side_effect=_fake_execute)
         mock_runner.model_name = "gpt-4o"
+        monkeypatch.setattr(
+            "runsight_core.llm.client.acompletion",
+            AsyncMock(return_value=_completion_response("executed")),
+        )
+        monkeypatch.setattr("runsight_core.llm.client.completion_cost", lambda **_: 0.0)
 
         # Patch the runner construction inside build_linear_block
         with patch(
             "runsight_core.yaml.parser.RunsightTeamRunner",
             return_value=mock_runner,
         ):
-            wf = parse_workflow_yaml(yaml_path)
+            wf = parse_workflow_yaml(yaml_path, api_keys={"openai": "dummy-openai-key"})
 
         assert wf is not None
 

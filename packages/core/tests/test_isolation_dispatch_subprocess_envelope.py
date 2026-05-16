@@ -40,9 +40,9 @@ class TestDispatchSingleSubprocess:
 
         captured_envelope = None
 
-        async def capture_envelope(env):
+        async def capture_envelope(request):
             nonlocal captured_envelope
-            captured_envelope = env
+            captured_envelope = request.envelope
             return _make_result_envelope(
                 delegate_artifacts={
                     "research": DelegateArtifact(prompt="research topic"),
@@ -78,9 +78,9 @@ class TestDispatchSingleSubprocess:
 
         captured_envelope = None
 
-        async def capture_envelope(env):
+        async def capture_envelope(request):
             nonlocal captured_envelope
-            captured_envelope = env
+            captured_envelope = request.envelope
             return _make_result_envelope(
                 delegate_artifacts={"alpha": DelegateArtifact(prompt="do alpha work")}
             )

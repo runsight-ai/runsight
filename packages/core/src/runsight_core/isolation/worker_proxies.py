@@ -147,9 +147,12 @@ def create_tool_stubs(
 
         async def _execute(args: dict[str, Any], *, td: ToolDefEnvelope = tool_def) -> str:
             try:
+                payload: dict[str, Any] = {"name": td.name, "arguments": args}
+                if td.binding_id is not None:
+                    payload["binding_id"] = td.binding_id
                 result = await ipc_client.request(
                     "tool_call",
-                    {"name": td.name, "arguments": args},
+                    payload,
                 )
             except BudgetKilledException:
                 raise
@@ -161,12 +164,13 @@ def create_tool_stubs(
                 return str(result.get("output", ""))
             return str(result)
 
-        stubs.append(
-            ToolInstance(
-                name=tool_def.name,
-                description=tool_def.description,
-                parameters=tool_def.parameters,
-                execute=_execute,
-            )
+        stub = ToolInstance(
+            name=tool_def.name,
+            description=tool_def.description,
+            parameters=tool_def.parameters,
+            execute=_execute,
         )
+        if tool_def.binding_id is not None:
+            stub.binding_id = tool_def.binding_id
+        stubs.append(stub)
     return stubs

@@ -18,7 +18,14 @@ from runsight_core.assertions.base import (
 from runsight_core.assertions.custom import _build_adapter_class
 from runsight_core.assertions.scoring import AssertionsResult
 from runsight_core.isolation.envelope import ContextEnvelope, PromptEnvelope, SoulEnvelope
-from runsight_core.isolation.harness import SubprocessHarness
+from runsight_core.isolation.workspace import (
+    HostToolExecutionRegistry,
+    UnixLocalHarness,
+    WorkspaceHostBindings,
+    WorkspaceManifest,
+    WorkspacePolicy,
+    WorkspaceRunRequest,
+)
 
 if TYPE_CHECKING:
     from runsight_core.yaml.discovery import AssertionMeta, ScanIndex
@@ -196,11 +203,28 @@ async def _run_smart_llm_assertion(
     output: str,
     context: AssertionContext,
     api_keys: dict[str, str],
+    workspace_harness_factory: Callable[[], Any] | None = None,
 ) -> GradingResult:
-    """Run an llm_judge assertion through the subprocess harness."""
-    harness = SubprocessHarness(api_keys=dict(api_keys))
+    """Run an llm_judge assertion through the workspace harness."""
+    harness = (
+        workspace_harness_factory() if workspace_harness_factory is not None else UnixLocalHarness()
+    )
     envelope = _build_assertion_envelope(cfg=cfg, output=output, context=context)
-    result = await harness.run(envelope)
+    request = WorkspaceRunRequest(
+        envelope=envelope,
+        manifest=WorkspaceManifest(materializations=[], working_dir="."),
+        policy=WorkspacePolicy(
+            network={"raw": "deny", "mediated": "allow"},
+            filesystem={"raw": "deny", "mediated": "workspace"},
+            credentials={"mode": "host-bound"},
+        ),
+        worker_tools=[],
+        host_bindings=WorkspaceHostBindings(
+            api_keys=dict(api_keys),
+            host_tools=HostToolExecutionRegistry(tools=[]),
+        ),
+    )
+    result = await harness.run(request)
 
     if result.error:
         raise RuntimeError(result.error)
@@ -212,7 +236,7 @@ async def _run_smart_llm_assertion(
     if grading.assertion_type is None:
         grading.assertion_type = "llm_judge"
 
-    # Active BudgetSession accounting happens inside the subprocess harness IPC path.
+    # Active BudgetSession accounting happens inside the workspace harness IPC path.
     # Re-accruing result.cost_usd here would double-count the same LLM call.
     return grading
 
@@ -269,6 +293,7 @@ async def run_assertions(
         Awaitable[GradingResult],
     ]
     | None = None,
+    workspace_harness_factory: Callable[[], Any] | None = None,
     max_concurrent: int = 10,
 ) -> AssertionsResult:
     """Run a list of assertion configs concurrently and return aggregated results."""
@@ -291,6 +316,7 @@ async def run_assertions(
                         output=output,
                         context=context,
                         api_keys=api_keys,
+                        workspace_harness_factory=workspace_harness_factory,
                     )
                 else:
                     raise ValueError(

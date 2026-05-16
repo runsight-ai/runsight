@@ -1,9 +1,13 @@
-"""IsolatedBlockWrapper — wraps LLM blocks for subprocess execution."""
+"""IsolatedBlockWrapper — wraps LLM blocks for workspace harness execution."""
 
 from __future__ import annotations
 
+import os
+import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlparse
 
 from runsight_core.blocks.base import BaseBlock
 from runsight_core.budget_enforcement import budget_killed_exception_from_message
@@ -21,6 +25,16 @@ from runsight_core.isolation.envelope import (
     ToolDefEnvelope,
 )
 from runsight_core.isolation.errors import BlockExecutionError
+from runsight_core.isolation.url_allowlist import normalize_allowlist_hostname
+from runsight_core.isolation.workspace import (
+    HostToolExecutionRef,
+    HostToolExecutionRegistry,
+    WorkerToolRegistry,
+    WorkspaceHostBindings,
+    WorkspaceManifest,
+    WorkspacePolicy,
+    WorkspaceRunRequest,
+)
 from runsight_core.state import BlockResult
 
 if TYPE_CHECKING:
@@ -34,6 +48,8 @@ _SOUL_ATTR_MAP = {
 
 # LLM block types that should be wrapped at build time
 LLM_BLOCK_TYPES = frozenset({"linear", "gate", "synthesize", "dispatch"})
+_HTTP_URL_ALLOWLIST_ENV = "RUNSIGHT_HTTP_URL_ALLOWLIST"
+_HTTP_ALLOWLIST_SPLIT = re.compile(r"[\s,]+")
 
 
 _BLOCK_TYPE_MAP = {
@@ -42,6 +58,12 @@ _BLOCK_TYPE_MAP = {
     "SynthesizeBlock": "synthesize",
     "DispatchBlock": "dispatch",
 }
+
+
+@dataclass(frozen=True)
+class _ResolvedToolBinding:
+    binding_id: str
+    tool: Any
 
 
 def _get_soul(inner_block: BaseBlock) -> Any:
@@ -54,22 +76,62 @@ def _get_soul(inner_block: BaseBlock) -> Any:
     return getattr(inner_block, attr_name, None)
 
 
+def _dispatch_tool_binding_id(branch_exit_id: str, tool_name: str, tool_index: int) -> str:
+    return f"dispatch:{branch_exit_id}:{tool_name}:{tool_index}"
+
+
+def _validate_unique_tool_names(resolved_tools: list[Any], *, scope: str) -> None:
+    names: set[str] = set()
+    for tool in resolved_tools:
+        tool_name = str(tool.name)
+        if tool_name in names:
+            raise ValueError(f"duplicate tool name in {scope}: {tool_name}")
+        names.add(tool_name)
+
+
+def _binding_tool(resolved_tool: Any) -> Any:
+    return resolved_tool.tool if isinstance(resolved_tool, _ResolvedToolBinding) else resolved_tool
+
+
+def _binding_id(resolved_tool: Any) -> str:
+    if isinstance(resolved_tool, _ResolvedToolBinding):
+        return resolved_tool.binding_id
+    return str(getattr(resolved_tool, "binding_id", None) or resolved_tool.name)
+
+
 def _collect_resolved_tools(inner_block: BaseBlock, soul: Any) -> list[Any]:
     if type(inner_block).__name__ == "DispatchBlock":
-        tools_by_name: dict[str, Any] = {}
+        tool_bindings: list[_ResolvedToolBinding] = []
         for branch in getattr(inner_block, "branches", []):
             branch_soul = getattr(branch, "soul", None)
-            for tool in getattr(branch_soul, "resolved_tools", None) or []:
-                tools_by_name[tool.name] = tool
-        return list(tools_by_name.values())
-    return list(getattr(soul, "resolved_tools", None) or [])
+            branch_tools = list(getattr(branch_soul, "resolved_tools", None) or [])
+            _validate_unique_tool_names(branch_tools, scope="dispatch branch")
+            for tool_index, tool in enumerate(branch_tools):
+                tool_name = str(tool.name)
+                tool_bindings.append(
+                    _ResolvedToolBinding(
+                        binding_id=_dispatch_tool_binding_id(
+                            str(branch.exit_id),
+                            tool_name,
+                            tool_index,
+                        ),
+                        tool=tool,
+                    )
+                )
+        return tool_bindings
+    resolved_tools = list(getattr(soul, "resolved_tools", None) or [])
+    _validate_unique_tool_names(resolved_tools, scope="soul")
+    return [
+        _ResolvedToolBinding(binding_id=_binding_id(tool), tool=tool) for tool in resolved_tools
+    ]
 
 
 def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefEnvelope]:
     """Serialize resolved tool metadata for the worker-side tool loop."""
     tool_envelopes: list[ToolDefEnvelope] = []
 
-    for tool in resolved_tools:
+    for resolved_tool in resolved_tools:
+        tool = _binding_tool(resolved_tool)
         exits = []
         port_enum = (
             getattr(tool, "parameters", {}).get("properties", {}).get("port", {}).get("enum", [])
@@ -83,6 +145,7 @@ def _build_tool_envelopes_from_tools(resolved_tools: list[Any]) -> list[ToolDefE
                 config=dict(getattr(tool, "config", {}) or {}),
                 exits=exits,
                 name=tool.name,
+                binding_id=_binding_id(resolved_tool),
                 description=tool.description,
                 parameters=dict(tool.parameters or {}),
                 tool_type=str(getattr(tool, "tool_type", "")),
@@ -97,7 +160,7 @@ def _build_tool_envelopes(soul: Any) -> list[ToolDefEnvelope]:
 
 
 def _serialize_scoped_results(results: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Normalize workflow results for the subprocess envelope.
+    """Normalize workflow results for the isolation envelope.
 
     WorkflowBlock output mappings may write plain strings/dicts back into
     ``state.results`` instead of BlockResult instances. The isolation envelope
@@ -149,8 +212,12 @@ def _scoped_context_for_envelope(
     )
 
 
-def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
-    return {
+def _serialize_soul_summary(
+    soul: Any,
+    *,
+    resolved_tool_binding_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    payload = {
         "id": getattr(soul, "id", ""),
         "role": getattr(soul, "role", ""),
         "system_prompt": getattr(soul, "system_prompt", ""),
@@ -161,6 +228,9 @@ def _serialize_soul_summary(soul: Any) -> dict[str, Any]:
         "required_tool_calls": list(getattr(soul, "required_tool_calls", None) or []),
         "max_tool_iterations": getattr(soul, "max_tool_iterations", 5),
     }
+    if resolved_tool_binding_ids is not None:
+        payload["resolved_tool_binding_ids"] = list(resolved_tool_binding_ids)
+    return payload
 
 
 def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
@@ -197,7 +267,19 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
                 "exit_id": branch.exit_id,
                 "label": branch.label,
                 "task_instruction": branch.task_instruction,
-                "soul": _serialize_soul_summary(branch.soul),
+                "soul": _serialize_soul_summary(
+                    branch.soul,
+                    resolved_tool_binding_ids=[
+                        _dispatch_tool_binding_id(
+                            str(branch.exit_id),
+                            str(tool.name),
+                            tool_index,
+                        )
+                        for tool_index, tool in enumerate(
+                            getattr(branch.soul, "resolved_tools", None) or []
+                        )
+                    ],
+                ),
             }
             for branch in inner_block.branches
         ]
@@ -205,12 +287,104 @@ def _build_block_metadata(inner_block: BaseBlock) -> tuple[str, dict[str, Any]]:
     return block_type, block_config
 
 
-class IsolatedBlockWrapper(BaseBlock):
-    """Wraps an LLM block to execute it in an isolated subprocess.
+def _workspace_policy() -> WorkspacePolicy:
+    return WorkspacePolicy(
+        network={"raw": "deny", "mediated": "allow"},
+        filesystem={"raw": "deny", "mediated": "workspace"},
+        credentials={"mode": "host-bound"},
+    )
 
-    Delegates execution to ``_run_in_subprocess`` which sends a ContextEnvelope
-    and receives a ResultEnvelope.  The envelope is then mapped back onto
-    WorkflowState.
+
+def _build_host_tool_registry(resolved_tools: list[Any]) -> HostToolExecutionRegistry:
+    return HostToolExecutionRegistry(
+        tools=[
+            HostToolExecutionRef(
+                binding_id=_binding_id(resolved_tool),
+                name=tool.name,
+                tool=tool,
+                credential_refs=list(getattr(tool, "credential_refs", None) or []),
+                headers=dict(getattr(tool, "headers", None) or {}),
+                secret_config=dict(getattr(tool, "secret_config", None) or {}),
+                host_path=getattr(tool, "host_path", None),
+                policy_metadata=dict(getattr(tool, "policy_metadata", None) or {}),
+                source=getattr(tool, "source", None),
+                tool_type=getattr(tool, "tool_type", None),
+                config=dict(getattr(tool, "config", None) or {}),
+                request_config=getattr(tool, "request_config", None),
+                timeout_seconds=getattr(tool, "timeout_seconds", None),
+                max_output_bytes=getattr(tool, "max_output_bytes", None),
+                response_size_policy=getattr(tool, "response_size_policy", None),
+            )
+            for resolved_tool in resolved_tools
+            for tool in [_binding_tool(resolved_tool)]
+        ]
+    )
+
+
+def _hostname_from_allowlist_entry(value: str) -> str | None:
+    hostname = normalize_allowlist_hostname(value)
+    return hostname or None
+
+
+def _static_request_hostname(request_config: dict[str, Any] | None) -> str | None:
+    if not request_config:
+        return None
+    raw_url = str(request_config.get("url") or "")
+    try:
+        parsed = urlparse(raw_url)
+        hostname = (parsed.hostname or "").strip().lower()
+        if parsed.netloc and ":" in parsed.netloc:
+            parsed.port
+    except ValueError:
+        return None
+    if not hostname or any(marker in hostname for marker in ("{", "}", "$")):
+        return None
+    return hostname
+
+
+def _http_url_allowlist_from_host_tools(
+    host_tools: HostToolExecutionRegistry,
+) -> list[str]:
+    hosts = {
+        hostname
+        for ref in host_tools.tools
+        if (hostname := _static_request_hostname(ref.request_config)) is not None
+    }
+    return sorted(hosts)
+
+
+def _http_url_allowlist_from_env() -> list[str]:
+    raw_allowlist = os.environ.get(_HTTP_URL_ALLOWLIST_ENV, "")
+    hosts = {
+        hostname
+        for entry in _HTTP_ALLOWLIST_SPLIT.split(raw_allowlist)
+        if (hostname := _hostname_from_allowlist_entry(entry)) is not None
+    }
+    return sorted(hosts)
+
+
+def _build_workspace_host_bindings(
+    *,
+    api_keys: dict[str, str],
+    host_tools: HostToolExecutionRegistry,
+) -> WorkspaceHostBindings:
+    return WorkspaceHostBindings(
+        api_keys=dict(api_keys),
+        host_tools=host_tools,
+        url_allowlist=sorted(
+            {
+                *_http_url_allowlist_from_host_tools(host_tools),
+                *_http_url_allowlist_from_env(),
+            }
+        ),
+    )
+
+
+class IsolatedBlockWrapper(BaseBlock):
+    """Wraps an LLM block to execute it through the workspace isolation harness.
+
+    Delegates execution to ``_run_in_subprocess`` with a WorkspaceRunRequest and
+    maps the returned ResultEnvelope back onto WorkflowState.
     """
 
     def __init__(
@@ -221,32 +395,34 @@ class IsolatedBlockWrapper(BaseBlock):
         harness: Any | None = None,
         harness_factory: Callable[[], Any] | None = None,
         retry_config: Optional[Any] = None,
+        api_keys: dict[str, str] | None = None,
     ):
         super().__init__(block_id, retry_config=retry_config)
         self.inner_block = inner_block
         self.soul = _get_soul(inner_block)
         self.harness = harness
         self._harness_factory = harness_factory
+        self._api_keys = dict(api_keys or {})
 
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the inner block for attributes not on the wrapper."""
         return getattr(self.inner_block, name)
 
-    async def _run_in_subprocess(self, envelope: ContextEnvelope) -> ResultEnvelope:
-        """Run the inner block in a subprocess via SubprocessHarness."""
+    async def _run_in_subprocess(self, request: WorkspaceRunRequest) -> ResultEnvelope:
+        """Run the inner block through the configured workspace harness."""
         if self.harness is None:
             if self._harness_factory is None:
                 raise NotImplementedError(
-                    "SubprocessHarness is not configured on IsolatedBlockWrapper"
+                    "Workspace harness is not configured on IsolatedBlockWrapper"
                 )
             self.harness = self._harness_factory()
-        return await self.harness.run(envelope)
+        return await self.harness.run(request)
 
     async def execute(self, ctx: "BlockContext") -> "BlockOutput":
-        """Execute the inner block through the subprocess isolation boundary.
+        """Execute the inner block through the workspace isolation boundary.
 
-        Builds a ContextEnvelope, executes the subprocess path, and maps the
-        ResultEnvelope back to BlockOutput.
+        Builds a WorkspaceRunRequest and maps the ResultEnvelope back to
+        BlockOutput.
         """
         from runsight_core.block_io import BlockOutput
 
@@ -281,6 +457,14 @@ class IsolatedBlockWrapper(BaseBlock):
         # Gather conversation history for stateful blocks
         history_key = f"{self.block_id}_{soul.id}" if soul else self.block_id
         conversation_history = list(ctx.conversation_history) if self.inner_block.stateful else []
+        conversation_histories: dict[str, list[dict[str, Any]]] = {}
+        if self.inner_block.stateful and state is not None:
+            conversation_histories = {
+                key: list(messages)
+                for key, messages in getattr(state, "conversation_histories", {}).items()
+            }
+            if conversation_history:
+                conversation_histories.setdefault(history_key, list(conversation_history))
 
         (
             scoped_inputs,
@@ -295,13 +479,8 @@ class IsolatedBlockWrapper(BaseBlock):
 
         block_type, block_config = _build_block_metadata(self.inner_block)
         resolved_tools = _collect_resolved_tools(self.inner_block, soul)
-
-        if (
-            self.harness is not None
-            and soul is not None
-            and hasattr(self.harness, "_resolved_tools")
-        ):
-            self.harness._resolved_tools = {tool.name: tool for tool in resolved_tools}
+        host_tools = _build_host_tool_registry(resolved_tools)
+        worker_tools = WorkerToolRegistry.from_host_registry(host_tools).tools
 
         envelope = ContextEnvelope(
             block_id=self.block_id,
@@ -318,14 +497,25 @@ class IsolatedBlockWrapper(BaseBlock):
             access=access,
             context_audit=context_audit,
             conversation_history=conversation_history,
+            conversation_histories=conversation_histories,
             timeout_seconds=300,
             max_output_bytes=1_000_000,
         )
+        request = WorkspaceRunRequest(
+            envelope=envelope,
+            manifest=WorkspaceManifest(materializations=[], working_dir="."),
+            policy=_workspace_policy(),
+            worker_tools=worker_tools,
+            host_bindings=_build_workspace_host_bindings(
+                api_keys=self._api_keys,
+                host_tools=host_tools,
+            ),
+        )
 
         with suppress_declared_inputs_for_block(self.inner_block.block_id):
-            result = await self._run_in_subprocess(envelope)
+            result = await self._run_in_subprocess(request)
 
-        # Handle errors from the subprocess
+        # Handle errors from the workspace harness
         if result.error is not None:
             error_type = result.error_type or "BlockExecutionError"
             if error_type == "BudgetKilledException":
@@ -352,8 +542,11 @@ class IsolatedBlockWrapper(BaseBlock):
         # The worker returns the full stateful history, so replace instead of
         # appending to avoid duplicating prior turns on repeated isolated calls.
         conversation_replacements: dict | None = None
-        if self.inner_block.stateful and result.conversation_history:
-            conversation_replacements = {history_key: result.conversation_history}
+        if self.inner_block.stateful:
+            result_histories = dict(getattr(result, "conversation_histories", {}) or {})
+            if result.conversation_history:
+                result_histories[history_key] = result.conversation_history
+            conversation_replacements = result_histories or None
 
         return BlockOutput(
             output=result.output or "",

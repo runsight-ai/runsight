@@ -39,10 +39,13 @@ class _ScriptedRunner:
     """Deterministic runner for exercising parsed LLM-backed blocks through integration."""
 
     def __init__(self, behaviors=None):
+        global _ACTIVE_SCRIPTED_RUNNER
+
         self.behaviors = behaviors or {}
         self.model_name = "gpt-4o-mini"
         self.calls: list[tuple[str, str, str | None]] = []
         self.attempts: dict[str, int] = {}
+        _ACTIVE_SCRIPTED_RUNNER = self
 
     async def execute(self, instruction: str, context: str | None, soul, messages=None):
         soul_id = soul.id
@@ -60,6 +63,80 @@ class _ScriptedRunner:
             raise output
 
         return SimpleNamespace(output=str(output), cost_usd=0.01, total_tokens=50, exit_handle=None)
+
+
+_ACTIVE_SCRIPTED_RUNNER: _ScriptedRunner | None = None
+
+
+def _completion_response(content: str, *, cost_usd: float = 0.0, total_tokens: int = 0):
+    message = SimpleNamespace(content=content, tool_calls=None)
+    choice = SimpleNamespace(message=message, finish_reason="stop")
+    usage = SimpleNamespace(
+        prompt_tokens=0,
+        completion_tokens=total_tokens,
+        total_tokens=total_tokens,
+    )
+    return SimpleNamespace(
+        choices=[choice], usage=usage, _hidden_params={"response_cost": cost_usd}
+    )
+
+
+def _instruction_and_context_from_user_prompt(prompt: str) -> tuple[str, str | None]:
+    marker = "\n\nContext:\n"
+    if marker not in prompt:
+        return prompt, None
+    instruction, context = prompt.split(marker, 1)
+    return instruction, context
+
+
+def _soul_id_from_messages(messages: list[dict]) -> str:
+    system_text = "\n".join(
+        str(message.get("content", "")) for message in messages if message.get("role") == "system"
+    )
+    if "Evaluate content quality" in system_text:
+        return "evaluator"
+    return "writer"
+
+
+@pytest.fixture(autouse=True)
+def _mock_litellm_with_scripted_runner(monkeypatch):
+    async def _fake_completion(**kwargs):
+        runner = _ACTIVE_SCRIPTED_RUNNER
+        if runner is None:
+            raise AssertionError("mixed pipeline tests require a scripted runner")
+
+        messages = list(kwargs.get("messages", []))
+        user_prompt = next(
+            (
+                str(message.get("content", ""))
+                for message in reversed(messages)
+                if message.get("role") == "user"
+            ),
+            "",
+        )
+        instruction, context = _instruction_and_context_from_user_prompt(user_prompt)
+        soul = SimpleNamespace(id=_soul_id_from_messages(messages))
+        result = await runner.execute(instruction, context, soul)
+        return _completion_response(
+            result.output,
+            cost_usd=result.cost_usd,
+            total_tokens=result.total_tokens,
+        )
+
+    monkeypatch.setattr("runsight_core.llm.client.acompletion", _fake_completion)
+    monkeypatch.setattr("runsight_core.llm.client.completion_cost", lambda **_: 0.0)
+    yield
+
+    global _ACTIVE_SCRIPTED_RUNNER
+    _ACTIVE_SCRIPTED_RUNNER = None
+
+
+def _parse_workflow_yaml(workflow_path: str, *, runner: _ScriptedRunner):
+    return parse_workflow_yaml(
+        workflow_path,
+        runner=runner,
+        api_keys={"openai": "dummy-openai-key"},
+    )
 
 
 def _write_workflow_file(base_dir: Path, name: str, yaml_content: str) -> str:
@@ -98,7 +175,7 @@ class TestMixedPipelinePassPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -118,7 +195,7 @@ class TestMixedPipelinePassPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -137,7 +214,7 @@ class TestMixedPipelinePassPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -154,7 +231,7 @@ class TestMixedPipelinePassPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -172,7 +249,7 @@ class TestMixedPipelinePassPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -204,7 +281,7 @@ class TestMixedPipelineFailPath:
                 context=None: "FAIL: content is low quality",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -226,7 +303,7 @@ class TestMixedPipelineFailPath:
                 context=None: "FAIL: needs improvement",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -243,7 +320,7 @@ class TestMixedPipelineFailPath:
                 "evaluator": lambda attempt, instruction, soul, context=None: "FAIL: rejected",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -264,7 +341,7 @@ class TestMixedPipelineFailPath:
                 context=None: "FAIL: low quality content",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -293,7 +370,7 @@ class TestStateFlowsBetweenBlocks:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -321,7 +398,7 @@ class TestStateFlowsBetweenBlocks:
                 "evaluator": evaluator_behavior,
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         await workflow.run(WorkflowState())
 
@@ -344,7 +421,7 @@ class TestStateFlowsBetweenBlocks:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         final_state = await workflow.run(WorkflowState())
 
@@ -375,7 +452,7 @@ class TestNoRealAPICalls:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         await workflow.run(WorkflowState())
 
@@ -396,7 +473,7 @@ class TestNoRealAPICalls:
                 "evaluator": lambda attempt, instruction, soul, context=None: "PASS",
             }
         )
-        workflow = parse_workflow_yaml(workflow_path, runner=runner)
+        workflow = _parse_workflow_yaml(workflow_path, runner=runner)
 
         await workflow.run(WorkflowState())
 

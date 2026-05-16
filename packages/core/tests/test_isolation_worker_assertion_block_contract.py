@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from isolation_worker_helpers import (
     make_context_envelope,
-    worker_socket_path,
+    worker_ipc_config_env,
 )
 from runsight_core.isolation.envelope import ResultEnvelope
 
@@ -155,6 +155,10 @@ class TestWorkerAssertionBlockContract:
                 self.connect_calls = 0
                 FakeIPCClient.instances.append(self)
 
+            @classmethod
+            def from_config(cls, config):
+                return cls(socket_path=config.unix_socket.path)
+
             async def connect(self):
                 self.connect_calls += 1
                 return {
@@ -172,8 +176,8 @@ class TestWorkerAssertionBlockContract:
             create_block_called["value"] = True
             raise AssertionError("_create_block must not run when capability auth fails")
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-assertion")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", worker_socket_path("assert-auth"))
+        for key, value in worker_ipc_config_env(grant_token="grant-assertion").items():
+            monkeypatch.setenv(key, value)
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())
@@ -225,6 +229,10 @@ class TestWorkerAssertionBlockContract:
                 self.request_calls: list[str] = []
                 FakeIPCClient.instances.append(self)
 
+            @classmethod
+            def from_config(cls, config):
+                return cls(socket_path=config.unix_socket.path)
+
             async def connect(self):
                 self.connect_calls += 1
                 return {
@@ -265,8 +273,8 @@ class TestWorkerAssertionBlockContract:
             assert envelope_arg.block_type == "assertion"
             return _FakeAssertionBlock(envelope_arg.block_id)
 
-        monkeypatch.setenv("RUNSIGHT_GRANT_TOKEN", "grant-assertion")
-        monkeypatch.setenv("RUNSIGHT_IPC_SOCKET", worker_socket_path("assert-ok"))
+        for key, value in worker_ipc_config_env(grant_token="grant-assertion").items():
+            monkeypatch.setenv(key, value)
         monkeypatch.setattr(worker, "_emit_heartbeat", lambda *args, **kwargs: None)
         monkeypatch.setattr(worker, "_heartbeat_loop", lambda interval=5.0: None)
         monkeypatch.setattr(worker, "_heartbeat_stop", threading.Event())

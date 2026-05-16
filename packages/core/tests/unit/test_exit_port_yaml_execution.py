@@ -27,6 +27,26 @@ def _mock_runner(output: str, cost: float = 0.01, tokens: int = 100) -> Runsight
     return runner
 
 
+def _completion_response(content: str, *, total_tokens: int = 0):
+    message = MagicMock()
+    message.content = content
+    message.tool_calls = None
+
+    choice = MagicMock()
+    choice.message = message
+    choice.finish_reason = "stop"
+
+    usage = MagicMock()
+    usage.prompt_tokens = 0
+    usage.completion_tokens = total_tokens
+    usage.total_tokens = total_tokens
+
+    response = MagicMock()
+    response.choices = [choice]
+    response.usage = usage
+    return response
+
+
 def _make_soul(soul_id: str = "test_soul") -> Soul:
     return Soul(id=soul_id, kind="soul", name="Test", role="Test", system_prompt="Test prompt")
 
@@ -163,37 +183,20 @@ blocks:
     type: linear
     soul_ref: writer
 """
-        wf = parse_workflow_yaml(yaml_content)
+        wf = parse_workflow_yaml(yaml_content, api_keys={"openai": "dummy-openai-key"})
 
         # Mock the LLM to return predictable outputs
-        with patch("runsight_core.runner.LiteLLMClient.achat") as mock_achat:
-            call_count = {"n": 0}
-
-            async def _side_effect(**kwargs):
-                call_count["n"] += 1
-                if call_count["n"] == 1:
-                    # content_block output
-                    return {
-                        "content": "Great article about AI agents.",
-                        "cost_usd": 0.01,
-                        "total_tokens": 50,
-                    }
-                elif call_count["n"] == 2:
-                    # quality_gate evaluation -> PASS
-                    return {
-                        "content": "PASS",
-                        "cost_usd": 0.01,
-                        "total_tokens": 30,
-                    }
-                else:
-                    # publish block
-                    return {
-                        "content": "Published successfully.",
-                        "cost_usd": 0.01,
-                        "total_tokens": 20,
-                    }
-
-            mock_achat.side_effect = _side_effect
+        with (
+            patch(
+                "runsight_core.llm.client.acompletion", new_callable=AsyncMock
+            ) as mock_completion,
+            patch("runsight_core.llm.client.completion_cost", return_value=0.01),
+        ):
+            mock_completion.side_effect = [
+                _completion_response("Great article about AI agents.", total_tokens=50),
+                _completion_response("PASS", total_tokens=30),
+                _completion_response("Published successfully.", total_tokens=20),
+            ]
 
             state = WorkflowState()
 
@@ -268,35 +271,19 @@ blocks:
     type: linear
     soul_ref: writer
 """
-        wf = parse_workflow_yaml(yaml_content)
+        wf = parse_workflow_yaml(yaml_content, api_keys={"openai": "dummy-openai-key"})
 
-        with patch("runsight_core.runner.LiteLLMClient.achat") as mock_achat:
-            call_count = {"n": 0}
-
-            async def _side_effect(**kwargs):
-                call_count["n"] += 1
-                if call_count["n"] == 1:
-                    return {
-                        "content": "Rough draft about AI.",
-                        "cost_usd": 0.01,
-                        "total_tokens": 50,
-                    }
-                elif call_count["n"] == 2:
-                    # quality_gate -> FAIL
-                    return {
-                        "content": "FAIL: needs more detail",
-                        "cost_usd": 0.01,
-                        "total_tokens": 30,
-                    }
-                else:
-                    # revise block
-                    return {
-                        "content": "Revised with more detail.",
-                        "cost_usd": 0.01,
-                        "total_tokens": 40,
-                    }
-
-            mock_achat.side_effect = _side_effect
+        with (
+            patch(
+                "runsight_core.llm.client.acompletion", new_callable=AsyncMock
+            ) as mock_completion,
+            patch("runsight_core.llm.client.completion_cost", return_value=0.01),
+        ):
+            mock_completion.side_effect = [
+                _completion_response("Rough draft about AI.", total_tokens=50),
+                _completion_response("FAIL: needs more detail", total_tokens=30),
+                _completion_response("Revised with more detail.", total_tokens=40),
+            ]
 
             state = WorkflowState()
 

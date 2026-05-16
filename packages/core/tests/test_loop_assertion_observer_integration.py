@@ -21,6 +21,26 @@ from runsight_core.yaml.parser import parse_workflow_yaml
 from workflow_fixture_helpers import workflow_fixture_text
 
 
+def _completion_response(content: str):
+    message = MagicMock()
+    message.content = content
+    message.tool_calls = None
+
+    choice = MagicMock()
+    choice.message = message
+    choice.finish_reason = "stop"
+
+    usage = MagicMock()
+    usage.prompt_tokens = 0
+    usage.completion_tokens = 0
+    usage.total_tokens = 0
+
+    response = MagicMock()
+    response.choices = [choice]
+    response.usage = usage
+    return response
+
+
 @pytest.fixture(autouse=True)
 def _fixture_model_budget(monkeypatch):
     patch_fixture_model_budget(monkeypatch)
@@ -50,7 +70,11 @@ class TestAssertionsInsideLoop:
         wf_path.write_text(yaml_content, encoding="utf-8")
 
         runner = ScriptedRunner()
-        workflow = parse_workflow_yaml(str(wf_path), runner=runner)
+        workflow = parse_workflow_yaml(
+            str(wf_path),
+            runner=runner,
+            api_keys={"openai": "dummy-openai-key"},
+        )
 
         # The draft block should have assertions attached
         draft_block = workflow._blocks["draft"]
@@ -215,7 +239,7 @@ class TestAssertionsInsideLoop:
         assert "FAIL" not in r2_output
 
     @pytest.mark.asyncio
-    async def test_assertions_accessible_on_block_inside_loop_via_yaml(self, tmp_path):
+    async def test_assertions_accessible_on_block_inside_loop_via_yaml(self, tmp_path, monkeypatch):
         """Full YAML path: a block with assertions inside a loop. Verify
         assertions config is accessible and the workflow executes correctly
         with the observer receiving per-round events."""
@@ -234,7 +258,19 @@ class TestAssertionsInsideLoop:
 
         runner = ScriptedRunner(behaviors={"critic": critic_behavior})
 
-        workflow = parse_workflow_yaml(str(wf_path), runner=runner)
+        completion_outputs = iter(["FAIL: score 30", "PASS: score 95"])
+
+        async def _fake_completion(**_kwargs):
+            return _completion_response(next(completion_outputs))
+
+        monkeypatch.setattr("runsight_core.llm.client.acompletion", _fake_completion)
+        monkeypatch.setattr("runsight_core.llm.client.completion_cost", lambda **_: 0.0)
+
+        workflow = parse_workflow_yaml(
+            str(wf_path),
+            runner=runner,
+            api_keys={"openai": "dummy-openai-key"},
+        )
 
         # Verify assertions are bridged to runtime block
         evaluate_block = workflow._blocks["evaluate"]

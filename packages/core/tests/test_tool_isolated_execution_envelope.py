@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from runsight_core.block_io import build_block_context
 from runsight_core.isolation.envelope import ResultEnvelope
+from runsight_core.isolation.workspace import WorkspaceRunRequest
 from runsight_core.state import WorkflowState
 from runsight_core.yaml.parser import parse_workflow_yaml
 from tool_integration_helpers import (
@@ -120,8 +121,8 @@ workflow:
         state = WorkflowState()
         captured: dict[str, Any] = {}
 
-        async def _capture(envelope: Any) -> ResultEnvelope:
-            captured["envelope"] = envelope
+        async def _capture(request: WorkspaceRunRequest) -> ResultEnvelope:
+            captured["request"] = request
             return ResultEnvelope(
                 block_id="step",
                 output="done",
@@ -138,6 +139,25 @@ workflow:
         with patch.object(block, "_run_in_subprocess", side_effect=_capture):
             await block.execute(build_block_context(block, state))
 
-        envelope = captured["envelope"]
+        request = captured["request"]
+        assert isinstance(request, WorkspaceRunRequest)
+
+        envelope = request.envelope
         assert [tool.name for tool in envelope.tools] == ["http_request", "adder", "fetch_answer"]
         assert {tool.tool_type for tool in envelope.tools} == {"builtin", "custom"}
+
+        assert [tool.name for tool in request.worker_tools] == [
+            "http_request",
+            "adder",
+            "fetch_answer",
+        ]
+        for worker_tool in request.worker_tools:
+            worker_payload = worker_tool.model_dump(mode="json")
+            assert "execute" not in worker_payload
+            assert "tool" not in worker_payload
+
+        assert request.host_bindings is not None
+        host_refs = request.host_bindings.host_tools.tools
+        assert [tool.name for tool in host_refs] == ["http_request", "adder", "fetch_answer"]
+        for host_ref in host_refs:
+            assert callable(host_ref.tool.execute)
