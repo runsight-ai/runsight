@@ -7,6 +7,9 @@ import { siteIdentity, withSiteUrl } from './src/config/site.mjs';
 // https://astro.build/config
 export default defineConfig({
 	site: siteIdentity.siteUrl,
+	build: {
+		inlineStylesheets: 'always',
+	},
 	integrations: [
 		starlight({
 			title: siteIdentity.name,
@@ -27,6 +30,15 @@ export default defineConfig({
 					attrs: {
 						rel: 'sitemap',
 						href: '/sitemap.xml',
+					},
+				},
+				{
+					tag: 'link',
+					attrs: {
+						rel: 'alternate',
+						type: 'application/rss+xml',
+						title: 'Runsight updates',
+						href: siteIdentity.links.feed,
 					},
 				},
 			],
@@ -150,6 +162,11 @@ export default defineConfig({
 							label: 'Quickstart',
 							url: withSiteUrl(siteIdentity.links.quickstart),
 							description: 'Fastest path to install and run Runsight',
+						},
+						{
+							label: 'AI integration guide',
+							url: withSiteUrl(siteIdentity.links.skills),
+							description: 'Machine-readable API and integration context for coding assistants',
 						},
 						{
 							label: 'GitHub',

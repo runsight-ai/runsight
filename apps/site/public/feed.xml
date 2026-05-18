@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Runsight updates</title>
+    <link>https://runsight.ai/</link>
+    <description>Product and documentation updates for Runsight, the YAML-first workflow engine for AI agents.</description>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 10 May 2026 00:00:00 GMT</lastBuildDate>
+    <atom:link href="https://runsight.ai/feed.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Runsight public site and developer documentation</title>
+      <link>https://runsight.ai/docs/</link>
+      <guid isPermaLink="true">https://runsight.ai/docs/</guid>
+      <pubDate>Tue, 21 Apr 2026 00:00:00 GMT</pubDate>
+      <description>Browse the Runsight documentation for workflow authoring, execution, configuration, evaluation, and API invocation.</description>
+    </item>
+    <item>
+      <title>Runsight homepage</title>
+      <link>https://runsight.ai/</link>
+      <guid isPermaLink="true">https://runsight.ai/</guid>
+      <pubDate>Wed, 08 Apr 2026 00:00:00 GMT</pubDate>
+      <description>Runsight is a YAML-first workflow engine for AI agents with Git-native workflows, cost tracking, and built-in evals.</description>
+    </item>
+  </channel>
+</rss>
