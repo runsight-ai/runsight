@@ -1,0 +1,19 @@
+apps/api/tests/data/test_provider_repository.py
+  s_4d2144b7735bbd::t_1356a7d1314909 13,24,57-79,101-160,162-177,179-242,354-452
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "cbd6097bd362c499734922f554f262aa93438eff",
+  "prompts": {},
+  "sessions": {
+    "s_4d2144b7735bbd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3ba6-e814-7971-a35a-5e2541d9e2e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
