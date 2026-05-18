@@ -1,0 +1,33 @@
+apps/site/src/config/site.mjs
+  s_f04d823f160e40::t_81d633964e08ea 10,13-15,22,24
+tools/site/check-discoverability.mjs
+  s_f04d823f160e40::t_67b9f1430db080 39-40,54,59-62,66-67,69,74,78,80,108,112-121,140
+  s_f04d823f160e40::t_af4133f940f123 75-77
+apps/site/astro.config.mjs
+  s_f04d823f160e40::t_9c330a18e57455 10,12,35-43,166-169
+  s_f04d823f160e40::t_d589126eb1046e 11
+apps/site/public/feed.xml
+  s_f04d823f160e40::t_fa81326b09e265 1-25
+apps/site/public/skills.md
+  s_f04d823f160e40::t_fa81326b09e265 1-112
+apps/site/src/pages/index.astro
+  s_f04d823f160e40::t_98d3ed2352b343 8-11,32-43,65-68,72-73,95-98,160,284,329,419,456
+.gitignore
+  s_f04d823f160e40::t_5722f656ed7a1a 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "f51dc358e9bc17a6b1faf497e5370991eebed9a4",
+  "prompts": {},
+  "sessions": {
+    "s_f04d823f160e40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e12b9-f448-7e90-972a-58b3d216857e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}

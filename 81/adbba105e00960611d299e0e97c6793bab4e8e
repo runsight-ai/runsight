@@ -1,0 +1,24 @@
+tools/site/check-discoverability.mjs
+  s_f04d823f160e40::t_67b9f1430db080 39-40,54,59-62,66-67,69,74,78,80,108,112-121,140
+  s_f04d823f160e40::t_af4133f940f123 75-77
+  s_f04d823f160e40::t_4dc6bf7593e19f 68,139
+apps/site/src/config/site.mjs
+  s_f04d823f160e40::t_81d633964e08ea 10,13-15,22,24
+  s_f04d823f160e40::t_4dc6bf7593e19f 11-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "81adbba105e00960611d299e0e97c6793bab4e8e",
+  "prompts": {},
+  "sessions": {
+    "s_f04d823f160e40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e12b9-f448-7e90-972a-58b3d216857e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
