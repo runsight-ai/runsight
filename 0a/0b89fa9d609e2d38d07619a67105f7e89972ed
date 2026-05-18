@@ -1,0 +1,34 @@
+apps/api/src/runsight_api/domain/entities/__init__.py
+  s_7eadbaf79f7835::t_24029ae0ebd452 2-8,20-24
+apps/api/src/runsight_api/data/repositories/provider_repo.py
+  s_7eadbaf79f7835::t_907387404e680a 1-179
+apps/api/src/runsight_api/domain/entities/provider.py
+  s_7eadbaf79f7835::t_ee1002111080b5 41-45,79
+  s_7eadbaf79f7835::t_907387404e680a 1-40,46-78,80-117
+apps/api/src/runsight_api/alembic/versions/005_add_provider_repository_tables.py
+  s_7eadbaf79f7835::t_e5c54229dca4da 1-136
+pyproject.toml
+  s_7eadbaf79f7835::t_24029ae0ebd452 3
+apps/api/src/runsight_api/data/repositories/__init__.py
+  s_7eadbaf79f7835::t_24029ae0ebd452 1,5
+apps/api/src/runsight_api/alembic/env.py
+  s_7eadbaf79f7835::t_24029ae0ebd452 9-13
+apps/api/src/runsight_api/domain/errors.py
+  s_7eadbaf79f7835::t_907387404e680a 134-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "0a0b89fa9d609e2d38d07619a67105f7e89972ed",
+  "prompts": {},
+  "sessions": {
+    "s_7eadbaf79f7835": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3bb2-fe20-7552-8176-bfdcd37b54a6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "creynir <creynir@gmail.com>"
+    }
+  }
+}
